@@ -100,7 +100,7 @@ per_frame_3=q32 = aspecty;
 per_frame_4=dt = min(1/max(fps, 1), 0.07);
 per_frame_5=// fewer aliens and later waves march faster
 per_frame_6=fast = 1 + (55 - alive)/16 + (wave - 1)*0.25;
-per_frame_7=acc = acc + (1.5 + 2.5*min(bass_att, 2))*fast*dt;
+per_frame_7=acc = acc + (0.6 + 3.4*min(bass_att, 2.5))*fast*dt;
 per_frame_8=st = (acc > 1);
 per_frame_9=stp = stp + st;
 per_frame_10=acc = acc - st;
@@ -109,7 +109,7 @@ per_frame_12=offx = if(tt < 20, tt*2, (40 - tt)*2);
 per_frame_13=drop = floor(stp/20) - 4*floor(stp/80);
 per_frame_14=basex = 16 + offx;
 per_frame_15=basey = 18 + drop*4 + min(wave - 1, 2)*4;
-per_frame_16=beat = (bass > 1.3)*((time - last) > 0.35);
+per_frame_16=beat = ((bass > max(1.12, bass_att*1.18)) + (treb > max(1.3, treb_att*1.3)) > 0)*((time - last) > 0.22);
 per_frame_17=last = if(beat, time, last);
 per_frame_18=// cannon: aim at a column that still has aliens, glide there, fire on the beat
 per_frame_19=pc = floor(rand(11));
@@ -117,8 +117,8 @@ per_frame_20=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equa
 per_frame_21=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equal(pc, 3)*n3 + equal(pc, 4)*n4 + equal(pc, 5)*n5 + equal(pc, 6)*n6 + equal(pc, 7)*n7 + equal(pc, 8)*n8 + equal(pc, 9)*n9 + equal(pc, 10)*n10) > 0, pc, floor(rand(11)));
 per_frame_22=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equal(pc, 3)*n3 + equal(pc, 4)*n4 + equal(pc, 5)*n5 + equal(pc, 6)*n6 + equal(pc, 7)*n7 + equal(pc, 8)*n8 + equal(pc, 9)*n9 + equal(pc, 10)*n10) > 0, pc, floor(rand(11)));
 per_frame_23=tx = if((by < 0)*(abs(gx - tx) < 1)*((time - lastfire) > 0.25), basex + pc*16 + 4, tx);
-per_frame_24=gx = gx + sign(tx - gx)*min(abs(tx - gx), 110*dt);
-per_frame_25=fire = (by < 0)*(abs(gx - tx) < 2)*(beat + ((time - lastfire) > 0.7) > 0)*((time - pt) > 1);
+per_frame_24=gx = gx + sign(tx - gx)*min(abs(tx - gx), 110*dt*(0.8 + 0.5*min(mid_att, 2)));
+per_frame_25=fire = (by < 0)*(abs(gx - tx) < 2)*(beat + ((time - lastfire) > 1.6) > 0)*((time - pt) > 1);
 per_frame_26=bx = if(fire, floor(gx), bx);
 per_frame_27=by = if(fire, 119, by);
 per_frame_28=lastfire = if(fire, time, lastfire);
@@ -256,7 +256,7 @@ per_frame_159=br = if(r4a, 4, if(r3a, 3, if(r2a, 2, if(r1a, 1, if(r0a, 0, -1))))
 per_frame_160=drp = drp*(br >= 0);
 per_frame_161=mx = if(drp, floor(basex + bc*16 + 4), mx);
 per_frame_162=my = if(drp, basey + br*14 + 8, my);
-per_frame_163=nb = if(drp, time + (0.9 + rand(100)*0.016)/(1 + 0.12*wave), nb);
+per_frame_163=nb = if(drp, time + (0.9 + rand(100)*0.016)/((1 + 0.12*wave)*(1 + 0.4*min(bass_att, 2))), nb);
 per_frame_164=my = if(my >= 0, my + 36*dt, my);
 per_frame_165=ml = mx - 26;
 per_frame_166=mk = floor(ml/52);
@@ -330,7 +330,7 @@ per_frame_233=alive = if(clr, 55, alive);
 per_frame_234=q1 = stp;
 per_frame_235=q2 = basex;
 per_frame_236=q3 = basey;
-per_frame_237=q4 = time*0.02 + mid_att*0.03;
+per_frame_237=q4 = time*0.02 + mid_att*0.08;
 per_frame_238=q5 = min(treb_att, 2);
 per_frame_239=q6 = w0;
 per_frame_240=q7 = w1;
@@ -353,6 +353,7 @@ per_frame_256=q23 = time - ht;
 per_frame_257=q24 = time - pt;
 per_frame_258=q25 = ux;
 per_frame_259=q26 = time - wt;
+per_frame_260=q27 = max(0, 1 - (time - last)*4);
 warp_1=`sampler sampler_pw_noise_lq;
 warp_2=`float bitAt(float row, float colx, float design, float frameN)
 warp_3=`{
@@ -459,10 +460,10 @@ comp_3=`  float2 cc = uv - 0.5;
 comp_4=`  float2 u = 0.5 + cc * (1.0 + dot(cc, cc) * 0.08);
 comp_5=`  float inside = step(0.0, u.x) * step(u.x, 1.0) * step(0.0, u.y) * step(u.y, 1.0);
 comp_6=`  float3 col = tex2D(sampler_main, u).xyz;
-comp_7=`  col += GetBlur1(u) * 0.45 + GetBlur2(u) * 0.2;
+comp_7=`  col += GetBlur1(u) * (0.45 + 0.35 * q27) + GetBlur2(u) * 0.2;
 comp_8=`  float scan = 0.75 + 0.25 * sin(u.y * 135.0 * 6.28318);
 comp_9=`  col *= scan;
-comp_10=`  col += float3(0.01, 0.015, 0.02);
+comp_10=`  col += float3(0.01, 0.015, 0.02) + float3(0.04, 0.07, 0.09) * q27;
 comp_11=`  col *= inside * (1.0 - dot(cc, cc) * 1.1);
 comp_12=`  ret = 1.0 - exp(-col * 1.6);
 comp_13=`}
