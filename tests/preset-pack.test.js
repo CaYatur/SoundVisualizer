@@ -246,3 +246,15 @@ test('MD2 için paketlenen presetler q32, dört dalga/şekil ve pw_ sınırında
     assert.strictEqual(p.md3, false, id + ': MilkDrop 3 işareti kalmış');
   }
 });
+
+test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri gelmiyor', () => {
+  // Uzaylı ölüm sayaçları (k0..k10) yalnızca dalga temizlenince (wc) sıfırlanmalı;
+  // istila (go) skoru siler, sağ kalanları tepeye çeker ama ölüleri diriltmez.
+  const src = fs.readFileSync(path.join(root, 'presets', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
+  for (let i = 0; i <= 10; i++) {
+    const re = new RegExp('^per_frame_\\d+=k' + i + ' = k' + i + '\\*\\(1 - (\\w+)\\);', 'm');
+    const m = re.exec(src);
+    assert.ok(m, 'k' + i + ' sıfırlama satırı bulunamadı');
+    assert.strictEqual(m[1], 'wc', 'k' + i + ' dalga temizlenmeden sıfırlanıyor');
+  }
+});
