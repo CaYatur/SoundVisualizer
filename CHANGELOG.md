@@ -22,6 +22,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Fixes
 
+- **Bars layer choices now show at once.** On a bars layer, picking *Flat* or *Vertical Gradient*
+  for *Fill*, or *Up* or *Down* for *Grow Direction*, changed the drawing but left the old button
+  highlighted until you went to another category and back. The layer's two-way and three-way
+  choices now always highlight the current value, also after a reset to default.
+- **New layers show their real defaults.** A freshly added bars layer showed *Bar Width*, *Horizontal
+  Position*, *Bar Height* and *Baseline* at 0% with a reset badge, although it drew with the normal
+  layout, so *Reset* seemed to do nothing. Unset values on layer cards now show the value the layer
+  draws with, and the badge appears only for real changes.
 - **The panel no longer jumps to the active MilkDrop preset** (#877). Once the preset list had been
   scrolled, every change on the Scene page scrolled the page to the active preset: muting a layer moved
   it from 1135 to 3517 px. The list now scrolls only itself. The template grid and the Studio preset
