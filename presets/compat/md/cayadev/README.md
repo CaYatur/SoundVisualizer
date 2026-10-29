@@ -1,7 +1,7 @@
 # CaYaDev presets: compatibility variants
 
 This folder holds modified copies of CaYaDev presets made only so they run in specific MilkDrop players or
-older shader compilers (for example BeatDrop's bundled d3dx9 compiler). They are not part of the app's
+older shader compilers They are not part of the app's
 built-in pack, and the originals are never changed to suit them.
 
 - Each file is named after its original with a suffix naming the player or compiler it targets.
