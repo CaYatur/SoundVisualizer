@@ -7,15 +7,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
-- **Eight CaYaDev presets now play in full on MilkDrop 2 and BeatDrop** (Harmonograph, Harp Strings,
-  Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons). They used q33 and up
-  and more than four custom waves, which MilkDrop 2 does not have, so those players showed only part of each
-  scene. The q values are packed into q1 to q32 and the figures are merged into four custom waves, with
-  hidden points at the joins so no connecting lines show. They are no longer MilkDrop 3 presets.
-- **Spectrum City, Arcade Invaders and four of the presets above drop the pw_noise_lq sampler**, which
-  BeatDrop does not provide. They read the same point-sampled noise from noise_lq. Spectrum City's comp shader
-  now computes the sky and the city once instead of in both the skyline and the reflection branch.
-- A pack test keeps these presets within MilkDrop 2 limits: q32, four waves and shapes, no pw_ samplers.
+- **Nine CaYaDev presets are back to their MilkDrop 3 originals in the app** (Harmonograph, Harp Strings,
+  Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons, Spectrum City).
+  The MilkDrop 2 packing from #894 made them look worse in our own engine, where the originals always
+  worked. The pack uses the originals again, unchanged.
+- **MilkDrop 2 / BeatDrop variants live in [`presets/cayadev-md2/`](presets/cayadev-md2/)**. These copies stay
+  within MilkDrop 2 limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers) so they load in
+  BeatDrop and other MilkDrop 2 players. They are for export only and are not in the app's preset list.
+  A pack test keeps them within those limits. Spectrum City still crashes in BeatDrop 1.5 and is being
+  looked at separately.
+- **Arcade Invaders drops the pw_noise_lq sampler**, which BeatDrop does not provide, and reads the same
+  noise from noise_lq.
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
   peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
   stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids.

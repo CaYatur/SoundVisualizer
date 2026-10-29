@@ -73,7 +73,7 @@ b2x=1
 b3x=1
 b1ed=0
 wavecode_0_enabled=1
-wavecode_0_samples=84
+wavecode_0_samples=40
 wavecode_0_sep=0
 wavecode_0_bSpectrum=0
 wavecode_0_bUseDots=0
@@ -84,46 +84,17 @@ wavecode_0_smoothing=0.5
 wavecode_0_r=1
 wavecode_0_g=1
 wavecode_0_b=1
-wavecode_0_a=1
-wave_0_per_point1=mi = floor(sample*83 + 0.5);
-wave_0_per_point2=mk = (mi >= 42);
-wave_0_per_point3=mj = if(equal(mk, 0), mi - 0, mj);
-wave_0_per_point4=ms = if(equal(mk, 0), min(max(mj - 1, 0), 39)/39, ms);
-wave_0_per_point5=ml = if(equal(mk, 0), 41, ml);
-wave_0_per_point6=x = if(equal(mk, 0), 0.5, x);
-wave_0_per_point7=y = if(equal(mk, 0), 0.5, y);
-wave_0_per_point8=r = if(equal(mk, 0), 1, r);
-wave_0_per_point9=g = if(equal(mk, 0), 1, g);
-wave_0_per_point10=b = if(equal(mk, 0), 1, b);
-wave_0_per_point11=a = if(equal(mk, 0), 0.5, a);
-wave_0_per_point12=t1 = if(equal(mk, 0), q5, t1);
-wave_0_per_point13=t2 = if(equal(mk, 0), q6, t2);
-wave_0_per_point14=a = if(equal(mk, 0), 0.8*min(1, q30), a);
-wave_0_per_point15=x = if(equal(mk, 0), 0.5 + (0.140 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_0_per_point16=y = if(equal(mk, 0), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_0_per_point17=r = if(equal(mk, 0), 1, r);
-wave_0_per_point18=g = if(equal(mk, 0), 0.5, g);
-wave_0_per_point19=b = if(equal(mk, 0), 0.25, b);
-wave_0_per_point20=mj = if(equal(mk, 1), mi - 42, mj);
-wave_0_per_point21=ms = if(equal(mk, 1), min(max(mj - 1, 0), 39)/39, ms);
-wave_0_per_point22=ml = if(equal(mk, 1), 41, ml);
-wave_0_per_point23=x = if(equal(mk, 1), 0.5, x);
-wave_0_per_point24=y = if(equal(mk, 1), 0.5, y);
-wave_0_per_point25=r = if(equal(mk, 1), 1, r);
-wave_0_per_point26=g = if(equal(mk, 1), 1, g);
-wave_0_per_point27=b = if(equal(mk, 1), 1, b);
-wave_0_per_point28=a = if(equal(mk, 1), 0.5, a);
-wave_0_per_point29=t1 = if(equal(mk, 1), q7, t1);
-wave_0_per_point30=t2 = if(equal(mk, 1), q6, t2);
-wave_0_per_point31=a = if(equal(mk, 1), 0.8*min(1, q30), a);
-wave_0_per_point32=x = if(equal(mk, 1), 0.5 + (0.243 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_0_per_point33=y = if(equal(mk, 1), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_0_per_point34=r = if(equal(mk, 1), 0.3, r);
-wave_0_per_point35=g = if(equal(mk, 1), 0.7, g);
-wave_0_per_point36=b = if(equal(mk, 1), 1, b);
-wave_0_per_point37=a = a*(mj > 0)*(mj < ml);
+wavecode_0_a=0.5
+wave_0_per_frame1=t1 = q5;
+wave_0_per_frame2=t2 = q6;
+wave_0_per_frame3=a = 0.8*min(1, q30);
+wave_0_per_point1=x = 0.5 + (0.140 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_0_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_0_per_point3=r = 1;
+wave_0_per_point4=g = 0.5;
+wave_0_per_point5=b = 0.25;
 wavecode_1_enabled=1
-wavecode_1_samples=84
+wavecode_1_samples=40
 wavecode_1_sep=0
 wavecode_1_bSpectrum=0
 wavecode_1_bUseDots=0
@@ -134,46 +105,17 @@ wavecode_1_smoothing=0.5
 wavecode_1_r=1
 wavecode_1_g=1
 wavecode_1_b=1
-wavecode_1_a=1
-wave_1_per_point1=mi = floor(sample*83 + 0.5);
-wave_1_per_point2=mk = (mi >= 42);
-wave_1_per_point3=mj = if(equal(mk, 0), mi - 0, mj);
-wave_1_per_point4=ms = if(equal(mk, 0), min(max(mj - 1, 0), 39)/39, ms);
-wave_1_per_point5=ml = if(equal(mk, 0), 41, ml);
-wave_1_per_point6=x = if(equal(mk, 0), 0.5, x);
-wave_1_per_point7=y = if(equal(mk, 0), 0.5, y);
-wave_1_per_point8=r = if(equal(mk, 0), 1, r);
-wave_1_per_point9=g = if(equal(mk, 0), 1, g);
-wave_1_per_point10=b = if(equal(mk, 0), 1, b);
-wave_1_per_point11=a = if(equal(mk, 0), 0.5, a);
-wave_1_per_point12=t1 = if(equal(mk, 0), q9, t1);
-wave_1_per_point13=t2 = if(equal(mk, 0), q6, t2);
-wave_1_per_point14=a = if(equal(mk, 0), 0.8*min(1, q30), a);
-wave_1_per_point15=x = if(equal(mk, 0), 0.5 + (0.346 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_1_per_point16=y = if(equal(mk, 0), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_1_per_point17=r = if(equal(mk, 0), 0.95, r);
-wave_1_per_point18=g = if(equal(mk, 0), 0.35, g);
-wave_1_per_point19=b = if(equal(mk, 0), 0.7, b);
-wave_1_per_point20=mj = if(equal(mk, 1), mi - 42, mj);
-wave_1_per_point21=ms = if(equal(mk, 1), min(max(mj - 1, 0), 39)/39, ms);
-wave_1_per_point22=ml = if(equal(mk, 1), 41, ml);
-wave_1_per_point23=x = if(equal(mk, 1), 0.5, x);
-wave_1_per_point24=y = if(equal(mk, 1), 0.5, y);
-wave_1_per_point25=r = if(equal(mk, 1), 1, r);
-wave_1_per_point26=g = if(equal(mk, 1), 1, g);
-wave_1_per_point27=b = if(equal(mk, 1), 1, b);
-wave_1_per_point28=a = if(equal(mk, 1), 0.5, a);
-wave_1_per_point29=t1 = if(equal(mk, 1), q11, t1);
-wave_1_per_point30=t2 = if(equal(mk, 1), q6, t2);
-wave_1_per_point31=a = if(equal(mk, 1), 0.8*min(1, q30), a);
-wave_1_per_point32=x = if(equal(mk, 1), 0.5 + (0.449 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_1_per_point33=y = if(equal(mk, 1), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_1_per_point34=r = if(equal(mk, 1), 0.5, r);
-wave_1_per_point35=g = if(equal(mk, 1), 1, g);
-wave_1_per_point36=b = if(equal(mk, 1), 0.6, b);
-wave_1_per_point37=a = a*(mj > 0)*(mj < ml);
+wavecode_1_a=0.5
+wave_1_per_frame1=t1 = q7;
+wave_1_per_frame2=t2 = q8;
+wave_1_per_frame3=a = 0.8*min(1, q30);
+wave_1_per_point1=x = 0.5 + (0.243 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_1_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_1_per_point3=r = 0.3;
+wave_1_per_point4=g = 0.7;
+wave_1_per_point5=b = 1;
 wavecode_2_enabled=1
-wavecode_2_samples=84
+wavecode_2_samples=40
 wavecode_2_sep=0
 wavecode_2_bSpectrum=0
 wavecode_2_bUseDots=0
@@ -184,46 +126,17 @@ wavecode_2_smoothing=0.5
 wavecode_2_r=1
 wavecode_2_g=1
 wavecode_2_b=1
-wavecode_2_a=1
-wave_2_per_point1=mi = floor(sample*83 + 0.5);
-wave_2_per_point2=mk = (mi >= 42);
-wave_2_per_point3=mj = if(equal(mk, 0), mi - 0, mj);
-wave_2_per_point4=ms = if(equal(mk, 0), min(max(mj - 1, 0), 39)/39, ms);
-wave_2_per_point5=ml = if(equal(mk, 0), 41, ml);
-wave_2_per_point6=x = if(equal(mk, 0), 0.5, x);
-wave_2_per_point7=y = if(equal(mk, 0), 0.5, y);
-wave_2_per_point8=r = if(equal(mk, 0), 1, r);
-wave_2_per_point9=g = if(equal(mk, 0), 1, g);
-wave_2_per_point10=b = if(equal(mk, 0), 1, b);
-wave_2_per_point11=a = if(equal(mk, 0), 0.5, a);
-wave_2_per_point12=t1 = if(equal(mk, 0), q8, t1);
-wave_2_per_point13=t2 = if(equal(mk, 0), q6, t2);
-wave_2_per_point14=a = if(equal(mk, 0), 0.8*min(1, q30), a);
-wave_2_per_point15=x = if(equal(mk, 0), 0.5 + (0.551 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_2_per_point16=y = if(equal(mk, 0), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_2_per_point17=r = if(equal(mk, 0), 1, r);
-wave_2_per_point18=g = if(equal(mk, 0), 0.8, g);
-wave_2_per_point19=b = if(equal(mk, 0), 0.35, b);
-wave_2_per_point20=mj = if(equal(mk, 1), mi - 42, mj);
-wave_2_per_point21=ms = if(equal(mk, 1), min(max(mj - 1, 0), 39)/39, ms);
-wave_2_per_point22=ml = if(equal(mk, 1), 41, ml);
-wave_2_per_point23=x = if(equal(mk, 1), 0.5, x);
-wave_2_per_point24=y = if(equal(mk, 1), 0.5, y);
-wave_2_per_point25=r = if(equal(mk, 1), 1, r);
-wave_2_per_point26=g = if(equal(mk, 1), 1, g);
-wave_2_per_point27=b = if(equal(mk, 1), 1, b);
-wave_2_per_point28=a = if(equal(mk, 1), 0.5, a);
-wave_2_per_point29=t1 = if(equal(mk, 1), q10, t1);
-wave_2_per_point30=t2 = if(equal(mk, 1), q6, t2);
-wave_2_per_point31=a = if(equal(mk, 1), 0.8*min(1, q30), a);
-wave_2_per_point32=x = if(equal(mk, 1), 0.5 + (0.654 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_2_per_point33=y = if(equal(mk, 1), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_2_per_point34=r = if(equal(mk, 1), 0.55, r);
-wave_2_per_point35=g = if(equal(mk, 1), 0.45, g);
-wave_2_per_point36=b = if(equal(mk, 1), 1, b);
-wave_2_per_point37=a = a*(mj > 0)*(mj < ml);
+wavecode_2_a=0.5
+wave_2_per_frame1=t1 = q9;
+wave_2_per_frame2=t2 = q10;
+wave_2_per_frame3=a = 0.8*min(1, q30);
+wave_2_per_point1=x = 0.5 + (0.346 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_2_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_2_per_point3=r = 0.95;
+wave_2_per_point4=g = 0.35;
+wave_2_per_point5=b = 0.7;
 wavecode_3_enabled=1
-wavecode_3_samples=84
+wavecode_3_samples=40
 wavecode_3_sep=0
 wavecode_3_bSpectrum=0
 wavecode_3_bUseDots=0
@@ -234,44 +147,99 @@ wavecode_3_smoothing=0.5
 wavecode_3_r=1
 wavecode_3_g=1
 wavecode_3_b=1
-wavecode_3_a=1
-wave_3_per_point1=mi = floor(sample*83 + 0.5);
-wave_3_per_point2=mk = (mi >= 42);
-wave_3_per_point3=mj = if(equal(mk, 0), mi - 0, mj);
-wave_3_per_point4=ms = if(equal(mk, 0), min(max(mj - 1, 0), 39)/39, ms);
-wave_3_per_point5=ml = if(equal(mk, 0), 41, ml);
-wave_3_per_point6=x = if(equal(mk, 0), 0.5, x);
-wave_3_per_point7=y = if(equal(mk, 0), 0.5, y);
-wave_3_per_point8=r = if(equal(mk, 0), 1, r);
-wave_3_per_point9=g = if(equal(mk, 0), 1, g);
-wave_3_per_point10=b = if(equal(mk, 0), 1, b);
-wave_3_per_point11=a = if(equal(mk, 0), 0.5, a);
-wave_3_per_point12=t1 = if(equal(mk, 0), q12, t1);
-wave_3_per_point13=t2 = if(equal(mk, 0), q6, t2);
-wave_3_per_point14=a = if(equal(mk, 0), 0.8*min(1, q30), a);
-wave_3_per_point15=x = if(equal(mk, 0), 0.5 + (0.757 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_3_per_point16=y = if(equal(mk, 0), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_3_per_point17=r = if(equal(mk, 0), 0.3, r);
-wave_3_per_point18=g = if(equal(mk, 0), 1, g);
-wave_3_per_point19=b = if(equal(mk, 0), 0.95, b);
-wave_3_per_point20=mj = if(equal(mk, 1), mi - 42, mj);
-wave_3_per_point21=ms = if(equal(mk, 1), min(max(mj - 1, 0), 39)/39, ms);
-wave_3_per_point22=ml = if(equal(mk, 1), 41, ml);
-wave_3_per_point23=x = if(equal(mk, 1), 0.5, x);
-wave_3_per_point24=y = if(equal(mk, 1), 0.5, y);
-wave_3_per_point25=r = if(equal(mk, 1), 1, r);
-wave_3_per_point26=g = if(equal(mk, 1), 1, g);
-wave_3_per_point27=b = if(equal(mk, 1), 1, b);
-wave_3_per_point28=a = if(equal(mk, 1), 0.5, a);
-wave_3_per_point29=t1 = if(equal(mk, 1), q14, t1);
-wave_3_per_point30=t2 = if(equal(mk, 1), q6, t2);
-wave_3_per_point31=a = if(equal(mk, 1), 0.8*min(1, q30), a);
-wave_3_per_point32=x = if(equal(mk, 1), 0.5 + (0.860 - 0.5 + 0.009*sin(t1) + value1*0.012*ms)/q31, x);
-wave_3_per_point33=y = if(equal(mk, 1), 0.5 + (0.5 - (0.705 - 0.035*ms))/q32, y);
-wave_3_per_point34=r = if(equal(mk, 1), 1, r);
-wave_3_per_point35=g = if(equal(mk, 1), 0.4, g);
-wave_3_per_point36=b = if(equal(mk, 1), 0.4, b);
-wave_3_per_point37=a = a*(mj > 0)*(mj < ml);
+wavecode_3_a=0.5
+wave_3_per_frame1=t1 = q11;
+wave_3_per_frame2=t2 = q12;
+wave_3_per_frame3=a = 0.8*min(1, q30);
+wave_3_per_point1=x = 0.5 + (0.449 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_3_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_3_per_point3=r = 0.5;
+wave_3_per_point4=g = 1;
+wave_3_per_point5=b = 0.6;
+wavecode_4_enabled=1
+wavecode_4_samples=40
+wavecode_4_sep=0
+wavecode_4_bSpectrum=0
+wavecode_4_bUseDots=0
+wavecode_4_bDrawThick=1
+wavecode_4_bAdditive=1
+wavecode_4_scaling=1
+wavecode_4_smoothing=0.5
+wavecode_4_r=1
+wavecode_4_g=1
+wavecode_4_b=1
+wavecode_4_a=0.5
+wave_4_per_frame1=t1 = q33;
+wave_4_per_frame2=t2 = q34;
+wave_4_per_frame3=a = 0.8*min(1, q30);
+wave_4_per_point1=x = 0.5 + (0.551 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_4_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_4_per_point3=r = 1;
+wave_4_per_point4=g = 0.8;
+wave_4_per_point5=b = 0.35;
+wavecode_5_enabled=1
+wavecode_5_samples=40
+wavecode_5_sep=0
+wavecode_5_bSpectrum=0
+wavecode_5_bUseDots=0
+wavecode_5_bDrawThick=1
+wavecode_5_bAdditive=1
+wavecode_5_scaling=1
+wavecode_5_smoothing=0.5
+wavecode_5_r=1
+wavecode_5_g=1
+wavecode_5_b=1
+wavecode_5_a=0.5
+wave_5_per_frame1=t1 = q35;
+wave_5_per_frame2=t2 = q36;
+wave_5_per_frame3=a = 0.8*min(1, q30);
+wave_5_per_point1=x = 0.5 + (0.654 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_5_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_5_per_point3=r = 0.55;
+wave_5_per_point4=g = 0.45;
+wave_5_per_point5=b = 1;
+wavecode_6_enabled=1
+wavecode_6_samples=40
+wavecode_6_sep=0
+wavecode_6_bSpectrum=0
+wavecode_6_bUseDots=0
+wavecode_6_bDrawThick=1
+wavecode_6_bAdditive=1
+wavecode_6_scaling=1
+wavecode_6_smoothing=0.5
+wavecode_6_r=1
+wavecode_6_g=1
+wavecode_6_b=1
+wavecode_6_a=0.5
+wave_6_per_frame1=t1 = q37;
+wave_6_per_frame2=t2 = q38;
+wave_6_per_frame3=a = 0.8*min(1, q30);
+wave_6_per_point1=x = 0.5 + (0.757 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_6_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_6_per_point3=r = 0.3;
+wave_6_per_point4=g = 1;
+wave_6_per_point5=b = 0.95;
+wavecode_7_enabled=1
+wavecode_7_samples=40
+wavecode_7_sep=0
+wavecode_7_bSpectrum=0
+wavecode_7_bUseDots=0
+wavecode_7_bDrawThick=1
+wavecode_7_bAdditive=1
+wavecode_7_scaling=1
+wavecode_7_smoothing=0.5
+wavecode_7_r=1
+wavecode_7_g=1
+wavecode_7_b=1
+wavecode_7_a=0.5
+wave_7_per_frame1=t1 = q39;
+wave_7_per_frame2=t2 = q40;
+wave_7_per_frame3=a = 0.8*min(1, q30);
+wave_7_per_point1=x = 0.5 + (0.860 - 0.5 + 0.009*sin(t1) + value1*0.012*sample)/q31;
+wave_7_per_point2=y = 0.5 + (0.5 - (0.705 - 0.035*sample))/q32;
+wave_7_per_point3=r = 1;
+wave_7_per_point4=g = 0.4;
+wave_7_per_point5=b = 0.4;
 per_frame_init_1=ptk = 0;
 per_frame_1=q30 = 60/max(fps, 15);
 per_frame_2=q31 = aspectx;
@@ -287,12 +255,19 @@ per_frame_11=q13 = tick*0.004;
 per_frame_12=q5 = time*1.10;
 per_frame_13=q6 = 0;
 per_frame_14=q7 = time*1.23;
-per_frame_15=q9 = time*1.36;
-per_frame_16=q11 = time*1.49;
-per_frame_17=q8 = time*1.62;
-per_frame_18=q10 = time*1.75;
-per_frame_19=q12 = time*1.88;
-per_frame_20=q14 = time*2.01;
+per_frame_15=q8 = 0;
+per_frame_16=q9 = time*1.36;
+per_frame_17=q10 = 0;
+per_frame_18=q11 = time*1.49;
+per_frame_19=q12 = 0;
+per_frame_20=q33 = time*1.62;
+per_frame_21=q34 = 0;
+per_frame_22=q35 = time*1.75;
+per_frame_23=q36 = 0;
+per_frame_24=q37 = time*1.88;
+per_frame_25=q38 = 0;
+per_frame_26=q39 = time*2.01;
+per_frame_27=q40 = 0;
 warp_1=`float pot(float3 q)
 warp_2=`{
 warp_3=`  return tex3D(sampler_noisevol_hq, q).x + 0.5 * tex3D(sampler_noisevol_hq, q * 2.3 + 0.4).x;
