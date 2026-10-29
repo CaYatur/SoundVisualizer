@@ -16,6 +16,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   BeatDrop does not provide. They read the same point-sampled noise from noise_lq. Spectrum City's comp shader
   now computes the sky and the city once instead of in both the skyline and the reflection branch.
 - A pack test keeps these presets within MilkDrop 2 limits: q32, four waves and shapes, no pw_ samplers.
+- **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
+  peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
+  stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids,
+  and each beat adds a short glow to the screen.
 - **New preset: Arcade Invaders Score** (CaYaDev MilkDrop pack, id `md_caya_arcade_invaders_score`). The score and
   wave version from #889 ships as its own preset next to the bomb version: a score and wave counter run along the top,
   and when the fleet reaches the bunkers a red alarm resets the game.
