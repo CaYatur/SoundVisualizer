@@ -430,8 +430,8 @@
       "id": "md_caya_arcade_invaders",
       "category": "retro",
       "description": {
-        "tr": "Eski bir atari ekranında uzaylı istilası: 11×5 piksel uzaylıdan oluşan bir filo adım adım yanlara yürüyüp aşağı iniyor (adım hızı basa bağlı), aşağıda dört sığınak ve bir top var. Vuruşlarda top ateş ediyor ve isabet alan uzaylı parlıyor. Görüntü tarama çizgileri, hafif bükülme ve fosfor parıltısıyla eski bir tüpte gibi görünüyor.",
-        "en": "An alien invasion on an old arcade screen: a fleet of 11 by 5 pixel aliens marches side to side and drops lower, its step tempo set by the bass, above four bunkers and a cannon. On the beat the cannon fires and the alien it hits flashes. Scanlines, a slight curve and phosphor glow make it look like an old tube."
+        "tr": "Eski bir atari ekranında uzaylı istilası: 11×5 piksel uzaylıdan oluşan filo yanlara yürüyüp aşağı iniyor (adım hızı basa bağlı). Vuruşlarda top ateş ediyor; mermi gerçekten çarpıyor: sığınakları alttan aşındırıyor, sütundaki en alttaki uzaylıyı yok ediyor ve çarptığı yerde patlıyor. Skor ve dalga sayacı var; filo temizlenince yeni ve daha hızlı dalga, sığınaklara ulaşırsa kırmızı alarm ve oyun baştan. Tarama çizgileri, hafif bükülme ve fosfor parıltısıyla eski bir tüpte gibi.",
+        "en": "An alien invasion on an old arcade screen: a fleet of 11 by 5 pixel aliens marches side to side and drops lower, its step tempo set by the bass. On the beat the cannon fires and the shot really collides: it chips the bunkers from below, destroys the lowest alien in its column and bursts where it hits. A score and wave counter run along the top; clearing the fleet starts a faster wave, and if the aliens reach the bunkers a red alarm resets the game. Scanlines, a slight curve and phosphor glow make it look like an old tube."
       }
     },
     {
