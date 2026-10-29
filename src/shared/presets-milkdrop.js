@@ -782,7 +782,7 @@ wave_1_per_point2=y = 0.12 + 0.62*value1;
 wave_1_per_point3=a = 0.14 + 0.26*value1;`),
   ];
 
-  /* CaYaDev PAKETİ (#825): presets/cayadev/ klasöründen üretilen
+  /* CaYaDev PAKETİ (#825): presets/original/md3/cayadev/ klasöründen üretilen
      presets-milkdrop-pack.js (scripts/preset-pack.js). Sayfada o dosya bundan
      önce yükleniyor ve `SVMilkdropPack` bırakıyor; Node'da require ile geliyor.
      İkisi de yoksa (testlerin `new Function` değerlendirmesi) paket yok sayılır.

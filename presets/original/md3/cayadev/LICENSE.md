@@ -12,7 +12,7 @@ to the license, and indicate if changes were made.
 ## How to credit
 
 > "Neon Monsoon" by CaYaDev, from the CaYaDev MilkDrop Presets
-> (https://github.com/CaYatur/SoundVisualizer/tree/main/presets/cayadev), licensed under CC BY 4.0.
+> (https://github.com/CaYatur/SoundVisualizer/tree/main/presets/original/md3/cayadev), licensed under CC BY 4.0.
 
 Add "modified" if you changed a preset. In a VJ set, a stream or a video description, one line that credits
 "CaYaDev MilkDrop Presets (CC BY 4.0)" for the whole set is enough.

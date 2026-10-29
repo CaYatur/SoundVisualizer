@@ -145,7 +145,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3696 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3697 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
@@ -3295,7 +3295,7 @@ change, by area, is in [CHANGELOG.md](CHANGELOG.md).
 | Tools for music videos and short video | "Additions for music videos and short video" |
 | Broadcast layout editor | "Broadcast layout editor" |
 | Redundancy, failover, frame sync and the network audio bridge | "Redundancy, failover and frame sync", [docs/REDUNDANCY.md](docs/REDUNDANCY.md), [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
-| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/cayadev](presets/cayadev/README.md) |
+| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/original/md3/cayadev](presets/original/md3/cayadev/README.md) |
 | Spout/Syphon input and web page layers | "Spout/Syphon input and web page layers" below |
 | Readability, Electron 44 and two packaged Windows crashes | "Also in v3.1.6" below |
 
