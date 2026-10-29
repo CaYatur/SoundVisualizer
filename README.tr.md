@@ -407,7 +407,11 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
   ücretsiz kullanılabilirler: [`presets`](presets/README.md) klasöründen (her birinin görseliyle) ya da
-  her sürümdeki zip'ten indirebilirsiniz.
+  her sürümdeki zip'ten indirebilirsiniz. MilkDrop 2 asılları
+  [`presets/original/md2/cayadev`](presets/original/md2/cayadev), MilkDrop 3 asılları
+  [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
+  BeatDrop ve diğer MilkDrop 2 oynatıcıları için indirgenmiş kopyalar
+  [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır.
 - **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
   bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,
   Belgeler). Bir şey kopyalanmadan önce ne ekleneceğini görüyorsunuz; aynıları atlanıyor; dokular da
@@ -1439,9 +1443,11 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   *Nabız Örgüsü* (hareket vektörlerinin dokuduğu örgünün üstünde vuruşla zıplayan kareler) — hepsi
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
   de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
-- **CaYaDev MilkDrop Presetleri** ([`presets/original/md3/cayadev`](presets/original/md3/cayadev), CC BY 4.0) onların yanında gömülü
-  geliyor: sıfırdan yazılmış, MilkDrop 2 ve MilkDrop 3 shader presetleri. Her birinin geçtiği denetimler
-  klasörün README'sinde; her sürümdeki zip aynı dosyaları taşıyor.
+- **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) onların yanında gömülü
+  geliyor: sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
+  MilkDrop 3 asılları [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
+  Eski oynatıcılar için indirgenmiş kopyalar [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır ve pakete girmez.
+  Her birinin geçtiği denetimler klasörün README'sinde; her sürümdeki zip aynı asıl dosyaları taşır.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
   dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir enjeksiyon testi bunu doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
