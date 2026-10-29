@@ -3295,13 +3295,13 @@ change, by area, is in [CHANGELOG.md](CHANGELOG.md).
 | Tools for music videos and short video | "Additions for music videos and short video" |
 | Broadcast layout editor | "Broadcast layout editor" |
 | Redundancy, failover, frame sync and the network audio bridge | "Redundancy, failover and frame sync", [docs/REDUNDANCY.md](docs/REDUNDANCY.md), [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
-| 55 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/cayadev](presets/cayadev/README.md) |
+| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/cayadev](presets/cayadev/README.md) |
 | Spout/Syphon input and web page layers | "Spout/Syphon input and web page layers" below |
 | Readability, Electron 44 and two packaged Windows crashes | "Also in v3.1.6" below |
 
 ### CaYaDev MilkDrop presets (#825) · done
 
-55 presets of our own, built into the app and also attached to the release as a zip with a picture
+56 presets of our own, built into the app and also attached to the release as a zip with a picture
 of each, under CC BY 4.0 with the attribution "CaYaDev". Ten of them are for MilkDrop 3. Each one
 was compared with MilkDrop 2 itself through the reference renderer, run for 90 s without fading,
 blowing out or freezing, checked at 60 and 144 Hz, and held 60 fps at 1080p on an entry-level

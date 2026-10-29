@@ -64,7 +64,7 @@ kontrolü**.
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
   çizicisiyle ölçüldü. Bütün kütüphaneleri içe aktarın, küçük resimlerle gezin, presetleri canlı
-  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **55 CaYaDev preseti** yerleşik geliyor;
+  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **56 CaYaDev preseti** yerleşik geliyor;
   CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
   geçiş sürgüsü, katman başına ya da tüm kareye 40 GPU efekti, ve LFO'ları, zarfları ve canlı ses
@@ -199,7 +199,7 @@ npm start
 | **Müzik yapımcısı ya da plak şirketiyseniz** | Parçanızdan 12 biçimde kare kare video dışa aktarma, YouTube, Shorts ve Spotify Canvas için tek tıkla profiller, logonuz ve parça adıyla sade müzik videosu düzenleri, onları yerleştirmek için bir düzen editörü, Başlık ve Kapanış Kartları, YouTube bölümleri ve küçük resim, ve canlı çıkış için bir kayıt aracı. |
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
-| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 55 CaYaDev presetiyle gelen bir MilkDrop motoru. |
+| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 56 CaYaDev presetiyle gelen bir MilkDrop motoru. |
 | **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
 
 ---

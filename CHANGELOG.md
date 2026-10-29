@@ -7,6 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
+- **New preset: Arcade Invaders Score** (CaYaDev MilkDrop pack, id `md_caya_arcade_invaders_score`). The score and
+  wave version from #889 ships as its own preset next to the bomb version: a score and wave counter run along the top,
+  and when the fleet reaches the bunkers a red alarm resets the game.
 - **Arcade Invaders plays a real game** (CaYaDev MilkDrop pack). The cannon's shots used to pass through
   everything and only made an alien flash. Now each shot hits: an alien it strikes explodes and is gone,
   and a shot or an alien bomb that reaches a bunker chips a piece out of it. The aliens drop zigzag bombs
