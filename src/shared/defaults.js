@@ -252,6 +252,17 @@
       cap: true, // bar tepe noktaları
       reflection: 0, // zemin yansıması gücü 0..1 (#842); 0 = kapalı
       reflectionLength: 0.4, // yansımanın boyu, bar yüksekliğine oran
+      /* Bar biçimi (#879). Varsayılanlar eski çizimi birebir verir. */
+      barStyle: 'solid', // 'solid' | 'segments' (LED blokları)
+      segmentSize: 0.035, // blok boyu, en yüksek bar boyuna oran
+      segmentGap: 0.3, // blok arası, blok boyuna oran
+      barRadius: 0.4, // köşe yarıçapı, bar genişliğine oran 0..0.5
+      barFill: 'flat', // 'flat' | 'gradient' (tabandan uca dikey degrade)
+      barDirection: 'up', // 'up' | 'down' (ortada yerleşimde yok sayılır)
+      capHold: 0, // tepe noktasının düşmeden önce beklediği süre (sn)
+      capFall: 1, // tepe düşüş ivmesinin çarpanı
+      capColorMode: 'auto', // 'auto' (bar renginden) | 'custom'
+      capColor: '#ffffff',
       glow: 0.46,
       gap: 0.36, // barlar arası boşluk oranı
       position: 'center', // 'bottom' | 'center' | 'full' (bars için)

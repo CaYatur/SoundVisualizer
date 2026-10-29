@@ -153,6 +153,11 @@
     'Ken Burns Döngüsü': 'Ken Burns Cycle',
     'Vuruşta Nabız': 'Beat Pulse',
     'Yansıma Boyu': 'Reflection Length',
+    // Bar biçimi (#879)
+    'Bar Stili': 'Bar Style', 'Segmentli (LED)': 'Segmented (LED)', 'Segment Boyu': 'Segment Size',
+    'Segment Aralığı': 'Segment Gap', 'Dolgu': 'Fill', 'Dikey Degrade': 'Vertical Gradient',
+    'Büyüme Yönü': 'Grow Direction', 'Tepe Bekleme (sn)': 'Peak Hold (s)', 'Tepe Düşüş Hızı': 'Peak Fall Speed',
+    'Tepe Rengi': 'Peak Colour', 'Tepe Rengi Seç': 'Peak Colour Value',
     // Tayf ölçümü
     'Tayf Ölçümü': 'Spectrum Metering',
     'Frekans Ölçeği': 'Frequency Scale', 'Logaritmik (müzikal)': 'Logarithmic (musical)',

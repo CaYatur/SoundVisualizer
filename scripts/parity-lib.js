@@ -76,6 +76,14 @@ function cases(logo) {
   out.push(Object.assign({ name: 'bars-reflection', t: 2 }, stack([L.solid('#101828'), L.bars({ settings: { visualizer: {
     type: 'bars', position: 'bottom', barCount: 48, rainbow: true, glow: 0.3, barSpan: 0.8, barHeight: 0.4, baseline: 0.62,
     reflection: 0.6, reflectionLength: 0.5 } } })])));
+  // Bar biçimi (#879): LED blokları, dikey degrade, tepe bekleme ve ayrı tepe rengi
+  out.push(Object.assign({ name: 'bars-led', t: 2 }, stack([L.solid('#101828'), L.bars({ settings: { visualizer: {
+    type: 'bars', position: 'bottom', barCount: 32, colorMode: 'custom', color: '#22d3ee', color2: '#f43f5e', glow: 0.2,
+    barSpan: 0.8, barHeight: 0.5, baseline: 0.8, barStyle: 'segments', segmentSize: 0.06, segmentGap: 0.3,
+    barFill: 'gradient', barRadius: 0.1, capHold: 0.4, capColorMode: 'custom', capColor: '#fde047' } } })])));
+  out.push(Object.assign({ name: 'bars-down', t: 2 }, stack([L.solid('#101828'), L.bars({ settings: { visualizer: {
+    type: 'bars', position: 'bottom', barCount: 48, rainbow: true, glow: 0.3, barSpan: 0.8, barHeight: 0.4, baseline: 0.3,
+    barDirection: 'down', barRadius: 0 } } })])));
   out.push(Object.assign({ name: 'group-crossfade', t: 2 }, stack([L.bg({ group: 'A' }), L.bars({ group: 'B' }), L.text({ group: 'B' })], { crossfade: { enabled: true, value: 0.35 } })));
   // Açılış animasyonunun ortası (#537): saat ilk ısınma karesinde kurulur
   const rv = (type) => ({ type, duration: 1, delay: 0, ease: 'linear', distance: 0.12 });

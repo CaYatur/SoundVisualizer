@@ -12,6 +12,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   can now be *Colour Theme* (as before, the default), *Fixed Colour* (primary to secondary colour) or
   *Rainbow* (hues that move with the draw clock, so exports match). It has its own setting, so
   scenes that use a colour mode on another visualizer keep their Studio colours.
+- **More options for bars** (#879), on the Visualizer card and on a bars layer. With their defaults
+  the bars draw exactly as before.
+  - *Bar Style*: solid, or segmented LED blocks with a block size and gap.
+  - *Corner Roundness*, from square to fully round (0.4 before).
+  - *Fill*: flat, or a vertical gradient from the base to the height of the tallest bar.
+  - *Grow Direction*: up, or down from the baseline. The layout editor box follows it.
+  - Peak caps: *Peak Hold* time, *Peak Fall Speed*, and an own *Peak Colour*.
 
 ### Fixes
 
