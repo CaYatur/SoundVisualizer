@@ -1,25 +1,14 @@
-# CaYaDev presets — MilkDrop 2 / BeatDrop variants
+# CaYaDev presets — MilkDrop 2 originals
 
-This folder holds MilkDrop 2 compatible variants of CaYaDev presets that were originally written
-with MilkDrop 3 features. Use these files in BeatDrop or another MilkDrop 2 player.
+This folder holds the CaYaDev presets that stay inside MilkDrop 2: at most the features MilkDrop 2
+reads (q1 to q32, and no fifth-and-later custom wave or shape). SoundVisualizer embeds these files
+unchanged. The gallery is in [`presets/README.md`](../../../README.md).
 
-Each file here stays within MilkDrop 2 limits: q1 to q32, at most four custom waves and four custom
-shapes, and no `pw_` samplers. Figures that were separate waves in the original may be merged, so a
-few scenes can look slightly different from the MilkDrop 3 version.
+MilkDrop 3 originals, which use more waves, shapes or q33–q64, are in
+[`presets/original/md3/cayadev`](../../md3/cayadev).
 
-| Preset |
-| --- |
-| [CaYaDev - Constellations](CaYaDev%20-%20Constellations.milk) |
-| [CaYaDev - Firefly Meadow](CaYaDev%20-%20Firefly%20Meadow.milk) |
-| [CaYaDev - Harmonograph](CaYaDev%20-%20Harmonograph.milk) |
-| [CaYaDev - Harp Strings](CaYaDev%20-%20Harp%20Strings.milk) |
-| [CaYaDev - Night Bloom](CaYaDev%20-%20Night%20Bloom.milk) |
-| [CaYaDev - Smoke Ribbons](CaYaDev%20-%20Smoke%20Ribbons.milk) |
-| [CaYaDev - Spectrum City](CaYaDev%20-%20Spectrum%20City.milk) |
-| [CaYaDev - Tesla Coil](CaYaDev%20-%20Tesla%20Coil.milk) |
-| [CaYaDev - Twelve Moons](CaYaDev%20-%20Twelve%20Moons.milk) |
-
-Some players with older shader compilers may need an additional compatibility variant; see the
-`compat` presets folder when a preset fails to load.
+Some of these files still use a `pw_` sampler or a shader line that an older compiler rejects. If a
+preset fails to load in BeatDrop or another MilkDrop 2 player, use the matching file in
+[`presets/compat/md/cayadev`](../../../compat/md/cayadev). Those copies are not what the app plays.
 
 License: CC BY 4.0, see [LICENSE](../../../LICENSE.md).

@@ -7,10 +7,12 @@
 'use strict';
 /* CaYaDev MilkDrop preset paketi (#825).
  *
- * Kaynak `presets/original/md3/cayadev/`: .milk dosyaları ve pack.json (kimlik, kategori,
- * TR/EN açıklama). Uygulama dosya okumadan çalışan sayfalarda da (yayın
- * katmanı, dışa aktarıcı) presetleri gördüğü için paket JS olarak gömülür:
- * bu betik `src/shared/presets-milkdrop-pack.js`i üretir.
+ * Kaynak asıllar: `presets/original/md2/cayadev/` (MilkDrop 2) ve
+ * `presets/original/md3/cayadev/` (MilkDrop 3). Kimlik ve açıklamalar
+ * `presets/original/pack.json` içindedir. Uygulama bu asılları gömer;
+ * `presets/compat/` uyumluluk kopyaları pakete girmez. Dosya okumadan
+ * çalışan sayfalar (yayın katmanı, dışa aktarıcı) da presetleri gördüğü
+ * için paket JS olarak gömülür: bu betik `src/shared/presets-milkdrop-pack.js`i üretir.
  *
  *   node scripts/preset-pack.js                 gömülü dosyayı ve README galerisini yeniden üretir
  *   node scripts/preset-pack.js --check         ikisinden biri güncel değilse 1 ile çıkar
@@ -26,36 +28,47 @@ const path = require('path');
 const zlib = require('zlib');
 
 const root = path.join(__dirname, '..');
-const DIR = path.join(root, 'presets', 'original', 'md3', 'cayadev');
+const MD2_DIR = path.join(root, 'presets', 'original', 'md2', 'cayadev');
+const MD3_DIR = path.join(root, 'presets', 'original', 'md3', 'cayadev');
+const PACK_JSON = path.join(root, 'presets', 'original', 'pack.json');
 const OUT = path.join(root, 'src', 'shared', 'presets-milkdrop-pack.js');
-// README galerisi ve önizlemeler presets/ kökünde; .milk dosyaları DIR'de
+// README galerisi ve önizlemeler presets/ kökünde; .milk dosyaları sürüm klasörlerinde
 const PRESETS = path.join(root, 'presets');
 const README = path.join(PRESETS, 'README.md');
-const MILK_REL = 'original/md3/cayadev/';
+const milkDir = (md3) => (md3 ? MD3_DIR : MD2_DIR);
+const milkRel = (md3) => (md3 ? 'original/md3/cayadev/' : 'original/md2/cayadev/');
 const GALLERY = ['<!-- gallery: node scripts/preset-pack.js -->', '<!-- /gallery -->'];
 
 const previewOf = (name) => 'previews/' + name.toLowerCase().replace(/ /g, '-') + '.jpg';
 
 function load() {
-  const meta = JSON.parse(fs.readFileSync(path.join(DIR, 'pack.json'), 'utf-8'));
+  const meta = JSON.parse(fs.readFileSync(PACK_JSON, 'utf-8'));
   const listed = new Set();
   const list = meta.presets.map((p) => {
     const m = /^CaYaDev - ([A-Za-z0-9 ]+)\.milk$/.exec(p.file);
     if (!m) throw new Error('Dosya adı "CaYaDev - <Ad>.milk" değil: ' + p.file);
     if (!/^md_caya_[a-z0-9_]+$/.test(p.id)) throw new Error('Kimlik md_caya_ ile başlamalı: ' + p.id);
     if (!p.description || !p.description.tr || !p.description.en) throw new Error('TR/EN açıklama eksik: ' + p.file);
-    const source = fs.readFileSync(path.join(DIR, p.file), 'latin1');
+    const md3 = !!p.md3;
+    const source = fs.readFileSync(path.join(milkDir(md3), p.file), 'latin1');
     // Başka oynatıcılar UTF-8'i bozuyor; paket dosyaları ASCII
     if (/[^\x09\x0a\x0d\x20-\x7e]/.test(source)) throw new Error('ASCII dışı karakter: ' + p.file);
     const preview = previewOf(m[1]);
     if (!fs.existsSync(path.join(PRESETS, preview))) throw new Error('Önizleme görseli yok: ' + preview);
-    listed.add(p.file);
+    listed.add((md3 ? 'md3/' : 'md2/') + p.file);
     listed.add(preview);
-    return { id: p.id, name: m[1], category: p.category, md3: !!p.md3, description: p.description, file: p.file, preview, source };
+    return { id: p.id, name: m[1], category: p.category, md3, description: p.description, file: p.file, preview, source };
   });
   const pv = path.join(PRESETS, 'previews');
-  const stray = fs.readdirSync(DIR).filter((f) => /\.milk$/i.test(f) && !listed.has(f))
-    .concat(fs.existsSync(pv) ? fs.readdirSync(pv).map((f) => 'previews/' + f).filter((f) => !listed.has(f)) : []);
+  const stray = [];
+  for (const [tag, dir] of [['md2', MD2_DIR], ['md3', MD3_DIR]]) {
+    for (const f of fs.readdirSync(dir)) {
+      if (/\.milk$/i.test(f) && !listed.has(tag + '/' + f)) stray.push(tag + '/' + f);
+    }
+  }
+  if (fs.existsSync(pv)) {
+    for (const f of fs.readdirSync(pv)) if (!listed.has('previews/' + f)) stray.push('previews/' + f);
+  }
   if (stray.length) throw new Error('pack.json\'da olmayan dosya: ' + stray.join(', '));
   const ids = list.map((p) => p.id);
   if (new Set(ids).size !== ids.length) throw new Error('Yinelenen kimlik');
@@ -69,13 +82,15 @@ function render(list) {
   return [
     '/*',
     ' * CaYaDev MilkDrop Presets — Copyright (c) 2026 CaYaDev',
-    ' * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/original/md3/cayadev',
+    ' * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/original',
     ' * SPDX-License-Identifier: CC-BY-4.0',
     ' */',
     "'use strict';",
-    '/* OTOMATİK ÜRETİLDİ: scripts/preset-pack.js (#825). Elle düzenlemeyin; kaynak',
-    '   presets/original/md3/cayadev/ klasörü. Liste shared/presets-milkdrop.js üzerinden yerleşik',
-    '   havuza giriyor; sayfada bu dosya ondan ÖNCE yükleniyor. */',
+    '/* OTOMATİK ÜRETİLDİ: scripts/preset-pack.js (#825). Elle düzenlemeyin. Kaynak',
+    '   asıllar presets/original/md2/cayadev/ (MilkDrop 2) ve presets/original/md3/cayadev/',
+    '   (MilkDrop 3). Uyumluluk kopyaları (presets/compat/) gömülmez. Liste',
+    '   shared/presets-milkdrop.js üzerinden yerleşik havuza giriyor; sayfada bu dosya',
+    '   ondan ÖNCE yükleniyor. */',
     '(function () {',
     '  const PACK = [',
     ...rows,
@@ -90,7 +105,7 @@ function render(list) {
 // README galerisi: üçlü sıralar, görsel .milk dosyasına bağlı; alt metin İngilizce açıklama
 function gallery(list) {
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(MILK_REL + p.file) + '"><img src="' + p.preview +
+  const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(milkRel(p.md3) + p.file) + '"><img src="' + p.preview +
     '" width="100%" alt="' + esc(p.name + (/^[aeiou]/.test(p.category) ? ', an ' : ', a ') + p.category + ' MilkDrop preset by CaYaDev. ' + p.description.en) + '"></a><br><b>' +
     esc(p.name) + '</b><br><sub>' + p.category + ' · ' + (p.md3 ? 'MilkDrop 3' : 'MilkDrop 2') + '</sub></td>';
   const out = [GALLERY[0], '<table>'];
@@ -147,9 +162,13 @@ function zipName() {
 }
 
 // Zip'te README .milk dosyalarıyla aynı klasörde: bağlantılar düz dosya adı olur
-const zipReadme = (text) => text.split('href="' + encodeURI(MILK_REL)).join('href="');
+const zipReadme = (text) => ['original/md2/cayadev/', 'original/md3/cayadev/'].reduce(
+  (s, rel) => s.split('href="' + encodeURI(rel)).join('href="'), text);
 
-module.exports = { load, render, gallery, renderReadme, zip, zipName, zipReadme, OUT, DIR, PRESETS, README, MILK_REL };
+module.exports = {
+  load, render, gallery, renderReadme, zip, zipName, zipReadme, milkRel,
+  OUT, MD2_DIR, MD3_DIR, PACK_JSON, PRESETS, README,
+};
 
 if (require.main === module) {
   const args = process.argv.slice(2);
