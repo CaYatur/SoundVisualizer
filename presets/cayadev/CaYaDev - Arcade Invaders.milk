@@ -353,7 +353,6 @@ per_frame_256=q23 = time - ht;
 per_frame_257=q24 = time - pt;
 per_frame_258=q25 = ux;
 per_frame_259=q26 = time - wt;
-per_frame_260=q27 = max(0, 1 - (time - last)*4);
 warp_1=`float bitAt(float row, float colx, float design, float frameN)
 warp_2=`{
 warp_3=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
@@ -459,10 +458,10 @@ comp_3=`  float2 cc = uv - 0.5;
 comp_4=`  float2 u = 0.5 + cc * (1.0 + dot(cc, cc) * 0.08);
 comp_5=`  float inside = step(0.0, u.x) * step(u.x, 1.0) * step(0.0, u.y) * step(u.y, 1.0);
 comp_6=`  float3 col = tex2D(sampler_main, u).xyz;
-comp_7=`  col += GetBlur1(u) * (0.45 + 0.35 * q27) + GetBlur2(u) * 0.2;
+comp_7=`  col += GetBlur1(u) * 0.45 + GetBlur2(u) * 0.2;
 comp_8=`  float scan = 0.75 + 0.25 * sin(u.y * 135.0 * 6.28318);
 comp_9=`  col *= scan;
-comp_10=`  col += float3(0.01, 0.015, 0.02) + float3(0.04, 0.07, 0.09) * q27;
+comp_10=`  col += float3(0.01, 0.015, 0.02);
 comp_11=`  col *= inside * (1.0 - dot(cc, cc) * 1.1);
 comp_12=`  ret = 1.0 - exp(-col * 1.6);
 comp_13=`}
