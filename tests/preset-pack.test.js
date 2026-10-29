@@ -2,7 +2,7 @@
 /* CaYaDev MilkDrop preset paketi (#825).
  *
  * Görünüş gözle ve önizleme/karşılaştırma araçlarıyla onaylandı (bkz.
- * presets/original/md3/cayadev/README.md). Testlerin tuttuğu şey paketin BAŞKA
+ * presets/README.md). Testlerin tuttuğu şey paketin BAŞKA
  * OYNATICILARDA da çalışmasını sağlayan kurallar ve gömülü kopyanın
  * kaynakla aynı kalması:
  *  - dosyalar ASCII, adlar "CaYaDev - <Ad>.milk", lisans ve README yerinde;
@@ -57,7 +57,7 @@ test('dosya adı, kimlik, açıklama ve lisans', () => {
   const lic = fs.readFileSync(path.join(PP.DIR, 'LICENSE.md'), 'utf-8');
   assert.match(lic, /CC BY 4\.0/);
   assert.match(lic, /CaYaDev/);
-  const readme = fs.readFileSync(path.join(PP.DIR, 'README.md'), 'utf-8');
+  const readme = fs.readFileSync(PP.README, 'utf-8');
   // Galeri pack.json'dan üretilir (elle eklenen tablo satırları bir kez tablonun dışına düşmüştü)
   assert.strictEqual(readme.replace(/\r\n/g, '\n'), PP.renderReadme(readme, PACK), 'README galerisi güncel değil: node scripts/preset-pack.js');
   for (const p of PACK) {
@@ -68,7 +68,7 @@ test('dosya adı, kimlik, açıklama ve lisans', () => {
 
 test('her presetin 960x540 JPEG önizlemesi var', () => {
   for (const p of PACK) {
-    const b = fs.readFileSync(path.join(PP.DIR, p.preview));
+    const b = fs.readFileSync(path.join(PP.PRESETS, p.preview));
     assert.ok(b[0] === 0xff && b[1] === 0xd8, p.preview + ': JPEG değil');
     // SOF0/SOF2 başlığından boyut
     let i = 2, size = null;

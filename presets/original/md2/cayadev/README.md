@@ -1,6 +1,6 @@
 # CaYaDev presets — MilkDrop 2 / BeatDrop variants
 
-MilkDrop 2 compatible copies of CaYaDev presets whose originals in [`presets/original/md3/cayadev/`](../../md3/cayadev/) use
+MilkDrop 2 compatible copies of CaYaDev presets whose originals in [`presets/original/md3/cayadev/`](../../md3/cayadev/) (gallery: [`presets/README.md`](../../../README.md)) use
 MilkDrop 3 features. CAYADEV Visualizer plays the originals; use these files in BeatDrop or another
 MilkDrop 2 player.
 

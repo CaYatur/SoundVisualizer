@@ -17,7 +17,7 @@
  *   node scripts/preset-pack.js --zip[=<dosya>] sürüm eki: .milk + önizlemeler + LICENSE.md + README.md
  *                                               (varsayılan dist/CaYaDev-MilkDrop-Presets-<sürüm>.zip)
  *
- * Her presetin bir önizleme görseli var: previews/<ad-kısa>.jpg (960x540). README'deki galeri
+ * Her presetin bir önizleme görseli var: presets/previews/<ad-kısa>.jpg (960x540). presets/README.md'deki galeri
  * pack.json'dan üretilir; elle eklenen tablo satırları bir kez tablonun dışına düşmüştü.
  *
  * Paket CC BY 4.0, uygulama MIT: üretilen dosya da paketin lisansını taşır. */
@@ -28,7 +28,10 @@ const zlib = require('zlib');
 const root = path.join(__dirname, '..');
 const DIR = path.join(root, 'presets', 'original', 'md3', 'cayadev');
 const OUT = path.join(root, 'src', 'shared', 'presets-milkdrop-pack.js');
-const README = path.join(DIR, 'README.md');
+// README galerisi ve önizlemeler presets/ kökünde; .milk dosyaları DIR'de
+const PRESETS = path.join(root, 'presets');
+const README = path.join(PRESETS, 'README.md');
+const MILK_REL = 'original/md3/cayadev/';
 const GALLERY = ['<!-- gallery: node scripts/preset-pack.js -->', '<!-- /gallery -->'];
 
 const previewOf = (name) => 'previews/' + name.toLowerCase().replace(/ /g, '-') + '.jpg';
@@ -45,12 +48,12 @@ function load() {
     // Başka oynatıcılar UTF-8'i bozuyor; paket dosyaları ASCII
     if (/[^\x09\x0a\x0d\x20-\x7e]/.test(source)) throw new Error('ASCII dışı karakter: ' + p.file);
     const preview = previewOf(m[1]);
-    if (!fs.existsSync(path.join(DIR, preview))) throw new Error('Önizleme görseli yok: ' + preview);
+    if (!fs.existsSync(path.join(PRESETS, preview))) throw new Error('Önizleme görseli yok: ' + preview);
     listed.add(p.file);
     listed.add(preview);
     return { id: p.id, name: m[1], category: p.category, md3: !!p.md3, description: p.description, file: p.file, preview, source };
   });
-  const pv = path.join(DIR, 'previews');
+  const pv = path.join(PRESETS, 'previews');
   const stray = fs.readdirSync(DIR).filter((f) => /\.milk$/i.test(f) && !listed.has(f))
     .concat(fs.existsSync(pv) ? fs.readdirSync(pv).map((f) => 'previews/' + f).filter((f) => !listed.has(f)) : []);
   if (stray.length) throw new Error('pack.json\'da olmayan dosya: ' + stray.join(', '));
@@ -87,7 +90,7 @@ function render(list) {
 // README galerisi: üçlü sıralar, görsel .milk dosyasına bağlı; alt metin İngilizce açıklama
 function gallery(list) {
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(p.file) + '"><img src="' + p.preview +
+  const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(MILK_REL + p.file) + '"><img src="' + p.preview +
     '" width="100%" alt="' + esc(p.name + (/^[aeiou]/.test(p.category) ? ', an ' : ', a ') + p.category + ' MilkDrop preset by CaYaDev. ' + p.description.en) + '"></a><br><b>' +
     esc(p.name) + '</b><br><sub>' + p.category + ' · ' + (p.md3 ? 'MilkDrop 3' : 'MilkDrop 2') + '</sub></td>';
   const out = [GALLERY[0], '<table>'];
@@ -143,7 +146,10 @@ function zipName() {
   return 'CaYaDev-MilkDrop-Presets-' + require(path.join(root, 'package.json')).version + '.zip';
 }
 
-module.exports = { load, render, gallery, renderReadme, zip, zipName, OUT, DIR, README };
+// Zip'te README .milk dosyalarıyla aynı klasörde: bağlantılar düz dosya adı olur
+const zipReadme = (text) => text.split('href="' + encodeURI(MILK_REL)).join('href="');
+
+module.exports = { load, render, gallery, renderReadme, zip, zipName, zipReadme, OUT, DIR, PRESETS, README, MILK_REL };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
@@ -159,7 +165,7 @@ if (require.main === module) {
       process.exit(1);
     }
     if (readmeNow !== readme) {
-      console.error('presets/original/md3/cayadev/README.md galerisi güncel değil: node scripts/preset-pack.js');
+      console.error('presets/README.md galerisi güncel değil: node scripts/preset-pack.js');
       process.exit(1);
     }
     console.log('Paket güncel: ' + list.length + ' preset');
@@ -167,8 +173,9 @@ if (require.main === module) {
     const out = zipArg.includes('=') ? path.resolve(zipArg.slice(6)) : path.join(root, 'dist', zipName());
     const folder = 'CaYaDev MilkDrop Presets/';
     const files = list.map((p) => ({ name: folder + p.file, data: Buffer.from(p.source, 'latin1') }))
-      .concat(list.map((p) => ({ name: folder + p.preview, data: fs.readFileSync(path.join(DIR, p.preview)) })))
-      .concat(['LICENSE.md', 'README.md'].map((f) => ({ name: folder + f, data: fs.readFileSync(path.join(DIR, f)) })));
+      .concat(list.map((p) => ({ name: folder + p.preview, data: fs.readFileSync(path.join(PRESETS, p.preview)) })))
+      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(DIR, 'LICENSE.md')) },
+        { name: folder + 'README.md', data: Buffer.from(zipReadme(readme), 'utf-8') }]);
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, zip(files));
     console.log(out + ' (' + list.length + ' preset)');
