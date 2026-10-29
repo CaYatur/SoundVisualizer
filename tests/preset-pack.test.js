@@ -257,18 +257,18 @@ test('md2 yalnız MilkDrop 2 asıllarını, md3 yalnız MilkDrop 3 asıllarını
 
 const COMPAT_DIR = path.join(root, 'presets', 'compat', 'md', 'cayadev');
 
-test('compat kopyaları MD2 sınırında; Spectrum City BeatDrop tall çarpanını düşürür', () => {
+test('compat kopyaları MD2 sınırında; Spectrum City eski derleyici kopyası tall çarpanını düşürür', () => {
   const rd = (f) => fs.readFileSync(path.join(COMPAT_DIR, f), 'utf-8');
   const files = fs.readdirSync(COMPAT_DIR).filter((x) => x.endsWith('.milk'));
-  assert.ok(files.includes('CaYaDev - Spectrum City BeatDrop.milk'));
-  assert.doesNotMatch(rd('CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
+  assert.ok(files.includes('CaYaDev - Spectrum City Old Compiler.milk'));
+  assert.doesNotMatch(rd('CaYaDev - Spectrum City Old Compiler.milk'), /\* tall \* blink/);
   const original = fs.readFileSync(path.join(PP.MD2_DIR, 'CaYaDev - Spectrum City.milk'), 'utf-8');
   assert.match(original, /\* tall \* blink/);
   assert.match(rd('CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
   assert.notStrictEqual(rd('CaYaDev - Spectrum City.milk').replace(/\r\n/g, '\n'), original.replace(/\r\n/g, '\n'));
   for (const f of files) {
     checkMd2(f, rd(f).replace(/\r\n/g, '\n'));
-    if (f.endsWith(' BeatDrop.milk')) continue;
+    if (f.endsWith(' Old Compiler.milk')) continue;
     const hit = PACK.find((p) => p.file === f);
     assert.ok(hit, f + ': aslı pakette yok');
     assert.notStrictEqual(rd(f).replace(/\r\n/g, '\n'), hit.source.replace(/\r\n/g, '\n'), f + ': uyumluluk kopyası asılla aynı');
