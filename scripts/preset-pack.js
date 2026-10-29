@@ -16,7 +16,9 @@
  *
  *   node scripts/preset-pack.js                 gömülü dosyayı ve README galerisini yeniden üretir
  *   node scripts/preset-pack.js --check         ikisinden biri güncel değilse 1 ile çıkar
- *   node scripts/preset-pack.js --zip[=<dosya>] sürüm eki: .milk + önizlemeler + LICENSE.md + README.md
+ *   node scripts/preset-pack.js --zip[=<dosya>] sürüm eki. Klasörler depodaki gibi:
+ *                                               original/md2, original/md3, compat, previews.
+ *                                               Uyumluluk kopyaları zip'te durur, gömülü pakete girmez.
  *                                               (varsayılan dist/CaYaDev-MilkDrop-Presets-<sürüm>.zip)
  *
  * Her presetin bir önizleme görseli var: presets/previews/<ad-kısa>.jpg (960x540). presets/README.md'deki galeri
@@ -161,12 +163,37 @@ function zipName() {
   return 'CaYaDev-MilkDrop-Presets-' + require(path.join(root, 'package.json')).version + '.zip';
 }
 
-// Zip'te README .milk dosyalarıyla aynı klasörde: bağlantılar düz dosya adı olur
-const zipReadme = (text) => ['original/md2/cayadev/', 'original/md3/cayadev/'].reduce(
-  (s, rel) => s.split('href="' + encodeURI(rel)).join('href="'), text);
+const ZIP_ROOT = 'CaYaDev MilkDrop Presets/';
+
+// Sürüm eki depodaki presets/ ağacını korur. Gömülü paket yalnız asılları alır;
+// zip, MilkDrop oynatıcıları için compat kopyalarını da taşır.
+function releaseFiles(list, readme) {
+  const files = [];
+  const add = (rel, data) => files.push({
+    name: ZIP_ROOT + rel,
+    data: Buffer.isBuffer(data) ? data : Buffer.from(data),
+  });
+  for (const p of list) {
+    add(milkRel(p.md3) + p.file, Buffer.from(p.source, 'latin1'));
+    add(p.preview, fs.readFileSync(path.join(PRESETS, p.preview)));
+  }
+  add('LICENSE.md', fs.readFileSync(path.join(PRESETS, 'LICENSE.md')));
+  add('README.md', Buffer.from(readme, 'utf-8'));
+  for (const rel of [
+    'original/md2/cayadev/README.md',
+    'original/md3/cayadev/README.md',
+    'compat/md/cayadev/README.md',
+  ]) add(rel, fs.readFileSync(path.join(PRESETS, rel)));
+  const compatDir = path.join(PRESETS, 'compat', 'md', 'cayadev');
+  for (const name of fs.readdirSync(compatDir).filter((n) => n.endsWith('.milk')).sort()) {
+    add('compat/md/cayadev/' + name, fs.readFileSync(path.join(compatDir, name)));
+  }
+  files.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return files;
+}
 
 module.exports = {
-  load, render, gallery, renderReadme, zip, zipName, zipReadme, milkRel,
+  load, render, gallery, renderReadme, zip, zipName, releaseFiles, milkRel,
   OUT, MD2_DIR, MD3_DIR, PACK_JSON, PRESETS, README,
 };
 
@@ -190,11 +217,7 @@ if (require.main === module) {
     console.log('Paket güncel: ' + list.length + ' preset');
   } else if (zipArg) {
     const out = zipArg.includes('=') ? path.resolve(zipArg.slice(6)) : path.join(root, 'dist', zipName());
-    const folder = 'CaYaDev MilkDrop Presets/';
-    const files = list.map((p) => ({ name: folder + p.file, data: Buffer.from(p.source, 'latin1') }))
-      .concat(list.map((p) => ({ name: folder + p.preview, data: fs.readFileSync(path.join(PRESETS, p.preview)) })))
-      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(PRESETS, 'LICENSE.md')) },
-        { name: folder + 'README.md', data: Buffer.from(zipReadme(readme), 'utf-8') }]);
+    const files = releaseFiles(list, readme);
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, zip(files));
     console.log(out + ' (' + list.length + ' preset)');
