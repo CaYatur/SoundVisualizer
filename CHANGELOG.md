@@ -22,6 +22,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Fixes
 
+- **New visualizer layers start at factory settings.** A new layer took over values from the scene's
+  visualizer (for example *Glow* 80%), so it showed reset badges on *Sensitivity*, *Glow* and *Bar Gap*
+  from the start. It now starts with the defaults that *Reset* returns to. The reset targets of the
+  layer card (*Sensitivity*, *Glow*, *Bar Count*, *Bar Gap*, *Line Width*, *Amplitude*, logo *Glow*)
+  now come from the same defaults instead of separate hand-written values.
 - **Bars layer choices now show at once.** On a bars layer, picking *Flat* or *Vertical Gradient*
   for *Fill*, or *Up* or *Down* for *Grow Direction*, changed the drawing but left the old button
   highlighted until you went to another category and back. The layer's two-way and three-way
