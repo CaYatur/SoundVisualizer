@@ -258,3 +258,28 @@ test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri 
     assert.strictEqual(m[1], 'wc', 'k' + i + ' dalga temizlenmeden sıfırlanıyor');
   }
 });
+
+test('Arcade Invaders Score: shader paketlenmiş ölüm/hasar sayaçlarını taşmadan çözüyor', () => {
+  // Sabit +0.001 payı 7775/7776 gibi büyük paketlerde üst basamağı taşırıp -1 veriyordu;
+  // sağdaki tamamen vurulmuş sütunlar filo aşağı inince hayalet gibi yeniden çiziliyordu.
+  const src = fs.readFileSync(path.join(root, 'presets', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
+  const warp = src.split(/\r?\n/).filter((l) => /^warp_\d+=`/.test(l)).map((l) => l.replace(/^warp_\d+=`/, '')).join('\n');
+  const m = /float digitOf\(float v, float base, float i\)\s*\{([\s\S]*?)\n\}/.exec(warp);
+  assert.ok(m, 'digitOf bulunamadı');
+  const body = m[1].replace(/\/\/.*$/gm, '').replace(/float /g, 'let ').replace(/\bpow\(/g, 'Math.pow(').replace(/\bfloor\(/g, 'Math.floor(');
+  const f32 = Math.fround;
+  // eslint-disable-next-line no-new-func
+  const digitOf = new Function('v', 'base', 'i', body);
+  const check = (base, n) => {
+    const max = Math.pow(base, n);
+    for (let v = 0; v < max; v++) {
+      for (let i = 0; i < n; i++) {
+        const want = Math.floor(v / Math.pow(base, i)) % base;
+        assert.strictEqual(digitOf(f32(v), base, i), want, 'base ' + base + ' v=' + v + ' basamak ' + i);
+      }
+    }
+  };
+  check(6, 6); // q6: k0..k5
+  check(6, 5); // q7: k6..k10
+  check(4, 8); // q8/q9: sığınak hasarı
+});
