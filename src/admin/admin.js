@@ -2580,6 +2580,19 @@
       return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
     };
     const notStack = () => !isStackOn();
+    /* Kendi ayar kartı olan motor (MilkDrop, 3B geometri, geri besleme)
+       kullanımdayken kartı görünür. Motorlar ayarlarını sahneden okuyor
+       (cfg.milkdrop / cfg.geometry / cfg.feedback), katmandan değil; yığın
+       açıkken kart gizlenince katmandaki geometrinin ailesi ve formülü
+       hiçbir yerden seçilemiyordu.
+         yığın açık → bu türde en az bir görselleştirici katmanı;
+         yığın kapalı → klasik görselleştirici bu tür. */
+    const engineInUse = (type) => {
+      if (isStackOn()) {
+        return (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === type);
+      }
+      return v.type === type;
+    };
     const isGradient = () => cfg.background.type === 'gradient';
     // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
     const usesPalette = () => cfg.background.type !== 'solid';
@@ -3108,16 +3121,7 @@
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
         controls: [{ type: 'milkdroppanel' }],
-        /* Scene only when MilkDrop is actually in use:
-           stack on → at least one MilkDrop visualizer layer;
-           stack off → classic visualizer mode is MilkDrop. */
-        show: () => {
-          if (isStackOn()) {
-            return (cfg.layers || []).some(
-              (l) => l && l.kind === 'visualizer' && l.type === 'milkdrop');
-          }
-          return v.type === 'milkdrop';
-        },
+        show: () => engineInUse('milkdrop'),
       },
       {
         id: 'transition',
@@ -3164,7 +3168,7 @@
         icon: 'cube',
         title: '3B Geometri',
         desc: 'Matematiksel formüllerden gerçek perspektifte geometri: yüzeyler, uzay eğrileri ve çekici sistemler.',
-        show: () => notStack() && cfg.visualizer.type === 'geometry',
+        show: () => engineInUse('geometry'),
         controls: [{ type: 'geometrypanel' }],
       },
       {
@@ -3174,7 +3178,7 @@
         icon: 'infinity',
         title: 'Geri Besleme Motoru',
         desc: 'MilkDrop ailesi: her kare bir öncekini büker, yakınlaştırır ve söndürür. Sonsuz tünel görünümü buradan gelir.',
-        show: () => notStack() && cfg.visualizer.type === 'feedback',
+        show: () => engineInUse('feedback'),
         controls: [
           {
             type: 'segment', path: 'feedback.waveMode', label: 'Dalga Biçimi',

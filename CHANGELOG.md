@@ -11,6 +11,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   scrolled, every change on the Scene page scrolled the page to the active preset: muting a layer moved
   it from 1135 to 3517 px. The list now scrolls only itself. The template grid and the Studio preset
   list used the same call and are fixed with it.
+- **3D geometry and feedback layers can be set up again** (#881). With the layer stack on, their
+  settings cards were never shown, so a geometry layer's family and formula could not be changed
+  anywhere. Like the MilkDrop card, both now appear when a layer of that kind exists.
 
 ## v3.1.6 — 2026-10-29
 
