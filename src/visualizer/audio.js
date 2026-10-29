@@ -42,6 +42,7 @@
       this.cfg = { sensitivity: 1.4, smoothing: 0.65, bassBoost: 1.0, humGuard: true };
       this._barsCache = {};
       this._engines = {};
+      this._frame = 0; // update() sayacı: aynı karede aynı barlar bir kez ölçülür
       this._dt = 1 / 60;
       this.ready = false;
       this.lastFrameTs = 0;
@@ -98,6 +99,8 @@
     // Her karede çağrılır. dt saniye cinsinden; çözümlemenin zaman
     // sabitleri buna dayanır (kare hızından bağımsızlık).
     update(dt) {
+      // Sayaç hazır olmadan da ilerler: yoksa barlar ilk sonuçta donardı
+      this._frame++;
       if (!this.ready) return;
       this._dt = dt > 0 ? dt : 1 / 60;
       const sens = this.cfg.sensitivity || 1;
@@ -209,7 +212,14 @@
        ayarları ona vermek. Motor bar düzeni başına ayrı tutuluyor çünkü
        balistik durumu (her barın o anki yüksekliği) düzene bağlı: aynı motoru
        farklı bar sayılarıyla paylaşmak barları birbirinin geçmişiyle
-       sürüklerdi. */
+       sürüklerdi.
+
+       Anahtar balistiği etkileyen HER ayarı içeriyor ve aynı karede aynı
+       anahtar ikinci kez sorulursa ilk sonuç dönüyor (#878). Önceden yalnız
+       sayı, aralık ve ölçek anahtardaydı: aynı bar sayısındaki iki katman
+       tek motoru paylaşıyor, her çağrı atak/bırakmayı bir adım daha
+       ilerletiyordu. İkinci katmanın barları karede iki adım gidiyor,
+       atak/bırakması farklı katmanlar birbirinin durumunu karıştırıyordu. */
     getBars(count, minFreq, maxFreq, opts) {
       const S = window.SVSpectrum;
       const n = Math.max(1, count | 0);
@@ -221,16 +231,32 @@
         maxFreq: Math.min(maxFreq, this.sampleRate / 2),
         dt: this._dt || 1 / 60,
       }));
-      const key = [n, o.minFreq, o.maxFreq, o.scale].join(':');
+      const key = [n, o.minFreq, o.maxFreq, o.scale, o.amplitude, o.floorDb, o.tilt,
+        o.attack, o.release, o.spread, o.smooth, o.gain, o.exact ? 1 : 0].join(':');
       let eng = this._engines[key];
       if (!eng) {
+        this._sweepEngines();
         eng = new S.BarEngine();
         this._engines[key] = eng;
       }
-      return eng.compute(
+      if (eng._svFrame === this._frame && eng._svOut) return eng._svOut;
+      eng._svFrame = this._frame;
+      eng._svOut = eng.compute(
         { spec: this.freq, binHz: this.binHz, time: this._timeF, sampleRate: this.sampleRate },
         o
       );
+      return eng._svOut;
+    }
+
+    /* Kaydırıcı sürüklenirken her değer yeni bir motor kuruyor; bir süredir
+       sorulmayanlar atılıyor ki harita büyümesin. */
+    _sweepEngines() {
+      const keys = Object.keys(this._engines);
+      if (keys.length <= 16) return;
+      for (const k of keys) {
+        const e = this._engines[k];
+        if (this._frame - (e._svFrame || 0) > 120) delete this._engines[k];
+      }
     }
 
     /* Tayf modülü yüklenmemişse (yalın gömme senaryoları) eski davranış.

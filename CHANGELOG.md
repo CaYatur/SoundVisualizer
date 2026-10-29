@@ -14,6 +14,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **3D geometry and feedback layers can be set up again** (#881). With the layer stack on, their
   settings cards were never shown, so a geometry layer's family and formula could not be changed
   anywhere. Like the MilkDrop card, both now appear when a layer of that kind exists.
+- **A bars layer has every bar setting of the Visualizer card** (#878). Floor reflection and its
+  length were missing from the layer card. The frequency range and the eight spectrum metering
+  settings were missing too; they are on a new *Spectrum Metering* tab of every layer that reads
+  frequency bands. Peak caps can now be turned off on both cards; they were always on.
+- **Two layers of the same bar count no longer share one meter** (#878). They stepped attack and
+  release twice per frame, so the second layer's bars moved twice as fast, and different attack or
+  release settings mixed. Each setting combination now has its own meter, measured once per frame.
+- **Peak caps fall at the same speed at any refresh rate** (#878). They fell about 5.8 times faster
+  at 144 Hz than at 60 Hz, so a 60 fps export did not match a 144 Hz screen. At 60 Hz they fall
+  exactly as before.
 
 ## v3.1.6 — 2026-10-29
 

@@ -9,6 +9,7 @@
    Her bar = logaritmik bir frekans bandı. Rainbow / tek renk, ayna, tepe noktaları. */
 (function () {
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  const PEAK_ACCEL = 0.0009 * 3600; // kadran yüksekliği / s²
 
   class BarsMode {
     constructor(canvas) {
@@ -35,6 +36,13 @@
       const v = cfg.visualizer;
       const count = Math.max(8, v.barCount | 0);
       this._ensure(count);
+      /* Kare süresi çizim saatinden (#878). Tepe noktasının düşüşü kare
+         başına sabit bir artışla hızlanıyordu: 144 Hz'de 60 Hz'e göre
+         yaklaşık 5,8 kat hızlı düşüyor, 60 fps dışa aktarım canlıyla
+         eşleşmiyordu. İlk kare eski davranıştaki gibi bir 60 Hz adımı; saat
+         geri giderse (yeniden başlama, arama) adım 0. */
+      const dt = this._lastT == null ? 1 / 60 : !(t > this._lastT) ? 0 : Math.min(0.1, t - this._lastT);
+      this._lastT = t;
 
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
@@ -116,8 +124,10 @@
             this.peaks[i] = val * maxH;
             this.peakVel[i] = 0;
           } else {
-            this.peakVel[i] += H * 0.0009;
-            this.peaks[i] = Math.max(0, this.peaks[i] - this.peakVel[i]);
+            /* 60 Hz'de eski kare adımıyla birebir: ivme H × 0,0009 px/kare²
+               = H × 3,24 px/s²; hız px/s, yol hız × dt. */
+            this.peakVel[i] += H * PEAK_ACCEL * dt;
+            this.peaks[i] = Math.max(0, this.peaks[i] - this.peakVel[i] * dt);
           }
           const py = baseY - this.peaks[i] - 3;
           ctx.fillStyle = (colorMode === 'rainbow') ? col : (colorMode === 'theme' ? lighten(col) : lighten(v.color));

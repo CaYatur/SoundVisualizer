@@ -105,7 +105,8 @@ test('açık katman hatırlanıyor ve alt bölümler sekme şeridinde', () => {
   const bodies = all(panel, cls('layer-body'));
   assert.strictEqual(bodies.length, 1, 'yalnız hatırlanan katman açık');
   const tabs = all(bodies[0], cls('layer-tab')).map((n) => n.attrs.text);
-  assert.deepStrictEqual(tabs, ['Dönüşüm', 'Sese Tepki', 'Maske', 'Katman Efektleri', 'Grup ve Fader']);
+  // Bant okuyan görselleştiricide Tayf Ölçümü sekmesi de var (#878)
+  assert.deepStrictEqual(tabs, ['Dönüşüm', 'Sese Tepki', 'Tayf Ölçümü', 'Maske', 'Katman Efektleri', 'Grup ve Fader']);
   assert.strictEqual(all(bodies[0], cls('fold')).length, 0, 'eski katlanır başlıklar kalmadı');
 });
 
