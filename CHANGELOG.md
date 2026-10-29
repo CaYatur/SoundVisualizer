@@ -3,7 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v3.1.7
+## v3.1.7-beta
 
 ### Visualizer
 
@@ -15,11 +15,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   MilkDrop 2 originals, [`presets/original/md3/cayadev/`](presets/original/md3/cayadev/) holds only the MilkDrop 3 originals,
   and the app embeds both. Reduced copies for MilkDrop 2 players and older shader compilers stay in
   [`presets/compat/md/cayadev/`](presets/compat/md/cayadev/) and are not in the preset list. Those copies stay within MilkDrop 2
-  limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers). BeatDrop 1.5's bundled d3dx9_31 shader
-  compiler crashes on Spectrum City's antenna line (`tall` factor), so `CaYaDev - Spectrum City BeatDrop.milk` in that
-  folder drops the factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
-- **Arcade Invaders drops the pw_noise_lq sampler**, which BeatDrop does not provide, and reads the same
-  noise from noise_lq.
+  limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers). `CaYaDev - Spectrum City BeatDrop.milk`
+  in that folder drops the antenna `tall` factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
+- **Arcade Invaders drops the pw_noise_lq sampler** and reads the same noise from noise_lq.
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
   peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
   stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids.

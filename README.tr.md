@@ -410,7 +410,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
   her sürümdeki zip'ten indirebilirsiniz. MilkDrop 2 asılları
   [`presets/original/md2/cayadev`](presets/original/md2/cayadev), MilkDrop 3 asılları
   [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
-  BeatDrop ve diğer MilkDrop 2 oynatıcıları için indirgenmiş kopyalar
+  Eski derleyiciler için indirgenmiş kopyalar
   [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır.
 - **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
   bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,

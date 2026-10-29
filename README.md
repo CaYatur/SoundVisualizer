@@ -407,7 +407,7 @@ shaders are translated to GLSL and run on the GPU.
   [`presets`](presets/README.md) (with a picture of each) or as the zip on each release. MilkDrop 2 originals are in
   [`presets/original/md2/cayadev`](presets/original/md2/cayadev), MilkDrop 3 originals in
   [`presets/original/md3/cayadev`](presets/original/md3/cayadev). The app embeds those originals.
-  Reduced copies for BeatDrop and other MilkDrop 2 players are in [`presets/compat/md/cayadev`](presets/compat/md/cayadev).
+  Older-compiler copies are in [`presets/compat/md/cayadev`](presets/compat/md/cayadev).
 - **Import a whole library** — from a ZIP pack, a folder, or by searching this
   computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
