@@ -17,10 +17,9 @@ waves, so a few scenes look slightly different from the MilkDrop 3 version.
 | [CaYaDev - Night Bloom](CaYaDev%20-%20Night%20Bloom.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Night%20Bloom.milk) |
 | [CaYaDev - Smoke Ribbons](CaYaDev%20-%20Smoke%20Ribbons.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Smoke%20Ribbons.milk) |
 | [CaYaDev - Spectrum City](CaYaDev%20-%20Spectrum%20City.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Spectrum%20City.milk) |
-| [CaYaDev - Spectrum City BeatDrop](CaYaDev%20-%20Spectrum%20City%20BeatDrop.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Spectrum%20City.milk) |
 | [CaYaDev - Tesla Coil](CaYaDev%20-%20Tesla%20Coil.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Tesla%20Coil.milk) |
 | [CaYaDev - Twelve Moons](CaYaDev%20-%20Twelve%20Moons.milk) | [MilkDrop 3](../../md3/cayadev/CaYaDev%20-%20Twelve%20Moons.milk) |
 
-Spectrum City crashes BeatDrop 1.5 (its bundled d3dx9_31 compiler faults on the antenna `tall` factor); use `CaYaDev - Spectrum City BeatDrop.milk` there, which drops that factor so antennas blink on every tower.
+Spectrum City crashes BeatDrop 1.5 (its bundled d3dx9_31 compiler faults on the antenna `tall` factor); use [`presets/beatdrop-safe/cayadev/CaYaDev - Spectrum City BeatDrop.milk`](../../beatdrop-safe/cayadev/CaYaDev%20-%20Spectrum%20City%20BeatDrop.milk) there, which drops that factor so antennas blink on every tower.
 
 License: CC-BY-4.0, same as the main pack.

@@ -243,11 +243,10 @@ function checkMd2(name, source) {
 
 test('MD2 klasöründeki varyantlar q32, dört dalga/şekil ve pw_ sınırında', () => {
   const files = fs.readdirSync(MD2_DIR).filter((f) => f.endsWith('.milk'));
-  assert.strictEqual(files.length, 10);
+  assert.strictEqual(files.length, 9);
   for (const f of files) {
-    // Her varyantın aslı ana pakette olmalı; "BeatDrop" ekli kopyalar aynı aslın ayrı sürümüdür
-    const orig = f.replace(/ BeatDrop\.milk$/, '.milk');
-    assert.ok(fs.existsSync(path.join(root, 'presets', 'md3', 'cayadev', orig)), f + ': aslı yok');
+    // Her varyantın aslı ana pakette olmalı
+    assert.ok(fs.existsSync(path.join(root, 'presets', 'md3', 'cayadev', f)), f + ': aslı yok');
     checkMd2(f, fs.readFileSync(path.join(MD2_DIR, f), 'utf-8').replace(/\r\n/g, '\n'));
   }
   const arcade = PACK.find((x) => x.id === 'md_caya_arcade_invaders');
@@ -258,9 +257,13 @@ test('MD2 klasöründeki varyantlar q32, dört dalga/şekil ve pw_ sınırında'
 // BeatDrop 1.5'in d3dx9_31 derleyicisi anten satırındaki tall çarpanında çöküyor: ayrı kopyada yok, MD2 kopyasında duruyor
 test('Spectrum City BeatDrop kopyası tall çarpanı olmadan, diğerleri tall ile', () => {
   const rd = (d, f) => fs.readFileSync(path.join(root, 'presets', d, 'cayadev', f), 'utf-8');
-  assert.doesNotMatch(rd('md2', 'CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
+  assert.doesNotMatch(rd('beatdrop-safe', 'CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
   assert.match(rd('md2', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
   assert.match(rd('md3', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
+  // beatdrop-safe içindeki her dosya da MD2 sınırında olmalı
+  for (const f of fs.readdirSync(path.join(root, 'presets', 'beatdrop-safe', 'cayadev')).filter((x) => x.endsWith('.milk'))) {
+    checkMd2(f, rd('beatdrop-safe', f).replace(/\r\n/g, '\n'));
+  }
 });
 
 test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri gelmiyor', () => {

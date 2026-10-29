@@ -405,7 +405,7 @@ shaders are translated to GLSL and run on the GPU.
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
   [`presets/md3/cayadev`](presets/md3/cayadev) (with a picture of each) or as the zip on each release. For BeatDrop and other MilkDrop 2
-  players, MilkDrop 2 variants of the MilkDrop 3 presets are in [`presets/md2/cayadev`](presets/md2/cayadev).
+  players, MilkDrop 2 variants of the MilkDrop 3 presets are in [`presets/md2/cayadev`](presets/md2/cayadev), and BeatDrop-specific workaround copies in [`presets/beatdrop-safe/cayadev`](presets/beatdrop-safe/cayadev).
 - **Import a whole library** — from a ZIP pack, a folder, or by searching this
   computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
