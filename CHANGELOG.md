@@ -7,6 +7,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
+- **Arcade Invaders plays a real game** (CaYaDev MilkDrop pack). The cannon's shots used to pass through
+  everything and only made an alien flash. Now each shot hits: an alien it strikes explodes and is gone,
+  and a shot or an alien bomb that reaches a bunker chips a piece out of it. The aliens drop zigzag bombs
+  that can hit the cannon, a mystery saucer crosses the top from time to time, and the cannon glides to a
+  column that still has aliens and fires on the beat. The fleet marches faster as it thins out. Once it
+  is cleared a new, faster wave starts lower down with fresh bunkers. The preset id stays the same.
 - **Colour mode for Studio visualizers** (#883), on the Visualizer card and on a Studio layer. The
   Studio shaders draw with a five-colour palette that always came from the background gradient. It
   can now be *Colour Theme* (as before, the default), *Fixed Colour* (primary to secondary colour) or
