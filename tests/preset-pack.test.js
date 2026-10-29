@@ -175,6 +175,11 @@ test('sürüm eki: zip paketi okunuyor ve içerik birebir', () => {
     assert.ok(PP.zip(files).equals(fs.readFileSync(out)));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   assert.match(PP.zipName(), /^CaYaDev-MilkDrop-Presets-\d+\.\d+\.\d+(-[\w.]+)?\.zip$/);
+  const laid = PP.releaseFiles(PACK, 'readme').map((f) => f.name);
+  assert.ok(laid.includes('CaYaDev MilkDrop Presets/original/md2/cayadev/CaYaDev - Spectrum City.milk'));
+  assert.ok(laid.includes('CaYaDev MilkDrop Presets/original/md3/cayadev/CaYaDev - Twelve Moons.milk'));
+  assert.ok(laid.includes('CaYaDev MilkDrop Presets/compat/md/cayadev/CaYaDev - Spectrum City.milk'));
+  assert.ok(laid.includes('CaYaDev MilkDrop Presets/compat/md/cayadev/CaYaDev - Spectrum City Old Compiler.milk'));
   // Sürüm betiği zip'i bekliyor
   const rel = fs.readFileSync(path.join(root, 'scripts/release-assets.js'), 'utf-8');
   assert.match(rel, /'CaYaDev-MilkDrop-Presets-' \+ version \+ '\.zip'/);
