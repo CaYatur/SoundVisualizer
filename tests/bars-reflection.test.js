@@ -44,7 +44,8 @@ test('çizim: aynalama, sonra yalnız tabanın altında degradeli silme; parlama
   const i = src.indexOf('const refl = clamp01(Number(v.reflection) || 0);');
   assert.ok(i > 0);
   const block = src.slice(i, src.indexOf('this.glow.apply', i));
-  assert.match(block, /v\.position !== 'center' && baseY < H - 1/);
+  // Ortada ve aşağı büyüyen barlarda (#879) yansıma yok
+  assert.match(block, /!centred && !down && baseY < H - 1/);
   assert.match(block, /ctx\.translate\(0, 2 \* baseY\);\s+ctx\.scale\(1, -1\);/);
   assert.match(block, /globalCompositeOperation = 'destination-out'/);
   assert.match(block, /ctx\.fillRect\(areaX - 1, baseY, areaW \+ 2, len \+ 1\)/, 'silme yalnız tabanın altında');

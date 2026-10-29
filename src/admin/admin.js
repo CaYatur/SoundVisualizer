@@ -2965,7 +2965,22 @@
           { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, show: hasGap, group: 'Bar Biçimi', advanced: true },
           { type: 'toggle', path: 'visualizer.mirror', label: 'Ayna (Simetri)', show: () => ['bars', 'wave', 'radialWave'].indexOf(v.type) >= 0, group: 'Bar Biçimi', advanced: true },
           // Varsayılanı açık, ama hiçbir kartta kapatılamıyordu (#878)
-          { type: 'toggle', path: 'visualizer.cap', label: 'Tepe Noktaları', show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true },
+          { type: 'toggle', path: 'visualizer.cap', label: 'Tepe Noktaları', show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true, rebuild: true },
+          /* Bar biçimi (#879). Varsayılanlar eski çizimi birebir verir. */
+          { type: 'segment', path: 'visualizer.barStyle', label: 'Bar Stili', rebuild: true, show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true,
+            options: [{ value: 'solid', label: 'Düz' }, { value: 'segments', label: 'Segmentli (LED)' }] },
+          { type: 'slider', path: 'visualizer.segmentSize', label: 'Segment Boyu', min: 0.01, max: 0.2, step: 0.005, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.segmentGap', label: 'Segment Aralığı', min: 0, max: 0.8, step: 0.02, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barRadius', label: 'Köşe Yuvarlaklığı', min: 0, max: 0.5, step: 0.01, percent: true, show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true },
+          { type: 'segment', path: 'visualizer.barFill', label: 'Dolgu', show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true,
+            options: [{ value: 'flat', label: 'Düz' }, { value: 'gradient', label: 'Dikey Degrade' }] },
+          { type: 'segment', path: 'visualizer.barDirection', label: 'Büyüme Yönü', show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Biçimi', advanced: true,
+            options: [{ value: 'up', label: 'Yukarı' }, { value: 'down', label: 'Aşağı' }] },
+          { type: 'slider', path: 'visualizer.capHold', label: 'Tepe Bekleme (sn)', min: 0, max: 2, step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.capFall', label: 'Tepe Düşüş Hızı', min: 0.25, max: 4, step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
+          { type: 'segment', path: 'visualizer.capColorMode', label: 'Tepe Rengi', rebuild: true, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true,
+            options: [{ value: 'auto', label: 'Otomatik' }, { value: 'custom', label: 'Özel' }] },
+          { type: 'color', path: 'visualizer.capColor', label: 'Tepe Rengi Seç', show: () => v.type === 'bars' && v.cap !== false && v.capColorMode === 'custom', group: 'Bar Biçimi', advanced: true },
 
           /* --- Bar yerleşimi ---
              Yayın ve müzik videosu düzenlerinde bar bloğu kadranın tamamını

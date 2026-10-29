@@ -1907,7 +1907,23 @@
       }
 
       if (l.type === 'bars') {
-        out.push(miniToggle('Tepe Noktaları', () => getV('cap', true) !== false, (v) => setV('cap', v), null, { def: true }));
+        out.push(miniToggle('Tepe Noktaları', () => getV('cap', true) !== false, (v) => setV('cap', v), rerender, { def: true }));
+        /* Bar biçimi (#879): Görselleştirici kartındakilerle aynı ayarlar */
+        out.push(miniSegment('Bar Stili', [['solid', 'Düz'], ['segments', 'Segmentli (LED)']], () => getV('barStyle', 'solid'), (v) => setV('barStyle', v), rerender, 'solid'));
+        if (getV('barStyle', 'solid') === 'segments') {
+          out.push(miniSlider('Segment Boyu', () => getV('segmentSize', 0.035), (v) => setV('segmentSize', v), { min: 0.01, max: 0.2, step: 0.005, percent: true, def: 0.035 }));
+          out.push(miniSlider('Segment Aralığı', () => getV('segmentGap', 0.3), (v) => setV('segmentGap', v), { min: 0, max: 0.8, step: 0.02, percent: true, def: 0.3 }));
+        }
+        out.push(miniSlider('Köşe Yuvarlaklığı', () => getV('barRadius', 0.4), (v) => setV('barRadius', v), { min: 0, max: 0.5, step: 0.01, percent: true, def: 0.4 }));
+        out.push(miniSegment('Dolgu', [['flat', 'Düz'], ['gradient', 'Dikey Degrade']], () => getV('barFill', 'flat'), (v) => setV('barFill', v), null, 'flat'));
+        if (getV('cap', true) !== false) {
+          out.push(miniSlider('Tepe Bekleme (sn)', () => getV('capHold', 0), (v) => setV('capHold', v), { min: 0, max: 2, step: 0.05, def: 0 }));
+          out.push(miniSlider('Tepe Düşüş Hızı', () => getV('capFall', 1), (v) => setV('capFall', v), { min: 0.25, max: 4, step: 0.05, def: 1 }));
+          out.push(miniSegment('Tepe Rengi', [['auto', 'Otomatik'], ['custom', 'Özel']], () => getV('capColorMode', 'auto'), (v) => setV('capColorMode', v), rerender, 'auto'));
+          if (getV('capColorMode', 'auto') === 'custom') {
+            out.push(miniColor('Tepe Rengi Seç', () => getV('capColor'), (v) => setV('capColor', v)));
+          }
+        }
         // rerender: Zemin Yansıması Orta'da gizli, yerleşim değişince görünmeli
         out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v), rerender));
         out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true, def: 1}));
@@ -1915,6 +1931,7 @@
         out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.9}));
         out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
         if (getV('position', 'bottom') !== 'center') {
+          out.push(miniSegment('Büyüme Yönü', [['up', 'Yukarı'], ['down', 'Aşağı']], () => getV('barDirection', 'up'), (v) => setV('barDirection', v), null, 'up'));
           out.push(miniSlider('Zemin Yansıması', () => getV('reflection', 0), (v) => setV('reflection', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0 }));
           out.push(miniSlider('Yansıma Boyu', () => getV('reflectionLength', 0.4), (v) => setV('reflectionLength', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.4 }));
         }

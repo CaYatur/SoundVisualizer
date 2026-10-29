@@ -26,6 +26,7 @@
       if (!this.peaks || this.peaks.length !== n) {
         this.peaks = new Float32Array(n);
         this.peakVel = new Float32Array(n);
+        this.peakHold = new Float32Array(n);
       }
     }
 
@@ -69,14 +70,47 @@
       const baseY = H * (v.baseline == null ? defBase : clamp01(v.baseline));
       const defH = v.position === 'center' ? 0.46 : v.position === 'full' ? 0.95 : 0.92;
       const maxH = H * (v.barHeight == null ? defH : clamp01(v.barHeight));
+      /* Biçim (#879). Her ayarın varsayılanı eski çizimi birebir verir:
+         köşe 0,4 × bar genişliği, düz dolgu, yukarı büyüme, beklemesiz
+         tepe, eski düşüş ivmesi, tepe rengi bar renginden. */
+      const centred = v.position === 'center';
+      const down = !centred && v.barDirection === 'down';
+      const radiusK = v.barRadius == null ? 0.4 : Math.max(0, Math.min(0.5, Number(v.barRadius) || 0));
+      const segments = v.barStyle === 'segments';
+      const segH = Math.max(2, maxH * Math.max(0.01, Math.min(0.2, v.segmentSize == null ? 0.035 : Number(v.segmentSize))));
+      const segGap = segH * Math.max(0, Math.min(0.8, v.segmentGap == null ? 0.3 : Number(v.segmentGap)));
+      const gradient = v.barFill === 'gradient';
+      const capHold = Math.max(0, Number(v.capHold) || 0);
+      const capFall = v.capFall == null ? 1 : Math.max(0.1, Math.min(8, Number(v.capFall) || 1));
+      const capOwn = v.capColorMode === 'custom' && v.capColor ? v.capColor : null;
+
       /* Yerleşim kutusu (#534): barların alanı, sesten bağımsız. Düzen
-         editörü yakalamayı bununla yapıyor. Normalize, tuvale göre. */
+         editörü yakalamayı bununla yapıyor. Normalize, tuvale göre.
+         Aşağı büyüyen barlarda kutu tabanın altında. */
       this.layoutBounds = W > 0 && H > 0 ? {
         x: areaX / W,
-        y: (baseY - maxH) / H,
+        y: (down ? baseY : baseY - maxH) / H,
         w: areaW / W,
-        h: (v.position === 'center' ? 2 * maxH : maxH) / H,
+        h: (centred ? 2 * maxH : maxH) / H,
       } : null;
+
+      // Bir yönde bar çiz: dir -1 yukarı, +1 aşağı
+      const drawBar = (x, bh, dir) => {
+        if (!segments) {
+          roundRect(ctx, x, dir < 0 ? baseY - bh : baseY, bw, bh, bw * radiusK);
+          ctx.fill();
+          return;
+        }
+        // LED: tam bloklar; sesin değmediği blok çizilmez
+        const n = Math.max(1, Math.floor((bh + segGap) / segH));
+        const bH = Math.max(1, segH - segGap);
+        const r = Math.min(bw * radiusK, bH / 2);
+        for (let k = 0; k < n; k++) {
+          const y0 = dir < 0 ? baseY - k * segH - bH : baseY + k * segH;
+          roundRect(ctx, x, y0, bw, bH, r);
+          ctx.fill();
+        }
+      };
 
       // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
       ctx.save();
@@ -96,26 +130,38 @@
 
         // renk
         let col;
+        let top = null; // dikey degradenin uç rengi
         const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
         if (colorMode === 'theme') {
           col = window.SV.sampleThemeColor(cfg, i / count);
+          if (gradient) top = window.SV.sampleThemeColor(cfg, Math.min(1, i / count + 0.35));
         } else if (colorMode === 'rainbow') {
           const hue = (i / count) * 320 + t * 12;
           col = `hsl(${hue % 360}, 85%, ${55 + val * 12}%)`;
+          if (gradient) top = `hsl(${(hue + 60) % 360}, 90%, 70%)`;
         } else {
           col = v.color;
+          if (gradient) top = v.color2 || lighten(v.color);
         }
 
-        ctx.fillStyle = col;
+        /* Degrade barın kendi boyuna değil en yüksek bar boyuna göre:
+           kısa bar taban rengini, uzun bar uç rengini de gösterir (ölçer). */
+        const fill = (dir) => {
+          if (!top) return col;
+          const g = ctx.createLinearGradient(0, baseY, 0, baseY + dir * maxH);
+          g.addColorStop(0, col);
+          g.addColorStop(1, top);
+          return g;
+        };
 
-        if (v.position === 'center') {
-          roundRect(ctx, x, baseY - bh, bw, bh, bw * 0.4);
-          ctx.fill();
-          roundRect(ctx, x, baseY, bw, bh, bw * 0.4);
-          ctx.fill();
+        if (centred) {
+          ctx.fillStyle = fill(-1);
+          drawBar(x, bh, -1);
+          ctx.fillStyle = fill(1);
+          drawBar(x, bh, 1);
         } else {
-          roundRect(ctx, x, baseY - bh, bw, bh, bw * 0.4);
-          ctx.fill();
+          ctx.fillStyle = fill(down ? 1 : -1);
+          drawBar(x, bh, down ? 1 : -1);
         }
 
         // tepe noktaları
@@ -123,16 +169,19 @@
           if (val * maxH >= this.peaks[i]) {
             this.peaks[i] = val * maxH;
             this.peakVel[i] = 0;
+            this.peakHold[i] = capHold;
+          } else if (this.peakHold[i] > 0) {
+            this.peakHold[i] = Math.max(0, this.peakHold[i] - dt);
           } else {
             /* 60 Hz'de eski kare adımıyla birebir: ivme H × 0,0009 px/kare²
                = H × 3,24 px/s²; hız px/s, yol hız × dt. */
-            this.peakVel[i] += H * PEAK_ACCEL * dt;
+            this.peakVel[i] += H * PEAK_ACCEL * capFall * dt;
             this.peaks[i] = Math.max(0, this.peaks[i] - this.peakVel[i] * dt);
           }
-          const py = baseY - this.peaks[i] - 3;
-          ctx.fillStyle = (colorMode === 'rainbow') ? col : (colorMode === 'theme' ? lighten(col) : lighten(v.color));
-          ctx.fillRect(x, py, bw, 2.5);
-          if (v.position === 'center') ctx.fillRect(x, baseY + this.peaks[i] + 1, bw, 2.5);
+          ctx.fillStyle = capOwn || ((colorMode === 'rainbow') ? col : (colorMode === 'theme' ? lighten(col) : lighten(v.color)));
+          if (down) ctx.fillRect(x, baseY + this.peaks[i] + 1, bw, 2.5);
+          else ctx.fillRect(x, baseY - this.peaks[i] - 3, bw, 2.5);
+          if (centred) ctx.fillRect(x, baseY + this.peaks[i] + 1, bw, 2.5);
         }
       }
       ctx.restore();
@@ -144,7 +193,8 @@
          'destination-out' degradesiyle yalnız tabanın altında siliniyor.
          Sesten başka hiçbir şeye bağlı değil: canlı ve dışa aktarım aynı. */
       const refl = clamp01(Number(v.reflection) || 0);
-      if (refl > 0 && v.position !== 'center' && baseY < H - 1) {
+      // Aşağı büyüyen barlar tabanın altını zaten dolduruyor; yansıma yok
+      if (refl > 0 && !centred && !down && baseY < H - 1) {
         const len = Math.min(H - baseY, maxH * Math.max(0.05, Math.min(1, v.reflectionLength == null ? 0.4 : Number(v.reflectionLength))));
         if (len >= 1) {
           ctx.save();
