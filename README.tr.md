@@ -406,7 +406,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **CaYaDev MilkDrop Presetleri: 55 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
-  ücretsiz kullanılabilirler: [`presets/cayadev`](presets/cayadev) klasöründen (her birinin görseliyle) ya da
+  ücretsiz kullanılabilirler: [`presets/md3/cayadev`](presets/md3/cayadev) klasöründen (her birinin görseliyle) ya da
   her sürümdeki zip'ten indirebilirsiniz.
 - **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
   bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,
@@ -1439,7 +1439,7 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   *Nabız Örgüsü* (hareket vektörlerinin dokuduğu örgünün üstünde vuruşla zıplayan kareler) — hepsi
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
   de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
-- **CaYaDev MilkDrop Presetleri** ([`presets/cayadev`](presets/cayadev), CC BY 4.0) onların yanında gömülü
+- **CaYaDev MilkDrop Presetleri** ([`presets/md3/cayadev`](presets/md3/cayadev), CC BY 4.0) onların yanında gömülü
   geliyor: sıfırdan yazılmış, MilkDrop 2 ve MilkDrop 3 shader presetleri. Her birinin geçtiği denetimler
   klasörün README'sinde; her sürümdeki zip aynı dosyaları taşıyor.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine

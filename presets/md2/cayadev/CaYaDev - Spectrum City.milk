@@ -136,7 +136,7 @@ comp_27=`  col += top * lerp(palA, palB, rnd.w) * (0.5 + 1.2 * lvl);
 comp_28=`  float tall = step(0.62, rnd.x + lvl);
 comp_29=`  float blink = step(0.5, frac(q4 * 0.7 + rnd.w));
 comp_30=`  float2 ad = (u - float2((k + 0.5) / nb, yb - hgt - 0.008)) * float2(1.0, 0.5625);
-comp_31=`  col += float3(1.0, 0.15, 0.1) * exp(-dot(ad, ad) * 2.0e6) * tall * blink * 2.0;
+comp_31=`  col += float3(1.0, 0.15, 0.1) * exp(-dot(ad, ad) * 2.0e6) * blink * 2.0;
 comp_32=`  return col * saturate(inside + top * 0.5);
 comp_33=`}
 comp_34=`float3 skyAt(float2 u)
