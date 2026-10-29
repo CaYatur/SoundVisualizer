@@ -247,34 +247,69 @@ test('ana süreç: kapı ölçer karesinde, çitli açılış, atış dönemi ta
   assert.match(read('src/main/stream-server.js'), /'peer-beat', 'peer-info', 'ctl', 'ctl-result', 'mon', 'mon-frame', 'handback'/);
 });
 
-test('Art-Net: sıfır kare, ArtDmx çözümü, tanık yabancı kaynağı görüyor', async () => {
+/* UDP için boş kapı: TCP'de boş olan kapı UDP'de dolu olabilir (tanık
+   reuseAddr ile bağlanıyor, paket öteki sokete gidebilir). */
+function freeUdpPort() {
+  const dgram = require('dgram');
+  return new Promise((resolve, reject) => {
+    const s = dgram.createSocket('udp4');
+    s.on('error', reject);
+    s.bind(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+  });
+}
+
+// Koşul gerçekleşene dek bekler; sabit bekleme yavaş CI makinesinde yetmiyordu
+async function until(cond, ms, what) {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) assert.fail('beklenen olmadı: ' + what);
+    await wait(10);
+  }
+}
+
+/* Eskiden sabit 80 ms bekliyordu: Windows CI'da tanık o sürede bağlanmadığı
+   ya da paket gelmediği için düştü, açık kalan soketler de dosyanın sürecini
+   kapatmadı ve koşu 17 dakika asılı kaldı (Node 20). Artık bağlanma ve
+   paketin işlenmesi beklenir, soketler her durumda kapanır. */
+test('Art-Net: sıfır kare, ArtDmx çözümü, tanık yabancı kaynağı görüyor', { timeout: 20000 }, async (t) => {
   const A = require('../src/main/artnet');
+  const dgram = require('dgram');
   const pkt = A.buildPacket({ universe: 7 }, Buffer.alloc(8));
   assert.deepStrictEqual(A.parseDmx(pkt), { universe: 7, length: 8 });
   assert.strictEqual(A.parseDmx(Buffer.from('not art-net packet')), null);
-  const port = await freePort();
+  const open = [];
+  t.after(() => { for (const x of open) { try { x.stop ? x.stop() : x.close(); } catch { /* kapalı */ } } });
+  const listening = (w) => until(() => {
+    if (w.status().error) assert.fail('tanık bağlanamadı: ' + w.status().error);
+    return w.status().listening;
+  }, 5000, 'tanık bağlansın');
+  const send = (s, buf, port) => new Promise((r) => s.send(buf, port, '127.0.0.1', r));
+
+  const port = await freeUdpPort();
   const w = A.createWitness({ port, universe: 7, own: [] });
+  open.push(w);
   w.start();
-  await wait(80);
-  const dgram = require('dgram');
+  await listening(w);
   const s = dgram.createSocket('udp4');
-  await new Promise((r) => s.send(pkt, port, '127.0.0.1', r));
-  await new Promise((r) => s.send(A.buildPacket({ universe: 2 }, Buffer.alloc(8)), port, '127.0.0.1', r));
-  await wait(80);
+  open.push(s);
+  // Önce başka evren, sonra aynı evren: ikincisi görülünce ilki de işlenmiştir
+  await send(s, A.buildPacket({ universe: 2 }, Buffer.alloc(8)), port);
+  await send(s, pkt, port);
+  await until(() => w.foreign().length > 0, 5000, 'aynı evrendeki paket görülsün');
   assert.deepStrictEqual(w.foreign(), ['127.0.0.1'], 'yalnız aynı evren');
   assert.deepStrictEqual(w.foreign(Date.now() + 5000), [], 'pencere dışında unutulur');
-  s.close();
   w.stop();
-  // Kendi adresimiz sayılmaz
-  const w2 = A.createWitness({ port, universe: 7, own: ['127.0.0.1'] });
+
+  // Kendi adresimiz sayılmaz. `own` her eşleşen pakette sorulur: soruldu
+  // demek paket işlendi demek, sonuç beklemeden okunabilir.
+  let asked = 0;
+  const w2 = A.createWitness({ port, universe: 7, own: () => { asked++; return ['127.0.0.1']; } });
+  open.push(w2);
   w2.start();
-  await wait(80);
-  const s2 = dgram.createSocket('udp4');
-  await new Promise((r) => s2.send(pkt, port, '127.0.0.1', r));
-  await wait(80);
+  await listening(w2);
+  await send(s, pkt, port);
+  await until(() => asked > 0, 5000, 'kendi paketimiz işlensin');
   assert.deepStrictEqual(w2.foreign(), []);
-  s2.close();
-  w2.stop();
 });
 
 test('gösteri öncesi denetim: iki yönetici, çit, eski eşleşme, Art-Net hedefi', () => {
