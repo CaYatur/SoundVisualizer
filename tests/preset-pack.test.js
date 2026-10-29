@@ -243,15 +243,24 @@ function checkMd2(name, source) {
 
 test('MD2 klasöründeki varyantlar q32, dört dalga/şekil ve pw_ sınırında', () => {
   const files = fs.readdirSync(MD2_DIR).filter((f) => f.endsWith('.milk'));
-  assert.strictEqual(files.length, 9);
+  assert.strictEqual(files.length, 10);
   for (const f of files) {
-    // Her varyantın aslı ana pakette olmalı
-    assert.ok(fs.existsSync(path.join(root, 'presets', 'md3', 'cayadev', f)), f + ': aslı yok');
+    // Her varyantın aslı ana pakette olmalı; "BeatDrop" ekli kopyalar aynı aslın ayrı sürümüdür
+    const orig = f.replace(/ BeatDrop\.milk$/, '.milk');
+    assert.ok(fs.existsSync(path.join(root, 'presets', 'md3', 'cayadev', orig)), f + ': aslı yok');
     checkMd2(f, fs.readFileSync(path.join(MD2_DIR, f), 'utf-8').replace(/\r\n/g, '\n'));
   }
   const arcade = PACK.find((x) => x.id === 'md_caya_arcade_invaders');
   checkMd2(arcade.id, arcade.source.replace(/\r\n/g, '\n'));
   assert.strictEqual(arcade.md3, false);
+});
+
+// BeatDrop 1.5'in d3dx9_31 derleyicisi anten satırındaki tall çarpanında çöküyor: ayrı kopyada yok, MD2 kopyasında duruyor
+test('Spectrum City BeatDrop kopyası tall çarpanı olmadan, diğerleri tall ile', () => {
+  const rd = (d, f) => fs.readFileSync(path.join(root, 'presets', d, 'cayadev', f), 'utf-8');
+  assert.doesNotMatch(rd('md2', 'CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
+  assert.match(rd('md2', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
+  assert.match(rd('md3', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
 });
 
 test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri gelmiyor', () => {

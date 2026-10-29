@@ -14,9 +14,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **MilkDrop 2 / BeatDrop variants live in [`presets/md2/cayadev/`](presets/md2/cayadev/)**. These copies stay
   within MilkDrop 2 limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers) so they load in
   BeatDrop and other MilkDrop 2 players. They are for export only and are not in the app's preset list.
-  A pack test keeps them within those limits. The MD2 Spectrum City no longer crashes BeatDrop 1.5: its
-  bundled d3dx9_31 shader compiler faulted on the antenna line's `tall` factor, so in this copy antenna
-  lights blink on every tower. The MD3 original keeps tall-only antennas.
+  A pack test keeps them within those limits. BeatDrop 1.5's bundled d3dx9_31 shader compiler crashes on
+  Spectrum City's antenna line (`tall` factor), so a separate `CaYaDev - Spectrum City BeatDrop.milk` drops
+  that factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
 - **Arcade Invaders drops the pw_noise_lq sampler**, which BeatDrop does not provide, and reads the same
   noise from noise_lq.
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
