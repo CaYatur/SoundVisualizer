@@ -185,6 +185,16 @@ gets them as WebP frames over the stream server, which keeps transparency.
 - **Queued scene with a live source.** A queue job keeps the scene as it was when it was added. If that scene had a web or Spout/Syphon layer and the live scene did not, the layer came out black, because sources were opened only for the live scene. Sources of the job's scene now stay open while the job runs, and the export waits up to 5 seconds for their first frame. Checked in the app: a green test page in the queued scene came out black before (1, 0, 2) and green from the first frame after (19, 255, 9); the source closed when the job ended.
 - **YouTube chapter list.** An export split into chapters now writes "YouTube chapters.txt" into its folder without the separate option; a single video still needs the option.
 
+### English interface: the remaining Turkish text [868]
+
+- **Translated** in the English interface:
+  - the web layer's Reload button and Zoom choices;
+  - formula parameter labels;
+  - the built-in MilkDrop presets' descriptions and compile messages, which are now one message per line so each can be translated;
+  - recording and export error messages;
+  - the web layer window's title and the stream server's "invalid or missing token" reply, which follow the app's language.
+- **Covered by a test** (`tests/i18n-english-leftovers.test.js`) that runs these strings through the English translation.
+
 ### Layout Editor and theme card fixes
 
 - **Fresh profile no longer breaks on the first drag.** The Visualizer fields showed 0, 0, 0, 0 and the first drag wrote those zeros back, collapsing the bars into a small icon. Empty bar placement now resolves to the real defaults (position-aware, same as the renderer).
