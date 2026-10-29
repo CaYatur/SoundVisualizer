@@ -1352,6 +1352,26 @@
       return { frozen, missing };
     }
 
+    /* Dışa aktarımda yeni açılan kaynakların (kuyruktaki başka bir sahne)
+       ilk karesi beklenir; `ms` dolunca gelmeyen katman boş başlar.
+       { ready, missing } döndürür. */
+    async waitSources(ms) {
+      const end = Date.now() + (ms > 0 ? ms : 0);
+      let ready = 0;
+      let missing = 0;
+      for (const e of this.entries) {
+        if (!e || !e.source || !e.layer || e.layer.enabled === false) continue;
+        e.source.setLayer(e.layer);
+        let ok = !!e.source.frame();
+        while (!ok && Date.now() < end) {
+          await new Promise((r) => setTimeout(r, 50));
+          ok = !!e.source.frame();
+        }
+        if (ok) ready++; else missing++;
+      }
+      return { ready, missing };
+    }
+
     _disposeEntry(e) {
       // Vekilin tuvali canlı bir katmanın tuvali; ona dokunmak onu silerdi
       if (e.proxyOf) return;

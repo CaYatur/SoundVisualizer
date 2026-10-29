@@ -2387,11 +2387,13 @@ function closeVisualizer(displayId) {
    bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
+  /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
+     yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner.
+     Kaynaklardan ÖNCE: iş biterken kaynaklar yeniden eşitleniyor, sonra
+     kapatılan merkez gizli web sayfalarını yeniden açmasın. */
+  finalizeExport('cancelled');
   // Web katmanının görünmez sayfaları ve etkileşim pencereleri (layer-sources.js)
   if (layerSources) layerSources.shutdown();
-  /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
-     yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
-  finalizeExport('cancelled');
   closeThumbWin();
   closeBridgePlayer();
   // Köprü kipinde durum penceresi köprünün kendisidir; panel kapanınca kalır
@@ -6407,7 +6409,9 @@ function syncLayerSources() {
   const hub = ensureLayerSources();
   if (!hub) return;
   // Köprü kipinde ve öz testin ağsız koşusunda dış kaynak açılmaz
-  hub.sync(BRIDGE_ONLY ? null : currentConfig);
+  /* Dışa aktarılan kuyruk işi başka bir sahne olabilir (#539): o işin web
+     ve Spout/Syphon katmanları da iş bitene dek açık kalır. */
+  hub.sync(BRIDGE_ONLY ? null : (exportSourceCfg ? [currentConfig, exportSourceCfg] : currentConfig));
 }
 
 ipcMain.on('sources:hello', (e, info) => {
@@ -7799,6 +7803,8 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    açılamaması için ikisi ayrı parametre. */
 // Son dışa aktarma işinin yapılandırması: sv-media o işin videolarını da sunar
 let exportMediaCfg = null;
+// Süren video dışa aktarımının yapılandırması: dış kaynakları da açılır
+let exportSourceCfg = null;
 /* Dışa aktarımda video katmanının ara kopyaları (#539, export-media.js):
    her karesi anahtar kare, kare başı sarma ucuz. İş bitince silinir. */
 const exportMedia = require('./export-media');
@@ -8057,6 +8063,10 @@ async function startExportJob(opts, bench, extra) {
     chapterNames: chapters ? chapters.names : null, ext: fmt.ext, chapterListText,
     analysisData: null, startedAt: 0, total: 0,
   };
+  if (jobCfg !== currentConfig) {
+    exportSourceCfg = jobCfg;
+    syncLayerSources();
+  }
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
      özetleri. Özet, hızlandırmanın görüntüyü değiştirmediğini kanıtlamak
      için: aynı iş aynı kareleri vermeli. */
@@ -8137,6 +8147,9 @@ async function startExportJob(opts, bench, extra) {
     alpha: !!fmt.alpha,
     // Kusursuz döngüde canlı kaynak katmanları (web sayfası, Spout/Syphon) dondurulur
     loopFreeze: !!loop,
+    /* Canlı sahne değilse kaynakları iş başında yeni açıldı: ilk kareleri
+       beklenir, yoksa videonun başında katman boş kalır (ms) */
+    sourceWait: exportSourceCfg ? 5000 : 0,
     pix,
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
     durationSec: renderSec,
@@ -8451,6 +8464,10 @@ function finalizeExport(status, message, opts) {
     };
   }
   exportState = null;
+  if (exportSourceCfg) {
+    exportSourceCfg = null;
+    syncLayerSources();
+  }
 
   const proc = ffmpegProc;
   if (status !== 'done' && ffmpegProc) {

@@ -487,6 +487,40 @@ test('dağıtıcı: sessiz katman kare üretmez; sahneden çıkan kaynak geçiş
   h.shutdown();
 });
 
+test('dağıtıcı: kuyruktaki sahnenin kaynakları dışa aktarım boyunca açık kalır', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const gpu = fakeGpu();
+  const br = fakeBridge();
+  const h = hub(gpu, br);
+  const live = inputCfg({ id: 'A', settings: { input: { sender: 'TD' } } });
+  const job = inputCfg({ id: 'B', settings: { input: { sender: 'Resolume' } }, muted: true });
+  job.layers.push({ id: 'C', kind: 'input', settings: { input: { sender: 'TD' } } });
+  h.sync([live, job]);
+  const keys = Object.keys(h.status()).sort();
+  assert.deepStrictEqual(keys, ['in:|Resolume', 'in:|TD'], 'iki sahnenin kaynakları, aynısı bir kez');
+  assert.strictEqual(h.status()['in:|Resolume'].active, false, 'işte sessiz katman sessiz kalır');
+  // İş bitti: yalnız canlı sahne; işin kaynağı geçiş süresinden sonra kapanır
+  h.sync(live);
+  t.mock.timers.tick(LS.GRACE_MS + 10);
+  assert.deepStrictEqual(Object.keys(h.status()), ['in:|TD']);
+  h.shutdown();
+});
+
+test('dışa aktarım: kuyruk işinin kaynakları eşitlenir, panel kapanışı merkezi yeniden açmaz', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /hub\.sync\(BRIDGE_ONLY \? null : \(exportSourceCfg \? \[currentConfig, exportSourceCfg\] : currentConfig\)\);/);
+  assert.match(main, /if \(jobCfg !== currentConfig\) \{\s*\n\s*exportSourceCfg = jobCfg;\s*\n\s*syncLayerSources\(\);/);
+  assert.match(main, /exportState = null;\s*\n\s*if \(exportSourceCfg\) \{\s*\n\s*exportSourceCfg = null;\s*\n\s*syncLayerSources\(\);/);
+  assert.match(main, /sourceWait: exportSourceCfg \? 5000 : 0,/);
+  // closeHelperWindows: iş önce biter (kaynakları eşitler), merkez sonra kapanır
+  const body = main.slice(main.indexOf('function closeHelperWindows() {'));
+  const fin = body.indexOf("finalizeExport('cancelled');");
+  const shut = body.indexOf('layerSources.shutdown();');
+  assert.ok(fin > 0 && shut > fin, 'finalizeExport merkez kapanmadan önce');
+  assert.match(read('src/exporter/exporter.js'), /else if \(job\.sourceWait > 0\) await stack\.waitSources\(job\.sourceWait\);/);
+  assert.match(read('src/visualizer/layers.js'), /async waitSources\(ms\) \{/);
+});
+
 test('dağıtıcı: kapanan ya da yenilenen pencereye kare gitmez', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
   const gpu = fakeGpu();
