@@ -15,8 +15,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   MilkDrop 2 originals, [`presets/original/md3/cayadev/`](presets/original/md3/cayadev/) holds only the MilkDrop 3 originals,
   and the app embeds both. Reduced copies for MilkDrop 2 players and older shader compilers stay in
   [`presets/compat/md/cayadev/`](presets/compat/md/cayadev/) and are not in the preset list. Those copies stay within MilkDrop 2
-  limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers). `CaYaDev - Spectrum City BeatDrop.milk`
-  in that folder drops the antenna `tall` factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
+  limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers). `CaYaDev - Spectrum City Old Compiler.milk`
+  in that folder is the older-compiler copy: it drops the antenna `tall` factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
 - **Arcade Invaders drops the pw_noise_lq sampler** and reads the same noise from noise_lq.
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
   peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
