@@ -138,7 +138,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3664 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3666 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27

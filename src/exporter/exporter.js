@@ -272,6 +272,8 @@
     /* Kusursuz döngü: canlı kaynaklar (web sayfası, Spout/Syphon) kendi
        saatiyle akıyor, son kare başa bağlanmaz. O anki kare dondurulur. */
     if (job.loopFreeze) await stack.freezeSources(8000);
+    // Kuyruktaki başka bir sahnenin kaynakları yeni açıldı: ilk kareleri beklenir
+    else if (job.sourceWait > 0) await stack.waitSources(job.sourceWait);
     // Son-işlem zinciri dışa aktarımda da uygulanır; efektler ekrandakiyle
     // aynı sırada ve aynı parametrelerle çalışır.
     if (Array.isArray(cfg.postfx) && cfg.postfx.length && window.SVPostFX) {

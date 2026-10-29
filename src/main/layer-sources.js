@@ -800,8 +800,27 @@ function create(deps) {
 
   // ---- Senkron: yapılandırmadan kaynak kümesi ---------------------------
 
+  /* `cfg` tek yapılandırma ya da dizi: dışa aktarılan kuyruk işinin sahnesi
+     canlı sahne olmayabilir, o işin katmanlarının kaynakları da açık kalır.
+     Aynı anahtar iki yapılandırmada varsa ilkinin ayarı geçerli, etkinlik
+     ikisinden biri açıksa açık. */
+  function wantedOf(cfg) {
+    const all = Array.isArray(cfg) ? cfg : [cfg];
+    const out = [];
+    const byKey = new Map();
+    for (const c of all) {
+      for (const w of SL.wanted(c)) {
+        const had = byKey.get(w.key);
+        if (had) { if (w.active) had.active = true; continue; }
+        byKey.set(w.key, w);
+        out.push(w);
+      }
+    }
+    return out;
+  }
+
   function sync(cfg) {
-    const list = SL.wanted(cfg);
+    const list = wantedOf(cfg);
     const keep = new Set();
     for (const w of list) {
       keep.add(w.key);

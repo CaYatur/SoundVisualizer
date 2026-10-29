@@ -182,6 +182,7 @@ gets them as WebP frames over the stream server, which keeps transparency.
 - **Layer status.** A web or input layer that is switched off, muted or not soloed shows "paused" and 0 fps instead of "live".
 - **Page size on small screens.** The hidden page window was clamped to the screen, so a 1920x1080 page on a 1280x1024 screen was laid out at 1279x1023 and lost its aspect ratio. The window is sized after creation, so the page keeps the configured size.
 - **Seamless loop with a live source.** A page with a running timer cannot meet itself at the loop point. The export now freezes web and Spout/Syphon layers at their picture when the export starts, and the panel says so.
+- **Queued scene with a live source.** A queue job keeps the scene as it was when it was added. If that scene had a web or Spout/Syphon layer and the live scene did not, the layer came out black, because sources were opened only for the live scene. Sources of the job's scene now stay open while the job runs, and the export waits up to 5 seconds for their first frame. Checked in the app: a green test page in the queued scene came out black before (1, 0, 2) and green from the first frame after (19, 255, 9); the source closed when the job ended.
 - **YouTube chapter list.** An export split into chapters now writes "YouTube chapters.txt" into its folder without the separate option; a single video still needs the option.
 
 ### Layout Editor and theme card fixes
