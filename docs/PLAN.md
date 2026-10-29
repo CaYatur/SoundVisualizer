@@ -1,4 +1,4 @@
-> **v3.1.1 shipped.** The application now has macOS and Linux packages, RGB lighting on all three platforms through OpenRGB, and Spout/Syphon output over the GPU. The audio helper no longer needs a Node.js beside it anywhere. Four of those features have never run on real hardware, and ROADMAP.md says which under "Shipped, but never run on real hardware" rather than leaving it to be discovered. Next: v3.1.2 — per-application audio capture.
+> **This is the plan of the 3.0 cycle, kept as a record.** The current release is v3.1.6; what shipped since v3.0 and what comes next (v3.1.7: the interface redesign, then the music video studio) is in [ROADMAP.md](../ROADMAP.md).
 
 > **131 / 227** tasks complete. Every unticked box now carries a milestone: the timeline and clip deck work moved to v3.1.0, and the rest to the backlog. The v3.0.0 milestone is closed with 150 issues.
 
