@@ -249,10 +249,10 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
 - **Tek tek uygulamalar** (Windows) — WASAPI süreç loopback'i. Yalnız seçilen uygulamaları ya da bir
   uygulama *dışındaki* her şeyi yakalayın. Hedefler çalıştırılabilir dosya adıyla saklanır: yeniden
   başlayan bir uygulama kendiliğinden yeniden bağlanır, henüz açılmamış bir uygulama açılınca
-  yakalanır. Windows 20348 ya da üstü gerekir. <kbd>3.1.6</kbd> Linux'ta PulseAudio'nun akış başına
+  yakalanır. Windows 20348 ya da üstü gerekir. Linux'ta PulseAudio'nun akış başına
   izleyicileri kullanılıyor (pulseaudio-utils'ten `pactl` ve `parec`). macOS 13+'da ScreenCaptureKit
   kullanılıyor ve Ekran Kaydı izni gerekiyor; macOS yolu henüz gerçek bir Mac'te çalıştırılmadı.
-  <kbd>3.1.6</kbd> Seçicideki her uygulamanın yanında canlı bir seviye göstergesi var; seçmeden önce
+  Seçicideki her uygulamanın yanında canlı bir seviye göstergesi var; seçmeden önce
   hangisinin ses çıkardığını görürsünüz.
 - **Aynı anda birkaç kaynak**, çözümlemeden önce karıştırılır — "Spotify + mikrofon" tek bir seçimdir.
 - **İki kanal da görsellere ulaşıyor**. Her kare tek kanallı karışımın yanında sol ve
@@ -350,7 +350,7 @@ Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birin
 
 Bar sayısı, en düşük ve en yüksek frekans, aralık, yerleşim (alt, orta ya da tam), ayna, çizgi
 kalınlığı, genlik, hassasiyet ve parlama, seçili mod için anlamlı olduklarında görünüyor. Renk sahne
-paletinden, özel bir renk çiftinden ya da **gökkuşağından** geliyor. <kbd>3.1.6</kbd> Alt kenarın üstünde
+paletinden, özel bir renk çiftinden ya da **gökkuşağından** geliyor. Alt kenarın üstünde
 bir taban çizgisinde duran barlar aşağı doğru sönen bir **zemin yansıması** bırakabiliyor (güç ve
 boy).
 
@@ -603,7 +603,7 @@ doğruluyor.
   Flow Field, Interference
 - *Yayın (6)* — Corner Bars, Clean Wave, Ring Meter, Scope Overlay, Lower Third, Studio Meters
 - *Müzik Videosu (13)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
-  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card ve <kbd>3.1.6</kbd> videonun başı ve sonu için öğeleri açılış animasyonuyla gelen Title Card ile End Card. Kapak, parça adı ve sanatçı
+  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card ve videonun başı ve sonu için öğeleri açılış animasyonuyla gelen Title Card ile End Card. Kapak, parça adı ve sanatçı
   tek bir Çalan Parça katmanından geliyor; kapak her en-boy oranında yazının yanında aynı boşlukla
   duruyor. Panel önizlemesinde parça çalmıyorken kartta yer tutucu yazı görünür.
 - *Müzik Arka Planı (6)* — Aurora Backdrop, Flow Backdrop, Nebula Backdrop, MilkDrop Backdrop, Galaxy
@@ -619,7 +619,7 @@ doğruluyor.
 **Müzik videosu düzenleri.** Yayın videoları ve resmî kanallar için sade düzenler, kulüp
 malzemesinden bilerek ayrı: karenin oranı olarak bar yerleşimi, grensiz düz bir zemin, ve kapak,
 parça adı ile sanatçı tek bir kart olarak. Kapak her en-boy oranında yazının yanında aynı boşlukla
-duruyor; barlar kartla aynı kenar boşluğunda. <kbd>3.1.6</kbd> Düzen editöründe 9:16 ve 1:1,
+duruyor; barlar kartla aynı kenar boşluğunda. Düzen editöründe 9:16 ve 1:1,
 kısa video uygulamalarının arayüzünü çizdiği yerleri de taralı kılavuz olarak gösteriyor (üst
 çubuk, yan düğmeler, açıklama alanı; kare gönderide profil ızgarasının 3:4 kırpması); yazı ve logo
 onların dışında tutulabiliyor. Kılavuzlar videoya girmiyor.
@@ -702,16 +702,16 @@ haber bandı · karaoke vurgusu.
 - **Medya katmanı** — bir web kamerası ya da video dosyası, görselleştiricinin önünde ya da arkasında;
   sığdırma (kapla, sığdır, uzat), ayna, 3–12 dilimli kaleydoskop, ton kayması, doygunluk, karışım kipi,
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
-  okunabiliyor. <kbd>3.1.6</kbd> Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
+  okunabiliyor. Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
   kısa bir **vuruşta nabız** çizim saatine bağlı; dışa aktarım ekrandaki hareketin aynısını gösteriyor.
-- <kbd>3.1.6</kbd> **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
+- **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
   kendi içine dönemez. Sığdırma, ayna, dikey çevirme, göndericinin saydamlığını koruma ya da atma
   ve gönderici durunca son kareyi tutma. Kartta ya da Düzen Editöründe sürükleyerek yerleştirip
   boyutlandırılıyor. Uygulamadan sonra açılan, yeniden başlayan ya da çöktükten
   sonra adına `_1` eklenerek dönen gönderici yeniden bulunuyor. Windows ve macOS.
-- <kbd>3.1.6</kbd> **Web sayfası katmanı** — herhangi bir web sayfası katman olarak: uyarılar,
+- **Web sayfası katmanı** — herhangi bir web sayfası katman olarak: uyarılar,
   sohbet, skor tablosu, saat, pano. Sayfa boyutu, kare hızı, yakınlaştırma, saydam arkaplan, özel
   CSS, kendiliğinden yenileme ve oturum açmak ya da çerez onayını vermek için bir **Etkileşim**
   penceresi. Sayfa kendi korumalı oturumunda çalışıyor: uygulamaya, dosyalarınıza, kameraya ve
@@ -1005,7 +1005,7 @@ ekranın solundaki renkleri alıyor.
   iptal ve GPU'dan CPU'ya geri düşmeyle. Deterministik: aynı iş aynı videoyu veriyor; görsel gerileme
   testlerinin dayandığı özellik bu. Ad, sanatçı, albüm ve kapak dosyadan okunup Çalan Parça'ya ve metin
   katmanlarına veriliyor.
-- <kbd>3.1.6</kbd> **On iki dışa aktarma biçimi.** H.264, H.265 ya da 10 bit H.265 MP4, kurgu için ProRes 422 HQ ve
+- **On iki dışa aktarma biçimi.** H.264, H.265 ya da 10 bit H.265 MP4, kurgu için ProRes 422 HQ ve
   DNxHR HQ, VP9 WebM, GIF ve APNG döngüleri, PNG ya da doğrusal OpenEXR kare dizileri. ProRes 4444,
   VP9, APNG, PNG ve EXR bindirme için alfa kanalını koruyor. Dikey 1080×1920 ve kare 1080×1080,
   24–60 fps. GPU kodlayıcısı NVIDIA NVENC, AMD AMF ya da Intel Quick Sync; hangisi bilgisayarınızda
@@ -1018,15 +1018,15 @@ ekranın solundaki renkleri alıyor.
   gösteri tek render'dan zaman çizelgesinin işaretçilerinde, onların adlarını taşıyan dosyalara
   bölünebiliyor. Toplu kuyruk bir sahneyi birçok şarkıya ya da bir şarkıyı birkaç boyuta
   çıkarıyor ve hata veren bir işte durmuyor.
-- <kbd>3.1.6</kbd> **Kusursuz döngüler ve Spotify Canvas profili.** Döngü dışa aktarımı süreyi ve
+- **Kusursuz döngüler ve Spotify Canvas profili.** Döngü dışa aktarımı süreyi ve
   kısa bir çapraz geçişi çizip sonu başa karıştırıyor; son kare ilk kareye akıyor, geri beslemeli
   ve MilkDrop sahnelerinde de. Döngüler sessiz, aynı iş hep aynı dosyayı veriyor. Spotify Canvas
   profili 1080×1920, 8 saniyelik sessiz bir döngü yapıyor; GIF döngüleri de aynı yolla kapanıyor.
-- <kbd>3.1.6</kbd> **Zaman çizelgesi işaretçilerinden YouTube bölümleri.** Tek tıkla video
+- **Zaman çizelgesi işaretçilerinden YouTube bölümleri.** Tek tıkla video
   açıklaması için "0:00 Giriş" satırları olarak kopyalanıyor ya da dışa aktarım videonun yanına
   yazıyor. YouTube'un kabul etmeyeceği durumu söylüyor: ilk bölüm 0:00'da, en az üç bölüm, her
   biri en az 10 saniye.
-- <kbd>3.1.6</kbd> **Ses analizi dosya olarak.** Dışa aktarım uygulamanın şarkıda ölçtüklerini de
+- **Ses analizi dosya olarak.** Dışa aktarım uygulamanın şarkıda ölçtüklerini de
   yazabiliyor; "Yalnız Ses Analizi" video çizmeden yazıyor:
   - `<ad> - analysis.json` ve `.csv`: videonun her karesi için bir satır; bantlar, serbest bantlar,
     gürlük, tını, on iki nota sınıfı, akor, tonalite, BPM ve vuruşlar;
@@ -1036,13 +1036,13 @@ ekranın solundaki renkleri alıyor.
   N. satır videonun N. karesi; aynı dosya ve aynı kare hızı her zaman aynı dosyaları veriyor. CSV
   virgülle ayrılmış, ondalık ayırıcı nokta: Türkçe Excel'de Veri > Metinden ile açıp virgülü
   seçin. Kusursuz döngüyle birlikte yok, çünkü döngünün çıktısı çizimin ortasından başlıyor.
-- <kbd>3.1.6</kbd> **Canlı kayıt zaman çizelgesini izleyebiliyor**: çalma başlayınca başlıyor,
+- **Canlı kayıt zaman çizelgesini izleyebiliyor**: çalma başlayınca başlıyor,
   duraklatma, durdurma ya da sonda bitiyor; taşımayı MIDI, OSC ya da bir yapay zekâ ajanı sürse de.
 - Çıkışın göründüğü gibi **canlı kaydı** — canlı ses, modülasyon, geçişler ve efektlerle — MP4 ya da
   WebM'e, tek tuşla.
 - Tek geçiş gözle görülür bantlandığı için iki geçişli palet üretimli **GIF dışa aktarma**.
 - Bir kısayolla 4×'e kadar **PNG anlık görüntü**.
-- <kbd>3.1.6</kbd> **YouTube küçük resmi**: ekrandaki kareden 1280×720 JPEG, YouTube'un 2 MB
+- **YouTube küçük resmi**: ekrandaki kareden 1280×720 JPEG, YouTube'un 2 MB
   sınırının altında. Açık bir çıkış penceresinden tam çözünürlükte alınıyor (panel önizlemesi
   küçük), ortadan 16:9'a kırpılıyor.
 - Yaygın en-boy oranları için **dışa aktarma kalıpları**.
@@ -1260,10 +1260,10 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   aralıklar** sürgü sınırlarını 5 katına çıkarıyor.
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test
   başarısız oluyor.
-- <kbd>3.1.6</kbd> **Arayüz temaları**: CaYaDev, Karanlık, Aydınlık, Yüksek Karşıtlık, Gece Mavisi, Sepya
+- **Arayüz temaları**: CaYaDev, Karanlık, Aydınlık, Yüksek Karşıtlık, Gece Mavisi, Sepya
   ve Neon; ya da sistemin açık/koyu ayarını izleyen, varsayılan olarak seçili Cihaz varsayılanı. Her temanın karşıtlığı
   sınanıyor: öz test çizdiği her yazıyı ölçüyor.
-- <kbd>3.1.6</kbd> **Okunabilirlik**: %90 ile %150 arasında Arayüz Boyutu (<kbd>Ctrl</kbd> +
+- **Okunabilirlik**: %90 ile %150 arasında Arayüz Boyutu (<kbd>Ctrl</kbd> +
   <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> ile de) ve 11 px'ten küçük yazı yok. Hareketleri Azalt
   paneldeki animasyonları kapatır. Sistem daha fazla karşıtlık isterse Cihaz varsayılanı Yüksek
   Karşıtlık'a geçer; Windows karşıtlık temalarında anahtarlar ve seçimler görünür kalır.
@@ -1298,10 +1298,10 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 
 ### Gösteri güvencesi: gösteri öncesi denetim, yedeklilik ve ses köprüsü
 
-- <kbd>3.1.6</kbd> **Gösteri Öncesi Denetim** (Gösteri kategorisi) — ekranlar, ses, her çıkışın kare
+- **Gösteri Öncesi Denetim** (Gösteri kategorisi) — ekranlar, ses, her çıkışın kare
   hızı ve yenileme hızı, sahnenin kullandığı dosyalar (nerede kullanıldığı ve düzeltmesiyle), yedek,
   yetki ve disk; 3 saniyede bir yenilenir.
-- <kbd>3.1.6</kbd> **İki makineyle sıcak yedek** — yedek aynı görüntüyü sürekli çizer; birincilin
+- **İki makineyle sıcak yedek** — yedek aynı görüntüyü sürekli çizer; birincilin
   süreci ölünce ~0,4–0,5 sn'de, takılır ya da ağ koparsa kayıp eşiğinde (1,5 sn) yetkiyi alır. Ekran
   kararmaz; seyirciye gideni görüntü anahtarlayıcısı seçer.
   - Yedek kendi gösterisini korur: birincilin kopyası ayrı alanda, presetler ve logolar tek tek
@@ -1313,7 +1313,7 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   - Her kategorinin üstünde **durum bandı**, devralmada alarm, iki makinenin ölçüleri birlikte
     sayması için vuruş ızgarası eşlemesi ve tarayıcı kaynağı yedeğe geçsin diye **OBS yedek adresi**.
   - İki yönlü HMAC sınamasıyla eşleşme; parola ağa hiç çıkmaz.
-- <kbd>3.1.6</kbd> **Ses köprüsü** — bir makine (ya da üçüncü bir aygıt) sesi, çözümlemeyi ve çalan
+- **Ses köprüsü** — bir makine (ya da üçüncü bir aygıt) sesi, çözümlemeyi ve çalan
   parçayı yerel ağdan gönderir; birincil ve yedek aynı sinyali çözümler. Yerel girişe kendiliğinden
   dönüş, ağda bulma, tepsi simgeli yalnız köprü kipi ve ortak saate göre çalınan dinlenebilir ses.
   Köprünün kendi penceresi var: durum, kaynaklar ve ayarlar (ad, parola, port, bu makinenin
@@ -1839,7 +1839,7 @@ olmayan bir sertifika gerekiyor — CI'de derlenen bir kurulum farklı bir ürü
 
 ### macOS'ta ilk açılış
 
-<kbd>3.1.6</kbd> Uygulama **macOS 13 Ventura veya sonrasını** istiyor; Electron 44 macOS 12 desteğini bıraktı.
+Uygulama **macOS 13 Ventura veya sonrasını** istiyor; Electron 44 macOS 12 desteğini bıraktı.
 
 **macOS paketleri imzasız** ve onaylı değil. macOS imzasız indirmeleri karantinaya alıyor ve *hasarlı,
 açılamıyor* diyor; macOS 15 ve sonrasında sağ tıklayıp **Aç**'ı seçmek bunu kaldırmıyor. Uygulamayı
@@ -1994,9 +1994,9 @@ Zaman çizelgesi düzenleyicisinin ve klip destesinin kendi kısayolları var; p
 kaydediyor — v3.1.0'da Zaman Çizelgesi ve Klip Destesi, v3.1.1'de OpenRGB ve Spout/Syphon'la çapraz
 platform derlemeler, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başına ses yakalama ve
 basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu, v3.1.5'te
-MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme. Sırada
-çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni düzenleyicisi ve kare eşitlemeli
-yedeklilikle v3.1.6, ardından v3.1.7'de müzik videosu stüdyosu var. Neyin
+MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
+müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
+düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri. Sırada ne olduğunu da yazıyor; neyin
 *yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 

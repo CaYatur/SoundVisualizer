@@ -3,10 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v3.1.6 — ready, not yet released
-
-`package.json` on `main` is 3.1.6 and the release is ready, but there is no tag and no GitHub Release
-yet, so the in-app updater still sees v3.1.5 as the latest release. The date is set when it is published.
+## v3.1.6 — 2026-10-29
 
 The broadcast layout editor (#533) and redundancy (#540) were first planned for v3.1.7 and v3.2.0.
 They were built ahead of time and ship in 3.1.6, together with video export. The sections up to the
