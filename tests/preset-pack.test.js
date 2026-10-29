@@ -226,6 +226,27 @@ test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   }
 });
 
+// MD2/BeatDrop uyumu için düzeltilen presetler: MilkDrop 2 yalnız q1..q32'yi, dört dalgayı ve
+// dört şekli tanıyor; pw_ örnekleyicileri de BeatDrop'ta yok. Bu presetler bu sınırların içinde kalmalı.
+test('MD2 için paketlenen presetler q32, dört dalga/şekil ve pw_ sınırında', () => {
+  const ids = ['harmonograph', 'harp_strings', 'twelve_moons', 'firefly_meadow', 'constellations',
+    'night_bloom', 'tesla_coil', 'smoke_ribbons', 'spectrum_city', 'arcade_invaders'].map((s) => 'md_caya_' + s);
+  for (const id of ids) {
+    const p = PACK.find((x) => x.id === id);
+    assert.ok(p, id + ' pakette yok');
+    const qs = (p.source.match(/\bq\d+\b/g) || []).map((q) => +q.slice(1));
+    assert.ok(Math.max(0, ...qs) <= 32, id + ': q32 üstü kullanılmış');
+    for (const kind of ['wavecode', 'shapecode']) {
+      const on = new Set();
+      for (const m of p.source.matchAll(new RegExp('^' + kind + '_(\\d+)_enabled=1', 'gm'))) on.add(m[1]);
+      assert.ok(on.size <= 4, id + ': ' + kind + ' dörtten fazla');
+      for (const n of on) assert.ok(+n < 4, id + ': ' + kind + '_' + n + ' MD2 tarafından çizilmez');
+    }
+    assert.doesNotMatch(p.source, /\bsampler_pw_/, id + ': pw_ örnekleyicisi var');
+    assert.strictEqual(p.md3, false, id + ': MilkDrop 3 işareti kalmış');
+  }
+});
+
 test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri gelmiyor', () => {
   // Uzaylı ölüm sayaçları (k0..k10) yalnızca dalga temizlenince (wc) sıfırlanmalı;
   // istila (go) skoru siler, sağ kalanları tepeye çeker ama ölüleri diriltmez.

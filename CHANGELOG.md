@@ -7,6 +7,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
+- **Eight CaYaDev presets now play in full on MilkDrop 2 and BeatDrop** (Harmonograph, Harp Strings,
+  Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons). They used q33 and up
+  and more than four custom waves, which MilkDrop 2 does not have, so those players showed only part of each
+  scene. The q values are packed into q1 to q32 and the figures are merged into four custom waves, with
+  hidden points at the joins so no connecting lines show. They are no longer MilkDrop 3 presets.
+- **Spectrum City, Arcade Invaders and four of the presets above drop the pw_noise_lq sampler**, which
+  BeatDrop does not provide. They read the same point-sampled noise from noise_lq. Spectrum City's comp shader
+  now computes the sky and the city once instead of in both the skyline and the reflection branch.
+- A pack test keeps these presets within MilkDrop 2 limits: q32, four waves and shapes, no pw_ samplers.
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
   peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
   stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids.

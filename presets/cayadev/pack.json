@@ -43,10 +43,9 @@
       "file": "CaYaDev - Twelve Moons.milk",
       "id": "md_caya_twelve_moons",
       "category": "space",
-      "md3": true,
       "description": {
-        "tr": "Halkalı bir gaz devinin çevresinde, her biri dalga biçimiyle şekillenen on iki ay. MilkDrop 3 presetidir; MilkDrop 2 oynatıcıları ilk dört ayı gösterir.",
-        "en": "Twelve moons shaped by the waveform orbit a ringed gas giant. A MilkDrop 3 preset; MilkDrop 2 players show the first four moons."
+        "tr": "Halkalı bir gaz devinin çevresinde, her biri dalga biçimiyle şekillenen on iki ay. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "Twelve moons shaped by the waveform orbit a ringed gas giant. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
@@ -134,10 +133,9 @@
       "file": "CaYaDev - Night Bloom.milk",
       "id": "md_caya_night_bloom",
       "category": "space",
-      "md3": true,
       "description": {
-        "tr": "Bir şehrin üstünde havai fişek gösterisi: her vuruş sıradaki fişeği patlatıyor. MilkDrop 3 presetidir (sekiz fişek); MilkDrop 2 oynatıcıları dördünü gösterir.",
-        "en": "A fireworks show over a city skyline; each beat fires the next shell. A MilkDrop 3 preset (eight shells); MilkDrop 2 players show four."
+        "tr": "Bir şehrin üstünde havai fişek gösterisi: her vuruş sıradaki fişeği patlatıyor. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "A fireworks show over a city skyline; each beat fires the next shell. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
@@ -298,30 +296,27 @@
       "file": "CaYaDev - Tesla Coil.milk",
       "id": "md_caya_tesla_coil",
       "category": "club",
-      "md3": true,
       "description": {
-        "tr": "Karanlık bir laboratuvarda Tesla bobini: toroidden havaya kıvrılarak uzanan sekiz deşarj saniyede bir düzine kez yön değiştiriyor, her vuruşta topraklı küreye ana ark çakıyor. Bobin, toroid, küre ve ıslak zemin deşarjların ışığıyla aydınlanıyor; dalga biçimi arkların şekline karışıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında ana ark ve üç deşarj görünür.",
-        "en": "A Tesla coil in a dark lab: eight streamers crawl off the toroid into the air and re-roll their path a dozen times a second, and each beat strikes the main arc to the grounded sphere. The coil, toroid, sphere and wet floor are lit by the discharges, and the waveform is folded into the arcs. A MilkDrop 3 preset; MilkDrop 2 players show the main arc and three streamers."
+        "tr": "Karanlık bir laboratuvarda Tesla bobini: toroidden havaya kıvrılarak uzanan sekiz deşarj saniyede bir düzine kez yön değiştiriyor, her vuruşta topraklı küreye ana ark çakıyor. Bobin, toroid, küre ve ıslak zemin deşarjların ışığıyla aydınlanıyor; dalga biçimi arkların şekline karışıyor. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "A Tesla coil in a dark lab: eight streamers crawl off the toroid into the air and re-roll their path a dozen times a second, and each beat strikes the main arc to the grounded sphere. The coil, toroid, sphere and wet floor are lit by the discharges, and the waveform is folded into the arcs. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
       "file": "CaYaDev - Harmonograph.milk",
       "id": "md_caya_harmonograph",
       "category": "geometric",
-      "md3": true,
       "description": {
-        "tr": "Harmonograf levhalarından bir duvar: on kalem, eski sarkaçlı çizim makinesi gibi her biri kendi levhasında sönümlü bir iki sarkaç figürü çiziyor; frekans oranları yavaşça kayıyor ve figürler rozetlerden düğümlere içe doğru sarmallanıyor. Çizim levhada kalıyor; sessizlikten sonraki güçlü bir vuruş yeni bir salınım başlatıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört figür çizilir.",
-        "en": "A wall of harmonograph plates: like the old pendulum drawing machine, ten pens each trace a damped two-pendulum figure on their own plate, the frequency ratios slowly detune and the figures spiral inward from rosettes to knots. The drawing stays on the plate, and a strong beat after a quiet spell starts a new swing. A MilkDrop 3 preset; MilkDrop 2 players draw four figures."
+        "tr": "Harmonograf levhalarından bir duvar: on kalem, eski sarkaçlı çizim makinesi gibi her biri kendi levhasında sönümlü bir iki sarkaç figürü çiziyor; frekans oranları yavaşça kayıyor ve figürler rozetlerden düğümlere içe doğru sarmallanıyor. Çizim levhada kalıyor; sessizlikten sonraki güçlü bir vuruş yeni bir salınım başlatıyor. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "A wall of harmonograph plates: like the old pendulum drawing machine, ten pens each trace a damped two-pendulum figure on their own plate, the frequency ratios slowly detune and the figures spiral inward from rosettes to knots. The drawing stays on the plate, and a strong beat after a quiet spell starts a new swing. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
       "file": "CaYaDev - Smoke Ribbons.milk",
       "id": "md_caya_smoke_ribbons",
       "category": "ambient",
-      "md3": true,
       "description": {
-        "tr": "Karanlık bir odada sekiz tütsü çubuğu, her biri renkli bir duman şeridi bırakıyor: duman alçakta düzgün yükseliyor, yukarıda kıvrımlara bölünüp inceliyor. Bas türbülansı artırıyor, dalga biçimi dumanı salındırıyor, tizler çubuk uçlarını parlatıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört şerit görünür.",
-        "en": "Eight incense sticks in a dark room, each releasing a ribbon of coloured smoke that rises smoothly low down and breaks into thinning curls higher up. Bass gusts the turbulence, the waveform sways the plumes, treble makes the tips glow. A MilkDrop 3 preset; MilkDrop 2 players show four ribbons."
+        "tr": "Karanlık bir odada sekiz tütsü çubuğu, her biri renkli bir duman şeridi bırakıyor: duman alçakta düzgün yükseliyor, yukarıda kıvrımlara bölünüp inceliyor. Bas türbülansı artırıyor, dalga biçimi dumanı salındırıyor, tizler çubuk uçlarını parlatıyor. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "Eight incense sticks in a dark room, each releasing a ribbon of coloured smoke that rises smoothly low down and breaks into thinning curls higher up. Bass gusts the turbulence, the waveform sways the plumes, treble makes the tips glow. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
@@ -400,20 +395,18 @@
       "file": "CaYaDev - Firefly Meadow.milk",
       "id": "md_caya_firefly_meadow",
       "category": "ambient",
-      "md3": true,
       "description": {
-        "tr": "Alacakaranlıkta bir çayırın üstünde ateş böcekleri: on iki sürü, otların arasındaki yuvaları çevresinde yavaşça süzülüp her biri kendi ritmiyle yanıp sönüyor, güçlü bir vuruşta hep birlikte parlıyor. Gökyüzünde ilk yıldızlar, ağaç sırası ve ot sapları silüet hâlinde. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört sürü görünür.",
-        "en": "Fireflies over a meadow at dusk: twelve swarms drift around their homes in the grass and blink on their own rhythms, flashing together on a strong beat, under a sky with its first stars, a treeline and grass blades in silhouette. A MilkDrop 3 preset; MilkDrop 2 players show four swarms."
+        "tr": "Alacakaranlıkta bir çayırın üstünde ateş böcekleri: on iki sürü, otların arasındaki yuvaları çevresinde yavaşça süzülüp her biri kendi ritmiyle yanıp sönüyor, güçlü bir vuruşta hep birlikte parlıyor. Gökyüzünde ilk yıldızlar, ağaç sırası ve ot sapları silüet hâlinde. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "Fireflies over a meadow at dusk: twelve swarms drift around their homes in the grass and blink on their own rhythms, flashing together on a strong beat, under a sky with its first stars, a treeline and grass blades in silhouette. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
       "file": "CaYaDev - Harp Strings.milk",
       "id": "md_caya_harp_strings",
       "category": "abstract",
-      "md3": true,
       "description": {
-        "tr": "Işıklı, on iki telli bir arp: her tel bastan tize kendi spektrum dilimine ayarlı, bandının seviyesiyle duran dalga olarak titriyor; güçlü bir vuruş bir teli çekip çınlatıyor. Teller kendi renklerinde parlıyor, arpın oymalı gövdesi silüet hâlinde. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört tel görünür.",
-        "en": "A lit harp of twelve strings: each is tuned to its own slice of the spectrum from bass to treble and vibrates as a standing wave with its band's level, and a strong beat plucks one so it rings out. The strings glow in their own colours against the carved frame in silhouette. A MilkDrop 3 preset; MilkDrop 2 players show four strings."
+        "tr": "Işıklı, on iki telli bir arp: her tel bastan tize kendi spektrum dilimine ayarlı, bandının seviyesiyle duran dalga olarak titriyor; güçlü bir vuruş bir teli çekip çınlatıyor. Teller kendi renklerinde parlıyor, arpın oymalı gövdesi silüet hâlinde. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "A lit harp of twelve strings: each is tuned to its own slice of the spectrum from bass to treble and vibrates as a standing wave with its band's level, and a strong beat plucks one so it rings out. The strings glow in their own colours against the carved frame in silhouette. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {
@@ -501,10 +494,9 @@
       "file": "CaYaDev - Constellations.milk",
       "id": "md_caya_constellations",
       "category": "space",
-      "md3": true,
       "description": {
-        "tr": "Takımyıldızlarla dolu bir gece göğü: on iki takımyıldız, ince çizgilerle birleşen yedişer yıldızlık zincirler olarak göğün kendi köşelerinde duruyor ve bütün gök ekranın üstündeki bir kutbun çevresinde yavaşça salınıyor. Her biri sırayla çiziliyor, dinlediği bant (bas, orta ya da tiz) güçlüyken parlak kalıyor, sonra sönüyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört takımyıldız görünür.",
-        "en": "A night sky of constellations: twelve chains of seven stars joined by faint lines, each in its own part of the sky, while the whole sky swings slowly round a pole above the screen. Each is traced in turn, stays bright while the band it listens to (bass, mids or treble) is loud, and then fades. A MilkDrop 3 preset; MilkDrop 2 players show four constellations."
+        "tr": "Takımyıldızlarla dolu bir gece göğü: on iki takımyıldız, ince çizgilerle birleşen yedişer yıldızlık zincirler olarak göğün kendi köşelerinde duruyor ve bütün gök ekranın üstündeki bir kutbun çevresinde yavaşça salınıyor. Her biri sırayla çiziliyor, dinlediği bant (bas, orta ya da tiz) güçlüyken parlak kalıyor, sonra sönüyor. Bütün figürler dört özel dalgaya paketlendiği için MilkDrop 2 oynatıcılarında da tamamı görünür.",
+        "en": "A night sky of constellations: twelve chains of seven stars joined by faint lines, each in its own part of the sky, while the whole sky swings slowly round a pole above the screen. Each is traced in turn, stays bright while the band it listens to (bass, mids or treble) is loud, and then fades. Everything is packed into four custom waves, so MilkDrop 2 players show it all too."
       }
     },
     {

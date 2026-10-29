@@ -353,106 +353,105 @@ per_frame_256=q23 = time - ht;
 per_frame_257=q24 = time - pt;
 per_frame_258=q25 = ux;
 per_frame_259=q26 = time - wt;
-warp_1=`sampler sampler_pw_noise_lq;
-warp_2=`float bitAt(float row, float colx, float design, float frameN)
-warp_3=`{
-warp_4=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
-warp_5=`  float r = 0.0;
-warp_6=`  if (design < 0.5) {
-warp_7=`    float4 a = frameN < 0.5 ? float4(24.0, 60.0, 126.0, 219.0) : float4(24.0, 60.0, 126.0, 219.0);
-warp_8=`    float4 b = frameN < 0.5 ? float4(255.0, 36.0, 90.0, 165.0) : float4(255.0, 90.0, 129.0, 66.0);
-warp_9=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_10=`  } else if (design < 1.5) {
-warp_11=`    float4 a = float4(36.0, 126.0, 219.0, 255.0);
-warp_12=`    float4 b = frameN < 0.5 ? float4(255.0, 189.0, 36.0, 102.0) : float4(255.0, 189.0, 66.0, 129.0);
-warp_13=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_14=`  } else {
-warp_15=`    float4 a = float4(60.0, 126.0, 255.0, 219.0);
-warp_16=`    float4 b = frameN < 0.5 ? float4(255.0, 102.0, 219.0, 129.0) : float4(255.0, 102.0, 165.0, 66.0);
-warp_17=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_18=`  }
-warp_19=`  return step(0.5, frac(floor(r / exp2(7.0 - colx)) * 0.5));
-warp_20=`}
-warp_21=`float maskBit(float w, float k)
-warp_22=`{
-warp_23=`  // game state arrives as integer bit masks in q vars (22 bits each, exact in float)
-warp_24=`  return step(0.5, frac(floor(w / exp2(k)) * 0.5));
-warp_25=`}
-warp_26=`float burst(float2 d, float age, float size)
-warp_27=`{
-warp_28=`  // eight-ray pixel explosion that expands and fades
-warp_29=`  float r = length(d);
-warp_30=`  float ray = step(abs(abs(d.x) - abs(d.y)), 0.5) + step(abs(d.x), 0.5) + step(abs(d.y), 0.5);
-warp_31=`  float ring = step(abs(r - age * size), 1.5) + step(r, 2.5 - age * 8.0);
-warp_32=`  return min(ray, 1.0) * min(ring, 1.0) * step(age, 0.35);
-warp_33=`}
-warp_34=`float3 scene(float2 u)
-warp_35=`{
-warp_36=`  float2 px = floor(u * float2(240.0, 135.0));
-warp_37=`  float3 c = float3(0.0, 0.0, 0.0);
-warp_38=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
-warp_39=`  // formation: 11 columns x 5 rows, 16 px apart; position and alive masks come from per_frame
-warp_40=`  float2 lp = px - float2(q2, q3);
-warp_41=`  float ci = floor(lp.x / 16.0);
-warp_42=`  float ri = floor(lp.y / 14.0);
-warp_43=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
-warp_44=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
-warp_45=`    float k = ri * 11.0 + ci;
-warp_46=`    float wi = floor(k / 22.0);
-warp_47=`    float alive = maskBit(wi < 0.5 ? q6 : (wi < 1.5 ? q7 : q8), k - wi * 22.0);
-warp_48=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
-warp_49=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
-warp_50=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
-warp_51=`    c = on * alive * ic;
-warp_52=`  }
-warp_53=`  // shields: 11x2 cells of 2x5 px each; every hit clears one cell
-warp_54=`  float sx = px.x - 26.0;
-warp_55=`  float sk = floor(sx / 52.0);
-warp_56=`  float sl = sx - sk * 52.0;
-warp_57=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y >= 104.0 && px.y < 114.0) {
-warp_58=`    float sw = sk < 0.5 ? q9 : (sk < 1.5 ? q10 : (sk < 2.5 ? q11 : q12));
-warp_59=`    float cell = floor((px.y - 104.0) / 5.0) * 11.0 + floor(sl / 2.0);
-warp_60=`    float corner = step(sl, 0.5) * step(px.y, 104.5) + step(20.5, sl) * step(px.y, 104.5);
-warp_61=`    c = float3(0.3, 1.0, 0.35) * maskBit(sw, cell) * (1.0 - corner);
-warp_62=`  }
-warp_63=`  // mystery saucer
-warp_64=`  float2 up = px - float2(floor(q25), 8.0);
-warp_65=`  float saucer = step(abs(up.y), 2.0) * step(abs(up.x), 6.0 - max(-up.y, 0.0) * 2.0 - max(up.y - 1.0, 0.0) * 3.0);
-warp_66=`  saucer *= 1.0 - step(abs(up.y), 0.5) * step(0.5, frac((up.x + floor(time * 12.0)) * 0.25 + 0.25)) * 0.6;
-warp_67=`  c = max(c, float3(1.0, 0.25, 0.3) * saucer * step(-20.0, q25));
-warp_68=`  // cannon; blinks red after a bomb hit
-warp_69=`  float2 cp = px - float2(floor(q13), 124.0);
-warp_70=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
-warp_71=`  float hurt = step(q24, 1.0);
-warp_72=`  cannon *= 1.0 - hurt * step(0.5, frac(time * 8.0));
-warp_73=`  c = max(c, lerp(float3(0.4, 1.0, 0.5), float3(1.0, 0.3, 0.2), hurt) * cannon);
-warp_74=`  c = max(c, float3(1.0, 0.5, 0.2) * burst(px - float2(floor(q13), 125.0), q24, 40.0));
-warp_75=`  // player shot
-warp_76=`  float shot = step(abs(px.x - q14), 0.5) * step(q15 - 3.0, px.y) * step(px.y, q15) * step(0.0, q15);
-warp_77=`  c = max(c, float3(1.0, 1.0, 0.8) * shot);
-warp_78=`  // alien bomb: a zigzag falling bolt
-warp_79=`  float zig = step(0.5, frac((px.y + floor(time * 20.0)) * 0.25));
-warp_80=`  float bomb = step(abs(px.x - q16 - zig), 0.5) * step(q17 - 4.0, px.y) * step(px.y, q17) * step(0.0, q17);
-warp_81=`  c = max(c, float3(1.0, 0.85, 0.4) * bomb);
-warp_82=`  // explosions: alien or saucer, then small bunker chips
-warp_83=`  c = max(c, lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.5, 0.1), saturate(q20 * 4.0)) * burst(px - floor(float2(q18, q19)), q20, 30.0));
-warp_84=`  float2 hd = px - floor(float2(q21, q22));
-warp_85=`  c = max(c, float3(0.7, 1.0, 0.6) * step(abs(hd.x) + abs(hd.y), 2.0) * step(q23, 0.12));
-warp_86=`  float ground = step(abs(px.y - 130.0), 0.5);
-warp_87=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
-warp_88=`  // a new wave arrives with a short flash
-warp_89=`  c += float3(0.15, 0.3, 0.35) * step(q26, 0.4) * (1.0 - q26 * 2.5);
-warp_90=`  return c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
-warp_91=`}
-warp_92=`shader_body
-warp_93=`{
-warp_94=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
-warp_95=`  float2 g = floor(uv * float2(320.0, 180.0));
-warp_96=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
-warp_97=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
-warp_98=`  float3 old = tex2D(sampler_main, uv).xyz;
-warp_99=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
-warp_100=`}
+warp_1=`float bitAt(float row, float colx, float design, float frameN)
+warp_2=`{
+warp_3=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
+warp_4=`  float r = 0.0;
+warp_5=`  if (design < 0.5) {
+warp_6=`    float4 a = frameN < 0.5 ? float4(24.0, 60.0, 126.0, 219.0) : float4(24.0, 60.0, 126.0, 219.0);
+warp_7=`    float4 b = frameN < 0.5 ? float4(255.0, 36.0, 90.0, 165.0) : float4(255.0, 90.0, 129.0, 66.0);
+warp_8=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_9=`  } else if (design < 1.5) {
+warp_10=`    float4 a = float4(36.0, 126.0, 219.0, 255.0);
+warp_11=`    float4 b = frameN < 0.5 ? float4(255.0, 189.0, 36.0, 102.0) : float4(255.0, 189.0, 66.0, 129.0);
+warp_12=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_13=`  } else {
+warp_14=`    float4 a = float4(60.0, 126.0, 255.0, 219.0);
+warp_15=`    float4 b = frameN < 0.5 ? float4(255.0, 102.0, 219.0, 129.0) : float4(255.0, 102.0, 165.0, 66.0);
+warp_16=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_17=`  }
+warp_18=`  return step(0.5, frac(floor(r / exp2(7.0 - colx)) * 0.5));
+warp_19=`}
+warp_20=`float maskBit(float w, float k)
+warp_21=`{
+warp_22=`  // game state arrives as integer bit masks in q vars (22 bits each, exact in float)
+warp_23=`  return step(0.5, frac(floor(w / exp2(k)) * 0.5));
+warp_24=`}
+warp_25=`float burst(float2 d, float age, float size)
+warp_26=`{
+warp_27=`  // eight-ray pixel explosion that expands and fades
+warp_28=`  float r = length(d);
+warp_29=`  float ray = step(abs(abs(d.x) - abs(d.y)), 0.5) + step(abs(d.x), 0.5) + step(abs(d.y), 0.5);
+warp_30=`  float ring = step(abs(r - age * size), 1.5) + step(r, 2.5 - age * 8.0);
+warp_31=`  return min(ray, 1.0) * min(ring, 1.0) * step(age, 0.35);
+warp_32=`}
+warp_33=`float3 scene(float2 u)
+warp_34=`{
+warp_35=`  float2 px = floor(u * float2(240.0, 135.0));
+warp_36=`  float3 c = float3(0.0, 0.0, 0.0);
+warp_37=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
+warp_38=`  // formation: 11 columns x 5 rows, 16 px apart; position and alive masks come from per_frame
+warp_39=`  float2 lp = px - float2(q2, q3);
+warp_40=`  float ci = floor(lp.x / 16.0);
+warp_41=`  float ri = floor(lp.y / 14.0);
+warp_42=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
+warp_43=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
+warp_44=`    float k = ri * 11.0 + ci;
+warp_45=`    float wi = floor(k / 22.0);
+warp_46=`    float alive = maskBit(wi < 0.5 ? q6 : (wi < 1.5 ? q7 : q8), k - wi * 22.0);
+warp_47=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
+warp_48=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
+warp_49=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
+warp_50=`    c = on * alive * ic;
+warp_51=`  }
+warp_52=`  // shields: 11x2 cells of 2x5 px each; every hit clears one cell
+warp_53=`  float sx = px.x - 26.0;
+warp_54=`  float sk = floor(sx / 52.0);
+warp_55=`  float sl = sx - sk * 52.0;
+warp_56=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y >= 104.0 && px.y < 114.0) {
+warp_57=`    float sw = sk < 0.5 ? q9 : (sk < 1.5 ? q10 : (sk < 2.5 ? q11 : q12));
+warp_58=`    float cell = floor((px.y - 104.0) / 5.0) * 11.0 + floor(sl / 2.0);
+warp_59=`    float corner = step(sl, 0.5) * step(px.y, 104.5) + step(20.5, sl) * step(px.y, 104.5);
+warp_60=`    c = float3(0.3, 1.0, 0.35) * maskBit(sw, cell) * (1.0 - corner);
+warp_61=`  }
+warp_62=`  // mystery saucer
+warp_63=`  float2 up = px - float2(floor(q25), 8.0);
+warp_64=`  float saucer = step(abs(up.y), 2.0) * step(abs(up.x), 6.0 - max(-up.y, 0.0) * 2.0 - max(up.y - 1.0, 0.0) * 3.0);
+warp_65=`  saucer *= 1.0 - step(abs(up.y), 0.5) * step(0.5, frac((up.x + floor(time * 12.0)) * 0.25 + 0.25)) * 0.6;
+warp_66=`  c = max(c, float3(1.0, 0.25, 0.3) * saucer * step(-20.0, q25));
+warp_67=`  // cannon; blinks red after a bomb hit
+warp_68=`  float2 cp = px - float2(floor(q13), 124.0);
+warp_69=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
+warp_70=`  float hurt = step(q24, 1.0);
+warp_71=`  cannon *= 1.0 - hurt * step(0.5, frac(time * 8.0));
+warp_72=`  c = max(c, lerp(float3(0.4, 1.0, 0.5), float3(1.0, 0.3, 0.2), hurt) * cannon);
+warp_73=`  c = max(c, float3(1.0, 0.5, 0.2) * burst(px - float2(floor(q13), 125.0), q24, 40.0));
+warp_74=`  // player shot
+warp_75=`  float shot = step(abs(px.x - q14), 0.5) * step(q15 - 3.0, px.y) * step(px.y, q15) * step(0.0, q15);
+warp_76=`  c = max(c, float3(1.0, 1.0, 0.8) * shot);
+warp_77=`  // alien bomb: a zigzag falling bolt
+warp_78=`  float zig = step(0.5, frac((px.y + floor(time * 20.0)) * 0.25));
+warp_79=`  float bomb = step(abs(px.x - q16 - zig), 0.5) * step(q17 - 4.0, px.y) * step(px.y, q17) * step(0.0, q17);
+warp_80=`  c = max(c, float3(1.0, 0.85, 0.4) * bomb);
+warp_81=`  // explosions: alien or saucer, then small bunker chips
+warp_82=`  c = max(c, lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.5, 0.1), saturate(q20 * 4.0)) * burst(px - floor(float2(q18, q19)), q20, 30.0));
+warp_83=`  float2 hd = px - floor(float2(q21, q22));
+warp_84=`  c = max(c, float3(0.7, 1.0, 0.6) * step(abs(hd.x) + abs(hd.y), 2.0) * step(q23, 0.12));
+warp_85=`  float ground = step(abs(px.y - 130.0), 0.5);
+warp_86=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
+warp_87=`  // a new wave arrives with a short flash
+warp_88=`  c += float3(0.15, 0.3, 0.35) * step(q26, 0.4) * (1.0 - q26 * 2.5);
+warp_89=`  return c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
+warp_90=`}
+warp_91=`shader_body
+warp_92=`{
+warp_93=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
+warp_94=`  float2 g = floor(uv * float2(320.0, 180.0));
+warp_95=`  float4 n = tex2D(sampler_noise_lq, (floor((g / 256.0) * 256.0) + 0.5) / 256.0);
+warp_96=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
+warp_97=`  float3 old = tex2D(sampler_main, uv).xyz;
+warp_98=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
+warp_99=`}
 comp_1=`shader_body
 comp_2=`{
 comp_3=`  float2 cc = uv - 0.5;
