@@ -404,7 +404,9 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       gl.uniform1f(this._u('sv_treble'), audio ? audio.treble : 0);
       gl.uniform1f(this._u('sv_beat'), this.beat);
 
-      const cols = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
+      // Studio görselleştiricisinin renk modu paleti değiştirebilir (#883)
+      const cols = this.paletteOverride
+        || (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
       const pal = new Float32Array(15);
       for (let i = 0; i < 5; i++) {
         const c = window.SV.hexToRgb01(cols[i] || cols[cols.length - 1] || '#3aa6ff');
@@ -499,6 +501,47 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     return null;
   }
 
+  /* STUDIO RENK MODU (#883). Yerleşik Studio shader'larının hepsi rengini
+     sv_palette / sv_col()'dan alıyor; palet hep arka plan gradyanından
+     doluyordu. Görselleştiricide paletin kaynağı seçilebilir:
+       theme   — gradyan (eski davranış, varsayılan);
+       custom  — birincil renkten ikincil renge beş durak;
+       rainbow — tonu çizim saatiyle kayan beş durak (canlı ve dışa
+                 aktarım aynı saati okur).
+     Ayrı anahtar (`studioColorMode`): genel `colorMode` başka türlerde
+     seçilmiş olabilir; onu okusaydık eski sahnelerin Studio renkleri
+     kendiliğinden değişirdi. */
+  function hex2(n) { const h = Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16); return h.length < 2 ? '0' + h : h; }
+  function rgbHex(r, g, b) { return '#' + hex2(r) + hex2(g) + hex2(b); }
+  function hslHex(h, s, l) {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => {
+      const k = (n + h / 30) % 12;
+      return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    return rgbHex(f(0), f(8), f(4));
+  }
+  function studioPalette(v, t) {
+    const mode = (v && v.studioColorMode) || 'theme';
+    if (mode === 'custom') {
+      const a = window.SV.hexToRgb01(v.color || '#3aa6ff');
+      const b = window.SV.hexToRgb01(v.color2 || v.color || '#3aa6ff');
+      const out = [];
+      for (let i = 0; i < 5; i++) {
+        const k = i / 4;
+        out.push(rgbHex(a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k));
+      }
+      return out;
+    }
+    if (mode === 'rainbow') {
+      // Barların gökkuşağıyla aynı yol: 320° yayılım, saniyede 12°
+      const out = [];
+      for (let i = 0; i < 5; i++) out.push(hslHex(((i / 4) * 320 + (t || 0) * 12) % 360, 0.85, 0.58));
+      return out;
+    }
+    return null;
+  }
+
   // Özel görselleştirici (ön katman) — saydam çizer
   class CustomVisualizer {
     constructor(canvas) {
@@ -524,6 +567,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       }
       if (this.lastError) return;
       const values = window.SVPresets.paramValues(preset, cfg);
+      this.host.paletteOverride = studioPalette(cfg.visualizer, t);
       if (this.host.render(audio, cfg, t, dt, preset.controls, values)) {
         ctx.drawImage(this.host.canvas, 0, 0, W, H);
       }
@@ -531,6 +575,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     contextLost() { return this.host.contextLost(); }
     dispose() { this.host.dispose(); }
   }
+  CustomVisualizer.palette = studioPalette; // test kancası
 
   // Özel arkaplan — verilen 2D bağlama opak çizer
   class CustomBackground {
