@@ -1,11 +1,16 @@
-# CaYaDev presets: BeatDrop-safe modifications
+# CaYaDev presets: compatibility variants
 
-Copies changed only to work around bugs in a specific player, not part of the app's pack.
+This folder holds modified copies of CaYaDev presets made only so they run in specific MilkDrop players or
+older shader compilers (for example BeatDrop's bundled d3dx9 compiler). They are not part of the app's
+built-in pack, and the originals are never changed to suit them.
+
+- Each file is named after its original with a suffix naming the player or compiler it targets.
+- Changes are kept to the minimum needed to load and render without crashing; small visual differences
+  from the original are possible.
+- Use these only if the original or MilkDrop 2 variant fails in your player.
+
 Originals (MilkDrop 3, used by SoundVisualizer): [`presets/original/md3/cayadev`](../../../original/md3/cayadev).
 MilkDrop 2 variants: [`presets/original/md2/cayadev`](../../../original/md2/cayadev).
-
-| Preset | Based on | Change |
-| --- | --- | --- |
-| [CaYaDev - Spectrum City BeatDrop](CaYaDev%20-%20Spectrum%20City%20BeatDrop.milk) | [MD2 Spectrum City](../../../original/md2/cayadev/CaYaDev%20-%20Spectrum%20City.milk) | BeatDrop 1.5's bundled d3dx9_31 compiler crashes on the antenna line's `tall` factor; it is dropped, so antenna lights blink on every tower. |
+Gallery and previews: [`presets/README.md`](../../../README.md).
 
 Licensed CC BY 4.0, same as the originals.
