@@ -45,7 +45,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
-| **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **≈ 0.5 s** hot-standby takeover |
+| **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
 
@@ -78,15 +78,15 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   for multi-projector rigs, plus **aspect correction** for LED walls whose pixels are not square.
   [→ Stage](#stage-projection-mapping-and-aspect-correction)
 - **A show that keeps running.** A **Pre-Show Check** before the doors open, and a second machine
-  as a **hot standby** that draws the same picture and takes over in about half a second, with only
-  one machine driving the lights. An **audio bridge** feeds both from one capture.
+  as a **hot standby** that draws the same picture and takes over 0.4–0.5 s after the primary
+  crashes, with only one machine driving the lights. An **audio bridge** feeds both from one capture.
   [→ Show safety](#show-safety-pre-show-check-redundancy-and-the-audio-bridge)
 - **Your lights follow the music.** **Windows Dynamic Lighting**, **OpenRGB** on every platform and
   **Art-Net / DMX**, all fed by one renderer — they can even take their colours from the MilkDrop
   picture. [→ Lighting](#rgb-lighting-dynamic-lighting-openrgb-and-art-net)
 - **A video studio for your releases.** Frame-exact **offline export in 12 formats** — H.264 and
   H.265 (also 10-bit), ProRes 422 HQ, ProRes 4444 and VP9 with alpha, DNxHR, GIF, APNG, and PNG or
-  OpenEXR frames — about three times faster than before, in colours that match the screen. One-click
+  OpenEXR frames — H.264, H.265 and VP9 about three times faster than before, in colours that match the screen. One-click
   profiles for YouTube, Reels / Shorts, Instagram, a **Spotify Canvas** loop and a Twitch overlay, a
   batch queue, **seamless loops**, **YouTube chapters** and a **thumbnail**, Title and End Cards, a
   **Now Playing** card with album art, and synced **lyrics** (LRC / SRT).

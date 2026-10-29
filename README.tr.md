@@ -46,7 +46,7 @@ kontrolü**.
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
-| **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Sıcak yedeğe **≈ 0,5 sn**'de geçiş |
+| **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
 
@@ -81,14 +81,14 @@ kontrolü**.
   harmanlamalı projeksiyon haritalama; pikselleri kare olmayan LED duvarlar için **basıklık
   düzeltme**. [→ Sahne](#sahne-projeksiyon-haritalama-ve-basıklık-düzeltme)
 - **Durmayan bir gösteri.** Kapılar açılmadan önce bir **Gösteri Öncesi Denetim**, ve aynı görüntüyü
-  çizen, yaklaşık yarım saniyede devralan **sıcak yedek** ikinci bir makine; ışıkları yalnız tek
+  çizen, ana makine çökünce 0,4–0,5 sn'de devralan **sıcak yedek** ikinci bir makine; ışıkları yalnız tek
   makine sürer. Bir **ses köprüsü** ikisini de tek bir yakalamadan besler.
   [→ Gösteri güvencesi](#gösteri-güvencesi-gösteri-öncesi-denetim-yedeklilik-ve-ses-köprüsü)
 - **Işıklarınız müziği izler.** **Windows Dynamic Lighting**, her platformda **OpenRGB** ve **Art-Net /
   DMX**, hepsi tek bir çiziciyle — renklerini MilkDrop görüntüsünden bile alabilirler. [→ Aydınlatma](#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net)
 - **Yayınlarınız için bir video stüdyosu.** Kare kare **12 biçimde çevrimdışı dışa aktarma** —
   H.264 ve H.265 (10 bit dahil), ProRes 422 HQ, alfalı ProRes 4444 ve VP9, DNxHR, GIF, APNG, PNG ya
-  da OpenEXR kareleri — öncekinden yaklaşık üç kat hızlı ve ekrandakiyle aynı renklerde. YouTube,
+  da OpenEXR kareleri — H.264, H.265 ve VP9 öncekinden yaklaşık üç kat hızlı, renkler ekrandakiyle aynı. YouTube,
   Reels / Shorts, Instagram, **Spotify Canvas** döngüsü ve Twitch katmanı için tek tıkla profiller,
   toplu kuyruk, **kesintisiz döngüler**, **YouTube bölümleri** ve **küçük resim**, Başlık ve Kapanış
   Kartları, albüm kapaklı **Çalan Parça** kartı ve zamanlı **şarkı sözleri** (LRC / SRT).
