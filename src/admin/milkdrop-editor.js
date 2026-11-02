@@ -92,14 +92,20 @@
     return m && m.isMd3 && m.isMd3(fmt, source) ? 16 : 4;
   }
 
-  function start() {
+  function start(fetched) {
     if (!E()) return;
     const cfg = P().cfg();
     const md = cfg.milkdrop || {};
     const panel = MP();
     const id = panel && panel.liveId ? panel.liveId(md) : md.presetId;
     const p = id && panel && panel.presetById ? panel.presetById(id) : null;
-    const source = p && typeof p.source === 'string' ? p.source : (typeof md.source === 'string' ? md.source : '');
+    /* Listedeki presetin metni yok (#906): ekrandaki otomatik seçim ayardaki
+       presetten farklı olabilir, onun metni istenip yeniden başlanıyor. */
+    if (p && typeof p.source !== 'string' && typeof fetched !== 'string' && panel.presetSource) {
+      panel.presetSource(p).then((s) => start(typeof s === 'string' ? s : ''));
+      return;
+    }
+    const source = typeof fetched === 'string' && fetched ? fetched : p && typeof p.source === 'string' ? p.source : (typeof md.source === 'string' ? md.source : '');
     if (!source.trim()) {
       P().toast(tr('Önce MilkDrop listesinden bir preset seçin.'), 'err');
       return;

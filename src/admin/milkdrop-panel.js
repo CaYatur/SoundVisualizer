@@ -673,13 +673,43 @@
      kendisinden okuyor: `milkdropControl.cutTo` yeni seçilen presetin
      kimliğiyse o geçiş karışmıyor. `load` alanı her seçimde temizliyor,
      yani bir sonraki sıradan seçim yine ayardaki süreyle karışıyor. */
+  /* LİSTE METİNSİZ (#906, preset-lean.js). Ayara yazılacak metin seçim anında
+     isteniyor. Art arda seçimde son seçim kazanır: geç gelen eski metin
+     ekrandaki seçimi geri almasın. */
+  const needsSource = (p) => !!(p && p.lazy && typeof p.source !== 'string');
+  let goSeq = 0;
+  function sourceOf(p) {
+    if (!p) return Promise.resolve('');
+    if (typeof p.source === 'string') return Promise.resolve(p.source);
+    const api = window.api;
+    if (!api || !api.milkdropPresetSource) return Promise.resolve('');
+    return Promise.resolve(api.milkdropPresetSource(p.id)).then((s) => (typeof s === 'string' ? s : ''), () => '');
+  }
+  /* Beklerken ayar nesnesi değişmiş olabilir (sahne geçişi): metin gelince
+     güncel olana yazılıyor, `then` de onu alıyor. */
+  function loadWithText(cfg, p, then) {
+    const seq = ++goSeq;
+    if (!needsSource(p)) {
+      load(cfg, p);
+      if (then) then(cfg);
+      return;
+    }
+    sourceOf(p).then((s) => {
+      if (seq !== goSeq) return;
+      if (!s) { P().toast(window.SVI18n && window.SVI18n.t ? window.SVI18n.t('Preset dosyası okunamadı.') : 'Preset dosyası okunamadı.', 'err'); return; }
+      const now = P().cfg();
+      load(now, Object.assign({}, p, { source: s, lazy: false }));
+      if (then) then(now);
+    });
+  }
   function go(cfg, p, cut) {
     if (!p) return;
-    load(cfg, p);
-    if (cut) control(cfg).cutTo = p.id;
-    const h = history();
-    if (h) h.note(p.id);
-    P().apply();
+    loadWithText(cfg, p, (c) => {
+      if (cut) control(c).cutTo = p.id;
+      const h = history();
+      if (h) h.note(p.id);
+      P().apply();
+    });
   }
 
   const byId = (id) => presets.find((p) => p.id === id);
@@ -1751,7 +1781,7 @@
         return el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
           el('button', {
             class: 'md-cell-main', type: 'button', title: tr(p.name || p.id),
-            onclick: () => { keepScroll(); load(cfg, p); rerender(); },
+            onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
           }, [box, el('span', { class: 'md-cell-name', text: tr(p.name || p.id) })]),
           favBtn,
           p.builtin ? null : el('button', {
@@ -1765,7 +1795,7 @@
         favBtn,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
-          onclick: () => { keepScroll(); load(cfg, p); rerender(); },
+          onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
         }),
         tags.length ? el('span', { class: 'md-tagline', text: tags.map((t) => '#' + t).join(' ') }) : null,
         /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
@@ -2003,7 +2033,7 @@
   const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
-    spriteTargets, preview, previewEdit, adopt, visibleList, presetById: byId, presetByName: byName, go,
+    spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

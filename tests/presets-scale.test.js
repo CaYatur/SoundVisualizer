@@ -236,7 +236,7 @@ test('ana süreç: kayıt ve silme yalnız değişeni yayınlıyor; bütün list
 });
 
 test('ana süreç: depo açılışta arka planda okunuyor; liste isteği onu bekliyor', () => {
-  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*const list = presetsStore\.list\(\);\s*const disk = presetsStore\.syncDisk\(\);\s*if \(disk\.upsert\.length \|\| disk\.remove\.length\) broadcastPresetDelta\(disk\.upsert, disk\.remove\);\s*return withOverlayPresets\(list\);/);
+  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*const list = presetsStore\.list\(\);\s*const disk = presetsStore\.syncDisk\(\);\s*if \(disk\.upsert\.length \|\| disk\.remove\.length\) broadcastPresetDelta\(disk\.upsert, disk\.remove\);\s*return leanPresets\(withOverlayPresets\(list\)\);/);
   assert.match(MAIN, /syncNowPlaying\(\);\s*presetsStore\.warm\(\)\.then\(\(\) => \{\s*presetsStore\.watch\(/);
   assert.match(MAIN, /ipcMain\.handle\('presets:since'/);
   assert.match(MAIN, /presetJournal/);
@@ -491,7 +491,7 @@ test('motor: kaynağı yolda olan seçim gelene kadar ekrandaki preset sürüyor
   await new Promise((r) => setImmediate(r));
   e.m._ensurePreset(cfg);
   assert.strictEqual(e.m.presetKey, 'm2|' + '[preset00]\nzoom=0.99\n'.length + '#' + e.win.SVMilkdrop.sourceTag('[preset00]\nzoom=0.99\n'));
-  assert.strictEqual(e.win.SVPresets.get('m2').source, '[preset00]\nzoom=0.99\n', 'kaynak listeye yazıldı');
+  assert.strictEqual(e.win.SVPresets.get('m2').source, undefined, 'metin listeye yazılmıyor (#906)');
   assert.strictEqual(e.m._lazySource('m2'), '[preset00]\nzoom=0.99\n');
   assert.strictEqual(asked, 1, 'bir daha istenmiyor');
 });

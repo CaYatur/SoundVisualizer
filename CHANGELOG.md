@@ -5,6 +5,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## v3.1.7-beta
 
+### Performance
+
+- **A large preset library no longer costs memory and freezes in every window** (#906). Every window
+  held the full text of every MilkDrop preset: 122 MB for 10,392 presets, and a freeze of 216-239 ms
+  about every 11.5 seconds while garbage collection went through it. Windows now get a list without
+  the text and ask for it when a preset is drawn, edited or mixed. Same scene and library, before and
+  after: total memory 3,002 → 1,496 MB, frame gaps over 100 ms in 60 seconds 5 → 0, longest frame
+  267 → 40 ms, opening the panel 3.2 → 1.7 s, opening a visualizer window 945 → 487 ms.
+- **`npm run perf` measures a real setup** (#910). It runs the whole app with your settings and
+  library in a temporary profile, and compares the result with an earlier run.
+
 ### Visualizer
 
 - **Nine CaYaDev presets are back to their MilkDrop 3 originals in the app** (Harmonograph, Harp Strings,
