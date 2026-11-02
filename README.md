@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3761%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3775%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1008,8 +1008,10 @@ the fixtures on the left take the colours on the left of the screen.
 - **Twelve export formats.** H.264, H.265 or 10-bit H.265 MP4, ProRes 422 HQ and DNxHR HQ for
   editing, VP9 WebM, GIF and APNG loops, and PNG or linear OpenEXR frame sequences. ProRes 4444,
   VP9, APNG, PNG and EXR keep the alpha channel for overlay stock. Portrait 1080×1920 and square
-  1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF or Intel Quick Sync, whichever
-  passes a test encode on your machine. Colours are converted and tagged as BT.709, so players
+  1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF, Intel Quick Sync or, on Linux,
+  VA-API, whichever passes a test encode on your machine. On Linux the bundled FFmpeg has no Intel or
+  VA-API encoders, so GPU encoders are also tried with your system `ffmpeg`, and it is used when its
+  test encode passes. Colours are converted and tagged as BT.709, so players
   show what the screen showed. MP4 and WebM export about three times faster than in v3.1.5: a
   1080p60 song renders in about half its own length. The length can be the audio file, a fixed
   time, the timeline or a number of bars; the file is named and tagged with the track, scene and
@@ -1888,7 +1890,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3761 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3775 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

@@ -7713,13 +7713,24 @@ const { leanPresets } = require('../shared/preset-lean.js');
    işin argümanlarının AYNISIYLA kısa bir deneme kodlamasından geçiyor
    (export-formats.js `probeArgs`); geçemeyen sunulmuyor. Sonuç önbellekte. */
 let _encCache = null;
-function probeOne(args) {
+let _encRoutes = {};
+/* Sistem ffmpeg'i (#904). AppImage kendi kitaplıklarını LD_LIBRARY_PATH'e koyuyor;
+   sistem ikilisi onları görürse yüklenemiyor. */
+const SYSTEM_FFMPEG = 'ffmpeg';
+function encoderEnv(bin) {
+  if (bin !== SYSTEM_FFMPEG || !process.env.APPIMAGE) return process.env;
+  const env = Object.assign({}, process.env);
+  delete env.LD_LIBRARY_PATH;
+  delete env.LD_PRELOAD;
+  return env;
+}
+function probeOne(bin, args) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (done) return; done = true; resolve(v); };
     let p;
     try {
-      p = spawn(resolveFfmpeg(), args, { windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] });
+      p = spawn(bin, args, { windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'], env: encoderEnv(bin) });
     } catch {
       return finish(false);
     }
@@ -7728,24 +7739,65 @@ function probeOne(args) {
     setTimeout(() => { try { p.kill(); } catch {} finish(false); }, 15000);
   });
 }
-/* CPU kodlayıcıları birlikte, GPU kodlayıcıları SIRAYLA yoklanıyor: her
-   GPU denemesi bir sürücü aygıtı açıyor ve hepsi birden görselleştirici
-   açılırken GPU'yu meşgul ediyordu. */
+/* GPU'da renk çevirme WebGL2 istiyor. Yoksa (kara liste, sürücü) kare RGBA gidiyor,
+   çevirmeyi ffmpeg yapıyor: daha yavaş ama aynı sonuç. Eskiden iş "GPU renk
+   dönüştürücüsü kurulamadı" diye tamamen düşüyordu. Chromium'un durum bildirimine
+   bakılmıyor: WSL'de ölçüldü, bağlam alınamazken "yok" demiyor. Bağlam isteniyor. */
+let _webgl2 = null;
+function hasWebgl2() {
+  if (_webgl2) return _webgl2;
+  if (!adminWin || adminWin.isDestroyed()) return Promise.resolve(true);
+  _webgl2 = adminWin.webContents.executeJavaScript(`(() => {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return false;
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+    return true;
+  })()`).catch(() => true);
+  return _webgl2;
+}
+
+// Bir ikilide derlenmiş kodlayıcı adları; yoklanamazsa null (elemeden denenir)
+function encoderNames(bin) {
+  return new Promise((resolve) => {
+    let out = '';
+    let p;
+    try {
+      p = spawn(bin, ['-hide_banner', '-encoders'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], env: encoderEnv(bin) });
+    } catch {
+      return resolve(null);
+    }
+    const stop = setTimeout(() => { try { p.kill(); } catch {} resolve(null); }, 5000);
+    p.stdout.on('data', (d) => { out += d; });
+    p.on('error', () => { clearTimeout(stop); resolve([]); });
+    p.on('exit', (code) => {
+      clearTimeout(stop);
+      resolve(code === 0 ? out.split('\n').map((l) => l.trim().split(/\s+/)[1]).filter(Boolean) : []);
+    });
+  });
+}
+function renderNodes() {
+  try {
+    return fs.readdirSync('/dev/dri').filter((n) => /^renderD\d+$/.test(n)).sort().map((n) => '/dev/dri/' + n);
+  } catch {
+    return [];
+  }
+}
+/* Kodlayıcılar ve 10 bit denemeleri ("hevc_nvenc@10"); karar encoder-probe.js'te */
 function probeEncoders() {
   if (_encCache) return _encCache;
-  // Kodlayıcılar ve 10 bit denemeleri ("hevc_nvenc@10")
-  const names = exportFormats.probeKeys();
-  const gpuOf = (n) => exportFormats.ENCODERS[String(n).replace(/@10$/, '')].gpu;
-  const map = {};
-  const run = (n) => {
-    const args = exportFormats.probeArgs(n);
-    return (args ? probeOne(args) : Promise.resolve(false)).then((ok) => { map[n] = ok; });
-  };
-  const cpu = names.filter((n) => !gpuOf(n));
-  const gpu = names.filter((n) => gpuOf(n));
-  _encCache = Promise.all(cpu.map(run))
-    .then(() => gpu.reduce((p, n) => p.then(() => run(n)), Promise.resolve()))
-    .then(() => map);
+  const bundled = resolveFfmpeg();
+  _encCache = require('./encoder-probe.js').probeEncoders({
+    platform: process.platform,
+    bins: bundled === SYSTEM_FFMPEG ? [bundled] : [bundled, SYSTEM_FFMPEG],
+    keys: exportFormats.probeKeys(),
+    renderNodes: process.platform === 'linux' ? renderNodes() : [],
+    run: probeOne,
+    list: encoderNames,
+  }).then((r) => {
+    _encRoutes = r.routes;
+    return r.map;
+  });
   return _encCache;
 }
 // Eski sorgu: H.264 için çalışan bir GPU kodlayıcısı var mı
@@ -8041,9 +8093,11 @@ async function startExportJob(opts, bench, extra) {
      uygunsa evet. Ölçüm sürücüsü karşılaştırma için RGBA yolunu
      zorlayabiliyor (`bench.rgba`). */
   const pix = !(bench && bench.rgba) && exportFormats.takesYuv420(fmt, encoderId)
-    && w % 4 === 0 && h % 2 === 0 ? 'yuv420p' : 'rgba';
+    && w % 4 === 0 && h % 2 === 0 && await hasWebgl2() ? 'yuv420p' : 'rgba';
+  // Yoklamada geçen yolun aynısı: ikili ve çeşit (#904)
+  const route = _encRoutes[exportFormats.probeKey(fmt, encoderId)] || {};
   const args = exportFormats.buildArgs({
-    fmt, encoder: encoderId, w, h, fps, quality, speed, inputPix: pix,
+    fmt, encoder: encoderId, variant: route.variant, w, h, fps, quality, speed, inputPix: pix,
     threads: Math.max(1, Math.min(8, require('os').cpus().length)),
     audioPath, audioExt: path.extname(audioPath), audioSec, output: target,
     durationSec: loop ? loop.frames / fps : durationSec, loop: loop ? loopSpec : null,
@@ -8060,7 +8114,8 @@ async function startExportJob(opts, bench, extra) {
   }
 
   try {
-    ffmpegProc = spawn(ff, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
+    const encBin = route.bin || ff;
+    ffmpegProc = spawn(encBin, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'], env: encoderEnv(encBin) });
   } catch (err) {
     return { ok: false, error: trUi('ffmpeg başlatılamadı: ', 'Could not start ffmpeg: ') + err.message };
   }
