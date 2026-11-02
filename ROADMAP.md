@@ -4,13 +4,17 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.6** (2026-10-29) · **Next release: v3.1.7**
+**Current release: v3.1.6** (2026-10-29) · **Next releases: v3.1.7, then v4.0.0**
 
 v3.1.6 carried three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
-owner shipped them with video export rather than hold them back. v3.1.7 starts with a redesign of
-the interface, then turns the application into a music video studio as well as a live tool (see its
-section below). NDI, which waits for a licence decision, moves after it.
+owner shipped them with video export rather than hold them back.
+
+A review on 2 and 3 November changed what comes next. Measurements showed that most of the slowness
+comes from how the application is built, not from Electron. So v3.1.7 holds fixes and performance
+work, and v4.0.0 rebuilds the core and the interface (see their sections below). The music video
+studio moves after v4.0.0, because it would otherwise be built twice. NDI, which waits for a licence
+decision, moves after that.
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -25,7 +29,9 @@ section below). NDI, which waits for a licence decision, moves after it.
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
 | **v3.1.6** | **Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets** | **2026-10-29** | **Current** |
-| v3.1.7 | Interface redesign, then the music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
+| v3.1.7 | Fixes and performance: lighter preset list, background shader compiles, lighter preview, a preset per MilkDrop layer | — | In progress |
+| v4.0.0 | New core and interface: one document model, one settings schema, layer-owned engines, rebuilt panel | — | Planned |
+| After v4.0.0 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
 ---
@@ -100,13 +106,14 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Interface redesign | v3.1.7 | Planned first in v3.1.7: an audit of every section, then shared layout blocks, a new shell with sub-sections, and the panels one by one. See the v3.1.7 section |
-| Video project view and video wizard | v3.1.7 | Planned (music video studio, phase 1), with mix videos from a track list |
-| Song sections and an edit that follows them | v3.1.7 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
-| Kinetic lyric styles, podcast and audiogram templates | v3.1.7 | Planned (phase 3) |
-| glTF models, a particle editor and 3D text | v3.1.7 | Planned (phase 4) |
-| LTC/MTC timecode and a browser demo | v3.1.7 | Planned (phase 5) |
-| NDI | Later | Was v3.1.8, then v3.1.7; now after the v3.1.7 music video studio. Deferred for licence reasons, not difficulty — see "Not done, and why" |
+| New core and interface | v4.0.0 | Planned: one document model, one settings schema, layer-owned engines, rebuilt panel. The clickable interface design is approved. See the v4.0.0 section |
+| Linux GPU encoders, low-power mode | After the v4.0.0 core | Planned (#904, #458) |
+| Video project view and video wizard | After v4.0.0 | Planned (music video studio, phase 1), with mix videos from a track list |
+| Song sections and an edit that follows them | After v4.0.0 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
+| Kinetic lyric styles, podcast and audiogram templates | After v4.0.0 | Planned (phase 3) |
+| glTF models, a particle editor and 3D text | After v4.0.0 | Planned (phase 4) |
+| LTC/MTC timecode and a browser demo | After v4.0.0 | Planned (phase 5) |
+| NDI | Later | Was v3.1.8, then v3.1.7; now after the music video studio. Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Hardware genlock | — | Not planned: sync cards have no interface in Chromium, and there is no sync hardware here to verify against. v3.1.6 ships software frame sync instead |
 
 ### Shipped, but never run on real hardware
@@ -3791,29 +3798,81 @@ standard in media servers of that class.
 - **Still open (#822):** measured runs on two computers and between Windows and macOS, the phase
   error with live audio, and the tray and desktop actions on macOS and Linux.
 
-## v3.1.7 — Interface redesign and music video studio · planned
+## v3.1.7 — Fixes and performance · in progress
 
-### Interface redesign · first
+Fixes already on `main`, plus the performance work that does not need the new core. The release itself
+still needs its own approval.
 
-The panel grew to many sections and cards, and its layout no longer looks like a professional tool:
-card structure is weak, sub-categories inside cards are hard to see, and buttons are unaligned and
-too close together. v3.1.7 redesigns it first, from scratch where needed, because the video project
-view and the wizard below would otherwise be built twice. The aim is a tool that is clear and easy to
-use and still professional. Each stage is its own reviewed change with before and after screenshots:
+Measured with `npm run perf` and the same real setup (10,392 presets, one output window), before the work
+started and after the preset list change. Single runs vary, so these are not exact values:
 
-1. **Audit.** Every section in Turkish and English, narrow and wide, in two themes, in an isolated
-   profile; a list of what is unaligned, crowded or hard to find.
-2. **Design tokens and layout blocks.** One spacing scale, one control height, a label column, a
-   toolbar and button group, and help text moved into an info popover.
-3. **Shell.** Navigation with sub-sections, a single column, and a fixed bar for the main action.
-4. **The declarative renderer** moves onto the new blocks, so most cards change at once.
-5. **Special panels** (timeline, clip deck, layout editor, MilkDrop library, export) one by one.
+| | Before | After |
+|---|---:|---:|
+| Total memory | 3,002 MB | 1,532 MB |
+| Frame gaps over 100 ms in 60 s | 5 | 0 |
+| Longest frame | 267 ms | 53 ms |
+| Opening the panel | 3.2 s | 1.7 s |
+| Opening a visualizer window | 945 ms | 470 ms |
 
-What must not break: the translation keys, the element ids that the self-test, MCP and the tests use,
-settings search, the dots that mark changed settings, the Advanced switch, live preview, and colours
-coming only from the theme tokens.
+- **Preset list without text** (#906). Every window held all preset text, 122 MB for this library, and
+  garbage collection went through it about every 11.5 s. Windows now ask for a text when they need it.
+  The main process still holds all the text.
+- **Background shader compiles** (#907). With an empty shader cache, the longest frame on the heaviest
+  Studio preset went from 542 to 32 ms, and for the gradient background from 219 to 41 ms. Export still
+  waits for each compile. Mapping, 3D geometry and the Studio editor's own compile still wait too.
+- **Lighter preview and analysis** (#908). With an output open, the preview draws 20 times a second instead
+  of 45: total CPU went from about 174 to 150 (% of one core). Analysis in an output window now runs
+  only when something reads it. That was only about 4% of one core, less than expected.
+- **A preset per MilkDrop layer** (#909). A layer can keep its own preset. It stays out of automatic
+  changes, because making those work per layer across windows needs the v4.0.0 engine.
+- **`npm run perf`** (#910), to measure a real setup and compare runs.
 
-### Music video studio
+## v4.0.0 — New core and interface · planned
+
+Tracked in #905. Work happens on a separate `dev/v4` branch, so `main` stays releasable.
+
+### What the review found
+
+- **Electron is not the main cost.** Pure GPU work ran at the same speed in a native D3D11 test and in
+  Electron (49.5 fps), and Electron's fixed overhead was 0.6-2 ms per frame. It does have real limits: on a
+  165 Hz panel a native window reached 163 fps and Electron 75, and bare Electron starts at about 580 MB
+  against 60-110 MB for native. Tauri was rejected because its system web views differ between platforms.
+  ANGLE on Vulkan was 3-8 times slower and was rejected too.
+- **The structure is the main cost and the main source of bugs.** Simple view and layers are separate
+  paths that disagree. Settings are declared several times, for the panel, MCP, OSC and the timeline. Most
+  tests read source text instead of running code: 231 of 297 test files.
+- **Growth.** The visualizer page went from 63 KB in v1.1 to 2,759 KB in v3.1.6, and `main.js` from 954 to
+  12,319 lines. The Scene page has 13 cards, up to 211 buttons and 12 button heights.
+
+### Decisions
+
+1. Electron stays, and the core and interface are rebuilt. A native output layer is a later decision, made
+   from measurements.
+2. The release is v4.0.0, on its own branch.
+3. Fixes and the safe performance wins ship first as v3.1.7.
+4. The music video studio comes after v4.0.0.
+5. Minimum target: 4 cores with an integrated GPU, a basic 1080p scene at 60 fps. Slower machines run it
+   without a speed guarantee.
+6. Settings upgrade once and one way, with an automatic backup. v4 settings do not open in 3.x.
+7. Interface: a clickable design first, approved by the owner, then code. This step is done.
+
+### Stages
+
+1. **Document and schema.** One model (scene, layer, source), where simple view is only a view of it. One
+   settings schema that generates the panel, MCP, OSC and timeline targets. Behaviour tests come first.
+2. **Engine.** Engines owned by layers, one GL compositor in a worker, one analysis, a preset index. This
+   is also where automatic preset changes per layer become possible across windows.
+3. **Interface.** The approved design: floating surfaces around the stage, a mode switch and screen picker
+   in the top bar, every colour theme, conditional rows instead of long cards.
+4. **Outputs.** Windows, recording, Spout and Syphon, web output and redundancy on the new core.
+5. **Cross-platform check.** Windows, macOS and Linux, each on real hardware where available.
+
+Afterwards come the native output decision, #458 and #904, then other requests from users.
+
+What must not break: the translation keys, settings search, the dots that mark changed settings, live
+preview, colours coming only from the theme tokens, and export producing the same video for the same job.
+
+## After v4.0.0 — Music video studio · planned
 
 The aim is a single path from one song to a finished video,
 built mostly by joining pieces that already exist (the timeline and its automation lanes, the
@@ -3859,7 +3918,7 @@ professional video tools. Each item notes why it did not go into 3.1.6:
 - **10-bit delivery and HDR.** 10-bit H.265 shipped in 3.1.6 (#858); ProRes 422 HQ and 4444 were
   already 10-bit and every format is tagged BT.709. Real HDR (PQ or HLG) needs a floating-point
   render path from the canvas to the encoder; marking 8-bit SDR pictures as HDR would be wrong, so
-  HDR waits for that path and is not planned for v3.1.7.
+  HDR waits for that path and is not in the current plan.
 - **Project files, autosave and recovery (Phase 0).** The video project view needs "save project"
   and "open project", periodic autosave, and recovery of unsaved work after a crash. Output windows
   already recover; work in progress does not. It belongs with the versioned settings schema.
@@ -3911,7 +3970,7 @@ is the whole difficulty. The application EULA must cover the NDI SDK terms, a
 `ndi.video` link is required in the application, on the website and in the
 documentation, and the NDI tools may not be redistributed. An EULA-bound
 binary inside an MIT-licensed project is a packaging problem rather than an
-engineering one, so NDI will ship as a separate optional package after v3.1.7 (first planned as v3.1.8).
+engineering one, so NDI will ship as a separate optional package after the music video studio (first planned as v3.1.8).
 
 Spout (BSD 2-Clause) and Syphon (Simplified BSD) carry none of this, which is
 why they go first in v3.1.1.
