@@ -25,7 +25,7 @@ test('her biçimin en az bir CPU kodlayıcısı ve deneme argümanı var', () =>
     const list = F.encodersFor(f);
     assert.ok(list.length, f.id + ' kodlayıcısız');
     assert.ok(list.some((e) => !F.ENCODERS[e].gpu), f.id + ' yalnız GPU ile kalamaz');
-    for (const e of list) assert.ok(Array.isArray(F.probeArgs(F.probeKey(f, e))), e + ' deneme argümanı yok');
+    for (const e of list) assert.ok(Array.isArray(F.probeArgs(F.probeKey(f, e), F.encoderVariants(e, { platform: 'linux', renderNodes: ['/d'] })[0])), e + ' deneme argümanı yok');
   }
   assert.ok(F.format(F.DEFAULT_FORMAT), 'varsayılan biçim tabloda');
 });
@@ -218,7 +218,7 @@ test('GPU dönüştürücüsü: BT.709 sınırlı aralık, 2x2 renk, kendi hedef
 
 test('I420 yalnız uygun boyutta; dönüştürücü kurulamazsa iş açıkça duruyor', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
-  assert.match(main, /w % 4 === 0 && h % 2 === 0 \? 'yuv420p' : 'rgba'/);
+  assert.match(main, /w % 4 === 0 && h % 2 === 0 && await hasWebgl2\(\) \? 'yuv420p' : 'rgba'/);
   const ex = fs.readFileSync(path.join(__dirname, '..', 'src', 'exporter', 'exporter.js'), 'utf8');
   assert.match(ex, /if \(!yuv\) throw new Error\(/);
   assert.match(ex, /const data = yuv \? yuv\.read\(comp\) : compCtx\.getImageData\(0, 0, width, height\)\.data;/);
@@ -248,10 +248,10 @@ test('10 bit H.265: Main 10, 10 bit piksel biçimi, BT.709 ve hvc1', () => {
   const f = fmt('mp4-hevc10');
   assert.strictEqual(f.codec, 'hevc');
   assert.strictEqual(f.depth, 10);
-  const want = { libx265: 'yuv420p10le', hevc_nvenc: 'p010le', hevc_qsv: 'p010le' };
-  assert.deepStrictEqual(F.encodersFor(f), ['hevc_nvenc', 'hevc_qsv', 'libx265']);
+  const want = { libx265: 'yuv420p10le', hevc_nvenc: 'p010le', hevc_qsv: 'p010le', hevc_vaapi: 'p010le,hwupload' };
+  assert.deepStrictEqual(F.encodersFor(f), ['hevc_nvenc', 'hevc_qsv', 'hevc_vaapi', 'libx265']);
   for (const enc of F.encodersFor(f)) {
-    const a = args('mp4-hevc10', enc);
+    const a = args('mp4-hevc10', enc, { variant: { device: '/d' } });
     assert.match(after(a, '-vf'), new RegExp('^scale=out_color_matrix=bt709:out_range=tv,format=' + want[enc] + '$'), enc);
     assert.strictEqual(after(a, '-profile:v'), 'main10', enc);
     assert.strictEqual(after(a, '-tag:v'), 'hvc1', enc);

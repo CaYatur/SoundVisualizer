@@ -43,12 +43,15 @@
        kesilmedi, tek dosya çıktı); bölümlemede seçilmiyor (#527). */
     h264_amf: { codec: 'h264', gpu: true, label: 'AMD AMF', noForcedKeys: true },
     h264_qsv: { codec: 'h264', gpu: true, label: 'Intel Quick Sync' },
+    // VA-API yalnız Linux'ta denenir (encoderVariants)
+    h264_vaapi: { codec: 'h264', gpu: true, label: 'VA-API' },
     /* tenBit: 10 bit (Main 10) yazabiliyor. AMF'nin ffmpeg kodlayıcısı
        p010 almıyor (yalnız nv12/yuv420p), 10 bitte sunulmuyor. */
     libx265: { codec: 'hevc', gpu: false, label: 'CPU — x265', tenBit: true },
     hevc_nvenc: { codec: 'hevc', gpu: true, label: 'NVIDIA NVENC', tenBit: true },
     hevc_amf: { codec: 'hevc', gpu: true, label: 'AMD AMF', noForcedKeys: true },
     hevc_qsv: { codec: 'hevc', gpu: true, label: 'Intel Quick Sync', tenBit: true },
+    hevc_vaapi: { codec: 'hevc', gpu: true, label: 'VA-API', tenBit: true },
     prores_ks: { codec: 'prores', gpu: false, label: 'ProRes' },
     dnxhd: { codec: 'dnxhr', gpu: false, label: 'DNxHR' },
     'libvpx-vp9': { codec: 'vp9', gpu: false, label: 'VP9' },
@@ -117,10 +120,12 @@
     h264_nvenc: { 'visually-lossless': 16, high: 20, balanced: 25 },
     h264_amf: { 'visually-lossless': 16, high: 20, balanced: 25 },
     h264_qsv: { 'visually-lossless': 16, high: 20, balanced: 25 },
+    h264_vaapi: { 'visually-lossless': 16, high: 20, balanced: 25 },
     libx265: { 'visually-lossless': 16, high: 20, balanced: 24 },
     hevc_nvenc: { 'visually-lossless': 18, high: 22, balanced: 27 },
     hevc_amf: { 'visually-lossless': 18, high: 22, balanced: 27 },
     hevc_qsv: { 'visually-lossless': 18, high: 22, balanced: 27 },
+    hevc_vaapi: { 'visually-lossless': 18, high: 22, balanced: 27 },
     'libvpx-vp9': { 'visually-lossless': 15, high: 24, balanced: 32 },
   };
   function quant(enc, quality) {
@@ -150,9 +155,27 @@
     return 'scale=out_color_matrix=bt709:out_range=tv,format=' + pix;
   }
 
+  /* Bir kodlayıcının bu makinede denenecek çeşitleri, sırayla (#904). Linux'ta
+     QSV ve VA-API düşük güç giriş noktasını da deniyor; önce onsuz, çünkü eski
+     GPU'larda o giriş noktası yok. Windows ve macOS'ta tek çeşit var, argümanlar
+     değişmiyor. env: { platform, renderNodes } */
+  function encoderVariants(enc, env) {
+    const linux = !!env && env.platform === 'linux';
+    if (/_vaapi$/.test(enc)) {
+      if (!linux) return [];
+      const out = [];
+      for (const device of env.renderNodes || []) out.push({ device }, { device, lowPower: true });
+      return out;
+    }
+    return linux && /_qsv$/.test(enc) ? [{}, { lowPower: true }] : [{}];
+  }
+
   /* Bir kodlayıcının video argümanları ve süzgeci.
-     Dönen: { args: [...], vf: 'süzgeç' | null, tags: bool } */
-  function videoArgs(fmt, enc, quality, speed) {
+     Dönen: { args: [...], vf: 'süzgeç' | null, tags: bool, input?: [...] }
+     `input` girdi dosyasından önce gelen genel seçenekler; `variant` yukarıdaki
+     çeşitlerden biri. */
+  function videoArgs(fmt, enc, quality, speed, variant) {
+    const lowPower = variant && variant.lowPower ? ['-low_power', '1'] : [];
     const q = quant(enc, quality);
     const sp = SPEEDS.indexOf(speed) >= 0 ? speed : 'balanced';
     const ten = fmt.depth === 10;
@@ -179,9 +202,18 @@
       case 'h264_qsv':
       case 'hevc_qsv':
         // QSV yalnız nv12 alıyor (10 bitte p010)
-        return { args: ['-c:v', enc, '-preset', QSV_SPEED[sp], '-global_quality', String(q)]
-          .concat(enc === 'hevc_qsv' ? ['-tag:v', 'hvc1'] : [], ten ? ['-profile:v', 'main10'] : []),
+        return { args: ['-c:v', enc].concat(lowPower, ['-preset', QSV_SPEED[sp], '-global_quality', String(q)],
+          enc === 'hevc_qsv' ? ['-tag:v', 'hvc1'] : [], ten ? ['-profile:v', 'main10'] : []),
         vf: yuvFilter(ten ? 'p010le' : 'nv12'), tags: true };
+      case 'h264_vaapi':
+      case 'hevc_vaapi':
+        /* Kare çevrilip GPU belleğine yükleniyor (hwupload), aygıt girdiden
+           önce veriliyor. Hız kademesi yok: niceleyici sabit, kalite ondan. */
+        if (!variant || !variant.device) return null;
+        return { input: ['-vaapi_device', variant.device],
+          args: ['-c:v', enc].concat(lowPower, ['-rc_mode', 'CQP', '-qp', String(q)],
+            enc === 'hevc_vaapi' ? ['-tag:v', 'hvc1'] : [], ten ? ['-profile:v', 'main10'] : []),
+          vf: yuvFilter(ten ? 'p010le' : 'nv12') + ',hwupload', tags: true };
       case 'prores_ks':
         if (fmt.alpha) {
           return { args: ['-c:v', 'prores_ks', '-profile:v', '4', '-vendor', 'apl0', '-alpha_bits', '16'],
@@ -233,8 +265,9 @@
      GPU yapıyor; QSV'ye yine nv12 sırası gerekiyor (kayıpsız yer değiştirme).
      Alfa, 4:2:2/4:4:4, paletli GIF ve kare dizileri RGBA kalıyor. */
   function takesYuv420(fmt, enc) {
-    const v = videoArgs(fmt, enc, 'high', 'balanced');
-    return !!v && (v.vf === yuvFilter('yuv420p') || v.vf === yuvFilter('nv12'));
+    // Çeşit bu soruyu değiştirmiyor; VA-API'nin aygıtı yalnız argümanı kurmak için
+    const v = videoArgs(fmt, enc, 'high', 'balanced', { device: '-' });
+    return !!v && (v.vf === yuvFilter('yuv420p') || v.vf === yuvFilter('nv12') || v.vf === yuvFilter('nv12') + ',hwupload');
   }
 
   /* Ses kuralı, kaba göre. Kaynak dosya mp4'e uygunsa kopyalanıyor; ama
@@ -254,7 +287,8 @@
   /* Bir biçim için uygun kodlayıcılar, tercih sırasıyla. `want` 'gpu' ya
      da 'cpu'; `ok(enc)` bu makinede çalışıyor mu. GPU istendi ama hiçbiri
      çalışmıyorsa CPU kodlayıcısı dönüyor. */
-  const ORDER = ['h264_nvenc', 'h264_amf', 'h264_qsv', 'libx264', 'hevc_nvenc', 'hevc_amf', 'hevc_qsv', 'libx265',
+  const ORDER = ['h264_nvenc', 'h264_amf', 'h264_qsv', 'h264_vaapi', 'libx264',
+    'hevc_nvenc', 'hevc_amf', 'hevc_qsv', 'hevc_vaapi', 'libx265',
     'prores_ks', 'dnxhd', 'libvpx-vp9', 'gif', 'apng', 'png', 'exr'];
   function encodersFor(fmt) {
     return ORDER.filter(function (e) {
@@ -332,16 +366,20 @@
           output, meta: {title, ...} } */
   function buildArgs(o) {
     const fmt = o.fmt;
-    const v = videoArgs(fmt, o.encoder, o.quality, o.speed);
+    const v = videoArgs(fmt, o.encoder, o.quality, o.speed, o.variant);
     if (!v) return null;
     const args = ['-y'];
+    if (v.input) args.push.apply(args, v.input);
     /* Süzgeç iş parçacıkları: renk dönüşümü dilimlere bölünüyor. Ölçüldü
        (#531): 1080p'de dönüşüm yaklaşık iki kat hızlı, kareler birebir
        aynı (framemd5; yuv420p, yuv422p10le, yuva444p10le). */
     if (o.threads > 1) args.push('-filter_threads', String(o.threads));
     // Girdi: ham RGBA ya da GPU'nun çevirdiği I420 (o.inputPix)
     const yuvIn = o.inputPix === 'yuv420p' && takesYuv420(fmt, o.encoder);
-    if (yuvIn) v.vf = v.vf === yuvFilter('nv12') ? 'format=nv12' : null;
+    if (yuvIn) {
+      v.vf = v.vf === yuvFilter('nv12') ? 'format=nv12'
+        : v.vf === yuvFilter('nv12') + ',hwupload' ? 'format=nv12,hwupload' : null;
+    }
     args.push(
       '-f', 'rawvideo',
       '-pixel_format', yuvIn ? 'yuv420p' : 'rgba',
@@ -423,16 +461,17 @@
   /* Bir kodlayıcının bu makinede çalıştığını ölçen kısa deneme. Gerçek
      işin argümanlarının AYNISI kullanılıyor; yalnız girdi bir test deseni ve
      çıktı boş. */
-  function probeArgs(key) {
+  function probeArgs(key, variant) {
     const ten = /@10$/.test(String(key));
     const enc = ten ? String(key).slice(0, -3) : key;
     if (!ENCODERS[enc]) return null;
     const fmt = FORMATS.filter(function (f) { return f.codec === ENCODERS[enc].codec && (f.depth === 10) === ten; })[0];
     if (!fmt) return null;
-    const v = videoArgs(fmt, enc, 'balanced', 'fast');
+    const v = videoArgs(fmt, enc, 'balanced', 'fast', variant);
     if (!v) return null;
-    const args = ['-hide_banner', '-loglevel', 'error',
-      '-f', 'lavfi', '-i', 'testsrc2=size=256x256:rate=30:duration=0.5,format=rgba'];
+    const args = ['-hide_banner', '-loglevel', 'error'];
+    if (v.input) args.push.apply(args, v.input);
+    args.push('-f', 'lavfi', '-i', 'testsrc2=size=256x256:rate=30:duration=0.5,format=rgba');
     if (v.complex) args.push('-filter_complex', '[0:v]' + v.complex + '[v]', '-map', '[v]');
     else if (v.vf) args.push('-vf', v.vf);
     args.push.apply(args, v.args);
@@ -686,7 +725,7 @@
   const api = {
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
-    videoArgs, audioArgs, buildArgs, probeArgs, probeKey, probeKeys, sequencePattern, takesYuv420,
+    videoArgs, audioArgs, buildArgs, probeArgs, probeKey, probeKeys, sequencePattern, takesYuv420, encoderVariants,
     PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters, loopPlan,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
     validateOptions,

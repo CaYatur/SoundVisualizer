@@ -81,6 +81,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Fixes
 
+- **GPU export on Linux** (#904). The FFmpeg bundled for Linux has no Intel or VA-API encoders, so export
+  offered only CPU encoders on those machines. GPU encoders are now also tried with your system `ffmpeg`,
+  which is used when its test encode passes. Quick Sync also tries `-low_power 1`, which Tiger Lake needs,
+  and `h264_vaapi` and `hevc_vaapi` are new. Windows and macOS run the same tests and arguments as before.
+- **Export no longer fails on a machine without WebGL2.** It stopped with "Could not set up the GPU colour
+  converter". The colour conversion now falls back to FFmpeg, which is slower but gives the same result.
 - **New visualizer layers start at factory settings.** A new layer took over values from the scene's
   visualizer (for example *Glow* 80%), so it showed reset badges on *Sensitivity*, *Glow* and *Bar Gap*
   from the start. It now starts with the defaults that *Reset* returns to. The reset targets of the

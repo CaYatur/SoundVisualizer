@@ -125,7 +125,7 @@ test('dışa aktarma: çıktı yerel ve mutlak, uzantı biçimin kendisi; ses yo
   assert.match(body, /typeof audioPath !== 'string' \|\| !path\.isAbsolute\(audioPath\)/);
   // Uzantı serbest değil: seçilen biçimin tablodaki uzantısı (#521)
   assert.match(body, /require\('\.\.\/shared\/mcp'\)\.badOutPath\(outputPath, \[fmt\.ext\]\)/);
-  assert.ok(main.indexOf('badOutPath(outputPath', main.indexOf('async function startExportJob')) < main.indexOf('spawn(ff, args', main.indexOf('async function startExportJob')), 'yol denetimi ffmpeg başlamadan');
+  assert.ok(main.indexOf('badOutPath(outputPath', main.indexOf('async function startExportJob')) < main.indexOf('spawn(encBin, args', main.indexOf('async function startExportJob')), 'yol denetimi ffmpeg başlamadan');
   assert.ok(mcp.badOutPath('C:/Videos/a.mov', ['mp4']), 'başka biçimin uzantısı reddedilmeli');
 });
 
