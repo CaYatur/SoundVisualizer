@@ -51,6 +51,23 @@ MilkDrop has its own, deeper tools: `scripts/milkdrop-render-rate.js` (does ever
 picture), `scripts/milkdrop-compile-rate.js` (does every shader compile) and
 `scripts/milkdrop-switch-cost.js` (what a preset change costs).
 
+## A real setup
+
+`npm run bench` measures each scene alone with an empty library. `npm run perf` runs the whole
+application in a temporary profile from a copy of your settings and preset folder, with light and
+network outputs off, and reports what a real setup costs: opening time, memory by process, frame
+gaps over a set time, and preset changes on MilkDrop and Studio.
+
+```bash
+npm run perf -- --settings=<settings.json> --presets=<folder>
+npm run perf -- --seconds=60 --json=after.json --baseline=before.json
+npm run perf -- --low      # integrated GPU, main thread 4 times slower
+npm run perf -- --spout    # with the Spout window open
+```
+
+`--low` is a simulation and does not replace a weak machine. It slows only the page's main thread,
+and process CPU figures mean nothing in that mode.
+
 ## Reading the numbers
 
 The figures belong to the machine they were measured on. They are for comparing a change before and

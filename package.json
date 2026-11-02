@@ -33,6 +33,7 @@
     "check:runtime": "node scripts/check-runtime.js",
     "release:assets": "node scripts/release-assets.js",
     "bench": "node scripts/bench.js",
+    "perf": "node scripts/perf.js",
     "parity": "node scripts/parity.js",
     "failover": "node scripts/failover.js",
     "bridge-rig": "node scripts/bridge-rig.js",
