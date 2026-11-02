@@ -18,6 +18,12 @@
 (function () {
   const REAL_FRAME_TIMEOUT = 700; // ms — bu süre kare gelmezse demo sinyale düş
   const PREVIEW_FPS = 45; // panelin kendi kare sınırı (CPU/GPU dostu)
+  /* ÇIKIŞ AÇIKKEN SEYREK ÇİZİM (#908). Önizleme bütün sahneyi yeniden çiziyor:
+     gerçek bir sahnede toplam 167'nin 52'si (çekirdek %) yalnız bu. Çıkış
+     açıkken görüntüyü asıl o veriyor. Yalnız ÇİZİM seyrekleşiyor: ses motoru
+     45 Hz'de kalıyor, çünkü Otomatik VJ'nin tempo motoru (autovj.js), Studio
+     ve çözümleme paneli onu okuyor; ses yavaşlasa BPM takibi bozulurdu. */
+  const PREVIEW_FPS_LOW = 20;
   const BINS = 1024;
   const TIME_LEN = 2048;
 
@@ -27,6 +33,9 @@
   let sprites = null;
   let media = null;
   let stack = null;
+  let outputOpen = false;
+  let sceneAcc = 0;
+  let sceneSkipped = 0;
   // Modülasyon matrisi — önizleme de görselleştirici penceresiyle aynı
   // modüle edilmiş yapılandırmayı görmeli, yoksa panel yalan söyler
   const modulator = new window.SVModulation.Modulator();
@@ -192,7 +201,25 @@
   }
 
   // --------------------------------------------------------------------------
-  function renderFrame(now, dt, t) {
+  function sceneFps() {
+    const rate = cfg.power && cfg.power.previewRate;
+    if (rate === 'full') return PREVIEW_FPS;
+    return rate === 'low' || outputOpen ? PREVIEW_FPS_LOW : PREVIEW_FPS;
+  }
+
+  // Bu karede sahne çizilsin mi? Hız ekranın tam böleni olmayabilir: birikimli
+  function sceneDue(dt) {
+    const fps = sceneFps();
+    if (fps >= PREVIEW_FPS) return true;
+    const every = 1 / fps;
+    sceneAcc += dt;
+    if (sceneAcc < every) return false;
+    sceneAcc -= every;
+    if (sceneAcc > every) sceneAcc = 0;
+    return true;
+  }
+
+  function renderFrame(now, dt, t, skipScene) {
     if (!stack || !audio) return;
     const live = now - lastRealFrame < REAL_FRAME_TIMEOUT;
     if (live !== liveSource) {
@@ -202,6 +229,16 @@
     if (!live) {
       audio.ingestFrame(buildSyntheticFrame(t));
     }
+
+    audio.update(dt);
+    if (!live && audio.analysis) {
+      audio.analysis.reset();
+      audio.analysis.silent = true;
+    }
+    // Çizilmeyen karelerin süresi sonrakine ekleniyor: zarflar yavaşlamasın
+    if (skipScene) { sceneSkipped += dt; return; }
+    const sceneDt = dt + sceneSkipped;
+    sceneSkipped = 0;
 
     let base = cfg;
     if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
@@ -223,15 +260,10 @@
       base = auto.cfg;
     }
 
-    audio.update(dt);
-    if (!live && audio.analysis) {
-      audio.analysis.reset();
-      audio.analysis.silent = true;
-    }
-    modulator.update(base, audio, t, dt);
-    const mcfg = modulator.apply(base, dt);
+    modulator.update(base, audio, t, sceneDt);
+    const mcfg = modulator.apply(base, sceneDt);
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
-    stack.draw(audio, mcfg, t, dt);
+    stack.draw(audio, mcfg, t, sceneDt);
     reportMdLive(now);
 
     // logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli kalır
@@ -267,7 +299,7 @@
     const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
     lastDraw = now;
     const t = now / 1000;
-    renderFrame(now, dt, t);
+    renderFrame(now, dt, t, !sceneDue(dt));
   }
 
   // --------------------------------------------------------------------------
@@ -383,6 +415,7 @@
     stack: () => stack,
     ingest,
     setPaused,
+    setOutputOpen: (open) => { outputOpen = !!open; },
     getLevels,
     isPaused: () => paused,
     isLive: () => liveSource,

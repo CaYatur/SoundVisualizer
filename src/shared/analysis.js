@@ -810,9 +810,24 @@
     }
   }
 
+  /* ÇIKIŞ PENCERESİNDE ÇÖZÜMLEMEYİ KİM OKUYOR (#908). Pencerenin JS yükünün
+     yarısı (ölçüldü: boş sahnede 66 ms/sn'nin 30'u, çekirdeğin %4'ü) çoğu kurulumda
+     kimsenin okumadığı kroma ve armonik ayrışma. Yalnız şu üçü okuyor: OSC
+     çıkışı, çözümleme kaynağına bağlı modülasyon yönlendirmesi, iki görselleştirici
+     modu. Panelin motoru ayrı ve hep açık (çözümleme paneli, MCP). */
+  const READING_MODES = new Set(['goniometer', 'chromawheel']);
+  const READING_SOURCE = /"(an[A-Z]\w*|chroma\d+|kickTrig|snareTrig|hatTrig)"/;
+  function neededBy(cfg) {
+    const c = cfg || {};
+    if (c.oscOut && c.oscOut.enabled === true && c.oscOut.analysis !== false) return true;
+    if (c.visualizer && READING_MODES.has(c.visualizer.type)) return true;
+    if (Array.isArray(c.layers) && c.layers.some((l) => l && READING_MODES.has(l.type))) return true;
+    return !!c.modulation && READING_SOURCE.test(JSON.stringify(c.modulation));
+  }
+
   const api = {
     Analyser, NOTE_NAMES, CHORDS, KEY_MAJOR, KEY_MINOR,
-    correlate, cosine, median, alphaFor,
+    correlate, cosine, median, alphaFor, neededBy,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVAnalysis = api;

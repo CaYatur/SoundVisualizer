@@ -19,6 +19,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   cache, the longest frame on the heaviest Studio preset in a real library went from 542 to 32 ms, and
   for the gradient background from 219 to 41 ms. Export still waits for each compile, so a video does
   not depend on compile speed.
+- **The panel preview draws less while an output window is open** (#908). It redraws the whole scene, and
+  while an output is open it now does so 20 times a second instead of 45. On a real scene, total CPU went
+  from about 174 to 150 (% of one core). Audio in the panel stays at full rate, so tempo tracking for Auto
+  VJ does not change. *Output › Power › Panel Preview* can keep it always smooth or always slower.
+- **Output windows skip audio analysis nobody reads** (#908). Chroma and harmonic analysis now run in an
+  output window only for OSC output, a modulation route that uses them, or the Goniometer and Chroma
+  Wheel modes. That was about 4% of one core per window.
 - **`npm run perf` measures a real setup** (#910). It runs the whole app with your settings and
   library in a temporary profile, and compares the result with an earlier run.
 

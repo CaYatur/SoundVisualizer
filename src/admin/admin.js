@@ -3549,6 +3549,15 @@
             ],
           },
           {
+            type: 'select', path: 'power.previewRate', label: 'Panel Önizlemesi',
+            hint: 'Önizleme bütün sahneyi yeniden çizer. Çıkış penceresini etkilemez; yalnız paneldeki küçük görüntünün akıcılığı değişir.',
+            options: [
+              { value: 'auto', label: 'Çıkış açıkken seyrek (önerilen)' },
+              { value: 'full', label: 'Her zaman akıcı' },
+              { value: 'low', label: 'Her zaman seyrek (düşük güç)' },
+            ],
+          },
+          {
             type: 'note',
             text: 'Ekranla Eşitle varsayılandır: kare hızı ekranınızdan otomatik gelir, elle ayarlamak gerekmez. Yenileme hızınızın tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapar. Panel önizlemesi ayrıca 45 FPS ile sınırlıdır; akıcılığı görselleştirici penceresinden değerlendirin. Windows\'ta bütün çıkış pencereleri tek hızda çizer: birincil ekranın ve açık çıkışların en yavaşı. 60 Hz bir ekranda da çıkış açıksa 165 Hz ekran da 60 FPS çizer.',
           },
@@ -5271,6 +5280,7 @@
   // --------------------------------------------------------------------------
     function setStatus(open, displayIds, floating) {
     visOpen = open;
+    if (window.SVPreview) window.SVPreview.setOutputOpen(open);
     if (typeof floating === 'boolean') floatingOpen = floating;
     const n = Array.isArray(displayIds) ? displayIds.length : open ? 1 : 0;
     $('statusDot').className = 'dot ' + (open ? 'on' : 'off');

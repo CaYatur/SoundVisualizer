@@ -357,6 +357,9 @@
       // ekranın yenileme hızının tam böleni olmayan bir sınır (75 Hz'de 60 gibi)
       // kare aralıklarını eşitsizleştirir.
       fpsCap: 0, // 0(ekranla eşitle — varsayılan) | 30 | 60 | 120
+      /* Paneldeki önizlemenin çizim hızı (#908). auto: çıkış açıkken seyrek,
+         full: her zaman akıcı, low: her zaman seyrek. Çıkışı etkilemez. */
+      previewRate: 'auto',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       pauseOnSilence: false,
       hideCursor: true,
