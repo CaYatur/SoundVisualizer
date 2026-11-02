@@ -4019,22 +4019,23 @@ const presetJournal = [];
    durur. */
 function followActivePreset(upsert) {
   if (!currentConfig || !currentConfig.milkdrop || !upsert || !upsert.length) return;
-  const id = currentConfig.milkdrop.presetId;
-  if (!id) return;
-  for (let i = 0; i < upsert.length; i++) {
-    const p = upsert[i];
-    if (!p || p.kind !== 'milkdrop' || p.id !== id || typeof p.source !== 'string') continue;
-    if (p.source === currentConfig.milkdrop.source) continue;
-    currentConfig.milkdrop = Object.assign({}, currentConfig.milkdrop, {
-      source: p.source,
-      name: p.name || currentConfig.milkdrop.name,
-    });
-    sendToVisualizers('config', currentConfig);
-    notifyAdmin('external-config', currentConfig);
-    streamServer.broadcast({ type: 'config', config: currentConfig });
-    saveSettings(currentConfig);
-    return;
+  let changed = false;
+  const follow = (md) => {
+    const p = md && md.presetId ? upsert.find((x) => x && x.kind === 'milkdrop' && x.id === md.presetId && typeof x.source === 'string') : null;
+    if (!p || p.source === md.source) return md;
+    changed = true;
+    return Object.assign({}, md, { source: p.source, name: p.name || md.name });
+  };
+  currentConfig.milkdrop = follow(currentConfig.milkdrop);
+  // Kendi preseti olan katmanların metni ayrı kopya (#909)
+  for (const l of Array.isArray(currentConfig.layers) ? currentConfig.layers : []) {
+    if (l && l.settings && l.settings.milkdrop && l.settings.milkdrop.presetId) l.settings.milkdrop = follow(l.settings.milkdrop);
   }
+  if (!changed) return;
+  sendToVisualizers('config', currentConfig);
+  notifyAdmin('external-config', currentConfig);
+  streamServer.broadcast({ type: 'config', config: currentConfig });
+  saveSettings(currentConfig);
 }
 
 function broadcastPresetDelta(upsert, remove) {

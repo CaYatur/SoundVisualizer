@@ -31,6 +31,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
+- **Each MilkDrop layer can show its own preset** (#909). Two MilkDrop layers always showed the same
+  preset, because the panel could only write the shared one. Turn on *Own Preset* on a layer card, and
+  what you choose in the preset list goes to that layer; *Selection Goes To* switches between layers. Such
+  a layer keeps its preset and stays out of automatic changes, and every output window shows the same
+  thing. Layers that change automatically on their own are planned for v4.
+- **The MilkDrop layer card shows only what works** (#909). Color Mode and Glow are gone from it, since the
+  engine reads only Sensitivity there.
+- **Choosing a preset no longer changes another layer** (#909). With a bars layer above a MilkDrop layer,
+  choosing a preset turned the bars into MilkDrop too.
 - **Nine CaYaDev presets are back to their MilkDrop 3 originals in the app** (Harmonograph, Harp Strings,
   Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons, Spectrum City).
   The MilkDrop 2 packing from #894 made them look worse in our own engine, where the originals always

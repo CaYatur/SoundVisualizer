@@ -56,7 +56,7 @@ test('panel: seçilen presetin metni ayara yazılmadan önce isteniyor; son seç
   const fn = P.slice(P.indexOf('function loadWithText(cfg, p, then)'), P.indexOf('const byId = '));
   assert.match(fn, /if \(!needsSource\(p\)\)/);
   assert.match(fn, /if \(seq !== goSeq\) return;/);
-  assert.match(fn, /load\(now, Object\.assign\(\{\}, p, \{ source: s, lazy: false \}\)\)/);
+  assert.match(fn, /put\(now, Object\.assign\(\{\}, p, \{ source: s, lazy: false \}\)\)/);
   assert.match(fn, /function go\(cfg, p, cut\) \{\s*if \(!p\) return;\s*loadWithText\(/);
   assert.match(P, /presetSource: sourceOf/);
   // Liste satırı ve ızgara hücresi metinsiz kaydı doğrudan yüklemiyor

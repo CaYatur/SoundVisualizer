@@ -2426,7 +2426,11 @@
        `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
     milkdropPreset() {
       for (const e of this.entries) {
-        if (e.mode && typeof e.mode.livePreset === 'function') return e.mode.livePreset();
+        if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
+        // Kendi preseti olan katman (#909) ortak seçimi temsil etmiyor
+        const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+        if (own && own.independent === true) continue;
+        return e.mode.livePreset();
       }
       return null;
     }
