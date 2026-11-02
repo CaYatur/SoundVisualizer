@@ -229,6 +229,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       const decls = this._paramDecls(controls);
       const full = PRELUDE + decls + '#line 1\n' + String(userCode || '') + EPILOGUE;
       const key = full;
+      this._dropJob();
       if (this.source === key && this.program) return { ok: true };
 
       const offset = 0; // #line 1 sayesinde derleyici kullanıcı satırını bildirir
@@ -254,15 +255,54 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
         return { ok: false, error: this.error };
       }
 
-      if (this.program) gl.deleteProgram(this.program);
+      this._install(p, key, userCode);
+      return { ok: true };
+    }
+
+    _install(p, key, userCode) {
+      if (this.program) this.gl.deleteProgram(this.program);
       this.program = p;
       this.source = key;
       this.error = null;
-      this._lineOffset = offset;
+      this._lineOffset = 0;
       this.loc = {};
       this.needsFeedback = /sv_prev|iChannel2/.test(String(userCode || ''));
       this.frame = 0;
+    }
+
+    /* ÇİZİMİ BEKLETMEDEN DERLEME (#907, gl-link.js). Eski program bitene kadar
+       çizmeye devam ediyor. Dönüş `setSource` gibi; henüz bitmediyse null.
+       Çevrimdışı işte ve uzantı yoksa `setSource`un kendisi: bekler. */
+    beginSource(userCode, controls) {
+      const gl = this.gl;
+      if (!gl) return { ok: false, error: this.error };
+      const L = window.SVGlLink;
+      if (!L || !L.canWait(gl)) return this.setSource(userCode, controls);
+      const full = PRELUDE + this._paramDecls(controls) + '#line 1\n' + String(userCode || '') + EPILOGUE;
+      if (this._job && this._job.key === full) return null;
+      this._dropJob();
+      if (this.source === full && this.program) return { ok: true };
+      this._job = { key: full, userCode, h: L.begin(gl, VERT, full, ['aPos']) };
+      return null;
+    }
+
+    pollSource() {
+      const j = this._job;
+      const gl = this.gl;
+      if (!j || !gl || !window.SVGlLink.ready(gl, j.h)) return null;
+      this._job = null;
+      const r = window.SVGlLink.end(gl, j.h);
+      if (!r.ok) {
+        this.error = r.stage === 'link' ? { message: r.log, line: 0 } : parseLog(r.log, 0);
+        return { ok: false, error: this.error };
+      }
+      this._install(r.prog, j.key, j.userCode);
       return { ok: true };
+    }
+
+    _dropJob() {
+      if (this._job && this.gl) window.SVGlLink.drop(this.gl, this._job.h);
+      this._job = null;
     }
 
     _u(name) {
@@ -470,6 +510,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     dispose() {
       const gl = this.gl;
       if (!gl) return;
+      this._dropJob();
       this._releaseFbos();
       if (this.program) gl.deleteProgram(this.program);
       const ext = gl.getExtension('WEBGL_lose_context');
@@ -542,6 +583,23 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     return null;
   }
 
+  /* Seçilen presetin derlemesini başlatır ya da bitti mi diye bakar. `shown`
+     ekrandaki programın preseti: yenisi hazır olana kadar denetimleri onunku,
+     adı tutan farklı türde bir denetim eski programa yanlış değer yazmasın. */
+  function followPreset(mode, preset) {
+    const id = preset.id + ':' + preset.updatedAt;
+    let r;
+    if (mode.lastId !== id) {
+      mode.lastId = id;
+      r = mode.host.beginSource(preset.shader, preset.controls);
+    } else {
+      r = mode.host.pollSource();
+    }
+    if (!r) return;
+    mode.lastError = r.ok ? null : r.error;
+    if (r.ok) mode.shown = preset;
+  }
+
   // Özel görselleştirici (ön katman) — saydam çizer
   class CustomVisualizer {
     constructor(canvas) {
@@ -560,15 +618,12 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       const preset = activePreset(cfg, 'visualizer');
       if (!preset) return;
       this.host.resize(W, H);
-      if (this.lastId !== preset.id + ':' + preset.updatedAt) {
-        this.lastId = preset.id + ':' + preset.updatedAt;
-        const r = this.host.setSource(preset.shader, preset.controls);
-        this.lastError = r.ok ? null : r.error;
-      }
+      followPreset(this, preset);
       if (this.lastError) return;
-      const values = window.SVPresets.paramValues(preset, cfg);
+      const live = this.shown || preset;
+      const values = window.SVPresets.paramValues(live, cfg);
       this.host.paletteOverride = studioPalette(cfg.visualizer, t);
-      if (this.host.render(audio, cfg, t, dt, preset.controls, values)) {
+      if (this.host.render(audio, cfg, t, dt, live.controls, values)) {
         ctx.drawImage(this.host.canvas, 0, 0, W, H);
       }
     }
@@ -594,19 +649,16 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       // arkaplanda renderScale uygulanır (performans)
       const rs = Math.max(0.4, Math.min(1, (cfg.power && cfg.power.renderScale) || 1));
       this.host.resize(Math.round(W * rs), Math.round(H * rs));
-      if (this.lastId !== preset.id + ':' + preset.updatedAt) {
-        this.lastId = preset.id + ':' + preset.updatedAt;
-        const r = this.host.setSource(preset.shader, preset.controls);
-        this.lastError = r.ok ? null : r.error;
-      }
+      followPreset(this, preset);
       ctx.clearRect(0, 0, W, H);
       if (this.lastError) {
         ctx.fillStyle = '#0b0810';
         ctx.fillRect(0, 0, W, H);
         return;
       }
-      const values = window.SVPresets.paramValues(preset, cfg);
-      if (this.host.render(audio, cfg, t, dt, preset.controls, values)) {
+      const live = this.shown || preset;
+      const values = window.SVPresets.paramValues(live, cfg);
+      if (this.host.render(audio, cfg, t, dt, live.controls, values)) {
         ctx.drawImage(this.host.canvas, 0, 0, W, H);
       }
     }
@@ -734,9 +786,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
       const rs = Math.max(0.4, Math.min(1, (cfg.power && cfg.power.renderScale) || 1)) * 0.75;
       this.host.resize(Math.round(W * rs), Math.round(H * rs));
       if (!this.ready) {
-        const r = this.host.setSource(FEEDBACK_SHADER, FEEDBACK_CONTROLS);
-        this.ready = r.ok;
-        if (!r.ok) return;
+        const r = this.started ? this.host.pollSource() : this.host.beginSource(FEEDBACK_SHADER, FEEDBACK_CONTROLS);
+        this.started = true;
+        this.ready = !!(r && r.ok);
+        if (!this.ready) return;
       }
       const f = cfg.feedback || {};
       const values = {

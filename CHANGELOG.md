@@ -13,6 +13,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   the text and ask for it when a preset is drawn, edited or mixed. Same scene and library, before and
   after: total memory 3,002 → 1,532 MB, frame gaps over 100 ms in 60 seconds 5 → 0, longest frame
   267 → 53 ms, opening the panel 3.2 → 1.7 s, opening a visualizer window 945 → 470 ms.
+- **Compiling a shader no longer freezes the picture** (#907). Studio shaders, effects and the gradient
+  background now compile in the background. The picture keeps running, the previous shader stays on
+  screen until the new one is ready, and an effect joins once it has compiled. With an empty shader
+  cache, the longest frame on the heaviest Studio preset in a real library went from 542 to 32 ms, and
+  for the gradient background from 219 to 41 ms. Export still waits for each compile, so a video does
+  not depend on compile speed.
 - **`npm run perf` measures a real setup** (#910). It runs the whole app with your settings and
   library in a temporary profile, and compares the result with an earlier run.
 

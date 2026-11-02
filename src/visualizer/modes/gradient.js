@@ -150,16 +150,6 @@
     }
   `;
 
-  function compile(gl, type, src) {
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      throw new Error('Shader hatası: ' + gl.getShaderInfoLog(s));
-    }
-    return s;
-  }
-
   class GradientMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -168,18 +158,34 @@
         canvas.getContext('experimental-webgl');
       if (!gl) throw new Error('WebGL desteklenmiyor');
       this.gl = gl;
-
-      const prog = gl.createProgram();
-      gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
-      gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG));
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-        throw new Error('Program hatası: ' + gl.getProgramInfoLog(prog));
-      }
-      this.prog = prog;
-      gl.useProgram(prog);
       this.lastT = 0;
       this.flow = 0; // sese göre biriken akış zamanı
+      this._colorBuf = new Float32Array(15);
+      this._sampleRows = [0.28, 0.5, 0.72];
+      this._pixelRow = null;
+
+      /* Derleme arka planda (#907, gl-link.js): 213 ms ölçüldü ve bu sırada
+         bütün kareler duruyordu. Bitene kadar bu yüzey boş. Başarısızsa
+         `failed` kalkıyor, katman düz renge düşüyor (layers.js). Uzantı yoksa
+         ya da dışa aktarımda hemen bitiriliyor; hata kurucudan fırlıyor. */
+      this.prog = null;
+      this.failed = false;
+      const L = window.SVGlLink;
+      this._job = L.begin(gl, VERT, FRAG);
+      if (!L.canWait(gl) && !this._finish()) throw new Error('Gradyan programı derlenemedi');
+    }
+
+    _finish() {
+      const gl = this.gl;
+      const r = window.SVGlLink.end(gl, this._job);
+      this._job = null;
+      if (!r.ok) {
+        this.failed = true;
+        return false;
+      }
+      const prog = r.prog;
+      this.prog = prog;
+      gl.useProgram(prog);
 
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -214,9 +220,7 @@
         grain: gl.getUniformLocation(prog, 'uGrain'),
         vignette: gl.getUniformLocation(prog, 'uVignette'),
       };
-      this._colorBuf = new Float32Array(15);
-      this._sampleRows = [0.28, 0.5, 0.72];
-      this._pixelRow = null;
+      return true;
     }
 
     resize(w, h) {
@@ -227,6 +231,9 @@
 
     draw(audio, cfg, t) {
       const gl = this.gl;
+      if (!this.prog) {
+        if (this.failed || !window.SVGlLink.ready(gl, this._job) || !this._finish()) return;
+      }
       const g = cfg.background.gradient;
       gl.useProgram(this.prog);
 
