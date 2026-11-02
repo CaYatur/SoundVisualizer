@@ -85,13 +85,15 @@ test('kayıtlı ayar değişmiyor', () => {
 test('dışa aktarım ve web çıkışı bu kipi hiç görmüyor', () => {
   assert.doesNotMatch(read('src/exporter/index.html'), /low-power/);
   assert.doesNotMatch(read('src/exporter/exporter.js'), /SVLowPower/);
-  assert.doesNotMatch(read('src/web/overlay.html'), /low-power/);
+  // Web çıkışı sayfanın betiğini paylaşıyor; kapı köprüde, web-shim'de o yok
+  assert.doesNotMatch(read('src/web/web-shim.js'), /getPowerSource/);
+  assert.match(read('src/visualizer/visualizer.js'), /if \(window\.SVLowPower && window\.api\.getPowerSource\) cfg = /);
   for (const page of ['src/visualizer/index.html', 'src/admin/index.html']) assert.match(read(page), /shared\/low-power\.js/);
 });
 
 test('pencere ve önizleme: çizim kopyaya, güç kaynağı değişince yeniden', () => {
   const V = read('src/visualizer/visualizer.js');
-  assert.match(V, /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), newCfg\);\s*\/\*[\s\S]*?\*\/\s*if \(window\.SVLowPower\) cfg = window\.SVLowPower\.apply\(cfg, onBattery\);/);
+  assert.match(V, /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), newCfg\);\s*\/\*[\s\S]*?\*\/\s*if \(window\.SVLowPower && window\.api\.getPowerSource\) cfg = window\.SVLowPower\.apply\(cfg, onBattery\);/);
   assert.match(V, /window\.api\.onPowerSource\(followPower\)/);
   assert.match(V, /applyConfig\(rawCfg\)/);
   const P = read('src/admin/preview.js');

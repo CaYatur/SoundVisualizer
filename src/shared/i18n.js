@@ -178,7 +178,6 @@
     'Panel Önizlemesi': 'Panel Preview',
     'Düşük Güç Kipi': 'Low-Power Mode',
     'Pildeyken': 'On battery',
-    'Her zaman': 'Always',
     'Kare hızını 30\'a indirir, efektleri kapatır, MilkDrop ve arka plan çözünürlüğünü düşürür. Dışa aktarımı ve OBS kaynağını etkilemez.': 'Lowers the frame rate to 30, turns effects off, and lowers MilkDrop and background resolution. It does not affect exports or the OBS source.',
     'Kendi Preseti': 'Own Preset',
     'Seçim Nereye': 'Selection Goes To',

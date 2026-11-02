@@ -633,9 +633,9 @@
   // --------------------------------------------------------------------------
   function applyConfig(newCfg) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), newCfg);
-    /* Düşük güç kipi (#458): yalnız bu pencerenin çizdiği kopya. Web çıkışı bu
-       sayfayı kullanıyor ama low-power.js'i yüklemiyor: OBS kaynağı değişmiyor. */
-    if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
+    /* Düşük güç kipi (#458): yalnız bu pencerenin çizdiği kopya. Web çıkışı da bu
+       sayfayı kullanıyor ama onda bu köprü yok (web-shim): OBS kaynağı değişmiyor. */
+    if (window.SVLowPower && window.api.getPowerSource) cfg = window.SVLowPower.apply(cfg, onBattery);
 
     if (!window.SVLayers || !window.SVLayers.stackOn(cfg)) {
       sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);

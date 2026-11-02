@@ -8,8 +8,9 @@
    hızını sınırlar, en pahalı geçişleri kapatır.
 
    Kayıtlı ayara dokunmuyor: yalnız çıkış penceresinin ve önizlemenin çizdiği
-   kopya değişiyor, kip kapanınca her şey olduğu gibi dönüyor. Dışa aktarıcı ve
-   web çıkışı bu dosyayı yüklemiyor: video ve OBS kaynağı aynı kalıyor.
+   kopya değişiyor, kip kapanınca her şey olduğu gibi dönüyor. Dışa aktarıcı bu
+   dosyayı yüklemiyor, web çıkışı yüklüyor ama çağırmıyor: video ve OBS kaynağı
+   aynı kalıyor.
 
    Değerler yalnız AŞAĞI çekiyor: kullanıcı daha düşük bir sınır seçtiyse o kalır.
    Efektler silinmiyor, kapatılıyor: modülasyon ve zaman çizelgesi onlara sırayla
