@@ -43,6 +43,7 @@
       this._barsCache = {};
       this._engines = {};
       this._frame = 0; // update() sayacı: aynı karede aynı barlar bir kez ölçülür
+      this._clock = 0; // update() sürelerinin toplamı
       this._dt = 1 / 60;
       this.ready = false;
       this.lastFrameTs = 0;
@@ -101,6 +102,7 @@
     update(dt) {
       // Sayaç hazır olmadan da ilerler: yoksa barlar ilk sonuçta donardı
       this._frame++;
+      this._clock += dt > 0 ? dt : 1 / 60;
       if (!this.ready) return;
       this._dt = dt > 0 ? dt : 1 / 60;
       const sens = this.cfg.sensitivity || 1;
@@ -240,7 +242,12 @@
         this._engines[key] = eng;
       }
       if (eng._svFrame === this._frame && eng._svOut) return eng._svOut;
+      /* Çizim sesten seyrekse (çıkış açıkken önizleme, #908) balistik geçen
+         süreyle yürüsün, yoksa barlar ağır kalkıp iner. Ardışık karede değer
+         `_dt`nin kendisi: canlı ve dışa aktarım birebir aynı. */
+      if (eng._svFrame != null && this._frame - eng._svFrame > 1) o.dt = Math.min(0.25, this._clock - eng._svClock);
       eng._svFrame = this._frame;
+      eng._svClock = this._clock;
       eng._svOut = eng.compute(
         { spec: this.freq, binHz: this.binHz, time: this._timeF, sampleRate: this.sampleRate },
         o
