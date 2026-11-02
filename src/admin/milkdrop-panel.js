@@ -584,12 +584,58 @@
      silerdi. */
   const OVERLAY_TYPES = ['text', 'nowplaying'];
 
+  /* KATMANIN KENDİ PRESETİ (#909). Motor her katmanda `settings.milkdrop`u
+     okuyor ama panelde ona yazan yoktu, o yüzden iki MilkDrop katmanı hep aynı
+     preseti gösteriyordu. Katman bağımsızsa seçim (liste, ◀ ▶, rastgele) ona
+     gidebiliyor.
+
+     Bağımsız katman kendi presetinde DURUR, otomatik geçişe girmez: geçiş seçimi
+     pencereler arasında tek kanaldan gidiyor (`SVMdFollow`), katman başına
+     seçimler ekranlar arasında ayrışırdı. */
+  function isOwnLayer(l) {
+    return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
+      && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
+  }
+  const ownLayers = (cfg) => (Array.isArray(cfg.layers) ? cfg.layers.filter(isOwnLayer) : []);
+  const hasSharedLayer = (cfg) => (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && !isOwnLayer(l));
+  let pickFor = '';
+  function pickTarget(cfg) {
+    const L = window.SVLayers;
+    if (!L || !L.stackOn || !L.stackOn(cfg)) return null;
+    const own = ownLayers(cfg);
+    if (!own.length) return null;
+    const hit = pickFor && own.find((l) => l.id === pickFor);
+    if (hit) return hit;
+    // Ortak seçimi çizen katman yoksa o seçim ekranda görünmezdi
+    return hasSharedLayer(cfg) ? null : own[0];
+  }
+  // Açılınca ortak presetin kopyasıyla başlıyor: görüntü zıplamasın
+  function setLayerOwn(cfg, l, on) {
+    l.settings = l.settings || {};
+    if (on) {
+      const md = cfg.milkdrop || {};
+      l.settings.milkdrop = { independent: true, presetId: md.presetId || '', name: md.name || '', source: md.source || '' };
+      pickFor = l.id;
+    } else {
+      delete l.settings.milkdrop;
+      if (pickFor === l.id) pickFor = '';
+    }
+  }
+
   function pointStackAtMilkdrop(cfg) {
     const L = window.SVLayers;
     if (!L || !L.stackOn || !L.stackOn(cfg)) return;
     if (!Array.isArray(cfg.layers) || !cfg.layers.length) return;
     const vis = cfg.layers.filter(
-      (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0);
+      (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0 && !isOwnLayer(l));
+    /* Ortak seçimi çizen bir MilkDrop katmanı zaten varsa başka katmana
+       dokunulmuyor: [barlar, MilkDrop] kurulumunda barlar da MilkDrop'a dönüyordu. */
+    const already = vis.find((l) => l.type === 'milkdrop');
+    if (already) {
+      already.enabled = true;
+      already.muted = false;
+      return;
+    }
     if (vis.length) {
       /* Birden çok görselleştirici katmanı varsa yalnız ilki çevriliyor:
          hepsini çevirmek kullanıcının kurduğu kompozisyonu tek tıkla yok
@@ -690,7 +736,7 @@
   function loadWithText(cfg, p, then) {
     const seq = ++goSeq;
     if (!needsSource(p)) {
-      load(cfg, p);
+      put(cfg, p);
       if (then) then(cfg);
       return;
     }
@@ -698,13 +744,21 @@
       if (seq !== goSeq) return;
       if (!s) { P().toast(window.SVI18n && window.SVI18n.t ? window.SVI18n.t('Preset dosyası okunamadı.') : 'Preset dosyası okunamadı.', 'err'); return; }
       const now = P().cfg();
-      load(now, Object.assign({}, p, { source: s, lazy: false }));
+      put(now, Object.assign({}, p, { source: s, lazy: false }));
       if (then) then(now);
     });
+  }
+  // Seçimin gittiği yer: seçilen bağımsız katman ya da ortak ayar
+  function put(cfg, p) {
+    const tl = pickTarget(cfg);
+    if (!tl) { load(cfg, p); return; }
+    tl.settings.milkdrop = Object.assign({}, tl.settings.milkdrop, { presetId: p.id, name: p.name || '', source: p.source });
   }
   function go(cfg, p, cut) {
     if (!p) return;
     loadWithText(cfg, p, (c) => {
+      // Katmanın seçimi ortak ◀ ▶ geçmişine ve "şimdi kes"e girmiyor
+      if (pickTarget(c)) { P().apply(); return; }
       if (cut) control(c).cutTo = p.id;
       const h = history();
       if (h) h.note(p.id);
@@ -759,7 +813,9 @@
      (MilkDrop'ta da `m_nCurrentPreset` gösterileni tutuyor). */
   function stepList(cfg, md, dir, cut) {
     if (!presets.length) return;
-    const i = presets.findIndex((p) => p.id === liveId(md));
+    const tl = pickTarget(cfg);
+    const cur = tl ? tl.settings.milkdrop.presetId : liveId(md);
+    const i = presets.findIndex((p) => p.id === cur);
     const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
     go(cfg, presets[j], cut);
   }
@@ -769,7 +825,7 @@
      atlanıyor. Geçmiş boşsa listede bir önceki; ileride bir şey yoksa
      sıraya göre yenisi — rastgelede puana göre. */
   function navBack(cfg, md) {
-    const h = history();
+    const h = pickTarget(cfg) ? null : history();
     for (let id = h && h.back(); id; id = h.back()) {
       const p = byId(id);
       if (p) { go(cfg, p); return; }
@@ -778,7 +834,7 @@
   }
 
   function navForward(cfg, md, cut) {
-    const h = history();
+    const h = pickTarget(cfg) ? null : history();
     for (let id = h && h.forward(); id; id = h.forward()) {
       const p = byId(id);
       if (p) { go(cfg, p, cut); return; }
@@ -1699,6 +1755,19 @@
       }
     }
 
+    const target = pickTarget(cfg);
+    if (ownLayers(cfg).length && window.SVLayers && window.SVLayers.stackOn(cfg)) {
+      const pickSel = el('select', { class: 'sel' });
+      if (hasSharedLayer(cfg)) pickSel.appendChild(el('option', { value: '', text: tt('Ortak katmanlar') }));
+      for (const l of ownLayers(cfg)) {
+        const o = el('option', { value: l.id, text: tr(l.name || 'MilkDrop') + ' — ' + (l.settings.milkdrop.name ? tr(l.settings.milkdrop.name) : tt('Yerleşik varsayılan')) });
+        if (target && target.id === l.id) o.selected = true;
+        pickSel.appendChild(o);
+      }
+      pickSel.addEventListener('change', () => { pickFor = pickSel.value; listScroll = 0; P().rerender(); });
+      nodes.push(P().row('Seçim Nereye', pickSel));
+    }
+
     /* DÜZEN (#575): liste ya da küçük resimli ızgara. Seçmek yapılandırma
        göndermiyor, yalnız paneli yeniden çiziyor. */
     const viewSel = el('select', { class: 'sel' });
@@ -1753,7 +1822,7 @@
       }));
     }
     const makeItem = (p) => {
-      const active = md.presetId === p.id;
+      const active = (target ? target.settings.milkdrop.presetId : md.presetId) === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
       const favBtn = LBn ? el('button', {
@@ -2034,6 +2103,7 @@
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
+    isOwnLayer, setLayerOwn, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

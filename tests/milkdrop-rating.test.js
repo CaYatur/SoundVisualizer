@@ -207,7 +207,7 @@ test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
   assert.match(PANEL, /function navBack\(cfg, md\) \{[\s\S]*?h\.back\(\)[\s\S]*?stepList\(cfg, md, -1\);/);
   assert.match(PANEL, /function navForward\(cfg, md, cut\) \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(cfg, md\)[\s\S]*?stepList\(cfg, md, 1, cut\);/);
   // Liste adımı ekrandakine göre, ayardaki elle seçime göre değil
-  assert.match(PANEL, /presets\.findIndex\(\(p\) => p\.id === liveId\(md\)\)/);
+  assert.match(PANEL, /const cur = tl \? tl\.settings\.milkdrop\.presetId : liveId\(md\);\s*const i = presets\.findIndex\(\(p\) => p\.id === cur\);/);
 });
 
 test('panel: 🎲 ve ▶ motorla AYNI kuralla seçiyor', () => {

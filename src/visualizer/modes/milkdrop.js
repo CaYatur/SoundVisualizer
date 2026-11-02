@@ -1986,6 +1986,12 @@ void main(){
          mesaj olabilir. Onu izlemek yeni preseti eskisine geri harmanlar,
          bir sonraki mesaj da tekrar yeniye — ekranda iki geçiş üst üste.
          Yalnız AYNI elle seçimin üstünde yapılmış bir seçim izleniyor. */
+      /* Kendi preseti olan katman (#909) geçişe girmez ve lideri izlemez: seçimini
+         aynı kimlikte yapmış olsa bile ortak katmanların seçimi ona geçmesin. */
+      if (cfg.milkdrop && cfg.milkdrop.independent === true) {
+        this.autoPick = null;
+        return;
+      }
       const FOLLOW_MS = 1500;
       const F = typeof window !== 'undefined' && window.SVMdFollow;
       if (F && F.base === (this._manualKey || '') && (performance.now() - F.at) < FOLLOW_MS) {

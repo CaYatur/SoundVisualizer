@@ -1801,6 +1801,34 @@
       }
     }
 
+    /* MILKDROP KATMANI (#909). Motor görselleştirici ayarlarından yalnız
+       duyarlılığı okuyor (milkdrop.js); renk kipi ve parlama burada hiçbir şey
+       yapmıyordu. Rengi preset kendisi yazıyor. */
+    if (l.kind === 'visualizer' && l.type === 'milkdrop') {
+      l.settings = l.settings || {};
+      const MP = window.SVMilkdropPanel;
+      if (MP && MP.isOwnLayer) {
+        const own = MP.isOwnLayer(l);
+        out.push(miniToggle('Kendi Preseti', () => own, (on) => MP.setLayerOwn(cfg, l, on), rerender, { def: false }));
+        if (own) {
+          const name = l.settings.milkdrop.name;
+          out.push(P().row('Preset', el('button', {
+            class: 'btn ghost tiny', type: 'button', text: name ? tr(name) : tr('Yerleşik varsayılan'),
+            title: tr('MilkDrop Presetleri kartında bu katman için seçin'),
+            onclick: () => { MP.pickFor(l.id); P().rerender(); },
+          })));
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Listeden seçilen preset bu katmana gider. Otomatik geçişe girmez.' }));
+        } else {
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken ortak preseti gösterir.' }));
+        }
+      }
+      const vs = (l.settings.visualizer = l.settings.visualizer || {});
+      const fallback = (cfg.visualizer && cfg.visualizer.sensitivity != null) ? cfg.visualizer.sensitivity : 1;
+      const factory = (def.visualizer && def.visualizer.sensitivity != null) ? def.visualizer.sensitivity : 1;
+      out.push(miniSlider('Hassasiyet', () => (vs.sensitivity != null ? vs.sensitivity : fallback), (v) => { vs.sensitivity = v; }, { min: 0.2, max: 3, step: 0.05, def: factory }));
+      return out;
+    }
+
     if (l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom')) {
       l.settings = l.settings || {};
       /* Katman yazmamışsa motor sahnenin görselleştirici ayarını kullanıyor
