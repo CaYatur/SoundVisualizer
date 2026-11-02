@@ -143,6 +143,7 @@
   // Modülasyon matrisi: kaynakları kare başına hesaplar ve yapılandırmanın
   // modüle edilmiş bir KOPYASINI üretir; saklanan ayarlar değişmez.
   const modulator = new window.SVModulation.Modulator();
+  let analysisWanted = true;
 
   /* Gösteri saati. Panel yalnızca durum değiştiğinde çıpa yollar; buradaki
      zaman o çıpadan kapalı formülle hesaplanır, böylece tüm ekranlar aynı
@@ -383,6 +384,7 @@
   // Sahne
   // --------------------------------------------------------------------------
   function applyScene() {
+    analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(cfg);
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
     /* Gövdenin zemini: saydam modda (yayın katmanı ya da "Şeffaf Arkaplan")
@@ -503,6 +505,8 @@
     const t = sharedEpoch != null ? (performance.timeOrigin + now - sharedEpoch) / 1000 : now / 1000;
     if (window.__svFrameLog && window.__svFrameLog.length < 5000) window.__svFrameLog.push([performance.timeOrigin + now, t]);
 
+    // Geçişte eski sahne de çiziliyor; onun göstergesi donmasın
+    audio.setAnalysis(analysisWanted || !!stack.trans);
     audio.update(dt);
     const hits = audio.analysis && audio.analysis.hits;
     if (hits) oscHit(hits);

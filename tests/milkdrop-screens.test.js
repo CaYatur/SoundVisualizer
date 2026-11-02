@@ -214,7 +214,7 @@ test('önizleme lider olduğunda seçimini yolluyor, izlerken yollamıyor', () =
   assert.ok(fn, 'reportMdLive bulunamadı');
   assert.match(fn[0], /if \(F && now - F\.at < 1500\) return;/, 'bir pencereyi izlerken lider değil');
   assert.match(fn[0], /if \(key === mdLiveKey && now - mdLiveAt < 500\) return;/);
-  assert.match(P, /stack\.draw\(audio, mcfg, t, dt\);\s*reportMdLive\(now\);/);
+  assert.match(P, /stack\.draw\(audio, mcfg, t, sceneDt\);\s*reportMdLive\(now\);/);
 });
 
 // ---------------------------------------------------------------- ayar
