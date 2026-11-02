@@ -119,6 +119,8 @@
       const r = Number(ratings[p.id]);
       if (isFinite(r)) return Math.max(0, Math.min(5, r));
     }
+    // Liste metinsiz gelir (preset-lean.js); dosyadaki puan yanında durur
+    if (typeof p.source !== 'string' && isFinite(p.fRating)) return p.fRating;
     return fileRating(p.source);
   }
 

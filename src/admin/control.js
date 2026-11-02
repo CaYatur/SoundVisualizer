@@ -448,7 +448,10 @@
       const named = mp && mp.presetByName ? mp.presetByName(step.name) : null;
       const list = mp && mp.visibleList ? mp.visibleList() : [];
       const hit = named || list.find((p) => p && sameName(p.name, step.name));
-      if (hit && mp.load) mp.load(cfg, hit);
+      if (!hit) return;
+      // Listede metni yok (#906): metin gelince yüklenip kendi gönderiliyor
+      if (hit.lazy && mp.go) mp.go(cfg, hit);
+      else if (mp.load) mp.load(cfg, hit);
       return;
     }
     if (step.op === 'deck') {

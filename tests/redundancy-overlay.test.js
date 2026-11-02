@@ -122,7 +122,7 @@ test('paket: eksik preset/logo kütüphaneye yazılmıyor, katmanda kalıyor', (
 });
 
 test('pencereler katmanı görüyor: liste, MilkDrop kaynağı, logo okuma, eşlik', () => {
-  assert.match(MAIN, /return withOverlayPresets\(list\);/);
+  assert.match(MAIN, /return leanPresets\(withOverlayPresets\(list\)\);/);
   assert.match(MAIN, /logoFile: \(id\) => logoInfoForShow\(id\),/);
   assert.match(MAIN, /ipcMain\.handle\('logo-lib:read', async \(e, id\) => \{\n[^\n]*\n  const entry = await logoBytesForShow\(id\);/);
   assert.match(MAIN, /protocol\.handle\('sv-logo'[\s\S]{0,300}const entry = await logoBytesForShow\(id\);/);

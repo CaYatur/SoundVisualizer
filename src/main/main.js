@@ -4043,9 +4043,10 @@ function broadcastPresetDelta(upsert, remove) {
   if (!up.length && !rm.length) return;
   presetGen += 1;
   const bulk = up.length > 24;
-  presetJournal.push({ gen: presetGen, upsert: bulk ? [] : up, remove: rm, bulk: bulk });
+  const lean = leanPresets(up);
+  presetJournal.push({ gen: presetGen, upsert: bulk ? [] : lean, remove: rm, bulk: bulk });
   if (presetJournal.length > 32) presetJournal.shift();
-  const delta = { upsert: up, remove: rm, gen: presetGen };
+  const delta = { upsert: lean, remove: rm, gen: presetGen };
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
   followActivePreset(up);
@@ -4061,7 +4062,12 @@ ipcMain.handle('presets:list', async () => {
   const disk = presetsStore.syncDisk();
   if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
   // Yedek birincilin kopyasını çizerken paketteki eksik presetler (#812)
-  return withOverlayPresets(list);
+  return leanPresets(withOverlayPresets(list));
+});
+/* Metin yalnız gerektiğinde (#906): liste metinsiz gidiyor (preset-lean.js) */
+ipcMain.handle('presets:source', (e, id) => {
+  const p = presetForShow(String(id || ''));
+  return p && typeof p.source === 'string' ? p.source : '';
 });
 ipcMain.handle('presets:head', () => ({ gen: presetGen }));
 ipcMain.handle('presets:since', (e, gen) => {
@@ -7697,6 +7703,7 @@ function resolveFfmpeg() {
 }
 
 const exportFormats = require('../shared/export-formats.js');
+const { leanPresets } = require('../shared/preset-lean.js');
 
 /* Bu makinede hangi kodlayıcılar GERÇEKTEN çalışıyor (#521)?
 

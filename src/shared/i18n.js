@@ -153,6 +153,7 @@
     'Ken Burns Döngüsü': 'Ken Burns Cycle',
     'Vuruşta Nabız': 'Beat Pulse',
     'Yansıma Boyu': 'Reflection Length',
+    'Preset dosyası okunamadı.': 'Could not read the preset file.',
     // Bar biçimi (#879)
     'Bar Stili': 'Bar Style', 'Segmentli (LED)': 'Segmented (LED)', 'Segment Boyu': 'Segment Size',
     'Segment Aralığı': 'Segment Gap', 'Dolgu': 'Fill', 'Dikey Degrade': 'Vertical Gradient',

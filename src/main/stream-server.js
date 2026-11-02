@@ -31,6 +31,7 @@ const crypto = require('crypto');
 const net = require('net');
 const os = require('os');
 const mediaUrl = require('../shared/media-url');
+const { leanPreset } = require('../shared/preset-lean');
 const { isConfiguredMedia } = require('./media-file');
 
 const ROOT = path.join(__dirname, '..'); // src/
@@ -272,14 +273,8 @@ function broadcast(obj, kind) {
    KAYNAKSIZ gidiyor (`lazy`): 10.347 presetlik bir kütüphane 116 MB ediyordu
    ve her bağlantıda ve her değişimde her istemciye — telefondaki kumandaya
    da — gidiyordu. Kaynak, preset gerçekten çizilecekken kimliğiyle
-   isteniyor (`/milkdrop/preset`, jetonun arkasında). Studio presetleri
-   küçük ve sayfa onları hemen çiziyor; olduğu gibi gidiyor. */
-function publicPreset(p) {
-  if (!p || typeof p !== 'object' || p.kind !== 'milkdrop' || typeof p.source !== 'string') return p;
-  const c = Object.assign({}, p, { lazy: true });
-  delete c.source;
-  return c;
-}
+   isteniyor (`/milkdrop/preset`, jetonun arkasında). */
+const publicPreset = leanPreset;
 
 function publicPresets(list) {
   return (Array.isArray(list) ? list : []).map(publicPreset);

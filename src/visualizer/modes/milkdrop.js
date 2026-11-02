@@ -2380,15 +2380,20 @@ void main(){
         }
         return '';
       }
+      /* Metin listeye YAZILMIYOR: Otomatik VJ saatlerce dönünce bütün
+         kütüphane yeniden belleğe dolardı (#906). Önbellekte son birkaç
+         metin; anahtarda değişim zamanı var, kaydedilen preset yeniden
+         isteniyor. */
       const box = this._srcReq || (this._srcReq = new Map());
-      const r = box.get(id);
+      const key = id + '@' + ((p && p.updatedAt) || 0);
+      const r = box.get(key);
       if (r) return r.done ? r.source : null;
       const rec = { done: false, source: '' };
-      box.set(id, rec);
+      box.set(key, rec);
+      if (box.size > 6) box.delete(box.keys().next().value);
       Promise.resolve(api.milkdropPresetSource(id)).then((s) => {
         rec.done = true;
         rec.source = typeof s === 'string' ? s : '';
-        if (p && rec.source) p.source = rec.source;
       }, () => { rec.done = true; });
       return null;
     }

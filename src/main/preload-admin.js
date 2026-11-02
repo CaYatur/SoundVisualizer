@@ -153,6 +153,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları)
   listPresets: () => ipcRenderer.invoke('presets:list'),
+  milkdropPresetSource: (id) => ipcRenderer.invoke('presets:source', id),
   savePreset: (preset) => ipcRenderer.invoke('presets:save', preset),
   deletePreset: (id) => ipcRenderer.invoke('presets:delete', id),
   savePresets: (list) => ipcRenderer.invoke('presets:save-many', list),

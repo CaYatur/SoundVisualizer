@@ -155,13 +155,32 @@
 
   /* Tarifi kurar ve yükler. `record` yeni bir karışım mı (geçmişe girer)
      yoksa geçmişte gezinme mi. Parçalarından biri artık yoksa false. */
+  /* Parçaların metni gerektiğinde (#906). Eksik varsa istenip yeniden
+     çağrılıyor; `true` döner çünkü tarif geçerli, yalnız sonuç bir an sonra. */
+  const donorText = new Map();
+  const textOf = (p) => (typeof p.source === 'string' ? p.source : donorText.get(p.id));
+  function fetchDonors(list, then) {
+    const panel = MP();
+    if (donorText.size > 24) donorText.clear();
+    Promise.all(list.map((p) => (panel && panel.presetSource ? panel.presetSource(p) : Promise.resolve('')).then((s) => { donorText.set(p.id, s || ''); }))).then(then);
+  }
   function showMix(recipe, record) {
     const donors = {};
+    const missing = [];
     for (const s of X().SLOTS) {
       if (recipe[s] === X().NONE) { donors[s] = X().NONE; continue; }
       const p = byId(recipe[s]);
-      if (!p || typeof p.source !== 'string') return false;
-      donors[s] = p.source;
+      if (!p) return false;
+      const text = textOf(p);
+      if (typeof text !== 'string') { missing.push(p); continue; }
+      if (!text) return false;
+      donors[s] = text;
+    }
+    if (missing.length) {
+      fetchDonors(missing, () => {
+        if (!showMix(recipe, record)) P().toast(tr('Preset dosyası okunamadı.'), 'err');
+      });
+      return true;
     }
     const nameOf = (id) => { const p = byId(id); return p ? tr(p.name || id) : id; };
     const r = {
@@ -191,34 +210,61 @@
     return list;
   }
 
+  /* ZAR METİNSİZ LİSTEDE (#906). Aday seçmek metne bakmayı gerektiriyor ama
+     bütün kütüphaneyi istemek listeyi yeniden belleğe doldurmak demek.
+     Rastgele küçük bir örnek yetiyor. Ölçüldü (10.373 preset): en seyrek parça
+     dalga, presetlerin %49'unda var; 24 adayda hiç çıkmama olasılığı milyonda
+     birin altında. Süzgeçli listede parça gerçekten seyrekse tek parça zarı
+     ikinci turda örneği genişletiyor. */
+  const POOL = 24;
+  const POOL_WIDE = 400;
+  function poolOf(list, size, then) {
+    let some = list;
+    if (list.length > size) {
+      const seen = new Set();
+      for (let i = 0; seen.size < size && i < size * 8; i++) seen.add(list[Math.floor(Math.random() * list.length)]);
+      some = Array.from(seen);
+    }
+    if (donorText.size > POOL) donorText.clear();
+    fetchDonors(some.filter((p) => typeof textOf(p) !== 'string'), () => {
+      then(some.map((p) => ({ id: p.id, source: textOf(p) })).filter((p) => p.source));
+    });
+  }
+
   // Altı parçanın hepsi yeniden
   function rollAll() {
     if (!X()) return;
     const list = mixList();
     if (!list.length) return;
-    const look = draw(list, 'look', null);
-    if (!look) return;
-    const recipe = { look };
-    for (const s of X().SLOTS) {
-      if (s === 'look') continue;
-      const id = draw(list, s, null);
-      // Parçası olan aday yoksa görünümün presetinden (belki boş) gelir
-      recipe[s] = id === null ? look : id;
-    }
-    showMix(recipe, true);
+    poolOf(list, POOL, (pool) => {
+      const look = draw(pool, 'look', null);
+      if (!look) { P().toast(tr('Preset dosyası okunamadı.'), 'err'); return; }
+      const recipe = { look };
+      for (const s of X().SLOTS) {
+        if (s === 'look') continue;
+        const id = draw(pool, s, null);
+        // Parçası olan aday yoksa görünümün presetinden (belki boş) gelir
+        recipe[s] = id === null ? look : id;
+      }
+      showMix(recipe, true);
+    });
   }
 
   // Tek parça yeniden; ötekiler yerinde
-  function rollSlot(slot) {
+  function rollSlot(slot, wide) {
     if (!X() || !mix) return;
     const list = mixList();
     if (!list.length) return;
-    const id = draw(list, slot, mix[slot]);
-    if (id === null) {
-      P().toast(tr('Listede bu parçası olan başka preset yok.'), 'err');
-      return;
-    }
-    showMix(Object.assign({}, mix, { [slot]: id }), true);
+    poolOf(list, wide ? POOL_WIDE : POOL, (pool) => {
+      if (!mix) return;
+      const id = draw(pool, slot, mix[slot]);
+      if (id === null && !wide && list.length > POOL) { rollSlot(slot, true); return; }
+      if (id === null) {
+        P().toast(tr('Listede bu parçası olan başka preset yok.'), 'err');
+        return;
+      }
+      showMix(Object.assign({}, mix, { [slot]: id }), true);
+    });
   }
 
   /* Ekrandaki presetten başlar: altı parçanın hepsi ondan, sonra tek tek
@@ -234,9 +280,10 @@
       P().toast(tr('Önce MilkDrop listesinden bir preset seçin.'), 'err');
       return;
     }
+    if (typeof textOf(p) !== 'string') { fetchDonors([p], fromScreen); return; }
     const recipe = {};
     for (const s of X().SLOTS) {
-      recipe[s] = (s === 'warp' || s === 'comp') && !X().has(p.source, s) ? X().NONE : p.id;
+      recipe[s] = (s === 'warp' || s === 'comp') && !X().has(textOf(p), s) ? X().NONE : p.id;
     }
     showMix(recipe, true);
   }

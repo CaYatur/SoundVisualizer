@@ -15,8 +15,11 @@ const X = require('../src/shared/milkdrop-mashup.js');
 const G = require('../src/shared/milkdrop-generator.js');
 const M0 = require('../src/shared/milkdrop.js');
 const BUILTINS = require('../src/shared/presets-milkdrop.js');
+const { leanPresets } = require('../src/shared/preset-lean.js');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Metin isteğinin cevabı (#906): sözler bittikten sonra
+const settle = () => new Promise((r) => setImmediate(r));
 
 // Her parçası olan üretilmiş presetler, bir MilkDrop 1 preseti ve yalnız görünüm
 function richSources(n) {
@@ -99,7 +102,9 @@ async function fresh() {
   window.SVI18n = undefined;
   window.SVMilkdropBuiltins = [];
   window.api = {
-    listPresets: () => Promise.resolve(lib.map((p) => Object.assign({}, p))),
+    // Pencereye giden liste gerçekteki gibi metinsiz (#906)
+    listPresets: () => Promise.resolve(leanPresets(lib)),
+    milkdropPresetSource: (id) => { const r = lib.find((x) => x.id === id); return Promise.resolve(r ? r.source : ''); },
     savePreset: (p) => { saved.push(p); return Promise.resolve({ ok: true, preset: Object.assign({}, p, { updatedAt: 1 }) }); },
     onMilkdropThumb() {}, onPresetsDelta() {},
   };
@@ -133,6 +138,7 @@ test('parçalar yalnız listede GÖRÜNEN presetlerden', async () => {
   assert.deepStrictEqual(visible, ['u_b1', 'u_b2', 'u_b3']);
   for (let i = 0; i < 25; i++) {
     GP.rollAll();
+    await settle();
     const mix = donorsOf(GP);
     for (const s of X.SLOTS) {
       if (mix[s] === X.NONE) continue;
@@ -147,6 +153,7 @@ test('her parça o parçası olan presetten; shader parçası bazen "yok"', asyn
   let none = 0;
   for (let i = 0; i < 80; i++) {
     GP.rollAll();
+    await settle();
     const mix = donorsOf(GP);
     for (const s of X.SLOTS) {
       if (mix[s] === X.NONE) { assert.ok(s === 'warp' || s === 'comp', s); none++; continue; }
@@ -159,6 +166,7 @@ test('her parça o parçası olan presetten; shader parçası bazen "yok"', asyn
 test('karışımın metni parçalarının presetlerinden, önizleme kaydedilmiyor', async () => {
   const { GP, cfg, lib, saved } = await fresh();
   GP.rollAll();
+  await settle();
   const { mix, mixLast } = GP.state();
   assert.strictEqual(cfg.milkdrop.presetId, mixLast.id);
   assert.match(mixLast.id, /^md_mix3_[0-9a-f]{16}$/);
@@ -174,9 +182,11 @@ test('karışımın metni parçalarının presetlerinden, önizleme kaydedilmiyo
 test('tek parça yeniden çekilince ötekiler yerinde kalıyor', async () => {
   const { GP } = await fresh();
   GP.rollAll();
+  await settle();
   for (const s of X.SLOTS) {
     const before = donorsOf(GP);
     GP.rollSlot(s);
+    await settle();
     const after = donorsOf(GP);
     for (const o of X.SLOTS) if (o !== s) assert.strictEqual(after[o], before[o], s + ' çekilince ' + o + ' değişti');
     assert.notStrictEqual(after[s], before[s], s + ' değişmedi');
@@ -187,6 +197,7 @@ test('ekrandakinden başla: altı parça ondan; kaydedilmemiş önizleme parça 
   const { M, GP, lib, toasts } = await fresh();
   M.preview(byId(lib, 'u_b3'));
   GP.fromScreen();
+  await settle();
   const mix = donorsOf(GP);
   // u_b3 MilkDrop 1 preseti: shader parçaları "yok"
   assert.deepStrictEqual(mix, { look: 'u_b3', motion: 'u_b3', waves: 'u_b3', shapes: 'u_b3', warp: X.NONE, comp: X.NONE });
@@ -202,6 +213,7 @@ test('ekrandakinden başla: altı parça ondan; kaydedilmemiş önizleme parça 
   assert.strictEqual(toasts[toasts.length - 1][1], 'err');
   // Karışımın kimliği listede yok: hiçbir zaman aday olamıyor
   GP.rollAll();
+  await settle();
   assert.ok(!M.visibleList().some((p) => /^md_(mix|gen)/.test(p.id)));
 });
 
@@ -212,6 +224,7 @@ test('geçmiş: ◀ ▶ karışımı parçalarından yeniden kuruyor, silinen pa
   for (const p of ['u_a1', 'u_a2', 'u_b1', 'u_b2']) {
     M.preview(byId(lib, p));
     GP.fromScreen();
+    await settle();
     ids.push(cfg.milkdrop.presetId);
   }
   assert.strictEqual(new Set(ids).size, 4);
@@ -240,12 +253,15 @@ test('"yok" olan shader parçası yeniden çekilince bir preset geliyor', async 
   const { M, GP, lib } = await fresh();
   M.preview(byId(lib, 'u_b3'));
   GP.fromScreen();
+  await settle();
   assert.strictEqual(donorsOf(GP).warp, X.NONE);
   const orig = Math.random;
   Math.random = () => 0.05;
   try {
     GP.rollSlot('warp');
+    await settle();
     GP.rollSlot('comp');
+    await settle();
   } finally {
     Math.random = orig;
   }
@@ -259,6 +275,7 @@ test('kaydet son karışımı yazıyor; aynı karışım aynı kimlik', async ()
   // Üreticinin de bir sonucu var: karışımın düğmesi onu değil karışımı yazmalı
   GP.regenerate();
   GP.rollAll();
+  await settle();
   const { mixLast } = GP.state();
   await GP.saveMix();
   await GP.saveMix();
@@ -277,14 +294,65 @@ test('kart: parça satırları, "yok" ve geçmiş düğmeleri', async () => {
   assert.ok(btn(t, 'chevron-left').attrs.disabled !== undefined || btn(t, 'chevron-left').props.disabled === true);
   M.preview(byId(lib, 'u_b3'));
   GP.fromScreen();
+  await settle();
   t = tree();
   const rows = findAll(t, (n) => n.className === 'mdmix-row');
   assert.strictEqual(rows.length, 6);
   const names = rows.map((r) => r.kids[1].text);
   assert.deepStrictEqual(names, ['Beta 3', 'Beta 3', 'Beta 3', 'Beta 3', 'Yok', 'Yok']);
   GP.rollAll();
+  await settle();
   t = tree();
   assert.strictEqual(btn(t, 'chevron-left').props.disabled, false, 'iki karışımdan sonra geri açık');
   assert.strictEqual(btn(t, 'chevron-right').props.disabled, true);
   assert.strictEqual(findAll(t, (n) => /Kütüphaneye Kaydet/.test(String(n.text))).length, 2, 'iki bölümün kendi kaydet düğmesi');
+});
+
+// Metinsiz listede gerçek satır tıklaması (#906): önceki hali ayara `undefined` yazıyordu
+const rowOf = (root, name) => findAll(root, (n) => n.className === 'md-name' && n.text === name)[0];
+
+test('liste satırı: metin gelince yükleniyor, art arda tıklamada sonuncu kazanıyor', async () => {
+  const { M, cfg, lib, root } = await fresh();
+  root.kids = [M.panel()];
+  const beta = rowOf(root, 'Beta 1');
+  const gama = rowOf(root, 'Gama');
+  assert.ok(beta && gama, 'satırlar çizilmedi');
+  beta.on.click();
+  await settle();
+  assert.strictEqual(cfg.milkdrop.presetId, 'u_b1');
+  assert.strictEqual(cfg.milkdrop.source, byId(lib, 'u_b1').source);
+  beta.on.click();
+  gama.on.click();
+  await settle();
+  assert.strictEqual(cfg.milkdrop.presetId, 'u_g');
+  assert.strictEqual(cfg.milkdrop.source, byId(lib, 'u_g').source);
+});
+
+test('liste satırı: metin okunamazsa ekrandaki seçim bozulmuyor, kullanıcıya söyleniyor', async () => {
+  const { M, cfg, lib, root, toasts } = await fresh();
+  root.kids = [M.panel()];
+  const beta = rowOf(root, 'Beta 1');
+  rowOf(root, 'Gama').on.click();
+  await settle();
+  // Dosya bu arada silindi: liste henüz bilmiyor
+  lib.splice(lib.findIndex((p) => p.id === 'u_b1'), 1);
+  beta.on.click();
+  await settle();
+  assert.strictEqual(cfg.milkdrop.presetId, 'u_g');
+  assert.strictEqual(cfg.milkdrop.source, byId(lib, 'u_g').source);
+  assert.deepStrictEqual(toasts[toasts.length - 1], ['Preset dosyası okunamadı.', 'err']);
+});
+
+test('zar kütüphanenin tamamını istemiyor: büyük listede küçük örnek', async () => {
+  const { M, GP, lib } = await fresh();
+  for (let i = 0; i < 300; i++) lib.push({ id: 'u_x' + i, kind: 'milkdrop', name: 'X ' + i, source: RICH[i % RICH.length] });
+  await new Promise((r) => M.refresh(r));
+  assert.ok(M.visibleList().length > 300);
+  let asked = 0;
+  const real = window.api.milkdropPresetSource;
+  window.api.milkdropPresetSource = (id) => { asked++; return real(id); };
+  GP.rollAll();
+  await settle();
+  assert.ok(donorsOf(GP), 'karışım kurulmadı');
+  assert.ok(asked <= 30, 'çok metin istendi: ' + asked);
 });

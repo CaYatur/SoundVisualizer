@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('api', {
   sendCamStatus: (msg) => ipcRenderer.send('cam-status', msg),
   // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
   getPresets: () => ipcRenderer.invoke('presets:list'),
+  milkdropPresetSource: (id) => ipcRenderer.invoke('presets:source', id),
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
   // Değişiklik yayını (#574): bütün liste yerine yalnız değişenler
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
