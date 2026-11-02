@@ -111,6 +111,18 @@ test('yardımcı: başlatmak sonucu sormuyor; hata günlüğü hangi aşamadan g
   assert.deepStrictEqual(rec.deleted, [h.p]);
 });
 
+test('sürücü "bitti" demezse beş saniye sonra sonuç doğrudan alınıyor', () => {
+  const { gl, rec } = fakeGl({ slow: true });
+  const h = Link.begin(gl, 'v', 'f');
+  assert.strictEqual(Link.ready(gl, h), false);
+  h.startedAt -= 4000;
+  assert.strictEqual(Link.ready(gl, h), false);
+  h.startedAt -= 2000;
+  assert.strictEqual(Link.ready(gl, h), true);
+  assert.strictEqual(Link.end(gl, h).ok, true);
+  assert.ok(rec.blocked > 0);
+});
+
 test('bağlam kaybı derleme hatası sayılmıyor: gradyan düz renge düşmüyor, efekt işaretlenmiyor', () => {
   const g = gradient({ slow: true });
   const lost = (gl) => { gl.isContextLost = () => true; };

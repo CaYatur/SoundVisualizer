@@ -20,6 +20,11 @@
    olmadığı sürücülerde de eski bekleyen yol çalışıyor. */
 (function () {
   const EXT = 'KHR_parallel_shader_compile';
+  /* Bir sürücü "bitti" demezse efekt ya da gölgelendirici sonsuza dek görünmez
+     kalmasın: bu süreden sonra sonuç doğrudan alınıyor (`end` bekler, ama yalnız
+     derleme bitene kadar). En ağır gerçek preset 641 ms'de hazır oluyor. */
+  const WAIT_MAX_MS = 5000;
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
   function canWait(gl) {
     if (typeof window !== 'undefined' && window.SVMilkdropSync === true) return false;
@@ -38,7 +43,7 @@
     gl.attachShader(p, fs);
     if (attribs) attribs.forEach((name, i) => gl.bindAttribLocation(p, i, name));
     gl.linkProgram(p);
-    return { p, vs, fs };
+    return { p, vs, fs, startedAt: clock() };
   }
 
   /* Bağlam giderse uzantı "bitti" der ve sonuç başarısız görünür. Bu derleme
@@ -47,7 +52,8 @@
   function ready(gl, h) {
     if (gl.isContextLost()) return false;
     const ext = gl.getExtension(EXT);
-    return !ext || gl.getProgramParameter(h.p, ext.COMPLETION_STATUS_KHR) === true;
+    if (!ext || clock() - h.startedAt > WAIT_MAX_MS) return true;
+    return gl.getProgramParameter(h.p, ext.COMPLETION_STATUS_KHR) === true;
   }
 
   /* Sonucu alır; hazır değilse bekletir. Dönüş { ok, prog } ya da
