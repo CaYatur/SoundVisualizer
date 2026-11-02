@@ -144,6 +144,7 @@
   // modüle edilmiş bir KOPYASINI üretir; saklanan ayarlar değişmez.
   const modulator = new window.SVModulation.Modulator();
   let analysisWanted = true;
+  let onBattery = false;
 
   /* Gösteri saati. Panel yalnızca durum değiştiğinde çıpa yollar; buradaki
      zaman o çıpadan kapalı formülle hesaplanır, böylece tüm ekranlar aynı
@@ -632,6 +633,9 @@
   // --------------------------------------------------------------------------
   function applyConfig(newCfg) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), newCfg);
+    /* Düşük güç kipi (#458): yalnız bu pencerenin çizdiği kopya. Web çıkışı bu
+       sayfayı kullanıyor ama low-power.js'i yüklemiyor: OBS kaynağı değişmiyor. */
+    if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
 
     if (!window.SVLayers || !window.SVLayers.stackOn(cfg)) {
       sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
@@ -837,6 +841,16 @@
     // Ana süreçten gelen ses karelerini al
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
     window.api.onConfig((c) => { rawCfg = c; applyConfig(c); });
+    if (window.api.onPowerSource) {
+      const followPower = (s) => {
+        const b = !!(s && s.onBattery);
+        if (b === onBattery) return;
+        onBattery = b;
+        if (rawCfg) applyConfig(rawCfg);
+      };
+      window.api.onPowerSource(followPower);
+      window.api.getPowerSource().then(followPower).catch(() => {});
+    }
     if (window.api.onConfigPatch) {
       window.api.onConfigPatch((p) => {
         if (!rawCfg || !p || typeof p !== 'object') return;
