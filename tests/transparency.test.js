@@ -113,7 +113,7 @@ test('efekt zinciri: saydam modda alfa geri kazanılıyor', () => {
   assert.match(src, /render\(source, audio, t, dt, seeThrough\)/);
   assert.match(src, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, !toScreen/);
   assert.match(src, /gl\.bindFramebuffer\(gl\.FRAMEBUFFER, last && toScreen \? null : this\.fbo\[write\]\)/);
-  assert.match(src, /if \(!toScreen\) this\._resolveAlpha\(inputTex, chainSpreads\(this\.chain\)\)/);
+  assert.match(src, /if \(!toScreen\) this\._resolveAlpha\(inputTex, chainSpreads\(live\)\)/);
   assert.match(src, /float a = max\(src\.a, glow\)/);
   assert.match(src, /uSpread/);
   assert.match(src, /texture\(uPrev, vUV\)/);

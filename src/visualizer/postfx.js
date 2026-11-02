@@ -422,6 +422,9 @@ void main(){
       this.canvas.height = 2;
       this.gl = null;
       this.programs = {}; // type -> { prog, loc }
+      this._jobs = {}; // type -> derlemesi süren iş
+      this._failed = {};
+      this._live = [];
       this.width = 2;
       this.height = 2;
       this.fbo = [null, null];
@@ -461,36 +464,32 @@ void main(){
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
 
+    /* Hazır programı verir. Derleme arka planda (#907, gl-link.js): hazır
+       değilken null döner, efekt o kare atlanıp bitince devreye giriyor. Hata
+       bir kez yazılıyor; eskiden her karede yeniden derleniyordu. Dışa
+       aktarımda ve uzantı yoksa `canWait` false: `end` bekler. */
     _compile(type) {
       if (this.programs[type]) return this.programs[type];
       const gl = this.gl;
       const def = EFFECTS[type];
-      if (!gl || !def) return null;
-      const fs = HEAD + def.frag;
-
-      const mk = (kind, src) => {
-        const s = gl.createShader(kind);
-        gl.shaderSource(s, src);
-        gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-          console.warn('[postfx] ' + type + ': ' + gl.getShaderInfoLog(s));
-          gl.deleteShader(s);
-          return null;
-        }
-        return s;
-      };
-      const v = mk(gl.VERTEX_SHADER, VERT);
-      const f = v ? mk(gl.FRAGMENT_SHADER, fs) : null;
-      if (!v || !f) { if (v) gl.deleteShader(v); return null; }
-      const p = gl.createProgram();
-      gl.attachShader(p, v);
-      gl.attachShader(p, f);
-      gl.bindAttribLocation(p, 0, 'aPos');
-      gl.linkProgram(p);
-      gl.deleteShader(v);
-      gl.deleteShader(f);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { gl.deleteProgram(p); return null; }
-      const entry = { prog: p, loc: {} };
+      if (!gl || !def || this._failed[type]) return null;
+      const L = window.SVGlLink;
+      let h = this._jobs[type];
+      if (!h) {
+        h = L.begin(gl, VERT, HEAD + def.frag, ['aPos']);
+        this._jobs[type] = h;
+        if (L.canWait(gl)) return null;
+      } else if (!L.ready(gl, h)) {
+        return null;
+      }
+      delete this._jobs[type];
+      const r = L.end(gl, h);
+      if (!r.ok) {
+        console.warn('[postfx] ' + type + ': ' + r.log);
+        this._failed[type] = true;
+        return null;
+      }
+      const entry = { prog: r.prog, loc: {} };
       this.programs[type] = entry;
       return entry;
     }
@@ -617,13 +616,18 @@ void main(){
 
       let inputTex = this.srcTex;
       let write = 0;
-      const n = this.chain.length;
+      /* Derlemesi süren ya da derlenemeyen efekt zincirde yokmuş gibi: "son
+         efekt" ekrana çizen geçiş olduğu için atlananı saymamak şart. */
+      const live = this._live;
+      live.length = 0;
+      for (const fx of this.chain) if (this._compile(fx.type)) live.push(fx);
+      const n = live.length;
+      if (!n && toScreen) this._copyToScreen();
 
       for (let i = 0; i < n; i++) {
-        const fx = this.chain[i];
+        const fx = live[i];
         const def = EFFECTS[fx.type];
-        const entry = this._compile(fx.type);
-        if (!entry) continue;
+        const entry = this.programs[fx.type];
         const last = i === n - 1;
 
         gl.useProgram(entry.prog);
@@ -663,7 +667,7 @@ void main(){
         }
       }
 
-      if (!toScreen) this._resolveAlpha(inputTex, chainSpreads(this.chain));
+      if (!toScreen) this._resolveAlpha(inputTex, chainSpreads(live));
 
       /* İz efekti bir sonraki karede önceki sonucu okur. Ekran tamponundan
          kopyalamak yerine son ara hedefi saklamak yeterli; zincirin sonunda
@@ -688,6 +692,25 @@ void main(){
 
     _makeCopy() {
       return this._makeProgram('__copy', 'void main(){ outColor = texture(uTex, vUV); }');
+    }
+
+    /* Hiçbir efekt hazır değil: sahne efektsiz görünsün. Bu yüzey görünürken
+       katman tuvalleri gizli, çizilmezse ekran boşalırdı. Efektler gibi opak:
+       saydam olmayan yolda boş köşe saydam kalmamalı (öz test bunu ölçüyor). */
+    _copyToScreen() {
+      const gl = this.gl;
+      const copy = this.programs.__opaque
+        || this._makeProgram('__opaque', 'void main(){ outColor = vec4(texture(uTex, vUV).rgb, 1.0); }');
+      if (!copy) return;
+      gl.useProgram(copy.prog);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
+      gl.uniform1i(this._u(copy, 'uTex'), 0);
+      gl.uniform2f(this._u(copy, 'uRes'), this.width, this.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
     /* SAYDAM MOD, zincirin sonu. Örtü her zaman kaynak alfadan gelir.
@@ -763,6 +786,8 @@ void main(){
       this._release();
       for (const k in this.programs) gl.deleteProgram(this.programs[k].prog);
       this.programs = {};
+      for (const k in this._jobs) window.SVGlLink.drop(gl, this._jobs[k]);
+      this._jobs = {};
       const ext = gl.getExtension('WEBGL_lose_context');
       if (ext) ext.loseContext();
       this.gl = null;

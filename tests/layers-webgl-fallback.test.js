@@ -60,10 +60,11 @@ test('K1 source: gradient catch falls back to 2D solid (not gl=true alone)', () 
   const block = /if \(layer\.type === 'gradient'\) \{[\s\S]*?else if \(window\.SVBackgrounds/.exec(s);
   assert.ok(block, 'gradient create block missing');
   const body = block[0];
-  assert.match(body, /catch\s*\{/);
-  assert.match(body, /e\.gl\s*=\s*false/);
-  assert.match(body, /e\.ctx\s*=\s*e\.canvas\.getContext\('2d'\)/);
-  assert.match(body, /e\.solid\s*=\s*true/);
+  assert.match(body, /catch\s*\{\s*this\._gradientToSolid\(e\);/);
+  const solid = s.slice(s.indexOf('_gradientToSolid(e, freshCanvas) {'), s.indexOf('_sizeEntry(e) {', s.indexOf('_gradientToSolid(e, freshCanvas) {')));
+  assert.match(solid, /e\.gl\s*=\s*false/);
+  assert.match(solid, /e\.ctx\s*=\s*e\.canvas\.getContext\('2d'\)/);
+  assert.match(solid, /e\.solid\s*=\s*true/);
   /* Old bug: e.gl=true AFTER the catch, so failure still looked like GL. */
   assert.doesNotMatch(body, /catch\s*\{\s*e\.mode\s*=\s*null;\s*\}\s*e\.gl\s*=\s*true/);
 });

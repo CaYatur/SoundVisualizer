@@ -59,6 +59,7 @@ test('kurucuda WebGL bağlamı alan her katman sınıfı onu dispose\'da bırak�
   const sandbox = { window: {}, document: { createElement: canvas }, console, performance: { now: () => 0 } };
   sandbox.window.document = sandbox.document;
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/shared/gl-link.js'), 'utf-8'), sandbox, { filename: 'gl-link.js' });
   for (const f of FILES) vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf-8'), sandbox, { filename: f });
 
   const classes = [];

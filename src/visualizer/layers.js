@@ -1550,12 +1550,7 @@
             e.gl = true;
             e.webglFallback = false;
           } catch {
-            e.mode = null;
-            e.gl = false;
-            e.ctx = e.canvas.getContext('2d');
-            e.solid = true;
-            /* Silent K1 path: solid 2D fill. Flag drives admin info notice. */
-            e.webglFallback = true;
+            this._gradientToSolid(e);
           }
         } else if (window.SVBackgrounds && window.SVBackgrounds[layer.type]) {
           e.mode = new window.SVBackgrounds[layer.type]();
@@ -1573,6 +1568,24 @@
       }
       this._sizeEntry(e);
       return e;
+    }
+
+    /* Silent K1 path: solid 2D fill. Flag drives admin info notice. Derleme
+       arka planda başarısız olursa (#907) yeni tuval: WebGL bağlamı alınmış
+       tuvalden 2D bağlam alınamaz. */
+    _gradientToSolid(e, freshCanvas) {
+      if (freshCanvas) {
+        const old = e.canvas;
+        e.canvas = this._makeCanvas();
+        e.canvas.className = old.className;
+        if (old.parentNode) old.parentNode.replaceChild(e.canvas, old);
+        this._sizeEntry(e);
+      }
+      e.mode = null;
+      e.gl = false;
+      e.ctx = e.canvas.getContext('2d');
+      e.solid = true;
+      e.webglFallback = true;
     }
 
     _sizeEntry(e) {
@@ -2124,7 +2137,14 @@
       const H = this.height;
 
       if (l.kind === 'background') {
-        if (e.gl && e.mode) { e.mode.draw(audio, lcfg, t); return; }
+        if (e.gl && e.mode) {
+          e.mode.draw(audio, lcfg, t);
+          if (e.mode.failed) {
+            this._gradientToSolid(e, true);
+            this._syncGradientWebGLFallback();
+          }
+          return;
+        }
         if (e.mode) { e.mode.draw(e.ctx, audio, lcfg, t, W, H, dt); return; }
         /* WebGL fallback / solid: ctx yoksa fillStyle'a dokunma. */
         if (!e.ctx) return;
