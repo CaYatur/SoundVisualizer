@@ -85,7 +85,7 @@ function host(opts) {
   const h = new window.SVShaderHost({ transparent: true });
   f.rec.blocked = 0;
   f.rec.programs.length = 0;
-  return { h, rec: f.rec };
+  return { h, rec: f.rec, gl: f.gl };
 }
 
 test.afterEach(() => { delete window.SVMilkdropSync; });
@@ -109,6 +109,28 @@ test('yardımcı: başlatmak sonucu sormuyor; hata günlüğü hangi aşamadan g
   assert.strictEqual(r.stage, 'compile');
   assert.match(r.log, /bozuk satır/);
   assert.deepStrictEqual(rec.deleted, [h.p]);
+});
+
+test('bağlam kaybı derleme hatası sayılmıyor: gradyan düz renge düşmüyor, efekt işaretlenmiyor', () => {
+  const g = gradient({ slow: true });
+  const lost = (gl) => { gl.isContextLost = () => true; };
+  g.rec.finish();
+  lost(g.gl);
+  g.m.draw(noAudio, gradCfg(), 0);
+  assert.strictEqual(g.m.failed, false, 'kalıcı düz renge düştü');
+  assert.strictEqual(g.rec.blocked, 0);
+  const fx = postfx({ slow: true });
+  frame(fx.fx);
+  fx.rec.programs.forEach((p) => { p.done = true; });
+  lost(fx.gl);
+  frame(fx.fx);
+  assert.deepStrictEqual(fx.fx._failed, {});
+  const h = host({ slow: true });
+  h.h.beginSource('a', []);
+  h.rec.finish();
+  lost(h.gl);
+  assert.strictEqual(h.h.pollSource(), null);
+  assert.strictEqual(h.h.error, null);
 });
 
 test('Studio: yeni program hazır olana kadar eskisi çiziyor, kimse beklemiyor', () => {
@@ -220,7 +242,7 @@ test('özel görselleştirici: yeni preset derlenirken ekrandakinin denetimleriy
 function gradient(opts) {
   const f = fakeGl(opts);
   const m = new window.SVModes.gradient(canvasWith(f.gl));
-  return { m, rec: f.rec };
+  return { m, rec: f.rec, gl: f.gl };
 }
 const gradCfg = () => window.SV.defaultConfig();
 const noAudio = { bass: 0, level: 0, mid: 0, high: 0 };
@@ -291,7 +313,7 @@ function postfx(opts) {
   fx.resize(64, 64);
   f.rec.programs.length = 0;
   f.rec.draws.length = 0;
-  return { fx, rec: f.rec };
+  return { fx, rec: f.rec, gl: f.gl };
 }
 const SRC = {};
 const frame = (fx, see) => fx.render(SRC, { bass: 0 }, 0, 0.016, see);

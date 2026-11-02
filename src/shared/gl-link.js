@@ -41,8 +41,11 @@
     return { p, vs, fs };
   }
 
-  // Bağlam giderse uzantı "bitti" der; sonucu `end` kaybolmuş olarak bildirir
+  /* Bağlam giderse uzantı "bitti" der ve sonuç başarısız görünür. Bu derleme
+     hatası değil: yüzeyin sahibi bağlam kaybını görüp baştan kuruyor. Sonucu
+     almak gradyanı kalıcı düz renge, efekti "derlenemedi"ye düşürürdü. */
   function ready(gl, h) {
+    if (gl.isContextLost()) return false;
     const ext = gl.getExtension(EXT);
     return !ext || gl.getProgramParameter(h.p, ext.COMPLETION_STATUS_KHR) === true;
   }
