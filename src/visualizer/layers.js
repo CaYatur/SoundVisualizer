@@ -1338,11 +1338,13 @@
       const c = document.createElement('canvas');
       c.width = this.width;
       c.height = this.height;
-      c.style.position = 'absolute';
-      c.style.inset = '0';
-      c.style.width = '100%';
-      c.style.height = '100%';
-      c.style.display = 'block';
+      if (c.style) {
+        c.style.position = 'absolute';
+        c.style.inset = '0';
+        c.style.width = '100%';
+        c.style.height = '100%';
+        c.style.display = 'block';
+      }
       return c;
     }
 
@@ -1378,8 +1380,10 @@
       const old = e.canvas;
       if (old && fresh.canvas) {
         if (old.parentNode) old.parentNode.insertBefore(fresh.canvas, old);
-        fresh.canvas.style.cssText = old.style.cssText;
-        fresh.canvas.className = old.className;
+        if (old.style) {
+          fresh.canvas.style.cssText = old.style.cssText;
+          fresh.canvas.className = old.className;
+        }
       }
       this._disposeEntry(e);
       for (const k of ['canvas', 'ctx', 'mode', 'gl', 'solid', 'webglFallback']) e[k] = fresh[k];
@@ -1578,7 +1582,7 @@
       e.canvas = this._makeCanvas();
       /* Arkaplan tuvali işaretli: şeffaf arkaplanda koyu yerleri saydamlaşan
          yalnız o (visualizer.css, `.sv-bgkey`). */
-      if (layer.kind === 'background') e.canvas.classList.add('sv-bg');
+      if (layer.kind === 'background' && e.canvas.classList) e.canvas.classList.add('sv-bg');
       if (this.container) this.container.appendChild(e.canvas);
 
       if (layer.kind === 'logo') {
@@ -1648,8 +1652,10 @@
     _sizeEntry(e) {
       if (!e.canvas) return;
       if (e.gl && e.mode && e.mode.resize) {
-        e.canvas.style.width = '100%';
-        e.canvas.style.height = '100%';
+        if (e.canvas.style) {
+          e.canvas.style.width = '100%';
+          e.canvas.style.height = '100%';
+        }
         e.mode.resize(this.width, this.height);
         return;
       }

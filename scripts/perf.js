@@ -21,6 +21,7 @@
      npm run perf -- --seconds=60 --json=sonuc.json --baseline=onceki.json
      npm run perf -- --low      (tümleşik GPU + ana iş parçacığı 4 kat yavaş)
      npm run perf -- --spout    (Spout penceresi de açık)
+     npm run perf -- --single   (katmanlar CSS yerine tek yüzeyde birleşir)
 
    --low bir benzetimdir, gerçek zayıf makinenin yerini tutmaz; kısma yalnız
    sayfanın ana iş parçacığına uygulanır ve bu kipte süreç CPU'su anlamsızdır.
@@ -150,6 +151,7 @@ async function main() {
   await vis.call('Runtime.enable');
   if (THROTTLE > 1) await vis.call('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
   await until(() => vis.ev('!!(window.SVStage && window.SVStage.stack && window.SVStage.stack() && window.SVStage.stack().entries.length)'), 30000);
+  if (flag('single')) await vis.ev('window.SVStage.stack().setForceSingle(true)');
   await vis.ev(PROBE);
   await vis.ev('window.__perf.first()');
   res.open = { visibleMs: Date.now() - tOpen };
@@ -167,13 +169,16 @@ async function main() {
   res.steady = { frames: fr.summary, procs: procs.map((p) => Object.assign({}, p, { cpu: Math.round(p.cpu * CORES) })), totals: L.processTotals(procs, CORES), visWsMB: byPage('visualizer'), adminWsMB: byPage('admin') };
   // Süpürmeler için sade sahne: geçiş ve efekt yok, tek görselleştirici
   const setScene = (js) => admin.ev(`(() => { const c = window.SVPanel.cfg(); ${js}; window.SVPanel.apply(); return 1; })()`);
-  await setScene(`c.layerStack = Object.assign({}, c.layerStack, { enabled: false }); c.visualizer.type = 'none'; c.background = Object.assign({}, c.background, { type: 'solid', solidColor: '#000000' }); c.transition = Object.assign({}, c.transition, { enabled: false, type: 'cut', duration: 0 }); c.milkdropControl = Object.assign({}, c.milkdropControl, { locked: false }); c.milkdrop = Object.assign({}, c.milkdrop, { autoNext: 0, hardCut: 'off', blendTime: 0 }); c.postfx = []`);
+  /* Tek katman, her sürümde aynı sahne. Eskiden yığın anahtarı kapatılıyordu; v4'te anahtar yok,
+     panel yığını geri açıyor ve ölçüm gerçek sahnenin katmanlarının üstünde yapılıyordu. */
+  const oneLayer = (type) => `c.layerStack = Object.assign({}, c.layerStack, { enabled: true }); c.layers = [{ id: 'perf_tek', name: 'Ölçüm', enabled: true, kind: 'visualizer', type: '${type}', opacity: 1, blend: 'normal', settings: {} }]; c.visualizer.type = '${type}';`;
+  await setScene(`${oneLayer('none')} c.background = Object.assign({}, c.background, { type: 'solid', solidColor: '#000000' }); c.transition = Object.assign({}, c.transition, { enabled: false, type: 'cut', duration: 0 }); c.milkdropControl = Object.assign({}, c.milkdropControl, { locked: false }); c.milkdrop = Object.assign({}, c.milkdrop, { autoNext: 0, hardCut: 'off', blendTime: 0 }); c.postfx = []`);
   await sleep(1500);
   /* MILKDROP: gerçek preset METNİYLE. Metin boş giderse motor varsayılan
      presete düşer ve kimlik değişse de ölçülen şey hep aynı presettir. */
   const mdIds = JSON.parse(await admin.ev(`JSON.stringify(window.SVPresets.byKind('milkdrop').map((p) => p.id))`));
   const sourceOf = (id) => `(async () => { const p = window.SVPresets.get(${JSON.stringify(id)}); if (p && p.source) return p.source; return window.api.milkdropPresetSource ? await window.api.milkdropPresetSource(${JSON.stringify(id)}) : ''; })()`;
-  await setScene(`c.visualizer.type = 'milkdrop'`);
+  await setScene(oneLayer('milkdrop'));
   await sleep(1500);
   const mdGap = [], mdReady = [];
   let loaded = 0;
@@ -192,7 +197,7 @@ async function main() {
   res.milkdrop = { tried: Math.min(SWEEP, mdIds.length), loaded, gap: L.medMax(mdGap), ready: L.medMax(mdReady) };
   // STUDIO
   const shIds = JSON.parse(await admin.ev(`JSON.stringify(window.SVPresets.byKind('visualizer').filter((p) => p.engine === 'shader').map((p) => p.id))`));
-  await setScene(`c.visualizer.type = 'custom'`);
+  await setScene(oneLayer('custom'));
   await sleep(800);
   const shGap = [];
   for (const id of sample(shIds, SWEEP)) {
