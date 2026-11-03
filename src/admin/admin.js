@@ -146,9 +146,25 @@
     return m;
   }
 
+  /* Ağır anahtarlar da değişmedikçe gitmiyor (#905): ayarın 650 KB'ının 627 KB'ı bunlar.
+     Metin karşılaştırması pahalı değil (~3 ms), kopyalama iki süreçte birden (~14 ms). */
+  let heavySent = null;
+  function fullPayload() {
+    if (!window.api.patchConfig) return cfg;
+    const now = {};
+    for (const k of Object.keys(HEAVY_KEYS)) now[k] = JSON.stringify(cfg[k]);
+    const keep = heavySent ? Object.keys(now).filter((k) => now[k] !== undefined && now[k] === heavySent[k]) : [];
+    heavySent = now;
+    if (!keep.length) return cfg;
+    const out = Object.assign({}, cfg);
+    for (const k of keep) delete out[k];
+    out.__keep = keep;
+    return out;
+  }
+
   function sendFullConfig() {
     if (fullTimer) { clearTimeout(fullTimer); fullTimer = null; }
-    window.api.updateConfig(cfg);
+    window.api.updateConfig(fullPayload());
     sentSig = window.api.patchConfig ? lightSig() : null;
   }
 
@@ -6516,6 +6532,7 @@
       window.SVLayers.ensureStack(cfg);
       // Ana süreç yeni bir yapılandırmada; sonraki gönderim tam olsun
       sentSig = null;
+      heavySent = null;
       /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
          değişkende duruyordu; render() cfg'yi çizse de menü eski kutuyu
          işaretli bırakıyordu. Tıklamadaki gibi seçimi ve sahne vurgusunu

@@ -125,8 +125,8 @@ test('devralma verisi: izlerken hep birincilin kopyası; yetkide seçilen ya da 
 
 test('ana süreç: diske yerel gösteri, yetkide son kopya tutuluyor, bırakınca yeniden eşleme', () => {
   const main = read('src/main/main.js');
-  const flush = main.slice(main.indexOf('function flushSettings() {'), main.indexOf('function writeSettingsText('));
-  assert.match(flush, /JSON\.stringify\(redundancyDiskView\(config\), null, 2\)/);
+  const flush = main.slice(main.indexOf('function flushSettings() {'), main.indexOf('function writeSettingsTexts('));
+  assert.match(flush, /settingsStore\.serialize\(redundancyDiskView\(config\)\)/);
   const view = main.slice(main.indexOf('function redundancyDiskView(config) {'), main.indexOf('function packageMediaMap() {'));
   assert.match(view, /return sp\.forDisk\(config\);/);
   assert.match(view, /if \(red\.source === 'local'\) \{[\s\S]*sp\.saveLocal\(show\);/);
@@ -191,5 +191,5 @@ test('birincilin kopyası arka planda yazılıyor; son yazım kazanıyor; bellek
   }
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(main, /sp\.savePrimaryJson\(sig, \{ version: red\.primaryVersion \|\| '' \}\);/);
-  assert.match(main, /if \(text === lastSettingsText && fs\.existsSync\(SETTINGS_PATH\) && \(!settingsGuardOn \|\| settingsGuard\.changed\(\) === false\)\) return true;/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'settings-store.js'), 'utf8'), /written\.get\(name\) === texts\[name\] && F\.existsSync\(file\) && \(!ours \|\| ours\(name\)\)\) continue;/);
 });

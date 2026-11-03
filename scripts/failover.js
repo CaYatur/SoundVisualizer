@@ -183,8 +183,9 @@ async function scenario(name, takeover, opts) {
     // Yalıtım (#812): kayıt birleştirmesi en geç 2 sn; sonra diskteki dosyalar
     await wait(2600);
     const diskB = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
+    const scenesB = JSON.parse(fs.readFileSync(path.join(dirB, 'scenes.json'), 'utf8'));
     const primB = JSON.parse(fs.readFileSync(path.join(dirB, 'redundancy', 'primary-show.json'), 'utf8'));
-    res.localKept = Array.isArray(diskB.scenes) && diskB.scenes.some((x) => x && x.id === 'backup-own') && diskB._activeSceneId !== 'failover-rig';
+    res.localKept = Array.isArray(scenesB) && scenesB.some((x) => x && x.id === 'backup-own') && diskB._activeSceneId !== 'failover-rig';
     res.primaryCopied = primB.show && primB.show._activeSceneId === 'failover-rig';
     if (!res.localKept || !res.primaryCopied) throw new Error('isolation: ' + JSON.stringify({ localKept: res.localKept, primaryCopied: res.primaryCopied }));
     if (opts.pkg) {
@@ -381,7 +382,7 @@ async function scenario(name, takeover, opts) {
       await pb.eval('(() => { SVPanel.cfg().redundancy.role = "off"; SVPanel.apply(); return true; })()');
       await wait(2600);
       const disk = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
-      res.restoredOnOff = disk.redundancy.role === 'off' && (disk.scenes || []).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig' &&
+      res.restoredOnOff = disk.redundancy.role === 'off' && JSON.parse(fs.readFileSync(path.join(dirB, 'scenes.json'), 'utf8')).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig' &&
         fs.readdirSync(path.join(dirB, 'redundancy')).some((f) => /^local-show\.restored-\d+\.json$/.test(f));
       // Arşivden geri yükleme (#812): şu anki gösteri önce arşivlenir, panel güncellenir
       const st0 = await pb.eval('window.api.redundancyStatus()');
@@ -390,7 +391,7 @@ async function scenario(name, takeover, opts) {
       await wait(2600);
       const disk2 = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
       const n2 = fs.readdirSync(path.join(dirB, 'redundancy')).filter((f) => /^local-show\.restored-\d+\.json$/.test(f)).length;
-      res.archiveRestored = !!(rr && rr.ok && rr.backup) && n2 >= 2 && (disk2.scenes || []).some((x) => x.id === 'backup-own');
+      res.archiveRestored = !!(rr && rr.ok && rr.backup) && n2 >= 2 && JSON.parse(fs.readFileSync(path.join(dirB, 'scenes.json'), 'utf8')).some((x) => x.id === 'backup-own');
     } else {
       res.sceneKept = after.vis === want.vis && after.scene === want.scene && after.grad === want.grad;
     }

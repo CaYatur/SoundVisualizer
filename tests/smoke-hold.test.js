@@ -16,7 +16,7 @@ const path = require('path');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8').replace(/\r\n/g, '\n');
 
 test('panel gönderimleri bekletilirken saklanır, bitince uygulanır', () => {
-  assert.match(SRC, /ipcMain\.on\('update-config', \(e, config\) => \{\n  if \(smokeHold\) \{ smokeHold\.full = config; smokeHold\.patches = \[\]; return; \}\n  applyIncomingConfig\(config\);\n\}\);/);
+  assert.match(SRC, /ipcMain\.on\('update-config', \(e, config\) => \{\n  const full = restoreKeptKeys\(config\);\n  if \(smokeHold\) \{ smokeHold\.full = full; smokeHold\.patches = \[\]; return; \}\n  applyIncomingConfig\(full\);\n\}\);/);
   assert.match(SRC, /ipcMain\.on\('patch-config', \(e, patch\) => \{\n  if \(smokeHold\) \{ smokeHold\.patches\.push\(patch\); return; \}\n  applyConfigPatch\(patch\);\n\}\);/);
   const end = SRC.slice(SRC.indexOf('function smokeHoldEnd()'), SRC.indexOf("ipcMain.on('update-config'"));
   assert.match(end, /smokeHold = null;/);

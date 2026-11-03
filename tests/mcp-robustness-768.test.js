@@ -227,7 +227,7 @@ test('#768-8 main drops stray settings.postfx at load and wires takeStartupClean
   const fs = require('fs');
   const path = require('path');
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
-  assert.match(main, /return sanitizeLoaded\(migrateLoaded\(SettingsGuard\.parse\(fs\.readFileSync\(SETTINGS_PATH\)\)\)\);/);
+  assert.match(main, /return sanitizeLoaded\(migrateLoaded\(settingsStore\.merge\(SettingsGuard\.parse\(fs\.readFileSync\(SETTINGS_PATH\)\)\)\)\);/);
   assert.match(main, /\n  sanitizeLoaded\(migrateLoaded\(currentConfig\)\); \/\/ v4 göçü \(#905\), stray layer settings\.postfx/);
   assert.match(main, /takeStartupCleaned: \(\) => \{/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'mcp-server.js'), 'utf8'), /takeStartupCleaned: deps\.takeStartupCleaned/);

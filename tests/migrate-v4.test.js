@@ -80,7 +80,7 @@ test('yeni kurulum çevrilmiyor; ana süreç önce yedekliyor ve yedeğin üstü
   const fn = main.slice(main.indexOf('function migrateLoaded'), main.indexOf('function loadSettings'));
   assert.ok(fn.indexOf('copyFileSync') > 0 && fn.indexOf('copyFileSync') < fn.indexOf('migrateV4.migrate(cfg)'), 'önce yedek');
   assert.match(fn, /!fs\.existsSync\(SETTINGS_V3_BACKUP\)/);
-  assert.match(main, /sanitizeLoaded\(migrateLoaded\(SettingsGuard\.parse\(fs\.readFileSync\(SETTINGS_PATH\)\)\)\)/);
+  assert.match(main, /sanitizeLoaded\(migrateLoaded\(settingsStore\.merge\(SettingsGuard\.parse\(fs\.readFileSync\(SETTINGS_PATH\)\)\)\)\)/);
   assert.match(main, /sanitizeLoaded\(migrateLoaded\(currentConfig\)\)/);
   assert.match(main, /sanitizeLoaded\(migrateLoaded\(loaded\)\)/);
   const html = read('src/admin/index.html');

@@ -100,7 +100,7 @@ function prepareProfile(ud) {
   fs.mkdirSync(ud, { recursive: true });
   const settingsFile = arg('settings');
   if (settingsFile) {
-    const s = L.sanitizeSettings(JSON.parse(fs.readFileSync(settingsFile, 'utf8')), { spout: flag('spout') });
+    const s = L.sanitizeSettings(L.readSettingsFile(settingsFile), { spout: flag('spout') });
     fs.writeFileSync(path.join(ud, 'settings.json'), JSON.stringify(s));
   }
   const presets = arg('presets');

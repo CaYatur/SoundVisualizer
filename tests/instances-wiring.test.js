@@ -36,19 +36,19 @@ test('otomasyon koşuları soru sormuyor ve bekçiyi açmıyor', () => {
   const ask = ready.indexOf('if (!AUTOMATION_RUN && !(await checkOtherCopies())) return;');
   const guardOn = ready.indexOf('settingsGuardOn = true;');
   const registry = ready.indexOf('startInstanceRegistry();');
-  const config = ready.indexOf('currentConfig = startupSettings ? SettingsGuard.parse(startupSettings) : null;');
+  const config = ready.indexOf('currentConfig = startupSettings ? settingsStore.merge(SettingsGuard.parse(startupSettings), startupFiles) : null;');
   const admin = ready.indexOf('createAdminWindow();');
   assert.ok(ask > 0, 'açılış sorusu yok ya da otomasyonu dışarıda bırakmıyor');
   assert.ok(guardOn > ask && registry > ask && config > ask && admin > config,
     'sıra: önce soru, sonra bekçi/kayıt defteri/yapılandırma, en son panel');
   const guardBlock = ready.slice(ready.lastIndexOf('if (!AUTOMATION_RUN) {', guardOn), guardOn);
   assert.ok(guardBlock.indexOf('if (!AUTOMATION_RUN) {') === 0, 'bekçi otomasyonda da açılıyor');
-  assert.ok(ready.indexOf('settingsGuard.remember(startupSettings);') > 0, 'bekçi açılış içeriğini öğrenmiyor');
+  assert.ok(ready.indexOf('rememberSettingsFiles(startupFiles);') > 0, 'bekçi açılış içeriğini öğrenmiyor');
 });
 
 test('bekçi açılıştaki içeriği yapılandırmayla AYNI okumadan öğreniyor', () => {
   const ready = body(MAIN, 'app.whenReady().then(async () => {');
-  const reads = ready.match(/fs\.readFileSync\(SETTINGS_PATH\)/g) || [];
+  const reads = ready.match(/settingsStore\.snapshot\(\)/g) || [];
   assert.strictEqual(reads.length, 1, 'ayar dosyası açılışta birden çok kez okunuyor');
 });
 
@@ -75,17 +75,17 @@ test('kaydetme birleştiriliyor: son yapılandırma bekliyor, bir kez yazılıyo
 
 test('kaydetme çakışmada dosyaya yazmıyor, bekletiyor', () => {
   const fn = body(MAIN, 'function flushSettings() {');
-  assert.match(fn, /settingsGuard\.changed\(\) === true\) raiseSettingsConflict\(\);/);
-  assert.match(fn, /if \(settingsConflict\) \{\s*pendingSettings = text;\s*return;\s*\}/);
-  const write = body(MAIN, 'function writeSettingsText(text) {');
-  assert.match(write, /fs\.writeFileSync\(SETTINGS_PATH, text, 'utf-8'\);\s*if \(settingsGuardOn\) settingsGuard\.remember\(text\);/,
+  assert.match(fn, /settingsFilesChanged\(\) === true\) raiseSettingsConflict\(\);/);
+  assert.match(fn, /if \(settingsConflict\) \{\s*pendingSettings = texts;\s*return;\s*\}/);
+  const write = body(MAIN, 'function writeSettingsTexts(texts) {');
+  assert.match(write, /settingsGuards\.get\(name\)\.remember\(text\)/,
     'yazılan içerik bekçiye bildirilmiyor — kopya kendi yazımını çakışma sanar');
 });
 
 test('çakışma kendiliğinden biterse bekleyen değişiklik yazılıyor', () => {
   const fn = body(MAIN, 'function pollSettingsGuard() {');
   assert.match(fn, /if \(changed === null\) return;/);
-  assert.match(fn, /settingsConflict = null;[\s\S]*writeSettingsText\(text\);/);
+  assert.match(fn, /settingsConflict = null;[\s\S]*writeSettingsTexts\(texts\);/);
 });
 
 test('"diskteki ayarları yükle" yeniden kaydetmiyor, "bunu kaydet" diskin üstüne yazıyor', () => {
@@ -93,11 +93,11 @@ test('"diskteki ayarları yükle" yeniden kaydetmiyor, "bunu kaydet" diskin üst
   assert.ok(handler.length > 0);
   const end = handler.indexOf('\n});');
   const h = handler.slice(0, end);
-  assert.match(h, /choice === 'keep'[\s\S]*writeSettingsText\(text\)/);
-  assert.match(h, /choice === 'load'[\s\S]*SettingsGuard\.parse\(buf\)[\s\S]*settingsGuard\.remember\(buf\)[\s\S]*applyIncomingConfig\(loaded, \{ save: false \}\)[\s\S]*notifyAdmin\('external-config', loaded\)/);
+  assert.match(h, /choice === 'keep'[\s\S]*writeSettingsTexts\(texts\)/);
+  assert.match(h, /choice === 'load'[\s\S]*settingsStore\.snapshot\(\)[\s\S]*SettingsGuard\.parse\(snap\['settings\.json'\]\)[\s\S]*rememberSettingsFiles\(snap\)[\s\S]*applyIncomingConfig\(loaded, \{ save: false \}\)[\s\S]*notifyAdmin\('external-config', loaded\)/);
   assert.match(h, /return \{ ok: false, error: 'read' \}/, 'okunamayan dosyada çakışma sürmeli');
   // Öz testin bekletmesi dışında panelin yapılandırması doğrudan uygulanır
-  assert.match(MAIN, /ipcMain\.on\('update-config', \(e, config\) => \{\s*if \(smokeHold\) \{[^}]*\}\s*applyIncomingConfig\(config\);\s*\}\);/);
+  assert.match(MAIN, /ipcMain\.on\('update-config', \(e, config\) => \{\s*const full = restoreKeptKeys\(config\);\s*if \(smokeHold\) \{[^}]*\}\s*applyIncomingConfig\(full\);/);
   assert.match(body(MAIN, 'function applyIncomingConfig(config, opts) {'), /if \(save\) saveSettings\(config\);/);
 });
 
