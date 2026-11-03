@@ -5,6 +5,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Performance
+
+- **Presets with many shape instances draw much faster** (#905). A custom shape runs its frame
+  equations up to 1024 times per frame, and each run copied the shared inputs, the q variables and the
+  shape's base by looking up their names. In the slowest presets of a 300-preset sample that was 20-45%
+  of the frame. It now copies by index, as the per-vertex path already did, and wave points do the same.
+  Main thread draw time fell 21-49% on seven of the eight slowest presets, for example from 47.8 to
+  60.2 fps. The eighth has no shapes and did not change. Output is bit for bit the same on all 10,347
+  corpus presets in both compatibility modes.
+
 ### Lyrics
 
 - **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from
