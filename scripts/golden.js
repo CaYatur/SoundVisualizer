@@ -45,6 +45,7 @@ const SOFTWARE = argv.includes('--software');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FF = require('ffmpeg-static');
 let app = null;
+let appExit = null;
 
 function electronPath() {
   const dir = path.join(REPO, 'node_modules/electron/dist');
@@ -130,7 +131,12 @@ async function main() {
   const wav = path.join(work, 'tone.wav');
   execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(55+200*exp(-mod(t,0.5)*18))*t)*exp(-mod(t,0.5)*6)+0.25*sin(2*PI*2400*t)*exp(-mod(t+0.25,0.5)*30):s=48000:d=2'", wav]);
   const flags = SOFTWARE ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [];
-  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT].concat(flags), { stdio: 'ignore' });
+  // Uygulama kapanırsa nedeni belli olsun: çıkış kodu ve kendi günlüğü
+  const appLog = fs.createWriteStream(path.join(OUT, 'app.log'));
+  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT].concat(flags), { stdio: ['ignore', 'pipe', 'pipe'] });
+  app.stdout.pipe(appLog);
+  app.stderr.pipe(appLog);
+  app.on('exit', (code, signal) => { appExit = 'çıkış ' + code + (signal ? ' ' + signal : '') + ', ' + new Date().toISOString(); });
   let t = null;
   for (let i = 0; i < 2400 && !t; i++) {
     await sleep(50);
@@ -206,4 +212,10 @@ async function main() {
   try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* süreç hâlâ tutuyor olabilir */ }
 }
 
-main().catch((e) => { console.error(e); try { if (app) app.kill(); } catch { /* yok */ } process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  await sleep(1000);
+  if (appExit) console.error('uygulama: ' + appExit + '. Günlük: ' + path.join(OUT, 'app.log'));
+  try { if (app) app.kill(); } catch { /* yok */ }
+  process.exit(1);
+});
