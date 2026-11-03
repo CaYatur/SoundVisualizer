@@ -59,7 +59,7 @@ function statusText(s) {
       return 'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.';
     }
     if (s.status === 'downloading') return tt('İndiriliyor…') + ' %' + Math.round((s.progress || 0) * 100);
-    if (s.status === 'ready') return 'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.';
+    if (s.status === 'ready') return 'İndirildi ve doğrulandı. Windows izin isteyecek, sonra uygulama kapanıp kurulum açılacak.';
     if (s.status === 'installed') return 'Yeni sürüm yerine kondu; yeniden başlatınca açılır.';
     return '';
   }
@@ -122,10 +122,16 @@ function buildPanel() {
     const acts = [check];
 
     if (s.status === 'ready' || s.status === 'installed') {
-      acts.push(btn(s.status === 'ready' ? ['upload', 'Kur ve Yeniden Başlat'] : ['refresh', 'Yeniden Başlat'], 'Uygulama kapanır; yeni sürüm açılır', async () => {
+      const install = btn(s.status === 'ready' ? ['upload', 'Kur ve Yeniden Başlat'] : ['refresh', 'Yeniden Başlat'], 'Uygulama kapanır; yeni sürüm açılır', async () => {
+        // İzin penceresi açıkken ikinci kez başlatılmasın
+        install.disabled = true;
         const r = await window.api.updatesInstall();
+        install.disabled = false;
         if (!r || !r.ok) P().toast(tt('Kurulum başlatılamadı; sürüm sayfasından indirin.'), 'warn');
-      }, 'primary'));
+      }, 'primary');
+      acts.push(install);
+      // Kurulum başlamazsa mesaj sürüm sayfasına gönderiyor: düğme burada da olmalı (#926)
+      acts.push(btn('Sürüm Sayfası', 'Sürüm notları ve tüm dosyalar', () => window.api.updatesOpen('release')));
     }
     if (s.status === 'available') {
       root.appendChild(p.row('En Yeni Sürüm', el('span', { class: 'upd-ver new', text: 'v' + s.latest + (s.publishedAt ? ' · ' + fmtDate(s.publishedAt) : '') })));
@@ -140,6 +146,10 @@ function buildPanel() {
       if (!s.skipped) acts.push(btn('Bu Sürümü Atla', 'Bu sürüm için bir daha bildirim gösterme', async () => onStatus(await window.api.updatesSkip())));
     }
     root.appendChild(el('div', { class: 'tl-actions' }, acts));
+
+    if (s.installError && s.status === 'ready') {
+      root.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: tt('Kurulum başlamadı. Windows izin penceresinde Evet demeniz gerekiyor; olmazsa sürüm sayfasından indirin.') + ' (' + s.installError + ')' }));
+    }
 
     if (s.status === 'available') {
       root.appendChild(el('div', { class: 'ctrl settings-io-note', text: KIND_HINTS[kind] || '' }));

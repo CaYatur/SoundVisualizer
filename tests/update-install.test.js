@@ -103,6 +103,83 @@ test('indirme: GitHub dışına yönlendirme, düz http, yönlendirme döngüsü
   assert.deepStrictEqual(Object.keys(fsx.files), []);
 });
 
+/* Gerçekteki gibi: yönetici isteyen kurucu EACCES verir, elevate.exe izin penceresini açar (#926) */
+function fakeSpawn(answers) {
+  const { EventEmitter } = require('events');
+  const calls = [];
+  const spawn = (file, args, opts) => {
+    calls.push({ file, args, opts });
+    const child = new EventEmitter();
+    child.unref = () => {};
+    const a = answers[file];
+    setImmediate(() => {
+      if (a.error) child.emit('error', Object.assign(new Error('spawn ' + a.error), { code: a.error }));
+      else if (a.exit != null) child.emit('exit', a.exit);
+      else child.emit('spawn');
+    });
+    return child;
+  };
+  return { spawn, calls };
+}
+const SETUP = 'C:/t/x.exe';
+const ELEV = 'C:/r/elevate.exe';
+
+test('kurulum izni: yönetici gerekince elevate.exe, gerekmiyorsa doğrudan', async () => {
+  const direct = fakeSpawn({ [SETUP]: {} });
+  assert.deepStrictEqual(await I.startInstaller({ file: SETUP, silent: false, spawn: direct.spawn, elevate: ELEV }), { ok: true });
+  assert.strictEqual(direct.calls.length, 1, 'yönetici olarak açıksa izin sorulmaz');
+
+  const up = fakeSpawn({ [SETUP]: { error: 'EACCES' }, [ELEV]: { exit: 0 } });
+  assert.deepStrictEqual(await I.startInstaller({ file: SETUP, silent: false, spawn: up.spawn, elevate: ELEV }), { ok: true });
+  assert.deepStrictEqual(up.calls[1].args, [SETUP, '--updated']);
+  assert.strictEqual(up.calls[1].opts.windowsHide, true);
+
+  const quiet = fakeSpawn({ [SETUP]: { error: 'EACCES' }, [ELEV]: { exit: 0 } });
+  await I.startInstaller({ file: SETUP, silent: true, spawn: quiet.spawn, elevate: ELEV });
+  assert.deepStrictEqual(quiet.calls[1].args, [SETUP, '/S', '--updated']);
+});
+
+test('kurulum izni: reddedilirse başlamış sayılmaz ve ikinci kez sorulmaz', async () => {
+  const no = fakeSpawn({ [SETUP]: { error: 'EACCES' }, [ELEV]: { exit: 1 } });
+  let opened = 0;
+  const r = await I.startInstaller({ file: SETUP, silent: false, spawn: no.spawn, elevate: ELEV, openPath: async () => { opened++; return ''; } });
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /permission refused/);
+  assert.strictEqual(opened, 0);
+});
+
+test('kurulum izni: yardımcı yoksa ya da açılamazsa kabuk; başka hatada izin sorulmaz', async () => {
+  const opened = [];
+  const openPath = async (f) => { opened.push(f); return ''; };
+  const gone = fakeSpawn({ [SETUP]: { error: 'EACCES' } });
+  assert.deepStrictEqual(await I.startInstaller({ file: SETUP, silent: false, spawn: gone.spawn, elevate: ELEV, exists: () => false, openPath }), { ok: true });
+  assert.deepStrictEqual(opened, [SETUP]);
+  assert.strictEqual(gone.calls.length, 1, 'olmayan yardımcı başlatılmaz');
+
+  const broken = fakeSpawn({ [SETUP]: { error: 'EACCES' }, [ELEV]: { error: 'ENOENT' } });
+  const shell = await I.startInstaller({ file: SETUP, silent: false, spawn: broken.spawn, elevate: ELEV, openPath: async () => 'Failed to open' });
+  assert.deepStrictEqual(shell, { ok: false, error: 'Failed to open' });
+
+  const missing = fakeSpawn({ [SETUP]: { error: 'ENOENT' } });
+  const r = await I.startInstaller({ file: SETUP, silent: false, spawn: missing.spawn, elevate: ELEV, openPath });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(missing.calls.length, 1, 'silinmiş kurucu için izin penceresi açılmaz');
+  assert.strictEqual(opened.length, 1);
+});
+
+test('panel: indirildikten sonra da sürüm sayfası var, kurulum hatası ekranda kalıyor', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'updates-panel.js'), 'utf8');
+  const ready = src.slice(src.indexOf("if (s.status === 'ready' || s.status === 'installed')"), src.indexOf("if (s.status === 'available') {\r\n      root.appendChild(p.row('En Yeni Sürüm'") >= 0 ? src.indexOf("if (s.status === 'available') {\r\n      root.appendChild(p.row('En Yeni Sürüm'") : src.indexOf("if (s.status === 'available') {\n      root.appendChild(p.row('En Yeni Sürüm'"));
+  assert.match(ready, /btn\('Sürüm Sayfası'/);
+  assert.match(ready, /install\.disabled = true/);
+  assert.match(src, /s\.installError && s\.status === 'ready'/);
+  const i18n = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
+  assert.ok(i18n.includes("'Kurulum başlamadı. Windows izin penceresinde Evet demeniz gerekiyor; olmazsa sürüm sayfasından indirin.':"));
+  assert.ok(i18n.includes("'İndirildi ve doğrulandı. Windows izin isteyecek, sonra uygulama kapanıp kurulum açılacak.':"));
+});
+
 test('kurulum: başlatılamayan kurucu hata döner, başlayan kurucu onaylanır', async () => {
   const { EventEmitter } = require('events');
   const failed = new EventEmitter();
@@ -156,7 +233,7 @@ test('ana süreç: geliştirme kopyası indirmiyor; kurulum kullanıcı isteğiy
   const pending = main.slice(main.indexOf('function silentInstallPending'), main.indexOf('function armSilentInstall'));
   assert.match(pending, /UPDATE_AUTO && updateMode\(\) === 'auto' && UPDATE_KIND === 'nsis'/);
   const arm = main.slice(main.indexOf('function armSilentInstall'), main.indexOf("ipcMain.handle('get-displays'"));
-  assert.match(arm, /whenInstallerStarted\(child\)/);
+  assert.match(arm, /startUpdateInstaller\(true\)/);
   assert.match(arm, /if \(r && r\.ok\) updateReadyFile = null/);
   assert.match(arm, /showErrorBox/);
   assert.match(arm, /forceQuitApp = true;\s*app\.quit\(\)/);
@@ -168,7 +245,8 @@ test('ana süreç: geliştirme kopyası indirmiyor; kurulum kullanıcı isteğiy
   assert.doesNotMatch(quitHandlers, /runInstaller/, 'erken will-quit kurucu başlatmaz');
   assert.match(main, /app\.relaunch\(\{ execPath: process\.env\.APPIMAGE/, 'yeniden açılış yeni AppImage dosyasından');
   const inst = main.slice(main.indexOf('function installUpdateNow'), main.indexOf('function autoUpdateAfterCheck'));
-  assert.match(inst, /whenInstallerStarted\(child\)[\s\S]{0,220}if \(!r \|\| !r\.ok\) return[\s\S]{0,280}app\.quit\(\)/);
+  assert.match(inst, /startUpdateInstaller\(false\)[\s\S]{0,220}if \(!r\.ok\) return[\s\S]{0,280}app\.quit\(\)/);
+  assert.match(main, /elevate: path\.join\(process\.resourcesPath, 'elevate\.exe'\)/);
   const req = main.slice(main.indexOf('function updateRequest'), main.indexOf('async function downloadUpdate'));
   assert.match(req, /net\.request\(/);
   assert.match(req, /redirect:\s*'manual'/);
