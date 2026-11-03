@@ -303,6 +303,8 @@
     /* Seçilen dosyanın adı ve kapağı. Takip kapalıyken söz, yüklenen
        dosyada kalır; kütüphane ancak Çalan Parçayı İzle açıksa gelir. */
     window.SVExportTrack = job.track || null;
+    // Otomatik bulunan söz (#937): elle dosya yüklenmemiş söz katmanının yedeği
+    window.SVLyricsAuto = job.lyricsAuto && job.lyricsAuto.text ? { text: String(job.lyricsAuto.text), source: job.lyricsAuto.source || '' } : null;
     if (Array.isArray(job.lyricsLibrary)) {
       window.SVLyricsLib = window.SVLyricsLib || { items: [], sig: '' };
       window.SVLyricsLib.items = job.lyricsLibrary;

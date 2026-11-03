@@ -53,6 +53,38 @@ test('rapordaki makine: sistem ikilisi ve düşük güçle Quick Sync, VA-API de
   assert.strictEqual(a[a.indexOf('-global_quality') + 1], '25');
 });
 
+test('Tiger Lake: H.264 Quick Sync yalnız düşük güç ve CQP ile, H.265 VA-API\'ye düşüyor', async () => {
+  // Rapordaki gerçek sonuçlar: ICQ "Selected ratecontrol mode is unsupported", H.265 QSV hep düşüyor
+  const m = machine((bin, args) => {
+    if (CPU(bin, args)) return true;
+    if (bin !== SYSTEM) return false;
+    const enc = encOf(args);
+    if (enc === 'h264_qsv') return args.includes('-low_power') && args.includes('-qscale:v');
+    return enc === 'h264_vaapi' || enc === 'hevc_vaapi';
+  }, { [BUNDLED]: ['libx264', 'libx265'], [SYSTEM]: ['libx264', 'h264_qsv', 'hevc_qsv', 'h264_vaapi', 'hevc_vaapi'] });
+  const r = await probe(m);
+  assert.deepStrictEqual(r.routes.h264_qsv, { bin: SYSTEM, variant: { lowPower: true, cqp: true } });
+  assert.strictEqual(F.pickEncoder(F.format('mp4-h264'), 'gpu', (e) => r.map[e]), 'h264_qsv');
+  assert.strictEqual(r.map.hevc_qsv, false);
+  assert.strictEqual(F.pickEncoder(F.format('mp4-hevc'), 'gpu', (e) => r.map[e]), 'hevc_vaapi');
+  // H.265'te CQP denenmiyor: deneme geçip gerçek iş düşerse çalışan VA-API bozulurdu
+  assert.ok(!m.calls.some((c) => encOf(c.args) === 'hevc_qsv' && c.args.includes('-qscale:v')));
+  const a = F.probeArgs('h264_qsv', r.routes.h264_qsv.variant);
+  assert.strictEqual(a[a.indexOf('-qscale:v') + 1], '25');
+  assert.ok(!a.includes('-global_quality'));
+});
+
+test('ICQ geçen Intel: CQP denenmiyor, sonuç değişmiyor', async () => {
+  for (const pass of [(args) => !args.includes('-low_power'), (args) => args.includes('-low_power')]) {
+    const m = machine((bin, args) => CPU(bin, args) || (bin === SYSTEM && encOf(args) === 'h264_qsv' && !args.includes('-qscale:v') && pass(args)),
+      { [BUNDLED]: ['libx264'], [SYSTEM]: ['libx264', 'h264_qsv'] });
+    const r = await probe(m);
+    assert.strictEqual(r.map.h264_qsv, true);
+    assert.strictEqual(r.routes.h264_qsv.variant.cqp, undefined);
+    assert.ok(!m.calls.some((c) => c.args.includes('-qscale:v')), 'gereksiz CQP denemesi');
+  }
+});
+
 test('eski Intel: düşük güç olmadan geçiyor, zorlanmıyor', async () => {
   const m = machine((bin, args) => CPU(bin, args) || (bin === SYSTEM && encOf(args) === 'h264_qsv' && !args.includes('-low_power')),
     { [BUNDLED]: ['libx264'], [SYSTEM]: ['libx264', 'h264_qsv'] });
@@ -142,6 +174,20 @@ test('VA-API: GPU\'nun I420 yolu, H.265 ve 10 bit', () => {
   assert.strictEqual(F.takesYuv420(F.format('mp4-hevc10'), 'hevc_vaapi'), false);
   assert.ok(F.probeKeys().includes('hevc_vaapi@10'));
   assert.strictEqual(job('h264_vaapi', { device: '/d' }, { fmt: F.format('mp4-hevc10') }), null);
+});
+
+test('Quick Sync CQP çeşidi iş argümanlarına da gidiyor, nicelik aynı tablodan', () => {
+  const a = job('h264_qsv', { lowPower: true, cqp: true });
+  assert.strictEqual(a[a.indexOf('-low_power') + 1], '1');
+  assert.ok(!a.includes('-global_quality'));
+  const q = F.videoArgs(F.format('mp4-h264'), 'h264_qsv', 'high', 'balanced', { cqp: true }).args;
+  assert.deepStrictEqual(q, ['-c:v', 'h264_qsv', '-preset', 'medium', '-qscale:v', '20']);
+  // CQP yalnız çeşit isteyince: Windows ve macOS'un argümanları aynı
+  assert.ok(!job('h264_qsv', {}).includes('-qscale:v'));
+  for (const platform of ['win32', 'darwin']) {
+    assert.deepStrictEqual(F.encoderVariants('h264_qsv', { platform }), [{}]);
+  }
+  assert.deepStrictEqual(F.encoderVariants('hevc_qsv', { platform: 'linux' }), [{}, { lowPower: true }]);
 });
 
 test('Quick Sync düşük güç çeşidi iş argümanlarına da gidiyor', () => {

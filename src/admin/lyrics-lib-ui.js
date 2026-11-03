@@ -125,6 +125,8 @@
   }
 
   /* Kenara tıklamak kapatmaz. Kapatma yalnız başlık düğmesi, Vazgeç ve Escape. */
+  let clockAnchor = null;
+  let clockSubscribed = false;
   async function openEditor(it, rerender) {
     if (document.querySelector && document.querySelector('.lyr-editor-backdrop')) return;
     if (!window.api || !window.api.lyricsLibRead || !window.api.lyricsLibUpdate) {
@@ -173,6 +175,88 @@
       },
     });
     applyColor();
+    /* Zamanlama araçları (#414): seçili satırları kaydır, imleçe o anki söz
+       saatini bas (satır başına [..], satır içine <..>; kelimeden hemen
+       sonra boşluk önüne basılan <..> o kelimenin BİTİŞİ olur, #938). */
+    const LY = () => window.SVLyrics;
+    if (!clockSubscribed && window.api && window.api.onLyricsClock) {
+      clockSubscribed = true;
+      window.api.onLyricsClock((a) => { clockAnchor = a; });
+    }
+    const clockNow = () => {
+      /* Söz saati çapası {run:'play'|'pause'|'stop', time, epoch} biçiminde;
+         gösteri saati çözücüsü ise {playing} bekliyor ve çalarken hep 0
+         döndürüyordu. Doğru çözücü SVLyricsClock. */
+      const LC = window.SVLyricsClock;
+      const a = clockAnchor || (LC && LC.current ? LC.current() : null);
+      if (!a || !LC) return null;
+      return LC.resolve(a, Date.now());
+    };
+    const lineRange = () => {
+      const v = area.value;
+      const s = area.selectionStart;
+      // Seçim alt satırın başında bitiyorsa o satır seçili değildir
+      const e = area.selectionEnd > s && v[area.selectionEnd - 1] === '\n' ? area.selectionEnd - 1 : area.selectionEnd;
+      return [v.slice(0, s).split('\n').length - 1, v.slice(0, e).split('\n').length - 1];
+    };
+    const edit = (next, caret, caretEnd) => {
+      /* Metin seçilip yazılıyor: .value atamak geri alma geçmişini siliyordu. */
+      const top = area.scrollTop;
+      area.focus();
+      area.select();
+      if (!document.execCommand('insertText', false, next) || area.value !== next) area.value = next;
+      if (caret != null) {
+        area.selectionStart = caret;
+        area.selectionEnd = caretEnd != null ? caretEnd : caret;
+      }
+      area.scrollTop = top;
+      mark();
+      if (info) info.textContent = lyricInfo(area.value);
+      if (colorOn) paintLyrics(paint, area.value);
+      area.focus();
+    };
+    const nudge = (sec) => {
+      if (!LY() || !LY().nudgeText) return;
+      const picked = area.selectionStart !== area.selectionEnd;
+      const [a0, b0] = picked ? lineRange() : [0, null];
+      const keep = area.selectionStart;
+      const next = LY().nudgeText(area.value, a0, b0, sec);
+      /* Seçim aynı satırlarda kalır: boş seçim "hepsi" demek, ikinci tıklama
+         bütün dosyayı kaydırıyordu. */
+      if (picked) { const [s, e] = LY().lineSpan(next, a0, b0); edit(next, s, e); }
+      else edit(next, keep);
+    };
+    const stamp = (asLine) => {
+      const t = clockNow();
+      if (t == null) { toast('Söz saati yok: parçayı çalın ya da zaman çizelgesini başlatın.'); return; }
+      const v = area.value;
+      if (asLine) {
+        const start = v.lastIndexOf('\n', area.selectionStart - 1) + 1;
+        const rest = v.slice(start).replace(/^\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/, '');
+        const tag = '[' + LY().fmtStamp(t) + ']';
+        const nextLine = v.indexOf('\n', start);
+        const out = v.slice(0, start) + tag + rest;
+        // İmleç bir alt satıra: art arda vuruşla satır satır ilerlenir
+        const lineEnd = nextLine < 0 ? out.length : out.indexOf('\n', start);
+        edit(out, lineEnd < 0 ? out.length : Math.min(out.length, lineEnd + 1));
+        return;
+      }
+      const r = LY().stampAt(v, area.selectionStart, t);
+      edit(r.text, r.caret);
+    };
+    const tool = (text, title, fn) => el('button', { class: 'btn ghost small', type: 'button', text, title, onclick: fn });
+    const timingTools = el('div', { class: 'lyr-editor-tools', role: 'toolbar', 'aria-label': 'Zamanlama' }, [
+      tool('−0.1 sn', 'Seçili satırları (seçim yoksa tümünü) 0,1 sn öne al', () => nudge(-0.1)),
+      tool('+0.1 sn', 'Seçili satırları (seçim yoksa tümünü) 0,1 sn geri al', () => nudge(0.1)),
+      tool('−1 sn', 'Seçili satırları 1 sn öne al', () => nudge(-1)),
+      tool('+1 sn', 'Seçili satırları 1 sn geri al', () => nudge(1)),
+      tool('Satıra Zaman Bas', 'İmlecin satırına o anki söz saatini yazar ve alt satıra geçer (Alt+Enter)', () => stamp(true)),
+      tool('Kelime Zamanı Bas', 'İmlece <..> kelime zamanı ekler; kelimeden hemen sonra basılırsa kelimenin bitişi olur (Alt+.)', () => stamp(false)),
+    ]);
+    area.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key === 'Enter') { e.preventDefault(); stamp(true); }
+      else if (e.altKey && e.key === '.') { e.preventDefault(); stamp(false); }
+    });
     const close = () => {
       document.removeEventListener('keydown', onKey, true);
       backdrop.remove();
@@ -245,6 +329,7 @@
           P().row('Sanatçı', artistIn),
         ]),
         info,
+        timingTools,
         el('div', { class: 'lyr-editor-code' }, [paint, area]),
         el('div', { class: 'ask-actions' }, [
           el('button', { class: 'btn ghost', type: 'button', text: 'Vazgeç', onclick: requestClose }),

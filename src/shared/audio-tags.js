@@ -17,20 +17,33 @@ function unescapeMeta(value) {
 
 function parseFfmetadata(text) {
   const bag = {};
-  const lines = String(text || '').split(/\r?\n/);
+  /* ffmetadata çok satırlı değeri satır sonunu `\` ile kaçırarak yazar
+     (söz etiketleri böyle gelir): kaçırılmış satır sonu bir sonraki satırla
+     birleştirilir. */
+  const raw = String(text || '').split(/\r?\n/);
+  const lines = [];
+  for (let i = 0; i < raw.length; i++) {
+    let line = raw[i];
+    while (/(^|[^\\])(\\\\)*\\$/.test(line) && i + 1 < raw.length) line = line.slice(0, -1) + '\u0000' + raw[++i];
+    lines.push(line);
+  }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line || line.charAt(0) === ';' || line.charAt(0) === '#') continue;
     const eq = line.indexOf('=');
     if (eq <= 0) continue;
     const key = line.slice(0, eq).trim().toLowerCase();
-    const val = unescapeMeta(line.slice(eq + 1));
+    const val = unescapeMeta(line.slice(eq + 1)).replace(/\u0000/g, '\n');
     if (key && val && bag[key] == null) bag[key] = val;
   }
   return {
     title: bag.title || '',
     artist: bag.artist || bag.album_artist || '',
     album: bag.album || '',
+    /* Gömülü söz (#937): Vorbis LYRICS / UNSYNCEDLYRICS, MP4 ©lyr (ffmpeg
+       `lyrics` diye okur), ID3 USLT (ffmpeg `lyrics-eng` gibi dil ekli). */
+    lyrics: bag.lyrics || bag.unsyncedlyrics || bag.syncedlyrics
+      || (Object.keys(bag).filter((k) => /^lyrics[-_]/.test(k)).map((k) => bag[k])[0]) || '',
   };
 }
 
@@ -88,6 +101,7 @@ async function readAudioTags(ff, file, fallbackTitle) {
     title: meta.title || fallbackTitle || '',
     artist: meta.artist || '',
     album: meta.album || '',
+    lyrics: meta.lyrics || '',
     artwork,
   };
 }
