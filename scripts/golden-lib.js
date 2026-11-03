@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Altın ölçünün saf kısmı (#905): kare özetlerini karşılaştırma ve rapor.
    Elektron ve dosya gerektirmiyor. Betik: scripts/golden.js */

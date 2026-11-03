@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* ALTIN ÖLÇÜ (#905). v4 yapı değiştirirken görüntü değişmesin diye: her yerleşik
    şablon ve verilen ayarlardaki her sahne gerçekten dışa aktarılıyor, kare özetleri
