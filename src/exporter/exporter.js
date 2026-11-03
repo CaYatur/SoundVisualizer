@@ -18,6 +18,21 @@
      an derlemenin hızına bağlı. Dışa aktarımda bir presetin hangi karede
      göründüğü buna kalamaz: aynı iş aynı videoyu vermeli. */
   window.SVMilkdropSync = true;
+  /* Rastgele sayılar da öyle (#905). Presetlerin `rand_frame`i her karede
+     Math.random'dan çekiyor: aynı sahnenin kayıpsız dışa aktarımlarında 60
+     karenin 59'u farklıydı, yalnız onu sabitleyince üç koşu birebir aynı çıktı.
+     Üreteç yalnız bu sayfada değişiyor ve her iş yeni pencere açtığı için her
+     iş aynı diziden başlıyor; canlı pencereler Math.random'da kalıyor. */
+  function exportRandom(seed) {
+    let s = seed | 0;
+    return function () { // mulberry32
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  Math.random = exportRandom(0x53564558);
   /* Medya katmanı çevrimdışı (#539): video kendiliğinden oynamaz, her kare
      kare saatine sarılır; kamera açılmaz (canlı kaynak). */
   window.SV_OFFLINE = true;
