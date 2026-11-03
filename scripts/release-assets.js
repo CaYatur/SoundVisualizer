@@ -54,6 +54,8 @@ const labelOf = (a) => a.file + ' (' + a.desc + ')';
 
 // ---------------------------------------------------------------------------
 
+const { notesProblems } = require('./release-notes-check');
+
 const args = process.argv.slice(2);
 const tag = args.find((a) => !a.startsWith('--'));
 const CHECK = args.includes('--check');
@@ -127,6 +129,11 @@ if (CHECK) {
   }
   const extra = Array.from(live.keys()).filter((n) => !ASSETS.some((a) => a.file === n));
   for (const n of extra) console.log('FAZLA   ' + n);
+  const body = gh(['api', 'repos/{owner}/{repo}/releases/tags/' + tag, '--jq', '.body']);
+  for (const p of notesProblems(body.stdout, ASSETS.map((a) => a.file))) {
+    console.log('NOTLAR  ' + p);
+    bad++;
+  }
   if (bad || extra.length) {
     console.log('\n' + tag + ': ' + bad + ' sorun, ' + extra.length + ' beklenmeyen dosya');
     process.exit(1);
