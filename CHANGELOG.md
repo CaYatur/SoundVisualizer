@@ -12,10 +12,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   MP4 lyrics), then from a local cache, then from providers you define (URL template with `{artist}`,
   `{title}`, `{album}`, `{duration}` and a JSON path or raw LRC). The provider list is empty by
   default, so nothing goes to the network; a failing or slow provider never blocks playback.
+  Following the playing track depends on the Windows media session, so this works on Windows only.
 - **Held syllables** (#938). Word end times, including A2 end tags (`<mm:ss.xx>` after a word), are
   parsed. Karaoke can fill progressively inside the active word and optionally stretch long-held
   words, in the live output and the exporter. Existing LRC/SRT files render exactly as before.
-- **Timing tools in the lyrics editor** (#414): nudge the selected lines by ±0.1 s or ±1 s, and
+- **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
   stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
 
 ### Control and show
@@ -29,7 +30,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Idle screensaver**: after a configurable silence the output window dims and shows a drifting
   clock and text.
 - **Session recovery**: rotating settings snapshots; after a crash a corrupt settings file is
-  restored from the newest healthy snapshot and the panel says so.
+  restored from the newest healthy snapshot and the panel says so. If there is no snapshot to restore,
+  the panel says the settings file could not be read.
 
 ### Export
 
@@ -39,14 +41,6 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   VA-API. H.264 now also tries constant QP (`-qscale:v`) with and without `-low_power`, after the
   existing attempts. Where the old arguments pass, they are kept. H.265 is unchanged, because on that
   machine `hevc_qsv` with low power failed and VA-API already works.
-
-### Fixes found in PR review
-
-- Lyrics editor time stamps (Alt+Enter, Alt+.) used the wrong clock resolver and always wrote
-  `[00:00.00]` while lyrics were playing.
-- The idle screensaver now measures silence in wall-clock time; with the frame rate dropping in
-  silence it used to start up to five times too late.
-- The lyrics editor nudge buttons and the lyrics file line count are now translated in the English UI.
 
 ## v3.1.7 — 2026-11-03
 

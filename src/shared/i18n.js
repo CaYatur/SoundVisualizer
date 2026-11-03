@@ -1539,6 +1539,7 @@
     'Çoklu Kopya Kumandası': 'Multi-Instance Remote',
     'Öbür Kopyalar': 'Other Instances',
     'Önceki oturum beklenmedik biçimde kapandı. Ayarlar sağlam, olduğu gibi açıldı.': 'The previous session ended unexpectedly. Settings were intact and loaded as-is.',
+    'Önceki oturum beklenmedik biçimde kapandı. Ayar dosyası okunamadı, varsayılan ayarlarla açıldı.': 'The previous session ended unexpectedly. The settings file could not be read, so the app opened with default settings.',
     'Önceki oturum beklenmedik biçimde kapandı; ayarlar son kurtarma kopyasından geri yüklendi.': 'The previous session ended unexpectedly; settings were restored from the latest recovery snapshot.',
     'ör. Birazdan başlıyoruz': 'e.g. Starting soon',
     'Bekleme (sn)': 'Wait (s)',
