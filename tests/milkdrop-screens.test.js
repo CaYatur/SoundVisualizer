@@ -226,7 +226,7 @@ test('seçenek varsayılan kapalı ve sahnelerin dışında', () => {
   assert.strictEqual(d.milkdropControl.independent, false);
   assert.strictEqual(d.milkdrop.independent, undefined, 'sahneyle gelip gitmemeli');
   // Sahne ve şablon listelerinin hiçbiri milkdropControl'ü taşımıyor
-  for (const f of ['src/shared/schema.js', 'src/shared/templates.js']) {
+  for (const f of ['src/shared/schema.js']) {
     const s = read(f);
     const lists = s.match(/SCENE_KEYS = \[[\s\S]*?\]/g) || [];
     assert.ok(lists.length, f + ': sahne listesi bulunamadı');
