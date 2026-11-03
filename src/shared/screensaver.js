@@ -26,9 +26,19 @@
   /* s: create() durumu, o: { silent, dt, cfg }. Dönüş: s (yerinde) */
   function update(s, o) {
     const c = Object.assign(defaults(), (o && o.cfg) || {});
-    const dt = Math.max(0, Math.min(1, (o && o.dt) || 0));
+    /* Bekleme süresi DUVAR SAATİYLE ölçülür (o.now, ms). Kare dt'si
+       sessizlikte kare hızı düşüp dt 0,05 sn'de kırpıldığı için gerçek
+       süreyi beş kata kadar eksik sayıyordu: 10 sn'lik bekleme 50-80 sn
+       sonra devreye giriyordu. now yoksa eski dt yoluna düşülür. */
+    let dt = Math.max(0, Math.min(1, (o && o.dt) || 0));
+    if (o && typeof o.now === 'number' && isFinite(o.now)) {
+      dt = s.lastNow == null ? 0 : Math.max(0, Math.min(60, (o.now - s.lastNow) / 1000));
+      s.lastNow = o.now;
+    }
     if (!c.enabled) { s.silentFor = 0; s.amount = 0; return s; }
     s.silentFor = o.silent ? s.silentFor + dt : 0;
+    // Solma adımı kısa tutulur: uzun bir kare aralığı tek karede kararmasın
+    dt = Math.min(dt, 0.25);
     const want = s.silentFor >= Math.max(5, c.idleSec) ? 1 : 0;
     // Girerken yavaş kararır; ses gelince hızlı (beş kat) çıkar
     const rate = dt / Math.max(0.05, c.fadeSec);

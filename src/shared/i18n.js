@@ -1557,6 +1557,11 @@
     'İmlece <..> kelime zamanı ekler; kelimeden hemen sonra basılırsa kelimenin bitişi olur (Alt+.)': 'Inserts a <..> word time at the caret; right after a word it becomes the word\'s end (Alt+.)',
     'Sözü Otomatik Bul': 'Find Lyrics Automatically',
 
+    // Söz düzenleyici kaydırma düğmeleri (eksi işareti U+2212)
+    '−0.1 sn': '−0.1 s',
+    '+0.1 sn': '+0.1 s',
+    '−1 sn': '−1 s',
+    '+1 sn': '+1 s',
     // ---- Kontrol yüzeyleri ----
     'MIDI Etkin': 'MIDI Enabled', 'OSC Etkin': 'OSC Enabled', 'OSC Girişi Etkin': 'OSC Input Enabled',
     'Aygıt': 'Device', 'Tüm MIDI aygıtları': 'All MIDI devices',
@@ -4322,7 +4327,7 @@
         (m, diag, part) => translate(diag) + ' — ' + part)
       .replace(/^(wave|shape) (\d+): (.+)$/g, (m, kind, n, rest) => kind + ' ' + n + ': ' + translate(rest))
       // Çalan parça dinamik metinleri
-      .replace(/^([\d.]+) sn$/g, '$1 s')
+      .replace(/^([−+-]?[\d.]+) sn$/g, '$1 s')
       .replace(/^(\d+) bölme$/g, '$1 segments')
       .replace(/^Sistemden okunamıyor — (.+)$/, (m, why) => 'Cannot read from system — ' + translate(why))
       .replace(/^Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, 'Fill Fields with Playing Track ($1)')

@@ -184,8 +184,13 @@
       window.api.onLyricsClock((a) => { clockAnchor = a; });
     }
     const clockNow = () => {
-      if (!clockAnchor || !window.SVShowClock) return null;
-      return window.SVShowClock.resolve(clockAnchor, Date.now());
+      /* Söz saati çapası {run:'play'|'pause'|'stop', time, epoch} biçiminde;
+         gösteri saati çözücüsü ise {playing} bekliyor ve çalarken hep 0
+         döndürüyordu. Doğru çözücü SVLyricsClock. */
+      const LC = window.SVLyricsClock;
+      const a = clockAnchor || (LC && LC.current ? LC.current() : null);
+      if (!a || !LC) return null;
+      return LC.resolve(a, Date.now());
     };
     const lineRange = () => {
       const v = area.value;

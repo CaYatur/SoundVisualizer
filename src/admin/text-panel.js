@@ -243,11 +243,15 @@
       // ------------------------------------------------------------ söz
       const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
       const doc = T.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(T.lyricsSource) : null;
-      const info = doc
-        ? doc.lines.length + ' satır · ' + doc.format.toUpperCase() +
-          (doc.lines.some((l) => l.words && l.words.length) ? ' · karaoke zamanlı' : '')
-        : 'yüklü dosya yok';
-      nodes.push(P().row('Dosya', el('span', { class: 'txt-info', text: (T.lyricsName || '') + ' ' + info })));
+      /* Dosya adı, satır sayısı ve karaoke notu AYRI metin düğümleri: tek
+         dizede birleşince ("track.lrc 2 satır") çeviri sözlüğü eşleşemiyor
+         ve İngilizce arayüzde Türkçe kalıyordu. */
+      const karaoke = doc && doc.lines.some((l) => l.words && l.words.length);
+      const parts = [];
+      if (T.lyricsName) parts.push(el('span', { class: 'txt-name', text: T.lyricsName }), el('span', { text: ' ' }));
+      parts.push(el('span', { text: doc ? doc.lines.length + ' satır · ' + doc.format.toUpperCase() : 'yüklü dosya yok' }));
+      if (karaoke) parts.push(el('span', { text: ' · ' }), el('span', { text: 'karaoke zamanlı' }));
+      nodes.push(P().row('Dosya', el('span', { class: 'txt-info' }, parts)));
 
       nodes.push(el('div', { class: 'row' }, [
         el('button', {

@@ -486,7 +486,7 @@
     const c = cfg.screensaver;
     if (!saver) saver = SS.create();
     const silent = audio.level < 0.008 && audio.bass < 0.01;
-    SS.update(saver, { silent, dt, cfg: c });
+    SS.update(saver, { silent, dt, now: performance.now(), cfg: c });
     if (!saver.amount) { if (saverEl) saverEl.style.display = 'none'; return; }
     if (!saverEl) {
       saverEl = document.createElement('div');

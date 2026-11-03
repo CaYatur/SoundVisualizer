@@ -31,6 +31,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Session recovery**: rotating settings snapshots; after a crash a corrupt settings file is
   restored from the newest healthy snapshot and the panel says so.
 
+### Fixes found in PR review
+
+- Lyrics editor time stamps (Alt+Enter, Alt+.) used the wrong clock resolver and always wrote
+  `[00:00.00]` while lyrics were playing.
+- The idle screensaver now measures silence in wall-clock time; with the frame rate dropping in
+  silence it used to start up to five times too late.
+- The lyrics editor nudge buttons and the lyrics file line count are now translated in the English UI.
+
 ## v3.1.7 — 2026-11-03
 
 ### Performance
