@@ -39,15 +39,44 @@ test('kaydırıcılar: kontrol hedefleri ve OSC ağacı şemadan üretiliyor', (
 test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () => {
   const admin = read('src/admin/admin.js');
   let seen = 0;
-  for (const m of admin.matchAll(/\{ type: 'slider', path: '([^']+)'[^}]*\}/g)) {
-    const s = Schema.SLIDERS.find((x) => x.path === m[1]);
+  for (const m of admin.matchAll(/path: '([^']+)'[^\n]*/g)) {
+    if (!/type: 'slider'/.test(m[0]) && !/^path: '[^']+', label: '[^']*', step:/.test(m[0])) continue;
+    const s = Schema.rangeFor(m[1]);
     if (!s || s.steps) continue;
     seen++;
-    assert.doesNotMatch(m[0], /\b(min|max):/, m[1]);
+    assert.doesNotMatch(m[0], /\b(min|max|noExtend):/, m[1]);
   }
-  assert.strictEqual(seen, 21);
-  assert.match(admin, /return withSchemaRanges\(\[/);
-  assert.match(admin, /c\.min = row\.min; c\.max = row\.max;/);
+  assert.strictEqual(seen, 71);
+  assert.match(admin, /const known = window\.SVSchema\.rangeFor\(def\.path\);/);
+  assert.match(admin, /def\.min = known\.min;/);
+  assert.doesNotMatch(admin, /RANGE_FACTOR/);
+});
+
+test('şema satırları: aralık düzgün, varsayılan aralıkta, yol yinelenmiyor', () => {
+  require('../src/shared/defaults.js');
+  const defs = global.window.SV.defaultConfig();
+  const get = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const rows = Schema.SLIDERS.concat(Schema.RANGES);
+  assert.strictEqual(new Set(rows.map((x) => x.path)).size, rows.length);
+  assert.strictEqual(rows.length, 81);
+  for (const r of rows) {
+    if (r.steps) continue;
+    assert.ok(r.min < r.max, r.path);
+    const v = get(defs, r.path);
+    assert.notStrictEqual(v, undefined, r.path + ' varsayılanda yok');
+    if (v !== null) assert.ok(v >= r.min && v <= r.max, r.path + ' varsayılanı ' + v);
+  }
+});
+
+test('genişletilmiş aralık: sert sınır ve eksi üst sınır büyümüyor', () => {
+  assert.strictEqual(Schema.extendedMax(Schema.rangeFor('visualizer.glow')), 5);
+  for (const p of ['audio.smoothing', 'feedback.zoom', 'feedback.decay', 'feedback.dx', 'feedback.dy', 'power.renderScale', 'media.opacity']) {
+    const r = Schema.rangeFor(p);
+    assert.strictEqual(Schema.extendedMax(r), r.max, p);
+  }
+  // -24 dB'nin 5 katı -120 dB alt sınırın altında kalıyor, kaydırıcı kilitleniyordu
+  assert.strictEqual(Schema.extendedMax(Schema.rangeFor('visualizer.spectrum.floorDb')), -24);
+  assert.strictEqual(Schema.rangeFor('yok.boyle.bir.yol'), null);
 });
 
 test('panel şemayı OSC ağacından önce yüklüyor', () => {
@@ -83,4 +112,46 @@ test('şablon sahneden kalan medya, metin, grup ve çapraz geçişi sıfırlıyo
   for (const k of ['media', 'text', 'layerGroups', 'crossfade']) {
     if (T.TEMPLATES[0].patch[k] === undefined) assert.deepStrictEqual(out[k], def[k], k);
   }
+});
+
+test('varsayılandaki her sahne ayarını çalışma zamanında okuyan bir dosya var', () => {
+  /* Anahtar adı düzeyinde kaba bir kapı: yol düzeyinde okumayı kanıtlamaz, ama hiçbir
+     yerde geçmeyen yeni bir ayarı yakalar. Yalnız liste tutan dosyalar sayılmaz:
+     onlarda geçmek okunduğunu göstermez. */
+  require('../src/shared/defaults.js');
+  const LISTS = new Set(['defaults.js', 'schema.js', 'i18n.js', 'osc-tree.js', 'mcp.js', 'templates.js', 'presets.js', 'migrate-v4.js', 'show-keys.js']);
+  // Motorda değil, ana süreçte pencere boyutunu belirliyor
+  const OUTSIDE_ENGINE = new Set(['background.coverTaskbar']);
+  const words = new Set();
+  const scan = (dir) => {
+    for (const f of fs.readdirSync(path.join(__dirname, '..', dir), { withFileTypes: true })) {
+      const rel = dir + '/' + f.name;
+      if (f.isDirectory()) scan(rel);
+      else if (f.name.endsWith('.js') && !LISTS.has(f.name)) {
+        for (const w of read(rel).match(/[A-Za-z_][A-Za-z0-9_]*/g) || []) words.add(w);
+      }
+    }
+  };
+  ['src/visualizer', 'src/exporter', 'src/shared'].forEach(scan);
+  assert.ok(!words.has('hicbirYerdeOkunmayanAyar'), 'kapı boş geçmiyor');
+  const defs = global.window.SV.defaultConfig();
+  const unread = [];
+  let seen = 0;
+  const visit = (o, pre) => {
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      const at = pre + '.' + k;
+      if (v && typeof v === 'object' && !Array.isArray(v)) visit(v, at);
+      else {
+        seen++;
+        if (!words.has(k) && !OUTSIDE_ENGINE.has(at)) unread.push(at);
+      }
+    }
+  };
+  for (const sec of Schema.SCENE_KEYS.concat(['audio'])) {
+    const v = defs[sec];
+    if (v && typeof v === 'object' && !Array.isArray(v)) visit(v, sec);
+  }
+  assert.ok(seen > 400, 'taranan ayar ' + seen);
+  assert.deepStrictEqual(unread, []);
 });

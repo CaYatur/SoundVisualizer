@@ -4914,8 +4914,8 @@
     "en": "Set the blackout transition type and duration."
   },
   "mcp.tool.sv_patch_config": {
-    "tr": "Başka bir yapılandırma yolunu yazar. İzin yola bağlıdır. MCP izinlerini değiştiremez.",
-    "en": "Set any other config path. Permission follows the path. Cannot change mcp permissions."
+    "tr": "Başka bir yapılandırma yolunu yazar. İzin yola bağlıdır. Panelin genişletilmiş aralıkla bile veremediği sayı reddedilir. MCP izinlerini değiştiremez.",
+    "en": "Set any other config path. Permission follows the path. A number the panel cannot reach, even with extended ranges, is refused. Cannot change mcp permissions."
   },
   "mcp.tool.mcp_permissions": {
     "tr": "Geçerli MCP kipini ve bir aracın en düşük kipini bildirir. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",

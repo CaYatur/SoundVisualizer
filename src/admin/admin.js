@@ -37,7 +37,6 @@
   let previewReady = false;
   // Genişletilmiş aralıklar: kaydırıcıların üst sınırını 5 katına çıkarır
   let extendedRange = localStorage.getItem('sv-extended-range') === '1';
-  const RANGE_FACTOR = 5;
 
   // Etkin sahne vurgusunu kaldır (tam yeniden çizim gerektirmez)
   function clearActiveScene() {
@@ -814,15 +813,20 @@
     return el('div', { class: 'ctrl' }, [btn]);
   }
 
-  // Genişletilmiş aralık açıkken üst sınır 5 katına çıkar. Algoritmanın
-  // matematiği tarafından gerçekten sınırlanan ayarlar (noExtend) hariç tutulur;
-  // örneğin yumuşatma 1'e ulaşırsa sinyal tamamen donar.
+  // Genişletilmiş aralık açıkken üst sınır şemanın dediği kadar büyür
   function sliderMax(def) {
-    if (!extendedRange || def.noExtend) return def.max;
-    return def.max * RANGE_FACTOR;
+    return extendedRange ? window.SVSchema.extendedMax(def) : def.max;
   }
 
   function sliderCtrl(def) {
+    /* Aralığın tek kaynağı şema (#905): hangi panelden gelirse gelsin bir yol
+       şemadaysa kendi sınırları değil şemanınkiler geçerli. */
+    const known = window.SVSchema.rangeFor(def.path);
+    if (known && known.min !== undefined) {
+      def.min = known.min;
+      def.max = known.max;
+      def.noExtend = !!known.noExtend;
+    }
     const valSpan = el('span', { class: 'val' });
     const setText = (v) => (valSpan.textContent = fmtVal(def, v));
     /* nullable: değer null iken ayar "moda bırakılmış" demektir ve
@@ -1682,7 +1686,7 @@
 
   function xyCtrl() {
     const mk = (axis, label) =>
-      sliderCtrl({ path: 'logo.' + axis, label, min: 0, max: 1, step: 0.01, percent: true });
+      sliderCtrl({ path: 'logo.' + axis, label, step: 0.01, percent: true });
     const auto = el('button', {
       class: 'btn ghost small', icon: 'target', text: 'Otomatik Ortala',
       onclick: () => {
@@ -2582,18 +2586,6 @@
   //   group    — kart içindeki alt başlık
   //   advanced — "Gelişmiş" kapalıyken gizlenir (yeni ayarların varsayılanı)
   // --------------------------------------------------------------------------
-  /* Denetleyicilerin de sürdüğü kaydırıcıların aralığı tek yerde, şemada (#905). */
-  const SCHEMA_SLIDERS = new Map(window.SVSchema.SLIDERS.map((x) => [x.path, x]));
-  function withSchemaRanges(sections) {
-    for (const sec of sections) {
-      for (const c of sec.controls || []) {
-        const row = c.type === 'slider' ? SCHEMA_SLIDERS.get(c.path) : null;
-        if (row && row.min !== undefined) { c.min = row.min; c.max = row.max; }
-      }
-    }
-    return sections;
-  }
-
   function sectionSchema() {
     const v = cfg.visualizer;
     const isStackOn = () => {
@@ -2633,7 +2625,7 @@
     const hasGap = () => MC().is('visualizer', v.type, 'gap');
     // Dalga formu çizen modlar (çizgi kalınlığı / genlik anlamlı)
     const isWaveMode = () => MC().is('visualizer', v.type, 'wave');
-    return withSchemaRanges([
+    return [
       {
         id: 'sources',
         category: 'audio',
@@ -2653,7 +2645,7 @@
         desc: 'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.',
         controls: [
           { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', step: 0.05 },
-          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', step: 0.01, percent: true , noExtend: true },
+          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', step: 0.01, percent: true },
           { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', step: 0.05 },
           {
             type: 'toggle',
@@ -2778,21 +2770,21 @@
           { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi', step: 0.02, show: usesPalette },
 
           // --- Hareket (gelişmiş) ---
-          { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', min: 0, max: 1, step: 0.01, percent: true, show: isGradient, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'background.gradient.wander', label: 'Gezinme Alanı', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'background.gradient.orbit', label: 'Dolanma Miktarı', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'background.gradient.swirl', label: 'İç Dönüş (Swirl)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'background.gradient.warp', label: 'Bozulma (Akışkanlık)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', step: 0.01, percent: true, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.wander', label: 'Gezinme Alanı', step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.orbit', label: 'Dolanma Miktarı', step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.swirl', label: 'İç Dönüş (Swirl)', step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.warp', label: 'Bozulma (Akışkanlık)', step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
 
           // --- Görünüm (gelişmiş) ---
-          { type: 'slider', path: 'background.gradient.scale', label: 'Ölçek (Yoğunluk)', min: 0.4, max: 3, step: 0.05, show: isGradient, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.scale', label: 'Ölçek (Yoğunluk)', step: 0.05, show: isGradient, group: 'Görünüm', advanced: true },
           { type: 'slider', path: 'background.gradient.brightness', label: 'Parlaklık (Temel)', step: 0.02, show: usesPalette, group: 'Görünüm', advanced: true },
           { type: 'toggle', path: 'background.gradient.hideLines', label: 'Hat Çizgilerini Gizle', show: isGradient, group: 'Görünüm', advanced: true },
-          { type: 'slider', path: 'background.gradient.grain', label: 'Gren', min: 0, max: 0.2, step: 0.005, show: isGradient, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.grain', label: 'Gren', step: 0.005, show: isGradient, group: 'Görünüm', advanced: true },
           { type: 'slider', path: 'background.gradient.vignette', label: 'Vinyet', step: 0.02, percent: true, show: usesPalette, group: 'Görünüm', advanced: true },
 
           // --- Ses tepkisi (gelişmiş) ---
-          { type: 'slider', path: 'background.gradient.audioBrightness', label: 'Ses Patlaması (Parlaklık)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Sese Tepki', advanced: true},
+          { type: 'slider', path: 'background.gradient.audioBrightness', label: 'Ses Patlaması (Parlaklık)', step: 0.02, show: isGradient, group: 'Sese Tepki', advanced: true},
           { type: 'slider', path: 'background.gradient.audioHue', label: 'Ses ile Renk Kayması', step: 0.02, percent: true, show: isGradient, group: 'Sese Tepki', advanced: true},
 
           // --- Seçili arkaplan moduna özel ayarlar ---
@@ -2994,15 +2986,15 @@
           /* Bar biçimi (#879). Varsayılanlar eski çizimi birebir verir. */
           { type: 'segment', path: 'visualizer.barStyle', label: 'Bar Stili', rebuild: true, show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true,
             options: [{ value: 'solid', label: 'Düz' }, { value: 'segments', label: 'Segmentli (LED)' }] },
-          { type: 'slider', path: 'visualizer.segmentSize', label: 'Segment Boyu', min: 0.01, max: 0.2, step: 0.005, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.segmentGap', label: 'Segment Aralığı', min: 0, max: 0.8, step: 0.02, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.barRadius', label: 'Köşe Yuvarlaklığı', min: 0, max: 0.5, step: 0.01, percent: true, show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.segmentSize', label: 'Segment Boyu', step: 0.005, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.segmentGap', label: 'Segment Aralığı', step: 0.02, percent: true, show: () => v.type === 'bars' && v.barStyle === 'segments', group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barRadius', label: 'Köşe Yuvarlaklığı', step: 0.01, percent: true, show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true },
           { type: 'segment', path: 'visualizer.barFill', label: 'Dolgu', show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true,
             options: [{ value: 'flat', label: 'Düz' }, { value: 'gradient', label: 'Dikey Degrade' }] },
           { type: 'segment', path: 'visualizer.barDirection', label: 'Büyüme Yönü', show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Biçimi', advanced: true,
             options: [{ value: 'up', label: 'Yukarı' }, { value: 'down', label: 'Aşağı' }] },
-          { type: 'slider', path: 'visualizer.capHold', label: 'Tepe Bekleme (sn)', min: 0, max: 2, step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.capFall', label: 'Tepe Düşüş Hızı', min: 0.25, max: 4, step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.capHold', label: 'Tepe Bekleme (sn)', step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.capFall', label: 'Tepe Düşüş Hızı', step: 0.05, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true },
           { type: 'segment', path: 'visualizer.capColorMode', label: 'Tepe Rengi', rebuild: true, show: () => v.type === 'bars' && v.cap !== false, group: 'Bar Biçimi', advanced: true,
             options: [{ value: 'auto', label: 'Otomatik' }, { value: 'custom', label: 'Özel' }] },
           { type: 'color', path: 'visualizer.capColor', label: 'Tepe Rengi Seç', show: () => v.type === 'bars' && v.cap !== false && v.capColorMode === 'custom', group: 'Bar Biçimi', advanced: true },
@@ -3010,14 +3002,14 @@
           /* --- Bar yerleşimi ---
              Yayın ve müzik videosu düzenlerinde bar bloğu kadranın tamamını
              kaplamaz: köşede, ortada ya da ince bir şerit olarak durur. */
-          { type: 'slider', path: 'visualizer.barSpan', label: 'Bar Genişliği', min: 0.1, max: 1, step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
-          { type: 'slider', path: 'visualizer.barCenterX', label: 'Yatay Konum', min: 0, max: 1, step: 0.01, percent: true, nullable: 0.5, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
-          { type: 'slider', path: 'visualizer.barHeight', label: 'Bar Yüksekliği', min: 0.05, max: 1, step: 0.01, percent: true, nullable: 0.92, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
-          { type: 'slider', path: 'visualizer.baseline', label: 'Taban Çizgisi', min: 0, max: 1, step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barSpan', label: 'Bar Genişliği', step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barCenterX', label: 'Yatay Konum', step: 0.01, percent: true, nullable: 0.5, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barHeight', label: 'Bar Yüksekliği', step: 0.01, percent: true, nullable: 0.92, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.baseline', label: 'Taban Çizgisi', step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
           /* Zemin yansıması (#842): taban kadranın içindeyken görünür */
-          { type: 'slider', path: 'visualizer.reflection', label: 'Zemin Yansıması', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.reflection', label: 'Zemin Yansıması', step: 0.02, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
           // Boy, Yansıma 0 iken de görünür: kaydırıcı yeniden çizim tetiklemediği için koşula bağlıyken ilk kaydırışta çıkmıyordu
-          { type: 'slider', path: 'visualizer.reflectionLength', label: 'Yansıma Boyu', min: 0.05, max: 1, step: 0.01, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.reflectionLength', label: 'Yansıma Boyu', step: 0.01, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
 
           // --- Dalga / çizgi biçimi (gelişmiş) ---
           { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },
@@ -3025,8 +3017,8 @@
           { type: 'slider', path: 'visualizer.trailHeight', label: 'Yükseklik', step: 0.05, percent: true, show: () => v.type === 'stereotrails', group: 'Dalga Biçimi', advanced: true },
 
           // --- Frekans aralığı (gelişmiş) ---
-          { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
-          { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', min: 2000, max: 20000, step: 100, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
+          { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
+          { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', step: 100, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
 
           /* --- Tayf ölçümü (gelişmiş) ---
              Barların NASIL ölçüldüğü. Ölçek bantların frekans ekseninde nasıl
@@ -3044,13 +3036,13 @@
               { value: 'linear', label: 'Doğrusal' },
               { value: 'db', label: 'Desibel (sessiz ayrıntıyı görünür kılar)' },
             ] },
-          { type: 'slider', path: 'visualizer.spectrum.floorDb', label: 'dB Tabanı', min: -96, max: -24, step: 2, group: 'Tayf Ölçümü', advanced: true,
+          { type: 'slider', path: 'visualizer.spectrum.floorDb', label: 'dB Tabanı', step: 2, group: 'Tayf Ölçümü', advanced: true,
             show: () => isBandMode() && (v.spectrum || {}).amplitude === 'db' },
-          { type: 'slider', path: 'visualizer.spectrum.attack', label: 'Atak (sn)', min: 0, max: 0.2, step: 0.005, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
-          { type: 'slider', path: 'visualizer.spectrum.release', label: 'Bırakma (sn)', min: 0.01, max: 1.2, step: 0.01, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
-          { type: 'slider', path: 'visualizer.spectrum.spread', label: 'Komşu Yayılımı', min: 0, max: 0.95, step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
-          { type: 'slider', path: 'visualizer.spectrum.tilt', label: 'Eğim (dB/oktav)', min: -6, max: 12, step: 0.5, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
-          { type: 'slider', path: 'visualizer.spectrum.smooth', label: 'Profil Yumuşatma', min: 0, max: 1, step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.attack', label: 'Atak (sn)', step: 0.005, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.release', label: 'Bırakma (sn)', step: 0.01, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.spread', label: 'Komşu Yayılımı', step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.tilt', label: 'Eğim (dB/oktav)', step: 0.5, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.smooth', label: 'Profil Yumuşatma', step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
         ],
       },
       {
@@ -3248,18 +3240,18 @@
               { value: 'spectrum', label: 'Spektrum' },
             ],
           },
-          { type: 'slider', path: 'feedback.zoom', label: 'Yakınlaşma', step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
-          { type: 'slider', path: 'feedback.decay', label: 'Sönme', step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.zoom', label: 'Yakınlaşma', step: 0.001, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.decay', label: 'Sönme', step: 0.001, fmt: (x) => (+x).toFixed(3) },
           { type: 'slider', path: 'feedback.warp', label: 'Bükülme', step: 0.02 },
           { type: 'slider', path: 'feedback.rotate', label: 'Dönüş', step: 0.01, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'feedback.swirl', label: 'İç Dönüş', min: 0, max: 2, step: 0.02, group: 'Hareket', advanced: true },
-          { type: 'slider', path: 'feedback.dx', label: 'Yatay Kayma', min: -0.05, max: 0.05, step: 0.001, noExtend: true, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
-          { type: 'slider', path: 'feedback.dy', label: 'Dikey Kayma', min: -0.05, max: 0.05, step: 0.001, noExtend: true, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
-          { type: 'slider', path: 'feedback.waveAmp', label: 'Dalga Genliği', min: 0, max: 3, step: 0.02, group: 'Dalga', advanced: true },
-          { type: 'slider', path: 'feedback.waveThickness', label: 'Dalga Kalınlığı', min: 0, max: 3, step: 0.02, group: 'Dalga', advanced: true },
-          { type: 'slider', path: 'feedback.sharpen', label: 'Keskinlik', min: 0, max: 1, step: 0.02, percent: true, group: 'Dalga', advanced: true },
-          { type: 'slider', path: 'feedback.bassZoom', label: 'Bas → Yakınlaşma', min: 0, max: 0.3, step: 0.005, group: 'Sese Tepki', advanced: true },
-          { type: 'slider', path: 'feedback.bassRotate', label: 'Bas → Dönüş', min: 0, max: 0.3, step: 0.005, group: 'Sese Tepki', advanced: true },
+          { type: 'slider', path: 'feedback.swirl', label: 'İç Dönüş', step: 0.02, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'feedback.dx', label: 'Yatay Kayma', step: 0.001, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.dy', label: 'Dikey Kayma', step: 0.001, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.waveAmp', label: 'Dalga Genliği', step: 0.02, group: 'Dalga', advanced: true },
+          { type: 'slider', path: 'feedback.waveThickness', label: 'Dalga Kalınlığı', step: 0.02, group: 'Dalga', advanced: true },
+          { type: 'slider', path: 'feedback.sharpen', label: 'Keskinlik', step: 0.02, percent: true, group: 'Dalga', advanced: true },
+          { type: 'slider', path: 'feedback.bassZoom', label: 'Bas → Yakınlaşma', step: 0.005, group: 'Sese Tepki', advanced: true },
+          { type: 'slider', path: 'feedback.bassRotate', label: 'Bas → Dönüş', step: 0.005, group: 'Sese Tepki', advanced: true },
         ],
       },
       {
@@ -3487,9 +3479,9 @@
           { type: 'logofile', show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.scale', label: 'Boyut', step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', step: 0.02, percent: true, show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.cornerRadius', label: 'Köşe / Oval', min: 0, max: 0.5, step: 0.01, percent: true, show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.speed', label: 'Oynatma Hızı', min: 0.1, max: 3, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', step: 0.02, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.cornerRadius', label: 'Köşe / Oval', step: 0.01, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.speed', label: 'Oynatma Hızı', step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           {
             type: 'segment', path: 'logo.loop', label: 'Döngü',
             options: [{ value: 'loop', label: 'Tekrar' }, { value: 'pingpong', label: 'Gidiş-Dönüş' }, { value: 'once', label: 'Bir Kez' }],
@@ -3497,9 +3489,9 @@
           },
           { type: 'toggle', path: 'logo.reverse', label: 'Ters Oynat', show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           { type: 'toggle', path: 'logo.smooth', label: 'Kenar Yumuşatma', show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.brightness', label: 'Parlaklık', min: 0.2, max: 2, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.hue', label: 'Renk Kayması', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.saturate', label: 'Doygunluk', min: 0, max: 2, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.brightness', label: 'Parlaklık', step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.hue', label: 'Renk Kayması', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.saturate', label: 'Doygunluk', step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           {
             type: 'segment', path: 'logo.blend', label: 'Karışım',
             options: [{ value: 'normal', label: 'Normal' }, { value: 'screen', label: 'Ekran\u200B' }, { value: 'add', label: 'Ekle' }],
@@ -3515,12 +3507,12 @@
             ],
             show: () => cfg.logo.enabled && isGifLogo(cfg.logo),
           },
-          { type: 'slider', path: 'logo.audioSpeed', label: 'Ses → Hız', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.audioBrightness', label: 'Ses → Parlaklık', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.beatFlash', label: 'Ritim Parlaması', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.audioHue', label: 'Ses → Renk', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
-          { type: 'slider', path: 'logo.glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
+          { type: 'slider', path: 'logo.audioSpeed', label: 'Ses → Hız', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioBrightness', label: 'Ses → Parlaklık', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioOpacity', label: 'Ses → Saydamlık', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.beatFlash', label: 'Ritim Parlaması', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioHue', label: 'Ses → Renk', step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.glow', label: 'Parlama', step: 0.02, percent: true, show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
           { type: 'xy', show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
           { type: 'logolibrary', show: () => cfg.logo.enabled },
         ],
@@ -3547,7 +3539,7 @@
         controls: [
           { type: 'displaypicker' },
           { type: 'floatingtoggle' },
-          { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', min: 0.2, max: 1, step: 0.01, percent: true },
+          { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', step: 0.01, percent: true },
           { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
           { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
           { type: 'toggle', path: 'floating.clickThrough', label: 'Tıklamayı Alt Pencereye Geçir' },
@@ -3598,7 +3590,7 @@
             text: () => refreshNote(),
             show: () => refreshRates().length > 0,
           },
-          { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true , noExtend: true },
+          { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', step: 0.05, percent: true },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
         ],
@@ -3810,7 +3802,7 @@
             show: () => { const f = exportFormat(); return !(cfg.export.loop && (!f || f.kind !== 'sequence') && !cfg.export.chapters); },
           },
           {
-            type: 'slider', path: 'export.loopCrossfade', label: 'Döngü Geçişi', min: 0.2, max: 2, step: 0.1,
+            type: 'slider', path: 'export.loopCrossfade', label: 'Döngü Geçişi', step: 0.1,
             fmt: (v) => (+v).toFixed(1) + ' sn',
             show: () => { const f = exportFormat(); return !!cfg.export.loop && (!f || f.kind !== 'sequence') && !cfg.export.chapters; },
           },
@@ -3870,7 +3862,7 @@
           { type: 'exportqueue', tail: true },
         ],
       },
-    ]);
+    ];
   }
 
   /* Profiller: yalnız biçimi bu makinede çalışanlar. */
