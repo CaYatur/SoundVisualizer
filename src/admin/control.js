@@ -744,7 +744,7 @@
       nodes.push(
         el('div', { class: 'studio-note', text: 'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.' })
       );
-      nodes.push(P().slider('Ana Opaklık', 'master', { min: 0, max: 1, step: 0.01 }));
+      nodes.push(P().slider('Ana Opaklık', 'master', { step: 0.01 }));
       nodes.push(el('div', {
         class: 'studio-note',
         text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',

@@ -2784,27 +2784,27 @@
     }
 
     nodes.push(P().segment('Çizim', 'geometry.render', RENDER_LABELS.map(([v, l]) => ({ value: v, label: l }))));
-    nodes.push(P().slider('Çözünürlük', 'geometry.resolution', { min: 8, max: 200, step: 1, fmt: (v) => String(Math.round(v)) }));
-    nodes.push(P().slider('Sese Bağlı Bozulma', 'geometry.deform', { min: 0, max: 1.5, step: 0.01 }));
+    nodes.push(P().slider('Çözünürlük', 'geometry.resolution', { step: 1, fmt: (v) => String(Math.round(v)) }));
+    nodes.push(P().slider('Sese Bağlı Bozulma', 'geometry.deform', { step: 0.01 }));
     nodes.push(miniSelect('Bozulma Kipi', DEFORM_LABELS, () => g.deformMode, (v) => { g.deformMode = v; }));
     nodes.push(miniSelect('Renklendirme', COLOR_LABELS, () => g.colorMode, (v) => { g.colorMode = v; }));
 
     nodes.push(
       foldable('Kamera ve Görünüm', () => [
-        P().slider('Dönüş Hızı', 'geometry.spin', { min: -2, max: 2, step: 0.01 }),
-        P().slider('Eğim', 'geometry.tilt', { min: -1.5, max: 1.5, step: 0.01 }),
-        P().slider('Yakınlaşma', 'geometry.zoom', { min: 0.2, max: 3, step: 0.02 }),
-        P().slider('Bas → Kamera', 'geometry.cameraAudio', { min: 0, max: 1, step: 0.01, percent: true }),
-        P().slider('Nokta Boyutu', 'geometry.pointSize', { min: 1, max: 12, step: 0.5 }),
-        P().slider('Saydamlık', 'geometry.alpha', { min: 0.05, max: 1, step: 0.01, percent: true }),
+        P().slider('Dönüş Hızı', 'geometry.spin', { step: 0.01 }),
+        P().slider('Eğim', 'geometry.tilt', { step: 0.01 }),
+        P().slider('Yakınlaşma', 'geometry.zoom', { step: 0.02 }),
+        P().slider('Bas → Kamera', 'geometry.cameraAudio', { step: 0.01, percent: true }),
+        P().slider('Nokta Boyutu', 'geometry.pointSize', { step: 0.5 }),
+        P().slider('Saydamlık', 'geometry.alpha', { step: 0.01, percent: true }),
       ])
     );
 
     if (g.family === 'attractor') {
       nodes.push(
         foldable('Çekici Ayarları', () => [
-          P().slider('Nokta Sayısı', 'geometry.attractorPoints', { min: 1000, max: 200000, step: 1000, fmt: (v) => Math.round(v / 1000) + 'k' }),
-          P().slider('İntegrasyon Adımı', 'geometry.attractorStep', { min: 0.0005, max: 0.02, step: 0.0005, fmt: (v) => (+v).toFixed(4) }),
+          P().slider('Nokta Sayısı', 'geometry.attractorPoints', { step: 1000, fmt: (v) => Math.round(v / 1000) + 'k' }),
+          P().slider('İntegrasyon Adımı', 'geometry.attractorStep', { step: 0.0005, fmt: (v) => (+v).toFixed(4) }),
         ])
       );
     }
@@ -2881,9 +2881,9 @@
           })
         )
       );
-      nodes.push(P().slider('Evren (Universe)', 'artnet.universe', { min: 0, max: 32, step: 1, fmt: (v) => String(Math.round(v)) }));
-      nodes.push(P().slider('Başlangıç Kanalı', 'artnet.startChannel', { min: 1, max: 512, step: 1, fmt: (v) => String(Math.round(v)) }));
-      nodes.push(P().slider('Aygıt Sayısı', 'artnet.fixtures', { min: 1, max: 64, step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(P().slider('Evren (Universe)', 'artnet.universe', { step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(P().slider('Başlangıç Kanalı', 'artnet.startChannel', { step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(P().slider('Aygıt Sayısı', 'artnet.fixtures', { step: 1, fmt: (v) => String(Math.round(v)) }));
       nodes.push(
         P().segment('Aygıt Kanalları', 'artnet.channelsPerFixture', [
           { value: 3, label: 'RGB' },
@@ -2892,8 +2892,8 @@
       );
       nodes.push(miniSelect('Renk Kaynağı', ARTNET_MODES, () => a.mode, (v) => { a.mode = v; }, () => P().rerender()));
       if (a.mode === 'single') nodes.push(P().color('Renk', 'artnet.color'));
-      nodes.push(P().slider('Parlaklık', 'artnet.brightness', { min: 0, max: 1, step: 0.02, percent: true, noExtend: true }));
-      nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { min: 1, max: 44, step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
+      nodes.push(P().slider('Parlaklık', 'artnet.brightness', { step: 0.02, percent: true }));
+      nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
       nodes.push(
         el('div', { class: 'studio-note dim-hint', text: 'Varsayılan hedef yayın adresidir; ağdaki tüm Art-Net düğümleri paketi alır. Tek bir arayüze göndermek isterseniz onun IP adresini yazın. DMX 44 Hz üstünü zaten taşımaz, bu yüzden gönderim hızı orada sınırlıdır.' })
       );

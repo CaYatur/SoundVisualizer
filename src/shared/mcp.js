@@ -2309,7 +2309,7 @@
       return { blackoutType: cfg.transition.blackoutType, blackoutDuration: cfg.transition.blackoutDuration };
     });
   });
-  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. A number the panel cannot reach, even with extended ranges, is refused. Cannot change mcp permissions.', function (args, ctx) {
+  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. A number on a known slider must stay inside what the panel allows, extended ranges included. Cannot change mcp permissions.', function (args, ctx) {
     if (!args || !args.path) return fail('path is required.');
     /* Bilinmeyen üst anahtar (ör. `MCP.mode`) eskiden yeni bir anahtar
        olarak ayar dosyasına yazılıyordu. Bilinen ya da ayarda zaten

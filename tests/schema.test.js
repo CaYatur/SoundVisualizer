@@ -52,13 +52,22 @@ test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () =
   assert.doesNotMatch(admin, /RANGE_FACTOR/);
 });
 
+test('özel paneller de aralığı şemadan alıyor', () => {
+  for (const f of ['src/admin/scene-panels.js', 'src/admin/media-panel.js', 'src/admin/stream.js', 'src/admin/control.js']) {
+    for (const m of read(f).matchAll(/\.slider\('[^']*', '([^']+)', \{([^\n]*)/g)) {
+      if (!Schema.rangeFor(m[1])) continue;
+      assert.doesNotMatch(m[2], /\b(min|max|noExtend):/, f + ' ' + m[1]);
+    }
+  }
+});
+
 test('şema satırları: aralık düzgün, varsayılan aralıkta, yol yinelenmiyor', () => {
   require('../src/shared/defaults.js');
   const defs = global.window.SV.defaultConfig();
   const get = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const rows = Schema.SLIDERS.concat(Schema.RANGES);
   assert.strictEqual(new Set(rows.map((x) => x.path)).size, rows.length);
-  assert.strictEqual(rows.length, 81);
+  assert.strictEqual(rows.length, 106);
   for (const r of rows) {
     if (r.steps) continue;
     assert.ok(r.min < r.max, r.path);
