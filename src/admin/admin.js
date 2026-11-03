@@ -1243,11 +1243,7 @@
   // --- Sahneler (tüm görünümün anlık görüntüsü) ---
   // Bir sahne yalnızca "görünüm" alanlarını taşır; ses aygıtı, ekran, performans
   // ve dışa aktarma ayarları sahneden bağımsızdır.
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
-    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
-    'transition', 'custom', 'milkdrop', 'feedback',
-  ];
+  const SCENE_KEYS = window.SVSchema.SCENE_KEYS;
 
   /* Küçük resim bir renk şeridi: sahnenin arkaplan renkleri, gerçek bir
      kare değil. Yığın açıkken ekranı ilk görünen arkaplan KATMANI çiziyor;

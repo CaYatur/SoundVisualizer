@@ -45,11 +45,7 @@
     'sv_add_layer_effect', 'sv_set_layer_effect_param', 'sv_set_layer_effect_enabled', 'sv_remove_layer_effect',
     'sv_patch_config', 'sv_set_blackout',
   ];
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
-    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
-    'transition', 'custom', 'milkdrop', 'feedback',
-  ];
+  const SCENE_KEYS = ((typeof window !== 'undefined' && window.SVSchema) || require('./schema.js')).SCENE_KEYS;
   const EFFECT_TYPES = [
     'bloom', 'chroma', 'glitch', 'grain', 'crt', 'pixelate', 'kaleido', 'mirror',
     'grade', 'vignette', 'trails', 'edge', 'zoomblur', 'ripple', 'posterize',
