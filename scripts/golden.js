@@ -54,13 +54,26 @@ function electronPath() {
 const cdp = (url) => new Promise((resolve, reject) => {
   const ws = new WebSocket(url);
   let id = 0;
+  let closed = false;
   const pend = new Map();
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } };
   ws.onerror = reject;
+  /* Uygulama kapanırsa bekleyen çağrılar hiç dönmüyordu: Node işi kalmadığı için
+     sessizce, çıkış kodu 0 ile bitiyor ve yarım koşu geçmiş gibi görünüyordu. */
+  ws.onclose = () => {
+    const gone = { error: { message: 'uygulama bağlantısı koptu' } };
+    for (const r of pend.values()) r(gone);
+    pend.clear();
+    closed = true;
+  };
   ws.onopen = () => {
-    const call = (method, params) => new Promise((r) => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
+    const call = (method, params) => new Promise((r) => {
+      if (closed) { r({ error: { message: 'uygulama bağlantısı koptu' } }); return; }
+      const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} }));
+    });
     const ev = async (e) => {
       const r = await call('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true });
+      if (r.error) throw new Error(r.error.message);
       if (r.result && r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails.exception && r.result.exceptionDetails.exception.description || r.result.exceptionDetails).slice(0, 500));
       return r.result && r.result.result && r.result.result.value;
     };
@@ -186,6 +199,7 @@ async function main() {
     cmp.missing.forEach((c) => console.log('  ' + c.name + (c.mode ? ' / ' + c.mode : '') + ': ' + c.in));
     process.exitCode = cmp.changed.length || cmp.missing.length ? 1 : 0;
   }
+  a.ws.onclose = null;
   try { a.ws.close(); } catch { /* kapanıyor */ }
   app.kill();
   await sleep(1000);
