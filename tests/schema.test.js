@@ -36,16 +36,18 @@ test('kaydırıcılar: kontrol hedefleri ve OSC ağacı şemadan üretiliyor', (
   for (const s of Tree.SLIDERS) assert.strictEqual(s.label, undefined, 'OSC satırında etiket yok');
 });
 
-test('kaydırıcı aralıkları paneldekiyle aynı', () => {
+test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () => {
   const admin = read('src/admin/admin.js');
   let seen = 0;
-  for (const m of admin.matchAll(/type: 'slider', path: '([^']+)'[^}]*?min: (-?[\d.]+), max: (-?[\d.]+)/g)) {
+  for (const m of admin.matchAll(/\{ type: 'slider', path: '([^']+)'[^}]*\}/g)) {
     const s = Schema.SLIDERS.find((x) => x.path === m[1]);
     if (!s || s.steps) continue;
     seen++;
-    assert.deepStrictEqual([s.min, s.max], [Number(m[2]), Number(m[3])], m[1]);
+    assert.doesNotMatch(m[0], /\b(min|max):/, m[1]);
   }
-  assert.ok(seen >= 10, 'panelde bulunan: ' + seen);
+  assert.strictEqual(seen, 21);
+  assert.match(admin, /return withSchemaRanges\(\[/);
+  assert.match(admin, /c\.min = row\.min; c\.max = row\.max;/);
 });
 
 test('panel şemayı OSC ağacından önce yüklüyor', () => {
