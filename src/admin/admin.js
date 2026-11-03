@@ -2566,6 +2566,18 @@
   //   group    — kart içindeki alt başlık
   //   advanced — "Gelişmiş" kapalıyken gizlenir (yeni ayarların varsayılanı)
   // --------------------------------------------------------------------------
+  /* Denetleyicilerin de sürdüğü kaydırıcıların aralığı tek yerde, şemada (#905). */
+  const SCHEMA_SLIDERS = new Map(window.SVSchema.SLIDERS.map((x) => [x.path, x]));
+  function withSchemaRanges(sections) {
+    for (const sec of sections) {
+      for (const c of sec.controls || []) {
+        const row = c.type === 'slider' ? SCHEMA_SLIDERS.get(c.path) : null;
+        if (row && row.min !== undefined) { c.min = row.min; c.max = row.max; }
+      }
+    }
+    return sections;
+  }
+
   function sectionSchema() {
     const v = cfg.visualizer;
     const isStackOn = () => {
@@ -2605,7 +2617,7 @@
     const hasGap = () => MC().is('visualizer', v.type, 'gap');
     // Dalga formu çizen modlar (çizgi kalınlığı / genlik anlamlı)
     const isWaveMode = () => MC().is('visualizer', v.type, 'wave');
-    return [
+    return withSchemaRanges([
       {
         id: 'sources',
         category: 'audio',
@@ -2624,9 +2636,9 @@
         title: 'Ses Analizi',
         desc: 'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.',
         controls: [
-          { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', min: 0.2, max: 4, step: 0.05 },
-          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true , noExtend: true },
-          { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', min: 1, max: 4, step: 0.05 },
+          { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', step: 0.05 },
+          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', step: 0.01, percent: true , noExtend: true },
+          { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', step: 0.05 },
           {
             type: 'toggle',
             path: 'audio.humGuard',
@@ -2746,8 +2758,8 @@
             ],
             show: () => cfg.background.type === 'gradient',
           },
-          { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', min: 0, max: 2, step: 0.02, show: usesPalette },
-          { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi', min: 0, max: 2, step: 0.02, show: usesPalette },
+          { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', step: 0.02, show: usesPalette },
+          { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi', step: 0.02, show: usesPalette },
 
           // --- Hareket (gelişmiş) ---
           { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', min: 0, max: 1, step: 0.01, percent: true, show: isGradient, group: 'Hareket', advanced: true },
@@ -2758,14 +2770,14 @@
 
           // --- Görünüm (gelişmiş) ---
           { type: 'slider', path: 'background.gradient.scale', label: 'Ölçek (Yoğunluk)', min: 0.4, max: 3, step: 0.05, show: isGradient, group: 'Görünüm', advanced: true },
-          { type: 'slider', path: 'background.gradient.brightness', label: 'Parlaklık (Temel)', min: 0.4, max: 1.6, step: 0.02, show: usesPalette, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.brightness', label: 'Parlaklık (Temel)', step: 0.02, show: usesPalette, group: 'Görünüm', advanced: true },
           { type: 'toggle', path: 'background.gradient.hideLines', label: 'Hat Çizgilerini Gizle', show: isGradient, group: 'Görünüm', advanced: true },
           { type: 'slider', path: 'background.gradient.grain', label: 'Gren', min: 0, max: 0.2, step: 0.005, show: isGradient, group: 'Görünüm', advanced: true },
-          { type: 'slider', path: 'background.gradient.vignette', label: 'Vinyet', min: 0, max: 1, step: 0.02, percent: true, show: usesPalette, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.vignette', label: 'Vinyet', step: 0.02, percent: true, show: usesPalette, group: 'Görünüm', advanced: true },
 
           // --- Ses tepkisi (gelişmiş) ---
           { type: 'slider', path: 'background.gradient.audioBrightness', label: 'Ses Patlaması (Parlaklık)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Sese Tepki', advanced: true},
-          { type: 'slider', path: 'background.gradient.audioHue', label: 'Ses ile Renk Kayması', min: 0, max: 1, step: 0.02, percent: true, show: isGradient, group: 'Sese Tepki', advanced: true},
+          { type: 'slider', path: 'background.gradient.audioHue', label: 'Ses ile Renk Kayması', step: 0.02, percent: true, show: isGradient, group: 'Sese Tepki', advanced: true},
 
           // --- Seçili arkaplan moduna özel ayarlar ---
           ...bgModeControls(),
@@ -2947,9 +2959,9 @@
               && (cfg.text.source || 'static') === 'lyrics'
               && cfg.text.karaoke !== false,
           },
-          { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
+          { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', step: 0.05, show: () => v.type !== 'none' },
           // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
-          { type: 'slider', path: 'visualizer.glow', label: 'Parlama (Glow)', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type !== 'none' && v.type !== 'spectrogram' },
+          { type: 'slider', path: 'visualizer.glow', label: 'Parlama (Glow)', step: 0.02, percent: true, show: () => v.type !== 'none' && v.type !== 'spectrogram' },
           {
             // rebuild: Zemin Yansıması denetimi yerleşime bağlı (Orta'da gizli), panel yeniden kurulmazsa Alt'a geçince görünmüyordu
             type: 'segment', path: 'visualizer.position', label: 'Yerleşim', rebuild: true,
@@ -2958,8 +2970,8 @@
           },
 
           // --- Bar/segment geometrisi (gelişmiş) ---
-          { type: 'slider', path: 'visualizer.barCount', label: 'Bar Sayısı', min: 16, max: 160, step: 1, show: isBandMode, group: 'Bar Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, show: hasGap, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barCount', label: 'Bar Sayısı', step: 1, show: isBandMode, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', step: 0.02, percent: true, show: hasGap, group: 'Bar Biçimi', advanced: true },
           { type: 'toggle', path: 'visualizer.mirror', label: 'Ayna (Simetri)', show: () => ['bars', 'wave', 'radialWave'].indexOf(v.type) >= 0, group: 'Bar Biçimi', advanced: true },
           // Varsayılanı açık, ama hiçbir kartta kapatılamıyordu (#878)
           { type: 'toggle', path: 'visualizer.cap', label: 'Tepe Noktaları', show: () => v.type === 'bars', group: 'Bar Biçimi', advanced: true, rebuild: true },
@@ -2992,9 +3004,9 @@
           { type: 'slider', path: 'visualizer.reflectionLength', label: 'Yansıma Boyu', min: 0.05, max: 1, step: 0.01, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
 
           // --- Dalga / çizgi biçimi (gelişmiş) ---
-          { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', min: 0.1, max: 1, step: 0.02, percent: true, show: () => MC().is('visualizer', v.type, 'thick'), group: 'Dalga Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.trailHeight', label: 'Yükseklik', min: 0.4, max: 3, step: 0.05, percent: true, show: () => v.type === 'stereotrails', group: 'Dalga Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', step: 0.02, percent: true, show: () => MC().is('visualizer', v.type, 'thick'), group: 'Dalga Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.trailHeight', label: 'Yükseklik', step: 0.05, percent: true, show: () => v.type === 'stereotrails', group: 'Dalga Biçimi', advanced: true },
 
           // --- Frekans aralığı (gelişmiş) ---
           { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
@@ -3220,10 +3232,10 @@
               { value: 'spectrum', label: 'Spektrum' },
             ],
           },
-          { type: 'slider', path: 'feedback.zoom', label: 'Yakınlaşma', min: 0.94, max: 1.08, step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
-          { type: 'slider', path: 'feedback.decay', label: 'Sönme', min: 0.7, max: 0.999, step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
-          { type: 'slider', path: 'feedback.warp', label: 'Bükülme', min: 0, max: 2, step: 0.02 },
-          { type: 'slider', path: 'feedback.rotate', label: 'Dönüş', min: -1, max: 1, step: 0.01, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'feedback.zoom', label: 'Yakınlaşma', step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.decay', label: 'Sönme', step: 0.001, noExtend: true, fmt: (x) => (+x).toFixed(3) },
+          { type: 'slider', path: 'feedback.warp', label: 'Bükülme', step: 0.02 },
+          { type: 'slider', path: 'feedback.rotate', label: 'Dönüş', step: 0.01, group: 'Hareket', advanced: true },
           { type: 'slider', path: 'feedback.swirl', label: 'İç Dönüş', min: 0, max: 2, step: 0.02, group: 'Hareket', advanced: true },
           { type: 'slider', path: 'feedback.dx', label: 'Yatay Kayma', min: -0.05, max: 0.05, step: 0.001, noExtend: true, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
           { type: 'slider', path: 'feedback.dy', label: 'Dikey Kayma', min: -0.05, max: 0.05, step: 0.001, noExtend: true, group: 'Hareket', advanced: true, fmt: (x) => (+x).toFixed(3) },
@@ -3457,8 +3469,8 @@
             rebuild: true,
           },
           { type: 'logofile', show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.scale', label: 'Boyut', step: 0.01, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.cornerRadius', label: 'Köşe / Oval', min: 0, max: 0.5, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.speed', label: 'Oynatma Hızı', min: 0.1, max: 3, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
@@ -3842,7 +3854,7 @@
           { type: 'exportqueue', tail: true },
         ],
       },
-    ];
+    ]);
   }
 
   /* Profiller: yalnız biçimi bu makinede çalışanlar. */
