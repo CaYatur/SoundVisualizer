@@ -15,7 +15,8 @@
      dışa aktarımın sonucu sistemdeki sürüme bağlanmasın.
    - Bazı Intel GPU'larında (Tiger Lake) H.264 yalnız düşük güç giriş noktasıyla
      kodlanıyor. Önce `-low_power` olmadan deneniyor; eski GPU'larda düşük güç
-     kodlayıcısı yok, zorlamak onları bozardı.
+     kodlayıcısı yok, zorlamak onları bozardı. Aynı GPU'da hız denetimi de
+     sınır: H.264'te `-global_quality` (ICQ) düşüyor, `-qscale:v` (CQP) geçiyor.
    - VA-API bir aygıt dosyası istiyor; her render düğümü deneniyor.
 
    Burada süreç başlatılmıyor: `run` ve `list` dışarıdan geliyor, karar mantığı

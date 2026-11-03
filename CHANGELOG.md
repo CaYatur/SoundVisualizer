@@ -31,6 +31,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Session recovery**: rotating settings snapshots; after a crash a corrupt settings file is
   restored from the newest healthy snapshot and the panel says so.
 
+### Export
+
+- **H.264 Quick Sync on Linux when the driver rejects ICQ** (#904). The test encode used
+  `-global_quality`, which FFmpeg turns into ICQ. A Tiger Lake machine rejected that with "Selected
+  ratecontrol mode is unsupported", although H.264 Quick Sync itself works, so the app fell back to
+  VA-API. H.264 now also tries constant QP (`-qscale:v`) with and without `-low_power`, after the
+  existing attempts. Where the old arguments pass, they are kept. H.265 is unchanged, because on that
+  machine `hevc_qsv` with low power failed and VA-API already works.
+
 ### Fixes found in PR review
 
 - Lyrics editor time stamps (Alt+Enter, Alt+.) used the wrong clock resolver and always wrote
