@@ -10,10 +10,8 @@
    yazılıyor. Sonraki koşular bununla karşılaştırılır; her fark ya hata ya da yazılı
    bir karardır.
 
-   Her durum TEMİZ başlangıçtan iki kez: doğal kipinde (`asis`) ve katman anahtarı
-   çevrilince (`toggled`). Aksi halde önceki durumun yığın bayrağı ve klasik yedeği
-   sızıyor, ölçülen şey şablon olmuyor. Rapor iki yönü ayırıyor: klasikten katmana
-   (v4 göçünün aynısı, aynı kalmalı), katmandan klasiğe (klasik yol katmanları bilmez).
+   Her durum TEMİZ başlangıçtan: aksi halde önceki durumun katmanları sızıyor, ölçülen
+   şey şablon olmuyor.
 
    KULLANICI VERİSİNE DOKUNMAZ: geçici profil, ayar ve presetler kopyalanır.
 
@@ -30,7 +28,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn, execFileSync, spawnSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const L = require('./perf-lib');
 const G = require('./golden-lib');
 
@@ -86,16 +84,9 @@ function frameHashes(file) {
   const out = execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-i', file, '-map', '0:v', '-f', 'framemd5', '-'], { maxBuffer: 1 << 28 }).toString();
   return out.split('\n').filter((l) => l && !l.startsWith('#')).map((l) => l.split(',').pop().trim());
 }
-function psnr(a, b) {
-  const r = spawnSync(FF, ['-hide_banner', '-i', a, '-i', b, '-lavfi', 'psnr', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
-  const m = /average:(\S+)/.exec(r.stderr || '');
-  return m ? (m[1] === 'inf' ? Infinity : Number(m[1])) : null;
-}
-
-/* Sayfada: şablon panelin kendi yoluyla, sahne panelin kendi eylemiyle. Kip,
-   "Katmanlara Geç" düğmesinin çağırdığı işlevle değişiyor. Her durum aynı temiz
-   ayardan: yığın durumu fabrika değerinde, önceki durumdan yedek kalmadan. */
-const SET_CASE = (c, mode) => `(() => {
+/* Sayfada: şablon panelin kendi yoluyla, sahne panelin kendi eylemiyle. Her durum
+   aynı temiz ayardan: katmanlar fabrika değerinde, önceki durumdan yedek kalmadan. */
+const SET_CASE = (c) => `(() => {
   const P = window.SVPanel;
   const cur = P.cfg();
   const fresh = window.SV.clone(window.__goldenBase);
@@ -113,10 +104,8 @@ const SET_CASE = (c, mode) => `(() => {
   }
   const c2 = P.cfg();
   c2.transition = Object.assign({}, c2.transition, { enabled: false });
-  const native = window.SVLayers.stackOn(c2);
-  if (${mode === 'toggled'}) window.SVLayers.setStackEnabled(c2, !native);
   P.push(true);
-  return native;
+  return true;
 })()`;
 
 async function main() {
@@ -162,47 +151,32 @@ async function main() {
     .concat((window.SVPanel.cfg().scenes || []).map((s) => ({ kind: 'scene', id: s.id, name: s.name }))))`));
   const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLocaleLowerCase().includes(ONLY));
   const run = { when: new Date().toISOString(), version: require('../package.json').version, software: SOFTWARE, cases: {} };
-  console.log(cases.length + ' durum, doğal kip ve anahtar çevrilmiş');
+  console.log(cases.length + ' durum');
   let n = 0;
   for (const c of cases) {
     n++;
     const key = c.kind + ':' + c.name;
-    const entry = (run.cases[key] = {});
-    const files = {};
-    for (const mode of ['asis', 'toggled']) {
-      const native = await a.ev(SET_CASE(c, mode));
-      entry.nativeStack = native;
-      await sleep(900);
-      const file = path.join(work, 'c' + n + '-' + mode + '.mp4');
-      const st = JSON.parse(await a.ev(`(async () => { window.__done = null; const s = await window.api.startExport({ audioPath: ${JSON.stringify(wav)}, outputPath: ${JSON.stringify(file)}, format: 'mp4-h264', resolution: '720p', fps: 30, encoder: 'cpu', quality: 'high', speed: 'fast' }); if (!s || !s.ok) return JSON.stringify({ start: s }); for (let i = 0; i < 900 && !window.__done; i++) await new Promise((r) => setTimeout(r, 200)); return JSON.stringify(window.__done || { timeout: true }); })()`));
-      if (st.status !== 'done') { entry[mode] = { error: JSON.stringify(st).slice(0, 200), frames: [] }; console.log(key, mode, 'HATA', entry[mode].error); continue; }
-      entry[mode] = { frames: frameHashes(file) };
-      files[mode] = file;
-    }
-    if (files.asis && files.toggled) {
-      const d = G.diffFrames(entry.asis.frames, entry.toggled.frames);
-      if (d.diff) entry.toggled.psnr = psnr(files.asis, files.toggled);
-      console.log(String(n).padStart(3), (entry.nativeStack ? 'katman→klasik ' : 'klasik→katman ') + key.slice(0, 40).padEnd(41), d.diff ? 'FARKLI ' + d.diff + '/' + d.frames + ' PSNR ' + entry.toggled.psnr : 'aynı');
-    }
-    /* --keep: kipler kare kare incelensin diye dosyalar çıktı klasörüne */
-    for (const [mode, f] of Object.entries(files)) {
-      try {
-        if (argv.includes('--keep')) fs.copyFileSync(f, path.join(OUT, key.replace(/[^A-Za-z0-9]+/g, '-') + '-' + mode + '.mp4'));
-        fs.unlinkSync(f);
-      } catch { /* yoksa geç */ }
-    }
+    await a.ev(SET_CASE(c));
+    await sleep(900);
+    const file = path.join(work, 'c' + n + '.mp4');
+    const st = JSON.parse(await a.ev(`(async () => { window.__done = null; const s = await window.api.startExport({ audioPath: ${JSON.stringify(wav)}, outputPath: ${JSON.stringify(file)}, format: 'mp4-h264', resolution: '720p', fps: 30, encoder: 'cpu', quality: 'high', speed: 'fast' }); if (!s || !s.ok) return JSON.stringify({ start: s }); for (let i = 0; i < 900 && !window.__done; i++) await new Promise((r) => setTimeout(r, 200)); return JSON.stringify(window.__done || { timeout: true }); })()`));
+    if (st.status !== 'done') { run.cases[key] = { error: JSON.stringify(st).slice(0, 200), frames: [] }; console.log(key, 'HATA', run.cases[key].error); continue; }
+    run.cases[key] = { frames: frameHashes(file) };
+    console.log(String(n).padStart(3), key.slice(0, 50));
+    // --keep: kareler incelensin diye dosya çıktı klasörüne
+    try {
+      if (argv.includes('--keep')) fs.copyFileSync(file, path.join(OUT, key.replace(/[^A-Za-z0-9]+/g, '-') + '.mp4'));
+      fs.unlinkSync(file);
+    } catch { /* yoksa geç */ }
   }
-  const pairs = G.modePairs(run);
   fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(run));
-  console.log('\nklasikten katmana: aynı ' + pairs.classicToStack.same.length + ', farklı ' + pairs.classicToStack.different.length);
-  console.log('katmandan klasiğe: aynı ' + pairs.stackToClassic.same.length + ', farklı ' + pairs.stackToClassic.different.length);
   if (arg('baseline')) {
     const before = JSON.parse(fs.readFileSync(arg('baseline'), 'utf8'));
     if (!!before.software !== SOFTWARE) console.log('UYARI: önceki koşu ' + (before.software ? 'yazılım' : 'donanım') + ' çiziciyle alınmış, karşılaştırma anlamsız');
     const cmp = G.compareRuns(before, run);
     console.log('öncekiyle: aynı ' + cmp.same + ', değişen ' + cmp.changed.length + ', eşsiz ' + cmp.missing.length);
-    cmp.changed.forEach((c) => console.log('  ' + c.name + ' / ' + c.mode + ': ' + c.diff + '/' + c.frames + ' kare'));
-    cmp.missing.forEach((c) => console.log('  ' + c.name + (c.mode ? ' / ' + c.mode : '') + ': ' + c.in));
+    cmp.changed.forEach((c) => console.log('  ' + c.name + ': ' + c.diff + '/' + c.frames + ' kare'));
+    cmp.missing.forEach((c) => console.log('  ' + c.name + ': ' + c.in));
     process.exitCode = cmp.changed.length || cmp.missing.length ? 1 : 0;
   }
   a.ws.onclose = null;

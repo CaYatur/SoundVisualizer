@@ -313,7 +313,7 @@ test('MCP arkaplan türü yığında ekrandaki katmanı değiştirir', async () 
 
 // --- ikinci tur: gözden geçirmede bulunanlar -------------------------------------
 
-test('yığın açık ve liste boşken "Katmanlara Geç" listeyi yine sentezler', () => {
+test('yığın açık ve liste boşken "Katman Listesini Oluştur" listeyi yine sentezler', () => {
   const cfg = SV.defaultConfig();
   cfg.layerStack = { enabled: true };
   cfg.layers = [];

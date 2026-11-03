@@ -83,6 +83,7 @@
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
   function push(immediate) {
+    if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(cfg);
     if (isBlackedOut()) {
       cfg.isBlackout = true;
       cfg.background = Object.assign({}, cfg.background, { type: 'solid', solidColor: '#000000' });
@@ -3991,6 +3992,8 @@
     if (!platformDefaults) {
       platformDefaults = window.SV.clone(window.SV.DEFAULT_CONFIG);
       platformAdjust(platformDefaults);
+      // Yeni kurulumun açılış hâliyle aynı olsun: katmanlar kartı rozet göstermesin
+      if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(platformDefaults);
     }
     return platformDefaults;
   }
@@ -6137,6 +6140,7 @@
     const sanitized = cloneWithoutUserContent(incoming);
     window.SVMigrateV4.migrate(sanitized);
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
+    window.SVLayers.ensureStack(cfg);
     // Başka makineden gelen yedek bu makinede çalışmayan kaynak taşıyabilir
     platformAdjust(cfg);
     cfg.userPresets = preservedPresets;
@@ -6326,6 +6330,7 @@
     try { window.api.setUiLanguage(window.SVI18n.locale); } catch { /* i18n yok */ }
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
+    window.SVLayers.ensureStack(cfg);
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
     }
@@ -6496,6 +6501,7 @@
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
     window.api.onExternalConfig((incoming) => {
       cfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+      window.SVLayers.ensureStack(cfg);
       // Ana süreç yeni bir yapılandırmada; sonraki gönderim tam olsun
       sentSig = null;
       /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
@@ -6613,6 +6619,7 @@
       // Okunabilirlik için seçilmiş tema, boyut ve hareket ayarı sıfırlamada kalır (#770)
       const uiPrefs = cfg.ui && typeof cfg.ui === 'object' ? Object.assign({}, cfg.ui) : null;
       cfg = window.SV.defaultConfig();
+      window.SVLayers.ensureStack(cfg);
       platformAdjust(cfg);
       cfg.audio.sources = sources;
       cfg.userPresets = presets;

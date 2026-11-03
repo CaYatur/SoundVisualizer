@@ -92,8 +92,6 @@
     'Kapla': 'Cover',
     'Medya kapalı. Kaynak seçilince açılır.': 'Media is off. Choosing a source turns it on.',
     'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.': 'The list runs opposite to draw order: the layer at the top is the topmost one in the output.',
-    'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Katman listeniz duruyor; anahtarı açtığınızda aynı düzenle geri gelir.': 'The layer stack is off. The scene is driven by the Background and Visualizer cards. Your layer list is kept; turning the switch back on restores it unchanged.',
-    'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Anahtarı açarsanız aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.': 'The layer stack is off. The scene is driven by the Background and Visualizer cards. Turning the switch on opens the same look as a layer list you can build on.',
     // Katlanan tür seçici
     'Seçili tür': 'Selected type',
     'Tüm türler': 'All types',
@@ -1601,9 +1599,11 @@
 
     // ---- Katmanlar ----
     'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.': 'Build the scene from stacked layers: each layer gets its own source, blend mode, opacity, transform, and audio response.',
-    'Sahne şu anda Arkaplan ve Görselleştirici kartlarından sürülüyor. Katmanlara geçerseniz aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.': 'The scene is currently driven by the Background and Visualizer cards. Switching to layers opens that same look as a layer list you can build on.',
-    'Katman listesini boşaltır; sahne yeniden Arkaplan/Görselleştirici kartlarından sürülür': 'Empties the layer list; the scene is driven by the Background/Visualizer cards again',
-    'Katman listesi boşaltılacak. Sahne yeniden Arkaplan ve Görselleştirici kartlarından sürülecek.': 'The layer list will be emptied. The scene will be driven by the Background and Visualizer cards again.',
+    'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.': 'The layer list is empty. Create it and the scene starts again with a background and a visualizer layer, then add more on top.',
+    'Listeyi arkaplan ve görselleştirici katmanlarına döndürür': 'Returns the list to a background and a visualizer layer',
+    'Katman listesi sıfırlanacak. Sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlayacak.': 'The layer list will be reset. The scene will start again with a background and a visualizer layer.',
+    'Bu sahnede eski sürümden kalan katmanlar arşivlendi. Arşivdekilere geçerseniz şu anki liste arşive gider; ikisi arasında kayıpsız gidip gelebilirsiniz.': 'This scene has layers from an older version, kept in an archive. Switch to them and the current list goes to the archive, so you can move between the two without losing either.',
+    'Arşivdeki Katmanlara Geç': 'Switch to Archived Layers',
     'Katmanı aç/kapat': 'Enable/disable layer',
     'Dönüşüm': 'Transform', 'Sese Tepki': 'Audio Response',
     'Yatay Konum': 'Horizontal Position', 'Dikey Konum': 'Vertical Position',
@@ -3580,13 +3580,12 @@
     // Katman satırı (#622)
     'Tümünü Aç': 'Expand All', 'Tümünü Kapat': 'Collapse All',
     'Ayarları göster': 'Show settings', 'Ayarları gizle': 'Hide settings',
-    'Katman Yığınını Kullan': 'Use Layer Stack',
     'Kaynak Katman': 'Source Layer',
     'Arka Katman': 'Back Layer',
     'Ön Katman': 'Front Layer',
     'Başka Katman': 'Other Layer',
     'Dalga Katmanları': 'Wave Layers',
-    'Katmanlara Geç': 'Switch to Layers',
+    'Katman Listesini Oluştur': 'Create the Layer List',
     'Katmanları Sıfırla': 'Reset Layers',
     'Katman Grupları ve A/B': 'Layer Groups and A/B',
     'Medya Katmanı': 'Media Layer',

@@ -643,9 +643,9 @@ npm run golden -- --out=<folder> --settings=<settings.json> --presets=<folder>
 npm run golden -- --out=<folder> --software --baseline=<earlier golden.json>
 ```
 
-Each case starts from the same clean state and runs twice: as it is, and with the layer switch flipped. The report separates the two directions. Classic to layers is what the v4 migration does, so it should not change the picture. Layers to classic shows what the classic path cannot draw.
+Each case starts from the same clean state.
 
-Use `--software` for the comparison. It draws on the software renderer: two full runs of the same code agreed on all 214 exports, and each took about 30 minutes. On the GPU a run takes about 10 minutes, but two runs agreed on 210 of 214, because the Lorenz and Lo-Fi templates moved. With lossless encoding, Lorenz differs by 1 in a few bytes of a few frames, and the H.264 encoder carries that into the following frames. Neither template moves on the software renderer. A baseline only compares with a run on the same renderer.
+Use `--software` for the comparison. It draws on the software renderer: two full runs of the same code agreed on all 107 cases, and a run takes about 15 minutes. On the GPU a run takes about 5 minutes, but the Lorenz and Lo-Fi templates moved between runs. With lossless encoding, Lorenz differs by 1 in a few bytes of a few frames, and the H.264 encoder carries that into the following frames. Neither template moves on the software renderer. A baseline only compares with a run on the same renderer.
 
 The same export now gives the same video, which it did not on v3.1.7. A preset's `rand_frame` values came from `Math.random` on every frame, so 59 of 60 frames differed between two lossless runs of one scene. The export window now draws from a fixed sequence. Live windows are unchanged.
 

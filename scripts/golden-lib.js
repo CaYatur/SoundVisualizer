@@ -24,7 +24,7 @@ function diffFrames(a, b) {
   return { frames: n, diff, first };
 }
 
-/* İki koşunun karşılaştırması. run: { cases: { ad: { asis|toggled: { frames: [...] } } } }
+/* İki koşunun karşılaştırması. run: { cases: { ad: { frames: [...] } } }
    Biri yoksa `missing`: yeni şablon eklenmesi ya da silinmesi fark olarak görünsün. */
 function compareRuns(base, next) {
   const out = { same: 0, changed: [], missing: [] };
@@ -36,33 +36,11 @@ function compareRuns(base, next) {
       out.missing.push({ name, in: a ? 'yalnız önceki' : 'yalnız yeni' });
       continue;
     }
-    for (const mode of new Set(Object.keys(a).concat(Object.keys(b)))) {
-      if (mode === 'nativeStack') continue;
-      if (!a[mode] || !b[mode]) {
-        out.missing.push({ name, mode, in: a[mode] ? 'yalnız önceki' : 'yalnız yeni' });
-        continue;
-      }
-      const d = diffFrames(a[mode].frames, b[mode].frames);
-      if (d.diff) out.changed.push(Object.assign({ name, mode }, d));
-      else out.same++;
-    }
+    const d = diffFrames(a.frames, b.frames);
+    if (d.diff) out.changed.push(Object.assign({ name }, d));
+    else out.same++;
   }
   return out;
 }
 
-/* Katman anahtarı çevrilince görüntü değişiyor mu, yöne göre. Klasikten katmana
-   geçiş v4 göçünün aynısı: fark varsa göç o sahneyi bozar. Asıl şikâyet de buydu:
-   basit mod ile katmanlar arasındaki tutarsızlık artık bir liste. */
-function modePairs(run) {
-  const out = { classicToStack: { same: [], different: [] }, stackToClassic: { same: [], different: [] } };
-  for (const [name, c] of Object.entries((run && run.cases) || {})) {
-    if (!c.asis || !c.toggled) continue;
-    const side = c.nativeStack ? out.stackToClassic : out.classicToStack;
-    const d = diffFrames(c.asis.frames, c.toggled.frames);
-    if (d.diff) side.different.push({ name, diff: d.diff, frames: d.frames, psnr: c.toggled.psnr == null ? null : c.toggled.psnr });
-    else side.same.push(name);
-  }
-  return out;
-}
-
-module.exports = { diffFrames, compareRuns, modePairs };
+module.exports = { diffFrames, compareRuns };

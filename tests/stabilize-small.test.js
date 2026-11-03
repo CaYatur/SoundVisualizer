@@ -81,7 +81,6 @@ test('katman Aynala anahtarları seçenekleri beşinci argümanda veriyor', () =
 test('katman paneli boş yığın bayrağını çizerken yazmıyor', () => {
   const s = read('src/admin/scene-panels.js');
   assert.doesNotMatch(s, /cfg\.layerStack = \{ enabled: !!list\.length \}/);
-  assert.match(s, /window\.SVLayers\.stackOn\(cfg\)/);
 });
 
 test('"Basla Nabız" yazım hatası kalmadı, çevirisi "Bas Nabzı" anahtarında', () => {

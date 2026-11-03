@@ -2168,42 +2168,6 @@
     const list = Array.isArray(cfg.layers) ? cfg.layers : (cfg.layers = []);
     const rerender = () => P().apply();
 
-    /* Yığın anahtarı.
-
-       Kapalıyken katman listesi silinmez, yalnızca kullanılmaz: sahne
-       Arkaplan ve Görselleştirici kartlarından sürülür. Böylece yalın
-       deneyimle katmanlı deneyim arasında ayar kaybetmeden gidip gelinir. */
-    /* Bayrak yoksa (null) anlamı stackOn'daki gibi okunur, cfg'ye
-       yazılmaz. Çizim sırasında false yazmak yeni kurulumda bile Katmanlar
-       kartına "1 değişiklik" rozeti ve sıfırlama düğmesi çıkarıyordu. */
-    const on = (window.SVLayers && window.SVLayers.stackOn)
-      ? window.SVLayers.stackOn(cfg)
-      : !!(cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : list.length);
-    const stackSwitch = el('input', {
-      type: 'checkbox',
-      onchange: (e) => {
-        if (window.SVLayers && window.SVLayers.setStackEnabled) {
-          window.SVLayers.setStackEnabled(cfg, e.target.checked);
-        } else {
-          cfg.layerStack = cfg.layerStack || {};
-          cfg.layerStack.enabled = e.target.checked;
-          if (e.target.checked && !list.length) cfg.layers = window.SVLayers.synthesize(cfg);
-        }
-        P().push(true);
-        rerender();
-      },
-    });
-    stackSwitch.checked = on;
-    /* Master mode switch — must not look like Transparent / Cover Taskbar
-       toggles below. Built with el() so the class sticks in the panel test mock
-       (classList.add alone is a no-op there). CTA styling alone was not enough. */
-    nodes.push(el('div', { class: 'ctrl layer-stack-toggle' }, [
-      el('div', { class: 'row' }, [
-        el('label', { class: 'lbl', text: 'Katman Yığınını Kullan' }),
-        el('label', { class: 'switch' }, [stackSwitch, el('span', { class: 'track' })]),
-      ]),
-    ]));
-
     /* K1: when layer stack hides the Background card, surface the same
        WebGL→solid info notice here (non-blocking). */
     if (window.SVLayers
@@ -2217,87 +2181,81 @@
       nodes.push(note);
     }
 
-    if (on) {
-      /* Arkaplan kartı yığın açıkken gizli; şeffaflık burada, listenin
-         en üstünde tek bir anahtar. Pencere / yayın / Spout aynı ayarı
-         kullanır ve tüm arkaplan katmanlarına işlenir. */
-      const transparent = el('input', {
+    /* Arkaplan kartı yığın açıkken gizli; şeffaflık burada, listenin
+       en üstünde tek bir anahtar. Pencere / yayın / Spout aynı ayarı
+       kullanır ve tüm arkaplan katmanlarına işlenir. */
+    const transparent = el('input', {
+      type: 'checkbox',
+      onchange: (e) => {
+        const v = e.target.checked;
+        cfg.background = cfg.background || {};
+        cfg.background.transparent = v;
+        (cfg.layers || []).forEach((ly) => {
+          if (ly && ly.kind === 'background') {
+            ly.settings = ly.settings || {};
+            ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparent: v });
+          }
+        });
+        P().push(true);
+        rerender();
+      },
+    });
+    transparent.checked = !!(cfg.background && cfg.background.transparent);
+    nodes.push(attachPath(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])), 'background.transparent'));
+    if (transparent.checked) {
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
+      const cover = el('input', {
         type: 'checkbox',
         onchange: (e) => {
-          const v = e.target.checked;
           cfg.background = cfg.background || {};
-          cfg.background.transparent = v;
-          (cfg.layers || []).forEach((ly) => {
-            if (ly && ly.kind === 'background') {
-              ly.settings = ly.settings || {};
-              ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparent: v });
-            }
-          });
+          cfg.background.coverTaskbar = !!e.target.checked;
           P().push(true);
           rerender();
         },
       });
-      transparent.checked = !!(cfg.background && cfg.background.transparent);
-      nodes.push(attachPath(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])), 'background.transparent'));
-      if (transparent.checked) {
-        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
-        const cover = el('input', {
-          type: 'checkbox',
-          onchange: (e) => {
-            cfg.background = cfg.background || {};
-            cfg.background.coverTaskbar = !!e.target.checked;
-            P().push(true);
-            rerender();
-          },
-        });
-        cover.checked = !!(cfg.background && cfg.background.coverTaskbar);
-        nodes.push(attachPath(P().row('Tam Ekran (Görev Çubuğu Dahil)', el('label', { class: 'switch' }, [cover, el('span', { class: 'track' })])), 'background.coverTaskbar'));
-        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.' }));
-        if (!cfg.background || cfg.background.type !== 'solid') {
-          nodes.push(attachPath(miniSlider('Saydamlık Eşiği', () => {
-            const v = cfg.background && cfg.background.transparentKey;
-            return v == null ? 0.2 : v;
-          }, (v) => {
-            cfg.background = cfg.background || {};
-            cfg.background.transparentKey = v;
-            (cfg.layers || []).forEach((ly) => {
-              if (ly && ly.kind === 'background') {
-                ly.settings = ly.settings || {};
-                ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparentKey: v });
-              }
-            });
-          }, { min: 0, max: 1, step: 0.01, percent: true }), 'background.transparentKey'));
-        }
+      cover.checked = !!(cfg.background && cfg.background.coverTaskbar);
+      nodes.push(attachPath(P().row('Tam Ekran (Görev Çubuğu Dahil)', el('label', { class: 'switch' }, [cover, el('span', { class: 'track' })])), 'background.coverTaskbar'));
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.' }));
+      if (!cfg.background || cfg.background.type !== 'solid') {
+        nodes.push(attachPath(miniSlider('Saydamlık Eşiği', () => {
+          const v = cfg.background && cfg.background.transparentKey;
+          return v == null ? 0.2 : v;
+        }, (v) => {
+          cfg.background = cfg.background || {};
+          cfg.background.transparentKey = v;
+          (cfg.layers || []).forEach((ly) => {
+            if (ly && ly.kind === 'background') {
+              ly.settings = ly.settings || {};
+              ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparentKey: v });
+            }
+          });
+        }, { min: 0, max: 1, step: 0.01, percent: true }), 'background.transparentKey'));
       }
     }
 
-    if (!on) {
-      nodes.push(
-        el('div', { class: 'studio-note', text: list.length
-          ? 'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Katman listeniz duruyor; anahtarı açtığınızda aynı düzenle geri gelir.'
-          : 'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Anahtarı açarsanız aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.' })
-      );
-      return el('div', {}, nodes);
+    // Göçte arşivlenen katmanlar (#905): silinmedi, buradan geri gelir
+    const archived = cfg.layerStack && cfg.layerStack.archivedLayers;
+    if (Array.isArray(archived) && archived.length) {
+      nodes.push(el('div', { class: 'studio-note', text: 'Bu sahnede eski sürümden kalan katmanlar arşivlendi. Arşivdekilere geçerseniz şu anki liste arşive gider; ikisi arasında kayıpsız gidip gelebilirsiniz.' }));
+      nodes.push(el('button', {
+        class: 'btn ghost small', type: 'button', icon: 'layers', text: 'Arşivdeki Katmanlara Geç',
+        onclick: () => {
+          window.SVLayers.swapArchived(cfg);
+          rerender();
+        },
+      }));
     }
 
     if (!list.length) {
-      // Katman listesi boşken sahne eski alanlardan sentezlenir. Kullanıcı
-      // düzenlemek isterse o sentezi somutlaştırıyoruz — böylece mevcut
-      // görünümünü kaybetmeden katmanlara geçiyor.
+      // Son katman silinince liste boş kalır; düğme başlangıç listesini kurar
       nodes.push(
-        el('div', { class: 'studio-note', text: 'Sahne şu anda Arkaplan ve Görselleştirici kartlarından sürülüyor. Katmanlara geçerseniz aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.' })
+        el('div', { class: 'studio-note', text: 'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.' })
       );
       nodes.push(
         el('button', {
-          class: 'btn primary layers-cta', type: 'button', icon: 'layers', text: 'Katmanlara Geç',
+          class: 'btn primary layers-cta', type: 'button', icon: 'layers', text: 'Katman Listesini Oluştur',
           onclick: () => {
-            if (window.SVLayers && window.SVLayers.setStackEnabled) {
-              window.SVLayers.setStackEnabled(cfg, true);
-            } else {
-              cfg.layers = window.SVLayers.synthesize(cfg);
-              cfg.layerStack = cfg.layerStack || {};
-              cfg.layerStack.enabled = true;
-            }
+            window.SVLayers.rebuildStack(cfg);
             rerender();
           },
         })
@@ -2678,10 +2636,10 @@
     nodes.push(
       el('button', {
         class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Katmanları Sıfırla',
-        title: 'Katman listesini boşaltır; sahne yeniden Arkaplan/Görselleştirici kartlarından sürülür',
+        title: 'Listeyi arkaplan ve görselleştirici katmanlarına döndürür',
         onclick: async () => {
-          if (!(await P().confirm('Katman listesi boşaltılacak. Sahne yeniden Arkaplan ve Görselleştirici kartlarından sürülecek.', { danger: true, okText: 'Sıfırla' }))) return;
-          cfg.layers = [];
+          if (!(await P().confirm('Katman listesi sıfırlanacak. Sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlayacak.', { danger: true, okText: 'Sıfırla' }))) return;
+          window.SVLayers.rebuildStack(cfg);
           rerender();
         },
       })
