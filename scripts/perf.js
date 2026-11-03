@@ -21,7 +21,14 @@
      npm run perf -- --seconds=60 --json=sonuc.json --baseline=onceki.json
      npm run perf -- --low      (tümleşik GPU + ana iş parçacığı 4 kat yavaş)
      npm run perf -- --spout    (Spout penceresi de açık)
-     npm run perf -- --single   (katmanlar CSS yerine tek yüzeyde birleşir)
+     npm run perf -- --scene=<sahne.json>   (kararlı durumda bu sahne: JSON'daki alanlar ayarın üstüne yazılır)
+     npm run perf -- --software (GPU yok: yazılım çizici)
+    npm run perf -- --igpu     (tümleşik GPU, kısma yok: sayfa ile Worker kıyası için)
+    npm run perf -- --display-w=1280   (görselleştirici bu genişlikteki ekrana)
+    npm run perf -- --stall=150        (sayfa iki saniyede bir bu kadar ms tıkanır)
+    npm run perf -- --sweep=300 --hold=1.5 --md-offset=17   (preset taraması; preset başına sonuç JSON'da)
+    npm run perf -- --md-ids=a,b --profile=<klasör>         (bu presetlerin CPU profili)
+    npm run perf -- --trace=<dosya öneki> --trace-cats=gpu.angle,toplevel   (iz kaydı)
 
    --low bir benzetimdir, gerçek zayıf makinenin yerini tutmaz; kısma yalnız
    sayfanın ana iş parçacığına uygulanır ve bu kipte süreç CPU'su anlamsızdır.
@@ -88,10 +95,20 @@ const PROBE = `(() => { if (window.__perf) return 1;
   const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d', { willReadFrequently: true });
   pb.lit = () => { try { const st = window.SVStage.stack(); for (const e of st.entries) { if (!e.canvas || e.canvas.width < 2 || !e.layer || e.layer.kind !== 'visualizer') continue; x.clearRect(0, 0, 16, 16); x.drawImage(e.canvas, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) * d[i + 3] / 255; if (s > 60) return true; } } catch {} return false; };
   pb.first = () => new Promise((res) => { const t0 = performance.now(); const go = () => { const dt = performance.now() - t0; if (pb.lit()) return res(Math.round(dt)); if (dt > 8000) return res(-1); requestAnimationFrame(go); }; requestAnimationFrame(go); });
-  pb.reset = () => { pb.d.length = 0; pb.long.length = 0; };
-  pb.read = () => JSON.stringify({ d: pb.d, long: pb.long });
+  pb.w = [];
+  const st = window.SVStage.stack(); const draw = st.draw;
+  st.draw = function (...a) { const t0 = performance.now(); const r = draw.apply(this, a); pb.w.push(performance.now() - t0); return r; };
+  pb.reset = () => { pb.d.length = 0; pb.long.length = 0; pb.w.length = 0; };
+  pb.read = () => JSON.stringify({ d: pb.d, long: pb.long, w: pb.w });
   return 1; })()`;
-const readFrames = async (vis) => { const r = JSON.parse(await vis.ev('window.__perf.read()')); return { summary: L.frameSummary(r.d), long: r.long }; };
+const readFrames = async (vis) => { const r = JSON.parse(await vis.ev('window.__perf.read()')); return { summary: L.frameSummary(r.d), long: r.long, draw: drawSummary(r.w) }; };
+/* Sahnenin ana iş parçacığındaki payı. Kare hızı ekrana takılıyken kare boşlukları
+   birleştirme yolları arasındaki farkı göstermez. */
+function drawSummary(w) {
+  const s = [...w].sort((a, b) => a - b);
+  const q = (p) => (s.length ? +s[Math.min(s.length - 1, Math.floor(s.length * p))].toFixed(2) : 0);
+  return { n: s.length, avg: s.length ? +(s.reduce((a, b) => a + b, 0) / s.length).toFixed(2) : 0, p50: q(0.5), p99: q(0.99) };
+}
 
 const METRICS_JS = `(() => { const { app, webContents } = process.mainModule.require('electron');
   const wc = webContents.getAllWebContents().map((w) => ({ pid: w.getOSProcessId(), url: (w.getURL() || '').split('/').slice(-2).join('/').split('?')[0].replace('/index.html', '') }));
@@ -125,7 +142,8 @@ async function main() {
   prepareProfile(ud);
   const res = { when: new Date().toISOString(), seconds: SECONDS, low: LOW };
   const args = [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT, '--inspect=' + INSPECT];
-  if (LOW) args.push('--force_low_power_gpu');
+  if (LOW || flag('igpu')) args.push('--force_low_power_gpu');
+  if (flag('software')) args.push('--disable-gpu');
   const t0 = Date.now();
   app = spawn(electronPath(), args, { stdio: 'ignore' });
   const admin = await cdp((await waitTarget('admin/index.html', 60000)).webSocketDebuggerUrl);
@@ -144,14 +162,19 @@ async function main() {
   // Görselleştirici: birincil olmayan en büyük ekran, yoksa birincil
   const displays = JSON.parse(await admin.ev(`window.api.getDisplays().then((d) => JSON.stringify(d.map((x) => ({ id: x.id, w: x.bounds.width, sf: x.scaleFactor, primary: x.isPrimary }))))`));
   const others = displays.filter((d) => !d.primary);
-  const display = (others.length ? others : displays).reduce((m, x) => ((x.w * x.sf) > (m.w * m.sf) ? x : m));
+  const wantW = +arg('display-w', 0);
+  const display = displays.find((d) => wantW && d.w === wantW) || (others.length ? others : displays).reduce((m, x) => ((x.w * x.sf) > (m.w * m.sf) ? x : m));
+  // Pencere açılmadan: saydamlık değişince pencere yeniden kuruluyor, bağlantı kopardı
+  if (arg('scene')) {
+    const scene = fs.readFileSync(arg('scene'), 'utf8');
+    await admin.ev(`(() => { const c = window.SVPanel.cfg(); const s = ${scene}; for (const k of Object.keys(s)) c[k] = s[k] && typeof s[k] === 'object' && !Array.isArray(s[k]) ? Object.assign({}, c[k], s[k]) : s[k]; window.SVPanel.apply(); return 1; })()`);
+  }
   const tOpen = Date.now();
   await admin.ev(`window.api.openVisualizer(${JSON.stringify(display.id)}).then(() => 1)`);
   const vis = await cdp((await waitTarget('visualizer/index.html', 20000)).webSocketDebuggerUrl);
   await vis.call('Runtime.enable');
   if (THROTTLE > 1) await vis.call('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
   await until(() => vis.ev('!!(window.SVStage && window.SVStage.stack && window.SVStage.stack() && window.SVStage.stack().entries.length)'), 30000);
-  if (flag('single')) await vis.ev('window.SVStage.stack().setForceSingle(true)');
   await vis.ev(PROBE);
   await vis.ev('window.__perf.first()');
   res.open = { visibleMs: Date.now() - tOpen };
@@ -159,6 +182,8 @@ async function main() {
   { const f = await readFrames(vis); res.open.longSum = f.long.reduce((a, b) => a + b, 0); res.open.longMax = f.long.reduce((a, b) => Math.max(a, b), 0); }
   // Kararlı durum: gerçek sahne, panel açık
   await sleep(2500);
+  // Sayfayı iki saniyede bir tıkar: ekranda ne kadar donma kaldığını görmek için
+  if (arg('stall')) await vis.ev(`(() => { const ms = ${+arg('stall')}; setInterval(() => { const t = performance.now(); while (performance.now() - t < ms); }, 2000); return 1; })()`);
   await vis.ev('window.__perf.reset()');
   await mainP.ev(METRICS_JS);
   process.stdout.write(`Kararlı durum ${SECONDS} sn ...\n`);
@@ -166,7 +191,9 @@ async function main() {
   const fr = await readFrames(vis);
   const procs = JSON.parse(await mainP.ev(METRICS_JS));
   const byPage = (p) => (procs.find((x) => x.page === p) || {}).wsMB;
-  res.steady = { frames: fr.summary, procs: procs.map((p) => Object.assign({}, p, { cpu: Math.round(p.cpu * CORES) })), totals: L.processTotals(procs, CORES), visWsMB: byPage('visualizer'), adminWsMB: byPage('admin') };
+  /* Ölçülen şey istenen sahne mi: katman sayısı ve görünen yüzey */
+  res.scene = JSON.parse(await vis.ev(`(() => { const st = window.SVStage.stack(); return JSON.stringify({ layers: st.entries.length, surface: !!st.surface(), fx: !!(st.postfx && st.postfx.hasWork()), size: st.width + 'x' + st.height }); })()`));
+  res.steady = { frames: fr.summary, draw: fr.draw, procs: procs.map((p) => Object.assign({}, p, { cpu: Math.round(p.cpu * CORES) })), totals: L.processTotals(procs, CORES), visWsMB: byPage('visualizer'), adminWsMB: byPage('admin') };
   // Süpürmeler için sade sahne: geçiş ve efekt yok, tek görselleştirici
   const setScene = (js) => admin.ev(`(() => { const c = window.SVPanel.cfg(); ${js}; window.SVPanel.apply(); return 1; })()`);
   /* Tek katman, her sürümde aynı sahne. Eskiden yığın anahtarı kapatılıyordu; v4'te anahtar yok,
@@ -180,9 +207,17 @@ async function main() {
   const sourceOf = (id) => `(async () => { const p = window.SVPresets.get(${JSON.stringify(id)}); if (p && p.source) return p.source; return window.api.milkdropPresetSource ? await window.api.milkdropPresetSource(${JSON.stringify(id)}) : ''; })()`;
   await setScene(oneLayer('milkdrop'));
   await sleep(1500);
-  const mdGap = [], mdReady = [];
+  const mdGap = [], mdReady = [], mdEach = [];
+  const HOLD = +arg('hold', 0.9) * 1000;
   let loaded = 0;
-  for (const id of sample(mdIds, SWEEP)) {
+  // İz kaydı: takılmanın hangi süreçte, hangi çağrıda olduğu kare boşluğundan okunmuyor
+  const TRACE = arg('trace');
+  const traceOn = () => mainP.ev(`process.mainModule.require('electron').contentTracing.startRecording({ included_categories: ${JSON.stringify((arg('trace-cats') || 'gpu,gpu.angle,gpu.capture,viz,toplevel,blink.user_timing,disabled-by-default-gpu.decoder,disabled-by-default-gpu.service').split(','))}, excluded_categories: ['*'], recording_mode: 'record-as-much-as-possible' }).then(() => 1)`);
+  const traceOff = (file) => mainP.ev(`process.mainModule.require('electron').contentTracing.stopRecording(${JSON.stringify(file)}).then(() => 1)`);
+  const mdList = arg('md-ids') ? arg('md-ids').split(',') : sample(mdIds.slice(+arg('md-offset', 0)), SWEEP);
+  if (TRACE) await traceOn();
+  for (const id of mdList) {
+    await vis.ev(`performance.mark(${JSON.stringify('MD ' + id)})`);
     const src = await admin.ev(sourceOf(id));
     if (!src) continue;
     await vis.ev('window.__perf.reset()');
@@ -190,23 +225,37 @@ async function main() {
     await admin.ev(`(async () => { const c = window.SVPanel.cfg(); const p = window.SVPresets.get(${JSON.stringify(id)}); c.milkdrop = Object.assign({}, c.milkdrop, { presetId: ${JSON.stringify(id)}, name: p ? p.name : '', source: ${JSON.stringify(src)} }); window.SVPanel.apply(); return 1; })()`);
     const want = id + '|' + src.length;
     const ok = await until(() => vis.ev(`(() => { const e = window.SVStage.stack().entries.find((x) => x.mode && x.mode.livePreset); return !!(e && e.mode.presetKey && String(e.mode.presetKey).startsWith(${JSON.stringify(want)})); })()`), 8000);
-    if (ok) { loaded++; mdReady.push(Date.now() - t); }
-    await sleep(900);
-    mdGap.push((await readFrames(vis)).summary.max);
+    const ready = ok ? Date.now() - t : -1;
+    if (ok) { loaded++; mdReady.push(ready); }
+    // Yükleme ve yüklenmiş preset ayrı: biri değişim takılması, öteki presetin kendi kare maliyeti
+    const atLoad = await readFrames(vis);
+    await vis.ev('window.__perf.reset()');
+    if (arg('profile')) { await vis.call('Profiler.enable'); await vis.call('Profiler.setSamplingInterval', { interval: 200 }); await vis.call('Profiler.start'); }
+    await sleep(HOLD);
+    if (arg('profile')) { const r = await vis.call('Profiler.stop'); fs.writeFileSync(path.join(arg('profile'), id + '.cpuprofile'), JSON.stringify(r.result.profile)); }
+    const held = await readFrames(vis);
+    mdGap.push(Math.max(atLoad.summary.max, held.summary.max));
+    mdEach.push({ id, ready, load: atLoad.summary.max, hold: held.summary.max, fps: held.summary.fps, over33: held.summary.over33, draw: held.draw.avg, drawP99: held.draw.p99 });
   }
-  res.milkdrop = { tried: Math.min(SWEEP, mdIds.length), loaded, gap: L.medMax(mdGap), ready: L.medMax(mdReady) };
+  if (TRACE) { await traceOff(TRACE + '-md.json'); }
+  res.milkdrop = { tried: mdList.length, loaded, gap: L.medMax(mdGap), ready: L.medMax(mdReady), each: mdEach };
   // STUDIO
   const shIds = JSON.parse(await admin.ev(`JSON.stringify(window.SVPresets.byKind('visualizer').filter((p) => p.engine === 'shader').map((p) => p.id))`));
   await setScene(oneLayer('custom'));
   await sleep(800);
-  const shGap = [];
-  for (const id of sample(shIds, SWEEP)) {
+  const shGap = [], shEach = [];
+  if (TRACE) await traceOn();
+  for (const id of sample(shIds, +arg('sweep-studio', SWEEP))) {
     await vis.ev('window.__perf.reset()');
+    await vis.ev(`performance.mark(${JSON.stringify('ST ' + id)})`);
     await setScene(`c.custom = Object.assign({}, c.custom, { visualizerId: ${JSON.stringify(id)} })`);
     await sleep(1100);
-    shGap.push((await readFrames(vis)).summary.max);
+    const f = await readFrames(vis);
+    shGap.push(f.summary.max);
+    shEach.push({ id, max: f.summary.max, long: f.long, draw: f.draw.avg });
   }
-  res.studio = { gap: L.medMax(shGap) };
+  if (TRACE) await traceOff(TRACE + '-st.json');
+  res.studio = { gap: L.medMax(shGap), each: shEach };
   // Rapor
   const base = arg('baseline') ? JSON.parse(fs.readFileSync(arg('baseline'), 'utf8')) : null;
   process.stdout.write(`\nGPU: ${res.gpu}\nKütüphane: ${res.library.n} preset, ${res.library.mb} MB liste; ayar ${res.settingsKB} KB\n\n` + L.formatReport(L.compareRuns(res, base)) + '\n\n');
