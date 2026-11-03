@@ -20,7 +20,7 @@ const MAIN = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'
 test('ayar dosyası öz test AÇILIRKEN okunuyor', () => {
   /* Modül yüklenirken: henüz hiçbir pencere yok, hiçbir şey yazmadı. */
   assert.match(MAIN,
-    /const SMOKE_SETTINGS = SMOKE && fs\.existsSync\(SETTINGS_PATH\) \? fs\.readFileSync\(SETTINGS_PATH\) : null;/);
+    /const SMOKE_SETTINGS = SMOKE && fs\.existsSync\(SETTINGS_PATH\) \? settingsStore\.snapshot\(\) : null;/);
 });
 
 test('geri yazıldıktan sonra hiçbir yazım kabul edilmiyor', () => {

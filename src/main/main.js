@@ -227,6 +227,7 @@ app.on('will-quit', () => {
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const SETTINGS_V3_BACKUP = path.join(app.getPath('userData'), 'settings.v3-backup.json');
+const settingsStore = require('./settings-store').create(app.getPath('userData'));
 const audioBridge = require('./audio-bridge');
 const { createInputSwitch } = require('./bridge-input');
 const bridgeAnalysis = require('./bridge-analysis');
@@ -278,14 +279,14 @@ const LYRICS_LIB_DIR = path.join(app.getPath('userData'), 'lyrics-library');
    yazdığını kovalamak yerine kural tek yerde: dosya açılışta okunuyor,
    kapanışta aynen geri yazılıyor ve o andan sonra hiçbir yazım kabul
    edilmiyor. */
-const SMOKE_SETTINGS = SMOKE && fs.existsSync(SETTINGS_PATH) ? fs.readFileSync(SETTINGS_PATH) : null;
+const SMOKE_SETTINGS = SMOKE && fs.existsSync(SETTINGS_PATH) ? settingsStore.snapshot() : null;
 let settingsFrozen = false;
 function restoreSmokeSettings() {
   if (!SMOKE || settingsFrozen) return;
   settingsFrozen = true;
   if (!SMOKE_SETTINGS) return;
   try {
-    fs.writeFileSync(SETTINGS_PATH, SMOKE_SETTINGS);
+    settingsStore.restore(SMOKE_SETTINGS);
   } catch (e) {
     console.error('[SMOKE] ayarlar geri yazılamadı:', e);
   }
@@ -324,7 +325,7 @@ function loadSettings() {
        düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
        JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
        biçimi de çözüyor (source: string -> sources: [string]). */
-    return sanitizeLoaded(migrateLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH))));
+    return sanitizeLoaded(migrateLoaded(settingsStore.merge(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)))));
   } catch {
     return null;
   }
@@ -391,29 +392,29 @@ function flushSettings() {
   if (!config || settingsFrozen) return;
   /* Yedek birincili izlerken (#812) aktarılan anahtarlar diske YEREL
      gösteriden yazılır; birincilin kopyası yedeklilik klasörüne gider. */
-  const text = JSON.stringify(redundancyDiskView(config), null, 2);
+  const texts = settingsStore.serialize(redundancyDiskView(config));
   /* Başkası dosyayı bu kopya en son bıraktıktan sonra değiştirdiyse ÜSTÜNE
      YAZILMAZ (#564): yapılandırma bellekte kalır, kullanıcıya sorulur. */
   if (settingsGuardOn) {
-    if (!settingsConflict && settingsGuard.changed() === true) raiseSettingsConflict();
+    if (!settingsConflict && settingsFilesChanged() === true) raiseSettingsConflict();
     if (settingsConflict) {
-      pendingSettings = text;
+      pendingSettings = texts;
       return;
     }
   }
-  writeSettingsText(text);
+  writeSettingsTexts(texts);
 }
 
-/* Aynı metin yeniden yazılmaz (#812). Yedek birincili izlerken her
-   değişiklikte kayıt sıraya giriyor ama diske giden yerel gösteri
-   değişmiyor; eşzamanlı yazım olay döngüsünü boşuna bekletiyordu. */
-let lastSettingsText = null;
-function writeSettingsText(text) {
-  if (text === lastSettingsText && fs.existsSync(SETTINGS_PATH) && (!settingsGuardOn || settingsGuard.changed() === false)) return true;
+/* Aynı metin yeniden yazılmaz (#812): depo karşılaştırıyor. Yedek birincili izlerken
+   her değişiklikte kayıt sıraya giriyor ama diske giden yerel gösteri değişmiyor;
+   eşzamanlı yazım olay döngüsünü boşuna bekletiyordu. */
+function writeSettingsTexts(texts) {
   try {
-    fs.writeFileSync(SETTINGS_PATH, text, 'utf-8');
-    if (settingsGuardOn) settingsGuard.remember(text);
-    lastSettingsText = text;
+    settingsStore.write(
+      texts,
+      (name, text) => { if (settingsGuardOn) settingsGuards.get(name).remember(text); },
+      (name) => !settingsGuardOn || settingsGuards.get(name).changed() === false,
+    );
     return true;
   } catch (e) {
     console.error('Ayarlar kaydedilemedi:', e);
@@ -451,10 +452,24 @@ let instanceTicks = 0;
 let otherInstances = [];
 let otherInstancesSig = '';
 
-const settingsGuard = new SettingsGuard(SETTINGS_PATH);
+/* Her ayar dosyasının kendi bekçisi: başka bir kopya yalnız sahneleri de değiştirmiş olabilir. */
+const settingsGuards = new Map(settingsStore.files().map((name) => [name, new SettingsGuard(settingsStore.fileOf(name))]));
+// true: biri değişti; null: biri okunamadı, karar yok; false: hepsi bu kopyanın bıraktığı gibi
+function settingsFilesChanged() {
+  let unknown = false;
+  for (const g of settingsGuards.values()) {
+    const c = g.changed();
+    if (c === true) return true;
+    if (c === null) unknown = true;
+  }
+  return unknown ? null : false;
+}
+function rememberSettingsFiles(snap) {
+  for (const [name, g] of settingsGuards) g.remember(snap[name]);
+}
 let settingsGuardOn = false; // otomasyonda kapalı — öz testin kendi kuralı var
 let settingsConflict = null; // { since } — sürerken dosyaya yazılmaz
-let pendingSettings = null; // çakışma sürerken yazılamayan son yapılandırma (metin)
+let pendingSettings = null; // çakışma sürerken yazılamayan son yapılandırma (dosya başına metin)
 
 function instanceStatus() {
   const pub = (o) => ({ pid: o.pid, version: o.version, kind: o.kind, role: o.role, exe: o.exe, startedAt: o.startedAt });
@@ -478,7 +493,7 @@ function raiseSettingsConflict() {
 
 function pollSettingsGuard() {
   if (!settingsGuardOn) return;
-  const changed = settingsGuard.changed();
+  const changed = settingsFilesChanged();
   if (changed === null) return; // şu an okunamadı, sonraki denetim karar verir
   if (changed && !settingsConflict) {
     raiseSettingsConflict();
@@ -488,9 +503,9 @@ function pollSettingsGuard() {
        değişiklik varsa şimdi yazılır. */
     settingsConflict = null;
     if (pendingSettings != null) {
-      const text = pendingSettings;
+      const texts = pendingSettings;
       pendingSettings = null;
-      writeSettingsText(text);
+      writeSettingsTexts(texts);
     }
     notifyInstanceStatus();
   }
@@ -3522,9 +3537,21 @@ function smokeHoldEnd() {
   for (const p of h.patches) applyConfigPatch(p);
 }
 
+/* Panel değişmeyen ağır anahtarları göndermiyor (#905): burada bellektekiyle tamamlanır.
+   Nesne aynı kaldığı için depo onları yeniden metne çevirmiyor. */
+const KEPT_KEYS = new Set(['scenes', 'milkdropLibrary', 'userPresets']);
+function restoreKeptKeys(config) {
+  if (!config || !Array.isArray(config.__keep)) return config;
+  for (const k of config.__keep) {
+    if (KEPT_KEYS.has(k) && currentConfig && currentConfig[k] !== undefined) config[k] = currentConfig[k];
+  }
+  delete config.__keep;
+  return config;
+}
 ipcMain.on('update-config', (e, config) => {
-  if (smokeHold) { smokeHold.full = config; smokeHold.patches = []; return; }
-  applyIncomingConfig(config);
+  const full = restoreKeptKeys(config);
+  if (smokeHold) { smokeHold.full = full; smokeHold.patches = []; return; }
+  applyIncomingConfig(full);
 });
 /* Panelin kaydırıcı sürüklerken yolladığı değişen üst düzey anahtarlar.
    Sürükleme bitince panel bütün yapılandırmayı yine yollar (#695). Tam
@@ -3741,27 +3768,27 @@ ipcMain.handle('instances:status', () => instanceStatus());
 ipcMain.handle('settings-conflict:resolve', (e, choice) => {
   if (!settingsConflict) return { ok: true };
   if (choice === 'keep') {
-    const text = pendingSettings != null
+    const texts = pendingSettings != null
       ? pendingSettings
-      : currentConfig ? JSON.stringify(currentConfig, null, 2) : null;
-    if (text == null || !writeSettingsText(text)) return { ok: false, error: 'write' };
+      : currentConfig ? settingsStore.serialize(currentConfig) : null;
+    if (texts == null || !writeSettingsTexts(texts)) return { ok: false, error: 'write' };
     pendingSettings = null;
     settingsConflict = null;
     notifyInstanceStatus();
     return { ok: true };
   }
   if (choice === 'load') {
-    let buf;
+    let snap;
     let loaded;
     try {
-      buf = fs.readFileSync(SETTINGS_PATH);
-      loaded = SettingsGuard.parse(buf);
+      snap = settingsStore.snapshot();
+      loaded = settingsStore.merge(SettingsGuard.parse(snap['settings.json']), snap);
     } catch {
       return { ok: false, error: 'read' };
     }
     if (!loaded || typeof loaded !== 'object') return { ok: false, error: 'read' };
     dropQueuedSave();
-    settingsGuard.remember(buf);
+    rememberSettingsFiles(snap);
     pendingSettings = null;
     settingsConflict = null;
     sanitizeLoaded(migrateLoaded(loaded));
@@ -8746,16 +8773,16 @@ app.whenReady().then(async () => {
   /* Dosya BİR KEZ okunuyor: hem yapılandırma hem bekçinin öğrendiği hâl
      aynı baytlardan gelsin. Arada başka bir kopya yazarsa ikisi ayrışır ve
      bekçi, bu kopyanın hiç görmediği bir içeriği "bizimki" sanardı. */
-  let startupSettings = null;
-  try { startupSettings = fs.readFileSync(SETTINGS_PATH); } catch { startupSettings = null; }
+  const startupFiles = settingsStore.snapshot();
+  const startupSettings = startupFiles['settings.json'];
   if (!AUTOMATION_RUN) {
-    settingsGuard.remember(startupSettings);
+    rememberSettingsFiles(startupFiles);
     settingsGuardOn = true;
   }
   startInstanceRegistry();
 
   try {
-    currentConfig = startupSettings ? SettingsGuard.parse(startupSettings) : null;
+    currentConfig = startupSettings ? settingsStore.merge(SettingsGuard.parse(startupSettings), startupFiles) : null;
   } catch {
     currentConfig = null;
   }

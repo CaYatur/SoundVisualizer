@@ -12,6 +12,13 @@
    şey yolluyor ya da gerçek bir aygıtı sürüyor: ışıklar, ağ, kayıt, MCP. */
 const OUTSIDE = ['lighting', 'openrgb', 'artnet', 'oscOut', 'osc', 'stream', 'mcp', 'bridge', 'redundancy', 'textureShare', 'recording'];
 
+// Gerçek ayar klasöründen: sahneler ve kütüphane yanındaki dosyalarda olabilir (#905)
+function readSettingsFile(file) {
+  const fs = require('fs');
+  const path = require('path');
+  return require('../src/main/settings-store').create(path.dirname(file)).merge(JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')));
+}
+
 function sanitizeSettings(settings, opts) {
   const o = opts || {};
   const s = Object.assign({}, settings);
@@ -112,4 +119,4 @@ function formatReport(rows) {
   return lines.join('\n');
 }
 
-module.exports = { OUTSIDE, sanitizeSettings, frameSummary, medMax, processTotals, METRICS, compareRuns, formatReport };
+module.exports = { OUTSIDE, readSettingsFile, sanitizeSettings, frameSummary, medMax, processTotals, METRICS, compareRuns, formatReport };

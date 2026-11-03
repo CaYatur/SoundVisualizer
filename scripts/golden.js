@@ -114,7 +114,7 @@ async function main() {
   const ud = path.join(work, 'ud');
   fs.mkdirSync(ud);
   const settingsFile = arg('settings');
-  const base = settingsFile ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {};
+  const base = settingsFile ? L.readSettingsFile(settingsFile) : {};
   fs.writeFileSync(path.join(ud, 'settings.json'), JSON.stringify(L.sanitizeSettings(base)));
   if (arg('presets')) fs.cpSync(arg('presets'), path.join(ud, 'presets'), { recursive: true });
   const wav = path.join(work, 'tone.wav');
