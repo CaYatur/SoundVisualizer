@@ -1162,7 +1162,7 @@
     sv_set_aspect: { props: PATCH('aspect settings'), required: ['patch'] },
     sv_set_floating: { props: PATCH('floating window preferences'), required: ['patch'] },
     sv_set_floating_open: { props: { open: sp('boolean', 'true opens, false closes.') }, required: ['open'] },
-    sv_set_power: { props: PATCH('power settings: fpsCap, previewRate, renderScale, keepAwake, hwVideoDecode'), required: ['patch'] },
+    sv_set_power: { props: PATCH('power settings: fpsCap, previewRate, lowPower (off, battery, on), renderScale, keepAwake, hwVideoDecode'), required: ['patch'] },
     sv_set_lighting: { props: PATCH('Dynamic Lighting settings'), required: ['patch'] },
     sv_set_openrgb: { props: PATCH('OpenRGB settings'), required: ['patch'] },
     sv_set_artnet: { props: PATCH('Art-Net/DMX settings'), required: ['patch'] },

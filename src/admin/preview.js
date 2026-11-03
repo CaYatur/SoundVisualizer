@@ -34,6 +34,8 @@
   let media = null;
   let stack = null;
   let outputOpen = false;
+  let onBattery = false;
+  let rawNext = null;
   let sceneAcc = 0;
   let sceneSkipped = 0;
   // Modülasyon matrisi — önizleme de görselleştirici penceresiyle aynı
@@ -330,6 +332,16 @@
     /* MilkDrop sprite komutları (#577): önizleme de bir motor, sprite'ları
        ekranlarla birlikte gösteriyor. */
     if (window.SVMilkdropSprites && window.api) window.SVMilkdropSprites.listen(window.api);
+    if (window.api && window.api.onPowerSource) {
+      const followPower = (s) => {
+        const b = !!(s && s.onBattery);
+        if (b === onBattery) return;
+        onBattery = b;
+        if (rawNext) setConfig(rawNext);
+      };
+      window.api.onPowerSource(followPower);
+      window.api.getPowerSource().then(followPower).catch(() => {});
+    }
 
     audio = new window.SVAudio();
     sprites = new window.SVSprites();
@@ -363,7 +375,10 @@
   }
 
   function setConfig(next) {
+    rawNext = next;
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), next);
+    // Düşük güç kipi (#458): panelin ayarı değil, çizilen kopya
+    if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
     if (!stack) return;
     applyImages();
     applyMedia();

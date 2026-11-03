@@ -3549,6 +3549,15 @@
             ],
           },
           {
+            type: 'select', path: 'power.lowPower', label: 'Düşük Güç Kipi',
+            hint: 'Kare hızını 30\'a indirir, efektleri kapatır, MilkDrop ve arka plan çözünürlüğünü düşürür. Dışa aktarımı ve OBS kaynağını etkilemez.',
+            options: [
+              { value: 'off', label: 'Kapalı' },
+              { value: 'battery', label: 'Pildeyken' },
+              { value: 'on', label: 'Her zaman' },
+            ],
+          },
+          {
             type: 'select', path: 'power.previewRate', label: 'Panel Önizlemesi',
             hint: 'Önizleme bütün sahneyi yeniden çizer. Çıkış penceresini etkilemez; yalnız paneldeki küçük görüntünün akıcılığı değişir.',
             options: [

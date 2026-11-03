@@ -360,6 +360,9 @@
       /* Paneldeki önizlemenin çizim hızı (#908). auto: çıkış açıkken seyrek,
          full: her zaman akıcı, low: her zaman seyrek. Çıkışı etkilemez. */
       previewRate: 'auto',
+      /* Düşük güç kipi (#458). off | battery (yalnız pildeyken) | on. Kare hızı,
+         çözünürlük ve efektler çizilen kopyada kısılıyor (low-power.js). */
+      lowPower: 'off',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       pauseOnSilence: false,
       hideCursor: true,

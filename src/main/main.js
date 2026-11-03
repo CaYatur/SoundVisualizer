@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker, nativeTheme, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker, powerMonitor, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
@@ -999,6 +999,26 @@ function pickKeys(cfg, keys, omit) {
   }
   return n ? out : null;
 }
+
+/* Düşük güç kipinin "pildeyken" seçeneği (#458). Karar sayfada (low-power.js);
+   burası yalnız güç kaynağını söylüyor. */
+function powerSource() {
+  try {
+    return { onBattery: powerMonitor.isOnBatteryPower() };
+  } catch {
+    return { onBattery: false };
+  }
+}
+ipcMain.handle('power:source', () => powerSource());
+app.whenReady().then(() => {
+  const tell = () => {
+    const s = powerSource();
+    sendToVisualizers('power-source', s);
+    notifyAdmin('power-source', s);
+  };
+  powerMonitor.on('on-battery', tell);
+  powerMonitor.on('on-ac', tell);
+});
 
 function sendToVisualizers(channel, payload) {
   if (channel === 'config') payload = rendererConfig(payload);

@@ -26,6 +26,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Output windows skip audio analysis nobody reads** (#908). Chroma and harmonic analysis now run in an
   output window only for OSC output, a modulation route that uses them, or the Goniometer and Chroma
   Wheel modes. That was about 4% of one core per window.
+- **Low-power mode** (#458), for laptops on battery and long unattended runs. *Output › Power › Low-Power
+  Mode* can be on always or only on battery. It limits the frame rate to 30, turns effects off, and lowers
+  MilkDrop and background resolution. Exports and the OBS source do not change, and neither do your
+  settings. It is off by default.
 - **`npm run perf` measures a real setup** (#910). It runs the whole app with your settings and
   library in a temporary profile, and compares the result with an earlier run.
 

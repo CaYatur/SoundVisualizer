@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('api', {
   // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
   getPresets: () => ipcRenderer.invoke('presets:list'),
   milkdropPresetSource: (id) => ipcRenderer.invoke('presets:source', id),
+  getPowerSource: () => ipcRenderer.invoke('power:source'),
+  onPowerSource: (cb) => ipcRenderer.on('power-source', (e, d) => cb(d)),
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
   // Değişiklik yayını (#574): bütün liste yerine yalnız değişenler
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),

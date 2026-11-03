@@ -114,6 +114,43 @@ test('ekranın tam böleni olmayan hızda da hedef tutuyor (60, 144 Hz)', () => 
   }
 });
 
+/* Motor gerçek ses motoru; yalnız bar motorunun aldığı süre kaydediliyor */
+function barTimes() {
+  const win = { performance: { now: () => 0 }, addEventListener() {} };
+  win.window = win;
+  const dts = [];
+  win.SVSpectrum = {
+    normalise: (o) => o,
+    BarEngine: class { compute(input, o) { dts.push(o.dt); return new Float32Array(4); } },
+  };
+  const ctx = vm.createContext(win);
+  vm.runInContext(read('src/visualizer/audio.js'), ctx, { filename: 'audio.js' });
+  const A = new win.SVAudio();
+  A.ready = false;
+  return { A, dts };
+}
+
+test('barlar seyrek çizilince balistik geçen süreyle yürüyor, ardışık karede değer aynı', () => {
+  const { A, dts } = barTimes();
+  const step = 1 / 45;
+  const bars = () => A.getBars(4, 30, 14000, {});
+  A._dt = step;
+  A.update(step);
+  bars();
+  // Ardışık kare: `_dt`nin kendisi, dışa aktarım birebir aynı kalıyor
+  A.update(step);
+  bars();
+  assert.strictEqual(dts[1], A._dt);
+  // Üç ses karesinde bir çizim: üç karelik süre
+  A.update(step); A.update(step); A.update(step);
+  bars();
+  assert.ok(Math.abs(dts[2] - 3 * step) < 1e-9, 'süre ' + dts[2]);
+  // Uzun boşlukta zıplamıyor
+  for (let i = 0; i < 200; i++) A.update(step);
+  bars();
+  assert.strictEqual(dts[3], 0.25);
+});
+
 // ------------------------------------------------------- çözümleme
 
 const A = require('../src/shared/analysis.js');
