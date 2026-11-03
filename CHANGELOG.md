@@ -34,11 +34,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The panel preview draws less while an output window is open** (#908). It redraws the whole scene, and
   while an output is open it now does so 20 times a second instead of 45. On a real scene, total CPU went
   from about 174 to 150 (% of one core). Audio in the panel stays at full rate, so tempo tracking for Auto
-  VJ does not change. *Output › Power › Panel Preview* can keep it always smooth or always slower.
+  VJ does not change. *Output › Power / Performance › Panel Preview* can keep it always smooth or always slower.
 - **Output windows skip audio analysis nobody reads** (#908). Chroma and harmonic analysis now run in an
   output window only for OSC output, a modulation route that uses them, or the Goniometer and Chroma
   Wheel modes. That was about 4% of one core per window.
-- **Low-power mode** (#458), for laptops on battery and long unattended runs. *Output › Power › Low-Power
+- **Low-power mode** (#458), for laptops on battery and long unattended runs. *Output › Power / Performance › Low-Power
   Mode* can be on always or only on battery. It limits the frame rate to 30, turns effects off, and lowers
   MilkDrop and background resolution. Exports and the OBS source do not change, and neither do your
   settings. It is off by default.
