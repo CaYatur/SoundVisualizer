@@ -595,7 +595,8 @@
     'Denetim yalnız GitHub Releases sayfasına tek bir istektir; kimlik ya da kullanım bilgisi gönderilmez.': 'A check is a single request to GitHub Releases; no identifiers or usage data are sent.',
     // Güncelleme: indir, doğrula, kur (#640)
     'İndiriliyor…': 'Downloading…',
-    'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.': 'Downloaded and verified. The app will close and reopen to install it.',
+    'İndirildi ve doğrulandı. Windows izin isteyecek, sonra uygulama kapanıp kurulum açılacak.': 'Downloaded and verified. Windows will ask for permission, then the app will close and the installer will open.',
+    'Kurulum başlamadı. Windows izin penceresinde Evet demeniz gerekiyor; olmazsa sürüm sayfasından indirin.': 'The installer did not start. Choose Yes in the Windows permission prompt, or download it from the release page.',
     'Yeni sürüm yerine kondu; yeniden başlatınca açılır.': 'The new version is in place; it opens after a restart.',
     'Kur ve Yeniden Başlat': 'Install and Restart',
     'Yeniden Başlat': 'Restart',
