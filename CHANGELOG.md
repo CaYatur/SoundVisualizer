@@ -3,7 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v3.1.7 — ready, not yet released
+## v3.1.7 — 2026-11-03
 
 ### Performance
 

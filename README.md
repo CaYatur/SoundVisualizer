@@ -1996,7 +1996,8 @@ MilkDrop shader engine in v3.1.2, per-application audio capture and aspect corre
 the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, and the MilkDrop library
 and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a far broader and much
 faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
-and the CaYaDev presets. It also says what comes next and keeps an honest list of
+and the CaYaDev presets, and in v3.1.7 half the memory, no more garbage collection freezes, low-power
+mode and a preset per MilkDrop layer. It also says what comes next and keeps an honest list of
 what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 
