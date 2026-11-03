@@ -640,11 +640,13 @@ scene, not the display; the line below is corrected by hand, and read every figu
 
 ```bash
 npm run golden -- --out=<folder> --settings=<settings.json> --presets=<folder>
-npm run golden -- --out=<folder> --baseline=<earlier golden.json>
+npm run golden -- --out=<folder> --software --baseline=<earlier golden.json>
 ```
 
 Each case starts from the same clean state and runs twice: as it is, and with the layer switch flipped. The report separates the two directions. Classic to layers is what the v4 migration does, so it should not change the picture. Layers to classic shows what the classic path cannot draw.
 
-Two cases are not stable from run to run on v3.1.7: the Lorenz template (one frame in 60) and a scene that picks its MilkDrop preset at random. Two runs of the same code agreed on 211 of 214 exports, and those three were the only differences.
+Use `--software` for the comparison. It draws on the software renderer: two full runs of the same code agreed on all 214 exports, and each took about 30 minutes. On the GPU a run takes about 10 minutes, but two runs agreed on 210 of 214, because the Lorenz and Lo-Fi templates moved. With lossless encoding, Lorenz differs by 1 in a few bytes of a few frames, and the H.264 encoder carries that into the following frames. Neither template moves on the software renderer. A baseline only compares with a run on the same renderer.
 
-It uses a temporary profile and copies the settings and presets, so it does not touch your own. Like `npm run perf`, it needs a GPU, so it does not run in CI.
+The same export now gives the same video, which it did not on v3.1.7. A preset's `rand_frame` values came from `Math.random` on every frame, so 59 of 60 frames differed between two lossless runs of one scene. The export window now draws from a fixed sequence. Live windows are unchanged.
+
+It uses a temporary profile and copies the settings and presets, so it does not touch your own. It does not run in CI: a full run takes too long and compares your own scenes.

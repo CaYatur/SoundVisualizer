@@ -21,7 +21,12 @@
      npm run golden -- --out=<klasör>
      npm run golden -- --out=<klasör> --settings=<settings.json> --presets=<klasör>
      npm run golden -- --out=<klasör> --baseline=<önceki golden.json>
-     npm run golden -- --out=<klasör> --only=<ad parçası> --keep */
+     npm run golden -- --out=<klasör> --only=<ad parçası> --keep
+     npm run golden -- --out=<klasör> --software
+
+   --software: yazılım çizici. Donanımda Lorenz şablonu (90.000 nokta) koşudan koşuya
+   birkaç baytta ±1 oynuyor; aynı dışa aktarım yazılım çizicide birebir aynı çıkıyor.
+   Daha yavaş; önceki koşu da aynı kipte alınmış olmalı. */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -36,6 +41,7 @@ const OUT = arg('out');
 if (!OUT) { console.error('--out=<klasör> gerekli'); process.exit(2); }
 const ONLY = (arg('only', '') || '').toLocaleLowerCase();
 const PORT = +arg('port', 9721);
+const SOFTWARE = argv.includes('--software');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FF = require('ffmpeg-static');
 let app = null;
@@ -110,7 +116,8 @@ async function main() {
   if (arg('presets')) fs.cpSync(arg('presets'), path.join(ud, 'presets'), { recursive: true });
   const wav = path.join(work, 'tone.wav');
   execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(55+200*exp(-mod(t,0.5)*18))*t)*exp(-mod(t,0.5)*6)+0.25*sin(2*PI*2400*t)*exp(-mod(t+0.25,0.5)*30):s=48000:d=2'", wav]);
-  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT], { stdio: 'ignore' });
+  const flags = SOFTWARE ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [];
+  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT].concat(flags), { stdio: 'ignore' });
   let t = null;
   for (let i = 0; i < 2400 && !t; i++) {
     await sleep(50);
@@ -135,7 +142,7 @@ async function main() {
   const all = JSON.parse(await a.ev(`JSON.stringify(window.SVTemplates.TEMPLATES.map((t) => ({ kind: 'template', id: t.id, name: t.name }))
     .concat((window.SVPanel.cfg().scenes || []).map((s) => ({ kind: 'scene', id: s.id, name: s.name }))))`));
   const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLocaleLowerCase().includes(ONLY));
-  const run = { when: new Date().toISOString(), version: require('../package.json').version, cases: {} };
+  const run = { when: new Date().toISOString(), version: require('../package.json').version, software: SOFTWARE, cases: {} };
   console.log(cases.length + ' durum, doğal kip ve anahtar çevrilmiş');
   let n = 0;
   for (const c of cases) {
@@ -171,7 +178,9 @@ async function main() {
   console.log('\nklasikten katmana: aynı ' + pairs.classicToStack.same.length + ', farklı ' + pairs.classicToStack.different.length);
   console.log('katmandan klasiğe: aynı ' + pairs.stackToClassic.same.length + ', farklı ' + pairs.stackToClassic.different.length);
   if (arg('baseline')) {
-    const cmp = G.compareRuns(JSON.parse(fs.readFileSync(arg('baseline'), 'utf8')), run);
+    const before = JSON.parse(fs.readFileSync(arg('baseline'), 'utf8'));
+    if (!!before.software !== SOFTWARE) console.log('UYARI: önceki koşu ' + (before.software ? 'yazılım' : 'donanım') + ' çiziciyle alınmış, karşılaştırma anlamsız');
+    const cmp = G.compareRuns(before, run);
     console.log('öncekiyle: aynı ' + cmp.same + ', değişen ' + cmp.changed.length + ', eşsiz ' + cmp.missing.length);
     cmp.changed.forEach((c) => console.log('  ' + c.name + ' / ' + c.mode + ': ' + c.diff + '/' + c.frames + ' kare'));
     cmp.missing.forEach((c) => console.log('  ' + c.name + (c.mode ? ' / ' + c.mode : '') + ': ' + c.in));

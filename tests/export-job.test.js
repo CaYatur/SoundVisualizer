@@ -99,6 +99,24 @@ test('ana süreç: geçici çıktı, başarıda taşıma, iptalde silme, kapanı
   assert.match(read('src/exporter/exporter.js'), /const renderSec = Number\(job\.durationSec\) > 0 \? Number\(job\.durationSec\) : duration;/);
 });
 
+test('aynı iş aynı video: dışa aktarım penceresinin rastgele dizisi sabit (#905)', () => {
+  const src = read('src/exporter/exporter.js');
+  const m = /function exportRandom\(seed\) \{[\s\S]*?\n  \}\n?\r?\n?  Math\.random = exportRandom\((0x[0-9A-F]+)\);/.exec(src);
+  assert.ok(m, 'üreteç kurulmuş');
+  assert.ok(m.index < src.indexOf('window.exp.onJob'), 'iş başlamadan önce');
+  const make = new Function(m[0].slice(0, m[0].lastIndexOf('Math.random')) + '; return exportRandom;')();
+  const a = make(Number(m[1]));
+  const b = make(Number(m[1]));
+  const seen = new Set();
+  for (let i = 0; i < 1000; i++) {
+    const v = a();
+    assert.strictEqual(v, b());
+    assert.ok(v >= 0 && v < 1);
+    seen.add(v);
+  }
+  assert.ok(seen.size > 990, 'tekrar etmiyor');
+});
+
 test('MCP: süre ve sahne adı şemada', () => {
   const mcp = require('../src/shared/mcp.js');
   const p = mcp.tools('en').find((t) => t.name === 'sv_start_export').inputSchema.properties;
