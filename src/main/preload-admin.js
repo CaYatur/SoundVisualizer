@@ -236,6 +236,10 @@ contextBridge.exposeInMainWorld('api', {
   onArtnetStatus: (cb) => ipcRenderer.on('artnet-status', (e, d) => cb(d)),
   oscStatus: () => ipcRenderer.invoke('osc:status'),
   oscSync: () => ipcRenderer.invoke('osc:sync'),
+  tempoSyncStatus: () => ipcRenderer.invoke('tempo-sync:status'),
+  onTempoSync: (cb) => ipcRenderer.on('tempo-sync', (e, d) => cb(d)),
+  recoveryStatus: () => ipcRenderer.invoke('recovery:status'),
+  remotePeersStatus: () => ipcRenderer.invoke('remote-peers:status'),
   onOscMessage: (cb) => ipcRenderer.on('osc-message', (e, m) => cb(m)),
   onOscStatus: (cb) => ipcRenderer.on('osc-status', (e, d) => cb(d)),
   // OSC çıkışı (#437)

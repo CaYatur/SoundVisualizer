@@ -1819,6 +1819,7 @@ function bridgeMetaOut(st) {
 function forwardBridgeMeta(st) {
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
+  lookupLiveLyrics(st);
   if (typeof streamServer.broadcastNowPlaying === 'function') streamServer.broadcastNowPlaying(st);
 }
 
@@ -3589,6 +3590,12 @@ function armLyricsOnOutput() {
   publishLyricsClock({ run: 'play', time: 0, epoch: Date.now() });
 }
 
+// Herhangi bir söz katmanı var mı (platformdan bağımsız) — otomatik söz için
+function configUsesLyrics(cfg) {
+  if (!cfg) return false;
+  const texts = [cfg.text].concat((Array.isArray(cfg.layers) ? cfg.layers : []).map((l) => l && l.settings && l.settings.text));
+  return texts.some((t) => t && (t.source || 'static') === 'lyrics');
+}
 function configFollowsLyrics(cfg) {
   if (process.platform !== 'win32' || !cfg) return false;
   const texts = [];
@@ -3699,7 +3706,10 @@ function applyIncomingConfig(config, opts) {
     syncOpenRgb();
     syncTextureShare();
     syncLayerSources();
+    syncRemotePeers();
   }
+  syncTempoSync();
+  syncRecovery();
   syncNowPlaying();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
@@ -4409,6 +4419,8 @@ function setConfigPath(obj, p, value) {
 function applyRemoteCommand(msg, client) {
   if (!currentConfig) return;
   if (client && client.kind !== 'remote') return;
+  // Öbür kopyalara da (eşten gelen `relayed` komut bir daha aktarılmaz)
+  peerRelay.forward(msg);
   if (msg.action === 'openVisualizer') {
     // Kullanıcının seçtiği tüm ekranlar; eski kayıtlarda tek kimlik olabilir
     const d = currentConfig.display || {};
@@ -4544,6 +4556,45 @@ function syncStreamServer() {
    atış eşiği aşılınca kendiliğinden ya da elle yetkiyi alır.
    --------------------------------------------------------------------------- */
 const redundancy = require('./redundancy');
+const linkTempo = require('./link-tempo');
+const remotePeers = require('./remote-peers');
+const sessionRecovery = require('./session-recovery');
+
+/* Ableton Link temposu (yalnız dinleme): tempoSync.source 'link' iken açık.
+   Tempo panele gider; panel modulation.bpm'e yazar (MIDI saatiyle aynı yol). */
+let linkListener = null;
+let linkState = { bpm: 0, peers: 0 };
+function syncTempoSync() {
+  const ts = (currentConfig && currentConfig.tempoSync) || {};
+  const want = ts.source === 'link' && !BRIDGE_ONLY;
+  if (want && !linkListener) {
+    linkListener = linkTempo.createListener((st) => { linkState = st; notifyAdmin('tempo-sync', Object.assign({ source: 'link' }, st)); });
+    linkListener.start();
+  } else if (!want && linkListener) {
+    linkListener.stop();
+    linkListener = null;
+    linkState = { bpm: 0, peers: 0 };
+    notifyAdmin('tempo-sync', { source: 'off', bpm: 0, peers: 0 });
+  }
+}
+
+/* Çoklu kopya kumandası: kabul edilen komut stream.remotePeers'a da gider */
+const peerRelay = remotePeers.createRelay({ WebSocket: typeof WebSocket !== 'undefined' ? WebSocket : null });
+function syncRemotePeers() {
+  const st = (currentConfig && currentConfig.stream) || {};
+  peerRelay.update(st.enabled && st.remote !== false ? st.remotePeers || '' : '');
+}
+
+/* Oturum kurtarma: userData/recovery altında dönen anlık kopyalar */
+let recovery = null;
+let recoveryNotice = null;
+function recoveryDir() { return path.join(app.getPath('userData'), 'recovery'); }
+function syncRecovery() {
+  if (!recovery || AUTOMATION_RUN) return;
+  const rc = (currentConfig && currentConfig.recovery) || {};
+  if (rc.enabled === false) recovery.stop();
+  else recovery.start(() => currentConfig, rc.intervalSec);
+}
 const ShowKeys = require('../shared/show-keys');
 const red = {
   sig: '', role: 'off', cfg: redundancy.normalize(null),
@@ -6718,6 +6769,13 @@ ipcMain.handle('stream:open', (e, which) => {
 });
 ipcMain.handle('osc:status', () => oscInStatus());
 ipcMain.handle('osc:sync', () => syncOscServer({ force: true }));
+ipcMain.handle('tempo-sync:status', () => Object.assign({ source: (currentConfig && currentConfig.tempoSync && currentConfig.tempoSync.source) || 'off' }, linkState));
+ipcMain.handle('recovery:status', () => {
+  const n = recoveryNotice;
+  recoveryNotice = n ? Object.assign({}, n, { shown: true }) : null;
+  return n && !n.shown ? n : null;
+});
+ipcMain.handle('remote-peers:status', () => peerRelay.status());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('oscout:status', () => oscOut.status());
@@ -7328,8 +7386,39 @@ ipcMain.handle('logo-lib:remove', (e, id) => logoLibrary.remove(logoLibDir(), id
 function lyricsLibDir() {
   try { return LYRICS_LIB_DIR; } catch { return path.join(app.getPath('userData'), 'lyrics-library'); }
 }
-function lyricsSnapshot() {
-  try { return lyricsLibrary.snapshot(lyricsLibDir()); } catch { return []; }
+/* Otomatik bulunan söz (#937) kitaplığın SONUNA eklenir: kullanıcının kendi
+   kitaplığındaki eşleşme her zaman önce gelir. Diske yazılmaz (önbellek
+   ayrı, lyrics-cache klasöründe). */
+const lyricsLookup = require('./lyrics-lookup');
+let lyricsAutoItem = null;
+function lyricsCacheDir() { return path.join(app.getPath('userData'), 'lyrics-cache'); }
+function lyricsSnapshot(extra) {
+  let items;
+  try { items = lyricsLibrary.snapshot(lyricsLibDir()); } catch { items = []; }
+  for (const it of [lyricsAutoItem, extra]) if (it && it.text) items.push(it);
+  return items;
+}
+function autoLyricsItem(meta, res) {
+  if (!res || !res.text) return null;
+  return { id: 'auto:' + lyricsLookup.cacheKey(meta), name: res.provider || res.source, artist: meta.artist || '', title: meta.title || '', text: res.text, auto: res.source };
+}
+/* Canlı: sistemde çalan parça değişince. Ses dosyası yolu bilinmediği için
+   yan dosya/gömülü yok; önbellek ve sağlayıcılar. Asla beklenmez. */
+let lyricsAutoSig = '';
+function lookupLiveLyrics(st) {
+  const cfg = currentConfig;
+  if (!cfg || !cfg.lyricsLookup || cfg.lyricsLookup.enabled !== true || !configFollowsLyrics(cfg)) return;
+  const meta = { title: (st && st.title) || '', artist: (st && st.artist) || '', album: (st && st.album) || '', duration: st && st.duration > 0 ? st.duration : 0 };
+  const sig = meta.artist + '\u0001' + meta.title;
+  if (!meta.title || sig === lyricsAutoSig) return;
+  lyricsAutoSig = sig;
+  lyricsLookup.lookup({ meta, config: cfg.lyricsLookup, cacheDir: lyricsCacheDir() }).then((res) => {
+    if (sig !== lyricsAutoSig) return;
+    const next = autoLyricsItem(meta, res);
+    if (!next && !lyricsAutoItem) return;
+    lyricsAutoItem = next;
+    publishLyricsLib();
+  }).catch(() => { /* söz yoksa oynatma sürer */ });
 }
 function publishLyricsLib() {
   const items = lyricsSnapshot();
@@ -8027,6 +8116,19 @@ async function startExportJob(opts, bench, extra) {
      uzunluğu ya da N ölçü. Ses süresi ffmpeg'den ölçülüyor; video ve ses
      tam bu süre kadar yazılıyor (ses kısaysa sessizlikle doluyor). */
   const audioSec = await audioDurationSec(ff, audioPath);
+  /* Otomatik söz (#937): yan dosya → gömülü → önbellek → sağlayıcı. Söz
+     katmanı yoksa ya da özellik kapalıysa hiç bakılmaz; bulunamaması dışa
+     aktarmayı durdurmaz. */
+  let lyricsAuto = null;
+  if (jobCfg && jobCfg.lyricsLookup && jobCfg.lyricsLookup.enabled === true && configUsesLyrics(jobCfg)) {
+    try {
+      const meta = { title: track.title, artist: track.artist, album: track.album, duration: audioSec || 0 };
+      const res = await lyricsLookup.lookup({ audioPath, meta, tags: track, config: jobCfg.lyricsLookup, cacheDir: lyricsCacheDir() });
+      lyricsAuto = autoLyricsItem(meta, res);
+    } catch { lyricsAuto = null; }
+  }
+  // Söz metni parça bilgisiyle pencerelere taşınmasın
+  if (track && track.lyrics != null) { track = Object.assign({}, track); delete track.lyrics; }
   const durSpec = opts.duration && typeof opts.duration === 'object' ? opts.duration : { mode: 'audio' };
   const TL = require('../shared/timeline.js');
   const tlCfg = (jobCfg && jobCfg.timeline) || {};
@@ -8237,7 +8339,9 @@ async function startExportJob(opts, bench, extra) {
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
     durationSec: renderSec,
     platform: process.platform,
-    lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot() : [],
+    lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot(lyricsAuto) : [],
+    // Elle söz dosyası yüklenmemiş söz katmanının yedeği (#937)
+    lyricsAuto: lyricsAuto ? { text: lyricsAuto.text, source: lyricsAuto.auto } : null,
     // Video katmanı: cfg'deki dosya → her karesi anahtar kare ara kopya (#539)
     mediaMap,
     analysis: wantAnalysis,
@@ -8695,6 +8799,28 @@ app.whenReady().then(async () => {
   } catch {
     currentConfig = null;
   }
+  /* Çökme kurtarma: önceki oturum düzgün kapanmadıysa ve ayar dosyası
+     okunamadıysa en yeni sağlam anlık kopya geri gelir. */
+  if (!AUTOMATION_RUN) {
+    try {
+      recovery = sessionRecovery.create({ dir: recoveryDir(), keep: 5 });
+      const crashed = recovery.begin();
+      if (crashed) {
+        recoveryNotice = { crashed: true, restored: false, at: crashed.at };
+        const usable = currentConfig && typeof currentConfig === 'object' && !Array.isArray(currentConfig);
+        const wantRestore = !(usable && currentConfig.recovery && currentConfig.recovery.enabled === false);
+        if (!usable && wantRestore) {
+          const snap = recovery.latest();
+          if (snap) {
+            currentConfig = snap.config;
+            recoveryNotice.restored = true;
+            recoveryNotice.file = snap.file;
+            saveSettings(currentConfig);
+          }
+        }
+      }
+    } catch { recovery = null; }
+  }
   sanitizeLoaded(currentConfig); // stray layer settings.postfx (#768)
   if (currentConfig?.lighting?.enabled) {
     lightingSet(currentConfig.lighting).catch(() => {});
@@ -8709,6 +8835,9 @@ app.whenReady().then(async () => {
     });
   }).catch(() => {});
   syncMcp();
+  syncRecovery();
+  syncTempoSync();
+  syncRemotePeers();
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
@@ -11673,6 +11802,9 @@ function shutdownCleanup() {
   if (exportState) finalizeExport('cancelled');
   quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
   flushSettings(); // birleştirilmiş kayıt beklemede kalmasın
+  if (recovery) { try { recovery.end(currentConfig); } catch { /* */ } }
+  if (linkListener) linkListener.stop();
+  peerRelay.stop();
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});

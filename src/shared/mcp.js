@@ -127,7 +127,7 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['redundancy', 'secret'], ['bridge', 'secret']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['redundancy', 'secret'], ['bridge', 'secret']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];
@@ -176,6 +176,11 @@
     mcp: 'mcp', version: 'never',
     // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
     redundancy: 'never',
+    // Otomatik söz (#937): sağlayıcı adresi ağa çıkar; MCP yazamaz
+    lyricsLookup: 'never',
+    tempoSync: 'output',
+    recovery: 'never',
+    screensaver: 'output',
     bridge: 'never', // ses köprüsü (#813): kurulum ve parola
     updates: 'updates',
     stream: 'output', 'stream.token': 'streamToken', 'stream.remoteToken': 'streamToken',
@@ -587,9 +592,9 @@
      changed are checked, so legacy values already on disk still load. */
   function controlError(next, prev, platform) {
     prev = prev && typeof prev === 'object' ? prev : {};
-    const surfaces = ['midi', 'osc'];
+    const surfaces = ['midi', 'osc', 'gamepad'];
     for (const k of Object.keys(next)) {
-      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc.';
+      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc, gamepad.';
     }
     for (const s of surfaces) {
       const n = next[s];

@@ -21,7 +21,7 @@
   let midiInputs = [];
   let midiError = '';
   let learning = null; // { surface, id }
-  let lastSignal = { midi: '', osc: '' };
+  let lastSignal = { midi: '', osc: '', gamepad: '' };
   let oscState = { running: false, port: 0, error: null, lastAddress: '' };
   let oscOutState = { running: false, host: '', port: 0, packets: 0, error: null };
   let started = false;
@@ -373,9 +373,139 @@
     midiInputs = Array.from(midiAccess.inputs.values());
     const cfg = P().cfg();
     const want = cfg.control.midi.deviceId || 'all';
+    const ts = cfg.tempoSync || {};
+    const clockWant = ts.source === 'midi' ? ts.midiDevice || 'all' : null;
     for (const input of midiInputs) {
-      input.onmidimessage = want === 'all' || want === input.id ? onMidi : null;
+      const map = !!cfg.control.midi.enabled && (want === 'all' || want === input.id);
+      const clk = clockWant != null && (clockWant === 'all' || clockWant === input.id);
+      input.onmidimessage = map || clk
+        ? (ev) => { if (clk) onMidiClock(ev); if (map || learning) onMidi(ev); }
+        : null;
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // Dış tempo: MIDI saati (burada) ve Ableton Link (ana süreç dinler)
+  // --------------------------------------------------------------------------
+  const MCK = () => window.SVMidiClock || require('../shared/midi-clock.js');
+  let midiClock = null;
+  let tempoState = { source: 'off', bpm: 0, peers: 0 };
+  let tempoApplyAt = 0;
+  function onMidiClock(ev) {
+    const d = ev.data;
+    if (!d || !d.length || d[0] < 0xf8) return;
+    if (!midiClock) midiClock = MCK().create();
+    const now = ev.timeStamp || performance.now();
+    if (!midiClock.message(d[0], now) || d[0] !== 0xf8) return;
+    // Darbe başına değil, en çok 4 kez/sn uygula
+    if (now - tempoApplyAt < 250) return;
+    tempoApplyAt = now;
+    applyExternalTempo(midiClock.bpm(now), 'midi');
+  }
+  function applyExternalTempo(bpm, source) {
+    tempoState = Object.assign({}, tempoState, { source, bpm });
+    const chip = document.getElementById('tempoSyncState');
+    if (chip) chip.textContent = tempoLabel();
+    const cfg = P().cfg();
+    const ts = cfg.tempoSync || {};
+    if (ts.source !== source || !(bpm > 0)) return;
+    const cur = cfg.modulation && cfg.modulation.bpm;
+    if (!MCK().shouldApply(cur, bpm, 0.1)) return;
+    P().set('modulation.bpm', bpm);
+    P().push(false);
+  }
+  function tempoLabel() {
+    const s = tempoState;
+    if (!s.bpm) return T(s.source === 'link' ? 'Link eşi bekleniyor…' : 'Saat bekleniyor…');
+    return s.bpm.toFixed(1) + ' BPM' + (s.source === 'link' ? ' · ' + s.peers + ' ' + T('eş') : '');
+  }
+
+  function tempoNodes(cfg) {
+    const el = P().el;
+    const ts = cfg.tempoSync || (cfg.tempoSync = { source: 'off', midiDevice: 'all' });
+    const nodes = [];
+    const sel = el('select', {
+      onchange: async (e) => {
+        ts.source = e.target.value;
+        tempoState = { source: ts.source, bpm: 0, peers: 0 };
+        if (midiClock) midiClock.reset();
+        P().push(true);
+        if (ts.source === 'midi') { if (!midiAccess) await initMidi(); else bindMidiInputs(); }
+        else bindMidiInputs();
+        P().rerender();
+      },
+    });
+    [['off', 'Kapalı (ses analizi)'], ['link', 'Ableton Link'], ['midi', 'MIDI Saati']].forEach(([v, t]) => {
+      const o = el('option', { value: v, text: T(t) });
+      if ((ts.source || 'off') === v) o.selected = true;
+      sel.appendChild(o);
+    });
+    nodes.push(P().row(T('Tempo Kaynağı'), sel));
+    if (ts.source === 'midi') {
+      const dev = el('select', { onchange: (e) => { ts.midiDevice = e.target.value; P().push(true); bindMidiInputs(); } });
+      const all = el('option', { value: 'all', text: T('Tüm MIDI aygıtları') });
+      if ((ts.midiDevice || 'all') === 'all') all.selected = true;
+      dev.appendChild(all);
+      midiInputs.forEach((inp) => {
+        const o = el('option', { value: inp.id, text: inp.name || 'MIDI' });
+        if (ts.midiDevice === inp.id) o.selected = true;
+        dev.appendChild(o);
+      });
+      nodes.push(P().row(T('Saat Aygıtı'), dev));
+      if (midiError) nodes.push(el('div', { class: 'studio-status err', text: midiError }));
+    }
+    if (ts.source && ts.source !== 'off') {
+      nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: T('Gelen Tempo') }),
+        el('span', { id: 'tempoSyncState', class: 'map-signal', text: tempoLabel() }),
+      ])]));
+    }
+    nodes.push(el('div', { class: 'note', text: T(ts.source === 'link'
+      ? 'Link oturumu yalnızca dinlenir: ağdaki Ableton Live, Traktor ya da Rekordbox temposu modülasyon saatine yazılır; uygulama tempo yayınlamaz. Tüm sistemlerde çalışır; güvenlik duvarı UDP 20808 çok noktaya yayını engellememeli.'
+      : 'Dış kaynak seçilince modülasyon saatinin BPM değeri ondan gelir. MIDI saati Web MIDI ile okunur (Windows, macOS ve Linux).') }));
+    return nodes;
+  }
+
+  // --------------------------------------------------------------------------
+  // Oyun kumandası (Gamepad API)
+  // --------------------------------------------------------------------------
+  const GPM = () => window.SVGamepadMap || require('../shared/gamepad-map.js');
+  let padState = {};
+  let padTimer = null;
+  function padCount() {
+    try { return Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean).length; } catch { return 0; }
+  }
+  function pollGamepads() {
+    if (!navigator.getGamepads) return;
+    const cfg = P().cfg();
+    const g = cfg.control.gamepad || {};
+    const r = GPM().diff(padState, navigator.getGamepads());
+    padState = r.state;
+    if (!r.events.length) return;
+    const e0 = r.events[r.events.length - 1];
+    lastSignal.gamepad = GPM().label(e0) + ' → ' + (Math.round(e0.raw * 100) / 100);
+    const chip = document.getElementById('gamepadSignal');
+    if (chip) chip.textContent = lastSignal.gamepad;
+    if (learning && learning.surface === 'gamepad') {
+      const got = GPM().learnFrom(r.events);
+      const m = got && (g.mappings || []).find((x) => x.id === learning.id);
+      if (m) { Object.assign(m, got); learning = null; P().push(true); P().rerender(); }
+      return;
+    }
+    if (!g.enabled) return;
+    for (const ev of r.events) {
+      for (const m of g.mappings || []) {
+        if (!GPM().matches(m, ev)) continue;
+        if (ev.value01 < 0.5) m._armed = true;
+        applyMapping(m, ev.value01);
+      }
+    }
+  }
+  function syncGamepad() {
+    const cfg = P().cfg();
+    const on = !!(cfg.control.gamepad && cfg.control.gamepad.enabled) || (learning && learning.surface === 'gamepad');
+    if (on && !padTimer) padTimer = setInterval(pollGamepads, 16);
+    else if (!on && padTimer) { clearInterval(padTimer); padTimer = null; }
   }
 
   async function initMidi() {
@@ -538,6 +668,8 @@
       channel: 0,
       cc: -1,
       address: '/cayadev/1',
+      index: -1,
+      pad: -1,
       target: TARGETS[0].path,
       min: null,
       max: null,
@@ -559,7 +691,7 @@
       const t = targetFor(m.target);
       const isLearning = learning && learning.surface === surface && learning.id === m.id;
 
-      const sourceLabel =
+      const sourceLabel = surface === 'gamepad' ? GPM().label(m, !!(window.SVI18n && window.SVI18n.locale === 'en')) :
         surface === 'midi'
           ? m.cc >= 0
             ? (m.kind === 'note' ? 'Nota ' : 'CC ') + m.cc + (m.channel ? ' · k' + m.channel : '')
@@ -571,9 +703,10 @@
         type: 'button',
         icon: isLearning ? 'record' : 'aim',
         text: isLearning ? 'Dinleniyor…' : 'Öğren',
-        title: surface === 'midi' ? 'Bas, sonra denetleyicideki düğmeyi oynat' : 'Bas, sonra OSC mesajını gönder',
+        title: surface === 'osc' ? 'Bas, sonra OSC mesajını gönder' : 'Bas, sonra denetleyicideki düğmeyi oynat',
         onclick: () => {
           learning = isLearning ? null : { surface, id: m.id };
+          if (surface === 'gamepad') syncGamepad();
           P().rerender();
         },
       });
@@ -684,6 +817,27 @@
         );
       }
       nodes.push(mappingRows('midi'));
+    } else if (surface === 'tempo') {
+      tempoNodes(cfg).forEach((n) => nodes.push(n));
+    } else if (surface === 'gamepad') {
+      const g = cfg.control.gamepad || (cfg.control.gamepad = { enabled: false, mappings: [] });
+      const enable = el('input', {
+        type: 'checkbox',
+        onchange: (e) => { g.enabled = e.target.checked; P().push(true); syncGamepad(); },
+      });
+      enable.checked = !!g.enabled;
+      nodes.push(P().row(T('Oyun Kumandası Etkin'), el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      if (!navigator.getGamepads) {
+        nodes.push(el('div', { class: 'studio-status err', text: T('Bu ortamda Gamepad API kullanılamıyor.') }));
+      } else {
+        const n = padCount();
+        nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+          el('label', { class: 'lbl', text: n ? n + ' ' + T('kumanda bağlı') : T('Kumanda bulunamadı (bir düğmeye basın)') }),
+          el('span', { id: 'gamepadSignal', class: 'map-signal', text: lastSignal.gamepad || T('sinyal bekleniyor…') }),
+        ])]));
+      }
+      nodes.push(el('div', { class: 'note', text: T('Xbox, PlayStation ve genel USB/Bluetooth kumandalar çalışır (Windows, macOS, Linux). Kumanda yalnızca uygulama pencerelerinden biri öndeyken okunur; bu Chromium sınırıdır.') }));
+      nodes.push(mappingRows('gamepad'));
     } else if (surface === 'oscout') {
       oscOutNodes(cfg).forEach((n) => nodes.push(n));
     } else {
@@ -956,6 +1110,16 @@
     started = true;
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
+    else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
+    if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
+    syncGamepad();
+    if (window.api.onTempoSync) {
+      window.api.onTempoSync((st) => {
+        if (!st) return;
+        tempoState = Object.assign({}, tempoState, st);
+        if (st.source === 'link') applyExternalTempo(st.bpm, 'link');
+      });
+    }
     window.api.onOscMessage(onOsc);
     window.api.onOscStatus((s) => {
       oscState = s || oscState;

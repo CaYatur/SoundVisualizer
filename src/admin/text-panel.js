@@ -289,6 +289,20 @@
         min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
       }));
       nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }, rerender));
+      if (T.karaoke !== false) {
+        // Kelime süresi (#938): dolum biçimi ve uzatılan hecenin esnemesi
+        nodes.push(SP().miniSelect('Karaoke Dolumu', [['word', 'Kelime Kelime'], ['progressive', 'Kelime İçinde Akan']],
+          () => T.karaokeFill || 'word', (v) => { T.karaokeFill = v; sync(); }, null, 'word'));
+        nodes.push(SP().miniToggle('Uzatılan Heceyi Esnet', () => T.karaokeHold === true, (v) => { T.karaokeHold = v; sync(); }, rerender));
+        if (T.karaokeHold === true) {
+          nodes.push(SP().miniSlider('Esneme Eşiği', () => (T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin), (v) => { T.karaokeHoldMin = v; sync(); }, {
+            min: 0.2, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
+          }));
+          nodes.push(SP().miniSlider('Esneme Miktarı', () => (T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount), (v) => { T.karaokeHoldAmount = v; sync(); }, {
+            min: 0, max: 1, step: 0.01, percent: true,
+          }));
+        }
+      }
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.' }));
     }
 

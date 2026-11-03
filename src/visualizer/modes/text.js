@@ -138,6 +138,7 @@
       let content = '';
       let progress = 0;
       let wordIndex = -1;
+      let wordProgress = 0;
       let words = null;
 
       const src = T.source || 'static';
@@ -164,7 +165,10 @@
         } else if (use && use.source === 'none') {
           content = '';
         } else {
-          const body = use ? (use.text || '') : (T.lyricsSource || '');
+          /* Elle dosya yoksa dışa aktarmanın otomatik bulduğu söz (#937).
+             Elle yüklenen dosya her zaman önce gelir. */
+          const auto = window.SVLyricsAuto && window.SVLyricsAuto.text ? window.SVLyricsAuto.text : '';
+          const body = use ? (use.text || '') : (T.lyricsSource || auto);
           const clock = (use && use.time != null) ? use.time : manualLyricTime(t);
           this._ensureLyrics({ lyricsSource: body });
           if (this.doc && window.SVLyrics) {
@@ -173,6 +177,7 @@
               content = hit.line.text;
               progress = hit.progress;
               wordIndex = hit.wordIndex;
+              wordProgress = hit.wordProgress || 0;
               words = hit.line.words && hit.line.words.length ? hit.line.words : null;
             }
             if (hit.index !== this.lastLine) { this.lastLine = hit.index; this.lineAge = 0; }
@@ -401,14 +406,48 @@
            renginde, gelecek kelimeler sönük. Tek fillText iki renk veremez.
            Satır kutuya sığmıyorsa kelimeler birlikte kırpılıp kayar. */
         const parts = words.map((w) => w.text);
-        const widths = parts.map((p) => ctx.measureText(p).width);
+        /* Uzatılan hece (#938): etkin kelime uzun tutuluyorsa (süresi eşikten
+           uzun) yatayda esner. Katman başına isteğe bağlı; kapalıyken
+           genişlikler eskisiyle aynı. */
+        const holdOn = T.karaokeHold === true;
+        const holdMin = T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin;
+        const holdAmt = T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount;
+        const stretch = parts.map((p, i) => {
+          if (!holdOn || i !== wordIndex) return 1;
+          const w = words[i];
+          const dur = (w.end != null ? w.end : w.t) - w.t;
+          return dur >= holdMin ? 1 + holdAmt * Math.sin(Math.min(1, wordProgress) * Math.PI * 0.5) : 1;
+        });
+        const widths = parts.map((p, i) => ctx.measureText(p).width * stretch[i]);
         const total = widths.reduce((s, w) => s + w, 0);
+        /* Dolum: 'word' (eski: kelime bir anda yanar) ya da 'progressive'
+           (etkin kelime süresi boyunca soldan sağa dolar). */
+        const progressive = T.karaokeFill === 'progressive';
         const paintWords = (origin) => {
           let x = origin;
           for (let i = 0; i < parts.length; i++) {
             const sung = i <= wordIndex;
-            drawOne(parts[i], x, jitter * Math.sin(i * 1.7 + t * 9),
-              rgba(sung ? hiColor : baseColor, sung ? 1 : 0.45));
+            const dy = jitter * Math.sin(i * 1.7 + t * 9);
+            const sx = stretch[i];
+            const paint = (fill) => {
+              if (sx === 1) { drawOne(parts[i], x, dy, fill); return; }
+              ctx.save();
+              ctx.translate(x, 0);
+              ctx.scale(sx, 1);
+              drawOne(parts[i], 0, dy, fill);
+              ctx.restore();
+            };
+            if (progressive && i === wordIndex && wordProgress < 1) {
+              paint(rgba(baseColor, 0.45));
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(x, -size * 2, widths[i] * wordProgress, size * 4);
+              ctx.clip();
+              paint(rgba(hiColor, 1));
+              ctx.restore();
+            } else {
+              paint(rgba(sung ? hiColor : baseColor, sung ? 1 : 0.45));
+            }
             x += widths[i];
           }
         };

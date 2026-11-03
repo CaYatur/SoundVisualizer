@@ -700,6 +700,8 @@
         return window.SVPreshowPanel ? window.SVPreshowPanel.panel() : null;
       case 'studiopanel':
         return window.SVStudio ? window.SVStudio.panel() : null;
+      case 'extraspanel':
+        return window.SVExtrasPanel ? window.SVExtrasPanel.panel(def.kind) : null;
       case 'controlpanel':
         return window.SVControl ? window.SVControl.panel(def.surface) : null;
       case 'mcppanel':
@@ -3393,6 +3395,64 @@
         desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.',
         roots: ['oscOut'],
         controls: [{ type: 'controlpanel', surface: 'oscout' }],
+      },
+      {
+        id: 'gamepad',
+        category: 'control',
+        icon: 'keys',
+        wide: true,
+        title: 'Oyun Kumandası',
+        desc: 'Xbox, PlayStation ya da genel bir oyun kumandasının düğme ve çubuklarını ayarlara ve eylemlere bağlayın.',
+        controls: [{ type: 'controlpanel', surface: 'gamepad' }],
+      },
+      {
+        id: 'tempoSync',
+        category: 'control',
+        icon: 'timeline',
+        wide: true,
+        title: 'Tempo Eşleme',
+        desc: 'Modülasyon saatinin temposunu Ableton Link ağından ya da bir MIDI saatinden alın.',
+        roots: ['tempoSync'],
+        controls: [{ type: 'controlpanel', surface: 'tempo' }],
+      },
+      {
+        id: 'remotePeers',
+        category: 'control',
+        icon: 'share',
+        wide: true,
+        title: 'Çoklu Kopya Kumandası',
+        desc: 'Tek uzaktan kumandayla birden çok SoundVisualizer kopyasını birlikte sürün.',
+        controls: [{ type: 'extraspanel', kind: 'peers' }],
+      },
+      {
+        id: 'screensaver',
+        category: 'show',
+        icon: 'check',
+        wide: true,
+        title: 'Boşta Ekran Koruyucu',
+        desc: 'Ses uzun süre kesilince çıkışı karartır ve gezinen bir saat gösterir.',
+        roots: ['screensaver'],
+        controls: [{ type: 'extraspanel', kind: 'screensaver' }],
+      },
+      {
+        id: 'recovery',
+        category: 'show',
+        icon: 'copy',
+        wide: true,
+        title: 'Oturum Kurtarma',
+        desc: 'Ayarların düzenli anlık kopyası; çökme sonrası bozuk ayar dosyası kendiliğinden geri gelir.',
+        roots: ['recovery'],
+        controls: [{ type: 'extraspanel', kind: 'recovery' }],
+      },
+      {
+        id: 'lyricsLookup',
+        category: 'show',
+        icon: 'share',
+        wide: true,
+        title: 'Otomatik Söz Bulma',
+        desc: 'Çalan şarkının sözlerini yandaki dosyadan, dosyanın etiketlerinden ya da tanımladığınız sağlayıcılardan bulun.',
+        roots: ['lyricsLookup'],
+        controls: [{ type: 'extraspanel', kind: 'lyricsLookup' }],
       },
       {
         id: 'mcp',
@@ -6532,6 +6592,7 @@
 
     // Kontrol yüzeyleri (MIDI / OSC)
     if (window.SVControl) window.SVControl.init();
+    if (window.SVExtrasPanel) window.SVExtrasPanel.checkRecovery();
     // Tempo motoru ve otomatik VJ döngüsü
     if (window.SVAutoVJ) window.SVAutoVJ.init();
     if (window.SVAspectPanel) window.SVAspectPanel.init();
