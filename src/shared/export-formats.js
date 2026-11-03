@@ -157,8 +157,12 @@
 
   /* Bir kodlayıcının bu makinede denenecek çeşitleri, sırayla (#904). Linux'ta
      QSV ve VA-API düşük güç giriş noktasını da deniyor; önce onsuz, çünkü eski
-     GPU'larda o giriş noktası yok. Windows ve macOS'ta tek çeşit var, argümanlar
-     değişmiyor. env: { platform, renderNodes } */
+     GPU'larda o giriş noktası yok. QSV'de `-global_quality` ICQ seçiyor, Tiger
+     Lake'in sürücüsü bunu reddediyor; H.264 için sabit niceleyici (CQP) de deneniyor.
+     CQP sonda, çünkü ICQ'nun geçtiği yerde sonuç değişmesin. H.265'te yok: aynı
+     makinede düşük güçle "Invalid FrameType" veriyor, 256x256 deneme geçip gerçek
+     iş düşerse çalışan VA-API yolu bozulur. Windows ve macOS'ta tek çeşit var,
+     argümanlar değişmiyor. env: { platform, renderNodes } */
   function encoderVariants(enc, env) {
     const linux = !!env && env.platform === 'linux';
     if (/_vaapi$/.test(enc)) {
@@ -167,7 +171,10 @@
       for (const device of env.renderNodes || []) out.push({ device }, { device, lowPower: true });
       return out;
     }
-    return linux && /_qsv$/.test(enc) ? [{}, { lowPower: true }] : [{}];
+    if (!linux || !/_qsv$/.test(enc)) return [{}];
+    return enc === 'h264_qsv'
+      ? [{}, { lowPower: true }, { cqp: true }, { lowPower: true, cqp: true }]
+      : [{}, { lowPower: true }];
   }
 
   /* Bir kodlayıcının video argümanları ve süzgeci.
@@ -202,7 +209,8 @@
       case 'h264_qsv':
       case 'hevc_qsv':
         // QSV yalnız nv12 alıyor (10 bitte p010)
-        return { args: ['-c:v', enc].concat(lowPower, ['-preset', QSV_SPEED[sp], '-global_quality', String(q)],
+        return { args: ['-c:v', enc].concat(lowPower, ['-preset', QSV_SPEED[sp]],
+          [variant && variant.cqp ? '-qscale:v' : '-global_quality', String(q)],
           enc === 'hevc_qsv' ? ['-tag:v', 'hvc1'] : [], ten ? ['-profile:v', 'main10'] : []),
         vf: yuvFilter(ten ? 'p010le' : 'nv12'), tags: true };
       case 'h264_vaapi':
