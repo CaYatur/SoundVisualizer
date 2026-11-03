@@ -19,7 +19,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   | Opening a visualizer window | 783 and 513 ms | 364 and 372 ms |
   | Opening the panel | 2.0 and 1.6 s | 1.8 and 1.6 s |
 
-  Exports are unchanged: six scenes of 180 frames each came out identical, frame by frame.
+  Exports at 60 fps are unchanged: six scenes of 180 frames each came out identical, frame by frame. The
+  intended difference is at other frame rates, where bar peak caps now fall at the right speed (#878).
 - **A large preset library no longer costs memory and freezes in every window** (#906). Every window
   held the full text of every MilkDrop preset: 122 MB for 10,392 presets, and a freeze of 216-239 ms
   about every 11.5 seconds while garbage collection went through it. Windows now get a list without
