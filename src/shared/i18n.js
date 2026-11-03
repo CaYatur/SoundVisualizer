@@ -1599,9 +1599,11 @@
 
     // ---- Katmanlar ----
     'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.': 'Build the scene from stacked layers: each layer gets its own source, blend mode, opacity, transform, and audio response.',
-    'Katman listesi boş. Listeyi oluşturursanız ekrandaki görünüm katmanlara dönüşür ve üzerine yenilerini ekleyebilirsiniz.': 'The layer list is empty. Create it to turn what is on screen into layers, then add more on top.',
-    'Katman listesini boşaltır; sahne yeniden Arkaplan/Görselleştirici kartlarından sürülür': 'Empties the layer list; the scene is driven by the Background/Visualizer cards again',
-    'Katman listesi boşaltılacak. Sahne yeniden Arkaplan ve Görselleştirici kartlarından sürülecek.': 'The layer list will be emptied. The scene will be driven by the Background and Visualizer cards again.',
+    'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.': 'The layer list is empty. Create it and the scene starts again with a background and a visualizer layer, then add more on top.',
+    'Listeyi arkaplan ve görselleştirici katmanlarına döndürür': 'Returns the list to a background and a visualizer layer',
+    'Katman listesi sıfırlanacak. Sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlayacak.': 'The layer list will be reset. The scene will start again with a background and a visualizer layer.',
+    'Bu sahnede eski sürümden kalan katmanlar arşivlendi. Arşivdekilere geçerseniz şu anki liste arşive gider; ikisi arasında kayıpsız gidip gelebilirsiniz.': 'This scene has layers from an older version, kept in an archive. Switch to them and the current list goes to the archive, so you can move between the two without losing either.',
+    'Arşivdeki Katmanlara Geç': 'Switch to Archived Layers',
     'Katmanı aç/kapat': 'Enable/disable layer',
     'Dönüşüm': 'Transform', 'Sese Tepki': 'Audio Response',
     'Yatay Konum': 'Horizontal Position', 'Dikey Konum': 'Vertical Position',

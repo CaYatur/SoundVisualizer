@@ -2233,17 +2233,29 @@
       }
     }
 
+    // Göçte arşivlenen katmanlar (#905): silinmedi, buradan geri gelir
+    const archived = cfg.layerStack && cfg.layerStack.archivedLayers;
+    if (Array.isArray(archived) && archived.length) {
+      nodes.push(el('div', { class: 'studio-note', text: 'Bu sahnede eski sürümden kalan katmanlar arşivlendi. Arşivdekilere geçerseniz şu anki liste arşive gider; ikisi arasında kayıpsız gidip gelebilirsiniz.' }));
+      nodes.push(el('button', {
+        class: 'btn ghost small', type: 'button', icon: 'layers', text: 'Arşivdeki Katmanlara Geç',
+        onclick: () => {
+          window.SVLayers.swapArchived(cfg);
+          rerender();
+        },
+      }));
+    }
+
     if (!list.length) {
-      // Son katman silinince ya da sıfırlanınca sahne kalan alanlardan sentezlenir.
-      // Düğme o sentezi listeye çeviriyor: görünüm değişmeden düzenlenebiliyor.
+      // Son katman silinince liste boş kalır; düğme başlangıç listesini kurar
       nodes.push(
-        el('div', { class: 'studio-note', text: 'Katman listesi boş. Listeyi oluşturursanız ekrandaki görünüm katmanlara dönüşür ve üzerine yenilerini ekleyebilirsiniz.' })
+        el('div', { class: 'studio-note', text: 'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.' })
       );
       nodes.push(
         el('button', {
           class: 'btn primary layers-cta', type: 'button', icon: 'layers', text: 'Katman Listesini Oluştur',
           onclick: () => {
-            window.SVLayers.setStackEnabled(cfg, true);
+            window.SVLayers.rebuildStack(cfg);
             rerender();
           },
         })
@@ -2624,10 +2636,10 @@
     nodes.push(
       el('button', {
         class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Katmanları Sıfırla',
-        title: 'Katman listesini boşaltır; sahne yeniden Arkaplan/Görselleştirici kartlarından sürülür',
+        title: 'Listeyi arkaplan ve görselleştirici katmanlarına döndürür',
         onclick: async () => {
-          if (!(await P().confirm('Katman listesi boşaltılacak. Sahne yeniden Arkaplan ve Görselleştirici kartlarından sürülecek.', { danger: true, okText: 'Sıfırla' }))) return;
-          cfg.layers = [];
+          if (!(await P().confirm('Katman listesi sıfırlanacak. Sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlayacak.', { danger: true, okText: 'Sıfırla' }))) return;
+          window.SVLayers.rebuildStack(cfg);
           rerender();
         },
       })

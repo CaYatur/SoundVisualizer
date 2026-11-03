@@ -491,6 +491,31 @@
     setStackEnabled(cfg, true);
   }
 
+  /* Listeyi arkaplan ve görselleştiriciyle yeniden başlatır (#905). Kök alanlar yığına
+     geçerken kapatılıyor; yedekten geri konmazsa sentez yalnız arkaplan veriyor ve
+     görselleştirici kayboluyordu (ölçüldü). Anahtar varken kapatıp açmak bunu kurtarıyordu. */
+  function rebuildStack(cfg) {
+    if (!cfg) return;
+    cfg.layerStack = cfg.layerStack || {};
+    if (cfg.layerStack.classicBackup) restoreClassic(cfg, cfg.layerStack.classicBackup);
+    if (cfg.visualizer && (!cfg.visualizer.type || cfg.visualizer.type === 'none')) cfg.visualizer.type = 'bars';
+    cfg.layers = synthesize(cfg);
+    cfg.layerStack.classicBackup = snapshotClassic(cfg);
+    clearClassicOverlays(cfg);
+    cfg.layerStack.enabled = true;
+  }
+
+  /* Göçte arşivlenen katmanlarla şu anki liste yer değiştirir (#905): ikisi arasında
+     kayıpsız gidip gelinir, onay gerekmez. */
+  function swapArchived(cfg) {
+    const s = cfg && cfg.layerStack;
+    if (!s || !Array.isArray(s.archivedLayers)) return false;
+    const now = Array.isArray(cfg.layers) ? cfg.layers : [];
+    cfg.layers = s.archivedLayers;
+    s.archivedLayers = now;
+    return true;
+  }
+
   /* Canlı görselleştirici.
      Yığın açıkken resolve() yalnız cfg.layers'a bakar. Studio ve MCP
      cfg.visualizer.type yazınca liste, çıkış ve önizleme eski katmanda
@@ -2539,6 +2564,8 @@
     setStackEnabled,
     toStack,
     ensureStack,
+    rebuildStack,
+    swapArchived,
     adoptVisualizer,
     revealLayer,
     effectivePath,
