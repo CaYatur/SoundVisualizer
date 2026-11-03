@@ -4771,6 +4771,9 @@ void main(){
       const ANG0 = Math.PI * 0.25;
       const acc = this._wantAcc !== false;
       const out = this._shapeOut || (this._shapeOut = {});
+      const cn = window.SVMilkdrop.colorNorm;
+      const c1 = this._shapeC1 || (this._shapeC1 = [0, 0, 0, 0]);
+      const c2 = this._shapeC2 || (this._shapeC2 = [0, 0, 0, 0]);
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
       for (const s of P.shapes) {
@@ -4802,9 +4805,8 @@ void main(){
           /* milkdropfs.cpp:2185-2192. `alpha_mult` COLOR_NORM'un İÇİNDE:
              önce çarpılıyor, sonra 8 bite iniyor. Dışında yapmak geçiş
              sırasında başka bir alfa verirdi. */
-          const cn = window.SVMilkdrop.colorNorm;
-          const c1 = [cn(o.r), cn(o.g), cn(o.b), cn((+o.a || 0) * aMul)];
-          const c2 = [cn(o.r2), cn(o.g2), cn(o.b2), cn((+o.a2 || 0) * aMul)];
+          c1[0] = cn(o.r); c1[1] = cn(o.g); c1[2] = cn(o.b); c1[3] = cn((+o.a || 0) * aMul);
+          c2[0] = cn(o.r2); c2[1] = cn(o.g2); c2[2] = cn(o.b2); c2[3] = cn((+o.a2 || 0) * aMul);
 
           if (textured) {
             /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez

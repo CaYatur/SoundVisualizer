@@ -89,8 +89,8 @@ test('çok büyük sayı taşmıyor', () => {
 test('şekil dolgusu ve kenarı COLOR_NORM kullanıyor', () => {
   /* `alpha_mult` COLOR_NORM\'un İÇİNDE: MilkDrop önce çarpıp sonra 8 bite
      indiriyor. Dışında yapmak geçiş sırasında başka bir alfa verirdi. */
-  assert.match(BARE, /const c1 = \[cn\(o\.r\), cn\(o\.g\), cn\(o\.b\), cn\(\(\+o\.a \|\| 0\) \* aMul\)\]/);
-  assert.match(BARE, /const c2 = \[cn\(o\.r2\), cn\(o\.g2\), cn\(o\.b2\), cn\(\(\+o\.a2 \|\| 0\) \* aMul\)\]/);
+  assert.match(BARE, /c1\[0\] = cn\(o\.r\); c1\[1\] = cn\(o\.g\); c1\[2\] = cn\(o\.b\); c1\[3\] = cn\(\(\+o\.a \|\| 0\) \* aMul\);/);
+  assert.match(BARE, /c2\[0\] = cn\(o\.r2\); c2\[1\] = cn\(o\.g2\); c2\[2\] = cn\(o\.b2\); c2\[3\] = cn\(\(\+o\.a2 \|\| 0\) \* aMul\);/);
   assert.match(BARE, /const ba = cn\(\(\+o\.border_a \|\| 0\) \* aMul\)/);
   assert.match(BARE, /d\[k \+ 2\] = cn\(o\.border_r\)/);
 });
