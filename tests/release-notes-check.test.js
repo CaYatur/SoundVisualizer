@@ -14,7 +14,7 @@ test('yüklenen her dosyanın indirme bağlantısı olmalı; zsync hariç', () =
 });
 
 test('kişi anmak yakalanıyor; kod, e-posta ve bağlantı yolu sayılmıyor', () => {
-  assert.deepStrictEqual(notesProblems('(#904, reported by @arnelap).', []), ['kişi anılmış: @arnelap']);
+  assert.deepStrictEqual(notesProblems('(#904, reported by @someone).', []), ['kişi anılmış: @someone']);
   assert.deepStrictEqual(notesProblems('@first line', []), ['kişi anılmış: @first']);
   const clean = 'kod `@types/node` ve\n```\nnpm i @scope/pkg\n```\nposta a@b.com, yol https://x.y/@z';
   assert.deepStrictEqual(notesProblems(clean, []), []);

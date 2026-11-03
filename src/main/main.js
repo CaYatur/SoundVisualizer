@@ -2747,18 +2747,25 @@ async function downloadUpdate() {
 ipcMain.handle('updates:download', () => downloadUpdate().catch((e) => Object.assign({}, updateState, { downloadError: String((e && e.message) || e) })));
 // Kullanıcı istedi: kaza korumasını geçip çık; kurulum ya da yeni AppImage başlar
 ipcMain.handle('updates:install', () => installUpdateNow());
+// Kurucuyu başlatmanın tek yolu: yönetici izni burada isteniyor (#926)
+function startUpdateInstaller(silent) {
+  return updateInstall.startInstaller({
+    file: updateReadyFile,
+    silent,
+    spawn: require('child_process').spawn,
+    elevate: path.join(process.resourcesPath, 'elevate.exe'),
+    exists: fs.existsSync,
+    openPath: (f) => shell.openPath(f),
+  }).catch((e) => ({ ok: false, error: String((e && e.message) || e) }));
+}
 function installUpdateNow() {
   if (UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
-    let child;
-    try {
-      child = updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
-    } catch (e) {
-      return { ok: false, error: String((e && e.message) || e) };
-    }
     // Kurucu gerçekten doğmadan çıkma: dosya silinmiş ya da izin yoksa
     // kullanıcı hatayı görsün, indirilen dosya yerinde kalsın.
-    return updateInstall.whenInstallerStarted(child).then((r) => {
-      if (!r || !r.ok) return r || { ok: false, error: 'installer failed to start' };
+    return startUpdateInstaller(false).then((r) => {
+      updateState = Object.assign({}, updateState, { installError: r.ok ? '' : r.error });
+      notifyAdmin('updates:status', updateState);
+      if (!r.ok) return r;
       updateReadyFile = null;
       forceQuitApp = true;
       setTimeout(() => app.quit(), 200);
@@ -2794,14 +2801,7 @@ function armSilentInstall(e) {
   if (silentInstallClaimed || !silentInstallPending()) return false;
   e.preventDefault();
   silentInstallClaimed = true;
-  let pending;
-  try {
-    const child = updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn);
-    pending = updateInstall.whenInstallerStarted(child);
-  } catch (err) {
-    pending = Promise.resolve({ ok: false, error: String((err && err.message) || err) });
-  }
-  pending.then((r) => {
+  startUpdateInstaller(true).then((r) => {
     if (r && r.ok) updateReadyFile = null;
     else {
       try {
