@@ -222,7 +222,8 @@ function startTick() {
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 
 function sendPeers(obj) {
-  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed) sendJson(c, obj);
+  // Reddedilen yedeğe yalnız atış: kesilirse kendiliğinden yetki alıyor (#905)
+  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed && (!c.peerRefused || obj.type === 'beat')) sendJson(c, obj);
 }
 function peerCount() {
   let n = 0;

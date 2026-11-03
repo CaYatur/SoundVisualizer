@@ -144,6 +144,19 @@ function problem(c) {
   return '';
 }
 
+/* ANA SÜRÜM (#905). v4'te ayar biçimi değişiyor: iki yönetici ayrı biçimle çalışırsa
+   gösteri ortasında sessiz uyumsuzluk çıkar. Ana sürümü farklı iki makine eşleşmez.
+   Bilinmeyen sürüm uyumsuz sayılmaz: karar verecek bilgi yok. */
+function majorOf(v) {
+  const m = /^v?(\d+)\./.exec(String(v == null ? '' : v).trim());
+  return m ? Number(m[1]) : null;
+}
+function majorMismatch(a, b) {
+  const x = majorOf(a);
+  const y = majorOf(b);
+  return x !== null && y !== null && x !== y;
+}
+
 /* YEDEĞİN DURUM MAKİNESİ. Saat dışarıdan verilir (test sahte saatle sürer). */
 function createFollower(cfg, now) {
   const s = normalize(cfg);
@@ -566,7 +579,7 @@ function peerUrlHmac(c) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, SOFT_KEYS, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
+  DEFAULTS, MIN_SECRET, SOFT_KEYS, normalize, linkSig, showSource, localFollow, mdParity, problem, majorOf, majorMismatch, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, peerUrlHmac, createClient,
   authority, GATED, outputModes, gates, secretTag, createTermStore, splitBrain,
   HANDBACK_MIN_ALIVE_MS, HANDBACK_MIN_SAMPLES, HANDBACK_AT, handbackCheck, handbackDue,

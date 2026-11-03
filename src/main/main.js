@@ -4876,9 +4876,33 @@ function redSpace() {
   return red.space;
 }
 
+/* Ana sürümü farklı birincilden gelen hello (#905). Anlık görüntü hello'dan sonra
+   geliyor, yani hiçbir şey uygulanmadan kesiliyor. İzleme de bitiyor: birincili
+   kaybetti sayıp kendiliğinden yetki almasın. */
+function refusePrimaryMajor(version) {
+  red.versionMismatch = String(version).slice(0, 40);
+  if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
+  if (redAuth.peerBeatTimer) { clearInterval(redAuth.peerBeatTimer); redAuth.peerBeatTimer = null; }
+  if (red.client) { red.client.close(); red.client = null; }
+  red.follower = null;
+  console.warn('[redundancy] birincil farklı ana sürümde (' + red.versionMismatch + '), eşleşme yapılmadı');
+  notifyRedundancy();
+}
+/* Birincil: eski sürüm yedeğin kodu değiştirilemez ve bağlantı kesilirse birincili
+   kaybetti sayıp kendiliğinden yetki alıyor, iki makine birden yönetiyor (ölçüldü).
+   O yüzden bağlantı kalıyor, atış gidiyor, başka hiçbir şey gitmiyor. */
+function refusePeerMajor(client, version) {
+  if (client.peerInfoTimer) { clearTimeout(client.peerInfoTimer); client.peerInfoTimer = null; }
+  client.peerRefused = true;
+  red.peerMismatch = String(version).slice(0, 40);
+  console.warn('[redundancy] yedek farklı ana sürümde (' + red.peerMismatch + '), gösteri gönderilmiyor');
+  notifyRedundancy();
+}
+
 function redundancyStatus() {
   const base = {
-    role: red.role, problem: redundancy.problem(red.cfg), archives: showArchives(),
+    role: red.role, problem: red.versionMismatch ? 'version' : redundancy.problem(red.cfg), archives: showArchives(),
+    versionMismatch: red.versionMismatch || '', peerMismatch: red.peerMismatch && streamServer.peerCount() ? red.peerMismatch : '',
     // Yetki (#814): kimde, dönem, çit, kapılar, iki yönetici, tanık, öteki makine
     holder: redAuth.holder, term: red.role === 'off' ? 0 : redTerms().term, fenced: redAuth.fenced, gates: redAuth.gates,
     split: redAuth.split, witness: redAuth.witness ? Object.assign(redAuth.witness.status(), { foreign: witnessForeign() }) : null,
@@ -5154,6 +5178,8 @@ function leaveBackupSpace() {
 }
 
 function stopRedundancy() {
+  red.versionMismatch = '';
+  red.peerMismatch = '';
   if (red.beatTimer) { clearInterval(red.beatTimer); red.beatTimer = null; }
   if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
   if (red.client) { red.client.close(); red.client = null; }
@@ -5256,6 +5282,8 @@ function syncRedundancy() {
       urls: [redundancy.peerUrlHmac(c), redundancy.peerUrl(c)], secret: c.secret,
       onOpen: () => {
         red.follower.connected();
+        // Birincil anlık görüntüyü sürümümüzü görünce gönderiyor (#905)
+        if (red.client) red.client.send(peerInfoMsg());
         // Yarıda kalan paket aktarımı kaldığı yerden (#812)
         if (red.pull) { for (const r of red.pull.resume()) red.client.send(Object.assign({ type: 'pkg-get', pkg: red.pull.status.pkg }, r)); finishPull(); }
         notifyRedundancy();
@@ -5282,9 +5310,17 @@ function syncRedundancy() {
   notifyRedundancy();
 }
 
+const PEER_INFO_WAIT_MS = 5000;
 // Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
 function onPeerOpen(client) {
   red.peerSince = Date.now();
+  /* Anlık görüntü yedeğin sürümünü bekliyor (#905). Bu sürüm bağlanır bağlanmaz
+     bildiriyor, eskisi saniyede bir. Hiç bildirmeyen eski yedek süre dolunca alır. */
+  client.peerInfoTimer = setTimeout(() => finishPeerOpen(client), PEER_INFO_WAIT_MS);
+  notifyRedundancy();
+}
+function finishPeerOpen(client) {
+  if (client.peerInfoTimer) { clearTimeout(client.peerInfoTimer); client.peerInfoTimer = null; }
   sendPeerSnapshot(client);
   // Anlık görüntü uygulandıktan sonra gösteri karşılaştırması (#541)
   requestInventory();
@@ -5301,6 +5337,7 @@ function sendPeerSnapshot(client) {
   for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
 }
 function onPeerMessage(msg, client) {
+  if (client && client.peerRefused) return;
   if (msg && msg.type === 'peer-state' && typeof msg.state === 'string') {
     red.peerState = msg.state.slice(0, 20);
     notifyRedundancy();
@@ -5315,7 +5352,11 @@ function onPeerMessage(msg, client) {
   } else if (msg && msg.type === 'peer-beat' && red.role === 'primary') {
     onPeerBeat(msg);
   } else if (msg && msg.type === 'peer-info') {
-    onPeerInfo(msg);
+    if (client && red.role === 'primary' && redundancy.majorMismatch(msg.version, app.getVersion())) refusePeerMajor(client, msg.version);
+    else {
+      onPeerInfo(msg);
+      if (client && client.peerInfoTimer) finishPeerOpen(client);
+    }
   } else if (msg && msg.type === 'ctl') {
     onCtl(msg);
   } else if (msg && msg.type === 'ctl-result') {
@@ -5429,6 +5470,7 @@ function onPrimaryBeatAuth(msg) {
 function onPrimaryMessage(msg) {
   const f = red.follower;
   if (!f) return;
+  if (msg.type === 'hello' && redundancy.majorMismatch(msg.version, app.getVersion())) { refusePrimaryMajor(msg.version); return; }
   if (msg.type === 'hello' || msg.type === 'beat') {
     if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
     if (msg.type === 'beat') onPrimaryBeatAuth(msg);
