@@ -121,7 +121,7 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
 test('varsayılan "sistemi izle"; ayar gösterinin, sahnenin değil', () => {
   assert.strictEqual(SV.defaultConfig().milkdropControl.reduceMotion, 'system');
   // Sahne anahtarlarında milkdropControl yok: sahne değişince ayar kalıyor
-  for (const f of ['src/main/main.js', 'src/admin/control.js', 'src/admin/admin.js']) {
+  for (const f of ['src/shared/schema.js']) {
     const m = /const SCENE_KEYS = \[([\s\S]*?)\];/.exec(read(f));
     assert.ok(m, f + ': SCENE_KEYS bulunamadı');
     assert.ok(m[1].includes("'milkdrop'") && !m[1].includes('milkdropControl'), f);
