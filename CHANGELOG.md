@@ -3,6 +3,45 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### Lyrics
+
+- **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from
+  a `.lrc`/`.srt` next to the audio file, then from embedded tags (ID3 USLT/SYLT, Vorbis `LYRICS`,
+  MP4 lyrics), then from a local cache, then from providers you define (URL template with `{artist}`,
+  `{title}`, `{album}`, `{duration}` and a JSON path or raw LRC). The provider list is empty by
+  default, so nothing goes to the network; a failing or slow provider never blocks playback.
+  Following the playing track depends on the Windows media session, so this works on Windows only.
+- **Held syllables** (#938). Word end times, including A2 end tags (`<mm:ss.xx>` after a word), are
+  parsed. Karaoke can fill progressively inside the active word and optionally stretch long-held
+  words, in the live output and the exporter. Existing LRC/SRT files render exactly as before.
+- **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
+  stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
+
+### Control and show
+
+- **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
+  MIDI clock.
+- **Gamepad control**: Xbox, PlayStation and generic gamepads map to settings and actions with the
+  same learn/mapping engine as MIDI.
+- **Multi-instance remote**: commands from one instance's remote are forwarded to the other
+  instances listed under Multi-Instance Remote, without loops.
+- **Idle screensaver**: after a configurable silence the output window dims and shows a drifting
+  clock and text.
+- **Session recovery**: rotating settings snapshots; after a crash a corrupt settings file is
+  restored from the newest healthy snapshot and the panel says so. If there is no snapshot to restore,
+  the panel says the settings file could not be read.
+
+### Export
+
+- **H.264 Quick Sync on Linux when the driver rejects ICQ** (#904). The test encode used
+  `-global_quality`, which FFmpeg turns into ICQ. A Tiger Lake machine rejected that with "Selected
+  ratecontrol mode is unsupported", although H.264 Quick Sync itself works, so the app fell back to
+  VA-API. H.264 now also tries constant QP (`-qscale:v`) with and without `-low_power`, after the
+  existing attempts. Where the old arguments pass, they are kept. H.265 is unchanged, because on that
+  machine `hevc_qsv` with low power failed and VA-API already works.
+
 ## v3.1.7 — 2026-11-03
 
 ### Performance

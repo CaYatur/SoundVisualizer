@@ -474,6 +474,47 @@
   // --------------------------------------------------------------------------
   // Render döngüsü
   // --------------------------------------------------------------------------
+  /* Boşta ekran koruyucu: uzun sessizlikte karartma katmanı ve gezinen
+     saat. DOM katmanı tuvalin üstünde; yalnızca ekran penceresi kararır.
+     Giden görüntüye binmez: OBS sayfası (http) ve Spout/Syphon yakalama penceresi. */
+  const outgoingPage = location.protocol !== 'file:' || /(?:\?|&)svCapture=1(?:&|$)/.test(location.search);
+  let saver = null;
+  let saverEl = null;
+  let saverTextAt = 0;
+  function screensaverTick(cfg, dt) {
+    const SS = window.SVScreensaver;
+    if (!SS || outgoingPage) return;
+    const c = cfg.screensaver;
+    if (!saver) saver = SS.create();
+    const silent = audio.level < 0.008 && audio.bass < 0.01;
+    SS.update(saver, { silent, dt, now: performance.now(), cfg: c });
+    if (!saver.amount) { if (saverEl) saverEl.style.display = 'none'; return; }
+    if (!saverEl) {
+      saverEl = document.createElement('div');
+      saverEl.setAttribute('aria-hidden', 'true');
+      saverEl.style.cssText = 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:#000;';
+      const lab = document.createElement('div');
+      lab.style.cssText = 'position:absolute;transform:translate(-50%,-50%);color:rgba(255,255,255,.55);font:300 6vmin system-ui,sans-serif;text-align:center;white-space:pre;';
+      saverEl.appendChild(lab);
+      document.body.appendChild(saverEl);
+    }
+    const dim = Math.max(0, Math.min(1, c && c.dim != null ? c.dim : 0.85));
+    saverEl.style.display = 'block';
+    saverEl.style.background = 'rgba(0,0,0,' + (dim * saver.amount).toFixed(3) + ')';
+    const lab = saverEl.firstChild;
+    lab.style.left = (saver.x * 100).toFixed(2) + '%';
+    lab.style.top = (saver.y * 100).toFixed(2) + '%';
+    lab.style.opacity = String(saver.amount);
+    const nowMs = Date.now();
+    if (nowMs - saverTextAt > 1000) {
+      saverTextAt = nowMs;
+      const parts = [];
+      if (!c || c.showClock !== false) parts.push(SS.clockText(new Date()));
+      if (c && c.text) parts.push(String(c.text).slice(0, 80));
+      lab.textContent = parts.join('\n');
+    }
+  }
+
   function frame(now) {
     raf = requestAnimationFrame(frame);
 
@@ -511,6 +552,7 @@
     audio.update(dt);
     const hits = audio.analysis && audio.analysis.hits;
     if (hits) oscHit(hits);
+    screensaverTick(cfg, dt);
 
     /* Sessizlikte duraklat (güç tasarrufu).
 

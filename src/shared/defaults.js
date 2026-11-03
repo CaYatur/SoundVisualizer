@@ -538,6 +538,8 @@
       quality: 1.0, // tarayıcı kaynağı çözünürlük ölçeği
       // Yedeklilik (#815): öbür makinenin yayın sayfası adresleri; sayfa buraya düşer
       fallbackUrls: '',
+      // Çoklu kopya kumandası: öbür kopyaların /remote adresleri (jetonlu), satır başına bir tane
+      remotePeers: '',
     },
 
     // ------------------------------------------------------------------
@@ -601,6 +603,12 @@
       scrollSpeed: 1,
       maxWidth: 0.9,
       karaoke: true,
+      /* Kelime süresi (#938): 'word' kelime bir anda yanar (eski davranış),
+         'progressive' kelime süresi boyunca dolar. Esneme isteğe bağlı. */
+      karaokeFill: 'word',
+      karaokeHold: false,
+      karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelime esner (sn)
+      karaokeHoldAmount: 0.25,
       offset: 0,        // söz senkron düzeltmesi (sn)
       lyricsSource: '', // LRC/SRT dosya içeriği
       lyricsName: '',
@@ -624,6 +632,26 @@
     // Yazı ölçüsü, metin katmanında olduğu gibi, ekranın KISA kenarına
     // orandır: aynı sahne 1080p monitörde ve 4K projektörde aynı görünsün.
     // ------------------------------------------------------------------
+    /* Otomatik söz bulma (#937): yan .lrc/.srt → gömülü etiket → önbellek →
+       kullanıcının tanımladığı sağlayıcılar. Sağlayıcı listesi BOŞ gelir;
+       boşken hiçbir ağ isteği yapılmaz. Sağlayıcı:
+       { name, url: 'https://example.com/api/get?artist={artist}&title={title}',
+         format: 'lrc' | 'json', path: 'syncedLyrics', enabled } */
+    // Dış tempo: 'off' | 'link' (Ableton Link, yalnız dinleme) | 'midi' (MIDI saati)
+    tempoSync: { source: 'off', midiDevice: 'all' },
+    // Oturum kurtarma: userData/recovery altında dönen anlık kopyalar
+    recovery: { enabled: true, intervalSec: 120 },
+    // Boşta ekran koruyucu: sessizlikte karart, gezinen saat göster
+    screensaver: { enabled: false, idleSec: 300, dim: 0.85, showClock: true, text: '', fadeSec: 2 },
+    lyricsLookup: {
+      enabled: false,
+      sidecar: true,
+      embedded: true,
+      cache: true,
+      providers: [],
+      timeoutMs: 4000,
+    },
+
     nowplaying: {
       enabled: true,
       source: 'system',   // 'system' | 'manual'
@@ -1140,6 +1168,8 @@
     control: {
       midi: { enabled: false, deviceId: 'all', mappings: [] },
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
+      // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
+      gamepad: { enabled: false, mappings: [] },
     },
 
     // ------------------------------------------------------------------

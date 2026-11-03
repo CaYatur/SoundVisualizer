@@ -15,7 +15,12 @@
 
    Ayrıştırıcı ikisini de aynı iç yapıya indirger:
 
-     { start, end, text, words: [{ t, text }] }
+     { start, end, text, words: [{ t, end, text }] }
+
+  Kelime süresi (#938): her kelimenin bir BİTİŞİ var. Gelişmiş LRC'de (A2)
+  metinsiz bir `<mm:ss.xx>` etiketi önceki kelimenin bittiği an demektir —
+  uzatılan hece böyle yazılır. Bitiş etiketi yoksa kelime bir sonrakine (son
+  kelime satır sonuna) kadar sürer; eski dosyalar aynen eskisi gibi görünür.
 
    Böylece oynatıcı tek bir arama yapar ve biçim farkı görünmez olur.
 
@@ -36,6 +41,17 @@
       f = (parseInt(frac, 10) || 0) / Math.pow(10, digits);
     }
     return m * 60 + s + f;
+  }
+
+  /* Bitişi yazılmamış kelimeler bir sonrakine, son kelime satır sonuna
+     kadar sürer. Açık bitiş, bir sonraki kelimeden sonraya taşamaz. */
+  function fillWordEnds(line) {
+    const ws = line.words || [];
+    for (let i = 0; i < ws.length; i++) {
+      const next = i + 1 < ws.length ? ws[i + 1].t : line.end;
+      if (ws[i].end == null || !(ws[i].end > ws[i].t)) ws[i].end = Math.max(ws[i].t, next);
+      else if (ws[i].end > next && i + 1 < ws.length) ws[i].end = next;
+    }
   }
 
   function parseLRC(text) {
@@ -88,9 +104,23 @@
       if (words.length) words[words.length - 1].text += tail;
       else plain += tail;
 
-      const full = (plain + words.map((w) => w.text).join('')).trim();
+      /* Metinsiz (ya da yalnız boşluk) kelime bir BİTİŞ etiketidir: önceki
+         kelimenin süresini kapatır. Boşluğu kaybetmemek için metni öncekine
+         eklenir. Satır başındaki metinsiz etiket yine kelime sayılır (eski
+         davranış). */
+      const kept = [];
+      for (const w of words) {
+        const prev = kept[kept.length - 1];
+        if (prev && !w.text.trim()) {
+          if (prev.end == null && w.t >= prev.t) prev.end = w.t;
+          prev.text += w.text;
+          continue;
+        }
+        kept.push(w);
+      }
+      const full = (plain + kept.map((w) => w.text).join('')).trim();
       for (const t of stamps) {
-        lines.push({ start: t, end: 0, text: full, words: words.map((w) => ({ t: w.t, text: w.text })) });
+        lines.push({ start: t, end: 0, text: full, words: kept.map((w) => (w.end != null ? { t: w.t, end: w.end, text: w.text } : { t: w.t, text: w.text })) });
       }
     }
 
@@ -98,6 +128,7 @@
     // LRC bitiş taşımaz: her satır bir sonraki başlayana kadar sürer
     for (let i = 0; i < lines.length; i++) {
       lines[i].end = i + 1 < lines.length ? lines[i + 1].start : lines[i].start + 5;
+      fillWordEnds(lines[i]);
     }
     const offset = parseFloat(meta.offset);
     if (isFinite(offset) && offset !== 0) {
@@ -107,7 +138,7 @@
       for (const l of lines) {
         l.start += d;
         l.end += d;
-        for (const w of l.words) w.t += d;
+        for (const w of l.words) { w.t += d; w.end += d; }
       }
     }
     return { meta, lines, format: 'lrc' };
@@ -160,10 +191,12 @@
      demek ve söz dosyaları birkaç yüz satır olabiliyor. Doğrusal tarama
      çalışırdı ama kare bütçesinden gereksiz yer alırdı.
 
-     Dönüş: { index, line, progress, wordIndex } — hiçbiri yoksa index -1. */
+     Dönüş: { index, line, progress, wordIndex, wordProgress } — hiçbiri
+     yoksa index -1. wordProgress etkin kelimenin süresi içindeki konum
+     (0..1); kelime bitişi geçtiyse 1. */
   function at(doc, time, offset) {
     const lines = (doc && doc.lines) || [];
-    if (!lines.length) return { index: -1, line: null, progress: 0, wordIndex: -1 };
+    if (!lines.length) return { index: -1, line: null, progress: 0, wordIndex: -1, wordProgress: 0 };
     const t = time + (offset || 0);
     let lo = 0;
     let hi = lines.length - 1;
@@ -172,9 +205,9 @@
       const mid = (lo + hi) >> 1;
       if (lines[mid].start <= t) { idx = mid; lo = mid + 1; } else hi = mid - 1;
     }
-    if (idx < 0) return { index: -1, line: null, progress: 0, wordIndex: -1 };
+    if (idx < 0) return { index: -1, line: null, progress: 0, wordIndex: -1, wordProgress: 0 };
     const line = lines[idx];
-    if (t > line.end) return { index: -1, line: null, progress: 0, wordIndex: -1 };
+    if (t > line.end) return { index: -1, line: null, progress: 0, wordIndex: -1, wordProgress: 0 };
     const span = Math.max(1e-6, line.end - line.start);
     const progress = Math.max(0, Math.min(1, (t - line.start) / span));
 
@@ -185,7 +218,13 @@
         if (line.words[i].t <= t) wordIndex = i; else break;
       }
     }
-    return { index: idx, line, progress, wordIndex };
+    let wordProgress = 0;
+    if (wordIndex >= 0) {
+      const w = line.words[wordIndex];
+      const wEnd = w.end > w.t ? w.end : (wordIndex + 1 < line.words.length ? line.words[wordIndex + 1].t : line.end);
+      wordProgress = wEnd > w.t ? Math.max(0, Math.min(1, (t - w.t) / (wEnd - w.t))) : 1;
+    }
+    return { index: idx, line, progress, wordIndex, wordProgress };
   }
 
   // Tüm zamanlamayı kaydır (elle senkron düzeltmesi)
@@ -194,7 +233,7 @@
     for (const l of doc.lines) {
       l.start += seconds;
       l.end += seconds;
-      for (const w of l.words) w.t += seconds;
+      for (const w of l.words) { w.t += seconds; if (w.end != null) w.end += seconds; }
     }
     return doc;
   }
@@ -214,7 +253,44 @@
     return out.join('\n');
   }
 
-  const api = { parse, parseLRC, parseSRT, at, shift, toLRC };
+  /* ZAMANLAMA DÜZENLEYİCİSİ YARDIMCILARI (#414, #938). Metin üzerinde
+     çalışırlar: kullanıcının yazdığı biçim, yorum ve üst bilgi korunur. */
+  function fmtStamp(t) {
+    const cs = Math.round(Math.max(0, t) * 100);
+    const pad = (n, w) => String(Math.floor(n)).padStart(w, '0');
+    return pad(cs / 6000, 2) + ':' + pad((cs / 100) % 60, 2) + '.' + pad(cs % 100, 2);
+  }
+  // Seçili satır aralığındaki ([a, b], 0 tabanlı) bütün [..] ve <..> etiketlerini kaydır
+  function nudgeText(text, fromLine, toLine, seconds) {
+    const rows = clean(text).split('\n');
+    const a = Math.max(0, fromLine | 0);
+    const b = Math.min(rows.length - 1, toLine == null ? rows.length - 1 : toLine | 0);
+    const RE = /([[<])(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?([\]>])/g;
+    for (let i = a; i <= b; i++) {
+      rows[i] = rows[i].replace(RE, (all, o, mm, ss, fr, c) => {
+        if ((o === '[') !== (c === ']')) return all;
+        return o + fmtStamp(lrcTime(mm, ss, fr) + seconds) + c;
+      });
+    }
+    return rows.join('\n');
+  }
+  // [a, b] satırlarının (0 tabanlı) metindeki başlangıç ve bitiş konumu
+  function lineSpan(text, a, b) {
+    const rows = String(text == null ? '' : text).split('\n');
+    const start = rows.slice(0, a).reduce((n, r) => n + r.length + 1, 0);
+    return [start, start + rows.slice(a, b + 1).join('\n').length];
+  }
+  /* İmlecin olduğu yere kelime etiketi koy: dokun-zamanla (tap). Kelime
+     sonuna konan etiket o kelimenin BİTİŞİ olur (uzatılan hece). Dönüş:
+     { text, caret } */
+  function stampAt(text, caret, seconds) {
+    const s = String(text == null ? '' : text);
+    const c = Math.max(0, Math.min(s.length, caret | 0));
+    const tag = '<' + fmtStamp(seconds) + '>';
+    return { text: s.slice(0, c) + tag + s.slice(c), caret: c + tag.length };
+  }
+
+  const api = { parse, parseLRC, parseSRT, at, shift, toLRC, nudgeText, stampAt, fmtStamp, lineSpan };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLyrics = api;
 })();

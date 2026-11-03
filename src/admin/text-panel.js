@@ -243,11 +243,15 @@
       // ------------------------------------------------------------ söz
       const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
       const doc = T.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(T.lyricsSource) : null;
-      const info = doc
-        ? doc.lines.length + ' satır · ' + doc.format.toUpperCase() +
-          (doc.lines.some((l) => l.words && l.words.length) ? ' · karaoke zamanlı' : '')
-        : 'yüklü dosya yok';
-      nodes.push(P().row('Dosya', el('span', { class: 'txt-info', text: (T.lyricsName || '') + ' ' + info })));
+      /* Dosya adı, satır sayısı ve karaoke notu AYRI metin düğümleri: tek
+         dizede birleşince ("track.lrc 2 satır") çeviri sözlüğü eşleşemiyor
+         ve İngilizce arayüzde Türkçe kalıyordu. */
+      const karaoke = doc && doc.lines.some((l) => l.words && l.words.length);
+      const parts = [];
+      if (T.lyricsName) parts.push(el('span', { class: 'txt-name', text: T.lyricsName }), el('span', { text: ' ' }));
+      parts.push(el('span', { text: doc ? doc.lines.length + ' satır · ' + doc.format.toUpperCase() : 'yüklü dosya yok' }));
+      if (karaoke) parts.push(el('span', { text: ' · ' }), el('span', { text: 'karaoke zamanlı' }));
+      nodes.push(P().row('Dosya', el('span', { class: 'txt-info' }, parts)));
 
       nodes.push(el('div', { class: 'row' }, [
         el('button', {
@@ -289,6 +293,20 @@
         min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
       }));
       nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }, rerender));
+      if (T.karaoke !== false) {
+        // Kelime süresi (#938): dolum biçimi ve uzatılan hecenin esnemesi
+        nodes.push(SP().miniSelect('Karaoke Dolumu', [['word', 'Kelime Kelime'], ['progressive', 'Kelime İçinde Akan']],
+          () => T.karaokeFill || 'word', (v) => { T.karaokeFill = v; sync(); }, null, 'word'));
+        nodes.push(SP().miniToggle('Uzatılan Heceyi Esnet', () => T.karaokeHold === true, (v) => { T.karaokeHold = v; sync(); }, rerender));
+        if (T.karaokeHold === true) {
+          nodes.push(SP().miniSlider('Esneme Eşiği', () => (T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin), (v) => { T.karaokeHoldMin = v; sync(); }, {
+            min: 0.2, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
+          }));
+          nodes.push(SP().miniSlider('Esneme Miktarı', () => (T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount), (v) => { T.karaokeHoldAmount = v; sync(); }, {
+            min: 0, max: 1, step: 0.01, percent: true,
+          }));
+        }
+      }
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.' }));
     }
 

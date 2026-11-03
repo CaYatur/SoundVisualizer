@@ -63,6 +63,10 @@
   /* Yalnız panelde kaydırıcısı olan ayarlar. Denetleyici hedefi değiller, bu yüzden
      SLIDERS'ta durmuyorlar: OSC ağacı ve kontrol hedefleri o listeden üretiliyor. */
   const RANGES = [
+    { path: 'screensaver.idleSec', min: 10, max: 3600, noExtend: true },
+    { path: 'screensaver.dim', min: 0.2, max: 1, noExtend: true },
+    { path: 'recovery.intervalSec', min: 15, max: 900, noExtend: true },
+    { path: 'lyricsLookup.timeoutMs', min: 1000, max: 15000, noExtend: true },
     { path: 'background.gradient.audioBrightness', min: 0, max: 2 },
     { path: 'background.gradient.drift', min: 0, max: 1 },
     { path: 'background.gradient.grain', min: 0, max: 0.2 },
