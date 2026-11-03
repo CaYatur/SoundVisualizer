@@ -467,7 +467,7 @@
     if (!doc || typeof doc !== 'object') return out;
     const flag = doc.layerStack && typeof doc.layerStack.enabled === 'boolean' ? doc.layerStack.enabled : null;
     const list = Array.isArray(doc.layers) ? doc.layers : [];
-    if (flag === true && list.length) return out;
+    if (flag === true) return out;
     if (flag === false && list.length) {
       doc.layerStack.archivedLayers = list;
       doc.layers = [];
@@ -476,6 +476,19 @@
     setStackEnabled(doc, true);
     out.changed = true;
     return out;
+  }
+
+  /* Tek yol katman listesi (#905). Anahtar kalktı; varsayılana dönen alanlar, sıfırlama
+     ve dışarıdan yazılan yapılandırma burada yığına döner. Dolu liste silinmez:
+     göçten farkı bu, burada arşivlenecek eski bir sahne yok. */
+  function ensureStack(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    if (cfg.layerStack && cfg.layerStack.enabled === true) return;
+    if (Array.isArray(cfg.layers) && cfg.layers.length) {
+      cfg.layerStack = Object.assign({}, cfg.layerStack, { enabled: true });
+      return;
+    }
+    setStackEnabled(cfg, true);
   }
 
   /* Canlı görselleştirici.
@@ -2525,6 +2538,7 @@
     stackOn,
     setStackEnabled,
     toStack,
+    ensureStack,
     adoptVisualizer,
     revealLayer,
     effectivePath,

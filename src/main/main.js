@@ -3649,6 +3649,8 @@ ipcMain.on('lyrics-clock', (e, anchor) => {
    kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
    zaten diskte olduğu için kaydedilmez. */
 function applyIncomingConfig(config, opts) {
+  const stack = stackHelpers();
+  if (stack) stack.ensureStack(config); // MCP ve uzak yol da katman listesinde kalsın (#905)
   opts = redundancyGuard(config, opts); // yedek izlerken görüntü birincilden (#540)
   noteLyricsFile(config);
   const save = !(opts && opts.save === false);

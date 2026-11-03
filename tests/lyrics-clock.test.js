@@ -77,7 +77,7 @@ test('ekranlara uygulayınca durmuş söz hemen oynar', () => {
   assert.match(arm, /startsOnOutput\(lyricsClockAnchor\)/);
   assert.match(arm, /publishLyricsClock\(\{ run: 'play', time: 0, epoch: Date\.now\(\) \}\)/);
   const applyAt = main.indexOf('function applyIncomingConfig');
-  const apply = main.slice(applyAt, applyAt + 500);
+  const apply = main.slice(applyAt, applyAt + 700);
   const noteAt = apply.indexOf('noteLyricsFile(config)');
   const saveAt = apply.indexOf('saveSettings(config)');
   assert.ok(noteAt >= 0 && saveAt >= 0 && noteAt < saveAt);

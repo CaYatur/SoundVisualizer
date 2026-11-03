@@ -181,7 +181,7 @@ test('her şablon uygulandığında tam ve geçerli bir yapılandırma verir', (
   assert.strictEqual(outUser.logo.src, 'data:image/png;base64,abc', 'logo.src korunmalı');
   assert.strictEqual(outUser.layerStack.enabled, true, 'layerStack.enabled korunmalı');
 
-  // Şablonda açıkça logo veya katman yığını belirtilmişse o tercih edilir
+  // Şablonda açıkça logo belirtilmişse o tercih edilir; katman yığını kapatılamaz (#905)
   const customTpl = {
     id: 'test-custom',
     name: 'Test',
@@ -192,7 +192,7 @@ test('her şablon uygulandığında tam ve geçerli bir yapılandırma verir', (
   };
   const outCustom = T.apply(userCfg, customTpl, env);
   assert.strictEqual(outCustom.logo.enabled, false, 'şablondaki açık logo tercihi uygulanmalı');
-  assert.strictEqual(outCustom.layerStack.enabled, false, 'şablondaki açık layerStack tercihi uygulanmalı');
+  assert.strictEqual(outCustom.layerStack.enabled, true, 'tek yol katman listesi');
 });
 
 
