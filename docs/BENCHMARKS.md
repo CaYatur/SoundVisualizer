@@ -633,3 +633,18 @@ scene, not the display; the line below is corrected by hand, and read every figu
 | `mirror` | 28.4 | 35.25 | 50.40 | 66.8 | 49.6% |
 | `solarize` | 28.2 | 35.44 | 50.40 | 55.4 | 49.1% |
 | `kaleido` | 28.1 | 35.55 | 50.10 | 62.3 | 54.9% |
+
+## Exports that must not change
+
+`npm run golden` exports every built-in template and every scene of the settings you give it, and writes a hash of every frame. Compare a later run with `--baseline`. A difference is either a bug or a written decision.
+
+```bash
+npm run golden -- --out=<folder> --settings=<settings.json> --presets=<folder>
+npm run golden -- --out=<folder> --baseline=<earlier golden.json>
+```
+
+Each case starts from the same clean state and runs twice: as it is, and with the layer switch flipped. The report separates the two directions. Classic to layers is what the v4 migration does, so it should not change the picture. Layers to classic shows what the classic path cannot draw.
+
+Two cases are not stable from run to run on v3.1.7: the Lorenz template (one frame in 60) and a scene that picks its MilkDrop preset at random. Two runs of the same code agreed on 211 of 214 exports, and those three were the only differences.
+
+It uses a temporary profile and copies the settings and presets, so it does not touch your own. Like `npm run perf`, it needs a GPU, so it does not run in CI.
