@@ -3,16 +3,27 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v3.1.7-beta
+## v3.1.7 — ready, not yet released
 
 ### Performance
 
+- **Much lighter than v3.1.6.** `npm run perf`, the same settings and a library of 10,392 presets, two
+  alternating runs of each version on one machine:
+
+  | | v3.1.6 | v3.1.7 |
+  |---|---:|---:|
+  | Total memory | 2,731 and 2,838 MB | 1,370 and 1,388 MB |
+  | Total CPU (% of one core) | 174 and 158 | 131 and 131 |
+  | Frame gaps over 100 ms in 60 s | 5 and 6 | 0 and 0 |
+  | Longest frame | 227 and 253 ms | 27 and 27 ms |
+  | Opening a visualizer window | 783 and 513 ms | 364 and 372 ms |
+  | Opening the panel | 2.0 and 1.6 s | 1.8 and 1.6 s |
+
+  Exports are unchanged: six scenes of 180 frames each came out identical, frame by frame.
 - **A large preset library no longer costs memory and freezes in every window** (#906). Every window
   held the full text of every MilkDrop preset: 122 MB for 10,392 presets, and a freeze of 216-239 ms
   about every 11.5 seconds while garbage collection went through it. Windows now get a list without
-  the text and ask for it when a preset is drawn, edited or mixed. Same scene and library, before and
-  after: total memory 3,002 → 1,532 MB, frame gaps over 100 ms in 60 seconds 5 → 0, longest frame
-  267 → 53 ms, opening the panel 3.2 → 1.7 s, opening a visualizer window 945 → 470 ms.
+  the text and ask for it when a preset is drawn, edited or mixed.
 - **Compiling a shader no longer freezes the picture** (#907). Studio shaders, effects and the gradient
   background now compile in the background. The picture keeps running, the previous shader stays on
   screen until the new one is ready, and an effect joins once it has compiled. With an empty shader
