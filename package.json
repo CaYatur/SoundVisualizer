@@ -34,6 +34,7 @@
     "release:assets": "node scripts/release-assets.js",
     "bench": "node scripts/bench.js",
     "perf": "node scripts/perf.js",
+    "golden": "node scripts/golden.js",
     "parity": "node scripts/parity.js",
     "failover": "node scripts/failover.js",
     "bridge-rig": "node scripts/bridge-rig.js",
