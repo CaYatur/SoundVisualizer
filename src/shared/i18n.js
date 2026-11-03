@@ -5036,8 +5036,10 @@
     if (!row) return key;
     return use === 'tr' ? row.tr : row.en;
   }
-  if (typeof document === 'undefined') {
+  if (typeof document === 'undefined' || !document.documentElement) {
     if (typeof module !== 'undefined' && module.exports) module.exports = { mcpText: mcpText, MCP_I18N: MCP_I18N };
+    // Motor Worker'ı: belge yok ama metin katmanları çevrilmiş yazı çiziyor
+    if (typeof WorkerGlobalScope !== 'undefined') self.SVI18n = { locale, t: translate };
     return;
   }
 
