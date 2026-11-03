@@ -113,3 +113,45 @@ test('şablon sahneden kalan medya, metin, grup ve çapraz geçişi sıfırlıyo
     if (T.TEMPLATES[0].patch[k] === undefined) assert.deepStrictEqual(out[k], def[k], k);
   }
 });
+
+test('varsayılandaki her sahne ayarını çalışma zamanında okuyan bir dosya var', () => {
+  /* Anahtar adı düzeyinde kaba bir kapı: yol düzeyinde okumayı kanıtlamaz, ama hiçbir
+     yerde geçmeyen yeni bir ayarı yakalar. Yalnız liste tutan dosyalar sayılmaz:
+     onlarda geçmek okunduğunu göstermez. */
+  require('../src/shared/defaults.js');
+  const LISTS = new Set(['defaults.js', 'schema.js', 'i18n.js', 'osc-tree.js', 'mcp.js', 'templates.js', 'presets.js', 'migrate-v4.js', 'show-keys.js']);
+  // Motorda değil, ana süreçte pencere boyutunu belirliyor
+  const OUTSIDE_ENGINE = new Set(['background.coverTaskbar']);
+  const words = new Set();
+  const scan = (dir) => {
+    for (const f of fs.readdirSync(path.join(__dirname, '..', dir), { withFileTypes: true })) {
+      const rel = dir + '/' + f.name;
+      if (f.isDirectory()) scan(rel);
+      else if (f.name.endsWith('.js') && !LISTS.has(f.name)) {
+        for (const w of read(rel).match(/[A-Za-z_][A-Za-z0-9_]*/g) || []) words.add(w);
+      }
+    }
+  };
+  ['src/visualizer', 'src/exporter', 'src/shared'].forEach(scan);
+  assert.ok(!words.has('hicbirYerdeOkunmayanAyar'), 'kapı boş geçmiyor');
+  const defs = global.window.SV.defaultConfig();
+  const unread = [];
+  let seen = 0;
+  const visit = (o, pre) => {
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      const at = pre + '.' + k;
+      if (v && typeof v === 'object' && !Array.isArray(v)) visit(v, at);
+      else {
+        seen++;
+        if (!words.has(k) && !OUTSIDE_ENGINE.has(at)) unread.push(at);
+      }
+    }
+  };
+  for (const sec of Schema.SCENE_KEYS.concat(['audio'])) {
+    const v = defs[sec];
+    if (v && typeof v === 'object' && !Array.isArray(v)) visit(v, sec);
+  }
+  assert.ok(seen > 400, 'taranan ayar ' + seen);
+  assert.deepStrictEqual(unread, []);
+});
