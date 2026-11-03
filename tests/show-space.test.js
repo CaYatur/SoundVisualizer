@@ -147,7 +147,7 @@ test('ana süreç: diske yerel gösteri, yetkide son kopya tutuluyor, bırakınc
 test('eski gönderim yedeğin öğesini ezmiyor; paket çakışması yerel öğeyi koruyor', () => {
   const main = read('src/main/main.js');
   const asset = main.slice(main.indexOf('function onPrimaryAsset(msg) {'), main.indexOf("ipcMain.handle('redundancy:push'"));
-  assert.match(asset, /if \(presetsStore\.get\(msg\.preset\.id\)\) return false;/);
+  assert.match(asset, /if \(presetsStore\.has\(msg\.preset\.id\)\) return false;/);
   assert.match(asset, /if \(own && own\.file\) return false;/);
   const inst = main.slice(main.indexOf('function loadPackageOverlay() {'), main.indexOf('/* ---', main.indexOf('function installPackage() {')));
   // Paket kütüphaneye hiçbir şey yazmaz: eksikler yalıtılmış katmana (#812)
