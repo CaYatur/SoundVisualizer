@@ -407,7 +407,7 @@ async function scenario(name, takeover, opts) {
       await pb.eval('(() => { const c = SVPanel.cfg(); c.master = Object.assign({}, c.master || {}, { brightness: 0.9 }); SVPanel.apply(); return true; })()');
       await wait(2600);
       const disk = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
-      res.saveAfterOffKept = disk.redundancy.role === 'off' && (disk.scenes || []).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig';
+      res.saveAfterOffKept = disk.redundancy.role === 'off' && JSON.parse(fs.readFileSync(path.join(dirB, 'scenes.json'), 'utf8')).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig';
     }
     /* Süreç öldü: işletim sistemi bağlantıyı kapatır, yedek kısa payla
        (en az 300 ms, üç atış) karar verir. + son atıştan öldürmeye kadar
