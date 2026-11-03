@@ -226,6 +226,7 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const SETTINGS_V3_BACKUP = path.join(app.getPath('userData'), 'settings.v3-backup.json');
 const audioBridge = require('./audio-bridge');
 const { createInputSwitch } = require('./bridge-input');
 const bridgeAnalysis = require('./bridge-analysis');
@@ -293,6 +294,25 @@ function restoreSmokeSettings() {
 // ----------------------------------------------------------------------------
 // Ayar kalıcılığı
 // ----------------------------------------------------------------------------
+/* v4 göçü (#905). Disktekini çevirmeden önce bir kez kopyalar: eski dosya yedek olarak
+   kalır, üstüne yazılmaz. Çevrilen bellekteki; dosya bir sonraki kayıtta değişir, o
+   zamana kadarki okumalar aynı sonucu verir. */
+const migrationLogged = new Set();
+function migrateLoaded(cfg) {
+  const migrateV4 = require('../shared/migrate-v4');
+  if (!migrateV4.needsMigration(cfg)) return cfg;
+  try {
+    if (fs.existsSync(SETTINGS_PATH) && !fs.existsSync(SETTINGS_V3_BACKUP)) fs.copyFileSync(SETTINGS_PATH, SETTINGS_V3_BACKUP);
+  } catch (e) {
+    console.warn('[ayarlar] göç yedeği alınamadı: ' + (e && e.message));
+  }
+  const r = migrateV4.migrate(cfg);
+  const note = r.archived.filter((n) => !migrationLogged.has(n));
+  note.forEach((n) => migrationLogged.add(n));
+  if (note.length) console.log('[ayarlar] eski katmanlar arşivlendi: ' + note.join(', '));
+  return cfg;
+}
+
 function loadSettings() {
   /* Kayıt birleştirilirken (#621) disk son değişikliğin 300 ms gerisinde
      kalabiliyor; dosyayı okuyan (yeni açılan pencere, `get-settings`)
@@ -304,7 +324,7 @@ function loadSettings() {
        düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
        JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
        biçimi de çözüyor (source: string -> sources: [string]). */
-    return sanitizeLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)));
+    return sanitizeLoaded(migrateLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH))));
   } catch {
     return null;
   }
@@ -3742,6 +3762,7 @@ ipcMain.handle('settings-conflict:resolve', (e, choice) => {
     settingsGuard.remember(buf);
     pendingSettings = null;
     settingsConflict = null;
+    sanitizeLoaded(migrateLoaded(loaded));
     applyIncomingConfig(loaded, { save: false });
     notifyAdmin('external-config', loaded); // panel kendi kopyasını tazelesin
     notifyInstanceStatus();
@@ -8736,7 +8757,7 @@ app.whenReady().then(async () => {
   } catch {
     currentConfig = null;
   }
-  sanitizeLoaded(currentConfig); // stray layer settings.postfx (#768)
+  sanitizeLoaded(migrateLoaded(currentConfig)); // v4 göçü (#905), stray layer settings.postfx (#768)
   if (currentConfig?.lighting?.enabled) {
     lightingSet(currentConfig.lighting).catch(() => {});
   }

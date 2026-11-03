@@ -169,7 +169,7 @@
      kipindeki bir istemci `stream` nesnesinin tamamını yazıp yayın
      anahtarını değiştirebiliyor, `power` ile ESC kilidini kaldırabiliyordu. */
   const PATH_GROUPS = {
-    mcp: 'mcp', version: 'never',
+    mcp: 'mcp', version: 'never', docVersion: 'never',
     // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
     redundancy: 'never',
     bridge: 'never', // ses köprüsü (#813): kurulum ve parola

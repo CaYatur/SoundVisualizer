@@ -6036,6 +6036,8 @@
     const arr = ensureScenes();
     incoming.forEach((s) => {
       if (!s || !s.data) return;
+      // Eski sürümden gelen sahne de katman listesi olsun (#905)
+      window.SVMigrateV4.migrateScene(s.data);
       arr.push({
         id: uid('sc_'),
         name: (s.name || 'İçe Aktarılan').toString(),
@@ -6133,6 +6135,7 @@
     const preservedPresets = Array.isArray(cfg.userPresets) ? cfg.userPresets : [];
     const preservedScenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
     const sanitized = cloneWithoutUserContent(incoming);
+    window.SVMigrateV4.migrate(sanitized);
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
     // Başka makineden gelen yedek bu makinede çalışmayan kaynak taşıyabilir
     platformAdjust(cfg);

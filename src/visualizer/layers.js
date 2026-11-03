@@ -459,6 +459,25 @@
     }
   }
 
+  /* v4 göçü (#905): sahneyi ekrandaki görüntüsünü koruyarak katman listesine çevirir.
+     Yığını kapalı sahnede ekrandaki klasik içeriktir; duran eski katmanlar silinmez,
+     archivedLayers altına kaldırılır. Çevrilmiş sahnede bir şey yapmaz. */
+  function toStack(doc) {
+    const out = { changed: false, archived: false };
+    if (!doc || typeof doc !== 'object') return out;
+    const flag = doc.layerStack && typeof doc.layerStack.enabled === 'boolean' ? doc.layerStack.enabled : null;
+    const list = Array.isArray(doc.layers) ? doc.layers : [];
+    if (flag === true && list.length) return out;
+    if (flag === false && list.length) {
+      doc.layerStack.archivedLayers = list;
+      doc.layers = [];
+      out.archived = true;
+    }
+    setStackEnabled(doc, true);
+    out.changed = true;
+    return out;
+  }
+
   /* Canlı görselleştirici.
      Yığın açıkken resolve() yalnız cfg.layers'a bakar. Studio ve MCP
      cfg.visualizer.type yazınca liste, çıkış ve önizleme eski katmanda
@@ -2505,6 +2524,7 @@
     resolve,
     stackOn,
     setStackEnabled,
+    toStack,
     adoptVisualizer,
     revealLayer,
     effectivePath,
