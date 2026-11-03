@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('api', {
   mediaLibImport: () => ipcRenderer.invoke('media-lib:import'),
   lyricsLibList: () => ipcRenderer.invoke('lyrics-lib:list'),
   lyricsLibSnapshot: () => ipcRenderer.invoke('lyrics-lib:snapshot'),
+  lyricsCacheClear: () => ipcRenderer.invoke('lyrics-cache:clear'),
   lyricsLibRead: (id) => ipcRenderer.invoke('lyrics-lib:read', id),
   lyricsLibRemove: (id) => ipcRenderer.invoke('lyrics-lib:remove', id),
   lyricsLibUpdate: (id, patch) => ipcRenderer.invoke('lyrics-lib:update', id, patch),
@@ -236,6 +237,10 @@ contextBridge.exposeInMainWorld('api', {
   onArtnetStatus: (cb) => ipcRenderer.on('artnet-status', (e, d) => cb(d)),
   oscStatus: () => ipcRenderer.invoke('osc:status'),
   oscSync: () => ipcRenderer.invoke('osc:sync'),
+  tempoSyncStatus: () => ipcRenderer.invoke('tempo-sync:status'),
+  onTempoSync: (cb) => ipcRenderer.on('tempo-sync', (e, d) => cb(d)),
+  recoveryStatus: () => ipcRenderer.invoke('recovery:status'),
+  remotePeersStatus: () => ipcRenderer.invoke('remote-peers:status'),
   onOscMessage: (cb) => ipcRenderer.on('osc-message', (e, m) => cb(m)),
   onOscStatus: (cb) => ipcRenderer.on('osc-status', (e, d) => cb(d)),
   // OSC çıkışı (#437)
