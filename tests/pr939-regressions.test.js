@@ -263,3 +263,13 @@ test('kumanda sinyali İngilizcede de çevrili, öğrenme bitince okuma durumu y
   const dict = dictionary();
   for (const k of ['Söz Önbelleğini Temizle', 'Söz önbelleği temizlendi.']) assert.ok(dict.has(k), k);
 });
+
+test('çökme bildirimi "sağlam" derken dosya gerçekten okunmuş olmalı', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /intact: !!startupSettings && !!usable/);
+  const panel = read('src/admin/extras-panel.js');
+  assert.match(panel, /n\.restored\s*\? 'Önceki oturum[^']*'\s*: n\.intact\s*\? 'Önceki oturum[^']*sağlam[^']*'\s*: 'Önceki oturum[^']*okunamadı[^']*'/);
+  // Üç metin de İngilizce arayüzde karşılığını buluyor
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(i18n.includes("'Önceki oturum beklenmedik biçimde kapandı. Ayar dosyası okunamadı, varsayılan ayarlarla açıldı.':"));
+});

@@ -8835,8 +8835,9 @@ app.whenReady().then(async () => {
       recovery = sessionRecovery.create({ dir: recoveryDir(), keep: 5 });
       const crashed = recovery.begin();
       if (crashed) {
-        recoveryNotice = { crashed: true, restored: false, at: crashed.at };
         const usable = currentConfig && typeof currentConfig === 'object' && !Array.isArray(currentConfig);
+        // "Sağlam" yalnız dosya gerçekten okunduysa: silinmiş ya da bozuk dosya varsayılanla açılır
+        recoveryNotice = { crashed: true, restored: false, intact: !!startupSettings && !!usable, at: crashed.at };
         if (sessionRecovery.shouldRestore(crashed, startupSettings, usable)) {
           const snap = recovery.latest();
           if (snap) {

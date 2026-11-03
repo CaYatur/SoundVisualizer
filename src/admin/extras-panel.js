@@ -139,9 +139,12 @@
     try {
       const n = await window.api.recoveryStatus();
       if (!n) return;
-      P().toast(T(n.restored
+      const text = n.restored
         ? 'Önceki oturum beklenmedik biçimde kapandı; ayarlar son kurtarma kopyasından geri yüklendi.'
-        : 'Önceki oturum beklenmedik biçimde kapandı. Ayarlar sağlam, olduğu gibi açıldı.'), n.restored ? 'warn' : 'info');
+        : n.intact
+          ? 'Önceki oturum beklenmedik biçimde kapandı. Ayarlar sağlam, olduğu gibi açıldı.'
+          : 'Önceki oturum beklenmedik biçimde kapandı. Ayar dosyası okunamadı, varsayılan ayarlarla açıldı.';
+      P().toast(T(text), n.restored || !n.intact ? 'warn' : 'info');
     } catch { /* */ }
   }
 
