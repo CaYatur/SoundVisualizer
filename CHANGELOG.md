@@ -3,7 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v3.1.7 — ready, not yet released
+## v3.1.7 — 2026-11-03
 
 ### Performance
 
@@ -19,7 +19,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   | Opening a visualizer window | 783 and 513 ms | 364 and 372 ms |
   | Opening the panel | 2.0 and 1.6 s | 1.8 and 1.6 s |
 
-  Exports are unchanged: six scenes of 180 frames each came out identical, frame by frame.
+  Exports at 60 fps are unchanged: six scenes of 180 frames each came out identical, frame by frame. The
+  intended difference is at other frame rates, where bar peak caps now fall at the right speed (#878).
 - **A large preset library no longer costs memory and freezes in every window** (#906). Every window
   held the full text of every MilkDrop preset: 122 MB for 10,392 presets, and a freeze of 216-239 ms
   about every 11.5 seconds while garbage collection went through it. Windows now get a list without
@@ -33,11 +34,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The panel preview draws less while an output window is open** (#908). It redraws the whole scene, and
   while an output is open it now does so 20 times a second instead of 45. On a real scene, total CPU went
   from about 174 to 150 (% of one core). Audio in the panel stays at full rate, so tempo tracking for Auto
-  VJ does not change. *Output › Power › Panel Preview* can keep it always smooth or always slower.
+  VJ does not change. *Output › Power / Performance › Panel Preview* can keep it always smooth or always slower.
 - **Output windows skip audio analysis nobody reads** (#908). Chroma and harmonic analysis now run in an
   output window only for OSC output, a modulation route that uses them, or the Goniometer and Chroma
   Wheel modes. That was about 4% of one core per window.
-- **Low-power mode** (#458), for laptops on battery and long unattended runs. *Output › Power › Low-Power
+- **Low-power mode** (#458), for laptops on battery and long unattended runs. *Output › Power / Performance › Low-Power
   Mode* can be on always or only on battery. It limits the frame rate to 30, turns effects off, and lowers
   MilkDrop and background resolution. Exports and the OBS source do not change, and neither do your
   settings. It is off by default.

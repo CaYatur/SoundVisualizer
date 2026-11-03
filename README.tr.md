@@ -2007,7 +2007,8 @@ platform derlemeler, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başı
 basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu, v3.1.5'te
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
 müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
-düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri. Sırada ne olduğunu da yazıyor; neyin
+düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
+donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. Sırada ne olduğunu da yazıyor; neyin
 *yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
