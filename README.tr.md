@@ -1299,6 +1299,9 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   değer kaybetmeden açılıyor.
 - **Güç ve performans** — *Ekranla Eşitle* kare hızı ya da 120, 60 veya 30 FPS sınırı, arkaplan
   çözünürlük ölçeği, sessizlikte duraklatma, imleci gizleme, her zaman üstte, ve görev çubuğunu örtme.
+  Düşük güç kipi, her zaman ya da yalnız pildeyken, kare hızını 30 ile sınırlıyor, efektleri kapatıyor,
+  MilkDrop ve arkaplan çözünürlüğünü düşürüyor; dışa aktarım ve OBS kaynağı değişmiyor. Çıkış açıkken
+  panel önizlemesi daha seyrek çiziyor.
 
 ---
 

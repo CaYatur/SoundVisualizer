@@ -1287,7 +1287,10 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Settings backup and restore** — every setting in one JSON file; palettes and scenes have their
   own export and survive an import. Files written by 1.3 and 2.0 load without losing a value.
 - **Power and performance** — *Match Display* frame rate or a cap of 120, 60 or 30 FPS, background
-  resolution scale, pause on silence, hide cursor, always on top, and cover the taskbar.
+  resolution scale, pause on silence, hide cursor, always on top, and cover the taskbar. A low-power
+  mode, always or only on battery, limits the frame rate to 30, turns effects off and lowers MilkDrop
+  and background resolution; exports and the OBS source do not change. The panel preview draws less
+  while an output is open.
 
 ---
 
