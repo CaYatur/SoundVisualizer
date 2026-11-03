@@ -65,7 +65,20 @@
     return !(current > 0) || Math.abs(current - next) >= (minDelta == null ? 0.1 : minDelta);
   }
 
-  const api = { create, shouldApply, PPQN };
+  /* Kaynak değişimi: dış tempo açılırken eldeki BPM saklanır, kapanınca geri
+     gelir (0 = tempo motorundan al). Dış değer ayarda takılı kalmasın. */
+  function switchSource(ts, modulation, next) {
+    const was = ts.source || 'off';
+    ts.source = next;
+    if (!modulation) return;
+    if (was === 'off' && next !== 'off') ts.savedBpm = modulation.bpm > 0 ? modulation.bpm : 0;
+    else if (was !== 'off' && next === 'off') {
+      modulation.bpm = ts.savedBpm > 0 ? ts.savedBpm : 0;
+      delete ts.savedBpm;
+    }
+  }
+
+  const api = { create, shouldApply, switchSource, PPQN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMidiClock = api;
 })();

@@ -475,14 +475,15 @@
   // Render döngüsü
   // --------------------------------------------------------------------------
   /* Boşta ekran koruyucu: uzun sessizlikte karartma katmanı ve gezinen
-     saat. DOM katmanı tuvalin üstünde; yayına (OBS) giden kare buna dahil
-     değil, yalnızca bu pencere kararır. */
+     saat. DOM katmanı tuvalin üstünde; yalnızca ekran penceresi kararır.
+     Giden görüntüye binmez: OBS sayfası (http) ve Spout/Syphon yakalama penceresi. */
+  const outgoingPage = location.protocol !== 'file:' || /(?:\?|&)svCapture=1(?:&|$)/.test(location.search);
   let saver = null;
   let saverEl = null;
   let saverTextAt = 0;
   function screensaverTick(cfg, dt) {
     const SS = window.SVScreensaver;
-    if (!SS) return;
+    if (!SS || outgoingPage) return;
     const c = cfg.screensaver;
     if (!saver) saver = SS.create();
     const silent = audio.level < 0.008 && audio.bass < 0.01;

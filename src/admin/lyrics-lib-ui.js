@@ -194,13 +194,22 @@
     };
     const lineRange = () => {
       const v = area.value;
-      const a0 = v.slice(0, area.selectionStart).split('\n').length - 1;
-      const b0 = v.slice(0, area.selectionEnd).split('\n').length - 1;
-      return [a0, b0];
+      const s = area.selectionStart;
+      // Seçim alt satırın başında bitiyorsa o satır seçili değildir
+      const e = area.selectionEnd > s && v[area.selectionEnd - 1] === '\n' ? area.selectionEnd - 1 : area.selectionEnd;
+      return [v.slice(0, s).split('\n').length - 1, v.slice(0, e).split('\n').length - 1];
     };
-    const edit = (next, caret) => {
-      area.value = next;
-      if (caret != null) area.selectionStart = area.selectionEnd = caret;
+    const edit = (next, caret, caretEnd) => {
+      /* Metin seçilip yazılıyor: .value atamak geri alma geçmişini siliyordu. */
+      const top = area.scrollTop;
+      area.focus();
+      area.select();
+      if (!document.execCommand('insertText', false, next) || area.value !== next) area.value = next;
+      if (caret != null) {
+        area.selectionStart = caret;
+        area.selectionEnd = caretEnd != null ? caretEnd : caret;
+      }
+      area.scrollTop = top;
       mark();
       if (info) info.textContent = lyricInfo(area.value);
       if (colorOn) paintLyrics(paint, area.value);
@@ -208,9 +217,14 @@
     };
     const nudge = (sec) => {
       if (!LY() || !LY().nudgeText) return;
-      const [a0, b0] = area.selectionStart === area.selectionEnd ? [0, null] : lineRange();
+      const picked = area.selectionStart !== area.selectionEnd;
+      const [a0, b0] = picked ? lineRange() : [0, null];
       const keep = area.selectionStart;
-      edit(LY().nudgeText(area.value, a0, b0, sec), keep);
+      const next = LY().nudgeText(area.value, a0, b0, sec);
+      /* Seçim aynı satırlarda kalır: boş seçim "hepsi" demek, ikinci tıklama
+         bütün dosyayı kaydırıyordu. */
+      if (picked) { const [s, e] = LY().lineSpan(next, a0, b0); edit(next, s, e); }
+      else edit(next, keep);
     };
     const stamp = (asLine) => {
       const t = clockNow();

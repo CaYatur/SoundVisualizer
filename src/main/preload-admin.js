@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('api', {
   mediaLibImport: () => ipcRenderer.invoke('media-lib:import'),
   lyricsLibList: () => ipcRenderer.invoke('lyrics-lib:list'),
   lyricsLibSnapshot: () => ipcRenderer.invoke('lyrics-lib:snapshot'),
+  lyricsCacheClear: () => ipcRenderer.invoke('lyrics-cache:clear'),
   lyricsLibRead: (id) => ipcRenderer.invoke('lyrics-lib:read', id),
   lyricsLibRemove: (id) => ipcRenderer.invoke('lyrics-lib:remove', id),
   lyricsLibUpdate: (id, patch) => ipcRenderer.invoke('lyrics-lib:update', id, patch),

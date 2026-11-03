@@ -127,11 +127,11 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['redundancy', 'secret'], ['bridge', 'secret']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['lyricsLookup', 'providers'], ['redundancy', 'secret'], ['bridge', 'secret']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];
-      if (sec && typeof sec === 'object' && sec[p[1]]) sec[p[1]] = '[redacted]';
+      if (sec && typeof sec === 'object' && sec[p[1]] && sec[p[1]].length) sec[p[1]] = '[redacted]';
     }
     return cfg;
   }
@@ -184,6 +184,8 @@
     bridge: 'never', // ses köprüsü (#813): kurulum ve parola
     updates: 'updates',
     stream: 'output', 'stream.token': 'streamToken', 'stream.remoteToken': 'streamToken',
+    // Çoklu kopya kumandası: öbür kopyaların jetonu ve kurulan bağlantı
+    'stream.remotePeers': 'streamToken',
     control: 'controlBindings',
     timeline: 'timeline', clipdeck: 'timeline',
     isBlackout: 'blackout', 'transition.blackoutType': 'blackout', 'transition.blackoutDuration': 'blackout',

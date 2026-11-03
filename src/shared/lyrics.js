@@ -274,6 +274,12 @@
     }
     return rows.join('\n');
   }
+  // [a, b] satırlarının (0 tabanlı) metindeki başlangıç ve bitiş konumu
+  function lineSpan(text, a, b) {
+    const rows = String(text == null ? '' : text).split('\n');
+    const start = rows.slice(0, a).reduce((n, r) => n + r.length + 1, 0);
+    return [start, start + rows.slice(a, b + 1).join('\n').length];
+  }
   /* İmlecin olduğu yere kelime etiketi koy: dokun-zamanla (tap). Kelime
      sonuna konan etiket o kelimenin BİTİŞİ olur (uzatılan hece). Dönüş:
      { text, caret } */
@@ -284,7 +290,7 @@
     return { text: s.slice(0, c) + tag + s.slice(c), caret: c + tag.length };
   }
 
-  const api = { parse, parseLRC, parseSRT, at, shift, toLRC, nudgeText, stampAt, fmtStamp };
+  const api = { parse, parseLRC, parseSRT, at, shift, toLRC, nudgeText, stampAt, fmtStamp, lineSpan };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLyrics = api;
 })();

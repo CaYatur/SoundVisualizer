@@ -55,10 +55,12 @@ function createListener(onTempo, opts) {
   let sock = null;
   let last = { bpm: 0, peers: 0 };
   let sweep = null;
-  const emit = (bpm) => {
+  /* `again`: değişmese de yinele. Tempo modulation.bpm'de duruyor ve sahne
+     geri çağrılınca üzerine yazılıyor; panel değer aynıysa bir şey yazmıyor. */
+  const emit = (bpm, again) => {
     const cur = { bpm: bpm || last.bpm, peers: peers.size };
     if (!cur.peers) cur.bpm = 0;
-    if (cur.bpm !== last.bpm || cur.peers !== last.peers) { last = cur; try { onTempo(cur); } catch { /* */ } }
+    if (cur.bpm !== last.bpm || cur.peers !== last.peers || (again && cur.peers)) { last = cur; try { onTempo(cur); } catch { /* */ } }
   };
   return {
     start() {
@@ -81,7 +83,7 @@ function createListener(onTempo, opts) {
       sweep = setInterval(() => {
         const now = Date.now();
         for (const [k, t] of peers) if (now - t > 5000) peers.delete(k);
-        emit(0);
+        emit(0, true);
       }, 2000);
       if (sweep.unref) sweep.unref();
     },

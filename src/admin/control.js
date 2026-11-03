@@ -426,7 +426,7 @@
     const nodes = [];
     const sel = el('select', {
       onchange: async (e) => {
-        ts.source = e.target.value;
+        MCK().switchSource(ts, cfg.modulation, e.target.value);
         tempoState = { source: ts.source, bpm: 0, peers: 0 };
         if (midiClock) midiClock.reset();
         P().push(true);
@@ -483,13 +483,13 @@
     padState = r.state;
     if (!r.events.length) return;
     const e0 = r.events[r.events.length - 1];
-    lastSignal.gamepad = GPM().label(e0) + ' → ' + (Math.round(e0.raw * 100) / 100);
+    lastSignal.gamepad = GPM().label(e0, !!(window.SVI18n && window.SVI18n.locale === 'en')) + ' → ' + (Math.round(e0.raw * 100) / 100);
     const chip = document.getElementById('gamepadSignal');
     if (chip) chip.textContent = lastSignal.gamepad;
     if (learning && learning.surface === 'gamepad') {
       const got = GPM().learnFrom(r.events);
       const m = got && (g.mappings || []).find((x) => x.id === learning.id);
-      if (m) { Object.assign(m, got); learning = null; P().push(true); P().rerender(); }
+      if (m) { Object.assign(m, got); learning = null; syncGamepad(); P().push(true); P().rerender(); }
       return;
     }
     if (!g.enabled) return;
@@ -1113,6 +1113,9 @@
     else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
     if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
     syncGamepad();
+    if (window.api.tempoSyncStatus) {
+      window.api.tempoSyncStatus().then((st) => { if (st) tempoState = Object.assign({}, tempoState, st); }).catch(() => {});
+    }
     if (window.api.onTempoSync) {
       window.api.onTempoSync((st) => {
         if (!st) return;

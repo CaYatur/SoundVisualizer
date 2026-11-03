@@ -1510,6 +1510,8 @@
     'Sağlayıcı Ekle': 'Add Provider',
     'Sağlayıcı Zaman Aşımı (ms)': 'Provider Timeout (ms)',
     'Sağlayıcı yok: hiçbir ağ isteği yapılmaz.': 'No providers: no network requests are made.',
+    'Söz Önbelleğini Temizle': 'Clear Lyrics Cache',
+    'Söz önbelleği temizlendi.': 'Lyrics cache cleared.',
     'Ses bu süre boyunca kesik kalınca çıkış kararır, saat ve yazı ekranda yavaşça gezinir (projeksiyon ve LED duvarlarda iz kalmasın). Ses gelince hemen çıkar. Tüm sistemlerde çalışır.': 'When audio stays silent this long the output dims and a clock and text drift slowly across the screen (prevents burn-in on projectors and LED walls). It exits as soon as audio returns. Works on all systems.',
     'Ses uzun süre kesilince çıkışı karartır ve gezinen bir saat gösterir.': 'Dims the output and shows a drifting clock after a long silence.',
     'Söz saati yok: parçayı çalın ya da zaman çizelgesini başlatın.': 'No lyrics clock: play the track or start the timeline.',

@@ -15,12 +15,14 @@
   function note(text) { return P().el('div', { class: 'note', text: T(text) }); }
 
   function textArea(value, placeholder, onChange) {
-    return P().el('textarea', {
+    const t = P().el('textarea', {
       class: 'p-in', rows: '3', spellcheck: 'false', placeholder,
       style: 'width:100%;font-family:monospace;font-size:12px;',
-      value: value || '',
       onchange: (e) => onChange(e.target.value),
     });
+    // textarea value özniteliğini okumaz; özellik olarak verilmeli
+    t.value = value || '';
+    return t;
   }
 
   function screensaver() {
@@ -101,6 +103,13 @@
       },
     }));
     nodes.push(list);
+    nodes.push(el('button', {
+      class: 'btn ghost small', type: 'button', text: T('Söz Önbelleğini Temizle'),
+      onclick: async () => {
+        if (window.api && window.api.lyricsCacheClear) await window.api.lyricsCacheClear();
+        p.toast(T('Söz önbelleği temizlendi.'));
+      },
+    }));
     nodes.push(note('Sıra: şarkının yanındaki .lrc/.srt → dosyaya gömülü sözler (ID3 USLT/SYLT, Vorbis LYRICS, MP4 lyr) → önbellek → sağlayıcılar (yukarıdan aşağı). Adreste {artist}, {title}, {album} ve {duration} kullanılabilir. Sağlayıcı hatası çalmayı asla durdurmaz; sağlayıcı yoksa ağa çıkılmaz.'));
     return el('div', { class: 'control-panel' }, nodes);
   }

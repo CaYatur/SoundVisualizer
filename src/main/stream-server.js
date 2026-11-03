@@ -292,6 +292,11 @@ function publicConfig(cfg) {
     // Yedek adresler öbür makinenin jetonunu taşır (#815): o da gitmez
     out = Object.assign({}, out, { stream: Object.assign({}, st, { token: '', remoteToken: '', fallbackUrls: '', remotePeers: '' }) });
   }
+  // Söz sağlayıcı adresi (#937) anahtar taşıyabilir; web sayfası onu kullanmıyor
+  const ll = cfg.lyricsLookup;
+  if (ll && typeof ll === 'object' && Array.isArray(ll.providers) && ll.providers.length) {
+    out = Object.assign({}, out, { lyricsLookup: Object.assign({}, ll, { providers: [] }) });
+  }
   // Yedeklilik eşleşme parolası (#540) web istemcisine gitmez
   const rd = cfg.redundancy;
   if (rd && typeof rd === 'object' && rd.secret) {

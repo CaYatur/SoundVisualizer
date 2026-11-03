@@ -81,6 +81,10 @@ function looksLikeLyrics(text) {
   const s = String(text || '').trim();
   return s.length > 0 && s.length <= MAX_BYTES;
 }
+// Sağlayıcı 200 ile hata sayfası da dönebilir: biçimlendirme söz değildir, önbelleğe de girmez
+function plausibleLyrics(text) {
+  return looksLikeLyrics(text) && !/^\s*(?:<(?:!doctype|html|\?xml|head|body)\b|\{)/i.test(text);
+}
 
 // ---------------------------------------------------------------- yan dosya
 function findSidecar(audioPath, fsx) {
@@ -145,8 +149,10 @@ function lrcStamp(sec) {
 }
 
 /* SYLT: zamanlı söz. Zaman biçimi 2 = milisaniye; 1 = MPEG karesi (sesin
-   kare süresi bilinmediği için atlanır). Satır sonu içeren girdi yeni bir
-   satır başlatır; içermeyenler aynı satıra hece olarak eklenir. */
+   kare süresi bilinmediği için atlanır). Girdinin başındaki satır sonu o
+   girdiden, sonundaki bir sonrakinden yeni satır başlatır; öbürleri aynı
+   satıra hece olarak eklenir. Etikette hiç satır sonu yoksa her girdi bir
+   satırdır: çoğu araç satır satır böyle yazıyor. */
 function syltToLrc(body) {
   if (!body || body.length < 6) return '';
   const enc = body[0];
@@ -166,9 +172,12 @@ function syltToLrc(body) {
   if (!items.length) return '';
   const lines = [];
   let cur = null;
+  let breakNext = false;
+  const noBreaks = !items.some((it) => /[\r\n]/.test(it.text));
   for (const it of items) {
     const txt = it.text.replace(/\r/g, '');
-    const starts = /^\n/.test(txt) || !cur;
+    const starts = noBreaks || breakNext || /^\n/.test(txt) || !cur;
+    breakNext = /\n$/.test(txt);
     const clean = txt.replace(/\n/g, '');
     if (starts) { cur = { t: it.t, words: [] }; lines.push(cur); }
     cur.words.push({ t: it.t, text: clean });
@@ -271,6 +280,19 @@ function writeCache(dir, meta, text, fsx) {
   } catch { return false; }
 }
 
+// Yalnız önbellek dosyaları silinir (anahtar biçimi: cacheKey)
+function clearCache(dir, fsx) {
+  const f = fsx || nodeFs;
+  let names;
+  try { names = f.readdirSync(dir); } catch { return 0; }
+  let n = 0;
+  for (const name of names) {
+    if (!/^[0-9a-f]{24}\.lrc$/.test(name)) continue;
+    try { f.unlinkSync(path.join(dir, name)); n++; } catch { /* */ }
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------- sağlayıcı
 async function fetchProvider(p, meta, opts) {
   const fetchFn = opts.fetch || (typeof fetch === 'function' ? fetch : null);
@@ -287,9 +309,9 @@ async function fetchProvider(p, meta, opts) {
     if (!body || body.length > MAX_BYTES) return null;
     if (p.format === 'json') {
       const v = pickPath(JSON.parse(body), p.path);
-      return typeof v === 'string' && looksLikeLyrics(v) ? v : null;
+      return typeof v === 'string' && plausibleLyrics(v) ? v : null;
     }
-    return looksLikeLyrics(body) ? body : null;
+    return plausibleLyrics(body) ? body : null;
   })().catch(() => null);
   try { return await Promise.race([work, timeout]); } finally { clearTimeout(timer); }
 }
@@ -330,5 +352,5 @@ async function lookup(opts) {
 
 module.exports = {
   sanitizeConfig, fillTemplate, pickPath, findSidecar, parseId3Lyrics, syltToLrc,
-  findEmbedded, cacheKey, readCache, writeCache, fetchProvider, lookup,
+  findEmbedded, cacheKey, readCache, writeCache, clearCache, fetchProvider, lookup,
 };

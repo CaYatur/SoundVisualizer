@@ -346,9 +346,11 @@ const SAVE_MAX_WAIT_MS = 2000;
 let saveTimer = null;
 let saveQueued = null;
 let saveFirstAt = 0;
+let recovery = null; // oturum kurtarma (session-recovery.js)
 
 function saveSettings(config) {
   if (settingsFrozen) return;
+  if (recovery) recovery.touch();
   saveQueued = config;
   const now = Date.now();
   if (saveTimer) clearTimeout(saveTimer);
@@ -3710,6 +3712,7 @@ function applyIncomingConfig(config, opts) {
   }
   syncTempoSync();
   syncRecovery();
+  syncLyricsLookup();
   syncNowPlaying();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
@@ -4586,12 +4589,12 @@ function syncRemotePeers() {
 }
 
 /* Oturum kurtarma: userData/recovery altında dönen anlık kopyalar */
-let recovery = null;
 let recoveryNotice = null;
 function recoveryDir() { return path.join(app.getPath('userData'), 'recovery'); }
 function syncRecovery() {
   if (!recovery || AUTOMATION_RUN) return;
   const rc = (currentConfig && currentConfig.recovery) || {};
+  recovery.setEnabled(rc.enabled !== false);
   if (rc.enabled === false) recovery.stop();
   else recovery.start(() => currentConfig, rc.intervalSec);
 }
@@ -6693,6 +6696,7 @@ mediaSession.subscribe((st) => {
   if (bridge.input && bridge.input.useBridge && bridge.meta) return;
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
+  lookupLiveLyrics(st);
   if (typeof streamServer.broadcastNowPlaying === 'function') {
     streamServer.broadcastNowPlaying(st);
   }
@@ -7420,6 +7424,23 @@ function lookupLiveLyrics(st) {
     publishLyricsLib();
   }).catch(() => { /* söz yoksa oynatma sürer */ });
 }
+/* Ayar değişince: kapatılınca bulunan söz kalkar; açılınca ya da sağlayıcı
+   değişince aynı parçaya yeniden bakılır. */
+let lyricsLookupCfgSig = '';
+function syncLyricsLookup() {
+  const cfg = currentConfig;
+  const on = !!(cfg && cfg.lyricsLookup && cfg.lyricsLookup.enabled === true && configFollowsLyrics(cfg));
+  const sig = on ? JSON.stringify(cfg.lyricsLookup) : '';
+  if (sig === lyricsLookupCfgSig) return;
+  lyricsLookupCfgSig = sig;
+  lyricsAutoSig = '';
+  if (!on) {
+    if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
+    return;
+  }
+  const st = shownNowPlaying();
+  if (st && st.title) lookupLiveLyrics(st);
+}
 function publishLyricsLib() {
   const items = lyricsSnapshot();
   sendToVisualizers('lyrics-lib', items);
@@ -7431,6 +7452,14 @@ function publishLyricsLib() {
 }
 ipcMain.handle('lyrics-lib:list', () => lyricsLibrary.list(lyricsLibDir()));
 ipcMain.handle('lyrics-lib:snapshot', () => lyricsSnapshot());
+ipcMain.handle('lyrics-cache:clear', () => {
+  const n = lyricsLookup.clearCache(lyricsCacheDir());
+  lyricsAutoSig = '';
+  if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
+  const st = shownNowPlaying();
+  if (st && st.title) lookupLiveLyrics(st);
+  return n;
+});
 ipcMain.handle('lyrics-lib:read', (e, id) => lyricsLibrary.read(lyricsLibDir(), id));
 ipcMain.handle('lyrics-lib:remove', (e, id) => {
   const r = lyricsLibrary.remove(lyricsLibDir(), id);
@@ -8808,8 +8837,7 @@ app.whenReady().then(async () => {
       if (crashed) {
         recoveryNotice = { crashed: true, restored: false, at: crashed.at };
         const usable = currentConfig && typeof currentConfig === 'object' && !Array.isArray(currentConfig);
-        const wantRestore = !(usable && currentConfig.recovery && currentConfig.recovery.enabled === false);
-        if (!usable && wantRestore) {
+        if (sessionRecovery.shouldRestore(crashed, startupSettings, usable)) {
           const snap = recovery.latest();
           if (snap) {
             currentConfig = snap.config;
@@ -11802,7 +11830,10 @@ function shutdownCleanup() {
   if (exportState) finalizeExport('cancelled');
   quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
   flushSettings(); // birleştirilmiş kayıt beklemede kalmasın
-  if (recovery) { try { recovery.end(currentConfig); } catch { /* */ } }
+  if (recovery) {
+    const off = currentConfig && currentConfig.recovery && currentConfig.recovery.enabled === false;
+    try { recovery.end(off ? null : currentConfig); } catch { /* */ }
+  }
   if (linkListener) linkListener.stop();
   peerRelay.stop();
   streamServer.stop().catch(() => {});
