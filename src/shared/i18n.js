@@ -1038,6 +1038,8 @@
     'Yedek yetkiyi aldı': 'The backup has taken over',
     'Yayın sunucusu açılamadı': 'The streaming server could not start',
     'Eşleşme parolası en az 16 karakter olmalı.': 'The pairing secret must be at least 16 characters.',
+    'Birincil farklı ana sürümde, eşleşme yapılmadı. İki makineye aynı ana sürümü kurup uygulamayı yeniden açın.': 'The primary runs a different major version, so the machines did not pair. Install the same major version on both and reopen the app.',
+    'Yedek farklı ana sürümde, bağlantı kesildi. İki makineye aynı ana sürümü kurup uygulamayı yeniden açın.': 'The backup runs a different major version, so it was disconnected. Install the same major version on both and reopen the app.',
     'Birincilin adresini yazın.': 'Enter the primary\'s address.',
     'İki makineyle sıcak yedek: yedek aynı sahneyi sürekli çizer, birincil düşerse yetkiyi alır. Ekran kararmaz; hangi çıkışın seyirciye gittiğini görüntü anahtarlayıcısı seçer.': 'A hot standby with two machines: the backup renders the same scene all the time and takes over if the primary fails. The screen does not go black; your video switcher decides which output the audience sees.',
     'Yedek izlerken sahne birincilden gelir; burada yapılan sahne değişikliği birincilin bir sonraki değişikliğiyle ezilir. Yetkiyi alan yedek, birincil geri gelse de "Yetkiyi Bırak" denene kadar yetkide kalır.': 'While the backup follows, the scene comes from the primary; a scene change made here is overwritten by the primary\'s next change. A backup that has taken over keeps control, even when the primary returns, until you press "Release".',
