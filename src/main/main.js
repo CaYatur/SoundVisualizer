@@ -4149,8 +4149,8 @@ ipcMain.handle('presets:list', async () => {
   return leanPresets(withOverlayPresets(list));
 });
 /* Metin yalnız gerektiğinde (#906): liste metinsiz gidiyor (preset-lean.js) */
-ipcMain.handle('presets:source', (e, id) => {
-  const p = presetForShow(String(id || ''));
+ipcMain.handle('presets:source', async (e, id) => {
+  const p = (await presetsStore.getAsync(String(id || ''))) || isolatedPreset(String(id || ''));
   return p && typeof p.source === 'string' ? p.source : '';
 });
 ipcMain.handle('presets:head', () => ({ gen: presetGen }));
@@ -5192,7 +5192,7 @@ function withOverlayPresets(list) {
 function syncOverlay() {
   const want = new Set();
   if (overlayOn()) {
-    for (const id of red.overlay.presets.keys()) if (!presetsStore.get(id)) want.add(id);
+    for (const id of red.overlay.presets.keys()) if (!presetsStore.has(id)) want.add(id);
   }
   const up = [];
   const rm = [];
@@ -5746,7 +5746,7 @@ async function buildPackageEntries() {
     if (!full) continue;
     const bytes = Buffer.from(JSON.stringify(full), 'utf-8');
     entries.push({ kind: 'presets', id: p.id, name: p.name || p.id, ext: '.json', size: bytes.length, sha256: showPackage.sha256(bytes), bytes });
-    if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+    if (++i % 25 === 0) await new Promise((r) => setImmediate(r));
   }
   for (const it of logoLibrary.loadManifest(logoLibDir()).items) {
     if (!it || !it.id) continue;
@@ -5939,13 +5939,18 @@ function buildLocalInventory() {
   localInvBusy = (async () => {
     const presets = [];
     let i = 0;
-    for (const p of presetsStore.list()) {
-      if (!p || !p.id) continue;
-      const key = p.id + '|' + (p.updatedAt || 0);
+    for (const lean of presetsStore.list()) {
+      if (!lean || !lean.id) continue;
+      const key = lean.id + '|' + (lean.updatedAt || 0);
       let fp = presetFpCache.get(key);
-      if (!fp) { fp = showInventory.presetFp(p); presetFpCache.set(key, fp); }
-      presets.push({ id: p.id, fp });
-      if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+      if (!fp) {
+        const p = presetsStore.get(lean.id);
+        if (!p) continue;
+        fp = showInventory.presetFp(p);
+        presetFpCache.set(key, fp);
+      }
+      presets.push({ id: lean.id, fp });
+      if (++i % 25 === 0) await new Promise((r) => setImmediate(r));
     }
     /* Logo: dosyanın kendisinden (boyut + baş/son özeti). Kitaplık
        kaydındaki `fp` eski öğelerde yok; ona güvenmek aynı dosyayı farklı
@@ -6030,7 +6035,7 @@ function onPrimaryAsset(msg) {
   /* Yedeğin kendi öğesi ezilmez (#812): aynı kimlik varsa gönderim atlanır;
      birincilin sürümü gösteri paketiyle gelir ve operatör tek tek seçer. */
   if (msg.kind === 'preset' && msg.preset && typeof msg.preset === 'object' && typeof msg.preset.id === 'string') {
-    if (presetsStore.get(msg.preset.id)) return false;
+    if (presetsStore.has(msg.preset.id)) return false;
     const r = presetsStore.save(Object.assign({}, msg.preset, { builtin: false }));
     if (r.ok) broadcastPresetDelta([r.preset], []);
     return r.ok;
@@ -6157,7 +6162,7 @@ function preshowMissing(cfg) {
   const out = [];
   for (const r of PreshowRefs.collect(cfg)) {
     if (r.kind === 'preset') {
-      if (presetsStore.get(r.id)) continue;
+      if (presetsStore.has(r.id)) continue;
       const file = path.join(presetsStore.dir(), String(r.id).replace(/[^A-Za-z0-9_-]/g, '') + '.json');
       const exists = fs.existsSync(file);
       out.push(Object.assign({}, r, {
@@ -7094,7 +7099,7 @@ ipcMain.handle('milkdrop:library-import', async (e, token) => {
   if (plan.tooBig) return { ok: false, error: 'TOO_BIG' };
   const sender = e.sender;
   const r = await mdImport.runImport(plan, {
-    existing: () => presetsStore.list(),
+    existing: () => presetsStore.listFull(),
     saveManyAsync: presetsStore.saveManyAsync,
     textureDir: managedTextureDir(),
     onProgress: (phase, done, total) => {
@@ -7149,10 +7154,10 @@ function milkdropBuiltins() {
   return mdBuiltins;
 }
 
-function thumbSourceOf(id) {
+async function thumbSourceOf(id) {
   const b = milkdropBuiltins().find((p) => p.id === id);
   if (b) return b.source;
-  const p = presetsStore.get(id);
+  const p = await presetsStore.getAsync(id);
   return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
 }
 
@@ -7299,11 +7304,12 @@ async function pruneThumbs() {
   await presetsStore.warm();
   const lib = thumbTextureLib();
   const live = new Set();
-  const all = milkdropBuiltins().concat(presetsStore.list().filter((p) => p && p.kind === 'milkdrop'));
-  for (let i = 0; i < all.length; i++) {
-    if (typeof all[i].source === 'string') live.add(thumbKeyOf(all[i].source, lib));
-    if (i % 250 === 249) await new Promise((r) => setImmediate(r));
-  }
+  for (const p of milkdropBuiltins()) if (typeof p.source === 'string') live.add(thumbKeyOf(p.source, lib));
+  let i = 0;
+  await presetsStore.eachFull(async (p) => {
+    if (p.kind === 'milkdrop' && typeof p.source === 'string') live.add(thumbKeyOf(p.source, lib));
+    if (++i % 250 === 0) await new Promise((r) => setImmediate(r));
+  });
   mdThumbs.prune(thumbDir(), live, started);
 }
 
@@ -7314,7 +7320,7 @@ ipcMain.handle('milkdrop:thumbs', async (e, ids) => {
   const lib = thumbTextureLib();
   const items = [];
   for (const id of list) {
-    const source = thumbSourceOf(id);
+    const source = await thumbSourceOf(id);
     if (typeof source === 'string' && source) items.push({ id, source, key: thumbKeyOf(source, lib) });
   }
   const ready = thumbQueue().request(items);
@@ -8431,13 +8437,15 @@ async function startExportJob(opts, bench, extra) {
     if (isMine()) finalizeExport('error', trUi('Render penceresi yüklenemedi: ', 'Could not load the render window: ') + err.message);
     return { ok: false, error: trUi('Render penceresi yüklenemedi.', 'Could not load the render window.') };
   }
+  /* Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi. MilkDrop metinleri
+     de: dışa aktarımda otomatik geçiş metni beklemeden, kare kare aynı yerde olmalı. */
+  const jobPresets = await presetsStore.listFull();
   // Cancelled or failed while the window was loading: do not send the job
   if (!isMine() || win.isDestroyed()) return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
 
   const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
   exportWin.webContents.send('export:job', {
-    // Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi
-    presets: presetsStore.list(),
+    presets: jobPresets,
     audioBuffer: ab,
     width: w,
     height: h,
