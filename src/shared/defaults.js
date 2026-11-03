@@ -495,6 +495,9 @@
        çizimde bunu somut bir değere çeviriyor. */
     layerStack: { enabled: null },
 
+    // Ayar biçimi (#905). Yeni kurulumda çevrilecek bir şey yok; göç migrate-v4.js'te
+    docVersion: 4,
+
     // ------------------------------------------------------------------
     // Son-işlem efekt zinciri. Katmanların BİRLEŞTİRİLMİŞ çıktısına sırayla
     // uygulanır; sıra kullanıcıya aittir (bloom'dan önce mi sonra mı renk
