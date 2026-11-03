@@ -153,12 +153,12 @@ npm test
 npm start -- --smoke
 ```
 
-- **3820 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3832 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
   more with v3.1.6 — 3666 at that tag — and 119
-  more with v3.1.7 — 3785 at that tag — and 35 on `dev/v4` since.
+  more with v3.1.7 — 3785 at that tag — and 47 on `dev/v4` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

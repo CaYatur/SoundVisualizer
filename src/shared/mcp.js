@@ -45,7 +45,8 @@
     'sv_add_layer_effect', 'sv_set_layer_effect_param', 'sv_set_layer_effect_enabled', 'sv_remove_layer_effect',
     'sv_patch_config', 'sv_set_blackout',
   ];
-  const SCENE_KEYS = ((typeof window !== 'undefined' && window.SVSchema) || require('./schema.js')).SCENE_KEYS;
+  const Schema = (typeof window !== 'undefined' && window.SVSchema) || require('./schema.js');
+  const SCENE_KEYS = Schema.SCENE_KEYS;
   const EFFECT_TYPES = [
     'bloom', 'chroma', 'glitch', 'grain', 'crt', 'pixelate', 'kaleido', 'mirror',
     'grade', 'vignette', 'trails', 'edge', 'zoomblur', 'ripple', 'posterize',
@@ -376,7 +377,30 @@
      bilinen anahtarlarını ve aynı türde değer yazar. Eskiden
      `geometry.shape` ya da `media.path` gibi var olmayan anahtarlar
      sessizce kaydediliyor, hiçbir şey olmuyordu. */
-  function sectionPatchError(section, patch) {
+  /* Aralık denetimi (#905). Sayısal ayarın sınırı şemada, panel de oradan okuyor.
+     Panel genişletilmiş aralıkla üst sınırı büyütebildiği için ajan da o sınıra
+     kadar yazabilir; panelin veremediğini yazamaz. Yalnız değişen değer denetlenir:
+     diskte eskiden kalan bir değer başka bir yazımı durdurmaz. Nesne yazılırsa
+     altındaki yollara da bakılır. Tür hatası burada değil, valueTypeError'da. */
+  function rangeError(path, next, prev) {
+    if (next && typeof next === 'object' && !Array.isArray(next)) {
+      const was = prev && typeof prev === 'object' ? prev : {};
+      for (const k of Object.keys(next)) {
+        const bad = rangeError(path ? path + '.' + k : k, next[k], was[k]);
+        if (bad) return bad;
+      }
+      return '';
+    }
+    if (typeof next !== 'number' || next === prev) return '';
+    const row = Schema.rangeFor(path);
+    if (!row) return '';
+    const lo = row.steps ? row.steps[0] : row.min;
+    const hi = row.steps ? row.steps[row.steps.length - 1] : Schema.extendedMax(row);
+    if (!(next >= lo && next <= hi)) return path + ' must be between ' + lo + ' and ' + hi + '.';
+    if (row.int && !Number.isInteger(next)) return path + ' must be a whole number.';
+    return '';
+  }
+  function sectionPatchError(section, patch, current) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return 'patch must be an object.';
     const SV = defaultsApi();
     const base = SV && SV.defaultConfig ? SV.defaultConfig()[section] : null;
@@ -394,7 +418,7 @@
       if (vt === 'number' && !isFinite(v)) return section + '.' + k + ' must be a finite number.';
     }
     if (bad.length) return 'Unknown ' + section + ' key(s): ' + bad.join(', ') + '. Known keys: ' + Object.keys(base).join(', ') + '.';
-    return '';
+    return rangeError(section, patch, current);
   }
   /* Yazılan değerin türü var olan değerinkiyle aynı olmalı. Eskiden
      `{"path":"layers","value":"x"}` katman listesini metne çeviriyor,
@@ -506,6 +530,8 @@
       out.transform = t.value;
     }
     const was = before || {};
+    const offRange = rangeError('', out.settings, was.settings);
+    if (offRange) return { error: 'settings: ' + offRange };
     if (out.postfx !== undefined) {
       const fx = fxListCheck(out.postfx, was.postfx);
       if (fx.error) return { error: 'postfx: ' + fx.error };
@@ -1725,12 +1751,16 @@
         const p = coerceParams(args.settings, true, 'settings');
         if (p.error) return fail(p.error);
         if (Object.prototype.hasOwnProperty.call(p.value, 'postfx')) return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
+        const offRange = rangeError('', p.value, found.layer.settings);
+        if (offRange) return fail(offRange);
         applied = p.value;
         found.layer.settings = mergeObj(found.layer.settings, applied);
       } else if (args && args.key) {
         if (unsafeKey(args.key)) return fail('Refusing unsafe settings key.');
         if (args.key === 'postfx' || String(args.key).split('.')[0] === 'postfx') return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
         if (args.value === undefined) return fail('value is required with key.');
+        const offRange = rangeError(args.key, args.value, (found.layer.settings || {})[args.key]);
+        if (offRange) return fail(offRange);
         const settings = Object.assign({}, found.layer.settings);
         settings[args.key] = args.value;
         found.layer.settings = settings;
@@ -1770,22 +1800,22 @@
     });
   });
   tool('sv_set_text', 'sceneEdit', 'Edit the text overlay, including a lyrics or now-playing source. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('text', (args && args.patch) || {});
+    const bad = sectionPatchError('text', (args && args.patch) || {}, configOf(ctx).text);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.text = mergeObj(cfg.text || {}, args.patch); return { text: summarize(cfg.text) }; });
   });
   tool('sv_set_logo', 'sceneEdit', 'Edit logo settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('logo', (args && args.patch) || {});
+    const bad = sectionPatchError('logo', (args && args.patch) || {}, configOf(ctx).logo);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.logo = mergeObj(cfg.logo || {}, args.patch); return { logo: summarize(cfg.logo) }; });
   });
   tool('sv_set_media', 'sceneEdit', 'Edit media-layer settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('media', (args && args.patch) || {});
+    const bad = sectionPatchError('media', (args && args.patch) || {}, configOf(ctx).media);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.media = mergeObj(cfg.media || {}, args.patch); return { media: summarize(cfg.media) }; });
   });
   tool('sv_set_geometry', 'sceneEdit', 'Edit geometry settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('geometry', (args && args.patch) || {});
+    const bad = sectionPatchError('geometry', (args && args.patch) || {}, configOf(ctx).geometry);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.geometry = mergeObj(cfg.geometry || {}, args.patch); return { geometry: summarize(cfg.geometry) }; });
   });
@@ -2005,6 +2035,8 @@
       ['autoNext', 'autoOrder', 'autoFrom', 'autoTag', 'autoNextUnit', 'autoNextBars', 'trackAdvance', 'hardCut'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
       });
+      const offRange = rangeError('milkdrop', next, cfg.milkdrop);
+      if (offRange) return fail(offRange);
       cfg.milkdrop = next;
       return { presetId: next.presetId || '', autoNext: next.autoNext, autoOrder: next.autoOrder };
     });
@@ -2124,6 +2156,8 @@
 
   function outputPatch(ctx, key, patch) {
     return withConfig(ctx, function (cfg) {
+      const bad = rangeError(key, patch || {}, cfg[key]);
+      if (bad) return fail(bad);
       cfg[key] = mergeObj(cfg[key] || {}, patch || {});
       return { value: summarize(cfg[key]) };
     });
@@ -2275,7 +2309,7 @@
       return { blackoutType: cfg.transition.blackoutType, blackoutDuration: cfg.transition.blackoutDuration };
     });
   });
-  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. Cannot change mcp permissions.', function (args, ctx) {
+  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. A number the panel cannot reach, even with extended ranges, is refused. Cannot change mcp permissions.', function (args, ctx) {
     if (!args || !args.path) return fail('path is required.');
     /* Bilinmeyen üst anahtar (ör. `MCP.mode`) eskiden yeni bir anahtar
        olarak ayar dosyasına yazılıyordu. Bilinen ya da ayarda zaten
@@ -2290,7 +2324,8 @@
     if (!mcp.enabled) return fail(text('mcp.err.disabled', localeOf(ctx)).replace('{mode}', modeWord(minMode(group) || 'everything', localeOf(ctx))));
     if (!modeAllows(mcp, group)) return fail(modeBlockError(localeOf(ctx), minMode(group) || 'everything'));
     return withConfig(ctx, function (cfg) {
-      const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value);
+      const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value) ||
+        rangeError(String(args.path).replace(/^scenes\.\d+\./, ''), args.value, getPath(cfg, args.path));
       if (bad) return fail(bad);
       if (top === 'layers') {
         const r = patchLayers(cfg, args.path, args.value);
