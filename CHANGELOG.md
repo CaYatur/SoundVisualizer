@@ -3,6 +3,34 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### Lyrics
+
+- **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from
+  a `.lrc`/`.srt` next to the audio file, then from embedded tags (ID3 USLT/SYLT, Vorbis `LYRICS`,
+  MP4 lyrics), then from a local cache, then from providers you define (URL template with `{artist}`,
+  `{title}`, `{album}`, `{duration}` and a JSON path or raw LRC). The provider list is empty by
+  default, so nothing goes to the network; a failing or slow provider never blocks playback.
+- **Held syllables** (#938). Word end times, including A2 end tags (`<mm:ss.xx>` after a word), are
+  parsed. Karaoke can fill progressively inside the active word and optionally stretch long-held
+  words, in the live output and the exporter. Existing LRC/SRT files render exactly as before.
+- **Timing tools in the lyrics editor** (#414): nudge the selected lines by ±0.1 s or ±1 s, and
+  stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
+
+### Control and show
+
+- **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
+  MIDI clock.
+- **Gamepad control**: Xbox, PlayStation and generic gamepads map to settings and actions with the
+  same learn/mapping engine as MIDI.
+- **Multi-instance remote**: commands from one instance's remote are forwarded to the other
+  instances listed under Multi-Instance Remote, without loops.
+- **Idle screensaver**: after a configurable silence the output window dims and shows a drifting
+  clock and text.
+- **Session recovery**: rotating settings snapshots; after a crash a corrupt settings file is
+  restored from the newest healthy snapshot and the panel says so.
+
 ## v3.1.7 — 2026-11-03
 
 ### Performance
