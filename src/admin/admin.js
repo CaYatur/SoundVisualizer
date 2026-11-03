@@ -3045,10 +3045,7 @@
            Partial roots left modulation/layers/geometry dirty and — with
            layerStack on — syncStackState re-cleared classic visualizer to
            'none' after a partial reset, so the badge bounced back alone. */
-        roots: (window.SVTemplates && window.SVTemplates.SCENE_KEYS
-          ? window.SVTemplates.SCENE_KEYS.slice()
-          : ['background', 'visualizer', 'geometry', 'postfx', 'layers', 'layerStack', 'logo',
-            'modulation', 'transition', 'custom', 'milkdrop', 'images', 'feedback']),
+        roots: window.SVTemplates ? window.SVTemplates.SCENE_KEYS.slice() : [],
         /* Same preserves as templates.apply / resetScene — user setup, not scene. */
         rootOmit: [
           'background.transparent', 'background.transparentKey', 'background.coverTaskbar',

@@ -20,6 +20,7 @@ test('sahne alanları: 17 alan, hiçbir yerde ayrı kopya yok', () => {
   ]);
   assert.strictEqual(require('../src/shared/show-keys.js').SCENE, Schema.SCENE_KEYS);
   assert.strictEqual(require('../src/shared/mcp.js').SCENE_KEYS, Schema.SCENE_KEYS);
+  assert.strictEqual(require('../src/shared/templates.js').SCENE_KEYS, Schema.SCENE_KEYS);
   for (const f of ['src/admin/admin.js', 'src/admin/control.js', 'src/main/main.js', 'src/shared/mcp.js', 'src/shared/show-keys.js']) {
     assert.doesNotMatch(read(f), /(SCENE_KEYS|SCENE) = \[/, f);
   }
@@ -51,7 +52,33 @@ test('panel şemayı OSC ağacından önce yüklüyor', () => {
   const html = read('src/admin/index.html');
   const at = (s) => html.indexOf('<script src="' + s + '"');
   assert.ok(at('../shared/schema.js') > 0);
-  for (const s of ['../shared/osc-tree.js', 'control.js', '../shared/mcp.js', 'admin.js']) {
+  for (const s of ['../shared/templates.js', '../shared/osc-tree.js', 'control.js', '../shared/mcp.js', 'admin.js']) {
     assert.ok(at('../shared/schema.js') < at(s), s);
+  }
+});
+
+test('şablon yükleyen her sayfa şemayı önce yüklüyor', () => {
+  for (const [f, pre] of [['src/exporter/index.html', '../shared/'], ['src/visualizer/index.html', '../shared/'], ['src/web/overlay.html', '/app/shared/']]) {
+    const html = read(f);
+    const schema = html.indexOf('<script src="' + pre + 'schema.js"');
+    assert.ok(schema > 0, f);
+    assert.ok(schema < html.indexOf('<script src="' + pre + 'templates.js"'), f);
+  }
+});
+
+test('şablon sahneden kalan medya, metin, grup ve çapraz geçişi sıfırlıyor (#905)', () => {
+  require('../src/shared/defaults.js');
+  const T = require('../src/shared/templates.js');
+  const SV = global.window.SV;
+  const env = { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone };
+  const cfg = SV.defaultConfig();
+  cfg.media = Object.assign({}, cfg.media, { enabled: true, file: 'C:/video.mp4' });
+  cfg.text = Object.assign({}, cfg.text, { enabled: true });
+  cfg.layerGroups = { g1: { name: 'Grup' } };
+  cfg.crossfade = Object.assign({}, cfg.crossfade, { enabled: !SV.defaultConfig().crossfade.enabled });
+  const def = SV.defaultConfig();
+  const out = T.apply(cfg, T.TEMPLATES[0], env);
+  for (const k of ['media', 'text', 'layerGroups', 'crossfade']) {
+    if (T.TEMPLATES[0].patch[k] === undefined) assert.deepStrictEqual(out[k], def[k], k);
   }
 });

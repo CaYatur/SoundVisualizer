@@ -9,9 +9,8 @@
    arasındaki tutarsızlığı üreten de bu kopyalardı. Burada bir kez yazılıyor,
    kullananlar buradan alıyor.
 
-   SCENE_KEYS: sahneye ait alanlar. Panel, kontrol, ana süreç, MCP ve yedeklilik
-   aynı listeyi kullanıyor. Şablonların 13 alanlık listesi (templates.js) bilerek
-   ayrı: şablon uygulayınca kalan alanlar görüntüyü etkiliyor, karar bekliyor.
+   SCENE_KEYS: sahneye ait alanlar. Panel, kontrol, ana süreç, MCP, yedeklilik ve
+   şablonlar aynı listeyi kullanıyor.
 
    SLIDERS: denetleyicilerin sürdüğü kaydırıcılar. Kontrol hedefleri ve OSC ağacı
    buradan üretiliyor. Aralıklar panel kaydırıcılarıyla aynı tutuldu ki denetleyicinin
