@@ -4427,8 +4427,7 @@ function applyRemoteCommand(msg, client) {
     const keepTransparent = !!(currentConfig.background && currentConfig.background.transparent);
     const keepKey = currentConfig.background && currentConfig.background.transparentKey;
     const keepCover = currentConfig.background && currentConfig.background.coverTaskbar;
-    const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
-    for (const key of SCENE_KEYS) {
+    for (const key of ShowKeys.SCENE) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
     }
     if (currentConfig.background) {
