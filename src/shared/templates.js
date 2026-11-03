@@ -773,11 +773,10 @@
         { mapping: { enabled: true, outputs: { default: null } } })),
   ];
 
-  // Bir şablonu yapılandırmaya uygular; kullanıcının kurulumuna dokunmaz.
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'geometry', 'postfx', 'layers', 'layerStack', 'logo',
-    'modulation', 'transition', 'custom', 'milkdrop', 'images', 'feedback',
-  ];
+  /* Bir şablonu yapılandırmaya uygular; kullanıcının kurulumuna dokunmaz.
+     Sahneyle aynı alanlar (#905): önceden 13 alandı, şablon uygulayınca medya,
+     metin, katman grupları ve çapraz geçiş önceki sahneden kalıyordu. */
+  const SCENE_KEYS = ((typeof window !== 'undefined' && window.SVSchema) || require('./schema.js')).SCENE_KEYS;
 
   /* Şablonu uygula.
 
