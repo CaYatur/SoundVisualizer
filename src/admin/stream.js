@@ -277,8 +277,8 @@
         }
       }
 
-      nodes.push(P().slider('Tarayıcı Kaynağı Kare Hızı', 'stream.overlayFps', { min: 24, max: 120, step: 1, fmt: (v) => Math.round(v) + ' FPS' }));
-      nodes.push(P().slider('Tarayıcı Kaynağı Çözünürlük Ölçeği', 'stream.quality', { min: 0.4, max: 1, step: 0.05, percent: true, noExtend: true }));
+      nodes.push(P().slider('Tarayıcı Kaynağı Kare Hızı', 'stream.overlayFps', { step: 1, fmt: (v) => Math.round(v) + ' FPS' }));
+      nodes.push(P().slider('Tarayıcı Kaynağı Çözünürlük Ölçeği', 'stream.quality', { step: 0.05, percent: true }));
 
       // --- bağlı istemciler ---
       if (status.clients && status.clients.length) {

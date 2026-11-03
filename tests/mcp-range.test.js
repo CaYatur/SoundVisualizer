@@ -122,3 +122,17 @@ test('şemada olmayan sayı serbest kalır, null dokunulmaz', async () => {
   assert.strictEqual((await patch(c, 'visualizer.barSpan', 0.5)).ok, true);
   assert.strictEqual((await patch(c, 'visualizer.barSpan', 7)).ok, false);
 });
+
+test('özel panellerin ayarları da denetlenir, protokol sınırı büyümez', async () => {
+  const c = ctx();
+  assert.strictEqual((await call(c, 'sv_set_geometry', { patch: { zoom: 400 } })).ok, false);
+  assert.strictEqual((await call(c, 'sv_set_geometry', { patch: { zoom: 2 } })).ok, true);
+  assert.strictEqual((await patch(c, 'artnet.startChannel', 513)).ok, false, 'DMX 512 kanal');
+  assert.strictEqual((await patch(c, 'artnet.startChannel', 100)).ok, true);
+  assert.strictEqual((await patch(c, 'artnet.fps', 45)).ok, false);
+  // Motor bunları destekliyor, panel de genişletilmiş aralıkla veriyor: yasaklanmaz
+  assert.strictEqual((await patch(c, 'artnet.universe', 100)).ok, true);
+  assert.strictEqual((await patch(c, 'artnet.fixtures', 170)).ok, true);
+  assert.strictEqual((await patch(c, 'master', 1.5)).ok, false);
+  assert.strictEqual((await patch(c, 'master', 0.5)).ok, true);
+});
