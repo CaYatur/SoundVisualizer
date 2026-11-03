@@ -45,6 +45,7 @@ const SOFTWARE = argv.includes('--software');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FF = require('ffmpeg-static');
 let app = null;
+let appExit = null;
 
 function electronPath() {
   const dir = path.join(REPO, 'node_modules/electron/dist');
@@ -54,13 +55,26 @@ function electronPath() {
 const cdp = (url) => new Promise((resolve, reject) => {
   const ws = new WebSocket(url);
   let id = 0;
+  let closed = false;
   const pend = new Map();
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } };
   ws.onerror = reject;
+  /* Uygulama kapanırsa bekleyen çağrılar hiç dönmüyordu: Node işi kalmadığı için
+     sessizce, çıkış kodu 0 ile bitiyor ve yarım koşu geçmiş gibi görünüyordu. */
+  ws.onclose = () => {
+    const gone = { error: { message: 'uygulama bağlantısı koptu' } };
+    for (const r of pend.values()) r(gone);
+    pend.clear();
+    closed = true;
+  };
   ws.onopen = () => {
-    const call = (method, params) => new Promise((r) => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
+    const call = (method, params) => new Promise((r) => {
+      if (closed) { r({ error: { message: 'uygulama bağlantısı koptu' } }); return; }
+      const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} }));
+    });
     const ev = async (e) => {
       const r = await call('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true });
+      if (r.error) throw new Error(r.error.message);
       if (r.result && r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails.exception && r.result.exceptionDetails.exception.description || r.result.exceptionDetails).slice(0, 500));
       return r.result && r.result.result && r.result.result.value;
     };
@@ -117,7 +131,12 @@ async function main() {
   const wav = path.join(work, 'tone.wav');
   execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(55+200*exp(-mod(t,0.5)*18))*t)*exp(-mod(t,0.5)*6)+0.25*sin(2*PI*2400*t)*exp(-mod(t+0.25,0.5)*30):s=48000:d=2'", wav]);
   const flags = SOFTWARE ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [];
-  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT].concat(flags), { stdio: 'ignore' });
+  // Uygulama kapanırsa nedeni belli olsun: çıkış kodu ve kendi günlüğü
+  const appLog = fs.createWriteStream(path.join(OUT, 'app.log'));
+  app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT].concat(flags), { stdio: ['ignore', 'pipe', 'pipe'] });
+  app.stdout.pipe(appLog);
+  app.stderr.pipe(appLog);
+  app.on('exit', (code, signal) => { appExit = 'çıkış ' + code + (signal ? ' ' + signal : '') + ', ' + new Date().toISOString(); });
   let t = null;
   for (let i = 0; i < 2400 && !t; i++) {
     await sleep(50);
@@ -186,10 +205,17 @@ async function main() {
     cmp.missing.forEach((c) => console.log('  ' + c.name + (c.mode ? ' / ' + c.mode : '') + ': ' + c.in));
     process.exitCode = cmp.changed.length || cmp.missing.length ? 1 : 0;
   }
+  a.ws.onclose = null;
   try { a.ws.close(); } catch { /* kapanıyor */ }
   app.kill();
   await sleep(1000);
   try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* süreç hâlâ tutuyor olabilir */ }
 }
 
-main().catch((e) => { console.error(e); try { if (app) app.kill(); } catch { /* yok */ } process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  await sleep(1000);
+  if (appExit) console.error('uygulama: ' + appExit + '. Günlük: ' + path.join(OUT, 'app.log'));
+  try { if (app) app.kill(); } catch { /* yok */ }
+  process.exit(1);
+});

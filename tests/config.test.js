@@ -252,7 +252,7 @@ test('kaza koruması ayarları kaydedilip geri yüklenince korunur', () => {
 // Bu testin varlık sebebi tek: o listeye yanlışlıkla eklenmelerini yakalamak.
 // ===========================================================================
 test('zaman çizelgesi ve klip destesi sahne anahtarlarında YER ALMAZ', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'shared', 'schema.js'), 'utf-8');
   const m = src.match(/const SCENE_KEYS = \[([\s\S]*?)\];/);
   assert.ok(m, 'SCENE_KEYS bulunamadı — test güncellenmeli');
   const keys = m[1].split(/[,\s]+/).map((x) => x.replace(/['\"]/g, '').trim()).filter(Boolean);

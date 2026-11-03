@@ -26,42 +26,9 @@
   let oscOutState = { running: false, host: '', port: 0, packets: 0, error: null };
   let started = false;
 
-  // Sürülebilir hedefler. Aralıklar panel kaydırıcılarıyla aynı tutuldu ki
-  // denetleyicinin tam açması, kaydırıcının sonuna gelmesiyle aynı şey olsun.
-  const TARGETS = [
-    { path: 'audio.sensitivity', label: 'Ses · Hassasiyet', min: 0.2, max: 4 },
-    { path: 'audio.smoothing', label: 'Ses · Yumuşatma', min: 0, max: 0.95 },
-    { path: 'audio.bassBoost', label: 'Ses · Bas Vurgusu', min: 1, max: 4 },
-    { path: 'visualizer.sensitivity', label: 'Görselleştirici · Hassasiyet', min: 0.3, max: 3 },
-    { path: 'visualizer.glow', label: 'Görselleştirici · Parlama', min: 0, max: 1 },
-    { path: 'visualizer.barCount', label: 'Görselleştirici · Bar Sayısı', min: 16, max: 160, int: true },
-    { path: 'visualizer.gap', label: 'Görselleştirici · Bar Boşluğu', min: 0, max: 0.8 },
-    { path: 'visualizer.lineWidth', label: 'Görselleştirici · Çizgi Kalınlığı', min: 1, max: 12 },
-    { path: 'visualizer.thickness', label: 'Görselleştirici · Genlik', min: 0.1, max: 1 },
-    { path: 'visualizer.trailHeight', label: 'Görselleştirici · Yükseklik', min: 0.4, max: 3 },
-    { path: 'background.gradient.speed', label: 'Arkaplan · Akış Hızı', min: 0, max: 2 },
-    { path: 'background.gradient.audioReactivity', label: 'Arkaplan · Ses Tepkisi', min: 0, max: 2 },
-    { path: 'background.gradient.brightness', label: 'Arkaplan · Parlaklık', min: 0.4, max: 1.6 },
-    { path: 'background.gradient.audioHue', label: 'Arkaplan · Renk Kayması', min: 0, max: 1 },
-    { path: 'background.gradient.vignette', label: 'Arkaplan · Vinyet', min: 0, max: 1 },
-    { path: 'logo.opacity', label: 'Logo · Saydamlık', min: 0, max: 1 },
-    { path: 'logo.scale', label: 'Logo · Boyut', min: 0.05, max: 0.6 },
-    { path: 'feedback.zoom', label: 'Geri Besleme · Yakınlaşma', min: 0.94, max: 1.08 },
-    { path: 'feedback.decay', label: 'Geri Besleme · Sönme', min: 0.7, max: 0.999 },
-    { path: 'feedback.warp', label: 'Geri Besleme · Bükülme', min: 0, max: 2 },
-    { path: 'feedback.rotate', label: 'Geri Besleme · Dönüş', min: -1, max: 1 },
-    { path: 'media.opacity', label: 'Medya · Saydamlık', min: 0, max: 1 },
-    { path: 'media.kaleido', label: 'Medya · Kaleydoskop', min: 0, max: 12, int: true },
-    /* MILKDROP (#570). Aralıklar panelin kaydırıcılarıyla aynı. */
-    { path: 'milkdrop.blendTime', label: 'MilkDrop · Geçiş Süresi', min: 0, max: 5 },
-    { path: 'milkdrop.autoNext', label: 'MilkDrop · Otomatik Geçiş', min: 0, max: 120, int: true },
-    { path: 'milkdrop.autoNextRand', label: 'MilkDrop · Rastgele Pay', min: 0, max: 30, int: true },
-    { path: 'milkdrop.hardCutThreshold', label: 'MilkDrop · Sert Geçiş Eşiği', min: 1, max: 6 },
-    /* Ağ sıklığı ve iç çözünürlük panelde de yalnız bu değerleri alıyor.
-       Sürekli bir düğme her ara değerde ağı ya da çerçeve tamponlarını
-       yeniden kurardı; denetleyicinin yolu kovalara bölünüyor. */
-    { path: 'milkdrop.mesh', label: 'MilkDrop · Ağ Sıklığı', steps: [24, 32, 48, 64, 96, 128] },
-    { path: 'milkdrop.renderScale', label: 'MilkDrop · İç Çözünürlük', steps: [0.75, 1, 1.5, 2] },
+  /* Sürülebilir hedefler: kaydırıcılar şemadan (#905), eylemler burada. */
+  const Schema = (typeof window !== 'undefined' && window.SVSchema) || require('../shared/schema.js');
+  const TARGETS = Schema.SLIDERS.concat([
     { action: 'nextVisualizer', label: 'Eylem · Sonraki Görselleştirici' },
     { action: 'prevVisualizer', label: 'Eylem · Önceki Görselleştirici' },
     { action: 'nextBackground', label: 'Eylem · Sonraki Arkaplan' },
@@ -95,7 +62,7 @@
     { action: 'mdSpriteNewest', label: 'MilkDrop · Sprite: En Yeniyi Sil' },
     { action: 'mdSpriteOldest', label: 'MilkDrop · Sprite: En Eskiyi Sil' },
     { action: 'mdSpriteAll', label: 'MilkDrop · Sprite: Hepsini Sil' },
-  ];
+  ]);
 
   /* Kısayol döngüsü katalogdan: elle tutulan liste on beşten fazla modu
      atlıyordu (#638). */
@@ -246,7 +213,7 @@
       const data = list[idx].data || {};
       const bg = cfg.background || {};
       const keep = { transparent: !!bg.transparent, transparentKey: bg.transparentKey, coverTaskbar: bg.coverTaskbar };
-      const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
+      const SCENE_KEYS = Schema.SCENE_KEYS;
       for (const key of SCENE_KEYS) {
         if (data[key] !== undefined) cfg[key] = JSON.parse(JSON.stringify(data[key]));
       }

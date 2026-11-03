@@ -13,19 +13,14 @@
    anahtar yedeğin ekranını, ses aygıtını ya da ağ ayarını bozardı; bu yüzden
    liste açık ve tek yerde.
 
-   SCENE — kaydedilen sahnenin anahtarları (admin.js, control.js, main.js ve
-   mcp.js'teki SCENE_KEYS ile aynı; test eşitliği denetliyor).
+   SCENE — kaydedilen sahnenin anahtarları, tek listeden (schema.js).
    LIVE — o an ekrandaki görüntü: sahne + ana parlaklık, çalan parça kartı,
    dinamik tema, karartma ve etkin sahne kimliği.
    SHOW — gösterinin geri kalanı: kayıtlı sahneler, Studio presetleri, zaman
    çizelgesi, Clip Deck, Otomatik VJ ve MilkDrop kütüphanesinin puan/etiketleri.
    Geri kalan her şey KURULUM sayılır ve aktarılmaz. */
 (function () {
-  const SCENE = [
-    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
-    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
-    'transition', 'custom', 'milkdrop', 'feedback',
-  ];
+  const SCENE = ((typeof window !== 'undefined' && window.SVSchema) || require('./schema.js')).SCENE_KEYS;
   const LIVE = SCENE.concat(['master', 'nowplaying', 'dynamicTheme', 'isBlackout', '_activeSceneId']);
   const SHOW = ['scenes', 'userPresets', 'timeline', 'clipdeck', 'autovj', 'milkdropLibrary'];
   const REPLICATED = LIVE.concat(SHOW);
