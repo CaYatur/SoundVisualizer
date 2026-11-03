@@ -2214,7 +2214,9 @@
   };
   const restoreT = (pool, base) => {
     if (!base) return;
-    for (let i = 0; i < NUM_T; i++) pool.set(T_NAMES[i], base[i]);
+    const I = pool._tIds || (pool._tIds = T_NAMES.map((n) => pool.id(n)));
+    const V = pool.values;
+    for (let i = 0; i < NUM_T; i++) V[I[i]] = +base[i] || 0;
   };
 
   /* ALT BLOKLARA (özel dalga ve şekil) kare başına taşınan girdiler.
@@ -2275,6 +2277,22 @@
 
   // Ağ düğümünün girdileri ve hareket değişkenleri, `pixel`in yazdığı sırayla
   const PIX_NAMES = ['x', 'y', 'rad', 'ang', 'zoom', 'zoomexp', 'rot', 'warp', 'cx', 'cy', 'dx', 'dy', 'sx', 'sy'];
+  // Dalga noktasının girdi ve çıktıları, `wavePoint`in yazdığı sırayla
+  const POINT_NAMES = ['sample', 'value1', 'value2', 'x', 'y', 'r', 'g', 'b', 'a'];
+  // Şeklin girdi-çıktı değişkenleri (`shape.base`), `shapeFrame`in okuduğu sırayla
+  const SHAPE_NAMES = ['x', 'y', 'rad', 'ang', 'tex_ang', 'tex_zoom', 'r', 'g', 'b', 'a', 'r2', 'g2', 'b2', 'a2',
+    'border_r', 'border_g', 'border_b', 'border_a', 'thick', 'sides', 'textured', 'additive'];
+
+  function shapePlan(pool, base) {
+    const ids = SHAPE_NAMES.map((n) => pool.id(n));
+    return { ids, vals: SHAPE_NAMES.map((n) => +base[n] || 0), inst: pool.id('instance'), num: pool.id('num_inst') };
+  }
+
+  function qIds(pool, n) {
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) out[i] = pool.id('q' + (i + 1));
+    return out;
+  }
 
   class Preset {
     constructor(text, opts) {
@@ -2583,11 +2601,24 @@
          içeriyor). Korpusta 3 preset per_frame'de bunlardan birini yazıp
          bir dalgada ya da şekilde okuyor. */
       const S = this.accurate !== false ? this.pvPool : P;
-      for (const k of SHARED_VARS) pool.set(k, S.get(k));
+      /* Adlar örnek başına aranmıyor (#905): şekil kare denklemini 1024 örneğe kadar koşuyor ve
+         her örnekte bu kopya var. En yavaş presetlerde karenin %20-45'i buradaydı. İndisler
+         kaynak ve hedef havuz başına bir kez alınıyor; dizi ise yeni ad eklenince değişebildiği
+         için her çağrıda havuzdan okunuyor. Yazılan değerler `Pool.set` ile aynı. */
+      const from = S._shareFrom || (S._shareFrom = SHARED_VARS.map((n) => S.id(n)));
+      const to = pool._shareIds || (pool._shareIds = SHARED_VARS.map((n) => pool.id(n)));
+      const qTo = pool._qIds && pool._qIds.length === this._nq ? pool._qIds : (pool._qIds = qIds(pool, this._nq));
+      const D = pool.values, Sv = S.values;
+      for (let i = 0; i < to.length; i++) D[to[i]] = Sv[from[i]] || 0;
       if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
       // Uyum açıkken per_frame'in bıraktığı q; kapalıyken havuzun o anki hâli
       const q = this.accurate !== false ? this._qFrame : null;
-      for (let i = 1; i <= this._nq; i++) pool.set('q' + i, q ? q[i - 1] : P.get('q' + i));
+      if (q) {
+        const Q = pool.values;
+        for (let i = 0; i < qTo.length; i++) Q[qTo[i]] = +q[i] || 0;
+      } else {
+        for (let i = 1; i <= this._nq; i++) pool.set('q' + i, P.get('q' + i));
+      }
     }
 
     // Bir custom dalganın kare denklemlerini koşturur. false: çizilmeyecek.
@@ -2635,9 +2666,13 @@
     wavePoint(w, sample, v1, v2, out) {
       const md2 = this._mode.md2;
       const P = md2 ? w.ppPool : w.pool;
-      P.set('sample', sample);
-      P.set('value1', v1);
-      P.set('value2', v2);
+      /* Adlar nokta başına aranmıyor (#905), `pixel` gibi: dalga başına 512 nokta. */
+      const I = md2 ? (w._ptMd2 || (w._ptMd2 = POINT_NAMES.map((n) => P.id(n))))
+        : (w._ptOld || (w._ptOld = POINT_NAMES.map((n) => P.id(n))));
+      const V = P.values;
+      V[I[0]] = +sample || 0;
+      V[I[1]] = +v1 || 0;
+      V[I[2]] = +v2 || 0;
       /* HER NOKTA kendi tohumundan başlıyor (milkdropfs.cpp:2470-2478):
          x ve y dalganın kendi örneğinden (`0,5 + value`), renk de dalganın
          o karedeki renginden. Motor x'i örneğin sırasına, y'yi 0,5'e
@@ -2650,16 +2685,17 @@
              — MilkDrop'ta her nokta aynı renkten başlıyor.
          Uyum kapalıyken eski tohumlar duruyor. */
       const acc = this.accurate !== false;
-      P.set('x', acc ? 0.5 + v1 : sample);
-      P.set('y', acc ? 0.5 + v2 : 0.5);
+      V[I[3]] = +(acc ? 0.5 + v1 : sample) || 0;
+      V[I[4]] = +(acc ? 0.5 + v2 : 0.5) || 0;
       if (acc && w._ppColor) {
-        P.set('r', w._ppColor.r); P.set('g', w._ppColor.g);
-        P.set('b', w._ppColor.b); P.set('a', w._ppColor.a);
+        const c = w._ppColor;
+        V[I[5]] = +c.r || 0; V[I[6]] = +c.g || 0;
+        V[I[7]] = +c.b || 0; V[I[8]] = +c.a || 0;
       }
-      (md2 ? w.cPointMd2 : w.cPoint).run(P.values);
+      (md2 ? w.cPointMd2 : w.cPoint).run(V);
       const o = out || {};
-      o.x = P.get('x'); o.y = P.get('y');
-      o.r = P.get('r'); o.g = P.get('g'); o.b = P.get('b'); o.a = P.get('a');
+      o.x = V[I[3]]; o.y = V[I[4]];
+      o.r = V[I[5]]; o.g = V[I[6]]; o.b = V[I[7]]; o.a = V[I[8]];
       return o;
     }
 
@@ -2670,10 +2706,15 @@
       if (!s || !s.enabled) return null;
       const P = s.pool;
       this._shareInto(P);
-      const b = this.accurate !== false && s.baseMd2 ? s.baseMd2 : s.base;
-      for (const k in b) P.set(k, b[k]);
-      P.set('instance', instance);
-      P.set('num_inst', s.instances);
+      /* Adlar örnek başına aranmıyor (#905). Taban kurulumdan sonra değişmiyor, sayıları da bir
+         kez alınıyor; `baseMd2` ile `base` farklı değerler taşıyor, kip kare ortasında dönebiliyor. */
+      const md2Base = this.accurate !== false && !!s.baseMd2;
+      const plan = md2Base ? (s._planMd2 || (s._planMd2 = shapePlan(P, s.baseMd2))) : (s._planOld || (s._planOld = shapePlan(P, s.base)));
+      const I = plan.ids, B = plan.vals;
+      const V = P.values;
+      for (let i = 0; i < I.length; i++) V[I[i]] = B[i];
+      V[plan.inst] = +instance || 0;
+      V[plan.num] = +s.instances || 0;
       if (!s.initialised) {
         s.cInit.run(P.values);
         s.initialised = true;
@@ -2692,7 +2733,13 @@
         s.cFrame.run(P.values);
       }
       const o = out || {};
-      for (const k in b) o[k] = P.get(k);
+      const W = P.values;
+      o.x = W[I[0]]; o.y = W[I[1]]; o.rad = W[I[2]]; o.ang = W[I[3]];
+      o.tex_ang = W[I[4]]; o.tex_zoom = W[I[5]];
+      o.r = W[I[6]]; o.g = W[I[7]]; o.b = W[I[8]]; o.a = W[I[9]];
+      o.r2 = W[I[10]]; o.g2 = W[I[11]]; o.b2 = W[I[12]]; o.a2 = W[I[13]];
+      o.border_r = W[I[14]]; o.border_g = W[I[15]]; o.border_b = W[I[16]]; o.border_a = W[I[17]];
+      o.thick = W[I[18]]; o.sides = W[I[19]]; o.textured = W[I[20]]; o.additive = W[I[21]];
       return o;
     }
 
