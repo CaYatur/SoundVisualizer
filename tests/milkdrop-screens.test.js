@@ -159,19 +159,19 @@ test('liderin kendi seçimi 32 bitlik bir tohum taşıyor', () => {
 
 test('ana süreç: liderin seçimi diğer pencerelere, Spout/Syphon\'a ve web\'e', () => {
   const M = bare(read('src/main/main.js'));
-  const fn = /function relayMdFollow\(sender, mp\) \{[\s\S]*?\n\}/.exec(M);
+  const fn = /function relayMdFollow\(sender, mp, mpLayers\) \{[\s\S]*?\n\}/.exec(M);
   assert.ok(fn, 'relayMdFollow bulunamadı');
   const f = fn[0];
   assert.match(f, /if \(ctl && ctl\.independent === true\) return;/, '"her ekran kendi seçer" açıkken dağıtılmamalı');
   assert.match(f, /if \(key === mdFollowSent\.key && now - mdFollowSent\.at < 250\) return;/);
   assert.match(f, /for \(const win of openWindows\(\)\) \{\s*if \(win\.webContents !== sender\) win\.webContents\.send\('md-follow', follow\);/);
   assert.match(f, /if \(ts && ts\.webContents !== sender\) ts\.webContents\.send\('md-follow', follow\);/);
-  assert.match(f, /streamServer\.broadcast\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ startedAt: null \}\) \}, 'overlay'\);/);
-  assert.match(f, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
+  assert.match(f, /streamServer\.broadcast\(\{ type: 'md-follow', follow: redundancy\.withoutStart\(follow\) \}, 'overlay'\);/);
+  assert.match(M, /function mdFollowOf\(mp\) \{[\s\S]*?seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
   // Lider: ölçer mesajı geçirilen pencere. Birincil pencere yoksa Spout/Syphon.
-  assert.match(M, /if \(primary && e\.sender !== primary\.webContents\) return;\s*if \(data && data\.mdPreset\) relayMdFollow\(e\.sender, data\.mdPreset\);/);
+  assert.match(M, /if \(primary && e\.sender !== primary\.webContents\) return;\s*if \(data && \(data\.mdPreset \|\| data\.mdLayers\)\) relayMdFollow\(e\.sender, data\.mdPreset, data\.mdLayers\);/);
   // Pencere ve Spout/Syphon yokken lider önizleme
-  assert.match(M, /ipcMain\.on\('md-live', \(e, mp\) => \{\s*if \(openWindows\(\)\.length \|\| textureShare\.window\(\)\) return;\s*relayMdFollow\(e\.sender, mp\);/);
+  assert.match(M, /ipcMain\.on\('md-live', \(e, mp, layers\) => \{\s*if \(openWindows\(\)\.length \|\| textureShare\.window\(\)\) return;\s*relayMdFollow\(e\.sender, mp, layers\);/);
 });
 
 test('pencereler ve web çıkışı izleme mesajını SVMdFollow yapıyor', () => {
@@ -208,7 +208,7 @@ test('web köprüsü md-follow iletisini dinleyiciye veriyor', () => {
 });
 
 test('önizleme lider olduğunda seçimini yolluyor, izlerken yollamıyor', () => {
-  assert.match(read('src/main/preload-admin.js'), /sendMdLive: \(p\) => ipcRenderer\.send\('md-live', p\),/);
+  assert.match(read('src/main/preload-admin.js'), /sendMdLive: \(p, layers\) => ipcRenderer\.send\('md-live', p, layers\),/);
   const P = bare(read('src/admin/preview.js'));
   const fn = /function reportMdLive\(now\) \{[\s\S]*?\n  \}/.exec(P);
   assert.ok(fn, 'reportMdLive bulunamadı');

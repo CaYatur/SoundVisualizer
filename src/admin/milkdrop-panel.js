@@ -589,9 +589,9 @@
      preseti gösteriyordu. Katman bağımsızsa seçim (liste, ◀ ▶, rastgele) ona
      gidebiliyor.
 
-     Bağımsız katman kendi presetinde DURUR, otomatik geçişe girmez: geçiş seçimi
-     pencereler arasında tek kanaldan gidiyor (`SVMdFollow`), katman başına
-     seçimler ekranlar arasında ayrışırdı. */
+     Bağımsız katman kendi presetinde durur; `ownAuto` açıksa kendi aralığıyla
+     geçer (#905). Seçimi izleme mesajında kendi payıyla gidiyor
+     (`SVMdFollow.layers`), yani ekranlar katman katman aynı kalıyor. */
   function isOwnLayer(l) {
     return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
       && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
@@ -620,6 +620,20 @@
       delete l.settings.milkdrop;
       if (pickFor === l.id) pickFor = '';
     }
+  }
+
+  /* Katmanın kendi otomatik geçişi (#905). Aralık ortak ayardan başlıyor, ortakta kapalıysa
+     30 sn: anahtarı açan kullanıcı bir şey olduğunu görsün. Kapatınca aralık katmanda kalıyor. */
+  function setLayerAuto(cfg, l, on) {
+    const m = l && l.settings && l.settings.milkdrop;
+    if (!m) return;
+    if (!on) { delete m.ownAuto; return; }
+    const md = cfg.milkdrop || {};
+    m.ownAuto = true;
+    if (m.autoNextUnit == null) m.autoNextUnit = md.autoNextUnit === 'bars' ? 'bars' : 'seconds';
+    if (!(m.autoNext > 0)) m.autoNext = md.autoNext > 0 ? md.autoNext : 30;
+    if (!(m.autoNextBars > 0)) m.autoNextBars = md.autoNextBars > 0 ? md.autoNextBars : 8;
+    if (m.autoOrder == null) m.autoOrder = md.autoOrder === 'random' ? 'random' : 'sequential';
   }
 
   function pointStackAtMilkdrop(cfg) {
@@ -2103,7 +2117,7 @@
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
-    isOwnLayer, setLayerOwn, pickFor: (id) => { pickFor = id || ''; },
+    isOwnLayer, setLayerOwn, setLayerAuto, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

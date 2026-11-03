@@ -1986,15 +1986,21 @@ void main(){
          mesaj olabilir. Onu izlemek yeni preseti eskisine geri harmanlar,
          bir sonraki mesaj da tekrar yeniye — ekranda iki geçiş üst üste.
          Yalnız AYNI elle seçimin üstünde yapılmış bir seçim izleniyor. */
-      /* Kendi preseti olan katman (#909) geçişe girmez ve lideri izlemez: seçimini
-         aynı kimlikte yapmış olsa bile ortak katmanların seçimi ona geçmesin. */
-      if (cfg.milkdrop && cfg.milkdrop.independent === true) {
+      /* Kendi preseti olan katman (#909) ortak seçimi izlemez: seçimini aynı kimlikte
+         yapmış olsa bile ortak katmanların seçimi ona geçmesin. Kendi geçişi
+         (`ownAuto`, #905) açık değilse presetinde durur. Açıksa aşağıdaki yolun aynısı:
+         listeyi kendi ayarıyla süzer, ekranlar arasında kendi payını izler. */
+      const own = !!(cfg.milkdrop && cfg.milkdrop.independent === true);
+      if (own && cfg.milkdrop.ownAuto !== true) {
         this.autoPick = null;
+        this._ownFollow = false;
         return;
       }
+      this._ownFollow = own;
       const FOLLOW_MS = 1500;
-      const F = typeof window !== 'undefined' && window.SVMdFollow;
-      if (F && F.base === (this._manualKey || '') && (performance.now() - F.at) < FOLLOW_MS) {
+      const msg = typeof window !== 'undefined' && window.SVMdFollow;
+      const F = own ? this._layerFollow(msg) : msg;
+      if (F && F.base === (this._manualKey || '') && (performance.now() - msg.at) < FOLLOW_MS) {
         this.cycle.reset();
         /* Liderin önceden derlediği sıradakini izleyen de hazırlıyor (#573);
            liste yalnız sıradaki DEĞİŞİNCE aranıyor. */
@@ -2017,6 +2023,17 @@ void main(){
             seed: Number.isInteger(F.seed) ? F.seed : null,
           };
         }
+        return;
+      }
+      /* AYNI PENCEREDEKİ ORTAK KATMANLAR tek seçim gösterir: her biri ayrı sayaç koştursaydı
+         "ortak" dediğimiz katmanlar farklı presetlere dağılırdı. İlk ortak katman seçiyor,
+         yığın ötekilere onu veriyor (`LayerStack._linkShared`). Tohum da aynı. */
+      const peer = !own && this.sharedLeader;
+      if (peer) {
+        this.cycle.reset();
+        const a = peer.autoPick;
+        if (!a) { this.autoPick = null; return; }
+        if (!this.autoPick || this.autoPick.id !== a.id || this.autoPick.seed !== a.seed) this.autoPick = Object.assign({}, a);
         return;
       }
       /* Liste zamanlayıcı ya da sert geçiş açıksa kuruluyor; ikisi de
@@ -2065,6 +2082,11 @@ void main(){
           seed: (Math.random() * 4294967296) >>> 0,
         };
       }
+    }
+
+    /* Bu katmanın izleme mesajındaki payı (#905). Mesajın zamanı ortak: tek mesajda geliyor. */
+    _layerFollow(msg) {
+      return (msg && msg.layers && this.layerId && msg.layers[this.layerId]) || null;
     }
 
     /* HAREKETİ AZALT (#581). İşletim sistemi hareketin azaltılmasını
@@ -2156,7 +2178,8 @@ void main(){
     _alignBlend(now) {
       const b = this._blendStart;
       if (!b || b.aligned || !b.id) return false;
-      const F = typeof window !== 'undefined' && window.SVMdFollow;
+      const msg = typeof window !== 'undefined' && window.SVMdFollow;
+      const F = this._ownFollow ? this._layerFollow(msg) : msg;
       if (!F || F.id !== b.id || !Number.isFinite(F.startedAt)) return false;
       b.aligned = true;
       const dur = Math.max(1e-3, this.blendDur);

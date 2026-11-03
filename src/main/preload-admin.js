@@ -113,7 +113,7 @@ contextBridge.exposeInMainWorld('api', {
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
-  sendMdLive: (p) => ipcRenderer.send('md-live', p),
+  sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
 
   // Eylemler

@@ -1623,6 +1623,8 @@
       } else if (layer.kind === 'visualizer' || layer.kind === 'nowplaying') {
         const modeType = layer.kind === 'nowplaying' ? 'nowplaying' : layer.type;
         if (window.SVModes[modeType]) e.mode = new window.SVModes[modeType](e.canvas);
+        // Motor izleme mesajındaki kendi payını bu kimlikle buluyor (#905)
+        if (e.mode) e.mode.layerId = layer.id;
         e.ctx = e.canvas.getContext('2d');
       } else {
         e.ctx = e.canvas.getContext('2d');
@@ -1952,6 +1954,7 @@
     }
 
     draw(audio, cfg, t, dt) {
+      this._linkShared();
       const tick = this._tickTransition(dt);
       const isBlackout = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
         (
@@ -2351,6 +2354,7 @@
        canlı CSS birleştirmesiyle aynı kareyi bu yoldan da kurup piksel
        piksel karşılaştırır; ikinci çizim durumlu modları ilerletirdi. */
     drawTo(ctx, audio, cfg, t, dt, drawLogo, reuse) {
+      this._linkShared();
       const W = this.width;
       const H = this.height;
       ctx.save();
@@ -2496,6 +2500,32 @@
         return e.mode.livePreset();
       }
       return null;
+    }
+
+    /* Kendi otomatik geçişi olan katmanların o anki seçimi (#905): katman kimliğine göre.
+       Ayara yazılmıyor, panel ve öteki ekranlar buradan öğreniyor. Yoksa null: mesaj büyümesin. */
+    milkdropLayers() {
+      let out = null;
+      for (const e of this.entries) {
+        if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
+        const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+        if (!own || own.independent !== true || own.ownAuto !== true) continue;
+        (out || (out = {}))[e.layer.id] = e.mode.livePreset();
+      }
+      return out;
+    }
+
+    /* Ortak MilkDrop katmanları tek seçimde (#905): ilki seçer, ötekiler onu alır.
+       Çizim alttan üste, yani lider aynı karede önce çiziliyor. */
+    _linkShared() {
+      let lead = null;
+      for (const e of this.entries) {
+        if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
+        const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+        if (own && own.independent === true) { e.mode.sharedLeader = null; continue; }
+        e.mode.sharedLeader = lead;
+        if (!lead) lead = e.mode;
+      }
     }
 
     /* O an çizilen MilkDrop görüntüsünün renkleri, soldan sağa (#589).

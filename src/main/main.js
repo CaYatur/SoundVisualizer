@@ -3891,11 +3891,8 @@ ipcMain.handle('file:import-json', async (e, title) => {
    (`milkdropControl.independent`) açıkken hiç yollanmıyor. Panel
    önizlemesi ölçer mesajının kendisini izlediği için burada ayrıca yok. */
 let mdFollowSent = { key: '', at: 0 };
-function relayMdFollow(sender, mp) {
-  if (!mp) return;
-  const ctl = currentConfig && currentConfig.milkdropControl;
-  if (ctl && ctl.independent === true) return;
-  const follow = { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
+function mdFollowOf(mp) {
+  return { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
     blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null,
     /* Liderin önceden derlediği SIRADAKİ preset (#573): izleyenler de onu
        önceden derliyor, değişim geldiğinde hepsi aynı anda geçebiliyor. */
@@ -3903,7 +3900,23 @@ function relayMdFollow(sender, mp) {
     /* Liderin geçişi başlattığı an (#812, duvar saati): izleyen geç
        başladıysa geçişini öne alıp hizalanıyor. Anahtara girmiyor. */
     startedAt: Number.isFinite(mp.startedAt) ? mp.startedAt : null };
-  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
+}
+const mdFollowKey = (f) => [f.id, f.base, f.cut, f.blend, f.seed, f.next].join('|');
+function relayMdFollow(sender, mp, mpLayers) {
+  const layers = mpLayers && typeof mpLayers === 'object' ? mpLayers : null;
+  if (!mp && !layers) return;
+  const ctl = currentConfig && currentConfig.milkdropControl;
+  if (ctl && ctl.independent === true) return;
+  const follow = mdFollowOf(mp || {});
+  /* Kendi geçişi olan katmanların payı aynı mesajda (#905): ekranlar katman katman aynı seçimi gösterir. */
+  let key = mdFollowKey(follow);
+  if (layers) {
+    follow.layers = {};
+    for (const id of Object.keys(layers)) {
+      follow.layers[id] = mdFollowOf(layers[id] || {});
+      key += ';' + id + '=' + mdFollowKey(follow.layers[id]);
+    }
+  }
   const now = Date.now();
   /* Yedek birincili izlerken kendi seçimini dağıtmaz (#540): ekranları
      birincilin seçimini alıyor (onPrimaryMessage). */
@@ -3916,7 +3929,7 @@ function relayMdFollow(sender, mp) {
   const ts = textureShare.window();
   if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
   // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
-  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
+  streamServer.broadcast({ type: 'md-follow', follow: redundancy.withoutStart(follow) }, 'overlay');
   /* Yedeğe preset içerik özeti ve seçim anı da gider (#812): yedek kendi
      presetinin aynı olup olmadığını bilsin; tohum (#585) zaten seçimde. */
   if (red.role === 'primary' && streamServer.peerCount()) {
@@ -4004,9 +4017,9 @@ function noteMdManual(cfg) {
 
 /* Görselleştirici penceresi ve Spout/Syphon yokken lider panel
    önizlemesi: seçimini buradan yolluyor ve yalnız web çıkışı izliyor. */
-ipcMain.on('md-live', (e, mp) => {
+ipcMain.on('md-live', (e, mp, layers) => {
   if (openWindows().length || textureShare.window()) return;
-  relayMdFollow(e.sender, mp);
+  relayMdFollow(e.sender, mp, layers);
 });
 
 ipcMain.on('audio-meter', (e, data) => {
@@ -4025,7 +4038,7 @@ ipcMain.on('audio-meter', (e, data) => {
   }
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
-  if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
+  if (data && (data.mdPreset || data.mdLayers)) relayMdFollow(e.sender, data.mdPreset, data.mdLayers);
   notifyAdmin('audio-meter', data);
   /* Çıkış yetkisi (#814): ışık ve OSC yalnız kapısı açıksa. Kapı yetki
      değişince bir kez hesaplanır (redAuth.gates); burada tek okuma. */
@@ -5621,7 +5634,7 @@ function onPrimaryMessage(msg) {
     const ts = textureShare.window();
     if (ts) ts.webContents.send('md-follow', follow);
     // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
-  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
+    streamServer.broadcast({ type: 'md-follow', follow: redundancy.withoutStart(follow) }, 'overlay');
     return;
   }
   if (msg.type === 'pkg-manifest') { onPackageManifest(msg); return; }

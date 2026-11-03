@@ -33,14 +33,14 @@ test('localFollow: geçiş anı yerel saate, `at` ve özet pencereye gitmiyor', 
 });
 
 test('birincil yedeğe `at` yollamıyor; yedek pencerelere çevrilmiş seçimi veriyor', () => {
-  const relay = MAIN.slice(MAIN.indexOf('function relayMdFollow('), MAIN.indexOf('function mdPresetHash('));
+  const relay = MAIN.slice(MAIN.indexOf('function mdFollowOf('), MAIN.indexOf('function mdPresetHash('));
   assert.match(relay, /startedAt: Number\.isFinite\(mp\.startedAt\) \? mp\.startedAt : null \};/);
   assert.doesNotMatch(relay, /at: now \}\) \}\)/);
   const on = MAIN.slice(MAIN.indexOf("if (msg.type === 'md-follow') {"), MAIN.indexOf("if (msg.type === 'pkg-manifest')"));
   assert.match(on, /const follow = redundancy\.localFollow\(msg\.follow, \(ms\) => f\.toLocal\(ms\)\);/);
   assert.match(on, /win\.webContents\.send\('md-follow', follow\)/);
   // Web sayfası başka makinede: geçiş anı ona gitmiyor
-  assert.match(on, /follow: Object\.assign\(\{\}, follow, \{ startedAt: null \}\)/);
+  assert.match(on, /follow: redundancy\.withoutStart\(follow\)/);
 });
 
 /* Motorun hizalama yöntemi pencere olmadan, düz alanlarla sınanıyor. */
