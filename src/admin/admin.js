@@ -548,6 +548,7 @@
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
     openSettings: () => setCategory('settings'),
     setCategory: (id) => setCategory(id),
+    sliderMax: (def) => sliderMax(def),
     scenes: () => ensureScenes(),
     activeSceneId: () => activeSceneId,
     sceneGradient: (s) => sceneGradient(s),

@@ -24,3 +24,15 @@ for (const [card, keys] of Object.entries(FIELDS)) {
     assert.deepStrictEqual(lost, []);
   });
 }
+
+/* Genişletilmiş aralık: yanlış yazılan yol sessizce sabit sınıra düşerdi. */
+test('katman kaydırıcılarının şema yolları var, genişletilmiş aralığa bağlı', () => {
+  const Schema = require('../src/shared/schema.js');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  const paths = [...src.matchAll(/path: '([a-zA-Z.]*[a-zA-Z])'/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 40, String(paths.length));
+  assert.deepStrictEqual(paths.filter((p) => !Schema.rangeFor(p)), []);
+  assert.match(src, /P\(\)\.sliderMax\(\{ max: baseMax, noExtend: !!\(row && row\.noExtend\) \}\)/);
+  for (const key of ['sensitivity', 'barCount', 'spectrum.tilt']) assert.ok(paths.includes('visualizer.' + key), key);
+  for (const key of ['scale', 'x', 'speed']) assert.ok(paths.includes('logo.' + key), key);
+});

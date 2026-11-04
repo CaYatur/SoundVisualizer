@@ -280,6 +280,21 @@ async function main() {
     const shot = await a.call('Page.captureScreenshot', { format: 'jpeg', quality: 80 });
     fs.writeFileSync(path.join(arg('out'), 'son.jpg'), Buffer.from(shot.result.data, 'base64'));
   }
+  // Genişletilmiş aralık katman kaydırıcısında da geçerli: klasik kart gidince tek yol burası
+  const visId = await cfg('(c.layers.find((l) => l.kind === "visualizer" && l.type !== "milkdrop") || {}).id');
+  if (visId) {
+    const sens = () => q(`(() => { window.SVPanel.setCategory('scene'); window.SVSceneShell.select(${JSON.stringify(visId)}); const r = document.querySelector('#svInspector [data-anchor="Hassasiyet"] input[type=range]'); return r ? +r.max : null; })()`);
+    const toggle = () => q(`(() => { window.SVPanel.setCategory('settings'); const c = [...document.querySelectorAll('.sv-content .ctrl')].find((x) => x.querySelector('input[type=checkbox]') && /Genişletilmiş Ayar|Extended/.test(x.textContent)); if (!c) return false; c.querySelector('input[type=checkbox]').click(); return true; })()`);
+    const before = await sens();
+    const found = await toggle();
+    await sleep(300);
+    const wide = await sens();
+    check('genişletilmiş aralık katman kaydırıcısına geçiyor', found && before === 3 && wide === 15, before + ' -> ' + wide);
+    await toggle();
+    await sleep(300);
+    check('genişletilmiş aralık kapanınca sınır dönüyor', await sens() === 3);
+  }
+
   check('konsol temiz', errors.length === 0, errors.slice(0, 3).join(' | '));
   try { a.ws.close(); } catch { /* kapandı */ }
   app.kill();
