@@ -15,6 +15,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   60.2 fps. The eighth has no shapes and did not change. Output is bit for bit the same on all 10,347
   corpus presets in both compatibility modes.
 
+### Visualizer
+
+- **Each MilkDrop layer can run on its own** (#905). A layer with its own preset used to stay on that
+  preset. It can now advance on its own interval, in seconds or bars, in order or at random, while
+  the other layers keep theirs. The pool and hard cuts still come from the shared settings. Every
+  screen, Spout/Syphon, the web output and a backup machine show the same choice per layer.
+  `sv_set_milkdrop_cycle` takes a `layerId`.
+- **Shared MilkDrop layers in one window show one choice** (#905). Each ran its own timer, so two
+  shared layers drifted to different presets with auto advance on. This also changes an export with
+  two shared MilkDrop layers and auto advance on: both now show the same preset.
+
 ### Lyrics
 
 - **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from
