@@ -528,3 +528,13 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 /* Girdi düğmenin altında, sağ kenara bağlı açılır kutuda; sonuçlar onun altında */
 .topsearch.ts-pop:focus-within input, .topbar.tb-fit2 .topsearch:focus-within input { position: absolute; z-index: 201; top: calc(100% + 7px); right: 0; width: 320px; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2), 0 8px 24px rgb(var(--shade-rgb) / .35); }
 .topsearch.ts-pop .search-results, .topbar.tb-fit2 .topsearch .search-results { top: calc(100% + 50px); }
+
+/* KART BOYU (#957): rafın bütün kitaplık ızgaraları aynı en küçük genişliği kullanıyor;
+   `auto-fill` + `1fr` kartları satıra eşit yayıyor, son sütun sağ kenarla hizalı. */
+.sv-card-size { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--muted2); }
+.sv-card-size .svi { width: 14px; height: 14px; }
+.sv-card-size input[type='range'] { width: 84px; margin: 0; accent-color: var(--accent); }
+#svShelf .sv-gal { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); }
+#svShelf .md-library > .md-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); align-content: start; }
+#svShelf #dockScenes .scene-list.is-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--sv-card, 146px) * 1.9)), 1fr)); }
+#svShelf .md-grid .md-thumb-box, #svShelf .sv-gi .sv-th { aspect-ratio: 16 / 9; }

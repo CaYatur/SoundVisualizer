@@ -43,6 +43,8 @@
     'Ortak MilkDrop presetine uygulanır': 'Applies to the shared MilkDrop preset',
     'Yeni katman olarak eklenir': 'Added as a new layer',
     'Kitaplıkta ara': 'Search the library',
+    'Kart boyu': 'Card size',
+    'Kart boyu (Ctrl + tekerlek)': 'Card size (Ctrl + wheel)',
     'Rafı kapat, sahneyi büyüt': 'Close the shelf, enlarge the scene',
     'Rafı aç': 'Open the shelf',
     'Araçlar': 'Tools',

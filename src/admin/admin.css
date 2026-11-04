@@ -1231,10 +1231,17 @@ input.num:focus { border-color: var(--accent); }
 .tl-ctx button, .tl-target-menu button { display: flex; justify-content: space-between; gap: 18px; }
 .tl-ctx kbd { opacity: .6; font: 500 11px ui-monospace, monospace; }
 .tl-ctx .sv-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
-.tl-target-menu { width: 320px; max-height: 360px; display: flex; flex-direction: column; }
+.tl-target-menu { width: 400px; max-height: 360px; display: flex; flex-direction: column; }
 .tl-target-menu input { margin: 4px 6px 6px; }
 .tl-target-list { overflow: auto; }
 .tl-target-list button.on { color: var(--accent); }
+/* Hedef satırları (#957): tek satır, sola yaslı, renk kutusu + ad; başlıklar parçaya göre */
+.tl-target-menu .tl-target-row { display: flex; justify-content: flex-start; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-size: 12px; text-align: left; white-space: nowrap; cursor: pointer; }
+.tl-target-menu .tl-target-row:hover, .tl-target-menu .tl-target-row:focus-visible { background: rgb(var(--fg-rgb) / .07); }
+.tl-target-menu .tl-target-row.on { color: var(--accent); }
+.tl-target-sw { flex: none; width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .2); }
+.tl-target-lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tl-target-head { position: sticky; top: 0; z-index: 1; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--muted2); background: var(--popover); }
 .tl-target-empty { padding: 8px 10px; opacity: .7; }
 .tl-keys-dlg { max-width: 560px; }
 .tl-keys-dlg table { width: 100%; border-collapse: collapse; }

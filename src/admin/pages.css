@@ -116,6 +116,8 @@ input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.14); }
 .sv-form .group, .sv-insp .group { margin: 0 0 8px; padding: 0 0 6px; border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); }
 .sv-form .group:not(:has(> .group-label)), .sv-insp .group:not(:has(> .group-label)) { padding-top: 6px; }
 .group-label { display: flex; align-items: center; gap: 6px; width: 100%; }
+/* Ayarlar: katlanmayan düz bölüm etiketi (#957) */
+.group-label.static { cursor: default; user-select: none; }
 .sv-form .group-label { padding: 6px var(--sv-inset) 4px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong); }
 .sv-insp .group-label { padding-left: var(--sv-inset); }
 /* Katman bölmesinde başlık, denetimlerin iç kenarına hizalı (#957) */

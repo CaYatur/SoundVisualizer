@@ -14,7 +14,7 @@
   const P = () => window.SVPanel;
   const SP = () => window.SVScenePanels;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open' };
+  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open', card: 'sv-shelf-card' };
   const read = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* depo yok */ } };
 
@@ -22,6 +22,28 @@
   let shelfTab = read(STORE.shelf, 'milkdrop');
   let shelfOpen = read(STORE.open, '1') !== '0';
   let query = '';
+  /* KART BOYU (#957): alt kitaplık rafının bütün sekmelerindeki kart ızgaraları için tek
+     ayar. Değer en küçük kart genişliği (px); ızgara `auto-fill, minmax(boy, 1fr)` ile
+     satırı eşit doldurur. Ctrl+tekerlek de değiştirir. */
+  const CARD_MIN = 96;
+  const CARD_MAX = 320;
+  const clampCard = (v) => Math.max(CARD_MIN, Math.min(CARD_MAX, Math.round(Number(v) || 146)));
+  let cardSize = clampCard(read(STORE.card, '146'));
+  function applyCardSize(host) {
+    const box = host || document.getElementById('svShelf');
+    if (box) box.style.setProperty('--sv-card', cardSize + 'px');
+  }
+  function setCardSize(v, host) {
+    const n = clampCard(v);
+    if (n === cardSize) return;
+    cardSize = n;
+    write(STORE.card, String(n));
+    applyCardSize(host);
+    const r = (host || document).querySelector('.sv-card-size input');
+    if (r && Number(r.value) !== n) r.value = String(n);
+    // Pencereli ızgaralar sütun sayısını yeniden ölçsün
+    window.dispatchEvent(new CustomEvent('sv-cardsize', { detail: n }));
+  }
   const scrollOf = { layers: 0, inspector: 0, shelf: 0 };
 
   /* Kitaplık sekmeleri ve araçlar. `section` varsa kartın kendisi rafa çiziliyor. */
@@ -802,6 +824,13 @@
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
+      lib ? el('label', { class: 'sv-card-size', title: tr('Kart boyu (Ctrl + tekerlek)') }, [
+        el('span', { icon: 'grid' }),
+        el('input', {
+          type: 'range', min: String(CARD_MIN), max: String(CARD_MAX), step: '2', value: String(cardSize), 'aria-label': tr('Kart boyu'),
+          oninput: (e) => setCardSize(e.target.value, host),
+        }),
+      ]) : null,
       el('button', {
         class: 'sv-ib sm', type: 'button', icon: shelfOpen ? 'chevron-down' : 'chevron-up',
         title: tr(shelfOpen ? 'Rafı kapat, sahneyi büyüt' : 'Rafı aç'), 'aria-label': tr(shelfOpen ? 'Rafı kapat, sahneyi büyüt' : 'Rafı aç'),
@@ -810,6 +839,15 @@
     ]);
     const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
     host.replaceChildren(head, body);
+    applyCardSize(host);
+    if (!host.dataset.svCardWheel) {
+      host.dataset.svCardWheel = '1';
+      host.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey || !isLib(shelfTab)) return;
+        e.preventDefault();
+        setCardSize(cardSize + (e.deltaY < 0 ? 12 : -12), host);
+      }, { passive: false });
+    }
     paintShelfBody(host);
     const c = document.getElementById('svCenter');
     if (c) c.classList.toggle('tall', !shelfOpen);

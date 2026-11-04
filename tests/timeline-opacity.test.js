@@ -43,3 +43,14 @@ test('çizelge hedefleri yapılandırmaya yazılmaz; susturulmuş otomasyon okun
   tl.tracks[1].muted = true;
   assert.strictEqual(op(tl, 1), 0.5);
 });
+
+test('yinelenen klip kimlikleri yüklemede tekilleşir, yeni kimlik çakışmaz (#957)', () => {
+  const tl = TL.makeTimeline({ tracks: [
+    { id: 'trk_1', kind: 'clip', clips: [{ id: 'clip_7', type: 'scene', ref: 'a', start: 0, dur: 2 }] },
+    { id: 'trk_2', kind: 'clip', clips: [{ id: 'clip_7', type: 'scene', ref: 'b', start: 1, dur: 2 }] },
+  ] });
+  const ids = tl.tracks.flatMap((t) => t.clips.map((c) => c.id));
+  assert.strictEqual(new Set(ids).size, 2);
+  assert.strictEqual(tl.tracks[0].clips[0].id, 'clip_7');
+  assert.ok(!ids.includes(TL.makeClip({ type: 'scene', ref: 'c' }).id));
+});

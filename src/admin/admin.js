@@ -552,6 +552,7 @@
 
   window.SVPanel = {
     el,
+    goToCard: (c, s) => goToCard(c, s),
     cfg: () => cfg,
     // Ses aygıtı listesi (ses köprüsünün yedek girişi, #813)
     audioDevices: () => audioDevices.slice(),
@@ -771,7 +772,7 @@
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
       case 'sectionlink': {
         const b = el('button', { class: 'btn small', type: 'button', icon: 'wave', text: tr(def.text) });
-        b.addEventListener('click', () => jumpTo({ category: def.category, section: def.section, path: null, advanced: false }));
+        b.addEventListener('click', () => goToCard(def.category, def.section));
         return el('div', { class: 'ctrl' }, [b, def.hint ? el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }) : null]);
       }
       case 'bridgepanel':
@@ -4088,6 +4089,8 @@
     syncUiTheme();
     const page = pageOf(activeCategory);
     document.body.setAttribute('data-page', page);
+    // Ayarlar sayfasında boş grup gizleme kapalı (kullanıcı isteği, #957): kendi başlıklarıyla kalır
+    document.body.toggleAttribute('data-sv-keep-groups', activeCategory === 'settings');
     document.body.classList.toggle('sv-simple-on', simpleOn);
     if (window.SVSceneShell) window.SVSceneShell.placeStage(page);
     /* Görünmeyen sayfanın kartları belgede kalmasın: aynı kimlikler iki kez olur, durum satırları
@@ -4506,6 +4509,14 @@
     /* Grup başlığı açılıp kapanıyor; seçim makinede kalıyor. */
     const openGroup = (name) => {
       const key = 'sv-closed:' + (card.getAttribute('data-card') || '') + ':' + (name || '');
+      /* Ayarlar sayfasında alt gruplar katlanmaz (kullanıcı isteği, #957): başlık düz bir
+         bölüm etiketi, ok yok, tıklanmaz, içerik hep görünür. */
+      if (activeCategory === 'settings') {
+        const wrap = el('div', { class: 'group' });
+        if (name) wrap.appendChild(el('div', { class: 'group-label static', role: 'heading', 'aria-level': '3' }, [el('span', { class: 'sv-grow', text: name })]));
+        card.appendChild(wrap);
+        return wrap;
+      }
       let shut = false;
       try { shut = !!name && localStorage.getItem(key) === '1'; } catch { /* yalnız kolaylık */ }
       const wrap = el('div', { class: 'group' + (shut ? ' closed' : '') });
@@ -4580,7 +4591,8 @@
   }
   function syncEmptyGroups(root) {
     (root || document).querySelectorAll('.group:has(> .group-label)').forEach((g) => {
-      const empty = !groupHasContent(g);
+      // Vazgeçme: [data-sv-keep-groups] içindeki gruplar hiç gizlenmez (Ayarlar sayfası)
+      const empty = g.closest('[data-sv-keep-groups]') ? false : !groupHasContent(g);
       if (g.classList.contains('sv-empty') !== empty) g.classList.toggle('sv-empty', empty);
     });
   }
@@ -4974,6 +4986,13 @@
     }
     activeCategory = entry.category;
     localStorage.setItem('sv-category', activeCategory);
+    /* Bölüm adıyla gelen bağlantı (#957, ör. Ayarlar › 'Ses Köprüsü Ayarlarını Aç'): kimliği
+       şemadan çöz. Bölüm sayfalı kategoride (Ses, Çıktı…) yalnız seçili kart çiziliyor; kimlik
+       yazılmazsa sayfa açılıyor ama hedef kart hiç çizilmiyordu. */
+    if (!entry.sectionId && entry.section && SECTION_PAGES[entry.category]) {
+      const hit = sectionSchema().find((x) => x.category === entry.category && (x.title === entry.section || tr(x.title) === entry.section || tr(x.title) === tr(entry.section)));
+      if (hit) entry = Object.assign({}, entry, { sectionId: hit.id });
+    }
     if (entry.sectionId && SECTION_PAGES[entry.category]) {
       try { localStorage.setItem(sectionKey(entry.category), entry.sectionId); } catch { /* yalnız kolaylık */ }
     }
@@ -5002,7 +5021,8 @@
     } else if (entry.category === 'scene' && window.SVSceneShell) window.SVSceneShell.reveal(entry.sectionId);
     render();
 
-    requestAnimationFrame(() => {
+    // Çizimden sonra (iki kare: kategori kaydırma geri yüklemesi önce bitsin)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const root = entry.category === 'scene' ? $('svScene') : entry.category === 'live' ? $('svLive') : $('sections');
       let target = null;
       if (entry.path) target = root.querySelector('[data-path="' + entry.path + '"]');
@@ -5017,12 +5037,23 @@
         target = card;
       }
       if (!target) return;
-      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // Kapalı bir grubun içindeyse aç (katlanır gruplar)
+      for (let g = target.closest('.group.closed'); g; g = g.parentElement && g.parentElement.closest('.group.closed')) {
+        g.classList.remove('closed');
+        const lb = g.querySelector(':scope > .group-label');
+        if (lb) lb.setAttribute('aria-expanded', 'true');
+      }
+      target.scrollIntoView({ block: entry.path ? 'center' : 'start', behavior: 'smooth' });
       target.classList.remove('flash');
       void target.offsetWidth; // animasyonu yeniden tetikle
       target.classList.add('flash');
       setTimeout(() => target.classList.remove('flash'), 1800);
-    });
+    }));
+  }
+  /* Genel "karta git" (#957): kategoriye geç, kartı çiz, görünür yap ve kısa vurgula. */
+  function goToCard(category, section) {
+    const sec = sectionSchema().find((x) => x.id === section);
+    jumpTo(sec ? { category: sec.category, sectionId: sec.id, section: sec.title, path: null, advanced: false } : { category, section, path: null, advanced: false });
   }
 
   async function resetCategory(catId) {

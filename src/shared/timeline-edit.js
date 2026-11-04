@@ -428,7 +428,7 @@
     const norm = (s) => String(s || '').toLocaleLowerCase('tr');
     const words = norm(q).split(/\s+/).filter(Boolean);
     return (catalog || []).filter((c) => {
-      const hay = norm(c.group + ' ' + c.label + ' ' + c.path);
+      const hay = norm(c.group + ' ' + (c.sub || '') + ' ' + c.label + ' ' + (c.keys || '') + ' ' + c.path);
       return words.every((w) => hay.indexOf(w) >= 0);
     });
   }

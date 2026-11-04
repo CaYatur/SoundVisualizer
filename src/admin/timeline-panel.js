@@ -62,6 +62,8 @@
   // İşaret kapsül genişlikleri (çizimde ölçülür, vuruş testi okur) ve üzerindeki işaret
   const markerW = new Map();
   let hoverMarkerId = '';
+  // Hedef seçicide üzerine gelinen klip (#957): tuvalde vurgulanıyor
+  let hoverClipId = '';
   let canvas = null;
   let ctx = null;
   let lastAnchorKey = '';
@@ -412,14 +414,14 @@
     }
     return out;
   }
-  function isPicked(c) {
-    if (multi.length > 1) return multi.some((m) => m.clipId === c.id);
+  function isPicked(c, trk) {
+    if (multi.length > 1) return multi.some((m) => m.clipId === c.id && (!trk || m.trackId === trk.id));
     return !!(selection && selection.kind === 'clip' && selection.clipId === c.id);
   }
   // Ctrl/Shift+tık: klibi seçime ekle ya da çıkar; son eklenen birincil olur
   function toggleMulti(trk, c) {
     if (multi.length <= 1) multi = selection && selection.kind === 'clip' ? [{ trackId: selection.trackId, clipId: selection.clipId }] : [];
-    const i = multi.findIndex((m) => m.clipId === c.id);
+    const i = multi.findIndex((m) => m.clipId === c.id && m.trackId === trk.id);
     if (i >= 0) multi.splice(i, 1);
     else multi.push({ trackId: trk.id, clipId: c.id });
     const last = multi[multi.length - 1];
@@ -452,14 +454,26 @@
       if (!out.some((o) => o.path === r.path)) out.push({ path: r.path, label: tt(r.label || r.path), group: tt('Ayarlar'), min: r.min, max: r.max });
     }
     // Çizelgenin kendi hedefleri (#957): parça ve klip opaklığı
+    /* Ham kimlik yerine okunur ad (#957): "Klip Opaklığı: Sahne 3 — Parça 1 · 0:02–0:06".
+       Parçaya göre alt başlık, klip rengi ve sahne/parça adıyla arama için `keys`. */
     const tl = transport && transport.tl;
-    for (const trk of (tl && tl.tracks) || []) {
-      if (trk.kind !== 'clip') continue;
-      out.push({ path: 'tl.track.' + trk.id + '.opacity', label: tt('Parça Opaklığı') + ': ' + (trk.name || trk.id), group: tt('Zaman Çizelgesi'), min: 0, max: 1 });
-      for (const c of trk.clips) out.push({ path: 'tl.clip.' + c.id + '.opacity', label: tt('Klip Opaklığı') + ': ' + (c.name || c.ref || c.id), group: tt('Zaman Çizelgesi'), min: 0, max: 1 });
-    }
-    catCache = out;
-    return out;
+    ((tl && tl.tracks) || []).forEach((trk, ti) => {
+      if (trk.kind !== 'clip') return;
+      const tname = trk.name || (tt('Parça') + ' ' + (ti + 1));
+      out.push({ path: 'tl.track.' + trk.id + '.opacity', label: tt('Parça Opaklığı') + ': ' + tname, group: tt('Zaman Çizelgesi'), sub: tname, min: 0, max: 1 });
+      for (const c of [...trk.clips].sort((a, b) => a.start - b.start)) {
+        const name = clipLabel(c);
+        out.push({
+          path: 'tl.clip.' + c.id + '.opacity',
+          label: tt('Klip Opaklığı') + ': ' + name + ' — ' + tname + ' · ' + fmtTime(c.start) + '–' + fmtTime(c.start + c.dur),
+          group: tt('Zaman Çizelgesi'), sub: tname, clipId: c.id, color: TE().clipColor(c, trk), keys: name + ' ' + tname + ' ' + (c.ref || ''), min: 0, max: 1,
+        });
+      }
+    });
+    // Aynı yol bir kez (yinelenen kimlik ya da iki kaynaktan gelen hedef)
+    const seen = new Set();
+    catCache = out.filter((o) => (seen.has(o.path) ? false : (seen.add(o.path), true)));
+    return catCache;
   }
   function getInCfg(path) {
     // Çizelge içi hedef (#957): değeri parça/klip alanında
@@ -959,7 +973,7 @@
       const x = xOf(c.start);
       const cw = Math.max(3, c.dur * view().zoom);
       if (x + cw < 0 || x > w) continue;
-      const sel = isPicked(c);
+      const sel = isPicked(c, trk);
       const col = TE().clipColor(c, trk);
       const top = y + 3;
       const hh = TRACK_H - 6;
@@ -1017,6 +1031,15 @@
           ctx.stroke();
         }
         ctx.restore();
+      }
+      if (!sel && hoverClipId === c.id) {
+        ctx.strokeStyle = css('--accent');
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.roundRect(x + 1, top + 1, cw - 2, hh - 2, 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
       if (sel) {
         ctx.strokeStyle = css('--text-strong');
@@ -1319,18 +1342,37 @@
     const m = el('div', { class: 'sv-menu tl-target-menu', role: 'menu' });
     const q = el('input', { class: 'txt', type: 'search', placeholder: tt('Ayar ara…'), 'aria-label': tt('Ayar ara') });
     const list = el('div', { class: 'tl-target-list' });
+    const hover = (id) => { if (hoverClipId !== id) { hoverClipId = id; draw(); } };
     const fill = () => {
-      const hits = TE().filterTargets(cat, q.value).slice(0, 60);
-      list.replaceChildren(...(hits.length ? hits.map((it) => el('button', {
-        type: 'button', class: it.path === trk.target ? 'on' : '', title: it.path + ' [' + fmtNum(it.min) + '…' + fmtNum(it.max) + ']',
-        text: it.group + ' · ' + it.label,
-        // Seçili hedefe yeniden tıklamak onu kaldırır (#957)
-        onclick: () => { m.remove(); if (it.path === trk.target) clearTarget(trk); else { setTarget(trk, it.path); refreshHeads(); refreshInspector(); draw(); } },
-      })) : [el('div', { class: 'tl-target-empty', text: tt('Eşleşen ayar yok') })]));
+      const hits = TE().filterTargets(cat, q.value).slice(0, 80);
+      // Grup ve parça başlıkları (#957): Zaman Çizelgesi › Parça 1 › klipleri
+      const rows = [];
+      let lastHead = '';
+      for (const it of hits) {
+        const head = it.group + (it.sub ? ' › ' + it.sub : '');
+        if (head !== lastHead) { rows.push(el('div', { class: 'tl-target-head', text: head })); lastHead = head; }
+        const b = el('button', {
+          type: 'button', class: 'tl-target-row' + (it.path === trk.target ? ' on' : ''), title: it.path + ' [' + fmtNum(it.min) + '…' + fmtNum(it.max) + ']',
+          // Seçili hedefe yeniden tıklamak onu kaldırır (#957)
+          onclick: () => { hover(''); m.remove(); if (it.path === trk.target) clearTarget(trk); else { setTarget(trk, it.path); refreshHeads(); refreshInspector(); draw(); } },
+        }, [
+          it.color ? el('span', { class: 'tl-target-sw', style: 'background:' + it.color }) : null,
+          el('span', { class: 'tl-target-lbl', text: it.label }),
+        ]);
+        if (it.clipId) {
+          b.dataset.clip = it.clipId;
+          b.addEventListener('mouseenter', () => hover(it.clipId));
+          b.addEventListener('mouseleave', () => hover(''));
+        }
+        rows.push(b);
+      }
+      list.replaceChildren(...(rows.length ? rows : [el('div', { class: 'tl-target-empty', text: tt('Eşleşen ayar yok') })]));
       if (trk.target) list.insertBefore(el('button', { type: 'button', class: 'tl-target-clear', icon: 'x', text: tt('Hedefi Kaldır'),
         onclick: () => { m.remove(); clearTarget(trk); } }), list.firstChild);
     };
     q.addEventListener('input', fill);
+    // Menü kapanınca vurgu kalmasın
+    new MutationObserver((_, ob) => { if (!m.isConnected) { ob.disconnect(); hover(''); } }).observe(document.body, { childList: true, subtree: false });
     m.append(q, list);
     fill();
     if (window.SVSceneShell && window.SVSceneShell.placeMenu) window.SVSceneShell.placeMenu(m, x, y);
@@ -1365,7 +1407,7 @@
       add('Kafayı buraya al', '', () => { seek(at); applyClipsAt(ensureTransport().time); draw(); });
     } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade') && trk) {
       const c = trk.clips[h.ci];
-      if (!isPicked(c)) multi = [];
+      if (!isPicked(c, trk)) multi = [];
       selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
       const lk = trk.locked;
       add('Kes', 'Ctrl+X', () => cutSelection(), lk);
@@ -1940,13 +1982,13 @@
         drag = { kind: 'select' };
       } else if (h.kind === 'fade') {
         const c = trk.clips[h.ci];
-        if (!isPicked(c)) multi = [];
+        if (!isPicked(c, trk)) multi = [];
         selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
         drag = trk.locked ? { kind: 'select' } : { kind: 'fade', trackId: trk.id, clip: c };
       } else if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
         const c = trk.clips[h.ci];
         // Seçili bir gruba tıklamak grubu korur (grup taşıma); başka klibe tıklamak tek seçim
-        if (!isPicked(c) || h.kind !== 'move') multi = [];
+        if (!isPicked(c, trk) || h.kind !== 'move') multi = [];
         selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
         /* Grup taşıma: birincil klip yakalamaya göre kayar, diğerleri aynı
            miktarda. Kilitli parçadaki klipler yerinde kalıyor. */
@@ -2152,7 +2194,7 @@
           const i1 = Math.floor((Math.max(d.y0, d.y1) - RULER_H) / TRACK_H);
           const found = TE().clipsInRect(transport.tl, tOf(Math.min(d.x0, d.x1)), tOf(Math.max(d.x0, d.x1)), i0, i1);
           const refs = d.keep.slice();
-          for (const f of found) if (!refs.some((r) => r.clipId === f.clipId)) refs.push(f);
+          for (const f of found) if (!refs.some((r) => r.clipId === f.clipId && r.trackId === f.trackId)) refs.push(f);
           if (refs.length) setMulti(refs);
           refreshInspector();
           refreshHeads();
@@ -2439,6 +2481,16 @@
     full: (v) => setFull(v == null ? !fullWin : v),
     _select: (s) => { selection = s; multi = []; },
     _selection: () => selection,
+    _picked: () => pickedClips().map((q) => q.trk.id + '/' + q.clip.id),
+    // Test: klibin ortası ekran koordinatında (gerçek fare tıklaması için)
+    _clipPoint: (ti, ci) => {
+      const trk = ensureTransport().tl.tracks[ti];
+      const c = trk && trk.clips[ci];
+      if (!c || !canvas) return null;
+      const r = canvas.getBoundingClientRect();
+      return { x: r.left + xOf(c.start + c.dur / 2), y: r.top + RULER_H + ti * TRACK_H + TRACK_H / 2 };
+    },
+    _hoverClip: () => hoverClipId,
     _multi: () => multi.slice(),
     _full: () => fullWin,
     _clipLabel: clipLabel,

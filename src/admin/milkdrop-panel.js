@@ -545,6 +545,12 @@
         });
         ro.observe(list);
       }
+      // Raf kart boyu değişti (#957): liste boyu aynı kalıyor, sütunları yeniden ölç
+      const onCard = () => {
+        if (!list.isConnected) { window.removeEventListener('sv-cardsize', onCard); return; }
+        requestAnimationFrame(() => { if (measure()) draw(true); else draw(false); });
+      };
+      if (grid) window.addEventListener('sv-cardsize', onCard);
     }, 0);
   }
 

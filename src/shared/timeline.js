@@ -365,6 +365,39 @@
       fps: Math.max(1, num(s.fps, 60)),
     };
     if (tl.loop.end <= tl.loop.start) tl.loop.enabled = false;
+    uniqueIds(tl);
+    return tl;
+  }
+
+  /* KİMLİKLER TEKİL (#957). Sayaç her oturumda sıfırdan başlıyordu: yüklenen çizelgede
+     clip_1 varken yeni eklenen klip de clip_1 alıyordu. Seçim ve otomasyon hedefi kimlikle
+     tutulduğundan tek tık birden çok klibi seçiyor, hedef listesinde aynı klip iki kez
+     görünüyordu. Yüklemede sayaç en büyük sonekin üstüne çekiliyor, yinelenen kimlik
+     (ilki yerinde kalarak) yenisini alıyor. */
+  function uniqueIds(tl) {
+    const all = [];
+    for (const trk of tl.tracks) {
+      all.push(trk);
+      for (const c of trk.clips || []) all.push(c);
+    }
+    for (const m of tl.markers) all.push(m);
+    for (const o of all) {
+      const m = /_(\d+)$/.exec(o.id || '');
+      if (m && Number(m[1]) > idCounter) idCounter = Number(m[1]);
+    }
+    const seen = new Set();
+    for (const trk of tl.tracks) {
+      if (seen.has(trk.id)) trk.id = newId('trk');
+      seen.add(trk.id);
+      for (const c of trk.clips || []) {
+        if (seen.has(c.id)) c.id = newId('clip');
+        seen.add(c.id);
+      }
+    }
+    for (const mk of tl.markers) {
+      if (seen.has(mk.id)) mk.id = newId('mk');
+      seen.add(mk.id);
+    }
     return tl;
   }
 
@@ -748,6 +781,7 @@
     Transport,
     CLIP_TYPES,
     newId,
+    uniqueIds,
     resetIds,
   };
 
