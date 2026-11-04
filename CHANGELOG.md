@@ -17,13 +17,34 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   templates, scenes) and the tools (effect chain, modulation, groups).
 - **Live page.** Cue and live monitors with a TAKE button, a scene grid with banks and F keys, layer
   and output faders, effects on the chain, tempo, Auto VJ, the MilkDrop queue and the clip deck.
+- **Time, Studio and Output pages.** Time puts the preview above a full-width timeline. Output has a
+  section list on the left and Studio has tabs; both show one section at a time.
+- **Momentary effects on Live.** Flash, strobe, blur, kaleidoscope, glitch and negative apply while you
+  hold the button. They are never saved. Strobe stays at three flashes a second while flash limiting
+  is on. `flash` and `strobe` are also regular effects now, so the chain has 42.
 - **Undo and redo** for everything in the scene, not only the timeline.
-- **Media layers get eight settings back.** Kaleidoscope slices, hue, saturation, bass zoom, bass
-  opacity, Ken Burns, its period and beat pulse were only on the old media card. Karaoke fill and held
-  syllables (#938) were only on the old text card. All are on the layer now.
+- **Search finds layer settings.** A result selects the layer, opens the right tab and highlights the
+  control. If the scene has no layer of that kind, the result says so and adds one.
+- **One path for the picture.** Every scene is now a layer list, and the separate Background,
+  Visualizer, Text, Now Playing, Media, Logo and Visual Objects cards are gone. All their settings are
+  on the layer, including extended ranges, each image's motion and audio reaction, Studio preset
+  parameters and the Now Playing status line.
+- **Settings upgrade once and one way.** The first v4 start converts settings and saved scenes to layer
+  lists and keeps a copy as `settings.v3-backup.json`. Settings saved by v4 do not open in 3.x.
 
 ### Performance
 
+- **The output window opens faster** (#905). Packaged builds load the visualizer page from one script
+  instead of 85. Median time to the first frame fell from 646 ms in v3.1.7 to 553 ms, and limited to two
+  logical cores from 1161 ms to 1072 ms. Without this step v4 would have opened slower than v3.1.7.
+- **Changing a setting no longer costs the output a frame** (#905). Each full settings send copied a
+  291 KB MilkDrop tag table to every window, which only matters when auto advance picks from a tag.
+  With the CPU slowed 4 times, the output's longest frame during a send fell from 67-93 ms to 13.5 ms.
+  The OBS overlay also no longer receives the scene list on every send.
+- **The panel costs less while an output is open** (#905). On an RTX machine the panel fell from 21-29%
+  to 13-17% CPU and total memory by about 200 MB. On a Radeon 610M the panel fell from 26-38% to 14-20%.
+  The preview draws smaller while an output is open, unless Preview Rate is Full, and preset thumbnails
+  wait until the output closes, so undrawn ones stay blank until then.
 - **Presets with many shape instances draw much faster** (#905). A custom shape runs its frame
   equations up to 1024 times per frame, and each run copied the shared inputs, the q variables and the
   shape's base by looking up their names. In the slowest presets of a 300-preset sample that was 20-45%

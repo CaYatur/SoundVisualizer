@@ -30,7 +30,7 @@ decision, moves after that.
 | v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
 | v3.1.6 | Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets | 2026-10-29 | Shipped |
 | **v3.1.7** | **Fixes and performance: half the memory, background shader compiles, low-power mode, a preset per MilkDrop layer, GPU export on Linux** | **2026-11-03** | **Current** |
-| v4.0.0 | New core and interface: one document model, one settings schema, layer-owned engines, rebuilt panel | — | Planned |
+| v4.0.0 | New core and interface: every scene a layer list, MilkDrop layers that run on their own, rebuilt panel | — | In testing, not released |
 | After v4.0.0 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
@@ -107,7 +107,7 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| New core and interface | v4.0.0 | Planned: one document model, one settings schema, layer-owned engines, rebuilt panel. The clickable interface design is approved. See the v4.0.0 section |
+| New core and interface | v4.0.0 | In testing: every scene a layer list, MilkDrop layers that run on their own, rebuilt panel. The clickable interface design was approved first. See the v4.0.0 section |
 | Video project view and video wizard | After v4.0.0 | Planned (music video studio, phase 1), with mix videos from a track list |
 | Song sections and an edit that follows them | After v4.0.0 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
 | Kinetic lyric styles, podcast and audiogram templates | After v4.0.0 | Planned (phase 3) |
@@ -3838,9 +3838,36 @@ identical to v3.1.6, frame by frame, with a control run of the same build also a
   here; see "Shipped, but never run on real hardware".
 - **`npm run perf`** (#910), to measure a real setup and compare runs.
 
-## v4.0.0 — New core and interface · planned
+## v4.0.0 — New core and interface · in testing, not released
 
-Tracked in #905. Work happens on a separate `dev/v4` branch, so `main` stays releasable.
+Tracked in #905. Work happened on a separate `dev/v4` branch.
+
+### Where it stands
+
+Measured on the development machine against v3.1.7. The Radeon 610M numbers and the two-core limit are
+the closest available stand-ins for the minimum target; no real low-end machine has run v4 yet.
+
+| Target | v3.1.7 | v4 | Result |
+|---|---|---|---|
+| Frames over 100 ms in a real scene | 6-7 | 0 | Met |
+| Total memory, real scene, 10,392 presets (≤1.2 GB) | 3.0 GB | 1.2 GB | Met narrowly |
+| Real scene with main thread slowed 4 times (≥30 fps) | 7.8 fps | 46 fps | Met |
+| Preview's added panel CPU (≤15%) | 55-60% | 11-16% | Met or close |
+| Longest output frame on a full settings send, slowed 4 times (≤30 ms) | not measured | 13.5 ms | Met |
+| Output window open, median (≤300 ms) | 646 ms | 553 ms | Better, target not met |
+| Output window open, two logical cores | 1161 ms | 1072 ms | Better |
+| Longest frame on a Studio preset change (≤33 ms) | 680 ms | 40 ms | Near |
+| Empty scene total CPU (≤25%) | 58% | 36-42% | Better, target not met |
+
+What changed from the plan:
+
+- **No worker compositor.** Stage 2 planned one GL compositor in a worker. Measured on real scenes it gave
+  no gain worth its limits (four WebGL contexts per worker), so live drawing stays on the page. It can be
+  reopened if a measurement calls for it.
+- **The settings schema is not the single source yet.** Slider limits come from one schema. The panel,
+  MCP and OSC still declare their own controls.
+- **Stage 4 and 5 are partly done.** See the v4 notes in #905 for what ran on real hardware. macOS has not
+  been run at all.
 
 ### What the review found
 
