@@ -8,7 +8,7 @@
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
 audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **56 presets of our
-own**, **60 visualizer modes**, layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+own**, **60 visualizer modes**, layers and **42 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -41,7 +41,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 <div align="center">
 
-| **60** visualizer modes | **43** backgrounds | **40** GPU effects | **18** scene transitions |
+| **60** visualizer modes | **43** backgrounds | **42** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
@@ -66,7 +66,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   or generate new ones. **56 CaYaDev presets** of our own are built in, free for any MilkDrop player
   under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
-  crossfader, 40 GPU effects per layer or on the whole frame, and a modulation matrix that routes
+  crossfader, 42 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
 - **Bring other apps and the web in.** A **Spout / Syphon input** puts TouchDesigner, Resolume, OBS
   or a camera app on a layer over the GPU, and a **web page layer** adds alerts, chat, a scoreboard or
@@ -1176,7 +1176,7 @@ Creates and edits.
   `sv_set_media` and `sv_set_geometry` edit those blocks.
 - Effects: `sv_add_effect` and `sv_remove_effect` on the global chain, `sv_add_layer_effect` and
   `sv_remove_layer_effect` on one layer. The built-in types are bloom, chroma, glitch, grain, crt,
-  pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize, blur,
+  pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize, flash, strobe, blur,
   radialblur, motionblur, tiltshift, dof, sharpen, emboss, dither, halftone, ascii, hatch, paint,
   vhs, datamosh, slitscan, lens, twirl, polar, gradientmap, levels, threshold, solarize, godrays,
   badtv and starfilter. `sv_add_modulation_route` and `sv_remove_modulation_route` edit routes.

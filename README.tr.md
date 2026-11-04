@@ -8,7 +8,7 @@
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
 da on ekranda sese tepki veren görsellere dönüştürür. **55 kendi presetiyle** gerçek bir
-**MilkDrop** motoru, **60 görselleştirici modu**, katmanlar ve **40 GPU efekti**, bir **OBS
+**MilkDrop** motoru, **60 görselleştirici modu**, katmanlar ve **42 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
 **yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
@@ -42,7 +42,7 @@ kontrolü**.
 
 <div align="center">
 
-| **60** görselleştirici modu | **43** arkaplan | **40** GPU efekti | **18** sahne geçişi |
+| **60** görselleştirici modu | **43** arkaplan | **42** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
@@ -67,7 +67,7 @@ kontrolü**.
   düzenleyin ya da yenilerini üretin. Kendi yaptığımız **56 CaYaDev preseti** yerleşik geliyor;
   CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
-  geçiş sürgüsü, katman başına ya da tüm kareye 40 GPU efekti, ve LFO'ları, zarfları ve canlı ses
+  geçiş sürgüsü, katman başına ya da tüm kareye 42 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
   [→ Katmanlar](#katmanlar-maskeler-ve-efektler)
 - **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** TouchDesigner, Resolume, OBS
@@ -472,7 +472,7 @@ sürgüleri, dört dalga biçimi, ve klasik sonsuz tünel için basla sürülen 
 - **Bozuk bir katman artık bütün kareyi götürmüyor**, ve opak bir MilkDrop katmanının
   altında kalan katmanlar hiç çizilmiyor.
 
-**Son işlem — 40 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
+**Son işlem — 42 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
 katman başına hem de birleştirilmiş görüntüde kullanılabilir. Tek bir katmandaki efekt o katmanın
 saydamlığını koruyor; alttaki katmanlar görünür kalıyor.
 

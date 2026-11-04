@@ -111,6 +111,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Canlı önizleme (panel içi): ses karesi akışını aç/kapat
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
+  sendMomentaryFx: (list) => ipcRenderer.send('momentary-fx', list),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
   sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),

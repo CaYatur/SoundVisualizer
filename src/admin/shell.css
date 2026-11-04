@@ -404,6 +404,10 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 .sv-lbl { font-size: 11.5px; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); line-height: 18px; }
 .sv-sm { display: flex; gap: 2px; }
 .sv-mfx { width: 186px; flex: none; margin-left: 10px; padding: 0 6px 0 14px; border-left: 1px solid rgb(var(--fg-rgb) / .07); display: flex; flex-direction: column; gap: 4px; overflow: auto; }
+.sv-moment { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 12px 12px; }
+.sv-moment button { min-height: 38px; border: 0; border-radius: 9px; background: rgb(var(--fg-rgb) / .07); color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer; touch-action: none; }
+.sv-moment button:hover { background: rgb(var(--fg-rgb) / .12); }
+.sv-moment button.act { background: var(--accent); color: var(--on-accent); }
 .sv-mfx .sv-mh { font-size: 11.5px; font-weight: 600; color: var(--muted2); padding: 2px 0 4px; }
 .sv-fxrow { display: flex; align-items: center; gap: 8px; min-height: 26px; font-size: 12.5px; cursor: pointer; }
 .sv-master { margin-left: 8px; }

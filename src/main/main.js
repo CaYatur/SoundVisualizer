@@ -3280,6 +3280,13 @@ ipcMain.handle('close-visualizer', (e, displayId) => {
    kapalı formülle hesapladığı için aralarında kayma olmaz.
    (bkz. src/shared/showclock.js) */
 let showClockAnchor = null;
+/* Anlık efektler (#905): ayara ve kayda yazılmaz, her çıkışa anında gider. */
+ipcMain.on('momentary-fx', (e, list) => {
+  const held = Array.isArray(list) ? list.slice(0, 6) : [];
+  sendToVisualizers('momentary-fx', held);
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'momentary-fx', list: held }, 'overlay');
+});
+
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);

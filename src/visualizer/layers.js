@@ -1029,7 +1029,20 @@
     /* Efekt zincirini kur. Boş zincir = CSS kompozit yolu (en ucuz).
        Dolu zincir = tek yüzeye birleştirme + GPU geçişleri. */
     setPostFX(chain) {
-      const list = Array.isArray(chain) ? chain.filter((f) => f && f.enabled !== false) : [];
+      this._fxBase = Array.isArray(chain) ? chain : [];
+      this._syncFx();
+    }
+
+    /* Anlık efekt (Canlı sayfası): basılı tutulurken zincirin sonuna eklenir, ayara yazılmaz. Panel
+       kapanırsa efekt ekranda takılı kalmasın: tazelenmezse kendiliğinden düşüyor (draw). */
+    setMomentary(list) {
+      this._fxHold = Array.isArray(list) ? list : [];
+      this._fxHoldAt = performance.now();
+      this._syncFx();
+    }
+
+    _syncFx() {
+      const list = (this._fxBase || []).filter((f) => f && f.enabled !== false).concat(this._fxHold || []);
       if (!list.length) {
         if (this.postfx) this.postfx.setChain([]);
         return;
@@ -1862,6 +1875,7 @@
 
     draw(audio, cfg, t, dt) {
       this._sharedLead = null;
+      if (this._fxHold && this._fxHold.length && performance.now() - this._fxHoldAt > 3000) this.setMomentary([]);
       const tick = this._tickTransition(dt);
       const isBlackout = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
         (

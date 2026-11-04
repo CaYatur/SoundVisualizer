@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('api', {
   /* Gösteri saati çıpası. Yalnızca DURUM DEĞİŞTİĞİNDE gelir; zaman her
      karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
+  onMomentaryFx: (cb) => ipcRenderer.on('momentary-fx', (e, list) => cb(list)),
   // Yedeklilik (#544): iki makinede ortak oturum saati (modülasyon evresi)
   onSharedClock: (cb) => ipcRenderer.on('shared-clock', (e, c) => cb(c)),
   // Dinleyici kurulmadan gelen ileti kaybolur: pencere açılışta ister (#543)
