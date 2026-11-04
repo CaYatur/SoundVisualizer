@@ -226,5 +226,5 @@ test('izleyen, liderin sıradakini önceden derliyor', () => {
   assert.ok(m._pending && m._pending.early && m._pending.id === 'p3', 'izleyen hazırlamıyor');
   const main = bare(read('src/main/main.js'));
   assert.match(main, /next: typeof mp\.next === 'string' \? mp\.next : null/);
-  assert.match(main, /follow\.seed, follow\.next\]\.join\('\|'\)/, 'değişen sıradaki yeniden dağıtılmalı');
+  assert.match(main, /f\.seed, f\.next\]\.join\('\|'\)/, 'değişen sıradaki yeniden dağıtılmalı');
 });

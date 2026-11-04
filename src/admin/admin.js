@@ -6873,13 +6873,26 @@
          (shared/milkdrop-cycle.js): panel ekranda ne olduğunu, önizleme de
          neyi izleyeceğini yalnız buradan öğrenebiliyor. Alan yoksa MilkDrop
          çizilmiyor ve izlenecek bir şey yok. */
-      window.SVMdFollow = d.mdPreset ? Object.assign({ at: performance.now() }, d.mdPreset) : null;
+      window.SVMdFollow = d.mdPreset ? Object.assign({ at: performance.now(), layers: d.mdLayers || null }, d.mdPreset)
+        : (d.mdLayers ? { at: performance.now(), id: null, base: '', layers: d.mdLayers } : null);
       /* Gösterilen preset geçmişe ve puan yıldızlarına da gidiyor (#569):
          "geri" otomatik geçişin seçtiğine de dönebilsin. Mesaj
          requestAnimationFrame'e bağlı değil; görselleştirici paneli örtse
          de geliyor. */
       if (window.SVMilkdropPanel && window.SVMilkdropPanel.noteLive) {
         window.SVMilkdropPanel.noteLive(d.mdPreset);
+      }
+      /* Kendi geçişi olan katmanın kartındaki ad (#905). Mesaj yoksa ya da katman ayardaki
+         presetteyse kaydedilen ad. Düğme yalnız bu katmanlar varken aranıyor. */
+      if (d.mdLayers) {
+        const t = window.SVI18n && window.SVI18n.t ? window.SVI18n.t : (s) => s;
+        for (const id of Object.keys(d.mdLayers)) {
+          const b = document.querySelector('[data-md-layer="' + CSS.escape(id) + '"]');
+          if (!b) continue;
+          const p = d.mdLayers[id];
+          const nm = p && p.id ? (p.name ? t(p.name) : t('Adsız')) : b.getAttribute('data-cfg');
+          if (nm !== null && b.textContent !== nm) b.textContent = nm;
+        }
       }
       const lv = document.getElementById('mdLiveName');
       if (lv) {

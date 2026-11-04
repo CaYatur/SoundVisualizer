@@ -1815,9 +1815,23 @@
           out.push(P().row('Preset', el('button', {
             class: 'btn ghost tiny', type: 'button', text: name ? tr(name) : tr('Yerleşik varsayılan'),
             title: tr('MilkDrop Presetleri kartında bu katman için seçin'),
+            // Kendi geçişi açıkken ad ölçer mesajıyla güncelleniyor (admin.js)
+            'data-md-layer': l.id, 'data-cfg': name ? tr(name) : tr('Yerleşik varsayılan'),
             onclick: () => { MP.pickFor(l.id); P().rerender(); },
           })));
-          out.push(el('div', { class: 'studio-note dim-hint', text: 'Listeden seçilen preset bu katmana gider. Otomatik geçişe girmez.' }));
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Listeden seçilen preset bu katmana gider.' }));
+          const m = l.settings.milkdrop;
+          out.push(miniToggle('Kendi Otomatik Geçişi', () => m.ownAuto === true, (on) => MP.setLayerAuto(cfg, l, on), rerender, { def: false }));
+          if (m.ownAuto === true) {
+            const bars = m.autoNextUnit === 'bars';
+            out.push(miniSegment('Aralık Birimi', [['seconds', 'Saniye'], ['bars', 'Ölçü']], () => (bars ? 'bars' : 'seconds'), (v) => { m.autoNextUnit = v; }, rerender, 'seconds'));
+            if (bars) out.push(miniSlider('Aralık', () => (m.autoNextBars == null ? 8 : m.autoNextBars), (v) => { m.autoNextBars = Math.round(v); }, { min: 1, max: 64, step: 1, def: 8 }));
+            else out.push(miniSlider('Aralık', () => m.autoNext || 30, (v) => { m.autoNext = Math.round(v); }, { min: 1, max: 120, step: 1, def: 30 }));
+            out.push(miniSegment('Sıra', [['sequential', 'Sırayla'], ['random', 'Rastgele']], () => (m.autoOrder === 'random' ? 'random' : 'sequential'), (v) => { m.autoOrder = v; }, rerender, 'sequential'));
+            out.push(el('div', { class: 'studio-note dim-hint', text: 'Bu katman kendi aralığıyla geçer; havuz ve sert geçiş ortak ayardan gelir. Bütün ekranlar aynı seçimi gösterir.' }));
+          } else {
+            out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken bu presette durur.' }));
+          }
         } else {
           out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken ortak preseti gösterir.' }));
         }

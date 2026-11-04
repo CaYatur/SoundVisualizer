@@ -20,6 +20,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   0.3-0.8 ms per preset, and the last 32 stay in memory. Starting an export takes about 1.3 s longer at
   that library size, because the export window still gets every text up front.
 
+### Visualizer
+
+- **Each MilkDrop layer can run on its own** (#905). A layer with its own preset used to stay on that
+  preset. It can now advance on its own interval, in seconds or bars, in order or at random, while
+  the other layers keep theirs. The pool and hard cuts still come from the shared settings. Every
+  screen, Spout/Syphon, the web output and a backup machine show the same choice per layer.
+  `sv_set_milkdrop_cycle` takes a `layerId`.
+- **Shared MilkDrop layers in one window show one choice** (#905). Each ran its own timer, so two
+  shared layers drifted to different presets with auto advance on. This also changes an export with
+  two shared MilkDrop layers and auto advance on: both now show the same preset.
+
 ### Lyrics
 
 - **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from

@@ -589,9 +589,9 @@
      preseti gösteriyordu. Katman bağımsızsa seçim (liste, ◀ ▶, rastgele) ona
      gidebiliyor.
 
-     Bağımsız katman kendi presetinde DURUR, otomatik geçişe girmez: geçiş seçimi
-     pencereler arasında tek kanaldan gidiyor (`SVMdFollow`), katman başına
-     seçimler ekranlar arasında ayrışırdı. */
+     Bağımsız katman kendi presetinde durur; `ownAuto` açıksa kendi aralığıyla
+     geçer (#905). Seçimi izleme mesajında kendi payıyla gidiyor
+     (`SVMdFollow.layers`), yani ekranlar katman katman aynı kalıyor. */
   function isOwnLayer(l) {
     return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
       && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
@@ -620,6 +620,20 @@
       delete l.settings.milkdrop;
       if (pickFor === l.id) pickFor = '';
     }
+  }
+
+  /* Katmanın kendi otomatik geçişi (#905). Aralık ortak ayardan başlıyor, ortakta kapalıysa
+     30 sn: anahtarı açan kullanıcı bir şey olduğunu görsün. Kapatınca aralık katmanda kalıyor. */
+  function setLayerAuto(cfg, l, on) {
+    const m = l && l.settings && l.settings.milkdrop;
+    if (!m) return;
+    if (!on) { delete m.ownAuto; return; }
+    const md = cfg.milkdrop || {};
+    m.ownAuto = true;
+    if (m.autoNextUnit == null) m.autoNextUnit = md.autoNextUnit === 'bars' ? 'bars' : 'seconds';
+    if (!(m.autoNext > 0)) m.autoNext = md.autoNext > 0 ? md.autoNext : 30;
+    if (!(m.autoNextBars > 0)) m.autoNextBars = md.autoNextBars > 0 ? md.autoNextBars : 8;
+    if (m.autoOrder == null) m.autoOrder = md.autoOrder === 'random' ? 'random' : 'sequential';
   }
 
   function pointStackAtMilkdrop(cfg) {
@@ -706,13 +720,24 @@
     return md.presetId || '';
   }
 
+  /* Bağımsız katmanda ekrandaki preset (#905): kendi geçişi açıksa son mesajdaki payı,
+     aksi halde katmanın ayarı. */
+  function layerLiveId(l) {
+    const m = l.settings.milkdrop;
+    const F = window.SVMdFollow;
+    const f = F && F.layers && F.layers[l.id];
+    if (f && f.id && m.ownAuto === true && (performance.now() - F.at) < 1500) return f.id;
+    return m.presetId || '';
+  }
+
   // Rastgele seçim motorunkiyle aynı kural: o an görülen hariç, puana göre
   function randomPick(cfg, md) {
     const C = CY();
     if (!C) return presets[(Math.random() * presets.length) | 0];
     const ratings = ratingsOf(cfg);
     const w = md.useRatings === false ? null : (p) => C.ratingOf(p, ratings);
-    return C.pick(presets, liveId(md), 'random', Math.random, w);
+    const tl = pickTarget(cfg);
+    return C.pick(presets, tl ? layerLiveId(tl) : liveId(md), 'random', Math.random, w);
   }
 
   /* `cut`: karışmadan yükle (#570, "şimdi kes"). Motor bunu elle seçimin
@@ -814,7 +839,7 @@
   function stepList(cfg, md, dir, cut) {
     if (!presets.length) return;
     const tl = pickTarget(cfg);
-    const cur = tl ? tl.settings.milkdrop.presetId : liveId(md);
+    const cur = tl ? layerLiveId(tl) : liveId(md);
     const i = presets.findIndex((p) => p.id === cur);
     const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
     go(cfg, presets[j], cut);
@@ -2103,7 +2128,7 @@
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
-    isOwnLayer, setLayerOwn, pickFor: (id) => { pickFor = id || ''; },
+    isOwnLayer, setLayerOwn, setLayerAuto, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

@@ -664,6 +664,8 @@
            yazmıyor; panel ekranda ne olduğunu, önizleme ve diğer ekranlar
            da neyi izleyeceğini buradan öğreniyor. */
         mdPreset,
+        // Kendi geçişi olan katmanların seçimi (#905); yoksa null
+        mdLayers: stack.milkdropLayers(),
         analysis: oscAnalysis(audio),
         spectrum: oscSpectrum(audio),
       });

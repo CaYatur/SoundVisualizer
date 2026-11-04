@@ -194,12 +194,14 @@
     const F = window.SVMdFollow;
     if (F && now - F.at < 1500) return;
     const mp = stack.milkdropPreset();
-    if (!mp) return;
-    const key = [mp.id, mp.base, mp.cut, mp.blend, mp.seed].join('|');
+    const layers = stack.milkdropLayers();
+    if (!mp && !layers) return;
+    const part = (p) => (p ? [p.id, p.base, p.cut, p.blend, p.seed].join('|') : '');
+    const key = part(mp) + (layers ? ';' + Object.keys(layers).map((k) => k + '=' + part(layers[k])).join(';') : '');
     if (key === mdLiveKey && now - mdLiveAt < 500) return;
     mdLiveKey = key;
     mdLiveAt = now;
-    window.api.sendMdLive(mp);
+    window.api.sendMdLive(mp, layers);
   }
 
   // --------------------------------------------------------------------------

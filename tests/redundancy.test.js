@@ -194,7 +194,7 @@ test('MilkDrop eşliği (#812): birincil tohum, içerik özeti ve anı gönderiy
   assert.strictEqual(R.mdParity({ id: 'builtin:1', hash: '' }, ''), '');
   assert.strictEqual(R.mdParity(null, 'x'), '');
   const main = read('src/main/main.js');
-  const relay = main.slice(main.indexOf('function relayMdFollow(sender, mp) {'), main.indexOf('function mdPresetHash(id) {'));
+  const relay = main.slice(main.indexOf('function mdFollowOf(mp) {'), main.indexOf('function mdPresetHash(id) {'));
   // Tohum (#585) seçimin içinde; yedeğe özet ve an eklenir
   assert.match(relay, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
   assert.match(relay, /streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ hash: mdPresetHash\(follow\.id\) \}\) \}\)/);
