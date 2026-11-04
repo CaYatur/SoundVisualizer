@@ -912,7 +912,7 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 
 
 /* ===== Metin paneli ===== */
-.txt-panel { display: flex; flex-direction: column; gap: 8px; }
+
 .txt-area {
   width: 100%;
   resize: vertical;
