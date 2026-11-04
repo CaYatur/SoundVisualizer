@@ -46,7 +46,7 @@ test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () =
     seen++;
     assert.doesNotMatch(m[0], /\b(min|max|noExtend):/, m[1]);
   }
-  assert.strictEqual(seen, 71);
+  assert.strictEqual(seen, 18);
   assert.match(admin, /const known = window\.SVSchema\.rangeFor\(def\.path\);/);
   assert.match(admin, /def\.min = known\.min;/);
   assert.doesNotMatch(admin, /RANGE_FACTOR/);

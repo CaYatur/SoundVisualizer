@@ -9286,7 +9286,7 @@ async function runBridgeSmoke() {
     for (var i = 0; i < items.length; i++) {
       items[i].click();
       await new Promise(function(r){ setTimeout(r, 300); });
-      var heads = document.querySelectorAll('#sections .fold-head:not(.open)');
+      var heads = document.querySelectorAll('.sv-content .fold-head:not(.open)');
       for (var h = 0; h < heads.length; h++) heads[h].click();
       await new Promise(function(r){ setTimeout(r, 150); });
       var bp = document.querySelector('#sections .bridge-panel');
@@ -10167,10 +10167,10 @@ async function runSmoke() {
     for (let i = 0; i < cats.length; i++) {
       await awc.executeJavaScript(
         "(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click(); " +
-        "return document.querySelectorAll('#sections .card').length;})()"
+        "return document.querySelectorAll('.sv-content .card').length;})()"
       );
       await wait(320);
-      const cards = await awc.executeJavaScript("document.querySelectorAll('#sections .card').length");
+      const cards = await awc.executeJavaScript("document.querySelectorAll('.sv-content .card').length");
       console.log('[SMOKE]   ' + cats[i] + ' -> ' + cards + ' kart');
       if (!cards) errors.push('admin category "' + cats[i] + '" rendered 0 cards');
     }
@@ -10965,7 +10965,7 @@ async function runSmoke() {
     console.log('[SMOKE] dolu panel: ' + JSON.stringify(populated));
     if (!populated || populated.error) errors.push('populated panel: ' + ((populated && populated.error) || 'no result'));
     await wait(700);
-    const openFolds = "(function(){var h=document.querySelectorAll('#sections .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
+    const openFolds = "(function(){var h=document.querySelectorAll('.sv-content .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
 
     const cats = await awc3.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
@@ -10983,7 +10983,7 @@ async function runSmoke() {
         var out = [];
         // Yer tutucu ve başlık metinleri de taranır: gözle görünür oldukları
         // halde metin düğümü olmadıkları için kolayca gözden kaçarlar.
-        var attrs = document.querySelectorAll('#sections [placeholder], #sections [title]');
+        var attrs = document.querySelectorAll('.sv-content [placeholder], .sv-content [title]');
         /* Kullanıcı içeriği (preset, sahne, katman, klip adları) çevrilmez ve
            taranmaz: onu çizen öğe data-user-text (metni ve altı) ya da
            data-user-attr (yalnız title/placeholder) ile işaretlenir. */
@@ -11079,7 +11079,7 @@ async function runSmoke() {
           for (const c of cats) {
             click('[data-cat="' + c + '"]'); await sleep(400);
             // Katlanır bölümlerin içeriği kapalıyken DOM'da yok
-            const folds = document.querySelectorAll('#sections .fold-head:not(.open)');
+            const folds = document.querySelectorAll('.sv-content .fold-head:not(.open)');
             folds.forEach((h) => h.click());
             if (folds.length) { seen.folds += folds.length; await sleep(250); }
             if (document.querySelector('#sceneList .scene-item.active')) seen.active = true;
@@ -11157,7 +11157,7 @@ async function runSmoke() {
           await awc4.executeJavaScript(`(async function () {
             var b = document.querySelector('[data-cat="${c}"]'); if (b) b.click();
             await new Promise(function (r) { setTimeout(r, 400); });
-            var h = document.querySelectorAll('#sections .fold-head:not(.open)');
+            var h = document.querySelectorAll('.sv-content .fold-head:not(.open)');
             for (var i = 0; i < h.length; i++) h[i].click();
             await new Promise(function (r) { setTimeout(r, 300); });
             var P = ['outline-style','outline-width','outline-color','box-shadow','border-top-color','border-bottom-color','background-color','color'];
@@ -12144,8 +12144,8 @@ async function runShots() {
         await wait(900);
         if (cardId) {
           await awc.executeJavaScript(
-            "(function(){var c=document.querySelector('#sections .card[data-card=\"" + cardId + "\"]');" +
-              "if(!c){var cards=document.querySelectorAll('#sections .card');for(var i=0;i<cards.length;i++){if(cards[i].id==='card-" + cardId + "'){c=cards[i];break;}}}" +
+            "(function(){var c=document.querySelector('.sv-content .card[data-card=\"" + cardId + "\"]');" +
+              "if(!c){var cards=document.querySelectorAll('.sv-content .card');for(var i=0;i<cards.length;i++){if(cards[i].id==='card-" + cardId + "'){c=cards[i];break;}}}" +
               "if(c)c.scrollIntoView({block:'start'});return !!c})()"
           );
           await wait(500);
@@ -12235,7 +12235,7 @@ async function runShots() {
           "(function(){var b=document.querySelector('.nav-item[data-cat=\"" + cat + "\"]');if(b)b.click();return !!b})()"
         );
         await wait(1200);
-        const card = "document.querySelector('#sections .card[data-card=\"" + cardId + "\"]')||document.getElementById('card-" + cardId + "')";
+        const card = "document.querySelector('.sv-content .card[data-card=\"" + cardId + "\"]')||document.getElementById('card-" + cardId + "')";
         if (click) {
           await awc.executeJavaScript('(function(){var c=' + card + ';var b=c&&c.querySelector(' + JSON.stringify(click) + ');if(b)b.click();return !!b})()');
           await wait(1500);

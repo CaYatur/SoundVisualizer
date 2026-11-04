@@ -148,7 +148,7 @@ async function main() {
   app = spawn(electronPath(), args, { stdio: 'ignore' });
   const admin = await cdp((await waitTarget('admin/index.html', 60000)).webSocketDebuggerUrl);
   await admin.call('Runtime.enable');
-  await until(() => admin.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector("#sections .card"))'), 60000);
+  await until(() => admin.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card"))'), 60000);
   res.startup = { panelMs: Date.now() - t0 };
   let mainT = null;
   await until(async () => { try { mainT = (await (await fetch('http://127.0.0.1:' + INSPECT + '/json/list')).json())[0]; return !!mainT; } catch { return false; } }, 15000);

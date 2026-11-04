@@ -49,13 +49,6 @@ test('UI: NP panel cover toggle is always visible (not only inside foldable)', (
   assert.ok(toggleAt < foldAt, 'toggle should come before foldable');
 });
 
-test('UI: Visualizer card exposes coverOverlay when type is nowplaying', () => {
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverOverlay'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSize'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSide'/);
-  assert.match(adminSrc, /coverOverlay'[\s\S]{0,160}rebuild:\s*true/);
-});
-
 test('UI: Layers panel exposes coverOverlay for nowplaying layers', () => {
   assert.match(sceneSrc, /l\.type\s*===\s*'nowplaying'[\s\S]{0,900}coverOverlay/);
   assert.match(sceneSrc, /setCover\('coverOverlay'/);
@@ -80,9 +73,6 @@ test('kaynak: NP cover anchors to bar\/text; supports top; display size', () => 
 
 test('UI: coverSide offers top; logo\/images cornerRadius exposed', () => {
   assert.match(panelSrc, /\['top'/);
-  assert.match(adminSrc, /value:\s*'top'/);
-  assert.match(adminSrc, /logo\.cornerRadius/);
-  assert.match(adminSrc, /cornerRadius/);
   assert.match(sceneSrc, /\['top'/);
   assert.match(sceneSrc, /cornerRadius/);
 });
@@ -101,8 +91,6 @@ test('defaults+UI: coverFit natural default; square option; separate coverAudioS
   assert.match(panelSrc, /Kapak Sığdırma|natural/);
   assert.match(panelSrc, /square/);
   assert.match(panelSrc, /coverAudioScale/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverFit'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverAudioScale'/);
   assert.match(sceneSrc, /setCover\('coverFit'/);
   assert.match(sceneSrc, /setCover\('coverAudioScale'/);
 });
@@ -127,10 +115,6 @@ test('UI: sisteme ozgu NP alanlari yalniz fromSystem icinde', () => {
 });
 
 test('UI: logo kaynagi ve kapak dosyasi platforma gore', () => {
-  assert.match(adminSrc, /path:\s*'logo\.source'[\s\S]{0,450}isWindows\(\)/);
-  assert.match(adminSrc, /case 'npcoverfile'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSource'/);
-  assert.match(adminSrc, /Elle yazılan parça adı ve sanatçı ekrana gelir/);
   assert.match(sceneSrc, /if \(!logoWin\) lg\.source = 'manual'/);
   assert.match(sceneSrc, /if \(logoWin\)/);
 });

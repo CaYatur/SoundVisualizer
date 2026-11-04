@@ -58,11 +58,6 @@ test('resolve: rainbow sabit spektrum', () => {
   assert.notStrictEqual(a[0], '#000');
 });
 
-test('kaynak: Admin Background Renk Modu segmenti', () => {
-  assert.match(adminSrc, /path:\s*'background\.colorMode'/);
-  assert.match(adminSrc, /value:\s*'solid'[\s\S]*value:\s*'theme'[\s\S]*value:\s*'rainbow'/);
-});
-
 test('kaynak: Layers Background Renk Modu miniSegment', () => {
   assert.match(sceneSrc, /setBgColorMode|getBgColorMode|colorMode/);
   assert.match(sceneSrc, /\['solid',\s*'Düz Renk'\]/);
@@ -90,19 +85,6 @@ test('kaynak: text.js colorMode uygular', () => {
   const textSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'text.js'), 'utf8');
   assert.match(textSrc, /colorMode === 'custom'/);
   assert.match(textSrc, /colorMode === 'rainbow'/);
-});
-
-test('kaynak: Admin NP solid modunda uc renk', () => {
-  assert.match(adminSrc, /path: 'nowplaying\.color'/);
-  assert.match(adminSrc, /path: 'nowplaying\.colorDim'/);
-  assert.match(adminSrc, /path: 'nowplaying\.colorBar'/);
-});
-
-test('kaynak: Admin Background Renk Modu solidColor\'dan once', () => {
-  const modeAt = adminSrc.indexOf("path: 'background.colorMode'");
-  const solidAt = adminSrc.indexOf("path: 'background.solidColor'");
-  assert.ok(modeAt > 0 && solidAt > 0, 'ikisi de olmali');
-  assert.ok(modeAt < solidAt, 'Renk Modu, Duz Renk secicisinden once gelmeli');
 });
 
 test('kaynak: renk sablonlari asla gizlenmez (usesPalette stripte cagrilmaz)', () => {

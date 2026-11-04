@@ -176,7 +176,7 @@ async function main() {
   const a = await cdp((await waitTarget('admin/index.html', 120000)).webSocketDebuggerUrl);
   await a.call('Runtime.enable');
   for (let i = 0; i < 2400; i++) {
-    if (await a.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector("#sections .card"))') === true) break;
+    if (await a.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card"))') === true) break;
     await sleep(50);
   }
   await a.ev(`(() => { const base = window.SV.clone(window.SVPanel.cfg()); const def = window.SV.defaultConfig(); base.layerStack = def.layerStack; base.layers = def.layers; window.__base = base; return 1; })()`);

@@ -281,9 +281,6 @@ test('K1 admin/i18n: notice string + keys wired', () => {
   const en = 'WebGL missing / unsupported: gradient fell back to solid color';
   assert.ok(i18n.includes(tr), 'TR i18n key missing');
   assert.ok(i18n.includes(en), 'EN i18n value missing');
-  assert.ok(admin.includes(tr), 'admin notice text missing');
-  assert.ok(admin.includes('data-sv-webgl-fallback-note'), 'admin note marker missing');
-  assert.ok(admin.includes('isGradientWebGLFallback'), 'admin show() helper missing');
   assert.ok(panels.includes(tr), 'layers panel notice text missing');
   assert.ok(panels.includes('data-sv-webgl-fallback-note'), 'layers panel marker missing');
 });

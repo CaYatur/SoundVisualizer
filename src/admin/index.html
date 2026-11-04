@@ -168,8 +168,8 @@
     <div class="workspace">
       <!-- --- Sol: kategori rayı --- -->
       <nav id="navRail" class="nav-rail" aria-label="Kurulum"></nav>
-      <div id="svLive" class="sv-live"></div>
-      <div id="svScene" class="sv-scene">
+      <div id="svLive" class="sv-live sv-content"></div>
+      <div id="svScene" class="sv-scene sv-content">
         <section id="svLayers" class="sv-card" aria-label="Katmanlar"></section>
         <div id="svCenter" class="sv-center">
           <div class="sv-stagebox">
@@ -204,7 +204,7 @@
             <button id="catResetBtn" class="btn ghost small" title="Bu kategoriyi varsayılana döndür" data-icon="reset">Kategoriyi Sıfırla</button>
           </div>
         </div>
-        <div id="sections" class="sections" tabindex="-1"></div>
+        <div id="sections" class="sections sv-content" tabindex="-1"></div>
       </main>
 
       <!-- --- Sağ: canlı önizleme + izleme --- -->
@@ -356,6 +356,7 @@
     <script src="../shared/source-layers.js"></script>
     <script src="../visualizer/modes/source.js"></script>
     <script src="../visualizer/modes/geometry3d.js"></script>
+    <script src="undo.js"></script>
     <script src="scene-shell.js"></script>
     <script src="live-shell.js"></script>
     <script src="preview.js"></script>

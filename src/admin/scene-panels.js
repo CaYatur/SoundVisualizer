@@ -1735,6 +1735,18 @@
           min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn', def: 0,
         }));
         out.push(miniToggle('Karaoke Vurgusu', () => txt.karaoke !== false, (v) => { txt.karaoke = v; }, rerender, { def: true }));
+        if (txt.karaoke !== false) {
+          // Kelime süresi (#938): dolum biçimi ve uzatılan hecenin esnemesi
+          out.push(miniSelect('Karaoke Dolumu', [['word', 'Kelime Kelime'], ['progressive', 'Kelime İçinde Akan']],
+            () => txt.karaokeFill || 'word', (v) => { txt.karaokeFill = v; }, null, 'word'));
+          out.push(miniToggle('Uzatılan Heceyi Esnet', () => txt.karaokeHold === true, (v) => { txt.karaokeHold = v; }, rerender, { def: false }));
+          if (txt.karaokeHold === true) {
+            out.push(miniSlider('Esneme Eşiği', () => (txt.karaokeHoldMin == null ? 0.6 : txt.karaokeHoldMin), (v) => { txt.karaokeHoldMin = v; },
+              { min: 0.2, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn', def: 0.6 }));
+            out.push(miniSlider('Esneme Miktarı', () => (txt.karaokeHoldAmount == null ? 0.25 : txt.karaokeHoldAmount), (v) => { txt.karaokeHoldAmount = v; },
+              { min: 0, max: 1, step: 0.01, percent: true, def: 0.25 }));
+          }
+        }
       }
 
       /* Kip bu yazının kendisinde durur. Sahne görselleştiricisine yazmak

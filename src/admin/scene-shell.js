@@ -31,13 +31,11 @@
     { id: 'bg', label: 'Zemin' },
     { id: 'templates', label: 'Şablon', section: 'templates' },
     { id: 'scenes', label: 'Sahne' },
-    { id: 'palettes', label: 'Renk', section: 'colorPresets' },
   ];
   const TOOL_TABS = [
     { id: 'effects', label: 'Efekt Zinciri', section: 'effects' },
     { id: 'modulation', label: 'Modülasyon', section: 'modulation' },
     { id: 'groups', label: 'Gruplar', section: 'groups' },
-    { id: 'transition', label: 'Sahne Geçişi', section: 'transition' },
   ];
   const isLib = (id) => LIB_TABS.some((t) => t.id === id);
 
@@ -415,6 +413,19 @@
     paint();
   }
 
+  /* Arama sonucundan gelen kart: Sahne sayfasında yeri raf ya da denetçi. */
+  function reveal(sectionId) {
+    const tab = LIB_TABS.concat(TOOL_TABS).find((t) => t.section === sectionId);
+    if (tab) { shelfTab = tab.id; shelfOpen = true; write(STORE.shelf, tab.id); write(STORE.open, '1'); return; }
+    const engine = Object.keys(ENGINE_SECTION).find((k) => ENGINE_SECTION[k] === sectionId);
+    if (engine) {
+      const l = layers().find((x) => x && x.kind === 'visualizer' && x.type === engine);
+      if (l) { sel = l.id; write(STORE.sel, sel); }
+      return;
+    }
+    if (sectionId === 'colorPresets' || sectionId === 'dynamicTheme' || sectionId === 'transition') { sel = ''; write(STORE.sel, ''); }
+  }
+
   // Önizleme bu sayfada ortada; öteki sayfalarda yan rafta. Aynı düğüm taşınıyor, motor yeniden kurulmuyor.
   function placeStage(page) {
     const stage = document.getElementById('previewStage');
@@ -445,5 +456,5 @@
     }
   }
 
-  window.SVSceneShell = { paint, placeStage, select, setShelf, selected, closeMenus, placeMenu };
+  window.SVSceneShell = { paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal };
 })();
