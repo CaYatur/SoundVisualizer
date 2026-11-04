@@ -1261,7 +1261,10 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   Kontrol, Kitaplık ve Ayarlar (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> sayfa değiştirir).
 - **Sahne**: katman listesi, büyük önizleme, seçili katmanın denetçisi ve preset, şablon, efekt ve
   modülasyon rafı. **Canlı**: AL düğmeli Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
-  katman faderleri ve klip destesi.
+  katman faderleri ve klip destesi. **Zaman**: önizleme üstte, çizelge altta bütün genişlikte.
+  **Çıktı** ve **Stüdyo** bir seferde tek bölüm gösterir.
+- Canlı'da **anlık efektler**: düğmeyi basılı tuttuğunuz sürece flaş, strobe, bulanık, kaleydoskop,
+  glitch ve negatif. Ayarlarınıza dokunmaz; flaş sınırlaması açıkken strobe saniyede üç flaşı geçmez.
 - Sahne değişikliklerinde **geri al ve yinele** (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Her yerde canlı** — her değişiklik anında çıkış pencerelerine ulaşıyor ve kendini kaydediyor.
 - Her sayfanın yanında kendi demo sinyaliyle bir **canlı önizleme**, ses ölçerleri ve kayıtlı sahneler.

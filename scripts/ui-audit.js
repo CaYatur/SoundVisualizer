@@ -86,6 +86,12 @@ async function walk(s, locale) {
     await q(`window.SVPanel.setCategory(${JSON.stringify(id)}); 1`);
     await sleep(350);
     await scan('sayfa:' + id);
+    const secs = JSON.parse(await q('JSON.stringify([...document.querySelectorAll("#svSecNav button")].map((b) => b.getAttribute("data-sec")))'));
+    for (const sec of secs) {
+      await q(`window.SVPanel.setSection(${JSON.stringify(sec)}); 1`);
+      await sleep(250);
+      await scan('bölüm:' + sec);
+    }
     if (id === 'live') {
       await q("window.SVLiveShell.setLower('deck'); 1");
       await sleep(250);

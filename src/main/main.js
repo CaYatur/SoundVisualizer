@@ -829,6 +829,8 @@ function createAdminWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload-admin.js'),
+      // Öz test bütün kartları tek sayfada tarar (admin.js SECTION_PAGES)
+      additionalArguments: SMOKE ? ['--sv-all-sections'] : [],
       contextIsolation: true,
       nodeIntegration: false,
       /* Görselleştirici tam ekran ve "her zaman üstte" olduğu için bu
@@ -12250,12 +12252,12 @@ async function runShots() {
     ['scene', 'panel-geometry.png', '.card[data-card="geometry"]', `${SHELL}.select('ly_show_geo')`],
     ['live', 'panel-clipdeck.png', '.card[data-card="clipdeck"]', "window.SVLiveShell.setLower('deck')"],
     ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
-    ['studio', 'panel-studio.png', '.sv-content .card'],
-    ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
+    ['studio', 'panel-studio.png', '.card[data-card="studio"]', "window.SVPanel.setSection('studio')"],
+    ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "window.SVPanel.setSection('mdedit');document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
     ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]'],
-    ['output', 'panel-mapping.png', '.card[data-card="mapping"]'],
-    ['output', 'panel-record.png', '.card[data-card="record"]'],
-    ['output', 'panel-output.png', '.card[data-card="stream"]'],
+    ['output', 'panel-mapping.png', '.card[data-card="mapping"]', "window.SVPanel.setSection('mapping')"],
+    ['output', 'panel-record.png', '.card[data-card="record"]', "window.SVPanel.setSection('record')"],
+    ['output', 'panel-output.png', '.card[data-card="stream"]', "window.SVPanel.setSection('stream')"],
     ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
   ];
   const missing = [];

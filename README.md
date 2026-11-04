@@ -1252,7 +1252,11 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   Library and Settings behind the gear (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> switches pages).
 - **Scene** is a layer list, a large preview, an inspector for the selected layer and a shelf of
   presets, templates, effects and modulation. **Live** has Next and Live monitors with TAKE, a scene
-  grid on the F keys, layer faders and the clip deck.
+  grid on the F keys, layer faders and the clip deck. **Time** puts the preview above a full-width timeline.
+  **Output** and **Studio** show one section at a time.
+- **Momentary effects** on Live: flash, strobe, blur, kaleidoscope, glitch and negative while you hold
+  the button. They never touch your settings, and strobe stays at three flashes a second while flash
+  limiting is on.
 - **Undo and redo** for scene changes (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Live everywhere** — every change reaches the output windows immediately and saves itself.
 - **A live preview** with its own demo signal, audio meters and saved scenes beside every page.

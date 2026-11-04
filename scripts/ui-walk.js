@@ -274,6 +274,36 @@ async function main() {
   await sleep(300);
   check('liste geri döndü', await cfg('c.layers.length') === saved);
 
+  // Sayfa içi bölümler: yalnız seçili kart çiziliyor, arama doğru bölüme götürüyor
+  await q("window.SVPanel.setCategory('output'); 1");
+  await sleep(350);
+  const secs = await q('document.querySelectorAll("#svSecNav button").length');
+  check('Çıktı bölüm listesi dolu', secs >= 6, secs);
+  check('yalnız seçili kart çizili', await q('document.querySelectorAll("#sections > .card, #sections .card[data-card]").length') === 1);
+  await click('#svSecNav button[data-sec="stream"]');
+  await sleep(300);
+  check('bölüm seçimi kartı değiştiriyor', await q('!!document.querySelector("#sections .card[data-card=stream]") && !document.querySelector("#sections .card[data-card=display]")'));
+  await q("window.SVPanel.setCategory('scene'); 1");
+  await search('Projeksiyon');
+  const toMapping = await pick('/Çıktı|Output/');
+  check('arama bölümü de seçiyor', toMapping && await page() === 'output' && await q('!!document.querySelector("#sections .card[data-card=mapping]")'));
+  await q("window.SVPanel.setCategory('studio'); 1");
+  await sleep(300);
+  check('Stüdyo sekmeleri', await q('document.querySelectorAll("#svSecNav button").length') >= 3);
+  await q("window.SVPanel.setCategory('time'); 1");
+  await sleep(300);
+  check('Zaman: önizleme çizelgenin üstünde', await q('document.getElementById("previewStage").getBoundingClientRect().bottom <= document.querySelector("#sections .card").getBoundingClientRect().top + 60'));
+  // Anlık efekt: basılıyken zincirde, bırakınca yok
+  await q("window.SVPanel.setCategory('live'); 1");
+  await sleep(350);
+  const fxBefore = await q('(window.SVPreview.stack().postfx ? window.SVPreview.stack().postfx.chain.length : 0)');
+  await q(`document.querySelector('.sv-moment button[data-fx="glitch"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
+  await sleep(150);
+  check('anlık efekt basılıyken zincirde', await q('window.SVPreview.stack().postfx.chain.length') === fxBefore + 1);
+  await q(`window.dispatchEvent(new PointerEvent('pointerup')); 1`);
+  await sleep(150);
+  check('bırakınca kalkıyor', await q('window.SVPreview.stack().postfx ? window.SVPreview.stack().postfx.chain.length : 0') === fxBefore);
+
   check('konsol temiz', errors.length === 0, errors.slice(0, 3).join(' | '));
   await session.stop();
   const bad = results.filter((r) => !r).length;
