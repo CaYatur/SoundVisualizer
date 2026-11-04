@@ -613,6 +613,7 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .sv-safe[hidden] { display: none; }
 .preview-stage .sv-safe { z-index: 3; }
 #svStageTools { top: 10px; right: 10px; z-index: 6; }
+body:has(.preview-stage.paused) #svStageTools { z-index: 62; }
 body[data-page='live'] #svStageTools { display: none; }
 #svStageTools .icon-btn { width: 26px; height: 26px; border-radius: 7px; color: rgb(var(--on-media-rgb) / .8); }
 #svStageTools .icon-btn:hover { background: rgb(var(--on-media-rgb) / .14); color: rgb(var(--on-media-rgb)); }

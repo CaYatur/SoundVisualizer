@@ -31,6 +31,8 @@
   let authorSel = '';
   let busy = '';
   let listScroll = 0;
+  // Listeden seçimde etkin kart zaten görünür (#957): yeniden çizimde kaydırma oynatılmaz
+  let keepView = false;
   /* Doku klasöründe kaç görsel bulunduğu. null = henüz sorulmadı.
      Yol tek başına yeterli değil: kullanıcı klasörü doğru seçip yanlış
      klasörü göstermiş olabilir ve sayı bunu anında ele veriyor. */
@@ -463,12 +465,15 @@
      sütun sayısı CSS'in `auto-fill`inden ölçülüyor, boşluk kutusu bütün
      sütunları kaplıyor, böylece pencerenin ilk hücresi hep satır başında. */
   const WINDOW_MIN = 200;
+  const lastMeasure = {};
   const WINDOW_PAD = 6;
 
   function windowList(list, items, make, grid, activeIdx) {
     const el = P().el;
     const gap = grid ? 6 : 2;
-    const st = { pitch: grid ? 104 : 28, cols: 1, r0: -1, r1: -1, nodes: new Map() };
+    // Son ölçülen satır aralığı ve sütun (#957): yeniden çizimde tahmin tutar, kaydırma oynamaz
+    const was = lastMeasure[grid ? 'grid' : 'list'];
+    const st = { pitch: was ? was.pitch : (grid ? 104 : 28), cols: was ? was.cols : 1, r0: -1, r1: -1, nodes: new Map() };
     const top = el('div', { class: 'md-spacer' });
     const bottom = el('div', { class: 'md-spacer' });
     list.appendChild(top);
@@ -512,12 +517,13 @@
       const changed = cols !== st.cols || Math.abs(pitch - st.pitch) > 0.5;
       st.cols = cols;
       st.pitch = pitch;
+      lastMeasure[grid ? 'grid' : 'list'] = { cols, pitch };
       return changed;
     };
 
     // Etkin presete göre kaydırma: görünmüyorsa en yakın kenara getiriliyor
     const scrollFor = (s) => {
-      if (activeIdx < 0) return s;
+      if (activeIdx < 0 || keepView) return s;
       const h = list.clientHeight || 0;
       const y = Math.floor(activeIdx / st.cols) * st.pitch;
       if (y < s) return y;
@@ -531,6 +537,7 @@
       for (let k = 0; k < 3 && measure(); k++) draw(true, listScroll);
       list.scrollTop = scrollFor(listScroll);
       listScroll = list.scrollTop;
+      keepView = false;
       draw(true);
       if (measure()) draw(true);
       /* Doğrudan kaydırma olayında: pencere yalnız aralık değişince
@@ -1844,7 +1851,8 @@
     const LBn = LB();
     const libNow = library(cfg);
     const keepScroll = () => {
-      const box = document.querySelector(grid ? '.md-grid' : '.md-list');
+      // Bu listenin kendi kaydırması (#957): belgedeki ilk .md-grid başka bir kart olabiliyordu
+      const box = list.isConnected ? list : document.querySelector(grid ? '.md-grid' : '.md-list');
       if (box) listScroll = box.scrollTop;
     };
     const removePreset = async (p) => {
@@ -1873,6 +1881,13 @@
           : 'Preset listesi yüklenemedi. Bir MilkDrop paketindeki .milk dosyalarını ekleyebilirsiniz; hepsi bir kerede seçilebilir.',
       }));
     }
+    // Etkin işaret yerinde (#957): yeniden çizim beklenmeden kart değişir, kaydırma yerinde kalır
+    const pick = (p) => {
+      keepScroll(); keepView = true;
+      list.querySelectorAll('.md-cell.active, .md-item.active').forEach((n) => n.classList.remove('active'));
+      list.querySelectorAll('[data-id]').forEach((n) => { if (n.dataset.id === p.id && !n.classList.contains('md-thumb-box')) n.classList.add('active'); });
+      loadWithText(cfg, p, () => rerender());
+    };
     const makeItem = (p) => {
       const active = (target ? target.settings.milkdrop.presetId : md.presetId) === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
@@ -1899,10 +1914,10 @@
         if (key) img.setAttribute('src', thumbUrl(key));
         const box = el('div', { class: 'md-thumb-box', 'data-id': p.id }, [img]);
         paintThumb(box, key);
-        return el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
+        return el('div', { class: 'md-cell' + (active ? ' active' : ''), 'data-id': p.id }, [
           el('button', {
             class: 'md-cell-main', type: 'button', title: tr(p.name || p.id),
-            onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
+            onclick: () => pick(p),
           }, [box, el('span', { class: 'md-cell-name', text: tr(p.name || p.id) })]),
           favBtn,
           p.builtin ? null : el('button', {
@@ -1912,11 +1927,11 @@
         ]);
       }
       const tags = LBn ? LBn.tagsOf(libNow, p.id) : [];
-      return el('div', { class: 'md-item' + (active ? ' active' : '') }, [
+      return el('div', { class: 'md-item' + (active ? ' active' : ''), 'data-id': p.id }, [
         favBtn,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
-          onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
+          onclick: () => pick(p),
         }),
         tags.length ? el('span', { class: 'md-tagline', text: tags.map((t) => '#' + t).join(' ') }) : null,
         /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
@@ -1942,7 +1957,8 @@
         setTimeout(() => {
           list.scrollTop = listScroll;
           const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
-          if (active) P().revealInList(list, active);
+          if (active && !keepView) P().revealInList(list, active);
+          keepView = false;
         }, 0);
       }
       if (grid) setTimeout(() => watchThumbs(list), 0);

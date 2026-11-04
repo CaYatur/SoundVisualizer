@@ -837,9 +837,18 @@ video.logo-lib-thumb { pointer-events: none; }
 /* Duraklatma işareti CSS'te: ikon setindeki "pause" (icons.js), sabit renkle
    data: URL'si olarak (#665). */
 .preview-stage.paused::after {
-  content: ''; position: absolute; inset: 0; z-index: 6;
-  background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3Cpath d=%22M14.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3C/svg%3E") center / 38px no-repeat, var(--media-scrim);
+  content: ''; position: absolute; inset: 0; z-index: 60; pointer-events: none; background: var(--media-scrim);
 }
+/* Sürdür düğmesi her katmanın üstünde ve tıklanabilir (#957) */
+.sv-resume {
+  position: absolute; left: 50%; top: 50%; z-index: 61; transform: translate(-50%, -50%);
+  width: 56px; height: 56px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--media-scrim); color: rgb(var(--on-media-rgb) / .85); cursor: pointer;
+}
+.sv-resume[hidden] { display: none; }
+.sv-resume:hover, .sv-resume:focus-visible { color: rgb(var(--on-media-rgb)); outline: 2px solid var(--accent); }
+.sv-resume .svi { width: 26px; height: 26px; }
+.preview-stage.paused { cursor: pointer; }
 
 /* --- seviye göstergeleri --- */
 .meter-strip { display: flex; flex-direction: column; gap: 7px; }

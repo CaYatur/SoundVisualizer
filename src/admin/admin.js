@@ -5822,15 +5822,41 @@
     if (layBtn) layBtn.addEventListener('click', () => { if (window.SVLayoutEditor) window.SVLayoutEditor.open(layBtn); });
 
     const btn = $('previewToggle');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        const next = !window.SVPreview.isPaused();
-        window.SVPreview.setPaused(next);
+    const stage = $('previewStage');
+    // Duraklat/sürdür tek yerden (#957): araç çubuğu düğmesi, ortadaki sürdür düğmesi ve Boşluk aynı durumu kullanır
+    let resume = null;
+    function setPreviewPaused(next) {
+      window.SVPreview.setPaused(next);
+      if (btn) {
         window.SVIcons.set(btn, next ? 'play' : 'pause', '');
         btn.title = next ? 'Önizlemeyi başlat' : 'Önizlemeyi duraklat';
-        syncPreviewSubscription();
+        btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+      }
+      if (stage) {
+        if (!resume) {
+          resume = el('button', { type: 'button', class: 'sv-resume', title: 'Önizlemeyi başlat', 'aria-label': 'Önizlemeyi başlat' });
+          window.SVIcons.set(resume, 'play', '');
+          resume.addEventListener('click', (e) => { e.stopPropagation(); setPreviewPaused(false); });
+        }
+        if (resume.parentNode !== stage) stage.appendChild(resume);
+        resume.hidden = !next;
+        if (next) resume.focus({ preventScroll: true });
+      }
+      syncPreviewSubscription();
+    }
+    if (btn) btn.addEventListener('click', () => setPreviewPaused(!window.SVPreview.isPaused()));
+    if (stage) {
+      // Duraklatılmış önizlemenin herhangi bir yerine tıklamak sürdürür; üstteki katmanlar tıklamayı yutmasın diye yakalama evresinde
+      stage.addEventListener('click', (e) => {
+        if (!window.SVPreview.isPaused() || e.target.closest('#svStageTools, #previewTools')) return;
+        e.stopPropagation(); e.preventDefault(); setPreviewPaused(false);
+      }, true);
+      stage.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && window.SVPreview.isPaused()) { e.preventDefault(); setPreviewPaused(false); }
       });
     }
+    window.SVAdmin = window.SVAdmin || {};
+    window.SVAdmin.setPreviewPaused = setPreviewPaused;
   }
 
   // Panelin ana süreçten ses karesi isteyip istemediğini güncelle
