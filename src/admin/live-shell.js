@@ -128,6 +128,57 @@
     return el('section', { class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
   }
 
+  /* ANLIK EFEKTLER. Basılı tutulduğu sürece çıkışta; ayara yazılmaz, geri alma geçmişine girmez.
+     Bırakma pencerede dinleniyor: basılıyken sayfa yeniden çizilse de düğme takılı kalmasın. */
+  const MOMENTARY = [
+    ['flash', 'Flaş', 'flash', { amount: 0.85 }],
+    ['strobe', 'Strobe', 'strobe', { rate: 3, amount: 1 }],
+    ['blur', 'Bulanık', 'zoomblur', { amount: 0.2, samples: 16 }],
+    ['kaleido', 'Kaleydoskop', 'kaleido', { slices: 6, spin: 0.1, zoom: 1 }],
+    ['glitch', 'Glitch', 'glitch', { amount: 0.8, slices: 24, speed: 10 }],
+    ['negative', 'Negatif', 'posterize', { levels: 32, invert: 1 }],
+  ];
+  const held = new Set();
+  let heldTimer = null;
+  function sendHeld() {
+    /* Flaş sınırlaması açıkken strobe saniyede üç flaşı geçmez (WCAG 2.3.1): MilkDrop sınırlayıcısıyla aynı ayar. */
+    const free = (P().cfg().milkdrop || {}).flashLimit === false;
+    const list = MOMENTARY.filter((m) => held.has(m[0])).map((m) => ({
+      type: m[2], enabled: true, params: m[0] === 'strobe' && free ? Object.assign({}, m[3], { rate: 10 }) : m[3],
+    }));
+    if (window.api && window.api.sendMomentaryFx) window.api.sendMomentaryFx(list);
+    const stack = window.SVPreview && window.SVPreview.stack && window.SVPreview.stack();
+    if (stack) stack.setMomentary(list);
+  }
+  function holdFx(id, btn) {
+    held.add(id);
+    if (btn) btn.classList.add('act');
+    sendHeld();
+    if (!heldTimer) heldTimer = setInterval(sendHeld, 1000);
+    const release = () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+      window.removeEventListener('blur', release);
+      held.delete(id);
+      document.querySelectorAll('.sv-moment button[data-fx="' + id + '"]').forEach((b) => b.classList.remove('act'));
+      sendHeld();
+      if (!held.size) { clearInterval(heldTimer); heldTimer = null; }
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+  }
+  function momentaryCard() {
+    const el = P().el;
+    return el('div', { class: 'card sv-momentary' }, [
+      el('div', { class: 'card-head' }, [el('div', { class: 'ch-main' }, [el('h3', { text: tr('Anlık Efektler') })])]),
+      el('div', { class: 'sv-moment' }, MOMENTARY.map((m) => el('button', {
+        class: held.has(m[0]) ? 'act' : '', type: 'button', 'data-fx': m[0], text: tr(m[1]), title: tr('Basılı tutun'),
+        onpointerdown: (e) => { e.preventDefault(); holdFx(m[0], e.currentTarget); },
+      }))),
+    ]);
+  }
+
   /* MILKDROP SIRASI. Her MilkDrop katmanı için ekrandaki preset ve "sonraki" düğmesi. Ad ölçer
      mesajıyla güncelleniyor (admin.js `data-md-layer`), liste yeniden çizilmiyor. */
   function mdQueue() {
@@ -211,7 +262,7 @@
     const scenesCard = el('section', { class: 'sv-card sv-scenes-card sv-insp-free' }, [el('div', { class: 'sv-chead' }, headKids), lowerBody]);
 
     const rail = el('aside', { class: 'sv-card sv-rail' }, [el('div', { class: 'sv-cbody sv-insp' },
-      [P().sectionCard('tempo'), mdQueue(), P().sectionCard('transition')].filter(Boolean))]);
+      [P().sectionCard('tempo'), mdQueue(), momentaryCard(), P().sectionCard('transition')].filter(Boolean))]);
 
     host.replaceChildren(mons, scenesCard, mixer(), rail);
     if (window.SVSceneShell) window.SVSceneShell.placeStage('live');

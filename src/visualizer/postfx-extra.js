@@ -513,6 +513,28 @@ void main(){
 }`,
     },
 
+    flash: {
+      label: 'Flaş',
+      params: [p('amount', 'Miktar', 0, 1, 0.01, 0.85)],
+      audio: ['amount'],
+      frag: `uniform float amount;
+void main(){
+  vec3 c = texture(uTex, vUV).rgb;
+  outColor = vec4(mix(c, vec3(1.0), clamp(amount, 0.0, 1.0)), 1.0);
+}`,
+    },
+
+    strobe: {
+      label: 'Strobe',
+      params: [p('rate', 'Hız (Hz)', 1, 20, 1, 3), p('amount', 'Miktar', 0, 1, 0.01, 1)],
+      frag: `uniform float rate, amount;
+void main(){
+  vec3 c = texture(uTex, vUV).rgb;
+  float on = step(0.5, fract(uTime * rate));
+  outColor = vec4(mix(c, vec3(1.0), on * clamp(amount, 0.0, 1.0)), 1.0);
+}`,
+    },
+
     threshold: {
       label: 'Eşikleme',
       params: [p('level', 'Eşik', 0, 1, 0.01, 0.45), p('soft', 'Yumuşaklık', 0, 0.5, 0.005, 0.08), p('mixAmt', 'Karışım', 0, 1, 0.01, 1)],

@@ -549,6 +549,7 @@
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
     openSettings: () => setCategory('settings'),
     setCategory: (id) => setCategory(id),
+    setSection: (id) => setSection(id),
     sliderMax: (def) => sliderMax(def),
     resetCategory: (id) => resetCategory(id),
     scenes: () => ensureScenes(),
@@ -3981,7 +3982,8 @@
     $('catDesc').textContent = tr(cat.desc);
 
     const sections = sectionSchema().filter((s) => s.category === cat.id && (!s.show || s.show()));
-    root.classList.toggle('single', sections.length === 1 || sections.every((s) => s.wide));
+    const shown = paintSectionNav(cat, sections);
+    root.classList.toggle('single', shown.length === 1 || shown.every((s) => s.wide));
 
     // Sıfırlanacak bir şey yoksa (ör. Kitaplık) düğme boşuna durmasın
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
@@ -3989,7 +3991,7 @@
 
     /* Bir bölümün hatası yalnız o kartı düşürür: eskiden döngü kesiliyor,
        altındaki bölümler ve düzen hiç çizilmiyordu. */
-    sections.forEach((sec) => {
+    shown.forEach((sec) => {
       let card;
       try {
         card = buildCard(sec);
@@ -4020,6 +4022,47 @@
       if (back) { try { back.focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ } }
     }
     syncAppMeters(); // seçici sayfaya girdi ya da çıktı (#516)
+  }
+
+  /* SAYFA İÇİ BÖLÜMLER (#905). Çıktı'da solda liste, Stüdyo'da üstte sekme. Yalnız seçili kart
+     çiziliyor: uzun kaydırma kalkıyor, gizli kartların zamanlayıcıları da çalışmıyor. Öz test
+     bütün kartları tek sayfada tarıyor (`allSections`). */
+  const SECTION_PAGES = {
+    output: ['display', 'stream', 'textureShare', 'record', 'export', 'mapping', 'aspect', 'power'],
+    studio: ['studio', 'mdedit', 'scenegen', 'mdgen'],
+  };
+  const sectionKey = (catId) => 'sv-section-' + catId;
+  function selectedSection(catId) {
+    try { return localStorage.getItem(sectionKey(catId)); } catch { return null; }
+  }
+  function setSection(id) {
+    const sec = sectionSchema().find((s) => s.id === id);
+    if (!sec || !SECTION_PAGES[sec.category]) return;
+    try { localStorage.setItem(sectionKey(sec.category), id); } catch { /* yalnız kolaylık */ }
+    categoryScrollById.set(sec.category, 0);
+    pendingCategoryScrollId = sec.category;
+    if (sec.category === activeCategory) render();
+  }
+  function paintSectionNav(cat, sections) {
+    const host = $('svSecNav');
+    const order = SECTION_PAGES[cat.id];
+    if (!host) return sections;
+    if (!order || (window.api && window.api.allSections)) {
+      host.replaceChildren();
+      return sections;
+    }
+    const rank = (s) => { const i = order.indexOf(s.id); return i < 0 ? order.length : i; };
+    const sorted = sections.slice().sort((a, b) => rank(a) - rank(b));
+    const want = selectedSection(cat.id);
+    const sel = sorted.find((s) => s.id === want) || sorted[0];
+    host.replaceChildren(...sorted.map((s) => {
+      const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
+      return el('button', {
+        class: 'sv-secbtn' + (s === sel ? ' on' : ''), type: 'button', 'data-sec': s.id, icon: s.icon, text: tr(s.title),
+        onclick: () => setSection(s.id),
+      }, n ? [el('span', { class: 'sv-secmark', text: String(n) })] : []);
+    }));
+    return sel ? [sel] : [];
   }
 
   /* KART DÜZENİ (#622, #695).
@@ -4537,6 +4580,9 @@
     }
     activeCategory = entry.category;
     localStorage.setItem('sv-category', activeCategory);
+    if (entry.sectionId && SECTION_PAGES[entry.category]) {
+      try { localStorage.setItem(sectionKey(entry.category), entry.sectionId); } catch { /* yalnız kolaylık */ }
+    }
     if (entry.anchor) {
       // Gelişmiş sekmeyi basit görünüm gizliyor
       if (entry.advanced && simpleOn) {

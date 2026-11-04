@@ -29,7 +29,7 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [],
   };
   let lyricsLibItems = [];
   let lyricsLibSeen = false;
@@ -276,6 +276,8 @@
         window.SVLyricsRun = window.SVLyricsRun || { anchor: null };
         window.SVLyricsRun.anchor = lyricsClockAnchor;
         handlers.lyricsClock.forEach((h) => h(lyricsClockAnchor));
+      } else if (msg.type === 'momentary-fx') {
+        handlers.momentaryFx.forEach((h) => h(msg.list));
       } else if (msg.type === 'show-clock') {
         handlers.showClock.forEach((h) => h(msg.anchor));
       } else if (msg.type === 'md-follow') {
@@ -368,6 +370,7 @@
     onPresets: (cb) => handlers.presets.push(cb),
     onPresetsDelta: (cb) => handlers.presetsDelta.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
+    onMomentaryFx: (cb) => handlers.momentaryFx.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
     /* Kütüphane ve söz saati, dinleyici kurulmadan önce gelebilir.
        Son örnek abone olunca yeniden verilir. */

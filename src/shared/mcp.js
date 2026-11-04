@@ -52,7 +52,7 @@
     'grade', 'vignette', 'trails', 'edge', 'zoomblur', 'ripple', 'posterize',
     'blur', 'radialblur', 'motionblur', 'tiltshift', 'dof', 'sharpen', 'emboss',
     'dither', 'halftone', 'ascii', 'hatch', 'paint', 'vhs', 'datamosh', 'slitscan',
-    'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize',
+    'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize', 'flash', 'strobe',
     'godrays', 'badtv', 'starfilter',
   ];
   const LAYER_DEFAULTS = {

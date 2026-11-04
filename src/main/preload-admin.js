@@ -110,7 +110,9 @@ contextBridge.exposeInMainWorld('api', {
   openDynamicLightingSettings: () => ipcRenderer.invoke('lighting:open-settings'),
 
   // Canlı önizleme (panel içi): ses karesi akışını aç/kapat
+  allSections: process.argv.includes('--sv-all-sections'),
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
+  sendMomentaryFx: (list) => ipcRenderer.send('momentary-fx', list),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
   sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),
