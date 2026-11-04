@@ -35,7 +35,9 @@
   function migrate(cfg) {
     const out = { changed: false, archived: [] };
     if (!needsMigration(cfg)) return out;
-    const root = layers().toStack(cfg);
+    /* Görüntü taşımayan seyrek dosya boş listeye çevrilmesin: siyah sahne açılırdı. Liste yoksa
+       panel varsayılan katmanları kuruyor. */
+    const root = migrateScene(cfg);
     if (root.archived) out.archived.push('');
     for (const s of Array.isArray(cfg.scenes) ? cfg.scenes : []) {
       if (s && migrateScene(s.data).archived) out.archived.push(String(s.name || s.id || ''));

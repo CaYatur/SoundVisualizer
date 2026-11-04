@@ -89,3 +89,12 @@ test('yeni kurulum çevrilmiyor; ana süreç önce yedekliyor ve yedeğin üstü
   assert.match(admin, /SVMigrateV4\.migrateScene\(s\.data\)/);
   assert.match(admin, /SVMigrateV4\.migrate\(sanitized\)/);
 });
+
+test('görüntü taşımayan seyrek dosya boş listeye çevrilmez', () => {
+  const cfg = { power: { keepAwake: false } };
+  const r = M.migrate(cfg);
+  assert.strictEqual(r.changed, true);
+  assert.strictEqual(cfg.docVersion, M.DOC_VERSION);
+  assert.strictEqual(cfg.layers, undefined);
+  assert.strictEqual(cfg.layerStack, undefined);
+});

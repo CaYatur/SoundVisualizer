@@ -36,6 +36,7 @@
     "perf": "node scripts/perf.js",
     "golden": "node scripts/golden.js",
     "ui-walk": "node scripts/ui-walk.js",
+    "ui-audit": "node scripts/ui-audit.js",
     "engine-parity": "node scripts/engine-parity.js",
     "engine-memory": "node scripts/engine-memory.js",
     "parity": "node scripts/parity.js",

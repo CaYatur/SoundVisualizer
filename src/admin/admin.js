@@ -375,7 +375,8 @@
         else if (BOOL_ATTRS[k]) {
           if (props[k]) e.setAttribute(k, '');
           else e.removeAttribute(k);
-        } else e.setAttribute(k, props[k]);
+        // Tanımsız öznitelik yazılmaz: title="undefined" fare üstünde görünüyordu
+        } else if (props[k] !== undefined) e.setAttribute(k, props[k]);
       }
     }
     /* İkon (#665): yazıdan ÖNCE, ayrı bir öğe olarak. Yazı kendi metin
@@ -549,6 +550,7 @@
     openSettings: () => setCategory('settings'),
     setCategory: (id) => setCategory(id),
     sliderMax: (def) => sliderMax(def),
+    resetCategory: (id) => resetCategory(id),
     scenes: () => ensureScenes(),
     activeSceneId: () => activeSceneId,
     sceneGradient: (s) => sceneGradient(s),
@@ -703,8 +705,6 @@
         return floatingToggleCtrl(def);
       case 'floatingtools':
         return floatingToolsCtrl(def);
-      case 'xy':
-        return xyCtrl(def);
       case 'button':
         return buttonCtrl(def);
       case 'multisource':
@@ -744,8 +744,6 @@
         return window.SVMcpPanel ? window.SVMcpPanel.panel() : null;
       case 'scenegen':
         return window.SVSceneGen ? window.SVSceneGen.panel() : null;
-      case 'custompicker':
-        return window.SVStudio ? window.SVStudio.picker(def.kind) : null;
       case 'layerspanel':
         return window.SVScenePanels ? window.SVScenePanels.layersPanel() : null;
       case 'effectspanel':
@@ -1410,24 +1408,7 @@
   }
 
   // --- Ek görsel nesneler / partiküller yöneticisi ---
-  const MOTION_OPTS = [
-    { value: 'static', label: 'Sabit' },
-    { value: 'float', label: 'Süzülme' },
-    { value: 'orbit', label: 'Yörünge' },
-    { value: 'swirl', label: 'Girdap' },
-    { value: 'scatter', label: 'Saçılma (sese)' },
-    { value: 'rise', label: 'Yükselme' },
-    { value: 'fall', label: 'Düşme' },
-  ];
-  const BLEND_OPTS = [
-    { value: 'normal', label: 'Normal' },
-    { value: 'screen', label: 'Ekran (parlak)' },
-    { value: 'add', label: 'Toplama (ışıltı)' },
-  ];
-  const LAYER_OPTS = [
-    { value: 'front', label: 'Önde' },
-    { value: 'back', label: 'Arkada' },
-  ];
+
 
 
 
@@ -1504,21 +1485,6 @@
     ]);
   }
 
-  function xyCtrl() {
-    const mk = (axis, label) =>
-      sliderCtrl({ path: 'logo.' + axis, label, step: 0.01, percent: true });
-    const auto = el('button', {
-      class: 'btn ghost small', icon: 'target', text: 'Otomatik Ortala',
-      onclick: () => {
-        cfg.logo.x = 0.5;
-        cfg.logo.y = 0.5;
-        push(true);
-        render();
-      },
-    });
-    auto.style.marginTop = '6px';
-    return el('div', {}, [mk('x', 'Yatay Konum'), mk('y', 'Dikey Konum'), auto]);
-  }
   /* Ses Kaynakları kartının denetimleri; ses köprüsünün kartı da aynısını
      gösteriyor (#813): köprü bu kaynakların karışımını gönderir. */
   function audioSourcesDef() {
@@ -4454,6 +4420,48 @@
         });
       });
     });
+    return out.concat(layerSearchEntries());
+  }
+
+  /* Sahnedeki ayarlar katman denetçisinde: kart tanımlarında yoklar, her türün sekmeleri okunuyor
+     (türe göre bir kez). Sahnede olmayan türün ayarı da bulunsun: sonuç o katmanı ekler. */
+  const layerFieldsByType = new Map();
+  const SEARCH_ADD_KINDS = [
+    ['visualizer', 'bars'], ['background', 'gradient'], ['media', 'back'], ['sprites', 'back'], ['logo', 'back'],
+    ['nowplaying', 'nowplaying'], ['visualizer', 'text'],
+  ];
+  function layerFieldsOf(layer) {
+    const key = layer.kind + '|' + layer.type;
+    if (!layerFieldsByType.has(key)) layerFieldsByType.set(key, window.SVScenePanels.layerFields(layer));
+    return layerFieldsByType.get(key);
+  }
+  function layerSearchEntries() {
+    const SP = window.SVScenePanels;
+    const SL = window.SVLayers;
+    if (!SP || !SP.layerFields || !SL || !cfg) return [];
+    const taken = new Set();
+    const out = [];
+    const add = (fields, fill) => {
+      fields.forEach((f) => {
+        if (taken.has(f.label)) return;
+        taken.add(f.label);
+        out.push(Object.assign({
+          kind: 'control', icon: 'layers', label: f.label, category: 'scene', categoryTitle: 'Sahne',
+          sectionId: null, path: null, anchor: f.label, tab: f.tab, advanced: f.advanced, keywords: [],
+        }, fill));
+      });
+    };
+    (cfg.layers || []).slice().reverse().forEach((l) => {
+      if (!l || !l.id) return;
+      add(layerFieldsOf(l), { section: l.name || SP.layerSummary(l), layerId: l.id });
+    });
+    SEARCH_ADD_KINDS.forEach(([kind, type]) => {
+      const kindLabel = (SP.LAYER_KIND_LABELS.find((k) => k[0] === kind) || [])[1] || kind;
+      const name = type === 'text' ? 'Metin' : kind === 'visualizer' ? 'Barlar' : kindLabel;
+      const addLayer = { kind, type, name };
+      const made = SL.normalizeLayer(Object.assign({}, addLayer));
+      add(layerFieldsOf(made), { section: 'Katman Ekle · ' + name, addLayer });
+    });
     return out;
   }
 
@@ -4529,13 +4537,31 @@
     }
     activeCategory = entry.category;
     localStorage.setItem('sv-category', activeCategory);
-    if (entry.category === 'scene' && window.SVSceneShell) window.SVSceneShell.reveal(entry.sectionId);
+    if (entry.anchor) {
+      // Gelişmiş sekmeyi basit görünüm gizliyor
+      if (entry.advanced && simpleOn) {
+        simpleOn = false;
+        localStorage.setItem('sv-simple', '0');
+        const box = $('simpleToggle');
+        if (box) box.checked = false;
+      }
+      let id = entry.layerId;
+      if (entry.addLayer) {
+        const made = window.SVLayers.normalizeLayer(Object.assign({}, entry.addLayer));
+        cfg.layers.push(made);
+        id = made.id;
+      }
+      window.SVScenePanels.openLayerTab(id, entry.tab);
+      window.SVSceneShell.select(id, true);
+      if (entry.addLayer) push(true);
+    } else if (entry.category === 'scene' && window.SVSceneShell) window.SVSceneShell.reveal(entry.sectionId);
     render();
 
     requestAnimationFrame(() => {
       const root = entry.category === 'scene' ? $('svScene') : entry.category === 'live' ? $('svLive') : $('sections');
       let target = null;
       if (entry.path) target = root.querySelector('[data-path="' + entry.path + '"]');
+      if (entry.anchor) target = [...root.querySelectorAll('#svInspector [data-anchor]')].find((x) => x.getAttribute('data-anchor') === entry.anchor);
       if (!target) {
         // Bölüm başlığına git
         const cards = Array.from(root.querySelectorAll('.card'));

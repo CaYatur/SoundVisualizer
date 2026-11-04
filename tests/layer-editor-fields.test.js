@@ -14,7 +14,7 @@ const FIELDS = {
   background: ['audioBrightness', 'audioHue', 'audioReactivity', 'brightness', 'colorMode', 'coverTaskbar', 'drift', 'grain', 'hideLines', 'orbit', 'scale', 'solidColor', 'speed', 'style', 'swirl', 'transparent', 'transparentKey', 'type', 'vignette', 'wander', 'warp'],
   visualizer: ['amplitude', 'attack', 'barCenterX', 'barCount', 'barDirection', 'barFill', 'barHeight', 'barRadius', 'barSpan', 'barStyle', 'baseline', 'cap', 'capColor', 'capColorMode', 'capFall', 'capHold', 'color', 'color2', 'colorBar', 'colorDim', 'colorHighlight', 'colorMode', 'coverAudioScale', 'coverFit', 'coverGap', 'coverOverlay', 'coverRadius', 'coverSide', 'coverSize', 'coverSource', 'floorDb', 'gap', 'glow', 'lineWidth', 'maxFreq', 'minFreq', 'mirror', 'position', 'reflection', 'reflectionLength', 'release', 'scale', 'segmentGap', 'segmentSize', 'sensitivity', 'smooth', 'spread', 'studioColorMode', 'thickness', 'tilt', 'trailHeight', 'type'],
   logo: ['audioBand', 'audioBrightness', 'audioHue', 'audioOpacity', 'audioSpeed', 'beatFlash', 'blend', 'brightness', 'cornerRadius', 'enabled', 'glow', 'hue', 'loop', 'opacity', 'pulse', 'reverse', 'saturate', 'scale', 'smooth', 'source', 'speed'],
-  images: ['enabled'],
+  images: ['enabled', 'motion', 'count', 'size', 'sizeVar', 'opacity', 'spread', 'speed', 'spin', 'audioSize', 'audioSpeed', 'audioOpacity', 'glow', 'cornerRadius', 'blend', 'layer', 'noOverlap', 'minDist'],
   text: ['karaokeFill', 'karaokeHold', 'karaokeHoldAmount', 'karaokeHoldMin', 'karaoke', 'offset', 'lyricsFollow'],
 };
 
