@@ -67,6 +67,12 @@ test('panel güncellemesi: değişmeyen katman listesi kurulmuyor, işaretler ik
   assert.match(admin, /marksFresh = true;\n\s*try \{ push\(true\); \} finally \{ marksFresh = false; \}/);
 });
 
+test('arama efekt ve mod adlarını da buluyor, sonuç rafı açıyor', () => {
+  assert.match(admin, /out\.concat\(layerSearchEntries\(\), shelfSearchEntries\(\)\)/);
+  assert.match(admin, /FX\.EFFECT_IDS\.forEach/);
+  assert.match(admin, /window\.SVSceneShell\.setShelf\(entry\.shelf, entry\.filter/);
+});
+
 test('MilkDrop katmanı Ortak ya da Bağımsız', () => {
   const src = read('src/admin/scene-panels.js');
   assert.match(src, /miniSegment\('Preset', \[\['shared', 'Ortak'\], \['own', 'Bağımsız'\]\]/);

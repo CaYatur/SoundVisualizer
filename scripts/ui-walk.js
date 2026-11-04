@@ -179,6 +179,10 @@ async function main() {
   check('Zaman: önizleme üst sırada', await q('!!document.querySelector("#dockStageHost #previewStage")'));
   await q("window.SVPanel.setCategory('studio'); window.SVPanel.setSection('scenegen'); 1");
   await sleep(400);
+  await q(`(() => { const i = document.getElementById('searchInput'); i.value = 'bloom'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(150);
+  check('arama efekt adını buluyor', await q('document.querySelectorAll("#searchResults .sr-item").length') > 0);
+  await q(`(() => { const i = document.getElementById('searchInput'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); })()`);
   check('Üretici: örnek ruh halleri', await q('document.querySelectorAll("#sections .gen-example").length') === 3);
   check('Üretici: önizleme ortada', await q('!!document.querySelector("#svOutFrame #previewStage")'));
   await q("window.SVPanel.setSection('studio'); 1");

@@ -636,6 +636,7 @@
     /* MODÜL BAŞLIĞI. Arka planda çalışan bir şey için aç-kapa anahtarı yerine durum ve eylem:
        "Yayında · 2 istemci  [Durdur]". `status` durum satırının düğümü, `toggle(açılsın mı)` eylem.
        Ayarın yeri (cfg) ve davranışı değişmiyor: MCP, OSC ve sahneler aynı alanı okuyup yazıyor. */
+    clampNotes,
     moduleHead(o) {
       const on = !!o.on;
       const act = el('button', {
@@ -4535,8 +4536,8 @@
   /* Uzun açıklama iki satırda kalıyor, gerisi isteğe bağlı: form yazı duvarına dönmesin. */
   function clampNotes(root) {
     const added = [];
-    root.querySelectorAll('.studio-note:not(.sv-clamp)').forEach((n) => {
-      if (n.id || n.children.length || n.textContent.length < 170) return;
+    root.querySelectorAll('.studio-note:not(.sv-clamp):not(.sv-fit)').forEach((n) => {
+      if (n.id || n.children.length || n.textContent.length < 100) return;
       n.classList.add('sv-clamp');
       const more = el('button', { class: 'sv-more', type: 'button', text: tr('Devamı'), onclick: () => {
         more.textContent = tr(n.classList.toggle('open') ? 'Kısalt' : 'Devamı');
@@ -4546,7 +4547,7 @@
     });
     // Sığan not iki satırda bitiyor: düğme boşuna durmasın
     if (added.length) requestAnimationFrame(() => added.forEach(([n, more]) => {
-      if (n.isConnected && n.scrollHeight <= n.clientHeight + 1) { n.classList.remove('sv-clamp'); more.remove(); }
+      if (n.isConnected && n.scrollHeight <= n.clientHeight + 1) { n.classList.replace('sv-clamp', 'sv-fit'); more.remove(); }
     }));
   }
 
@@ -4759,7 +4760,25 @@
         });
       });
     });
-    return out.concat(layerSearchEntries());
+    return out.concat(layerSearchEntries(), shelfSearchEntries());
+  }
+
+  /* Efekt ve mod adları ayar değil, rafta duruyor: "bloom" yazan kullanıcı "bulunamadı" görmesin.
+     Sonuç ilgili rafı açıyor; görsel ve zemin rafında aramayı da o ada göre süzüyor. */
+  function shelfSearchEntries() {
+    const out = [];
+    const FX = window.SVPostFX;
+    const entry = (label, section, shelf, filter) => ({
+      kind: 'control', icon: 'layers', label, category: 'scene', categoryTitle: 'Sahne', section,
+      sectionId: null, path: null, advanced: false, keywords: [], shelf, filter,
+    });
+    if (FX && FX.EFFECT_IDS) FX.EFFECT_IDS.forEach((id) => { const d = FX.EFFECTS[id]; if (d) out.push(entry(d.label, 'Efekt Zinciri', 'effects', '')); });
+    const MC = window.SVModeCatalog;
+    if (MC) {
+      (MC.VISUALIZERS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Görsel', 'vis', m.label)); });
+      (MC.BACKGROUNDS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Zemin', 'bg', m.label)); });
+    }
+    return out;
   }
 
   /* Sahnedeki ayarlar katman denetçisinde: kart tanımlarında yoklar, her türün sekmeleri okunuyor
@@ -4878,6 +4897,11 @@
     localStorage.setItem('sv-category', activeCategory);
     if (entry.sectionId && SECTION_PAGES[entry.category]) {
       try { localStorage.setItem(sectionKey(entry.category), entry.sectionId); } catch { /* yalnız kolaylık */ }
+    }
+    if (entry.shelf && window.SVSceneShell) {
+      render();
+      window.SVSceneShell.setShelf(entry.shelf, entry.filter ? tr(entry.filter) : '');
+      return;
     }
     if (entry.anchor) {
       // Gelişmiş sekmeyi basit görünüm gizliyor

@@ -343,6 +343,7 @@
 
   /* Katman listesi yalnız gösterdiği şey değişince yeniden kuruluyor; ayar değiştirmek satırları
      kurmasın. Satırlar katman nesnesine bağlı: düzenleyici nesneyi yenilediyse imza aynı olsa da kuruluyor. */
+  let notesWatched = null;
   let layersPainted = '';
   let layersBound = [];
   function layersSig() {
@@ -584,7 +585,7 @@
       el('div', { class: 'sv-tabs', role: 'tablist' }, tabs.map((t) => el('button', {
         class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tr(t.label), onclick: () => setShelf(t.id),
       }))),
-      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' ? el('label', { class: 'sv-shelf-search' }, [
+      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' }, [
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
@@ -625,8 +626,9 @@
     body.onscroll = () => { scrollOf.shelf = body.scrollTop; };
   }
 
-  function setShelf(id) {
+  function setShelf(id, filter) {
     shelfTab = id;
+    if (filter !== undefined) query = filter;
     write(STORE.shelf, id);
     if (!shelfOpen) { shelfOpen = true; write(STORE.open, '1'); }
     scrollOf.shelf = 0;
@@ -732,6 +734,12 @@
     const keepInput = f && f.closest && f.closest('.sv-shelf-search') ? f.selectionStart : null;
     // Düzenleyici katmanı normalleştirip listeye yeniden yazıyor: satırlar o nesneye bağlansın
     paintInspector(b);
+    if (!notesWatched && window.MutationObserver) {
+      /* Katman sekmeleri kendi içinde yeniden kuruluyor; paint'e uğramıyor. */
+      notesWatched = new MutationObserver(() => P().clampNotes(b));
+      notesWatched.observe(b, { childList: true, subtree: true });
+    }
+    P().clampNotes(b);
     paintLayers(a);
     const sig = shelfSig();
     if (shelfStale || !sig || sig !== shelfPainted || !c.querySelector('[data-shelf-body] .md-library')) {
