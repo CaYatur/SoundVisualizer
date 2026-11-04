@@ -5007,6 +5007,8 @@
   function setAudioState(text, cls, icon) {
     const a = $('audioState');
     window.SVIcons.set(a, icon || '', text);
+    const chipName = $('audioChipName');
+    if (chipName) { chipName.textContent = text; chipName.parentNode.title = text; }
     a.title = text; // kısaltılan uzun aygıt adları için tam metin
     a.className = 'audio-state' + (cls ? ' ' + cls : '');
   }

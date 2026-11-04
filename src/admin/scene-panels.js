@@ -460,6 +460,8 @@
     if (d > 0.5 || d < -0.5) root.scrollTop += d;
   }
 
+  // Basit görünümde gizlenen sekmeler
+  const ADV_TABS = { mask: 1, fx: 1, group: 1, spectrum: 1 };
   /* `sticky`: denetçide bir sekme hep açık; basınca kapanmıyor. */
   function layerTabs(key, tabs, sticky) {
     const el = P().el;
@@ -481,7 +483,7 @@
       keepViewport(root, bar, before);
     };
     tabs.forEach((t) => bar.appendChild(el('button', {
-      type: 'button', class: 'layer-tab', role: 'tab', 'data-k': t.key, 'data-anchor': t.label, text: t.label,
+      type: 'button', class: 'layer-tab' + (ADV_TABS[t.key] ? ' sv-adv' : ''), role: 'tab', 'data-k': t.key, 'data-anchor': t.label, text: t.label,
       onclick: () => {
         const now = !sticky && foldStates[key + '_tab'] === t.key ? '' : t.key;
         foldStates[key + '_tab'] = now;

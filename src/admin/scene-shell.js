@@ -71,7 +71,9 @@
     if (l.kind === 'visualizer' && l.type === 'milkdrop' && md && md.thumbFor) {
       const own = l.settings && l.settings.milkdrop;
       const cfg = P().cfg();
-      const url = md.thumbFor(own && own.independent ? own : (cfg.milkdrop || {}));
+      const src = own && own.independent ? own : (cfg.milkdrop || {});
+      const url = md.thumbFor(src);
+      if (src.presetId) box.setAttribute('data-thumb-for', src.presetId);
       if (url) { box.appendChild(el('img', { src: url, alt: '', loading: 'lazy', onerror: (e) => { e.target.remove(); } })); return box; }
     }
     box.appendChild(el('span', { icon: KIND_ICON[l.kind] || 'layers' }));
@@ -456,5 +458,13 @@
     }
   }
 
-  window.SVSceneShell = { paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal };
+  // Küçük resim sonradan çizildi: bekleyen kutulara yerleştir
+  function thumbReady(id, url) {
+    document.querySelectorAll('[data-thumb-for]').forEach((box) => {
+      if (box.getAttribute('data-thumb-for') !== id || box.querySelector('img')) return;
+      box.replaceChildren(P().el('img', { src: url, alt: '' }));
+    });
+  }
+
+  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal };
 })();

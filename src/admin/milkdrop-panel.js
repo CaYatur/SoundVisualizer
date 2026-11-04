@@ -414,6 +414,8 @@
   function setThumb(id, key) {
     thumbKeys.set(id, key);
     paintThumb(thumbBox(id), key);
+    // Katman satırı ve denetçi başlığı da aynı preseti gösteriyor olabilir
+    if (key && window.SVSceneShell && window.SVSceneShell.thumbReady) window.SVSceneShell.thumbReady(id, thumbUrl(key));
   }
 
   function wantThumb(id) {
