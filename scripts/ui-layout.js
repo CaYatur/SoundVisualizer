@@ -12,6 +12,9 @@
  *   çerçeve    eski tarz kenarlıklı düğme ya da giriş
  *   hiza       bir bölümdeki satırlar aynı sol kenarda başlamıyor
  *   sözcük     tek sözcük ortasından ikinci satıra bölünmüş
+ *   düğme      düğmenin yazısı ya da simgesi kendi kenarına 6 pikselden yakın
+ *   yapışık    yan yana iki düğmenin arasında boşluk yok
+ *   yalnız     alt satıra tek başına düşen simge düğmesi
  *
  * Tasarım değişikliğinden sonra ve yeni bir kart eklerken çalıştırın:
  *   npm run ui-layout -- --settings=<settings.json> --presets=<klasör> [--size=1468x836] [--port=9792]
@@ -32,7 +35,7 @@ const PROBE = `JSON.stringify((() => {
   const BOX = '.group, .sv-card, .card, .dock-block, .sv-module, .sv-pcard, .sv-menu, .nav-rail, .sv-secnav, .layer-pane';
   const IGNORE = '.sv-hud, .topbar, .sv-gal, .md-grid, .md-list, .sv-scenes, .preview-stage, .tl-heads, .tl-toolbar, .sv-pages, .code-editor, .md-imports-body, .sv-moment';
   const name = (e) => (e.textContent || e.value || e.placeholder || e.getAttribute('aria-label') || e.tagName).replace(/\\s+/g, ' ').trim().slice(0, 34);
-  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set() };
+  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set() };
   for (const e of document.querySelectorAll('button, select, input:not([type=checkbox]):not([type=range]):not([type=color]), textarea, label.lbl, .studio-note, .settings-io-note, .studio-status, small, h3, a')) {
     if (!vis(e) || e.closest(IGNORE)) continue;
     let box = e.parentElement && e.parentElement.closest(BOX);
@@ -68,6 +71,47 @@ const PROBE = `JSON.stringify((() => {
     }
     const keys = [...lefts.keys()].sort((x, y) => x - y);
     if (keys.length > 1 && keys[keys.length - 1] - keys[0] > 1) out.hiza.add(keys.map((k) => k + ':' + lefts.get(k)).join(' / ').slice(0, 120));
+  }
+  // Stüdyo yan sütunu: başlık, etiket, not ve düğmeler aynı sol kenarda başlamalı
+  for (const col of document.querySelectorAll('.studio-side-col')) {
+    if (!vis(col)) continue;
+    const lefts = new Map();
+    for (const e of col.querySelectorAll('.studio-group, .studio-save label.lbl, .sp-main > :first-child, .studio-note, .studio-actions > :first-child')) {
+      if (!vis(e)) continue;
+      const g = document.createRange(); g.selectNodeContents(e);
+      const k = Math.round((e.matches('.btn') ? e.getBoundingClientRect() : g.getBoundingClientRect()).left);
+      if (!lefts.has(k)) lefts.set(k, name(e));
+    }
+    const keys = [...lefts.keys()].sort((x, y) => x - y);
+    if (keys.length > 1 && keys[keys.length - 1] - keys[0] > 1) out.hiza.add(keys.map((k) => k + ':' + lefts.get(k)).join(' / ').slice(0, 120));
+  }
+  // Düğmeler: içerik kendi kenarına dayanmasın, komşular birbirine yapışmasın
+  const BAND = '.segment, .seg, .sv-tabs, .sv-pages, .layer-tabs, .sv-grid, .md-grid, .md-list, .sv-scenes, .sv-gal, .tl-heads, .sv-tree, .sv-secnav, .nav-rail, .sv-menu';
+  const rows = new Map();
+  for (const e of document.querySelectorAll('button, a.btn')) {
+    if (!vis(e) || e.closest('.sv-hud, .preview-stage, .code-editor') || e.closest(BAND)) continue;
+    const a = e.getBoundingClientRect();
+    if ((e.textContent || '').trim() && a.width > 44 && !e.matches('.sv-more, .sv-dest, .studio-item, .adv-summary, button.group-label, .sv-secbtn, .up-item, .sv-nav-reset')) {
+      const g = document.createRange(); g.selectNodeContents(e);
+      const r = g.getBoundingClientRect();
+      if (r.width && (r.left - a.left < 6 || a.right - r.right < 6)) out['düğme'].add(name(e));
+    }
+    if (!rows.has(e.parentElement)) rows.set(e.parentElement, []);
+    rows.get(e.parentElement).push([e, a]);
+  }
+  for (const list of rows.values()) {
+    list.sort((x, y) => x[1].left - y[1].left);
+    for (let i = 1; i < list.length; i++) {
+      const [pe, pa] = list[i - 1];
+      const [e, b] = list[i];
+      const gap = b.left - pa.right;
+      if (gap >= 0 && gap < 3 && Math.min(pa.bottom, b.bottom) - Math.max(pa.top, b.top) > 8) out['yapışık'].add(name(pe) + ' + ' + name(e));
+    }
+  }
+  for (const p of new Set([...document.querySelectorAll('.icon-btn')].map((e) => e.parentElement))) {
+    const kids = [...p.children].filter(vis);
+    if (kids.length < 3 || !kids[kids.length - 1].matches('.icon-btn')) continue;
+    if (kids[kids.length - 2].getBoundingClientRect().bottom <= kids[kids.length - 1].getBoundingClientRect().top) out['yalnız'].add(name(kids[kids.length - 1]));
   }
   const res = {};
   for (const k of Object.keys(out)) if (out[k].size) res[k] = [...out[k]].slice(0, 8);
