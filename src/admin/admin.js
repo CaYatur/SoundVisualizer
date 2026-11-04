@@ -3556,15 +3556,10 @@
     });
   }
 
-  /* Üst çubuk ve görüntü üstündeki canlı değerler. Mesaj ~30 Hz; gösterge için saniyede 10 yeter,
-     her boyama panelin bir kare daha üretmesi demek. */
+  /* Üst çubuk ve görüntü üstündeki canlı değerler: ~30 Hz mesajla. */
   let hudBeatIdx = 0;
   let hudBass = 0;
-  let hudAt = 0;
   function paintLiveHud(d) {
-    const now = performance.now();
-    if (now - hudAt < 100) return;
-    hudAt = now;
     const pct = (v) => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100) + '%';
     for (const id of ['chipL', 'hudL']) { const n = $(id); if (n) n.style.setProperty('--v', pct(d.level)); }
     for (const id of ['chipB', 'hudB']) { const n = $(id); if (n) n.style.setProperty('--v', pct(d.bass)); }

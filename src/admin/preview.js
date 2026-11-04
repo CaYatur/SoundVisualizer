@@ -351,11 +351,14 @@
   }
 
   function setConfig(next) {
+    const wasFull = !!(cfg.power && cfg.power.previewRate === 'full');
     rawNext = next;
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), next);
     // Düşük güç kipi (#458): panelin ayarı değil, çizilen kopya
     if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
     if (!stack) return;
+    // Önizleme Hızı değişince çizim boyu da değişiyor
+    if (wasFull !== !!(cfg.power && cfg.power.previewRate === 'full')) resize(true);
     applyMedia();
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
