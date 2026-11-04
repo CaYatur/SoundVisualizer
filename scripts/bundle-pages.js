@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* TEK PAKET (#905). Görselleştirici sayfası 85 ayrı betik yüklüyor; pencere açılışının en büyük
-   payı bu. Paketleme öncesi betikler sırasıyla tek dosyada birleştiriliyor. Dönüştürme yok,
-   kaynak aynen: dosyalar zaten pencereye bağlanıyor ve hepsi 'use strict'.
+/* TEK PAKET (#905). Görselleştirici sayfası 85 ayrı betik yüklüyor; tek dosyada açılış ölçümde
+   ~100 ms kısalıyor. Paketleme öncesi betikler sırasıyla birleştiriliyor. Dönüştürme yok, kaynak
+   aynen: dosyalar zaten pencereye bağlanıyor ve hepsi 'use strict'.
 
-   Geliştirmede bu dosyalar yok ve sayfa eski haliyle açılıyor; ana süreç yalnız varsa kullanıyor.
+   Geliştirmede sayfa eski haliyle açılıyor; ana süreç paketi yalnız paketli sürümde ya da
+   SV_BUNDLED ile kullanıyor.
 
    Kullanım:
      node scripts/bundle-pages.js          (üretir)
@@ -21,26 +22,31 @@ const ROOT = path.join(__dirname, '..');
 const PAGES = ['src/visualizer'];
 const SCRIPT = /[ \t]*<script src="([^"]+)"><\/script>[ \t]*\r?\n/g;
 
-function bundlePage(dir) {
+/* Yazmadan üretir: test src/ altına dosya bırakmasın. */
+function build(dir) {
   const abs = path.join(ROOT, dir);
   const html = fs.readFileSync(path.join(abs, 'index.html'), 'utf8');
   const parts = [];
-  let last = -1;
-  const out = html.replace(SCRIPT, (whole, src, at) => {
+  const scripts = [];
+  const out = html.replace(SCRIPT, (whole, src) => {
     if (/^(https?:)?\/\//.test(src)) throw new Error('uzak betik pakete giremez: ' + src);
-    const file = path.join(abs, src);
-    const code = fs.readFileSync(file, 'utf8');
+    const code = fs.readFileSync(path.join(abs, src), 'utf8');
     if (!/^\s*(\/\*[\s\S]*?\*\/\s*)*(['"])use strict\2/.test(code)) throw new Error('use strict yok: ' + src);
     parts.push('/* ' + src + ' */\n' + code);
-    if (at > last) last = at;
+    scripts.push(src);
     return '';
   });
-  const bundle = "'use strict';\n" + parts.join('\n;\n');
-  fs.writeFileSync(path.join(abs, 'bundle.gen.js'), bundle);
   // Betikler gövdenin sonunda: paket de orada
   const page = out.replace(/<\/body>/, '    <script src="bundle.gen.js"></script>\n  </body>');
+  return { scripts, bundle: "'use strict';\n" + parts.join('\n;\n'), page };
+}
+
+function bundlePage(dir) {
+  const { scripts, bundle, page } = build(dir);
+  const abs = path.join(ROOT, dir);
+  fs.writeFileSync(path.join(abs, 'bundle.gen.js'), bundle);
   fs.writeFileSync(path.join(abs, 'index.gen.html'), page);
-  return { dir, scripts: parts.length, kb: Math.round(bundle.length / 1024) };
+  return { dir, scripts: scripts.length, kb: Math.round(bundle.length / 1024) };
 }
 
 function clean() {
@@ -56,4 +62,4 @@ if (require.main === module) {
   else for (const d of PAGES) console.log(JSON.stringify(bundlePage(d)));
 }
 
-module.exports = { bundlePage, clean, PAGES };
+module.exports = { build, bundlePage, clean, PAGES };

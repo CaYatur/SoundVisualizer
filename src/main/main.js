@@ -898,14 +898,6 @@ function createAdminWindow() {
 
    Ses seviyesi bildirimini (Dynamic Lighting'i süren kare) yalnızca İLK pencere
    gönderir; hepsi gönderseydi ışıklar ekran sayısı kadar hızlı güncellenirdi. */
-/* Paketli sürümde betikler tek dosyada (scripts/bundle-pages.js). Geliştirmede bayat paket
-   yüklenmesin diye yalnız SV_BUNDLED ile; öz test ve kare kapısı paketi böyle denetler. */
-function visualizerPage() {
-  const gen = path.join(__dirname, '..', 'visualizer', 'index.gen.html');
-  const use = (app.isPackaged || process.env.SV_BUNDLED) && fs.existsSync(gen);
-  return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
-}
-
 function openWindows() {
   const out = [];
   for (const [id, win] of visualizerWins) {
@@ -1086,6 +1078,14 @@ function resolveDisplayIds(input) {
   return wanted;
 }
 
+/* Paketli sürümde betikler tek dosyada (scripts/bundle-pages.js). Geliştirmede bayat paket
+   yüklenmesin diye yalnız SV_BUNDLED ile; öz test ve kare kapısı paketi böyle denetler. */
+function visualizerPage() {
+  const gen = path.join(__dirname, '..', 'visualizer', 'index.gen.html');
+  const use = (app.isPackaged || process.env.SV_BUNDLED) && fs.existsSync(gen);
+  return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
+}
+
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = visualizerRect(display);
@@ -1118,8 +1118,6 @@ function createVisualizerWindow(display) {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false, // arka planda da akıcı kalsın
-      // Tek paketin kodu ilk açılışta da önbelleğe girsin (bir sonraki açılış derlemez)
-      v8CacheOptions: 'bypassHeatCheck',
       // Projeksiyon haritalaması ekran başına saklanıyor; pencere hangi
       // ekranda olduğunu bilmeli
       // Ortak saat İLK karede hazır olsun (#543): eşzamansız gelirse t ilk karelerde sıçrar
