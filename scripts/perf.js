@@ -29,6 +29,8 @@
     npm run perf -- --sweep=300 --hold=1.5 --md-offset=17   (preset taraması; preset başına sonuç JSON'da)
     npm run perf -- --md-ids=a,b --profile=<klasör>         (bu presetlerin CPU profili)
     npm run perf -- --trace=<dosya öneki> --trace-cats=gpu.angle,toplevel   (iz kaydı)
+    npm run perf -- --profile-panel=<dosya>   (kararlı durumda panelin CPU profili)
+    npm run perf -- --profile-main=<dosya>    (preset taramasında ana sürecin CPU profili)
 
    --low bir benzetimdir, gerçek zayıf makinenin yerini tutmaz; kısma yalnız
    sayfanın ana iş parçacığına uygulanır ve bu kipte süreç CPU'su anlamsızdır.
@@ -112,7 +114,7 @@ function drawSummary(w) {
 
 const METRICS_JS = `(() => { const { app, webContents } = process.mainModule.require('electron');
   const wc = webContents.getAllWebContents().map((w) => ({ pid: w.getOSProcessId(), url: (w.getURL() || '').split('/').slice(-2).join('/').split('?')[0].replace('/index.html', '') }));
-  return JSON.stringify(app.getAppMetrics().map((p) => ({ type: p.type, page: (wc.find((w) => w.pid === p.pid) || {}).url || '', cpu: p.cpu.percentCPUUsage, wsMB: Math.round(p.memory.workingSetSize / 1024), privMB: Math.round((p.memory.privateBytes || 0) / 1024) }))); })()`;
+  return JSON.stringify(app.getAppMetrics().map((p) => ({ type: p.type, page: (wc.find((w) => w.pid === p.pid) || {}).url || '', cpu: p.cpu.percentCPUUsage, wsMB: Math.round(p.memory.workingSetSize / 1024), privMB: Math.round((p.memory.privateBytes || 0) / 1024), peakMB: Math.round((p.memory.peakWorkingSetSize || 0) / 1024) }))); })()`;
 
 function prepareProfile(ud) {
   fs.mkdirSync(ud, { recursive: true });
@@ -187,7 +189,9 @@ async function main() {
   await vis.ev('window.__perf.reset()');
   await mainP.ev(METRICS_JS);
   process.stdout.write(`Kararlı durum ${SECONDS} sn ...\n`);
+  if (arg('profile-panel')) { await admin.call('Profiler.enable'); await admin.call('Profiler.setSamplingInterval', { interval: 500 }); await admin.call('Profiler.start'); }
   await sleep(SECONDS * 1000);
+  if (arg('profile-panel')) { const r = await admin.call('Profiler.stop'); fs.writeFileSync(arg('profile-panel'), JSON.stringify(r.result.profile)); }
   const fr = await readFrames(vis);
   const procs = JSON.parse(await mainP.ev(METRICS_JS));
   const byPage = (p) => (procs.find((x) => x.page === p) || {}).wsMB;
@@ -216,6 +220,7 @@ async function main() {
   const traceOff = (file) => mainP.ev(`process.mainModule.require('electron').contentTracing.stopRecording(${JSON.stringify(file)}).then(() => 1)`);
   const mdList = arg('md-ids') ? arg('md-ids').split(',') : sample(mdIds.slice(+arg('md-offset', 0)), SWEEP);
   if (TRACE) await traceOn();
+  if (arg('profile-main')) { await mainP.call('Profiler.enable'); await mainP.call('Profiler.setSamplingInterval', { interval: 200 }); await mainP.call('Profiler.start'); }
   for (const id of mdList) {
     await vis.ev(`performance.mark(${JSON.stringify('MD ' + id)})`);
     const src = await admin.ev(sourceOf(id));
@@ -237,6 +242,7 @@ async function main() {
     mdGap.push(Math.max(atLoad.summary.max, held.summary.max));
     mdEach.push({ id, ready, load: atLoad.summary.max, hold: held.summary.max, fps: held.summary.fps, over33: held.summary.over33, draw: held.draw.avg, drawP99: held.draw.p99 });
   }
+  if (arg('profile-main')) { const r = await mainP.call('Profiler.stop'); fs.writeFileSync(arg('profile-main'), JSON.stringify(r.result.profile)); }
   if (TRACE) { await traceOff(TRACE + '-md.json'); }
   res.milkdrop = { tried: mdList.length, loaded, gap: L.medMax(mdGap), ready: L.medMax(mdReady), each: mdEach };
   // STUDIO

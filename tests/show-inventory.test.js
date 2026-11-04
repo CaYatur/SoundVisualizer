@@ -122,7 +122,8 @@ test('bağlantılar: yedek envanter gönderebilir, birincil karşılaştırır v
   assert.match(main, /if \(msg\.type === 'inventory-request'\) \{ sendInventory\(msg\.id\)/);
   assert.match(main, /if \(msg\.type === 'asset'\) \{ onPrimaryAsset\(msg\); return; \}/);
   assert.match(main, /scheduleCompare\(\); \/\/ yedekle gösteri karşılaştırması bayatladı/);
-  assert.match(main, /if \(\+\+i % 200 === 0\) await new Promise\(\(r\) => setImmediate\(r\)\);/, 'büyük kütüphanede kalp atışı aksamaz');
+  // Metin dosyadan okunuyor (#905): okumalar arasında sık nefes alıyor
+  assert.match(main, /if \(\+\+i % 25 === 0\) await new Promise\(\(r\) => setImmediate\(r\)\);/, 'büyük kütüphanede kalp atışı aksamaz');
   assert.match(main, /logoLibrary\.importBytes\(logoLibDir\(\)/);
   const panel = read('src/admin/redundancy-panel.js');
   assert.match(panel, /const ok = await P\(\)\.confirm\(text, \{ okText: tr\('Yedeğe Gönder'\) \}\);/, 'açık onay');

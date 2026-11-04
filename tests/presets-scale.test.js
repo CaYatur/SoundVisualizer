@@ -66,6 +66,63 @@ test('sıra: son değişen önce, eşitlikte kimlik — depo ve sayfalar aynı',
 
 // ------------------------------------------------------------------ depo
 
+test('depo: liste metinsiz, metin istenince dosyadan geliyor', async () => {
+  const d = tmpStore();
+  write(d, md('md_a', 3));
+  write(d, md('md_b', 2));
+  fs.writeFileSync(path.join(d, 'usr_st.json'), JSON.stringify({ id: 'usr_st', kind: 'visualizer', engine: 'shader', shader: 'void mainImage(){}', updatedAt: 1 }));
+  const list = STORE.list();
+  const a = list.find((p) => p.id === 'md_a');
+  assert.strictEqual(a.source, undefined, 'metin önbellekte durmuyor');
+  assert.strictEqual(a.lazy, true);
+  assert.strictEqual(typeof a.fRating, 'number');
+  assert.strictEqual(list.find((p) => p.id === 'usr_st').shader, 'void mainImage(){}', 'Studio presetleri olduğu gibi');
+  assert.strictEqual(typeof STORE.get('md_a').source, 'string');
+  assert.strictEqual(typeof (await STORE.getAsync('md_b')).source, 'string');
+  assert.strictEqual(await STORE.getAsync('yok'), null);
+  assert.strictEqual(STORE.has('md_a'), true);
+  assert.strictEqual(STORE.has('yok'), false);
+  assert.strictEqual(STORE.get('yok'), null);
+  // Metinli liste: aynı sıra, aynı kimlikler
+  const full = await STORE.listFull();
+  assert.deepStrictEqual(full.map((p) => p.id), STORE.list().map((p) => p.id));
+  assert.ok(full.filter((p) => p.kind === 'milkdrop').every((p) => typeof p.source === 'string' && !p.lazy));
+});
+
+test('depo: kayıt, dışarıdan değişiklik ve silme metin önbelleğini tazeliyor', async () => {
+  const d = tmpStore();
+  write(d, md('md_a', 3));
+  STORE.list();
+  const first = STORE.get('md_a').source;
+  const saved = STORE.save(Object.assign({}, STORE.get('md_a'), { source: first + '\n// kayit' }));
+  assert.ok(saved.ok);
+  assert.strictEqual(saved.preset.source, first + '\n// kayit', 'kayıt metniyle dönüyor: pencereler değişikliği ondan alıyor');
+  assert.strictEqual(STORE.list().find((p) => p.id === 'md_a').source, undefined);
+  assert.strictEqual(STORE.get('md_a').source, first + '\n// kayit');
+  // Dışarıdan değişti: izleyici adı bildirince okunuyor
+  await new Promise((r) => setTimeout(r, 20));
+  const onDisk = JSON.parse(fs.readFileSync(path.join(d, 'md_a.json'), 'utf8'));
+  onDisk.source = first + '\n// disarida bir sey daha';
+  fs.writeFileSync(path.join(d, 'md_a.json'), JSON.stringify(onDisk));
+  const delta = STORE.syncDisk(['md_a.json']);
+  assert.strictEqual(delta.upsert[0].source, onDisk.source, 'yayına metniyle gidiyor');
+  assert.strictEqual(STORE.get('md_a').source, onDisk.source);
+  STORE.remove('md_a');
+  assert.strictEqual(STORE.get('md_a'), null);
+});
+
+test('depo: metin önbelleği küçük kalıyor, eachFull okunamayanı atlıyor', async () => {
+  const d = tmpStore();
+  for (let i = 0; i < 40; i++) write(d, md('md_' + i, i + 1));
+  STORE.list();
+  for (let i = 0; i < 40; i++) assert.strictEqual(typeof STORE.get('md_' + i).source, 'string');
+  fs.unlinkSync(path.join(d, 'md_7.json'));
+  const seen = [];
+  await STORE.eachFull((p) => { seen.push(p.id); });
+  assert.strictEqual(seen.length, 39);
+  assert.ok(!seen.includes('md_7'));
+});
+
 test('depo: dosyalar bir kez okunuyor; kayıt ve silme önbelleği güncelliyor', () => {
   const d = tmpStore();
   write(d, md('md_a', 3));
@@ -540,8 +597,9 @@ test('motor: izleyen ve lider seçimi kaynaksız presette "yolda" işaretliyor',
 });
 
 test('pencere, panel ve dışa aktarım kaynakları tam alıyor: soyma yalnız web', () => {
-  // Dışa aktarım işinde liste depodan olduğu gibi
-  assert.match(MAIN, /presets: presetsStore\.list\(\),/);
+  // Dışa aktarım işinde liste depodan, metinleriyle
+  assert.match(MAIN, /const jobPresets = await presetsStore\.listFull\(\);/);
+  assert.match(MAIN, /presets: jobPresets,/);
   // Soyma yalnız yayın sunucusunda
   assert.doesNotMatch(MAIN, /publicPresets/);
 });
