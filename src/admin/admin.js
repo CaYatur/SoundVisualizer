@@ -1309,7 +1309,8 @@
     const d = (scene && scene.data) || {};
     const parts = [];
     if (d.layerStack && d.layerStack.enabled && Array.isArray(d.layers) && d.layers.length) {
-      parts.push(d.layers.length + ' ' + (d.layers.length === 1 ? tr('Katman') : tr('Katmanlar')));
+      const n = d.layers.length;
+      parts.push(n === 1 ? '1 ' + tr('Katman') : tr('{n} Katman').replace('{n}', String(n)));
     } else {
       const type = (d.visualizer && d.visualizer.type) || 'none';
       parts.push(MC().label('visualizer', type));

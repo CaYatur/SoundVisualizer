@@ -602,10 +602,12 @@ select.sel-ctrl { font-size: 13px; margin-top: 6px; }
 /* presets */
 /* Hazır şablon gruplarında 10 ve 6 öğe var (#622). `auto-fill` 9 sütun
    veriyordu ve her 10'luk grubun son şablonu alt satırda TEK BAŞINA
-   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 4, 6, 7, 8, 10 —
-   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. */
+   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 2, 4, 6, 7, 8, 10 —
+   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. 2 sütun dar denetçide:
+   dört sütunda "Okyanus" iki satıra bölünüyordu. */
 .ctrl:has(> .presets) { container-type: inline-size; }
 .presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 7px; }
+@container (max-width: 239px) { .presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 500px) { .presets { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @container (min-width: 590px) { .presets { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @container (min-width: 670px) { .presets { grid-template-columns: repeat(8, minmax(0, 1fr)); } }

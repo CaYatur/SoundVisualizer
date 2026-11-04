@@ -3696,6 +3696,7 @@
     // Katmanlar & Sahneler
     'Katman': 'Layer',
     'Katmanlar': 'Layers',
+    '{n} Katman': '{n} Layers',
     'katman': 'layer',
     'katmanlar': 'layers',
     '1 Katman': '1 Layer',
