@@ -69,13 +69,6 @@ test('zamanlama araç çubuğunun her metni İngilizce sözlükte', () => {
   assert.ok(n >= 6);
 });
 
-test('dosya bilgisi adı ayrı düğümde; parçaların hepsi çevrilebilir', () => {
-  const src = read('src/admin/text-panel.js');
-  assert.doesNotMatch(src, /\(T\.lyricsName \|\| ''\) \+ ' ' \+ info/);
-  const dict = dictionary();
-  for (const k of ['karaoke zamanlı', 'yüklü dosya yok']) assert.ok(dict.has(k), k);
-  assert.match(read('src/shared/i18n.js'), /\.replace\(\/\^\(\\d\+\) satır · \(\.\+\)\$\/g/);
-});
 
 /* Kod incelemesinde bulunanlar */
 const os = require('os');

@@ -28,7 +28,7 @@ test('karışım kipi "Ekran" İngilizcede Screen, ekran/monitör Display kalır
   assert.strictEqual(t('Ekran'), 'Display');
   assert.strictEqual(t('Ekran\u200B'), 'Screen');
   // Dört karışım listesi de ayrı anahtarı kullanıyor; Türkçede ikisi de "Ekran" görünür
-  for (const f of ['src/admin/media-panel.js', 'src/admin/scene-panels.js']) {
+  for (const f of ['src/admin/scene-panels.js']) {
     assert.match(read(f), /'screen'.{0,20}'Ekran\\u200B'|label: 'Ekran\\u200B'/, f);
     assert.ok(!/'screen'[^\n]{0,20}'Ekran'/.test(read(f)), f + ' eski anahtarı kullanıyor');
   }

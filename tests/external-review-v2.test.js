@@ -253,7 +253,7 @@ test('her resim seçici dosyayı tarayıcıya çözdürür', () => {
   assert.match(fn, /svToast\(tr\('Seçilen dosya açılabilen bir resim değil\.'\), 'err'\)/);
   assert.match(A, /confirm: svConfirm,\s*imageOk,/);
   let sites = 0;
-  for (const f of ['src/admin/admin.js', 'src/admin/clipdeck-panel.js', 'src/admin/nowplaying-panel.js', 'src/admin/scene-panels.js']) {
+  for (const f of ['src/admin/admin.js', 'src/admin/clipdeck-panel.js', 'src/admin/scene-panels.js']) {
     const s = read(f);
     let at = s.indexOf('readAsDataURL(');
     while (at >= 0) {
@@ -263,7 +263,7 @@ test('her resim seçici dosyayı tarayıcıya çözdürür', () => {
       at = s.indexOf('readAsDataURL(', at + 1);
     }
   }
-  assert.strictEqual(sites, 6);
+  assert.strictEqual(sites, 3);
   assert.strictEqual(loadEnglish().t('Seçilen dosya açılabilen bir resim değil.'), 'The selected file is not an image that can be opened.');
 });
 

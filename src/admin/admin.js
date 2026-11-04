@@ -697,14 +697,6 @@
         return bgIoCtrl(def);
       case 'settingsio':
         return settingsIoCtrl(def);
-      case 'images':
-        return imagesCtrl(def);
-      case 'logofile':
-        return logoFileCtrl(def);
-      case 'npcoverfile':
-        return npCoverFileCtrl(def);
-      case 'logolibrary':
-        return logoLibraryCtrl(def);
       case 'floatingtoggle':
         return floatingToggleCtrl(def);
       case 'floatingtools':
@@ -748,8 +740,6 @@
         return window.SVControl ? window.SVControl.panel(def.surface) : null;
       case 'mcppanel':
         return window.SVMcpPanel ? window.SVMcpPanel.panel() : null;
-      case 'mediapanel':
-        return window.SVMediaPanel ? window.SVMediaPanel.panel() : null;
       case 'scenegen':
         return window.SVSceneGen ? window.SVSceneGen.panel() : null;
       case 'custompicker':
@@ -792,8 +782,6 @@
         return window.SVRecordPanel ? window.SVRecordPanel.panel() : null;
       case 'templatepanel':
         return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
-      case 'textpanel':
-        return window.SVTextPanel ? window.SVTextPanel.panel() : null;
       case 'updatespanel':
         return window.SVUpdatesPanel ? window.SVUpdatesPanel.panel() : null;
       case 'language':
@@ -802,8 +790,6 @@
         return uiThemeCtrl();
       case 'extendedrange':
         return extendedRangeCtrl();
-      case 'nowplayingpanel':
-        return window.SVNowPlayingPanel ? window.SVNowPlayingPanel.panel() : null;
       case 'grouppanel':
         return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
       case 'note': {
@@ -1441,172 +1427,9 @@
     { value: 'back', label: 'Arkada' },
   ];
 
-  function imagesCtrl() {
-    if (!cfg.images) cfg.images = { enabled: false, items: [] };
-    if (!Array.isArray(cfg.images.items)) cfg.images.items = [];
-    const wrap = el('div', {});
 
-    const items = cfg.images.items;
-    if (!items.length) {
-      wrap.appendChild(el('div', { class: 'up-empty', text: 'Görsel eklemek için aşağıdaki düğmeyi kullanın. Her görsel için çok sayıda kopya (partikül) sahnede gezinir/saçılır.' }));
-    }
-
-    items.forEach((it, idx) => {
-      const base = 'images.items.' + idx + '.';
-      const thumb = el('img', { class: 'img-thumb' });
-      if (it.src) thumb.src = it.src;
-
-      const nameInput = el('input', {
-        type: 'text', class: 'up-name', value: it.name || 'Görsel',
-        onchange: (e) => { it.name = e.target.value.trim() || 'Görsel'; push(true); },
-      });
-      const delBtn = el('button', { class: 'btn ghost small danger', icon: 'trash', text: 'Kaldır', onclick: () => actions.removeImage(it.id) });
-      const replaceBtn = el('button', { class: 'btn ghost small', icon: 'image', text: 'Değiştir', onclick: () => actions.replaceImage(it.id) });
-
-      const head = el('div', { class: 'img-head' }, [
-        thumb,
-        el('div', { class: 'img-headmain' }, [nameInput, el('div', { class: 'up-actions' }, [replaceBtn, delBtn])]),
-      ]);
-
-      const body = el('div', { class: 'img-body' });
-      const add = (c) => { const e = buildControl(c); if (e) body.appendChild(e); };
-      add({ type: 'select', path: base + 'motion', label: 'Hareket', options: MOTION_OPTS, rebuild: false });
-      add({ type: 'slider', path: base + 'count', label: 'Kopya Sayısı', min: 1, max: 200, step: 1 });
-      add({ type: 'slider', path: base + 'size', label: 'Boyut', min: 0.01, max: 0.4, step: 0.005, percent: true });
-      add({ type: 'slider', path: base + 'sizeVar', label: 'Boyut Çeşitliliği', min: 0, max: 0.95, step: 0.05, percent: true });
-      add({ type: 'slider', path: base + 'opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true });
-      add({ type: 'slider', path: base + 'spread', label: 'Yayılma / Alan', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'speed', label: 'Hız', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'spin', label: 'Dönüş', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'audioSize', label: 'Ses → Boyut', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'audioSpeed', label: 'Ses → Hız', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 2, step: 0.05 });
-      add({ type: 'slider', path: base + 'glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true });
-      add({ type: 'slider', path: base + 'cornerRadius', label: 'Köşe / Oval', min: 0, max: 0.5, step: 0.01, percent: true });
-      add({ type: 'select', path: base + 'blend', label: 'Karışım', options: BLEND_OPTS });
-      add({ type: 'select', path: base + 'layer', label: 'Katman', options: LAYER_OPTS });
-      add({ type: 'toggle', path: base + 'noOverlap', label: 'Üst Üste Binmeyi Engelle', rebuild: false });
-      add({ type: 'slider', path: base + 'minDist', label: 'Minimum Mesafe (boyut çarpanı)', min: 0.5, max: 3.0, step: 0.05 });
-
-      wrap.appendChild(el('div', { class: 'img-card' }, [head, body]));
-    });
-
-    const addBtn = el('button', { class: 'btn ghost small', icon: 'plus', text: 'Görsel Ekle', onclick: () => actions.addImage() });
-    wrap.appendChild(el('div', { class: 'up-toolbar' }, [addBtn]));
-    return el('div', { class: 'ctrl' }, [wrap]);
-  }
-
-  function logoFileCtrl() {
-    /* macOS/Linux albüm kapağını okuyamaz. Kayıtlı auto/track burada özel resme iner. */
-    if (!isWindows() && cfg.logo && cfg.logo.source !== 'manual') cfg.logo.source = 'manual';
-    const fileInput = el('input', { type: 'file', accept: 'image/*' });
-    fileInput.style.display = 'none';
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        if (!(await imageOk(reader.result))) return;
-        cfg.logo.src = reader.result;
-        cfg.logo.libraryId = '';
-        cfg.logo.kind = (file.type === 'image/gif' || /\.gif$/i.test(file.name || '')) ? 'gif' : 'image';
-        push(true);
-        preview.src = reader.result;
-        preview.style.display = 'block';
-        render();
-      };
-      reader.readAsDataURL(file);
-    });
-    const btn = el('label', { class: 'filebtn', icon: 'image', text: 'Resim / Logo Seç' });
-    btn.appendChild(fileInput);
-    btn.addEventListener('click', () => fileInput.click());
-
-    const removeBtn = el('button', {
-      class: 'btn ghost small', text: 'Kaldır',
-      onclick: () => {
-        cfg.logo.src = null;
-        cfg.logo.libraryId = '';
-        cfg.logo.kind = '';
-        push(true);
-        preview.style.display = 'none';
-        render();
-      },
-    });
-    removeBtn.style.marginLeft = '8px';
-
-    const mode = isWindows() ? (cfg.logo.source || 'auto') : 'manual';
-    if (mode === 'track') {
-      const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
-      const note = el('div', {
-        class: 'studio-note dim-hint',
-        text: 'Yalnızca çalan şarkının albüm kapağı/resmi gösterilir. Şarkı sözü / çalan parça sistemi aktifken parça çalınca otomatik devreye girer.',
-      });
-      const kids = [note];
-      if (live && live.artwork) {
-        const livePre = el('img', { class: 'logo-preview', src: live.artwork, style: 'display: block;' });
-        kids.push(livePre);
-      }
-      return el('div', { class: 'ctrl' }, kids);
-    }
-
-    const preview = el('img', { class: 'logo-preview' });
-    const previewSrc = cfg.logo.src || (cfg.logo.libraryId && window.SVGif && window.SVGif.libraryUrl(cfg.logo.libraryId));
-    if (previewSrc) {
-      preview.src = previewSrc;
-      preview.style.display = 'block';
-    }
-    const hintText = mode === 'auto'
-      ? 'Otomatik mod: Çalan şarkının kapağı varsa gösterilir; parça çalmıyorsa veya kapağı yoksa bu özel resim gösterilir.'
-      : 'Özel resim modu: Şarkı çalsa dahi her zaman bu özel görsel gösterilir.';
-    const hint = el('div', { class: 'studio-note dim-hint', style: 'margin-top: 6px;', text: hintText });
-
-    return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [btn, removeBtn]),
-      preview,
-      hint,
-    ]);
-  }
 
   /* Çalan parça kapağı: Windows'ta otomatik kapağın yedeği, diğer platformlarda tek kaynak. */
-  function npCoverFileCtrl() {
-    const C = cfg.nowplaying || (cfg.nowplaying = {});
-    C.manual = C.manual || {};
-    if (!isWindows()) C.coverSource = 'manual';
-    const fileInput = el('input', { type: 'file', accept: 'image/*' });
-    fileInput.style.display = 'none';
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        if (!(await imageOk(reader.result))) return;
-        C.manual.artwork = reader.result;
-        push(true);
-        render();
-      };
-      reader.readAsDataURL(file);
-    });
-    const pick = el('button', {
-      class: 'btn small', type: 'button', icon: 'image',
-      text: C.manual.artwork ? 'Kapağı Değiştir' : 'Kapak Seç',
-      onclick: () => fileInput.click(),
-    });
-    const remove = C.manual.artwork ? el('button', {
-      class: 'btn ghost small danger', type: 'button', text: 'Kapağı Kaldır',
-      onclick: () => {
-        C.manual.artwork = '';
-        push(true);
-        render();
-      },
-    }) : null;
-    const preview = C.manual.artwork
-      ? el('img', { class: 'logo-preview', src: C.manual.artwork, alt: 'Kapak Görseli', style: 'display:block' })
-      : null;
-    return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [pick, remove, fileInput].filter(Boolean)),
-      preview,
-    ].filter(Boolean));
-  }
 
   function isGifLogo(lg) {
     if (!lg) return false;
@@ -1614,39 +1437,6 @@
     return lg.kind === 'gif' || /^data:image\/gif/i.test(lg.src || '') || /\.gif(?:$|\?)/i.test(lg.src || '');
   }
 
-  function logoLibraryCtrl() {
-    if (!window.SVLogoLibUi) return el('div');
-    return window.SVLogoLibUi.mount({
-      selectedId: (cfg.logo && cfg.logo.libraryId) || '',
-      onPick: (it) => {
-        const wasGif = isGifLogo(cfg.logo);
-        cfg.logo.libraryId = it.id;
-        cfg.logo.src = null;
-        cfg.logo.kind = it.kind || '';
-        cfg.logo.enabled = true;
-        if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
-        push(true);
-        const url = (window.SVLogoRuntime && window.SVLogoRuntime.urlFor(it.id))
-          || (window.SVGif && window.SVGif.libraryUrl(it.id));
-        if (url) {
-          document.querySelectorAll('.logo-preview, .layer-preview').forEach((img) => {
-            img.src = url;
-            img.style.display = 'block';
-          });
-        }
-        /* Önizleme + GIF kontrolleri için paneli yenile. Kitaplık thumb'ları
-           blob önbelleğinden geldiği için yeniden mount donmaya yol açmaz. */
-        render();
-      },
-      onRemove: (it) => {
-        if (!cfg.logo || cfg.logo.libraryId !== it.id) return;
-        cfg.logo.libraryId = '';
-        if (!cfg.logo.src) cfg.logo.kind = '';
-        push(true);
-        render();
-      },
-    });
-  }
 
 
   function updateFloatingToggles() {
@@ -6247,7 +6037,6 @@
     // Köprü penceresinin / tepsinin "Köprü Ayarlarını Aç"ı doğrudan karta götürür
     if (window.api.onGoto) window.api.onGoto((d) => { if (d && d.category && d.section) jumpTo({ category: d.category, section: d.section, path: null, advanced: false }); });
     // Kamera listesi (medya katmanı için)
-    if (window.SVMediaPanel) window.SVMediaPanel.init();
 
     const sectionsEl = $('sections');
     if (sectionsEl) {

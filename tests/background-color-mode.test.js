@@ -71,16 +71,6 @@ test('kaynak: nowplaying colorMode (custom/theme/rainbow) uygular', () => {
   assert.match(npSrc, /cfg\.visualizer && cfg\.visualizer\.colorMode/);
 });
 
-test('kaynak: NP ve text panelleri Renk Modu segmenti kullanir', () => {
-  const npPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'nowplaying-panel.js'), 'utf8');
-  const textPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'text-panel.js'), 'utf8');
-  assert.match(npPanel, /miniSegment\('Renk Modu'/);
-  assert.match(npPanel, /nowplaying\.colorDim/);
-  assert.match(npPanel, /nowplaying\.colorBar/);
-  assert.match(textPanel, /miniSegment\('Renk Modu'/);
-  assert.match(textPanel, /text\.colorHighlight/);
-});
-
 test('kaynak: text.js colorMode uygular', () => {
   const textSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'text.js'), 'utf8');
   assert.match(textSrc, /colorMode === 'custom'/);

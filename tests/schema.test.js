@@ -53,7 +53,7 @@ test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () =
 });
 
 test('özel paneller de aralığı şemadan alıyor', () => {
-  for (const f of ['src/admin/scene-panels.js', 'src/admin/media-panel.js', 'src/admin/stream.js', 'src/admin/control.js']) {
+  for (const f of ['src/admin/scene-panels.js', 'src/admin/stream.js', 'src/admin/control.js']) {
     for (const m of read(f).matchAll(/\.slider\('[^']*', '([^']+)', \{([^\n]*)/g)) {
       if (!Schema.rangeFor(m[1])) continue;
       assert.doesNotMatch(m[2], /\b(min|max|noExtend):/, f + ' ' + m[1]);

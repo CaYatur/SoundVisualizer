@@ -84,7 +84,7 @@ test('katman paneli boş yığın bayrağını çizerken yazmıyor', () => {
 });
 
 test('"Basla Nabız" yazım hatası kalmadı, çevirisi "Bas Nabzı" anahtarında', () => {
-  for (const f of ['src/admin/scene-panels.js', 'src/admin/nowplaying-panel.js', 'src/admin/text-panel.js', 'src/shared/i18n.js']) {
+  for (const f of ['src/admin/scene-panels.js', 'src/shared/i18n.js']) {
     assert.ok(!read(f).includes('Basla Nabız'), f);
   }
   assert.match(read('src/shared/i18n.js'), /'Bas Nabzı': 'Bass Pulse'/);

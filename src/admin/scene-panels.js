@@ -1161,6 +1161,20 @@
       out.push(miniSelect('Sığdırma', [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']],
         () => m.fit || 'cover', (v) => { m.fit = v; }));
       out.push(miniToggle('Aynala', () => !!m.mirror, (v) => { m.mirror = v; }));
+      // Görüntü ve hareket ayarları: tek medya kartıyla birlikte katmanda kaldı (#905)
+      const mediaRange = (key) => window.SVSchema.rangeFor('media.' + key);
+      const mediaSlider = (label, key, d, o) => {
+        const r = mediaRange(key);
+        return miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ min: r.min, max: r.max, def: d }, o));
+      };
+      out.push(mediaSlider('Kaleydoskop Dilimi', 'kaleido', 0, { step: 1, fmt: (v) => (v < 3 ? tr('kapalı') : Math.round(v) + ' ' + tr('dilim')) }));
+      out.push(mediaSlider('Renk Kayması', 'hue', 0, { step: 0.01, percent: true }));
+      out.push(mediaSlider('Doygunluk', 'saturate', 1, { step: 0.05 }));
+      out.push(mediaSlider('Bas → Yakınlaşma', 'audioZoom', 0, { step: 0.01, percent: true }));
+      out.push(mediaSlider('Bas → Saydamlık', 'audioOpacity', 0, { step: 0.02, percent: true }));
+      out.push(mediaSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, { step: 0.02, percent: true }));
+      out.push(mediaSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 20, { step: 1, fmt: (v) => Math.round(v) + ' ' + tr('sn') }));
+      out.push(mediaSlider('Vuruşta Nabız', 'beatPulse', 0, { step: 0.02, percent: true }));
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
       }
@@ -1554,6 +1568,7 @@
           class: 'p-in txt-area', rows: 2, value: txt.content || '',
           oninput: (e) => {
             txt.content = e.target.value;
+            delete txt.placeholder;
             P().push(false);
           },
         });
@@ -1659,6 +1674,7 @@
             placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek başlık' : 'Örn: Şarkı Adı',
             oninput: (e) => {
               txt.content = e.target.value;
+            delete txt.placeholder;
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.title = e.target.value;
               P().push(false);
@@ -1670,6 +1686,7 @@
             placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek sanatçı' : 'Örn: Sanatçı Adı',
             oninput: (e) => {
               txt.content = e.target.value;
+            delete txt.placeholder;
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.artist = e.target.value;
               P().push(false);
