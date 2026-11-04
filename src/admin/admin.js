@@ -5103,6 +5103,16 @@
 
   }
 
+  // Menüyü düğmenin altına, sağ kenarı düğmeyle hizalı ve pencere içinde kalacak şekilde yerleştir
+  function placeDisplayMenu(btn, menu) {
+    const r = btn.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const w = Math.min(menu.offsetWidth || 360, vw - 24);
+    const right = Math.max(12, Math.min(vw - r.right, vw - w - 12));
+    menu.style.top = Math.round(r.bottom + 6) + 'px';
+    menu.style.right = Math.round(right) + 'px';
+  }
+
   // Menüyü aç/kapat ve dışarı tıklayınca kapat
   function setupDisplayMenu() {
     const btn = $('displayBtn');
@@ -5112,6 +5122,7 @@
       e.stopPropagation();
       const open = menu.classList.toggle('hidden') === false;
       btn.setAttribute('aria-expanded', String(open));
+      if (open) placeDisplayMenu(btn, menu);
     });
     document.addEventListener('click', (e) => {
       if (menu.classList.contains('hidden')) return;
@@ -5910,6 +5921,15 @@
     if (opts && opts.quiet) return;
     push(true);
     sceneActionInFlight = false;
+    /* Zaman çizelgesi klibi ateşlerken (light) Zaman sayfası baştan
+       kurulmuyor: render() çizelge panelini de söküp yeniden kuruyordu,
+       oynatırken ya da sürüklerken çizelge her klip sınırında bir an
+       kayboluyordu. Diğer sayfalarda görünen ayarlar eskimesin diye
+       orada yine tam çizim yapılıyor. */
+    if (opts && opts.light && activeCategory === 'time') {
+      renderScenes();
+      return;
+    }
     render();
     renderScenes();
   };

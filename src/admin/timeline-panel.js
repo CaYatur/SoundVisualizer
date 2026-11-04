@@ -164,7 +164,7 @@
   // --------------------------------------------------------------------------
   function applyClipsAt(t) {
     const tl = ensureTransport().tl;
-    const active = TL().clipsAt(tl, t);
+    const active = TL().activeClipsAt ? TL().activeClipsAt(tl, t) : TL().clipsAt(tl, t);
     const seen = new Set();
     for (const entry of active) {
       const key = entry.track.id;
@@ -194,8 +194,9 @@
     const dp = window.SVClipDeckPanel;
     if (!dp) return;
     // Hedef medya klipleri için (#637 CD-3 ile aynı biçim); diğer türler yok sayıyor
-    if (clip.fade > 0 && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade, clip.target);
-    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref, clip.target);
+    // light: Zaman sayfası baştan kurulmasın (çizelge bir an kayboluyordu)
+    if (clip.fade > 0 && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade, clip.target, { light: true });
+    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref, clip.target, { light: true });
   }
 
   // --------------------------------------------------------------------------
@@ -247,8 +248,35 @@
       window.SVClipDeckPanel.tick(tr.time, tr.tl.tempo);
     }
     pushAnchor(false);
-    if (tlOn) draw();
+    /* Kare başına tuvalin tamamı ÇİZİLMİYOR: parçalar zamana bağlı değil.
+       Oynatma kafası ayrı bir katmanda, yalnız transform ile kayıyor.
+       Tuval yalnız görünüm (kaydırma, yakınlaştırma, boyut) değişince. */
+    if (tlOn) {
+      if (viewKey() !== lastViewKey) draw();
+      else placeHead();
+    }
   }
+
+  let lastViewKey = '';
+  function viewKey() {
+    const v = view();
+    return v.zoom + '|' + v.scroll + '|' + (canvas ? canvas.clientWidth : 0);
+  }
+
+  /* Oynatma kafası katmanı: DOM'da kalıcı bir öğe, yalnız transform
+     değişiyor (yerleşim yeniden hesaplanmıyor). */
+  let headEl = null;
+  let headX = NaN;
+  function placeHead() {
+    if (!headEl || !canvas || !headEl.isConnected) return;
+    const x = Math.round((xOf(transport ? transport.time : 0)) * 2) / 2;
+    if (x === headX) return;
+    headX = x;
+    perf.heads++;
+    headEl.style.transform = 'translate3d(' + x + 'px,0,0)';
+    headEl.style.visibility = x < HEAD_W - 6 || x > canvas.clientWidth + 6 ? 'hidden' : '';
+  }
+  const perf = { draws: 0, heads: 0 };
 
   /* Döngü canlı mı? Örtülmüş bir pencerede bekleyen bir rAF geri çağrısı
      hiç ateşlenmeyebilir; "raf dolu" kontrolü tek başına yapılırsa döngü
@@ -485,23 +513,11 @@
     }
     ctx.lineWidth = 1;
 
-    // --- Oynatma kafası: parlayan çizgi ve cetvelde küçük tutamak ---
-    const px = xOf(transport.time);
-    const head = css('--accent2');
-    ctx.save();
-    ctx.shadowColor = accent;
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = head;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(px, 0);
-    ctx.lineTo(px, h);
-    ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle = head;
-    ctx.beginPath();
-    ctx.roundRect(px - 5, 0, 10, 12, [0, 0, 5, 5]);
-    ctx.fill();
+    // Oynatma kafası ayrı katmanda (placeHead); tuval her karede çizilmiyor
+    lastViewKey = viewKey();
+    perf.draws++;
+    headX = NaN;
+    placeHead();
 
     // --- Kutu seçimi ---
     if (drag && drag.kind === 'marquee' && drag.moved) {
@@ -1207,9 +1223,32 @@
     refreshToolbar();
   }
 
+  /* Sürükleme isteği bekletiliyor; sonraki karede en son konum uygulanır. */
+  let scrubWant = null;
+  let scrubRaf = 0;
+  function scrubTo(t, free) {
+    scrubWant = free ? Math.max(0, t) : snap(t, false);
+    if (!scrubRaf) scrubRaf = requestAnimationFrame(flushScrub);
+  }
+  function flushScrub() {
+    if (scrubRaf) cancelAnimationFrame(scrubRaf);
+    scrubRaf = 0;
+    if (scrubWant == null) return;
+    const t = scrubWant;
+    scrubWant = null;
+    transport.seek(t);
+    applyClipsAt(transport.time);
+    reanchor();
+    placeHead();
+  }
+
   function bindCanvas(cv) {
     canvas = cv;
     ctx = cv.getContext('2d');
+    /* İşaretçi yakalama: sürükleme pencere dışına çıksa da kopmuyor */
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.button === 0 && cv.setPointerCapture) { try { cv.setPointerCapture(e.pointerId); } catch { /* yok say */ } }
+    });
 
     cv.addEventListener('mousedown', (e) => {
       if (e.button != null && e.button !== 0) return;
@@ -1248,11 +1287,9 @@
       }
       if (h.kind === 'ruler') {
         // Cetvele tıklamak sürüklemedir: duraklatılmışken de sahne güncellenir
-        transport.seek(snap(tOf(x), e.altKey));
-        applyClipsAt(transport.time);
-        reanchor();
         drag = { kind: 'scrub' };
-        draw();
+        scrubTo(tOf(x), e.altKey);
+        flushScrub();
         return;
       }
       const tl = transport.tl;
@@ -1365,9 +1402,11 @@
       const y = e.clientY - r.top;
       const tl = transport.tl;
       if (drag.kind === 'scrub') {
-        transport.seek(snap(tOf(x), e.altKey));
-        applyClipsAt(transport.time);
-        reanchor();
+        /* Sürükleme kare başına bir kez işleniyor: fare olayı kareden sık
+           geliyor ve her biri çıpayı IPC ile yolluyordu. Shift ya da Alt
+           yakalamayı kapatır; o zaman konum kare altı hassasiyette. */
+        scrubTo(tOf(x), e.altKey || e.shiftKey);
+        return;
       } else if (drag.kind === 'loopL' || drag.kind === 'loopR' || drag.kind === 'loopMove') {
         const len = drag.e0 - drag.s0;
         if (drag.kind === 'loopL') {
@@ -1459,7 +1498,7 @@
       if (!drag) return;
       const d = drag;
       drag = null;
-      if (d.kind === 'scrub') return;
+      if (d.kind === 'scrub') { flushScrub(); return; }
       if (d.kind === 'select') {
         refreshInspector();
         draw();
@@ -1617,6 +1656,8 @@
     anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */
     _draw: () => draw(),
+    // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
+    _perf: () => ({ draws: perf.draws, heads: perf.heads }),
     // Düzenleme eylemleri (MIDI/OSC ve testler aynı yoldan)
     undo,
     redo,
@@ -1690,7 +1731,9 @@
     // --- Düzenleyici: başlıklar + tuval, boyu ayarlanabilir ---
     const cv = el('canvas', { class: 'tl-canvas' });
     headsBox = heads();
-    const body = el('div', { class: 'tl-body' }, [headsBox, el('div', { class: 'tl-canvas-wrap' }, [cv])]);
+    headEl = el('div', { class: 'tl-playhead', 'aria-hidden': 'true' });
+    headX = NaN;
+    const body = el('div', { class: 'tl-body' }, [headsBox, el('div', { class: 'tl-canvas-wrap' }, [cv, headEl])]);
     // Zaman sayfasında boy sayfadan geliyor: kullanıcının boyu olarak saklanmıyor
     const pageFit = () => !!document.body && typeof document.body.getAttribute === 'function' && document.body.getAttribute('data-page') === 'time';
     /* Boy: kullanıcı tutamaktan ayarladıysa o; yoksa parçalara göre (en az

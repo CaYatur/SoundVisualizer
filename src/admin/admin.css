@@ -1270,6 +1270,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .tl-tog.l.on { background: var(--card3); color: var(--text); border-color: var(--line2); }
 .tl-canvas-wrap { flex: 1; min-width: 0; background: rgb(var(--fg-rgb) / .015); }
 .tl-canvas { display: block; width: 100%; cursor: crosshair; }
+/* Oynatma kafası ayrı katman: yalnız transform ile kayar, tuval her karede çizilmez */
+.tl-canvas-wrap { position: relative; overflow: hidden; }
+.tl-playhead { position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; pointer-events: none; will-change: transform;
+  background: var(--accent2); box-shadow: 0 0 8px var(--accent); }
+.tl-playhead::before { content: ''; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 0 0 5px 5px; background: var(--accent2); }
 .tl-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .tl-inspector { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .tl-panel input.txt {

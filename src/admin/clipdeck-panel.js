@@ -111,14 +111,14 @@
      değil. Video, görsel ve shader ise BİR HEDEFE uygulanır (#637 CD-3):
      yuvanın `target` alanı ya da yoksa ilk uygun hedef. Hedef söylenmeden
      rastgele bir katmanın üzerine yazılmıyor. */
-  function applyRef(type, ref, target) {
+  function applyRef(type, ref, target, opts) {
     if (!ref) return false;
     if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
     if (type === 'action') return runActionRef(ref);
     const actions = P().actions ? P().actions() : null;
     if (type === 'scene') {
       if (actions && actions.applyScene) {
-        actions.applyScene(ref);
+        actions.applyScene(ref, opts && opts.light ? { light: true } : undefined);
         return true;
       }
       return false;
@@ -231,7 +231,7 @@
       return;
     }
     stashTransition();
-    applyRef(slot.type, slot.ref, slot.target);
+    applyRef(slot.type, slot.ref, slot.target, ev.light ? { light: true } : undefined);
     overrideTransition(ev);
     P().push(true);
     scheduleRelease(ev.fade);
@@ -701,7 +701,7 @@
     mediaPicker,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
-    applyFaded: (type, ref, fade, target) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0 }),
+    applyFaded: (type, ref, fade, target, opts) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0, light: !!(opts && opts.light) }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,

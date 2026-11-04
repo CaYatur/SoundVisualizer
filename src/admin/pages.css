@@ -742,7 +742,9 @@ body[data-page='live'] #svStageTools { display: none; }
 /* Çıktı sayfası: uzun seçim metinleri (kodek, çözünürlük) dar formda kesilmesin; etiket üstte, seçim tam genişlikte */
 @container forms (max-width: 619px) {
   body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) { grid-template-columns: minmax(0, 1fr); row-gap: 4px; padding-block: 4px; }
-  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > select { grid-column: 1 / -1; width: 100%; max-width: none; }
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > select { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; }
+  /* shell.css'teki .sv-insp kuralı seçimi 1. satıra sabitliyordu; tek sütunda etiketin üstüne biniyordu */
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > label.lbl { grid-row: 1; grid-column: 1 / -1; }
 }
 /* Dışa aktarma düğmeleri tek yükseklikte; sığmazsa alt satıra iniyor */
 .sv-export-run > .row { flex-wrap: wrap; }

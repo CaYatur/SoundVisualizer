@@ -393,6 +393,20 @@
     return out;
   }
 
+  /* Her parçadan EN FAZLA bir etkin klip: üst üste binen kliplerde en geç
+     başlayan kazanır (eşitlikte listede sonra gelen). clipsAt ikisini de
+     döndürüyordu; panel parça başına son klibi tuttuğu için iki klip her
+     karede sırayla yeniden ateşleniyor ve sahne kare başına iki kez
+     uygulanıyordu. */
+  function activeClipsAt(tl, t) {
+    const best = new Map();
+    for (const e of clipsAt(tl, t)) {
+      const cur = best.get(e.track);
+      if (!cur || e.clip.start >= cur.clip.start) best.set(e.track, e);
+    }
+    return Array.from(best.values());
+  }
+
   /* Otomasyonun o andaki değerleri: { 'dotted.path': değer }.
      Susturulmuş parça hiç yazmaz — canlı modülasyonun o hedefi sürmesine izin
      verir, sıfırlamaz. */
@@ -586,6 +600,7 @@
     makeTimeline,
     timelineLength,
     clipsAt,
+    activeClipsAt,
     automationAt,
     audible,
     anySolo,
