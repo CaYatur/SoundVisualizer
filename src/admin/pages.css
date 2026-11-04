@@ -452,7 +452,7 @@ body[data-page='time'] .tl-panel:not(.tl-full) > .tl-toolbar { flex: none; order
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-actions { flex: none; order: 1; margin: 0; }
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-editor { flex: 1 1 auto; min-height: 0; order: 2; display: flex; flex-direction: column; border: 0; border-top: 1px solid rgb(var(--fg-rgb) / .06); border-radius: 0; background: none; box-shadow: none; }
 body[data-page='time'] .tl-panel:not(.tl-full) .tl-body { flex: 1 1 auto; height: auto !important; min-height: 0; resize: none; border-radius: 0; }
-body[data-page='time'] .tl-panel:not(.tl-full) > .settings-io-note { order: 3; flex: none; margin: 0; min-height: 0; padding: 0 14px 8px; }
+body[data-page='time'] .tl-panel:not(.tl-full) > .settings-io-note { order: 3; flex: none; display: block; box-sizing: border-box; width: 100%; margin: 0; min-height: 0; padding: 0 14px 8px; }
 
 .tl-toolbar { gap: 4px; padding: 0 12px 8px; margin: 0; border: 0; border-radius: 0; background: none; }
 .tl-group { gap: 2px; }
@@ -522,6 +522,7 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .sv-chan > .sv-th img, .sv-scell .sv-th img, .sv-qitem > .sv-th img, .sv-pcard > .sv-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sv-chan > .sv-th .svi { width: 15px; height: 15px; }
 .sv-mixer { overflow: hidden; }
+.sv-vfad::after { content: ''; position: absolute; right: 4px; bottom: 3px; width: 3px; height: calc(var(--lvl, 0) * var(--chan, 1) * (100% - 6px)); border-radius: 2px; background: var(--ok); }
 .sv-qitem { grid-template-columns: 54px minmax(0, 1fr) auto; padding: 6px 12px; }
 .sv-qitem > .sv-th { width: 54px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted2); }
 .sv-pvw-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

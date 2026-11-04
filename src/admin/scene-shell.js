@@ -281,6 +281,10 @@
     const B = document.getElementById('hudB');
     if (L) L.style.setProperty('--v', pct(lv.level));
     if (B) B.style.setProperty('--v', pct(lv.bass));
+    if (hudFrames % 2 === 0) {
+      const mix = document.getElementById('svMixer');
+      if (mix) mix.style.setProperty('--lvl', (Math.min(1, Number(lv.level) || 0)).toFixed(3));
+    }
     const bass = Number(lv.bass) || 0;
     if (bass > 0.6 && hudBass <= 0.6) {
       hudBeat = (hudBeat + 1) % 4;

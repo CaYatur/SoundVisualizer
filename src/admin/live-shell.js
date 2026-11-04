@@ -106,7 +106,10 @@
       const sum = SP && SP.layerSummary ? SP.layerSummary(l) : '';
       return sum && sum !== n ? n + ': ' + sum : n;
     };
-    const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan' }, [
+    /* Göstergedeki yeşil şerit: ölçülen ses seviyesi, kanalın saydamlığıyla çarpılmış. Katman başına ayrı
+       ölçüm yok; sessiz ya da kapalı kanal sıfır gösteriyor. */
+    const reach = (l) => (l.muted || l.enabled === false ? 0 : (l.opacity == null ? 1 : l.opacity));
+    const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan', style: '--chan:' + reach(l) }, [
       window.SVSceneShell && window.SVSceneShell.thumbOf ? window.SVSceneShell.thumbOf(l) : el('span', { class: 'sv-th' }),
       fader(() => (l.opacity == null ? 1 : l.opacity), (v) => { l.opacity = v; }, nameOf(l)),
       el('span', { class: 'sv-lbl', text: SP && SP.layerSummary ? SP.layerSummary(l) : tr(l.name || l.kind), title: nameOf(l) }),
@@ -124,7 +127,7 @@
       return el('label', { class: 'sv-fxrow' }, [el('span', { class: 'switch small' }, [inp, el('span', { class: 'track' })]), el('span', { text: tr(def ? def.label : f.type) })]);
     })));
     if (!chain.length) fx.appendChild(el('div', { class: 'sv-hint', text: tr('Efekt zinciri boş.') }));
-    const master = el('div', { class: 'sv-chan sv-master' }, [
+    const master = el('div', { class: 'sv-chan sv-master', style: '--chan:' + (cfg.master == null ? 1 : cfg.master) }, [
       el('span', { class: 'sv-th' }, [el('span', { icon: 'upload' })]),
       fader(() => (cfg.master == null ? 1 : cfg.master), (v) => { cfg.master = v; }, tr('Çıkış')),
       el('span', { class: 'sv-lbl', text: tr('Çıkış') }),
@@ -132,7 +135,7 @@
         class: 'sv-tgl mute' + (P().isBlackedOut() ? ' act' : ''), type: 'button', text: 'K', title: tr('Karart'), onclick: () => { P().toggleBlackout(); paint(); },
       })]),
     ]);
-    return el('section', { class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
+    return el('section', { id: 'svMixer', class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
   }
 
   /* ANLIK EFEKTLER. Basılı tutulduğu sürece çıkışta; ayara yazılmaz, geri alma geçmişine girmez.

@@ -1,0 +1,106 @@
+'use strict';
+/* v4 yeniden tasarımının kırılınca sessizce geri gelecek kararları (#905).
+ *
+ * Görünümün kendisini `npm run ui-layout` ve `npm run ui-walk` ölçüyor; burada yapısal olanlar var:
+ * aç-kapa anahtarının dönmemesi, ağacın katlanması, panel güncellemesinin ucuz kalması. */
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
+const admin = read('src/admin/admin.js');
+const shell = read('src/admin/scene-shell.js');
+const pages = read('src/admin/pages.css');
+const i18n = read('src/shared/i18n.js');
+
+test('servis modülleri aç-kapa anahtarı yerine durum ve eylem başlığı kullanıyor', () => {
+  for (const [file, gone] of [
+    ['src/admin/control.js', 'MIDI Etkin'],
+    ['src/admin/mapping-panel.js', 'Haritalama Etkin'],
+    ['src/admin/aspect-panel.js', 'Basıklık Düzeltme Etkin'],
+    ['src/admin/clipdeck-panel.js', 'Klip Destesini Etkinleştir'],
+    ['src/admin/timeline-panel.js', 'Zaman Çizelgesini Etkinleştir'],
+    ['src/admin/stream.js', 'Yayın Sunucusunu Aç'],
+  ]) {
+    assert.ok(!read(file).includes(gone), file + ': ' + gone);
+  }
+  for (const file of ['stream', 'control', 'mapping-panel', 'aspect-panel', 'clipdeck-panel', 'openrgb-panel', 'mcp-panel', 'texture-panel']) {
+    assert.ok(read('src/admin/' + file + '.js').includes('moduleHead('), file);
+  }
+  assert.match(admin, /moduleHead\(o\) \{[\s\S]*?'aria-pressed'/);
+});
+
+test('yayın ayarları sunucu kapalıyken de görünüyor', () => {
+  const src = read('src/admin/stream.js');
+  const onlyWhenOn = src.indexOf('if (s.enabled) {\n      // --- adresler');
+  const settings = src.indexOf('// --- ayarlar');
+  assert.ok(onlyWhenOn > 0 && settings > onlyWhenOn);
+  // Adres ve kurulum bloğu ayarlardan önce kapanıyor
+  assert.match(src.slice(onlyWhenOn, settings), /\n {4}\}\n\s*$/);
+});
+
+test('Kurulum ağacı yalnız açık kategorinin bölümlerini gösteriyor, kategori sıfırlama ağaçta', () => {
+  assert.match(admin, /if \(!open\) return;\n\s*const want = secs\.find/);
+  assert.match(admin, /if \(total > 0\) rail\.appendChild\(categoryResetRow\(cat\.id\)\)/);
+  assert.match(admin, /nodes\.push\(categoryResetRow\('output'\)\)/);
+  // Başlıktaki düğme tek bölümlü sayfada bölümü sıfırlıyor, kategoriyi değil
+  assert.match(admin, /\$\('catResetBtn'\)\.classList\.toggle\('hidden', !resettable \|\| !!single\)/);
+});
+
+test('tek bölümlü sayfada sıfırlama rozeti başlıkta ve sayaç oradan güncelleniyor', () => {
+  assert.ok(read('src/admin/index.html').includes('id="svHeadActs"'));
+  assert.match(admin, /headActs\.appendChild\(acts\)/);
+  assert.match(admin, /\$\('svHeadActs'\)\.querySelector\('\.ch-actions'\)/);
+});
+
+test('üreticilerde önizleme ortada', () => {
+  assert.match(admin, /GEN_SECTIONS = \['scenegen', 'mdgen'\]/);
+  assert.match(shell, /page === 'studio' && document\.body\.hasAttribute\('data-gen'\)/);
+  assert.match(pages, /body\[data-page='studio'\]\[data-gen\] \.sv-out-center/);
+});
+
+test('panel güncellemesi: değişmeyen katman listesi kurulmuyor, işaretler iki kez taranmıyor', () => {
+  // Satırlar katman nesnesine bağlı: nesne yenilendiyse imza aynı olsa da kurulmalı
+  assert.match(shell, /sig === layersPainted && host\.firstChild && list\.length === layersBound\.length && list\.every\(\(l, i\) => l === layersBound\[i\]\)/);
+  assert.match(admin, /if \(!marksFresh\) refreshModifiedMarks\(\);/);
+  assert.match(admin, /marksFresh = true;\n\s*try \{ push\(true\); \} finally \{ marksFresh = false; \}/);
+});
+
+test('MilkDrop katmanı Ortak ya da Bağımsız', () => {
+  const src = read('src/admin/scene-panels.js');
+  assert.match(src, /miniSegment\('Preset', \[\['shared', 'Ortak'\], \['own', 'Bağımsız'\]\]/);
+  assert.match(src, /MP\.setLayerOwn\(cfg, l, v === 'own'\)/);
+});
+
+test('shader listesi küçük resmi koda bağlı ve yalnız boştayken çiziliyor', () => {
+  const src = read('src/admin/studio.js');
+  assert.match(src, /v\.h === sourceHash\(p\.shader\)/);
+  assert.match(src, /typeof requestIdleCallback === 'function' && window\.SVShaderHost/);
+  // Saklama kimliğe göre: kod değişince üstüne yazılıyor, eski resim birikmiyor
+  assert.match(src, /localStorage\.setItem\('sv-shader-thumb:' \+ job\.p\.id/);
+});
+
+test('satır kuralının özgüllüğü düşük: denetçideki yerleşim kuralları onu ezebiliyor', () => {
+  assert.match(read('src/admin/shell.css'), /\.sv-insp \.ctrl > :where\(:not\(\.row\)/);
+});
+
+test('sayfa stili tek kenar değeri kullanıyor, bölümler sayfa başına tek', () => {
+  assert.match(pages, /--sv-inset: 12px;/);
+  const heads = pages.match(/-{20,} \d+\. [^*]+\*\//g) || [];
+  assert.strictEqual(heads.length, 14);
+  const names = heads.map((h) => h.replace(/-+ /, '').trim());
+  assert.strictEqual(new Set(names).size, names.length);
+});
+
+test('yeni arayüz metinleri çevrilmiş', () => {
+  for (const s of ['Devamı', 'Kısalt', 'Ortak', 'Bağımsız', 'Bir ruh hali yazın', 'karanlık sinematik uzay', 'enerjik neon techno', 'sakin orman sabahı',
+    'En Az', 'En Çok', 'Uniform', 'Parametreyi Kaldır', 'Tanımı Düzenle', 'Yeni Şerit', 'Oynatma kafasına ekle', 'Renk Teması', 'Albüm Kapağından Renk']) {
+    assert.ok(i18n.includes("'" + s + "':"), s);
+  }
+});
+
+test('yerleşim denetimi komutu duruyor', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.strictEqual(pkg.scripts['ui-layout'], 'node scripts/ui-layout.js');
+});

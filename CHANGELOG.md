@@ -17,8 +17,22 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   templates, scenes) and the tools (effect chain, modulation, groups).
 - **Live page.** Cue and live monitors with a TAKE button, a scene grid with banks and F keys, layer
   and output faders, effects on the chain, tempo, Auto VJ, the MilkDrop queue and the clip deck.
-- **Time, Studio and Output pages.** Time puts the preview above a full-width timeline. Output has a
-  section list on the left and Studio has tabs; both show one section at a time.
+- **Time, Studio and Output pages.** Time puts the preview above a full-width timeline, with coloured
+  clips, section markers and curves you can read at a glance. Output has a destination list on the left,
+  the preview in the middle with the export queue under it, and the settings on the right. Studio has
+  tabs; the shader list shows a small picture of each shader, and the two generators put their result
+  large in the middle of the page.
+- **The preview works from where it is.** On every page it carries the aspect ratio, safe area, grid,
+  pause and fullscreen controls, plus beat, tempo, chord, level and frame rate. The page background picks
+  up the colours of the picture.
+- **Start and stop instead of on/off switches.** The stream server, MIDI, OSC, gamepad, MCP, lighting
+  outputs, texture sharing, mapping, the clip deck and Auto VJ show their state and one button. The
+  timeline goes live when you press play or link it to the output. Stream settings can be changed before
+  the server starts.
+- **MilkDrop layers are Shared or Independent**, chosen on the layer itself.
+- **Setup is one tree.** Only the open category shows its sections; the others wait as headings with a
+  running light and a count of changed settings. Sections group their settings into panels that fold, and
+  long help text stays out of the way until you ask for it.
 - **Momentary effects on Live.** Flash, strobe, blur, kaleidoscope, glitch and negative apply while you
   hold the button. They are never saved. Strobe stays at three flashes a second while flash limiting
   is on. `flash` and `strobe` are also regular effects now, so the chain has 42.
