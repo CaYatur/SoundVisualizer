@@ -239,6 +239,7 @@
       if (h !== hover) { hover = h; draw(); }
     });
     cv.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return; // yalnız sol tuş (#957)
       const r = cv.getBoundingClientRect();
       const px = ((e.clientX - r.left) / r.width) * W;
       const py = ((e.clientY - r.top) / r.height) * H;

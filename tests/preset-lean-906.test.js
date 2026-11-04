@@ -61,7 +61,9 @@ test('panel: seçilen presetin metni ayara yazılmadan önce isteniyor; son seç
   assert.match(P, /presetSource: sourceOf/);
   // Liste satırı ve ızgara hücresi metinsiz kaydı doğrudan yüklemiyor
   assert.doesNotMatch(P, /keepScroll\(\); load\(cfg, p\)/);
-  assert.strictEqual(P.split('keepScroll(); loadWithText(cfg, p,').length - 1, 2);
+  // Tek seçim yolu (#957): `pick` kaydırmayı tutar, işareti yerinde değiştirir, metinli yükler
+  assert.match(P, /const pick = \(p\) => \{\s*keepScroll\(\); keepView = true;[\s\S]*?loadWithText\(cfg, p,/);
+  assert.strictEqual(P.split('onclick: () => pick(p)').length - 1, 2);
 });
 
 test('düzenleyici ve karıştırıcı metni kendileri istiyor', () => {

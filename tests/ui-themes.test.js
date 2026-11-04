@@ -302,6 +302,15 @@ test('tarayıcı: koruma gerçekten yakalıyor', () => {
 /* Panel betiklerindeki renk dizeleri: hepsi KULLANICI İÇERİĞİ. Panelin kendi
    rengi buraya girmez; SVUiTheme.color / SVUiTheme.alpha kullanılır. */
 const JS_CONTENT = {
+  'transition-preview.js': {
+    '#ffbe3c': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#e63c5a': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#ffecc8': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#080e28': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#3cdcff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#8c50ff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#000000': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+  },
   'admin.js': {
     '#000000': [4, 'karartma ve palet: görüntünün kendi siyahı'],
     '#2a1f2e': [2, 'arkaplanı olmayan sahnenin küçük resmi'],
@@ -377,12 +386,12 @@ test('normalizeId ve resolve', () => {
   assert.strictEqual(T.normalizeId('light'), 'light');
   assert.strictEqual(T.normalizeId('system'), 'system');
   ['', null, undefined, 'yok', '__proto__', 'constructor', 42].forEach((v) => assert.strictEqual(T.normalizeId(v), 'system', String(v)));
-  assert.strictEqual(T.resolve('system', true).id, 'cayadev', 'koyu cihazda uygulamanın kendi kimliği');
+  assert.strictEqual(T.resolve('system', true).id, 'dark', 'koyu cihaz → Karanlık');
   assert.strictEqual(T.resolve('system', false).id, 'light');
-  assert.strictEqual(T.resolve('system').id, 'cayadev', 'tercih bilinmiyorsa koyu');
+  assert.strictEqual(T.resolve('system').id, 'dark', 'tercih bilinmiyorsa koyu');
   assert.strictEqual(T.resolve('neon', false).id, 'neon', 'somut tema tercihe bakmaz');
   assert.strictEqual(T.resolve('bilinmeyen', false).id, 'light', 'tanınmayan ayar cihazın tercihine düşer');
-  assert.strictEqual(T.resolve('bilinmeyen', true).id, 'cayadev');
+  assert.strictEqual(T.resolve('bilinmeyen', true).id, 'dark');
 });
 
 function fakeDom(search, prefersDarkInit, moreContrastInit) {
@@ -454,7 +463,7 @@ test('theme-boot: bilinmeyen tema ve sorgusuz açılış cihazın tercihini izle
 
 test('theme-boot: Cihaz varsayılanı sistemi canlı izliyor ve tuvallere haber veriyor', () => {
   const d = fakeDom('?uiTheme=system', true);
-  assert.strictEqual(d.win.SVUiTheme.current().id, 'cayadev');
+  assert.strictEqual(d.win.SVUiTheme.current().id, 'dark');
   const seen = [];
   d.win.SVUiTheme.onChange((t) => seen.push(t.id));
   d.flipScheme(false);

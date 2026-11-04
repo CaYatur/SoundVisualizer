@@ -321,14 +321,21 @@
   }
   function labelTextOf(lbl) {
     let t = lbl.querySelector(':scope > .lbl-t');
-    if (t) return t;
+    // Dar sütunda etiket üç noktayla kısalır (#957); tam adı ipucunda kalsın
+    if (t) { tipLabel(t); return t; }
     const kids = Array.from(lbl.childNodes).filter((n) => !(n.nodeType === 1 && /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(n.tagName)));
     if (!kids.some((n) => (n.textContent || '').trim())) return null;
     t = document.createElement('span');
     t.className = 'lbl-t';
     lbl.insertBefore(t, kids[0]);
     kids.forEach((n) => t.appendChild(n));
+    tipLabel(t);
     return t;
+  }
+  function tipLabel(t) {
+    const lbl = t.parentElement;
+    const txt = (t.textContent || '').trim();
+    if (txt && lbl && !lbl.getAttribute('title') && !t.getAttribute('title')) t.setAttribute('title', txt);
   }
   function linkLabels(root) {
     root.querySelectorAll('.ctrl').forEach((c) => {
@@ -545,6 +552,7 @@
 
   window.SVPanel = {
     el,
+    goToCard: (c, s) => goToCard(c, s),
     cfg: () => cfg,
     // Ses aygıtı listesi (ses köprüsünün yedek girişi, #813)
     audioDevices: () => audioDevices.slice(),
@@ -764,7 +772,7 @@
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
       case 'sectionlink': {
         const b = el('button', { class: 'btn small', type: 'button', icon: 'wave', text: tr(def.text) });
-        b.addEventListener('click', () => jumpTo({ category: def.category, section: def.section, path: null, advanced: false }));
+        b.addEventListener('click', () => goToCard(def.category, def.section));
         return el('div', { class: 'ctrl' }, [b, def.hint ? el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }) : null]);
       }
       case 'bridgepanel':
@@ -1208,6 +1216,18 @@
   /* Kartlar temanın kendi renkleriyle küçük bir panel çizer: zemin, kart,
      yazı, vurgu. Renkler src/shared/ui-themes.js tablosundan; bu dosyada
      renk yazılmaz. Seçim hemen uygulanır ve ayar dosyasına gider. */
+  /* Arayüz temasının TEK yazma yolu (#957): başlıktaki tema menüsü yalnız
+     SVUiTheme.set() çağırıyordu; cfg.ui.theme eski kalınca bir sonraki
+     çizimde syncUiTheme() (ör. Ayarlar açılınca) eski temayı geri yüklüyordu.
+     Artık ikisi de buradan: ayara yazar, uygular, kaydeder. */
+  function commitUiTheme(id, render) {
+    if (!window.SVUiTheme) return;
+    const nid = window.SVUiThemes ? window.SVUiThemes.normalizeId(id) : id;
+    if (!cfg.ui || typeof cfg.ui !== 'object') cfg.ui = {};
+    cfg.ui.theme = nid;
+    window.SVUiTheme.set(nid);
+    if (render !== false) { push(true); scheduleRender(); }
+  }
   function uiThemeCtrl() {
     const UT = window.SVUiThemes;
     if (!UT || !window.SVUiTheme) return null;
@@ -1215,9 +1235,7 @@
     const prefersDark = () => !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
     const opts = [];
     const pick = (id) => {
-      if (!cfg.ui || typeof cfg.ui !== 'object') cfg.ui = {};
-      cfg.ui.theme = id;
-      window.SVUiTheme.set(id);
+      commitUiTheme(id, false);
       opts.forEach((o) => {
         const on = o.dataset.theme === id;
         o.classList.toggle('active', on);
@@ -1250,10 +1268,10 @@
       const isSystem = c.id === UT.SYSTEM_ID;
       let swatch;
       if (isSystem) {
-        // Yarısı Karanlık, yarısı Aydınlık
-        swatch = el('span', { class: 'ui-theme-split', 'aria-hidden': 'true' }, [
-          preview(UT.byId('dark')), preview(UT.byId('light')),
-        ]);
+        // Cihazın şu an çözdüğü tema (#957): koyu → Karanlık, açık → Aydınlık, karşıtlık → Yüksek Karşıtlık
+        const mc = !!(window.SVUiTheme.moreContrast && window.SVUiTheme.moreContrast());
+        swatch = preview(UT.resolve(UT.SYSTEM_ID, prefersDark(), mc));
+        swatch.setAttribute('data-resolved', UT.resolve(UT.SYSTEM_ID, prefersDark(), mc).id);
       } else {
         swatch = preview(UT.byId(c.id));
       }
@@ -1353,13 +1371,29 @@
     return data && data.background;
   }
 
+  /* Çok koyu renkler kartta simsiyah görünüyordu: tonu koruyup açıklığı
+     okunur bir tabana çekiyoruz. Çözülemeyen renk olduğu gibi kalıyor. */
+  function visibleSwatch(c) {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c || '').trim());
+    if (!m) return c;
+    const h = m[1].length === 3 ? m[1].split('').map((x) => x + x).join('') : m[1];
+    const rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(...rgb), mn = Math.min(...rgb), l = (mx + mn) / 2;
+    const MIN_L = 0.16;
+    if (l >= MIN_L) return c;
+    // Gri tonlarda (doygunluk yok) eşit kaldırma; renkli tonlarda oranı koruyarak
+    const lift = mx > 0 ? MIN_L * 2 / (mx + mn || 1e-6) : 0;
+    const out = mx > 0 ? rgb.map((v) => Math.min(1, v * lift)) : rgb.map(() => MIN_L);
+    return '#' + out.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  }
+
   function sceneGradient(scene) {
     const bg = sceneBackground(scene && scene.data);
     if (!bg) return 'linear-gradient(135deg,#2a1f2e,#161013)';
-    if (bg.type === 'solid') return bg.solidColor || '#08080f';
+    if (bg.type === 'solid') return visibleSwatch(bg.solidColor || '#08080f');
     const cols = (bg.gradient && bg.gradient.colors) || [];
     if (!cols.length) return 'linear-gradient(135deg,#2a1f2e,#161013)';
-    return 'linear-gradient(135deg,' + cols.join(',') + ')';
+    return 'linear-gradient(135deg,' + cols.map(visibleSwatch).join(',') + ')';
   }
 
   function sceneSummary(scene) {
@@ -2480,6 +2514,26 @@
             label: 'Akıllı Sessizlik Filtresi',
             hint: 'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).',
           },
+        ],
+      },
+      {
+        /* MilkDrop Ses Girişi (#957): Ses Analizi'nin hemen altında ayrı kart.
+           MilkDrop kendi ham ses yolunu kullanır, genel analiz ayarlarından
+           etkilenmez; kapı, kazanç ve yumuşatma burada. Varsayılanlar nötr. */
+        id: 'mdaudio',
+        category: 'audio',
+        icon: 'wave',
+        title: 'MilkDrop Ses Girişi',
+        desc: 'Yalnızca MilkDrop presetlerini etkiler.',
+        controls: [
+          {
+            type: 'toggle', path: 'audio.milkdrop.gate', label: 'Sessizlik Filtresi',
+            hint: 'MilkDrop, Ses Analizi kartındaki genel ayarları (Hassasiyet, Yumuşatma, Bas Vurgusu, Akıllı Sessizlik Filtresi) kullanmaz. Bu filtre açıkken ses eşiğin altında bekleme süresi kadar kalırsa MilkDrop tam sessizlik görür.',
+          },
+          { type: 'slider', path: 'audio.milkdrop.gateThreshold', label: 'Filtre Eşiği', min: 0, max: 0.2, step: 0.005, hint: 'Bu RMS düzeyinin altındaki ses MilkDrop için dip gürültüsü sayılır.' },
+          { type: 'slider', path: 'audio.milkdrop.gateHold', label: 'Bekleme', min: 0, max: 3, step: 0.05, hint: 'Filtrenin kapanmadan önce beklediği süre (saniye). Ses eşiği aşınca hemen açılır.' },
+          { type: 'slider', path: 'audio.milkdrop.gain', label: 'Kazanç', min: 0, max: 4, step: 0.05, hint: 'Yalnız MilkDrop\'a giden sesin genliği. 1 = değişmez.' },
+          { type: 'slider', path: 'audio.milkdrop.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true, hint: 'Yalnız MilkDrop\'a giden sesin kareler arası yumuşatması. 0 = değişmez.' },
         ],
       },
       {
@@ -4055,6 +4109,8 @@
     syncUiTheme();
     const page = pageOf(activeCategory);
     document.body.setAttribute('data-page', page);
+    // Ayarlar sayfasında boş grup gizleme kapalı (kullanıcı isteği, #957): kendi başlıklarıyla kalır
+    document.body.toggleAttribute('data-sv-keep-groups', activeCategory === 'settings');
     document.body.classList.toggle('sv-simple-on', simpleOn);
     if (window.SVSceneShell) window.SVSceneShell.placeStage(page);
     /* Görünmeyen sayfanın kartları belgede kalmasın: aynı kimlikler iki kez olur, durum satırları
@@ -4473,6 +4529,14 @@
     /* Grup başlığı açılıp kapanıyor; seçim makinede kalıyor. */
     const openGroup = (name) => {
       const key = 'sv-closed:' + (card.getAttribute('data-card') || '') + ':' + (name || '');
+      /* Ayarlar sayfasında alt gruplar katlanmaz (kullanıcı isteği, #957): başlık düz bir
+         bölüm etiketi, ok yok, tıklanmaz, içerik hep görünür. */
+      if (activeCategory === 'settings') {
+        const wrap = el('div', { class: 'group' });
+        if (name) wrap.appendChild(el('div', { class: 'group-label static', role: 'heading', 'aria-level': '3' }, [el('span', { class: 'sv-grow', text: name })]));
+        card.appendChild(wrap);
+        return wrap;
+      }
       let shut = false;
       try { shut = !!name && localStorage.getItem(key) === '1'; } catch { /* yalnız kolaylık */ }
       const wrap = el('div', { class: 'group' + (shut ? ' closed' : '') });
@@ -4525,6 +4589,44 @@
       host.appendChild(c);
     });
   }
+
+  /* Boş grup başlıkları (#957): görünür denetimi kalmayan grup (Gelişmiş kapalı, arama süzgeci,
+     koşula bağlı gizlenen satırlar) başlığıyla birlikte gizlenir; içerik görünür olunca geri gelir.
+     Her bölüm için ayrı kod yok: DOM değişince bir sonraki karede bütün gruplar yeniden ölçülür. */
+  function groupHasContent(g) {
+    const shut = g.classList.contains('closed');
+    const was = g.classList.contains('sv-empty');
+    // Kapalı grubun çocukları CSS ile gizli: ölçüm için bir anlığına aç (boyama olmadan)
+    if (shut) g.classList.remove('closed');
+    if (was) g.classList.remove('sv-empty');
+    let any = false;
+    for (const c of g.children) {
+      if (c.classList.contains('group-label')) continue;
+      if (c.hidden || !c.getClientRects().length) continue;
+      any = true; break;
+    }
+    if (shut) g.classList.add('closed');
+    if (was) g.classList.add('sv-empty');
+    return any;
+  }
+  function syncEmptyGroups(root) {
+    (root || document).querySelectorAll('.group:has(> .group-label)').forEach((g) => {
+      // Vazgeçme: [data-sv-keep-groups] içindeki gruplar hiç gizlenmez (Ayarlar sayfası)
+      const empty = g.closest('[data-sv-keep-groups]') ? false : !groupHasContent(g);
+      if (g.classList.contains('sv-empty') !== empty) g.classList.toggle('sv-empty', empty);
+    });
+  }
+  (function watchEmptyGroups() {
+    if (typeof MutationObserver !== 'function' || window.SVEmptyGroups) return;
+    let raf = 0;
+    const run = () => { raf = 0; syncEmptyGroups(document); };
+    new MutationObserver((list) => {
+      // Kendi sınıf değişimlerimiz yeniden tetiklemesin
+      if (list.every((m) => m.type === 'attributes' && m.target.classList && m.target.classList.contains('group'))) return;
+      if (!raf) raf = requestAnimationFrame(run);
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    window.SVEmptyGroups = { sync: syncEmptyGroups, hasContent: groupHasContent };
+  })();
 
   /* Satırın altındaki açıklama ipucuna geçiyor: formlar kısa kalıyor, açıklama ⓘ'de. Canlı güncellenen
      (kimlikli) ya da içinde düğme olan notlar yerinde. */
@@ -4606,8 +4708,16 @@
     parkResetFocus(root);
     const pin = pinElement(root);
     const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+    /* Otomasyonla sürülen ayar işaretli (#957): kırmızı kaydırıcı ve öncelik
+       ipucu. Çalan otomasyon elle/MIDI/oyun kolu değerini ezer. */
+    const autoP = window.SVTimelinePanel && window.SVTimelinePanel.automatedPaths ? window.SVTimelinePanel.automatedPaths() : null;
+    const autoTip = tr('Otomasyon bu ayarı sürüyor: oynarken elle, MIDI ve oyun kolu değerini geçersiz kılar; modülatörler üstüne uygulanır.');
     root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
-      node.classList.toggle('modified', isModified(node.getAttribute('data-path')));
+      const path = node.getAttribute('data-path');
+      node.classList.toggle('modified', isModified(path));
+      const on = !!(autoP && autoP.has(path));
+      node.classList.toggle('sv-automated', on);
+      if (on) node.title = autoTip; else if (node.title === autoTip) node.title = '';
     });
     /* Layer-internal (attachDefault) controls: no config path; get/defVal
        live on _svSyncModified. Path-based refresh does not touch them;
@@ -4896,6 +5006,13 @@
     }
     activeCategory = entry.category;
     localStorage.setItem('sv-category', activeCategory);
+    /* Bölüm adıyla gelen bağlantı (#957, ör. Ayarlar › 'Ses Köprüsü Ayarlarını Aç'): kimliği
+       şemadan çöz. Bölüm sayfalı kategoride (Ses, Çıktı…) yalnız seçili kart çiziliyor; kimlik
+       yazılmazsa sayfa açılıyor ama hedef kart hiç çizilmiyordu. */
+    if (!entry.sectionId && entry.section && SECTION_PAGES[entry.category]) {
+      const hit = sectionSchema().find((x) => x.category === entry.category && (x.title === entry.section || tr(x.title) === entry.section || tr(x.title) === tr(entry.section)));
+      if (hit) entry = Object.assign({}, entry, { sectionId: hit.id });
+    }
     if (entry.sectionId && SECTION_PAGES[entry.category]) {
       try { localStorage.setItem(sectionKey(entry.category), entry.sectionId); } catch { /* yalnız kolaylık */ }
     }
@@ -4924,7 +5041,8 @@
     } else if (entry.category === 'scene' && window.SVSceneShell) window.SVSceneShell.reveal(entry.sectionId);
     render();
 
-    requestAnimationFrame(() => {
+    // Çizimden sonra (iki kare: kategori kaydırma geri yüklemesi önce bitsin)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const root = entry.category === 'scene' ? $('svScene') : entry.category === 'live' ? $('svLive') : $('sections');
       let target = null;
       if (entry.path) target = root.querySelector('[data-path="' + entry.path + '"]');
@@ -4939,12 +5057,23 @@
         target = card;
       }
       if (!target) return;
-      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // Kapalı bir grubun içindeyse aç (katlanır gruplar)
+      for (let g = target.closest('.group.closed'); g; g = g.parentElement && g.parentElement.closest('.group.closed')) {
+        g.classList.remove('closed');
+        const lb = g.querySelector(':scope > .group-label');
+        if (lb) lb.setAttribute('aria-expanded', 'true');
+      }
+      target.scrollIntoView({ block: entry.path ? 'center' : 'start', behavior: 'smooth' });
       target.classList.remove('flash');
       void target.offsetWidth; // animasyonu yeniden tetikle
       target.classList.add('flash');
       setTimeout(() => target.classList.remove('flash'), 1800);
-    });
+    }));
+  }
+  /* Genel "karta git" (#957): kategoriye geç, kartı çiz, görünür yap ve kısa vurgula. */
+  function goToCard(category, section) {
+    const sec = sectionSchema().find((x) => x.id === section);
+    jumpTo(sec ? { category: sec.category, sectionId: sec.id, section: sec.title, path: null, advanced: false } : { category, section, path: null, advanced: false });
   }
 
   async function resetCategory(catId) {
@@ -5087,6 +5216,16 @@
 
   }
 
+  // Menüyü düğmenin altına, sağ kenarı düğmeyle hizalı ve pencere içinde kalacak şekilde yerleştir
+  function placeDisplayMenu(btn, menu) {
+    const r = btn.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const w = Math.min(menu.offsetWidth || 360, vw - 24);
+    const right = Math.max(12, Math.min(vw - r.right, vw - w - 12));
+    menu.style.top = Math.round(r.bottom + 6) + 'px';
+    menu.style.right = Math.round(right) + 'px';
+  }
+
   // Menüyü aç/kapat ve dışarı tıklayınca kapat
   function setupDisplayMenu() {
     const btn = $('displayBtn');
@@ -5096,6 +5235,7 @@
       e.stopPropagation();
       const open = menu.classList.toggle('hidden') === false;
       btn.setAttribute('aria-expanded', String(open));
+      if (open) placeDisplayMenu(btn, menu);
     });
     document.addEventListener('click', (e) => {
       if (menu.classList.contains('hidden')) return;
@@ -5702,15 +5842,41 @@
     if (layBtn) layBtn.addEventListener('click', () => { if (window.SVLayoutEditor) window.SVLayoutEditor.open(layBtn); });
 
     const btn = $('previewToggle');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        const next = !window.SVPreview.isPaused();
-        window.SVPreview.setPaused(next);
+    const stage = $('previewStage');
+    // Duraklat/sürdür tek yerden (#957): araç çubuğu düğmesi, ortadaki sürdür düğmesi ve Boşluk aynı durumu kullanır
+    let resume = null;
+    function setPreviewPaused(next) {
+      window.SVPreview.setPaused(next);
+      if (btn) {
         window.SVIcons.set(btn, next ? 'play' : 'pause', '');
         btn.title = next ? 'Önizlemeyi başlat' : 'Önizlemeyi duraklat';
-        syncPreviewSubscription();
+        btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+      }
+      if (stage) {
+        if (!resume) {
+          resume = el('button', { type: 'button', class: 'sv-resume', title: 'Önizlemeyi başlat', 'aria-label': 'Önizlemeyi başlat' });
+          window.SVIcons.set(resume, 'play', '');
+          resume.addEventListener('click', (e) => { e.stopPropagation(); setPreviewPaused(false); });
+        }
+        if (resume.parentNode !== stage) stage.appendChild(resume);
+        resume.hidden = !next;
+        if (next) resume.focus({ preventScroll: true });
+      }
+      syncPreviewSubscription();
+    }
+    if (btn) btn.addEventListener('click', () => setPreviewPaused(!window.SVPreview.isPaused()));
+    if (stage) {
+      // Duraklatılmış önizlemenin herhangi bir yerine tıklamak sürdürür; üstteki katmanlar tıklamayı yutmasın diye yakalama evresinde
+      stage.addEventListener('click', (e) => {
+        if (!window.SVPreview.isPaused() || e.target.closest('#svStageTools, #previewTools')) return;
+        e.stopPropagation(); e.preventDefault(); setPreviewPaused(false);
+      }, true);
+      stage.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && window.SVPreview.isPaused()) { e.preventDefault(); setPreviewPaused(false); }
       });
     }
+    window.SVAdmin = window.SVAdmin || {};
+    window.SVAdmin.setPreviewPaused = setPreviewPaused;
   }
 
   // Panelin ana süreçten ses karesi isteyip istemediğini güncelle
@@ -5768,8 +5934,38 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.topsearch')) box.classList.add('hidden');
     });
+    /* Dar başlıkta yalnız ikon kalıyor (#957): kutunun neresine tıklanırsa tıklansın
+       girdi odaklansın; önceden ikon tıklamayı alıyor, görünmez girdi 0 px kalıyordu. */
+    const wrap = input.closest('.topsearch');
+    if (wrap) {
+      wrap.setAttribute('role', 'search');
+      /* Odakta 260 px'e büyüme yalnız yer varsa: sayfa kapsülüyle arada boşluk kalmalı.
+         Yoksa ya da yalnız ikon kaldıysa girdi düğmeye bağlı açılır kutuda açılır. */
+      const room = () => {
+        const bar = wrap.closest('.topbar');
+        const pages = bar && bar.querySelector('.sv-pages');
+        if (!pages || bar.classList.contains('tb-fit2')) return 0;
+        return Math.floor(wrap.getBoundingClientRect().right - pages.getBoundingClientRect().right - 8);
+      };
+      const decide = () => {
+        const w = Math.min(260, room());
+        // En az 180 px yazma alanı yoksa açılır kutu
+        const pop = w < 180;
+        wrap.classList.toggle('ts-pop', pop);
+        if (pop) wrap.style.removeProperty('--ts-open'); else wrap.style.setProperty('--ts-open', w + 'px');
+      };
+      input.addEventListener('focus', decide);
+      window.addEventListener('resize', () => { if (document.activeElement === input) decide(); });
+      wrap.addEventListener('mousedown', (e) => {
+        if (e.target === input || e.target.closest('.search-results')) return;
+        e.preventDefault();
+        input.focus();
+        if (input.value.trim()) renderSearchResults(input.value);
+      });
+    }
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      const k = (e.key || '').toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'k' || (k === 'f' && !e.shiftKey && !(e.target && e.target.closest && e.target.closest('.code-editor, textarea'))))) {
         e.preventDefault();
         input.focus();
         input.select();
@@ -5790,6 +5986,8 @@
     SCENE_KEYS.forEach((k) => {
       if (cfg[k] !== undefined) data[k] = window.SV.clone(cfg[k]);
     });
+    // Çizelgenin arkaya eklediği alt parça katmanları sahneye kaydedilmez (#957)
+    if (Array.isArray(data.layers)) data.layers = data.layers.filter((l) => !(l && l.tlUnder));
     return data;
   }
 
@@ -5839,6 +6037,25 @@
   function sceneThumbShot(id) {
     try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch { return ''; }
   }
+  /* Bir sahnenin katman listesi, uygulamadan (bileşim için, #957) */
+  const underCache = new Map();
+  function sceneLayersOf(id) {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc || !sc.data) return null;
+    const hit = underCache.get(id);
+    if (hit && hit.data === sc.data) return hit.layers;
+    const def = window.SV.DEFAULT_CONFIG;
+    const tmp = {};
+    SCENE_KEYS.forEach((k) => {
+      const v = sc.data[k] !== undefined ? sc.data[k] : def[k];
+      if (v !== undefined) tmp[k] = window.SV.clone(v);
+    });
+    if (window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(tmp);
+    const layers = (Array.isArray(tmp.layers) ? tmp.layers : []).filter((l) => l && !l.tlUnder);
+    underCache.set(id, { data: sc.data, layers });
+    return layers;
+  }
+
   actions.applyScene = (id, opts) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
@@ -5879,6 +6096,39 @@
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
     }
+    /* Çizelge bileşimi (#957): alt parçalardaki sahnelerin katmanları bu
+       sahnenin ARKASINA eklenir (en alttaki önce). Katman kimlikleri parçaya
+       göre ayrışır; opaklık parça opaklığıyla çarpılır. Kilitli ve işaretli
+       (tlUnder): sahne kaydına girmez, düzenlenmez. */
+    if (opts && Array.isArray(opts.under) && opts.under.length && Array.isArray(cfg.layers)) {
+      const back = [];
+      for (const u of opts.under) {
+        const ls = sceneLayersOf(u.id);
+        const op = u.opacity == null ? 1 : Math.max(0, Math.min(1, Number(u.opacity) || 0));
+        if (!ls || op <= 0) continue;
+        for (const l of ls) {
+          const c = window.SV.clone(l);
+          c.id = String(c.id || 'ly') + '@' + (u.track || u.id);
+          c.opacity = (c.opacity == null ? 1 : c.opacity) * op;
+          c.locked = true;
+          c.tlUnder = true;
+          back.push(c);
+        }
+      }
+      cfg.layers = back.concat(cfg.layers.filter((l) => !(l && l.tlUnder)));
+    }
+    /* Üstteki klibin opaklığı (#957): öndeki sahnenin kendi katmanları bu
+       oranla biner, arkadaki parçaların katmanları görünür. Önce hiç
+       uygulanmıyordu: üst klibi %30'a indirmek alttakini göstermiyordu. */
+    const topOp = opts && Array.isArray(opts.under) && opts.under.topOpacity != null ? Math.max(0, Math.min(1, Number(opts.under.topOpacity))) : 1;
+    if (topOp < 1 && Array.isArray(cfg.layers)) {
+      cfg.layers = cfg.layers.map((l) => {
+        if (!l || l.tlUnder) return l;
+        const c = window.SV.clone(l);
+        c.opacity = (c.opacity == null ? 1 : c.opacity) * topOp;
+        return c;
+      });
+    }
     /* Şeffaf arkaplan çıkış ayarıdır; sahne görünümünü değiştirmek onu
        kapatıp pencereyi yeniden kurdurmamalı. */
     if (cfg.background) {
@@ -5886,14 +6136,47 @@
       if (keepKey != null) cfg.background.transparentKey = keepKey;
       if (keepCover != null) cfg.background.coverTaskbar = !!keepCover;
     }
+    /* Geçiş ÜSTÜNE YAZMA (klip/yuva geçişi): görselleştirici geçişi sahnenin
+       İLK gönderiminde başlatıyor. Önce sahne kendi geçişiyle gönderiliyor,
+       klibin süresi ancak sonraki gönderimde yazılıyordu — geçiş hiç
+       yavaşlamıyordu. Süre burada, gönderimden ÖNCE ve saniye cinsinden. */
+    /* Üstüne yazma YALNIZ bu gönderim için: gönderimden sonra sahnenin
+       kendi geçişi geri konuyor. Önce kalıcıydı; klibin geçişi sahnenin
+       genel geçişine sızıyor, sahne güncellenince ona kaydediliyordu. */
+    let keepTransition = null;
+    if (opts && opts.transition && cfg.transition) {
+      keepTransition = window.SV.clone(cfg.transition);
+      const ot = opts.transition;
+      if (ot.type === 'cut') cfg.transition.enabled = false;
+      else if (ot.duration > 0 || ot.type || ot.ease) {
+        cfg.transition.enabled = true;
+        if (ot.duration > 0) {
+          cfg.transition.duration = ot.duration;
+          cfg.transition.unit = 'seconds';
+        }
+        if (ot.type) cfg.transition.type = ot.type;
+        if (ot.ease) cfg.transition.ease = ot.ease;
+      }
+    }
+    const restoreTransition = () => { if (keepTransition) { cfg.transition = keepTransition; keepTransition = null; } };
     sceneActionInFlight = true;
     activeSceneId = id;
     cfg._activeSceneId = id;
     /* quiet: vurgunun bu gönderimde silinmemesi için bayrak açık kalır.
        Çağıran push'tan sonra releaseSceneAction ile kapatır. */
-    if (opts && opts.quiet) return;
+    if (opts && opts.quiet) return; // çağıran gönderiyor; üstüne yazma o gönderimde geçerli
     push(true);
+    restoreTransition();
     sceneActionInFlight = false;
+    /* Zaman çizelgesi klibi ateşlerken (light) Zaman sayfası baştan
+       kurulmuyor: render() çizelge panelini de söküp yeniden kuruyordu,
+       oynatırken ya da sürüklerken çizelge her klip sınırında bir an
+       kayboluyordu. Diğer sayfalarda görünen ayarlar eskimesin diye
+       orada yine tam çizim yapılıyor. */
+    if (opts && opts.light && activeCategory === 'time') {
+      renderScenes();
+      return;
+    }
     render();
     renderScenes();
   };
@@ -5968,13 +6251,31 @@
     const arr = ensureScenes();
     // Sıralama sürükle-bırak ya da ok tuşlarıyla; sıra kullanıcının
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
+    // Düzen kullanıcının seçimi (ayarda); varsayılan tek sütun liste: canlı gösteride sıra belirsiz olmasın
+    cfg.ui = cfg.ui || {};
+    const view = cfg.ui.sceneView === 'grid' ? 'grid' : 'list';
+    host.classList.toggle('is-grid', view === 'grid');
+    host.classList.toggle('is-list', view !== 'grid');
+    const dock = $('dockScenes');
+    const head = dock && dock.querySelector('.dock-head');
+    if (head) {
+      let tg = head.querySelector('.scene-view');
+      if (!tg) {
+        tg = el('div', { class: 'scene-view sv-seg', role: 'group', 'aria-label': tr('Sahne düzeni') });
+        head.insertBefore(tg, head.querySelector('#sceneSaveBtn'));
+      }
+      tg.replaceChildren(...[['list', 'list', 'Liste'], ['grid', 'grid', 'Izgara']].map(([v, ic, lb]) => el('button', {
+        class: 'icon-btn small' + (view === v ? ' on' : ''), type: 'button', icon: ic, title: tr(lb), 'aria-label': tr(lb), 'aria-pressed': String(view === v),
+        onclick: () => { if (cfg.ui.sceneView === v) return; cfg.ui.sceneView = v; push(true); renderScenes(); },
+      })));
+    }
     if (!arr.length) {
       host.appendChild(
         el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') })
       );
       return;
     }
-    arr.forEach((sc) => {
+    arr.forEach((sc, i) => {
       const thumb = el('div', {
         class: 'scene-thumb',
         title: tr('Bu sahneyi uygula'),
@@ -5986,6 +6287,8 @@
       host.appendChild(
         el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
           dragHandle(tr('Sahneyi taşı')),
+          // Sıra numarası: ızgarada da hangi sahnenin kaçıncı olduğu açık
+          el('span', { class: 'scene-num', text: String(i + 1), title: tr('Sıra') + ' ' + (i + 1) }),
           thumb,
           el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
           el('div', { class: 'scene-acts' }, [
@@ -6604,7 +6907,7 @@
             const name = c.name || (UT.byId(c.id) || {}).name || c.id;
             return el('button', {
               class: c.id === now ? 'on' : '', type: 'button', 'data-theme': c.id, text: tr(name),
-              onclick: () => { T.set(c.id); menu.remove(); },
+              onclick: () => { commitUiTheme(c.id); menu.remove(); },
             });
           })));
         window.SVSceneShell.placeMenu(menu, r.right - 216, r.bottom + 6);

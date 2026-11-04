@@ -1846,11 +1846,39 @@
       this._flushHeldMedia();
     }
 
+    /* Zaman çizelgesi geçişi (#957): geçiş çizelgedeki bir klibin penceresinde
+       başladıysa ilerleme kare süresi biriktirilerek değil gösteri saatinden
+       hesaplanır. Oynatıcı durdurulunca o kare kalır, geri/ileri sarınca o anın
+       karesi çizilir; klibin süresi/türü/eğrisi değişince hemen yansır. */
+    syncTimeline(tl, showT) {
+      const tr = this.trans;
+      if (!tr || !tl || !Array.isArray(tl.tracks) || !(showT >= 0)) return;
+      const TL = window.SVTimeline;
+      if (!TL || !TL.transitionAt) return;
+      if (tr.sync === undefined) {
+        const hit = TL.transitionAt(tl, showT, tr.dur);
+        tr.sync = hit ? { clip: hit.clip.id, track: hit.track.id, base: tr.dur, type: tr.type, ease: tr.ease } : null;
+      }
+      const sy = tr.sync;
+      if (!sy) return;
+      const trk = tl.tracks.find((k) => k.id === sy.track);
+      const c = trk && (trk.clips || []).find((k) => k.id === sy.clip);
+      if (!c) { tr.sync = null; return; }
+      const dur = c.fade > 0 ? c.fade : sy.base;
+      tr.dur = Math.max(0.02, dur);
+      tr.type = c.transType && c.transType !== 'cut' ? c.transType : sy.type;
+      tr.ease = c.transEase || sy.ease;
+      tr.elapsed = Math.max(0, showT - c.start);
+      tr.synced = true;
+    }
+
     // Geçiş sürüyorsa bu karedeki ilerlemesini döndürür, yoksa null
     _tickTransition(dt) {
       const tr = this.trans;
       if (!tr) return null;
-      tr.elapsed += Math.max(0, dt || 0);
+      // Çizelgeye bağlı geçişte süre saatten geldi; kare süresi eklenmez
+      if (tr.synced) tr.synced = false;
+      else tr.elapsed += Math.max(0, dt || 0);
       const raw = Math.min(1, tr.elapsed / tr.dur);
       if (raw >= 1) { this.endTransition(); return null; }
       const T = window.SVTransition;

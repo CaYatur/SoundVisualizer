@@ -269,7 +269,8 @@ test('panel: sol üst tutamaç geçişi ayarlıyor; ateşleme geçişi kullanıy
   winFire('mouseup', {});
   fire(cv, 'mousedown', { clientX: X(1.5), clientY: 16, detail: 1 });
   winFire('mouseup', {});
-  assert.deepStrictEqual(fired, [['faded', 'scene', 'sB', 0.75], ['ref', 'scene', 'sA']]);
+  // #957: geçiş penceresine atlanınca önce giden sahne kesmeyle (deterministik geçiş)
+  assert.deepStrictEqual(fired, [['faded', 'scene', 'sA', 0], ['faded', 'scene', 'sB', 0.75], ['ref', 'scene', 'sA']]);
 });
 
 test('panel: F tam pencereyi açıyor, Esc kapatıyor; Esc tam pencere dışında yutulmuyor', async () => {

@@ -207,6 +207,8 @@
      hissetsin diye kopyalanmaz, ödünç alınır. Modülasyon yüklenmemişse (saf
      birim testi) doğrusal davranılır. */
   function curveFn(name) {
+    // Tut (#957): değer bir sonraki noktaya kadar sabit kalır, o anda sıçrar
+    if (name === 'hold') return () => 0;
     const mod =
       (typeof window !== 'undefined' && window.SVModulation) ||
       (typeof module !== 'undefined' && module.exports && tryRequireModulation());
@@ -280,11 +282,21 @@
          hedef silinmişse ilk uygun hedef. */
       target: typeof s.target === 'string' ? s.target.slice(0, 120) : '',
       fade: Math.max(0, num(s.fade, 0)),
+      /* Klibin KENDİ geçişi (#957): tür ve yumuşatma; boşsa sahnenin
+         varsayılanı. Yalnız bu klipte saklanıyor, sahnenin geçişine
+         dokunmuyor: aynı sahnenin iki klibi farklı geçebilir. */
+      transType: typeof s.transType === 'string' ? s.transType.slice(0, 40) : '',
+      transEase: typeof s.transEase === 'string' ? s.transEase.slice(0, 40) : '',
       /* Kullanıcının verdiği renk (#636); boşsa parçanın rengi, o da yoksa
          türün rengi kullanılıyor (shared/timeline-edit.js clipColor). Model
          her çizimde yeniden kurulduğu için burada TAŞINMAZSA ilk çizimde
          sessizce silinirdi. */
       color: hexColor(s.color),
+      // Parça opaklığı (#957): bu parçanın sahnesi alttakilerin üstüne bu oranla biner
+      opacity: Math.max(0, Math.min(1, s.opacity == null ? 1 : num(s.opacity, 1))),
+      // Klip giriş/çıkış solması (#957, sn): opaklık 0'dan çıkar, sonda 0'a iner
+      fadeIn: Math.max(0, num(s.fadeIn, 0)),
+      fadeOut: Math.max(0, num(s.fadeOut, 0)),
     };
   }
 
@@ -319,6 +331,9 @@
       t.keys = sortKeys(s.keys);
     } else {
       t.clips = (Array.isArray(s.clips) ? s.clips : []).map(makeClip).sort((a, b) => a.start - b.start);
+      // Parça opaklığı (#957): sahnesi alttakilerin üstüne bu oranla biner
+      const op = Number(s.opacity);
+      t.opacity = Number.isFinite(op) ? Math.max(0, Math.min(1, op)) : 1;
     }
     return t;
   }
@@ -350,6 +365,39 @@
       fps: Math.max(1, num(s.fps, 60)),
     };
     if (tl.loop.end <= tl.loop.start) tl.loop.enabled = false;
+    uniqueIds(tl);
+    return tl;
+  }
+
+  /* KİMLİKLER TEKİL (#957). Sayaç her oturumda sıfırdan başlıyordu: yüklenen çizelgede
+     clip_1 varken yeni eklenen klip de clip_1 alıyordu. Seçim ve otomasyon hedefi kimlikle
+     tutulduğundan tek tık birden çok klibi seçiyor, hedef listesinde aynı klip iki kez
+     görünüyordu. Yüklemede sayaç en büyük sonekin üstüne çekiliyor, yinelenen kimlik
+     (ilki yerinde kalarak) yenisini alıyor. */
+  function uniqueIds(tl) {
+    const all = [];
+    for (const trk of tl.tracks) {
+      all.push(trk);
+      for (const c of trk.clips || []) all.push(c);
+    }
+    for (const m of tl.markers) all.push(m);
+    for (const o of all) {
+      const m = /_(\d+)$/.exec(o.id || '');
+      if (m && Number(m[1]) > idCounter) idCounter = Number(m[1]);
+    }
+    const seen = new Set();
+    for (const trk of tl.tracks) {
+      if (seen.has(trk.id)) trk.id = newId('trk');
+      seen.add(trk.id);
+      for (const c of trk.clips || []) {
+        if (seen.has(c.id)) c.id = newId('clip');
+        seen.add(c.id);
+      }
+    }
+    for (const mk of tl.markers) {
+      if (seen.has(mk.id)) mk.id = newId('mk');
+      seen.add(mk.id);
+    }
     return tl;
   }
 
@@ -393,6 +441,100 @@
     return out;
   }
 
+  /* Her parçadan EN FAZLA bir etkin klip: üst üste binen kliplerde en geç
+     başlayan kazanır (eşitlikte listede sonra gelen). clipsAt ikisini de
+     döndürüyordu; panel parça başına son klibi tuttuğu için iki klip her
+     karede sırayla yeniden ateşleniyor ve sahne kare başına iki kez
+     uygulanıyordu. */
+  function activeClipsAt(tl, t) {
+    const best = new Map();
+    for (const e of clipsAt(tl, t)) {
+      const cur = best.get(e.track);
+      if (!cur || e.clip.start >= cur.clip.start) best.set(e.track, e);
+    }
+    return Array.from(best.values());
+  }
+
+  /* Geçiş ilerlemesi zamanın SAF işlevi (#957). Önceden klip geçişi oynatma
+     klibe girince bir kez tetiklenen bir animasyondu: oynatıcı geçişin ortasına
+     park edilince o kare görünmüyor, süre/tür değişince ancak baştan oynatınca
+     yansıyordu. Artık ilerleme = (t - klip başı) / süre, yumuşatmayla; aynı t
+     her zaman aynı kareyi verir. fallbackDur: klibin kendi süresi yoksa (0)
+     sahnenin genel geçiş süresi. ease: (x) => y; verilmezse doğrusal. */
+  function transitionProgress(clip, t, fallbackDur, ease) {
+    if (!clip) return null;
+    const dur = clip.fade > 0 ? clip.fade : Math.max(0, Number(fallbackDur) || 0);
+    if (!(dur > 0) || clip.transType === 'cut') return null;
+    const raw = (t - clip.start) / dur;
+    if (raw < 0 || raw >= 1) return null;
+    const f = typeof ease === 'function' ? ease : null;
+    return { raw, p: f ? f(raw) : raw, dur, local: t - clip.start };
+  }
+
+  /* t anında geçiş penceresinde olan sahne/şablon klibi (parça başına etkin
+     olan). Klibin kendi geçişi olmasa da genel süreyle pencere açılır. */
+  function transitionAt(tl, t, fallbackDur, ease) {
+    if (!tl || !Array.isArray(tl.tracks)) return null;
+    // Geçiş öndeki (en üst parçadaki) sahnenin geçişi
+    for (const e of sceneStack(tl, t).slice(0, 1)) {
+      const c = e.clip;
+      const pr = transitionProgress(c, t, fallbackDur, ease);
+      if (pr) return Object.assign({ track: e.track, clip: c }, pr);
+    }
+    return null;
+  }
+
+  /* İşaret vuruş testi (#957): bayrağın tamamı (etiket kapsülü + 4 px pay),
+     cetvel boyunca dikey çizginin ±4 px'i. Önceden yalnız bayrağın ilk 12
+     px'i ve 14 px'lik bir bant tutuyordu; işaret seçmek çok zordu. Üst üste
+     binen işaretlerde sağdaki (sonra çizilen, üstte görünen) kazanır.
+     o: { xOf(t), widthOf(m), rulerH, pad } */
+  function markerHit(markers, x, y, o) {
+    if (!Array.isArray(markers) || !o || typeof o.xOf !== 'function') return null;
+    const rh = o.rulerH || 0;
+    if (y < 0 || y >= rh) return null;
+    const pad = o.pad == null ? 4 : o.pad;
+    for (let i = markers.length - 1; i >= 0; i--) {
+      const m = markers[i];
+      const mx = o.xOf(m.t);
+      const w = typeof o.widthOf === 'function' ? Math.max(8, o.widthOf(m) || 0) : 8;
+      const inPill = y >= rh - 19 - pad && x >= mx - pad && x <= mx + w + pad;
+      const onLine = y >= rh - 19 - pad && Math.abs(x - mx) <= 4;
+      if (inPill || onLine) return m;
+    }
+    return null;
+  }
+
+  /* Bitişik işarete atlama: dir -1 önceki, +1 sonraki (t'ye göre) */
+  function markerStep(markers, t, dir) {
+    if (!Array.isArray(markers) || !markers.length) return null;
+    const list = markers.slice().sort((a, b) => a.t - b.t);
+    if (dir > 0) return list.find((m) => m.t > t + 1e-6) || null;
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].t < t - 1e-6) return list[i];
+    return null;
+  }
+
+  /* Üst üste binen sahne klipleri (#957): katman listesindeki gibi BİLEŞİM.
+     Önceden her parçanın klibi sırayla uygulanıyor, sonuncusu (en ALTTAKİ
+     parça) sahneyi ezip kazanıyordu. Artık en üstteki parçanın sahnesi önde,
+     alttakiler arkada katman olarak çalışmaya devam ediyor. Susturulan parça
+     atlanır, solo varsa yalnız solo parçalar (activeClipsAt süzüyor).
+     sceneStack: etkin sahne/şablon klipleri, EN ÜSTTEKİ parça önce. */
+  function isSceneClip(c) { return !!c && (c.type === 'scene' || c.type === 'preset'); }
+  function sceneStack(tl, t) {
+    return activeClipsAt(tl, t).filter((e) => isSceneClip(e.clip));
+  }
+
+  /* Aynı parçada bu klipten önce biten (giden) klip: geçişin "nereden"i */
+  function clipBefore(trk, clip) {
+    let best = null;
+    for (const c of (trk && trk.clips) || []) {
+      if (c === clip || c.id === clip.id) continue;
+      if (c.start < clip.start && (!best || c.start > best.start)) best = c;
+    }
+    return best;
+  }
+
   /* Otomasyonun o andaki değerleri: { 'dotted.path': değer }.
      Susturulmuş parça hiç yazmaz — canlı modülasyonun o hedefi sürmesine izin
      verir, sıfırlamaz. */
@@ -401,11 +543,42 @@
     const solo = anySolo(tl);
     for (const trk of tl.tracks) {
       if (trk.kind !== 'automation' || !audible(trk, solo) || !trk.target) continue;
+      // Çizelgenin kendi hedefleri (parça/klip opaklığı) yapılandırmaya yazılmaz
+      if (isTimelineTarget(trk.target)) continue;
       const norm = evalKeys(trk.keys, t);
       if (norm == null) continue;
       out[trk.target] = trk.min + (trk.max - trk.min) * clamp(norm, 0, 1);
     }
     return out;
+  }
+
+  /* Çizelge içi otomasyon hedefleri (#957): 'tl.track.<id>.opacity' ve
+     'tl.clip.<id>.opacity'. Yapılandırmada karşılıkları yok; bileşim
+     (entryOpacity) onları doğrudan okur. */
+  function isTimelineTarget(path) {
+    return typeof path === 'string' && /^tl\.(track|clip)\./.test(path);
+  }
+  function timelineTargetAt(tl, path, t) {
+    const solo = anySolo(tl);
+    for (const trk of tl.tracks) {
+      if (trk.kind !== 'automation' || trk.target !== path || !audible(trk, solo)) continue;
+      const norm = evalKeys(trk.keys, t);
+      if (norm == null) continue;
+      return clamp(trk.min + (trk.max - trk.min) * clamp(norm, 0, 1), 0, 1);
+    }
+    return null;
+  }
+  /* Bir klibin t anındaki etkin opaklığı: parça × klip (otomasyon varsa o
+     değer sabitin yerine geçer) × giriş/çıkış solması. */
+  function entryOpacity(tl, track, clip, t) {
+    const ta = timelineTargetAt(tl, 'tl.track.' + track.id + '.opacity', t);
+    const ca = timelineTargetAt(tl, 'tl.clip.' + clip.id + '.opacity', t);
+    let op = (ta != null ? ta : track.opacity == null ? 1 : track.opacity) * (ca != null ? ca : clip.opacity == null ? 1 : clip.opacity);
+    const local = t - clip.start;
+    if (clip.fadeIn > 0 && local < clip.fadeIn) op *= clamp(local / clip.fadeIn, 0, 1);
+    const left = clip.start + clip.dur - t;
+    if (clip.fadeOut > 0 && left < clip.fadeOut) op *= clamp(left / clip.fadeOut, 0, 1);
+    return clamp(op, 0, 1);
   }
 
   /* Tempo değiştiğinde müzikal konumları korumak İSTEYEN kullanıcı için açık
@@ -586,7 +759,18 @@
     makeTimeline,
     timelineLength,
     clipsAt,
+    activeClipsAt,
+    transitionProgress,
+    transitionAt,
+    clipBefore,
+    markerHit,
+    markerStep,
+    sceneStack,
+    isSceneClip,
     automationAt,
+    isTimelineTarget,
+    timelineTargetAt,
+    entryOpacity,
     audible,
     anySolo,
     applyAutomation,
@@ -597,6 +781,7 @@
     Transport,
     CLIP_TYPES,
     newId,
+    uniqueIds,
     resetIds,
   };
 

@@ -76,7 +76,7 @@ input[type='text']:hover, input[type='number']:hover, input[type='search']:hover
 input[type='text']:focus, input[type='number']:focus, input[type='search']:focus, input[type='url']:focus, input[type='password']:focus, input.p-in:focus, input.num:focus, input.txt:focus,
 textarea:not(.code-input):not(.mded-input):focus, select:focus { border: 0; outline: 0; box-shadow: var(--sv-focus); }
 textarea:not(.code-input):not(.mded-input) { border: 0; border-radius: 9px; padding: 8px 10px; background-color: var(--sv-fill); color: var(--text); font-size: 12.5px; }
-select { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; }
+select { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; line-height: normal; vertical-align: middle; }
 .p-in.p-in, select.p-in, input.p-in, .up-name.up-name, .md-tags-in.md-tags-in { border: 0; border-radius: 8px; background-color: var(--sv-fill); color: var(--text); min-height: 28px; padding: 0 9px; font-size: 12.5px; box-shadow: none; }
 .p-in.p-in:hover, .up-name.up-name:hover { background-color: rgb(var(--fg-rgb) / .1); }
 .p-in.p-in:focus, .up-name.up-name:focus, .md-tags-in.md-tags-in:focus { box-shadow: var(--sv-focus); border: 0; }
@@ -116,18 +116,26 @@ input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.14); }
 .sv-form .group, .sv-insp .group { margin: 0 0 8px; padding: 0 0 6px; border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); }
 .sv-form .group:not(:has(> .group-label)), .sv-insp .group:not(:has(> .group-label)) { padding-top: 6px; }
 .group-label { display: flex; align-items: center; gap: 6px; width: 100%; }
+/* Ayarlar: katlanmayan düz bölüm etiketi (#957) */
+.group-label.static { cursor: default; user-select: none; display: flex; align-items: center; }
 .sv-form .group-label { padding: 6px var(--sv-inset) 4px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong); }
 .sv-insp .group-label { padding-left: var(--sv-inset); }
+/* Katman bölmesinde başlık, denetimlerin iç kenarına hizalı (#957) */
+.sv-insp .layer-pane > .group-label { padding-left: calc(var(--sv-inset) * 2); }
 .sv-form .group > :where(:not(.ctrl):not(.group-label)) .group-label, .sv-insp .group > :where(:not(.ctrl):not(.group-label)) .group-label { padding-inline: 0; }
-button.group-label {
+button.group-label, .group-label.static {
   height: 36px; margin: 0; padding: 0 8px 0 var(--sv-inset); border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left;
   font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong);
 }
 button.group-label:hover { background: var(--sv-well); }
+.group-label.static, .group-label.static:hover { cursor: default; background: none; }
 .sv-caret { display: inline-flex; color: var(--muted2); transition: transform .14s; }
 .sv-caret .svi { width: 14px; height: 14px; }
 .group.closed .sv-caret { transform: rotate(-90deg); }
-.group.closed > :not(.group-label) { display: none; }
+/* Kapalı grubun gövdesi her zaman gizli (#957): bazı denetimlerin kendi display kuralı bunu eziyordu */
+.group.closed > :not(.group-label) { display: none !important; }
+/* Görünür içeriği olmayan grup başlığı gizli (#957) */
+.group.sv-empty { display: none !important; }
 .group.closed { padding-bottom: 0; }
 
 /* Satırlar: her şey aynı iki kenarda */
@@ -193,7 +201,7 @@ body[data-single] .sv-form > .card > .group, .sv-form .card[data-card='settings-
 body[data-single] .sv-form > .card > .group:not(:has(> .group-label)) { padding-top: 8px; }
 .sv-form .card[data-card='settings-main'] .group-label { margin: 0; border: 0; letter-spacing: 0; color: var(--text-strong); }
 .sv-form .card[data-card='settings-main'] .group-label::before { display: none; }
-.sv-form .card[data-card='settings-main'] button.group-label { padding: 0 8px 0 var(--sv-inset); font-size: 12.5px; }
+.sv-form .card[data-card='settings-main'] button.group-label, .sv-form .card[data-card='settings-main'] .group-label.static { padding: 0 8px 0 var(--sv-inset); font-size: 12.5px; }
 .sv-form .card[data-card='settings-main'] .group .ctrl { margin: 0; }
 .sv-form .card[data-card='settings-main'] .group select { max-width: none; width: 100%; }
 .sv-head-acts { display: flex; align-items: center; gap: 4px; }
@@ -488,8 +496,9 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .tl-tog.m.on { background: var(--danger); color: var(--on-solid); }
 .tl-tog.s.on { background: var(--solo); color: var(--on-solo); }
 .tl-tog.l.on { color: var(--lock); background: none; }
-.tl-head .tl-tog.s:not(.on), .tl-head .tl-tog.l:not(.on) { opacity: 0; }
-.tl-head:hover .tl-tog { opacity: 1; }
+/* M/S/kilit her zaman görünür (#957); kapalıyken soluk */
+.tl-head .tl-tog:not(.on) { opacity: .55; }
+.tl-head .tl-tog:hover { opacity: 1; }
 .tl-canvas-wrap { background: none; }
 #svTimeSide .dock-head { padding: 2px 0 6px; }
 #svTimeSide .tl-inspector { border: 0; margin: 0; padding: 0; }
@@ -604,6 +613,7 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .sv-safe[hidden] { display: none; }
 .preview-stage .sv-safe { z-index: 3; }
 #svStageTools { top: 10px; right: 10px; z-index: 6; }
+body:has(.preview-stage.paused) #svStageTools { z-index: 62; }
 body[data-page='live'] #svStageTools { display: none; }
 #svStageTools .icon-btn { width: 26px; height: 26px; border-radius: 7px; color: rgb(var(--on-media-rgb) / .8); }
 #svStageTools .icon-btn:hover { background: rgb(var(--on-media-rgb) / .14); color: rgb(var(--on-media-rgb)); }
@@ -714,3 +724,74 @@ body[data-page='live'] #svStageTools { display: none; }
   .studio-editor-grid { grid-template-columns: minmax(0, 1fr) 250px; }
   body[data-page='time'] .dock { grid-template-columns: 196px minmax(0, 1fr) 240px; }
 }
+
+/* ---- Yerleşim düzeltmeleri (ui-layout): düğme kenarı, yapışık düğmeler, hizalar ---- */
+/* Eski üçgenli katlanır satırlar yeni "Gelişmiş" satırıyla aynı görünümde */
+.fold-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 4px 0; padding: 0 12px; border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0; }
+.fold-head:hover { background: var(--sv-fill); color: var(--text); }
+.fold-head .fold-caret { margin-right: 0; }
+.fold-body { padding-left: 0; border-left: 0; }
+/* Yan yana düğmeler arasında nefes payı */
+.sv-btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sv-shelf-mode, .sv-sm { gap: 4px; }
+.tl-group { gap: 4px; }
+.sv-hud .dock-head-actions, #previewTools { gap: 4px; }
+/* TAKE yuvarlak düğmesinde yazı tek satır */
+.sv-take { white-space: nowrap; }
+/* Stüdyo araç çubuğu: simgeler bir arada kalıyor, Klasör alt satıra tek başına düşmüyor */
+.studio-toolbar-icons { display: flex; gap: 4px; margin-left: auto; }
+/* Stüdyo yan sütunu: başlık, etiket ve parametreler tek sol kenarda */
+.studio-side-col .studio-params { padding: 0; }
+.studio-side-col .studio-save .ctrl.ctrl { padding-left: 6px; }
+.studio-side-col .studio-note { margin-inline: 6px; }
+/* Tempoya Vur: dar sütunda simge + yazı kenara dayanmasın */
+.bpm-box > .btn { gap: 5px; padding-inline: 8px; white-space: nowrap; }
+/* Dar canlı sütununda simge düşüyor, yazı sığıyor */
+.autovj-panel { container-type: inline-size; }
+@container (max-width: 300px) { .bpm-box > .btn .svi { display: none; } }
+/* Çıktı sayfası: uzun seçim metinleri (kodek, çözünürlük) dar formda kesilmesin; etiket üstte, seçim tam genişlikte */
+@container forms (max-width: 619px) {
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) { grid-template-columns: minmax(0, 1fr); row-gap: 4px; padding-block: 4px; }
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > select { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; }
+  /* shell.css'teki .sv-insp kuralı seçimi 1. satıra sabitliyordu; tek sütunda etiketin üstüne biniyordu */
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > label.lbl { grid-row: 1; grid-column: 1 / -1; }
+}
+/* Dışa aktarma düğmeleri tek yükseklikte; sığmazsa alt satıra iniyor */
+.sv-export-run > .row { flex-wrap: wrap; }
+.sv-export-run > .row > .btn { height: 38px; margin: 0; }
+.sv-export-run #exportAnalysisBtn, .sv-export-run #exportCancelBtn { flex: 1 1 auto; justify-content: center; }
+/* Işık: not, durum satırlarıyla aynı sol kenarda (eski kutu dolgusu girinti yapıyordu) */
+.lighting-panel > .lighting-priority-note { padding: 0; border-radius: 0; }
+/* Aydınlatma Tara + Windows Ayarları: genel .ctrl blok kuralı esnek satırı ezip düğmeleri yapıştırıyordu */
+#sections .ctrl.lighting-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Anahtar (switch) satırları: etiket kalan genişliği kullanır, anahtar sağda sabit kalır */
+.sv-insp .ctrl:has(> .row > .switch) { display: block; }
+.sv-insp .ctrl > .row:has(> .switch) { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0; }
+.sv-insp .ctrl > .row:has(> .switch) > label.lbl { flex: 1 1 auto; min-width: 0; font-size: 12.5px; grid-column: auto; overflow-wrap: anywhere; }
+.sv-insp .ctrl > .row:has(> .switch) > .switch { flex: 0 0 auto; margin-left: auto; display: inline-block; }
+/* Dinamik tema: seçim kutusu tam genişlik, ipucu ve alt satırlar aynı girintide */
+.sv-insp .dynamic-theme-panel select { width: 100%; min-width: 0; }
+.sv-insp .dynamic-theme-panel .subctrls { margin-left: var(--sv-inset); margin-right: var(--sv-inset); padding-left: 10px; }
+.sv-insp .dynamic-theme-panel .subctrls .ctrl { padding: 0; }
+.sv-insp .dynamic-theme-panel .dim-hint { margin: 4px 0 0; padding: 0; }
+
+/* Ayar satırı ızgarası (#957): [nokta][etiket][sıfırla] sabit yuvalarda. Sıfırlama
+   düğmesi eskiden etiketin sağına mutlak konumla biniyordu ve uzun etiketin son
+   harflerini örtüyordu ("Yatay Konum (X)"). Artık akışta, yeri hep ayrılmış;
+   etiket sığmazsa üç noktayla kısalır, tam adı ipucunda. */
+.ctrl label.lbl { min-width: 0; flex: 0 1 auto; }
+.ctrl > .row > label.lbl { flex: 1 1 auto; }
+.ctrl > .row > .val { flex: none; }
+.ctrl label.lbl > .lbl-t { display: block; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctrl label.lbl > .lbl-t:has(> :not(.svi)) { display: inline-flex; }
+.ctrl > .row > label.lbl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex: none; background: transparent; }
+.ctrl-reset.ctrl-reset { position: static; margin: 0 0 0 2px; display: inline-flex; visibility: hidden; flex: none; }
+.ctrl.modified .ctrl-reset.ctrl-reset { visibility: visible; }
+/* Katman bölmesindeki kitaplık da ortak iç kenarda (#957) */
+.sv-insp .layer-pane > .logo-lib, .sv-insp .layer-body > .logo-lib, .sv-insp .card > .logo-lib, .sv-insp .group > .logo-lib { margin-inline: var(--sv-inset); }
+.sv-insp .logo-lib .studio-note { margin-inline: 0; }
+/* Satırsız başlık da değişiklik noktası sütununa hizalı (#957): 5px nokta + 6px boşluk */
+.sv-insp .layer-pane > .ctrl > label.lbl { margin-left: 11px; }
+/* Stüdyo yan sütununda başlıkla aynı kenar: nokta sütunu yok, sıfırlama ikonu değişikliği gösteriyor */
+.studio-side-col .ctrl > .row > label.lbl::before { display: none; }

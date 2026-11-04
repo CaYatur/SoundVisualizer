@@ -159,7 +159,7 @@ async function walk(s, locale) {
 }
 
 async function main() {
-  const s = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: PORT });
+  const s = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: PORT, asWindows: process.argv.includes('--as-windows') });
   const en = await walk(s, 'en');
   const enErrors = s.errors.splice(0);
   const tr = await walk(s, 'tr');

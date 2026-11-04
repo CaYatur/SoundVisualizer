@@ -336,7 +336,139 @@
     return TYPE_COLORS[clip && clip.type] || TYPE_COLORS.scene;
   }
 
+
+  // --------------------------------------------------------------------------
+  // NLE düzenleme yardımcıları (#957): parçalar arası taşıma, mıknatıslı
+  // yakalama, otomasyon hedef bilgisi ve kayıt
+  // --------------------------------------------------------------------------
+
+  /* Klibi başka bir parçaya taşı. Yalnız klip parçaları uyumlu; otomasyon
+     parçası klip almaz. Kilitli hedef reddediliyor. Hedef sıra parça
+     sayısına eşitse (son parçanın altı) yeni bir klip parçası açılıyor;
+     `makeTrack` verilmediyse açılamaz. Dönen: taşındığı parça ya da null. */
+  function moveClipToTrack(tl, clip, toIndex, makeTrack) {
+    if (!tl || !Array.isArray(tl.tracks) || !clip) return null;
+    const from = tl.tracks.find((t) => t.kind === 'clip' && Array.isArray(t.clips) && t.clips.indexOf(clip) >= 0);
+    if (!from || from.locked) return null;
+    let to = tl.tracks[toIndex];
+    if (!to) {
+      if (toIndex !== tl.tracks.length || typeof makeTrack !== 'function') return null;
+      to = makeTrack();
+      if (!to) return null;
+      tl.tracks.push(to);
+    }
+    if (to.kind !== 'clip' || to.locked) return null;
+    if (to === from) return from;
+    from.clips.splice(from.clips.indexOf(clip), 1);
+    to.clips.push(clip);
+    sortClips(to);
+    return to;
+  }
+
+  /* Komşu klip parçası: `dir` -1 yukarı, +1 aşağı; araya giren otomasyon
+     ve kilitli parçalar atlanıyor. Yoksa -1. */
+  function adjacentClipTrack(tl, index, dir) {
+    if (!tl || !Array.isArray(tl.tracks)) return -1;
+    for (let i = index + dir; i >= 0 && i < tl.tracks.length; i += dir) {
+      const t = tl.tracks[i];
+      if (t.kind === 'clip' && !t.locked) return i;
+    }
+    return -1;
+  }
+
+  /* Mıknatıslı yakalama: `t` bir adayın `tol` saniye yakınındaysa ona
+     oturur. Adaylar klip kenarları, işaretler, oynatma kafası. En yakın
+     aday kazanıyor; hiçbiri yakın değilse null. */
+  function magnetSnap(t, candidates, tol) {
+    let best = null;
+    let bd = tol;
+    for (const c of candidates || []) {
+      if (!isFinite(c)) continue;
+      const d = Math.abs(c - t);
+      if (d <= bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  // Bir parça dışındaki kliplerin kenarları, işaretler ve kafa
+  function snapCandidates(tl, playhead, skipClips) {
+    const out = [];
+    const skip = skipClips || [];
+    for (const trk of (tl && tl.tracks) || []) {
+      if (trk.kind !== 'clip') continue;
+      for (const c of trk.clips) {
+        if (skip.indexOf(c) >= 0) continue;
+        out.push(c.start, c.start + c.dur);
+      }
+    }
+    for (const m of (tl && tl.markers) || []) out.push(m.t);
+    if (isFinite(playhead)) out.push(playhead);
+    return out;
+  }
+
+  /* Otomasyon hedefinin okunur bilgisi: katalogdaki ad, grup ve aralık.
+     Katalogda yoksa yolun son parçası ad; aralık mevcut değerden. */
+  function targetInfo(catalog, path, current) {
+    const cat = Array.isArray(catalog) ? catalog : [];
+    const hit = cat.find((c) => c.path === path);
+    let min;
+    let max;
+    if (hit && hit.min != null && hit.max != null) { min = hit.min; max = hit.max; }
+    else {
+      const v = typeof current === 'number' && isFinite(current) ? current : 1;
+      if (v >= 0 && v <= 1) { min = 0; max = 1; }
+      else { const span = Math.max(1, Math.abs(v) * 2); min = v - span; max = v + span; }
+    }
+    const last = String(path || '').split('.').pop();
+    return { path, label: hit ? hit.label : last, group: hit ? hit.group : '', min, max, known: !!hit };
+  }
+
+  // Aramada eşleşen hedefler: ad, grup ya da yol, büyük/küçük harf ve Türkçe i duyarsız
+  function filterTargets(catalog, q) {
+    const norm = (s) => String(s || '').toLocaleLowerCase('tr');
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    return (catalog || []).filter((c) => {
+      const hay = norm(c.group + ' ' + (c.sub || '') + ' ' + c.label + ' ' + (c.keys || '') + ' ' + c.path);
+      return words.every((w) => hay.indexOf(w) >= 0);
+    });
+  }
+
+  /* Kayıt: gerçek değeri 0..1'e çevirip anahtara yaz. Son anahtara `gap`
+     saniyeden yakınsa onu güncelliyor; nokta yağmuru olmuyor. */
+  function recordKey(trk, t, value, gap) {
+    if (!trk || !Array.isArray(trk.keys)) return null;
+    const span = trk.max - trk.min;
+    const v = span ? Math.max(0, Math.min(1, (value - trk.min) / span)) : 0;
+    const g = gap == null ? 0.1 : gap;
+    const near = trk.keys.find((k) => Math.abs(k.t - t) < g);
+    if (near) { near.v = v; return near; }
+    const k = { t: Math.max(0, t), v, curve: 'linear' };
+    trk.keys.push(k);
+    trk.keys.sort((a, b) => a.t - b.t);
+    return k;
+  }
+
+  // Birden çok şerit aynı hedefi sürüyorsa: sonuncusu kazanır, diğerleri uyarı alır
+  function duplicateTargets(tl) {
+    const seen = {};
+    const dup = new Set();
+    for (const t of (tl && tl.tracks) || []) {
+      if (t.kind !== 'automation' || !t.target) continue;
+      if (seen[t.target]) { dup.add(seen[t.target]); dup.add(t.id); }
+      seen[t.target] = t.id;
+    }
+    return dup;
+  }
+
   const api = {
+    moveClipToTrack,
+    adjacentClipTrack,
+    magnetSnap,
+    snapCandidates,
+    targetInfo,
+    filterTargets,
+    recordKey,
+    duplicateTargets,
     History,
     snapshot,
     restore,

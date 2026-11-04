@@ -78,6 +78,7 @@
       P().push(false);
     };
     f.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return; // yalnız sol tuş (#957)
       e.preventDefault();
       f.setPointerCapture(e.pointerId);
       const end = () => { f.removeEventListener('pointermove', at); f.removeEventListener('pointerup', end); P().push(true); };

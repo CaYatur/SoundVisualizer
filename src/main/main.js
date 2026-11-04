@@ -237,6 +237,13 @@ function bridgeOnlyInSettings(file) {
 }
 const BRIDGE_ONLY = BRIDGE_FLAG || bridgeOnlyInSettings(SETTINGS_PATH);
 if (BRIDGE_ONLY) app.disableHardwareAcceleration();
+/* GPU'suz Linux/CI (#957): SV_SOFTWARE_GL=1 yazılım WebGL'ini (SwiftShader) açar. Küçük resim
+   üretimi ve görsel denetimler başsız makinede de motorla çizilebilsin; olağan açılışı etkilemez. */
+if (process.env.SV_SOFTWARE_GL === '1') {
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
+}
 /* Köprü kipinde tek kopya (#813): ikinci kez açmak (kısayol, `--bridge`)
    yeni bir köprü açıp aynı portu ve ses aygıtını kapmaya çalışmasın;
    çalışan köprünün panelini açar. Kilit profil klasörüne bağlı, olağan
@@ -2468,6 +2475,7 @@ function closeHelperWindows() {
   // Web katmanının görünmez sayfaları ve etkileşim pencereleri (layer-sources.js)
   if (layerSources) layerSources.shutdown();
   closeThumbWin();
+  closeModeThumbWin();
   closeBridgePlayer();
   // Köprü kipinde durum penceresi köprünün kendisidir; panel kapanınca kalır
   if (!BRIDGE_ONLY) closeBridgeWin();
@@ -7297,19 +7305,24 @@ ipcMain.on('thumbs:done', (e, key, r) => {
   j.resolve(r);
 });
 
-/* ÇIKIŞ AÇIKKEN KÜÇÜK RESİM ÇİZİLMEZ (#905). Gizli pencere GPU'yu canlı görüntüyle paylaşıyor ve
-   her preset için shader derliyor. Kitaplık rafı ızgarayla açılınca ölçüldü: tümleşik GPU'da 5
-   katmanlı sahnede 33 ms'yi aşan sayfa karesi 0'dan 30'a çıktı, GPU belleği 200 MB arttı. Hazır
-   küçük resimler yine geliyor; çizilmemişler çıkış kapanınca sırayla çiziliyor. */
+/* ÇIKIŞ AÇIKKEN KÜÇÜK RESİM SEYREK ÇİZİLİR (#905, #957). Gizli pencere GPU'yu canlı görüntüyle
+   paylaşıyor ve her preset için shader derliyor: tümleşik GPU'da 5 katmanlı sahnede sayfa kareleri
+   takılıyordu. #905 çıkış açıkken çizimi TAMAMEN durdurmuştu; ama çıkış (ya da Spout/doku paylaşımı)
+   v4'te çoğu zaman açık, kuyruk hiç ilerlemiyor ve kitaplıktaki bütün hücreler çizgili bekliyordu
+   (#957). Şimdi çıkış açıkken işler arasında THUMB_BUSY_GAP_MS bekleniyor: tek iş, aralıklı. */
+const THUMB_BUSY_GAP_MS = 1500;
+let thumbLastEnd = 0;
 function thumbOutputBusy() {
   if (SMOKE) return false;
   return openWindows().length > 0 || !!textureShare.window() || !!(exportWin && !exportWin.isDestroyed());
 }
+// Bekleme süresi: çıkış yoksa 0, varsa son işin bitişinden bu yana kalan aralık
+function thumbGapMs(busy, now, lastEnd) {
+  return busy ? Math.max(0, THUMB_BUSY_GAP_MS - (now - lastEnd)) : 0;
+}
 async function thumbTurn() {
-  if (!thumbOutputBusy()) return;
-  clearTimeout(thumbIdle);
-  if (thumbWin && !thumbWin.isDestroyed()) { try { thumbWin.destroy(); } catch { /* zaten kapalı */ } }
-  while (thumbOutputBusy()) await new Promise((r) => setTimeout(r, 1500));
+  const ms = thumbGapMs(thumbOutputBusy(), Date.now(), thumbLastEnd);
+  if (ms > 0) await new Promise((r) => setTimeout(r, ms));
 }
 
 async function renderThumb(job) {
@@ -7334,6 +7347,7 @@ async function renderThumb(job) {
       recipe: mdThumbs.RECIPE,
     });
   });
+  thumbLastEnd = Date.now();
   closeThumbWinSoon();
   return r && r.ok && r.bytes ? Buffer.from(r.bytes) : null;
 }
@@ -7385,6 +7399,130 @@ ipcMain.handle('milkdrop:thumbs', async (e, ids) => {
     setTimeout(() => { thumbTurn().then(pruneThumbs).catch(() => {}); }, 5000);
   }
   return { ok: true, ready };
+});
+
+// ----------------------------------------------------------------------------
+// Görsel / Zemin küçük resimleri (#957) — bkz. src/main/mode-thumbs.js.
+// MilkDrop'unkiyle aynı boru hattı: ThumbQueue, aynı önyükleme
+// (preload-thumbs.js), aynı seyreklik (thumbTurn), `sv-thumb://m/…`.
+// Ayrı gizli pencere: sayfası katman motorunu yüklüyor.
+// ----------------------------------------------------------------------------
+const modeThumbsLib = require('./mode-thumbs');
+let modeThumbWin = null;
+let modeThumbWinReady = null;
+let modeThumbJob = null;
+let modeThumbIdle = null;
+let modeThumbQ = null;
+let modeThumbClient = null;
+let smokeModeThumbDir = null;
+
+function modeThumbDir() {
+  if (SMOKE) {
+    if (!smokeModeThumbDir) smokeModeThumbDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'sv-smoke-mthumbs-'));
+    return smokeModeThumbDir;
+  }
+  return path.join(app.getPath('userData'), 'mode-thumbs');
+}
+const modeThumbShippedDir = () => path.join(__dirname, '..', '..', modeThumbsLib.SHIPPED_DIR);
+
+function ensureModeThumbWin() {
+  if (modeThumbWin && !modeThumbWin.isDestroyed()) return modeThumbWinReady;
+  const R = modeThumbsLib.RECIPE;
+  const win = new BrowserWindow({
+    width: R.renderW,
+    height: R.renderH,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-thumbs.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  modeThumbWin = win;
+  attachSmoke(win, 'MODETHUMBS');
+  modeThumbWinReady = new Promise((resolve) => {
+    const onReady = (e) => {
+      if (e.sender !== win.webContents) return;
+      ipcMain.removeListener('thumbs:ready', onReady);
+      resolve(true);
+    };
+    ipcMain.on('thumbs:ready', onReady);
+    win.on('closed', () => { ipcMain.removeListener('thumbs:ready', onReady); resolve(false); });
+  });
+  win.on('closed', () => {
+    if (modeThumbWin === win) { modeThumbWin = null; modeThumbWinReady = null; }
+    const j = modeThumbJob;
+    if (j) { modeThumbJob = null; clearTimeout(j.timer); j.resolve(null); }
+  });
+  win.webContents.on('render-process-gone', () => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  win.loadFile(path.join(__dirname, '..', 'thumbs', 'modes.html')).catch(() => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  return modeThumbWinReady;
+}
+
+function closeModeThumbWin() {
+  clearTimeout(modeThumbIdle);
+  if (modeThumbQ) modeThumbQ.queue.clear();
+  if (modeThumbWin && !modeThumbWin.isDestroyed()) { try { modeThumbWin.destroy(); } catch { /* zaten kapalı */ } }
+}
+
+ipcMain.on('thumbs:done', (e, key, r) => {
+  const j = modeThumbJob;
+  if (!j || !modeThumbWin || modeThumbWin.isDestroyed() || e.sender !== modeThumbWin.webContents || j.key !== key) return;
+  modeThumbJob = null;
+  clearTimeout(j.timer);
+  j.resolve(r);
+});
+
+async function renderModeThumb(meta) {
+  await thumbTurn();
+  clearTimeout(modeThumbIdle);
+  const ready = await ensureModeThumbWin();
+  if (!ready || !modeThumbWin || modeThumbWin.isDestroyed()) return null;
+  const r = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (modeThumbJob && modeThumbJob.key === meta.key) { modeThumbJob = null; resolve(null); }
+    }, THUMB_JOB_MS);
+    modeThumbJob = { key: meta.key, resolve, timer };
+    modeThumbWin.webContents.send('thumbs:job', meta);
+  });
+  thumbLastEnd = Date.now();
+  modeThumbIdle = setTimeout(() => {
+    if (modeThumbQ && modeThumbQ.queue.pending()) return;
+    if (modeThumbWin && !modeThumbWin.isDestroyed()) { try { modeThumbWin.destroy(); } catch { /* zaten kapalı */ } }
+  }, THUMB_IDLE_MS);
+  return r && r.ok && r.bytes ? Buffer.from(r.bytes) : null;
+}
+
+function modeThumbQueue() {
+  if (!modeThumbQ) {
+    modeThumbQ = new modeThumbsLib.ModeThumbs({
+      root: path.join(__dirname, '..', '..'),
+      shippedDir: modeThumbShippedDir(),
+      dir: modeThumbDir(),
+      render: renderModeThumb,
+      onReady: (id, url) => {
+        if (modeThumbClient && !modeThumbClient.isDestroyed()) modeThumbClient.send('modes:thumb', { id, url });
+      },
+    });
+  }
+  return modeThumbQ;
+}
+
+// items: [{ id, kind: 'vis'|'bg', type }] → { ready: { id: url|'' } }
+ipcMain.handle('modes:thumbs', async (e, items) => {
+  const list = Array.isArray(items) ? items.slice(0, 200) : [];
+  modeThumbClient = e.sender;
+  try {
+    return { ok: true, ready: modeThumbQueue().request(list) };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err), ready: {} };
+  }
 });
 
 // ----------------------------------------------------------------------------
@@ -9072,7 +9210,9 @@ app.whenReady().then(async () => {
      anahtarı: dosya yalnız küçük resim klasöründen okunuyor. Anahtar
      içerikten türediği için değişmiyor, önbellekte süresiz kalabilir. */
   protocol.handle('sv-thumb', async (request) => {
-    const file = mdThumbs.fileForUrl(thumbDir(), request.url);
+    // `sv-thumb://m/…` Görsel/Zemin küçük resmi (#957); gerisi MilkDrop (`sv-thumb://t/…`)
+    const modeFile = modeThumbsLib.fileForModeUrl(modeThumbShippedDir(), modeThumbDir(), request.url);
+    const file = modeFile || mdThumbs.fileForUrl(thumbDir(), request.url);
     if (!file) return new Response('not found', { status: 404 });
     try {
       const buf = await fs.promises.readFile(file);
@@ -11972,6 +12112,7 @@ async function runSmoke() {
   }
   // Öz testin küçük resim klasörü geçici (#575)
   closeThumbWin();
+  closeModeThumbWin();
   if (smokeThumbDir) { try { fs.rmSync(smokeThumbDir, { recursive: true, force: true }); } catch { /* geçici */ } }
   // İşleyici kutuyu kaldırdı; ana süreç hatası yine de koşuyu düşürmeli
   for (const k of faultGuard.errors()) errors.push('main process: uncaught ' + k);

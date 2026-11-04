@@ -258,8 +258,9 @@
     const n = normalizeId(id);
     if (n === SYSTEM_ID) {
       if (moreContrast === true) return BY_ID.contrast;
-      // Koyu cihazda uygulamanın kendi kimliği: CaYaDev
-      return BY_ID[prefersDark === false ? 'light' : DEFAULT_ID];
+      /* Cihaz varsayılanı işletim sistemini izler (#957): koyu → Karanlık,
+         açık → Aydınlık. a336679'da koyu cihaz CaYaDev'e çözülüyordu. */
+      return BY_ID[prefersDark === false ? 'light' : 'dark'];
     }
     return BY_ID[n];
   }

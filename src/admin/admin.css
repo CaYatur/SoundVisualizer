@@ -837,9 +837,18 @@ video.logo-lib-thumb { pointer-events: none; }
 /* Duraklatma işareti CSS'te: ikon setindeki "pause" (icons.js), sabit renkle
    data: URL'si olarak (#665). */
 .preview-stage.paused::after {
-  content: ''; position: absolute; inset: 0; z-index: 6;
-  background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3Cpath d=%22M14.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3C/svg%3E") center / 38px no-repeat, var(--media-scrim);
+  content: ''; position: absolute; inset: 0; z-index: 60; pointer-events: none; background: var(--media-scrim);
 }
+/* Sürdür düğmesi her katmanın üstünde ve tıklanabilir (#957) */
+.sv-resume {
+  position: absolute; left: 50%; top: 50%; z-index: 61; transform: translate(-50%, -50%);
+  width: 56px; height: 56px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--media-scrim); color: rgb(var(--on-media-rgb) / .85); cursor: pointer;
+}
+.sv-resume[hidden] { display: none; }
+.sv-resume:hover, .sv-resume:focus-visible { color: rgb(var(--on-media-rgb)); outline: 2px solid var(--accent); }
+.sv-resume .svi { width: 26px; height: 26px; }
+.preview-stage.paused { cursor: pointer; }
 
 /* --- seviye göstergeleri --- */
 .meter-strip { display: flex; flex-direction: column; gap: 7px; }
@@ -1225,7 +1234,30 @@ input.num {
 }
 input.num:focus { border-color: var(--accent); }
 .tl-editor { border: 1px solid var(--line); border-radius: 10px; outline: none; background: var(--bg2); }
-.tl-editor:focus-visible, .tl-editor:focus-within { border-color: var(--line2); box-shadow: 0 0 0 1px var(--accent-soft); }
+/* Odak halkası yok (#957): tıklayınca kartın çevresinde renkli çizgi
+   kalıyordu. Klavye odağı seçili öğenin vurgusuyla belli. */
+.tl-editor:focus, .tl-editor:focus-visible, .tl-editor:focus-within { outline: none; box-shadow: none; }
+.tl-ctx button, .tl-target-menu button { display: flex; justify-content: space-between; gap: 18px; }
+.tl-ctx kbd { opacity: .6; font: 500 11px ui-monospace, monospace; }
+.tl-ctx .sv-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.tl-target-menu { width: 400px; max-height: 360px; display: flex; flex-direction: column; }
+.tl-target-menu input { margin: 4px 6px 6px; }
+.tl-target-list { overflow: auto; }
+.tl-target-list button.on { color: var(--accent); }
+/* Hedef satırları (#957): tek satır, sola yaslı, renk kutusu + ad; başlıklar parçaya göre */
+.tl-target-menu .tl-target-row { display: flex; justify-content: flex-start; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-size: 12px; text-align: left; white-space: nowrap; cursor: pointer; }
+.tl-target-menu .tl-target-row:hover, .tl-target-menu .tl-target-row:focus-visible { background: rgb(var(--fg-rgb) / .07); }
+.tl-target-menu .tl-target-row.on { color: var(--accent); }
+.tl-target-sw { flex: none; width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .2); }
+.tl-target-lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tl-target-head { position: sticky; top: 0; z-index: 1; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--muted2); background: var(--popover); }
+.tl-target-empty { padding: 8px 10px; opacity: .7; }
+.tl-keys-dlg { max-width: 560px; }
+.tl-keys-dlg table { width: 100%; border-collapse: collapse; }
+.tl-keys-dlg td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.tl-keys-dlg kbd { font: 500 12px ui-monospace, monospace; }
+.tl-tog.rec.on { background: var(--danger); color: var(--on-solid); }
+input[type=range].sv-automated { accent-color: var(--danger); }
 /* Tam pencere düzenleyici (#636 TL-2): panel ekranı kaplar, düzenleme alanı
    pencerenin boyunu alır. Satır içi boy (kullanıcının tutamaktan verdiği) ezilir. */
 .tl-panel.tl-full {
@@ -1270,6 +1302,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .tl-tog.l.on { background: var(--card3); color: var(--text); border-color: var(--line2); }
 .tl-canvas-wrap { flex: 1; min-width: 0; background: rgb(var(--fg-rgb) / .015); }
 .tl-canvas { display: block; width: 100%; cursor: crosshair; }
+/* Oynatma kafası ayrı katman: yalnız transform ile kayar, tuval her karede çizilmez */
+.tl-canvas-wrap { position: relative; overflow: hidden; }
+.tl-playhead { position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; pointer-events: none; will-change: transform;
+  background: var(--accent2); box-shadow: 0 0 8px var(--accent); }
+.tl-playhead::before { content: ''; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 0 0 5px 5px; background: var(--accent2); }
 .tl-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .tl-inspector { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .tl-panel input.txt {
@@ -1902,3 +1939,16 @@ input[type="number"]::-webkit-inner-spin-button {
     forced-color-adjust: none;
   }
 }
+/* Geçiş önizlemesi (#957): yalnız panelde */
+.tr-preview { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.tr-preview-cv { width: 100%; max-width: 320px; aspect-ratio: 16 / 9; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
+.tr-preview-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tr-preview-cap { font-size: 11px; opacity: .7; }
+/* Otomasyonla sürülen ayar (#957) */
+.ctrl.sv-automated input[type=range] { accent-color: var(--danger); }
+.ctrl.sv-automated { box-shadow: inset 3px 0 0 var(--danger); }
+
+/* Öğren (#957): hedef bekleyen kayıt düğmesi yanıp söner */
+.tl-tog.rec.learn { background: rgb(var(--danger-rgb) / .35); color: var(--text-strong); animation: tlLearn 1s ease-in-out infinite; }
+@keyframes tlLearn { 50% { background: var(--danger); color: var(--on-solid); } }
+.tl-target-menu .tl-target-clear { color: var(--danger-text); }

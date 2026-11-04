@@ -111,14 +111,14 @@
      değil. Video, görsel ve shader ise BİR HEDEFE uygulanır (#637 CD-3):
      yuvanın `target` alanı ya da yoksa ilk uygun hedef. Hedef söylenmeden
      rastgele bir katmanın üzerine yazılmıyor. */
-  function applyRef(type, ref, target) {
+  function applyRef(type, ref, target, opts) {
     if (!ref) return false;
     if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
     if (type === 'action') return runActionRef(ref);
     const actions = P().actions ? P().actions() : null;
     if (type === 'scene') {
       if (actions && actions.applyScene) {
-        actions.applyScene(ref);
+        actions.applyScene(ref, opts && (opts.light || opts.transition) ? opts : undefined);
         return true;
       }
       return false;
@@ -177,6 +177,7 @@
     c.transition.enabled = ev.fade > 0;
     if (ev.fade > 0) {
       c.transition.duration = ev.fade;
+      c.transition.unit = 'seconds'; // klip süresi saniye; vuruş birimi süreyi bozuyordu
       if (ev.transition && ev.transition !== 'cut') c.transition.type = ev.transition;
     }
   }
@@ -230,8 +231,21 @@
       applyRef(slot.type, slot.ref);
       return;
     }
+    /* Sahnede geçiş gönderimden ÖNCE ve YALNIZ o gönderim için yazılıyor
+       (applyScene içinde; sonra sahnenin kendi geçişi geri konuyor).
+       Sonradan yazılan süre başlamış geçişi değiştirmiyordu; kalıcı yazmak
+       da sahnenin genel geçişini değiştiriyordu (#957). */
+    if (slot.type === 'scene') {
+      const o = { transition: { duration: Number(ev.fade) || 0, type: ev.transition || '', ease: ev.ease || '' } };
+      if (ev.light) o.light = true;
+      if (ev.under) o.under = ev.under; // çizelgede alttaki parçaların sahneleri (#957)
+      applyRef(slot.type, slot.ref, slot.target, o);
+      return;
+    }
     stashTransition();
-    applyRef(slot.type, slot.ref, slot.target);
+    const o = {};
+    if (ev.light) o.light = true;
+    applyRef(slot.type, slot.ref, slot.target, o);
     overrideTransition(ev);
     P().push(true);
     scheduleRelease(ev.fade);
@@ -701,7 +715,7 @@
     mediaPicker,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
-    applyFaded: (type, ref, fade, target) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0 }),
+    applyFaded: (type, ref, fade, target, opts) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0, light: !!(opts && opts.light), transition: (opts && opts.transType) || '', ease: (opts && opts.transEase) || '', under: (opts && opts.under) || null }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,

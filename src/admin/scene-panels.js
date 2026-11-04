@@ -2479,7 +2479,9 @@
       if (addOnly) break;
       if (only && (!list[i] || list[i].id !== only)) continue;
       const raw = list[i];
-      const l = (list[i] = window.SVLayers.normalizeLayer(raw));
+      /* Yerinde normalize: nesne kimliği korunur. Yeni nesne yazmak, denetçinin ve satırların
+         elinde tuttuğu katmanı listeden koparıyordu; ad değişikliği ve Kaldır boşa gidiyordu. */
+      const l = raw && typeof raw === 'object' ? Object.assign(raw, window.SVLayers.normalizeLayer(raw)) : (list[i] = window.SVLayers.normalizeLayer(raw));
       const typeOpts = typeOptionsFor(l.kind);
       const typeLabel = (typeOpts.find(([v]) => v === l.type) || [null, l.type])[1];
       const kindLabel = LAYER_KIND_LABELS.find(([k]) => k === l.kind)[1];

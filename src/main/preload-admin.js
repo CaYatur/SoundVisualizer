@@ -31,11 +31,14 @@ ipcRenderer.on('lyrics-clock', (_e, anchor) => lyricsClockEvents.push(anchor));
 /* Arayüzün platformu bilmesi gerekiyor: Windows Dynamic Lighting yalnız
    Windows'ta anlamlı, Spout yalnız Windows'ta, Syphon yalnız macOS'ta.
    IPC'ye gerek yok; preload zaten ana süreç tarafında çalışıyor. */
+/* SV_UI_AS_WINDOWS=1: yalnız arayüz denetim araçları (ui-layout/ui-audit) için;
+   Windows'a özgü kartlar Linux/CI'da da çizilip ölçülebilsin. */
+const UI_AS_WIN = process.env.SV_UI_AS_WINDOWS === '1';
 contextBridge.exposeInMainWorld('SV_PLATFORM', {
-  os: process.platform,
-  isWindows: process.platform === 'win32',
+  os: UI_AS_WIN ? 'win32' : process.platform,
+  isWindows: UI_AS_WIN || process.platform === 'win32',
   isMac: process.platform === 'darwin',
-  isLinux: process.platform === 'linux',
+  isLinux: !UI_AS_WIN && process.platform === 'linux',
 });
 
 contextBridge.exposeInMainWorld('api', {
@@ -182,6 +185,9 @@ contextBridge.exposeInMainWorld('api', {
      `sv-thumb://t/<anahtar>.webp` adresinden. */
   milkdropThumbs: (ids) => ipcRenderer.invoke('milkdrop:thumbs', ids),
   onMilkdropThumb: (cb) => ipcRenderer.on('milkdrop:thumb', (e, t) => cb(t)),
+  // Görsel/Zemin küçük resimleri (#957)
+  modeThumbs: (items) => ipcRenderer.invoke('modes:thumbs', items),
+  onModeThumb: (cb) => ipcRenderer.on('modes:thumb', (e, t) => cb(t)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),

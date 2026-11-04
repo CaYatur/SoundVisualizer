@@ -14,7 +14,7 @@
   const P = () => window.SVPanel;
   const SP = () => window.SVScenePanels;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open' };
+  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open', card: 'sv-shelf-card' };
   const read = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* depo yok */ } };
 
@@ -22,6 +22,28 @@
   let shelfTab = read(STORE.shelf, 'milkdrop');
   let shelfOpen = read(STORE.open, '1') !== '0';
   let query = '';
+  /* KART BOYU (#957): alt kitaplık rafının bütün sekmelerindeki kart ızgaraları için tek
+     ayar. Değer en küçük kart genişliği (px); ızgara `auto-fill, minmax(boy, 1fr)` ile
+     satırı eşit doldurur. Ctrl+tekerlek de değiştirir. */
+  const CARD_MIN = 96;
+  const CARD_MAX = 320;
+  const clampCard = (v) => Math.max(CARD_MIN, Math.min(CARD_MAX, Math.round(Number(v) || 146)));
+  let cardSize = clampCard(read(STORE.card, '146'));
+  function applyCardSize(host) {
+    const box = host || document.getElementById('svShelf');
+    if (box) box.style.setProperty('--sv-card', cardSize + 'px');
+  }
+  function setCardSize(v, host) {
+    const n = clampCard(v);
+    if (n === cardSize) return;
+    cardSize = n;
+    write(STORE.card, String(n));
+    applyCardSize(host);
+    const r = (host || document).querySelector('.sv-card-size input');
+    if (r && Number(r.value) !== n) r.value = String(n);
+    // Pencereli ızgaralar sütun sayısını yeniden ölçsün
+    window.dispatchEvent(new CustomEvent('sv-cardsize', { detail: n }));
+  }
   const scrollOf = { layers: 0, inspector: 0, shelf: 0 };
 
   /* Kitaplık sekmeleri ve araçlar. `section` varsa kartın kendisi rafa çiziliyor. */
@@ -49,6 +71,63 @@
   function selected() {
     return layers().find((l) => l && l.id === sel) || null;
   }
+  /* Katman işlemleri kimlikle çalışır: elde tutulan nesne eskimiş olsa da (düzenleyici yenilediyse)
+     işlem listedeki güncel katmana uygulanır. Satır düğmeleri, denetçi ve sağ tık menüsü bunları paylaşır. */
+  const byId = (id) => layers().find((x) => x && x.id === id) || null;
+  const act = {
+    rename(id, name) {
+      const l = byId(id);
+      const v = String(name == null ? '' : name).trim();
+      if (!l || !v) return false;
+      l.name = v;
+      P().apply();
+      return true;
+    },
+    remove(id) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      if (i < 0 || list[i].locked) return false;
+      list.splice(i, 1);
+      if (sel === id) { sel = ''; write(STORE.sel, ''); }
+      P().apply();
+      return true;
+    },
+    duplicate(id) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      if (i < 0) return null;
+      const copy = JSON.parse(JSON.stringify(list[i]));
+      copy.id = null;
+      copy.name = (list[i].name || list[i].kind) + ' (' + tr('kopya') + ')';
+      copy.solo = false;
+      copy.locked = false;
+      const made = window.SVLayers.normalizeLayer(copy);
+      list.splice(i + 1, 0, made);
+      select(made.id, true);
+      P().apply();
+      return made.id;
+    },
+    // dir: +1 öne (listede yukarı), -1 arkaya
+    move(id, dir) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= list.length) return false;
+      const [m] = list.splice(i, 1);
+      list.splice(j, 0, m);
+      P().apply();
+      return true;
+    },
+    flag(id, key) {
+      const l = byId(id);
+      if (!l) return false;
+      if (key === 'enabled') l.enabled = l.enabled === false;
+      else l[key] = !l[key];
+      P().apply();
+      return true;
+    },
+  };
+
   /* `quiet`: seçim yazılır, çizimi çağıran yapar (yeni katman eklenince hemen ardından apply var). */
   function select(id, quiet) {
     sel = id || '';
@@ -141,6 +220,9 @@
     };
     show();
     bar.addEventListener('pointerdown', (e) => {
+      /* Yalnız sol tuş (#957): sağ tık satırın menüsünü açarken saydamlığı
+         da tıklanan yere çekiyordu. Olay satıra gidiyor, menü açılıyor. */
+      if (e.button != null && e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       bar.setPointerCapture(e.pointerId);
@@ -165,15 +247,20 @@
       class: 'sv-lt' + (l.id === sel ? ' sel' : '') + (l.enabled === false || l.muted ? ' off' : ''),
       'data-id': l.id, draggable: l.locked ? 'false' : 'true', role: 'button', tabindex: '0',
       onclick: () => select(l.id),
-      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(l.id); } },
+      onkeydown: (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(l.id); }
+        // Klavyeyle bağlam menüsü: Shift+F10 ya da Menü tuşu
+        else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); openLayerMenu(l.id, row); }
+      },
+      oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); openLayerMenu(l.id, row, e.clientX, e.clientY); },
     }, [
       thumbOf(l),
       el('span', { class: 'sv-nm' }, [el('b', { text: titleOf(l) }), el('span', { text: subOf(l) })]),
       el('span', { class: 'sv-lt-acts' }, [
-        toggle('solo', !!l.solo, 'S', null, 'Solo: yalnızca solo katmanlar çizilir', () => { l.solo = !l.solo; P().apply(); }),
-        toggle('mute', !!l.muted, 'M', null, 'Sessiz: katmanı ayarlarını kaybetmeden gizler', () => { l.muted = !l.muted; P().apply(); }),
-        toggle('lock', !!l.locked, '', 'lock', 'Kilit: kazara düzenlemeyi engeller', () => { l.locked = !l.locked; P().apply(); }),
-        toggle('vis', l.enabled === false, '', l.enabled === false ? 'eye-off' : 'eye', 'Katmanı aç/kapat', () => { l.enabled = l.enabled === false; P().apply(); }),
+        toggle('solo', !!l.solo, 'S', null, 'Solo: yalnızca solo katmanlar çizilir', () => act.flag(l.id, 'solo')),
+        toggle('mute', !!l.muted, 'M', null, 'Sessiz: katmanı ayarlarını kaybetmeden gizler', () => act.flag(l.id, 'muted')),
+        toggle('lock', !!l.locked, '', 'lock', 'Kilit: kazara düzenlemeyi engeller', () => act.flag(l.id, 'locked')),
+        toggle('vis', l.enabled === false, '', l.enabled === false ? 'eye-off' : 'eye', 'Katmanı aç/kapat', () => act.flag(l.id, 'enabled')),
       ]),
       l.kind === 'logo' ? null : opacityBar(l),
     ]);
@@ -215,8 +302,10 @@
     menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
     setTimeout(() => {
       const close = () => { menu.remove(); document.removeEventListener('pointerdown', off, true); document.removeEventListener('keydown', esc, true); };
-      const off = (e) => { if (!menu.contains(e.target)) close(); };
-      const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      // Menü bir öğeyle kapandıysa dinleyiciler de gider; yoksa bir sonraki
+      // Esc (ör. satır içi ad kutusunun) burada yutuluyordu (#957).
+      const off = (e) => { if (!menu.isConnected || !menu.contains(e.target)) close(); };
+      const esc = (e) => { if (!menu.isConnected) { close(); return; } if (e.key === 'Escape') { e.stopPropagation(); close(); } };
       document.addEventListener('pointerdown', off, true);
       document.addEventListener('keydown', esc, true);
     }, 0);
@@ -229,6 +318,95 @@
     const menu = el('div', { class: 'sv-menu sv-add' }, [el('div', { class: 'sv-mh', text: tr('Katman Ekle') }), addRow]);
     addRow.addEventListener('click', (ev) => { if (ev.target.closest('button')) menu.remove(); });
     placeMenu(menu, r.left, r.bottom + 6);
+  }
+
+  /* Satır içi yeniden adlandırma: dolu ve seçili; Enter kaydeder, Esc ya
+     da boş ad vazgeçer. Kaydetme act.rename üzerinden (kalıcı yol). */
+  function startRename(id) {
+    const l = byId(id);
+    if (!l) return null;
+    const find = () => [...document.querySelectorAll('.sv-lt')].find((r) => r.getAttribute('data-id') === id);
+    if (sel !== id) select(id);
+    const row = find();
+    const b = row && row.querySelector('.sv-nm b');
+    if (!b) return null;
+    const inp = P().el('input', { class: 'txt sv-rename', type: 'text', value: titleOf(l), 'aria-label': tr('Katman adı') });
+    const initial = inp.value; // değişmeyen ad kaydedilmez (çevrilmiş ad kalıcı ada yazılmasın)
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      if (row) row.classList.remove('sv-renaming');
+      // Ad değişmese de düzenleyici HER durumda kapanır (#957): önceden
+      // değişmeyen adda yeniden çizim olmuyor ve kutu açık kalıyordu.
+      const ok = !!(save && inp.value !== initial && act.rename(id, inp.value));
+      if (inp.isConnected) {
+        if (ok) { const cur = byId(id); if (cur) b.textContent = titleOf(cur); }
+        inp.replaceWith(b);
+      }
+      if (row && row.isConnected) row.draggable = !(byId(id) || {}).locked;
+    };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    ['click', 'pointerdown', 'mousedown'].forEach((t) => inp.addEventListener(t, (e) => e.stopPropagation()));
+    inp.addEventListener('blur', () => finish(true));
+    b.replaceWith(inp);
+    // Düzenlerken S / M / kilit / göz ve opaklık çubuğu gizlenir, kutu satırı doldurur (#957)
+    if (row) { row.draggable = false; row.classList.add('sv-renaming'); }
+    inp.focus();
+    inp.select();
+    return inp;
+  }
+
+  /* Katman satırının sağ tık menüsü. Satırdaki düğmelerle aynı işlemler (act). */
+  function openLayerMenu(id, row, x, y) {
+    const el = P().el;
+    const l = byId(id);
+    if (!l) return null;
+    const list = layers();
+    const i = list.indexOf(l);
+    const item = (icon, text, fn, opts) => el('button', {
+      type: 'button', role: 'menuitem', icon, text: tr(text), 'data-act': (opts && opts.key) || '',
+      disabled: !!(opts && opts.disabled),
+      onclick: () => { menu.remove(); fn(); if ((!opts || opts.key !== 'rename') && row && row.isConnected) row.focus(); },
+    });
+    /* Önce denetçideki ada odaklanıyordu; ardından satıra geri odaklanmak
+       onu hemen bırakıyordu ve hiçbir şey olmuyordu (#957). Artık satırın
+       içinde düzenleyici açılıyor. */
+    const rename = () => startRename(id);
+    const menu = el('div', { class: 'sv-menu sv-layer-menu', role: 'menu', 'aria-label': tr('Katman') }, [
+      el('div', { class: 'sv-mh', text: titleOf(l) }),
+      item('pencil', 'Yeniden Adlandır', rename, { key: 'rename' }),
+      item('copy', 'Çoğalt', () => act.duplicate(id), { key: 'duplicate' }),
+      item(l.enabled === false ? 'eye' : 'eye-off', l.enabled === false ? 'Göster' : 'Gizle', () => act.flag(id, 'enabled'), { key: 'visible' }),
+      item('sparkle', l.solo ? 'Soloyu Kapat' : 'Solo', () => act.flag(id, 'solo'), { key: 'solo' }),
+      item(l.muted ? 'speaker' : 'mute', l.muted ? 'Sesi Aç' : 'Sessiz', () => act.flag(id, 'muted'), { key: 'mute' }),
+      item('lock', l.locked ? 'Kilidi Aç' : 'Kilitle', () => act.flag(id, 'locked'), { key: 'lock' }),
+      el('hr'),
+      item('arrow-up', 'Öne Taşı', () => act.move(id, 1), { key: 'up', disabled: i >= list.length - 1 }),
+      item('arrow-down', 'Arkaya Taşı', () => act.move(id, -1), { key: 'down', disabled: i <= 0 }),
+      el('hr'),
+      item('trash', 'Kaldır', () => act.remove(id), { key: 'remove', disabled: !!l.locked }),
+    ]);
+    menu.addEventListener('keydown', (e) => {
+      const items = [...menu.querySelectorAll('button:not([disabled])')];
+      const k = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); items[(k + 1) % items.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(k - 1 + items.length) % items.length].focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+      else if (e.key === 'Tab') { e.preventDefault(); menu.remove(); if (row) row.focus(); }
+    });
+    if (x == null && row) { const r = row.getBoundingClientRect(); x = r.left + 24; y = r.bottom - 4; }
+    placeMenu(menu, x || 0, y || 0);
+    // Esc ile kapanınca odak satıra dönsün
+    menu.addEventListener('keydown', (e) => { if (e.key === 'Escape' && row) setTimeout(() => row.isConnected && row.focus(), 0); });
+    const first = menu.querySelector('button:not([disabled])');
+    if (first) first.focus();
+    return menu;
   }
 
   function sceneColors() {
@@ -468,13 +646,13 @@
         el('span', { class: 'sv-names' }, [
           el('input', {
             value: titleOf(l), 'aria-label': tr('Katman adı'),
-            onchange: (e) => { l.name = e.target.value.trim() || l.name; P().apply(); },
+            onchange: (e) => { if (!act.rename(l.id, e.target.value)) e.target.value = titleOf(byId(l.id) || l); },
           }),
           el('small', { text: subOf(l) }),
         ]),
         el('button', {
           class: 'sv-ib sm', type: 'button', icon: 'x', title: tr('Kaldır'), 'aria-label': tr('Kaldır'), disabled: !!l.locked,
-          onclick: () => { const list = layers(); const i = list.indexOf(l); if (i >= 0 && !l.locked) { list.splice(i, 1); sel = ''; write(STORE.sel, ''); P().apply(); } },
+          onclick: () => act.remove(l.id),
         }),
       ])]));
       const card = l.kind === 'visualizer' && l.type === 'milkdrop' ? mdCard(l) : null;
@@ -512,13 +690,70 @@
     for (const [g, items] of groups) {
       if (g) box.appendChild(el('div', { class: 'sv-gh', text: g }));
       for (const it of items) {
-        box.appendChild(el('button', {
+        const th = el('span', { class: 'sv-th', icon: kind === 'bg' ? 'image' : 'bars' });
+        const btn = el('button', {
           class: 'sv-gi nothumb' + (l && l.kind === want && l.type === it.id ? ' cur' : ''), type: 'button',
           onclick: () => applyMode(want, it.id, it.label),
-        }, [el('span', { class: 'sv-th', icon: kind === 'bg' ? 'image' : 'bars' }), el('b', { text: it.label })]));
+        }, [th, el('b', { text: it.label })]);
+        btn.dataset.thumb = kind + ':' + it.id;
+        if (it.id !== 'none') setModeThumb(btn, modeThumbUrls.get(kind + ':' + it.id));
+        box.appendChild(btn);
       }
     }
+    requestModeThumbs(box);
     return box;
+  }
+
+  /* GÖRSEL / ZEMİN KÜÇÜK RESİMLERİ (#957). Ana süreç önce uygulamayla gelen
+     resmi veriyor; yoksa gizli pencerede tek tek çiziyor (kuyruk ve seyreklik
+     MilkDrop küçük resimleriyle ortak). İstek boşta (requestIdleCallback)
+     gidiyor: galeri açılırken panel takılmasın. url '' = çizilemedi, simge kalıyor. */
+  const modeThumbUrls = new Map();
+  let modeThumbBound = false;
+  function setModeThumb(btn, url) {
+    if (!url || btn.dataset.thumbUrl === url) return;
+    btn.dataset.thumbUrl = url;
+    const th = btn.querySelector('.sv-th');
+    if (!th) return;
+    const img = new Image();
+    img.alt = '';
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    img.onload = () => btn.classList.remove('nothumb');
+    img.onerror = () => img.remove();
+    img.src = url;
+    th.appendChild(img);
+  }
+  function requestModeThumbs(box) {
+    const api = window.api;
+    if (!api || typeof api.modeThumbs !== 'function') return;
+    if (!modeThumbBound && typeof api.onModeThumb === 'function') {
+      modeThumbBound = true;
+      api.onModeThumb((t) => {
+        if (!t || typeof t.id !== 'string') return;
+        modeThumbUrls.set(t.id, t.url || '');
+        document.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => { if (b.dataset.thumb === t.id) setModeThumb(b, t.url); });
+      });
+    }
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 200));
+    idle(() => {
+      if (!box.isConnected) return;
+      const items = [];
+      box.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => {
+        const id = b.dataset.thumb;
+        if (modeThumbUrls.has(id) || /:none$/.test(id)) return;
+        const i = id.indexOf(':');
+        items.push({ id, kind: id.slice(0, i), type: id.slice(i + 1) });
+      });
+      if (!items.length) return;
+      api.modeThumbs(items).then((r) => {
+        const ready = (r && r.ready) || {};
+        for (const id of Object.keys(ready)) {
+          modeThumbUrls.set(id, ready[id]);
+          box.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => { if (b.dataset.thumb === id) setModeThumb(b, ready[id]); });
+        }
+      }, () => {});
+    }, { timeout: 1500 });
   }
 
   /* Seçili katman bu türdense onun modu değişiyor; değilse o türün ilk katmanı. Hiç yoksa yeni
@@ -589,6 +824,13 @@
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
+      lib ? el('label', { class: 'sv-card-size', title: tr('Kart boyu (Ctrl + tekerlek)') }, [
+        el('span', { icon: 'grid' }),
+        el('input', {
+          type: 'range', min: String(CARD_MIN), max: String(CARD_MAX), step: '2', value: String(cardSize), 'aria-label': tr('Kart boyu'),
+          oninput: (e) => setCardSize(e.target.value, host),
+        }),
+      ]) : null,
       el('button', {
         class: 'sv-ib sm', type: 'button', icon: shelfOpen ? 'chevron-down' : 'chevron-up',
         title: tr(shelfOpen ? 'Rafı kapat, sahneyi büyüt' : 'Rafı aç'), 'aria-label': tr(shelfOpen ? 'Rafı kapat, sahneyi büyüt' : 'Rafı aç'),
@@ -597,6 +839,15 @@
     ]);
     const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
     host.replaceChildren(head, body);
+    applyCardSize(host);
+    if (!host.dataset.svCardWheel) {
+      host.dataset.svCardWheel = '1';
+      host.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey || !isLib(shelfTab)) return;
+        e.preventDefault();
+        setCardSize(cardSize + (e.deltaY < 0 ? 12 : -12), host);
+      }, { passive: false });
+    }
     paintShelfBody(host);
     const c = document.getElementById('svCenter');
     if (c) c.classList.toggle('tall', !shelfOpen);
@@ -761,5 +1012,5 @@
     });
   }
 
-  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
+  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

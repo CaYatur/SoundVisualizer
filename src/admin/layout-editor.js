@@ -252,10 +252,10 @@
           /* Boyutlandırma tutamacı: sağ alt köşe. Kutunun kendi sürükleme
              dinleyicisine ulaşmasın diye olay burada durur. */
           const h = P().el('span', { class: 'lay-handle', title: tr('Boyutlandırmak için sürükleyin'), 'aria-hidden': 'true' });
-          h.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); startResize(ev, e.id, b); });
+          h.addEventListener('pointerdown', (ev) => { if (ev.button != null && ev.button !== 0) return; ev.stopPropagation(); startResize(ev, e.id, b); });
           b.appendChild(h);
         }
-        b.addEventListener('pointerdown', (ev) => startDrag(ev, e.id));
+        b.addEventListener('pointerdown', (ev) => { if (ev.button != null && ev.button !== 0) return; startDrag(ev, e.id); });
         b.addEventListener('keydown', (ev) => nudge(ev, e.id));
         b.addEventListener('focus', () => select(e.id));
         st.overlay.appendChild(b);
