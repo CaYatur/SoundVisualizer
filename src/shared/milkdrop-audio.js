@@ -660,12 +660,69 @@
     return r < 0 ? 0 : r > BAND_MAX ? BAND_MAX : r;
   }
 
+  /* MilkDrop'a özel giriş katmanı (#957). MilkDrop genel Ses Analizi yolundan
+     GEÇMEZ (kendi oran tabanlı duyarlılığı bozulurdu); bunun yerine kendi
+     sessizlik kapısı, kazancı ve yumuşatması var. Varsayılanlar nötr: kapı
+     kapalı, kazanç 1, yumuşatma 0 -> ses nesnesi olduğu gibi döner.
+     Kapı: zaman alanı RMS'i eşiğin altında `hold` saniye kalırsa kapanır,
+     eşik aşılınca hemen açılır; kapalıyken MilkDrop tam sessizlik görür. */
+  const INPUT_DEFAULTS = { gate: false, gateThreshold: 0.02, gateHold: 0.5, gain: 1, smoothing: 0 };
+  function inputConfig(c) {
+    const o = Object.assign({}, INPUT_DEFAULTS, c || {});
+    o.gain = Math.max(0, Math.min(4, +o.gain || 0));
+    o.smoothing = Math.max(0, Math.min(0.95, +o.smoothing || 0));
+    o.gateThreshold = Math.max(0, +o.gateThreshold || 0);
+    o.gateHold = Math.max(0, +o.gateHold || 0);
+    return o;
+  }
+  function isNeutral(o) { return !o.gate && o.gain === 1 && o.smoothing === 0; }
+  class MilkdropInput {
+    constructor() { this.closed = false; this._quiet = 0; this._buf = {}; this._lvl = null; }
+    _arr(key, src, gain, sm, mute) {
+      if (!src) return src;
+      let b = this._buf[key];
+      const fresh = !b || b.length !== src.length;
+      if (fresh) { b = this._buf[key] = new Float32Array(src.length); b.fill(128); }
+      const out = this._buf[key + 'o'] && this._buf[key + 'o'].length === src.length ? this._buf[key + 'o'] : (this._buf[key + 'o'] = new Uint8Array(src.length));
+      for (let i = 0; i < src.length; i++) {
+        const v = mute ? 128 : 128 + (src[i] - 128) * gain;
+        b[i] = fresh || !sm ? v : sm * b[i] + (1 - sm) * v;
+        out[i] = Math.max(0, Math.min(255, Math.round(b[i])));
+      }
+      return out;
+    }
+    update(audio, cfg, dt) {
+      const o = inputConfig(cfg);
+      if (!audio || isNeutral(o)) { this.closed = false; this._quiet = 0; return audio; }
+      const tb = audio.timeBytes;
+      if (o.gate && tb && tb.length) {
+        let sum = 0;
+        for (let i = 0; i < tb.length; i++) { const v = (tb[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / tb.length);
+        if (rms >= o.gateThreshold) { this._quiet = 0; this.closed = false; }
+        else { this._quiet += dt > 0 ? dt : 1 / 60; if (this._quiet >= o.gateHold) this.closed = true; }
+      } else { this.closed = false; this._quiet = 0; }
+      const mute = this.closed;
+      const v = Object.create(audio);
+      v.timeBytes = this._arr('t', tb, o.gain, o.smoothing, mute);
+      v.timeL = this._arr('l', audio.timeL, o.gain, o.smoothing, mute);
+      v.timeR = this._arr('r', audio.timeR, o.gain, o.smoothing, mute);
+      const lv = { bass: mute ? 0 : (audio.bass || 0) * o.gain, mid: mute ? 0 : (audio.mid || 0) * o.gain, treble: mute ? 0 : (audio.treble || 0) * o.gain };
+      if (this._lvl && o.smoothing) for (const k in lv) lv[k] = o.smoothing * this._lvl[k] + (1 - o.smoothing) * lv[k];
+      this._lvl = lv;
+      v.bass = lv.bass; v.mid = lv.mid; v.treble = lv.treble;
+      v.mdGated = mute;
+      return v;
+    }
+  }
+
   const api = {
     MilkdropAudio, approach, TAU_LONG, TAU_ATT, FLOOR, MAX,
     MilkdropSpectrum, SPEC_IN, SPEC_N, SPEC_OUT,
     MilkdropWaves, WAVE_BUF, WAVE_VALID, ALIGN_LEVELS, WAVE_ALIGN: ALIGN,
     MilkdropBands, BAND_EDGES, BAND_MAX, BAND_GUARD, FAST_FRAMES,
     RATE_ATT_UP, RATE_ATT_DOWN, RATE_LONG_FAST, RATE_LONG,
+    MilkdropInput, INPUT_DEFAULTS, inputConfig,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdropAudio = api;

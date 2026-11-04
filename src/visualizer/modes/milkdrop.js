@@ -3371,6 +3371,12 @@ void main(){
     // ----------------------------------------------------------------- çiz
     draw(audio, cfg, t, dt) {
       if (this._disposed) return;
+      /* MilkDrop'a özel kapı/kazanç/yumuşatma (Ses Analizi › MilkDrop, #957).
+         Varsayılanda nötr: ses nesnesi aynen geçer. */
+      if (window.SVMilkdropAudio && window.SVMilkdropAudio.MilkdropInput) {
+        if (!this._mdIn) this._mdIn = new window.SVMilkdropAudio.MilkdropInput();
+        audio = this._mdIn.update(audio, cfg && cfg.audio && cfg.audio.milkdrop, dt);
+      }
       const W = this.canvas.width;
       const H = this.canvas.height;
       /* Geri besleme yüzeyi TUVAL BOYUTUNDA.

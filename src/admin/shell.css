@@ -476,14 +476,26 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 .topbar.tb-fit2 .topsearch:focus-within input { opacity: 1; }
 .topbar.tb-fit2 .sv-simple > span:last-child { display: none; }
 .topbar.tb-fit2 .sv-pages button { padding: 0 10px; }
-.topbar.tb-fit3 .sv-pages .nav-label, .topbar.tb-fit3 .brand-text { display: none; }
+/* Sıkıştırma sırası (#957): arama, boşluklar, ölçer ve ikincil yazılar önce; marka ve sayfa adları
+   yalnız gerçekten dar pencerede (< 1024 px), görselleştirici açıkken bile 1024+ genişlikte kalır. */
 .topbar.tb-fit3 .sv-vu { width: 30px; }
-.topbar.tb-fit4 .sv-tools .btn { font-size: 0; padding: 0 10px; gap: 0; }
-.topbar.tb-fit4 .display-btn { max-width: 80px; }
-.topbar.tb-fit4 .display-field > span { display: none; }
-.topbar.tb-fit5 .sv-vr, .topbar.tb-fit5 #themeBtn, .topbar.tb-fit5 #statusText { display: none; }
-.topbar.tb-fit5 .sv-tools .sv-ib { width: 30px; }
-.topbar.tb-fit5 .sv-pages button { padding: 0 7px; }
+.topbar.tb-fit3 .display-btn { max-width: 80px; min-width: 0; }
+.topbar.tb-fit3 .display-field > span, .topbar.tb-fit3 .sv-vr, .topbar.tb-fit3 #statusText { display: none; }
+.topbar.tb-fit3 .sv-tools, .topbar.tb-fit3 .display-controls { gap: 4px; }
+.topbar.tb-fit4 .sv-tools .btn { padding: 0 8px; }
+.topbar.tb-fit4 .sv-tools .sv-ib { width: 30px; }
+.topbar.tb-fit4 .sv-pages button { padding: 0 7px; }
+.topbar.tb-fit4 .sv-vu { width: 22px; }
+.topbar.tb-fit5 .display-btn { max-width: 64px; padding: 0 8px; }
+.topbar.tb-fit5 .sv-pages button { padding: 0 6px; gap: 5px; }
+.topbar.tb-fit5 .sv-tools, .topbar.tb-fit5 .display-controls { gap: 2px; }
+/* Son adım (1024 civarı): geri al/yinele kısayolla kalır, ses çipi gizlenir, sekmeler ortalanmak yerine akışa girer */
+.topbar.tb-fit5 #undoBtn, .topbar.tb-fit5 #redoBtn, .topbar.tb-fit5 #audioChip { display: none; }
+.topbar.tb-fit5 .sv-pages { justify-self: start; }
+@media (max-width: 1023px) {
+  .topbar.tb-fit5 .sv-pages .nav-label, .topbar.tb-fit5 .brand-text { display: none; }
+  .topbar.tb-fit5 .sv-tools .btn { font-size: 0; padding: 0 10px; gap: 0; }
+}
 @media (max-width: 1360px) {
   body[data-page='scene'] .sv-scene { grid-template-columns: 236px minmax(0, 1fr) 300px; }
   body[data-page='live'] .sv-live { grid-template-columns: minmax(0, 1fr) 270px; }

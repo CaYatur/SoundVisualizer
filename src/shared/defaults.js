@@ -30,6 +30,8 @@
       smoothing: 0.5, // zaman yumuşatma (0..0.95)
       bassBoost: 2.05, // düşük frekans vurgusu
       humGuard: true, // 50/60 Hz şebeke uğultusu ve dip gürültüsü filtresi (akıllı sessizlik)
+      // MilkDrop'un kendi giriş ayarları (genel analizden bağımsız, varsayılan nötr)
+      milkdrop: { gate: false, gateThreshold: 0.02, gateHold: 0.5, gain: 1, smoothing: 0 },
     },
 
     background: {
