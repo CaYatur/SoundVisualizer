@@ -106,6 +106,44 @@ test('yeni arayüz metinleri çevrilmiş', () => {
   }
 });
 
+test('çeviri çağrısına verilen sabit cümleler sözlükte, koşullu ifadelerin içindekiler dahil', () => {
+  const norm = (x) => x.replace(/\\(.)/g, '$1').replace(/\s+/g, ' ').trim();
+  const keys = new Set();
+  for (const m of i18n.matchAll(/'((?:[^'\\\n]|\\.)*)'\s*:/g)) keys.add(norm(m[1]));
+  const dir = path.join(__dirname, '..', 'src/admin');
+  const missing = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.js'))) {
+    const src = read('src/admin/' + f);
+    for (const m of src.matchAll(/\b(?:tr|tt|T|trStudio)\(/g)) {
+      let i = m.index + m[0].length;
+      const start = i;
+      let depth = 1;
+      let q = null;
+      while (i < src.length && depth > 0 && i - start < 400) {
+        const c = src[i];
+        if (q) { if (c === '\\') i++; else if (c === q) q = null; } else if (c === "'" || c === '"' || c === '`') q = c;
+        else if (c === '(') depth++;
+        else if (c === ')') depth--;
+        i++;
+      }
+      for (const lit of src.slice(start, i - 1).matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) {
+        const t = norm(lit[1]);
+        // Tek sözcüklü ASCII dizeler koddaki kimlikler (wave, auto): cümle ve Türkçe harf aranıyor
+        if ((/ /.test(t) || /[çğıöşüÇĞİÖŞÜ]/.test(t)) && /\p{L}{2}/u.test(t) && !keys.has(t)) missing.push(f + ': ' + t.slice(0, 80));
+      }
+    }
+  }
+  assert.deepStrictEqual(missing, []);
+});
+
+test('arayüz araçları sessizce takılmıyor', () => {
+  const lib = read('scripts/ui-lib.js');
+  assert.match(lib, /EV_LIMIT/);
+  assert.match(lib, /process\.on\('exit'/);
+  assert.match(lib, /\/json\/version/);
+  assert.match(read('scripts/ui-audit.js'), /setTimeout\(go, 400\)/);
+});
+
 test('yerleşim denetimi komutu duruyor', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.strictEqual(pkg.scripts['ui-layout'], 'node scripts/ui-layout.js');

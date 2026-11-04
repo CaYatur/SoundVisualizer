@@ -812,7 +812,7 @@
   function nowplayingStatusRow() {
     const el = P().el;
     const N = window.SVNowPlaying;
-    const line = el('div', { class: 'txt-info np-status' });
+    const line = el('div', { class: 'txt-info np-status', 'data-user-text': '' });
     let status = null;
     const paint = () => {
       const live = window.SVNowLive && window.SVNowLive.state;
@@ -1701,10 +1701,10 @@
             const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
               ? window.SVNowLive.state : null;
             const statusText = live
-              ? ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
-              : 'Şu anda sistemde çalan parça yok (yedek kullanılır)';
+              ? ([live.title, live.artist].filter(Boolean).join(' — ') || tr('(adsız)'))
+              : tr('Şu anda sistemde çalan parça yok (yedek kullanılır)');
             const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
-            out.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText })));
+            out.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText, 'data-user-text': '' })));
 
             out.push(el('div', { class: 'row' }, [
               el('button', {

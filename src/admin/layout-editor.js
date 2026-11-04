@@ -55,7 +55,7 @@
       // Yazılacak nesne yapılandırmadaki katman
       const layer = (cfg.layers || []).find((l) => l && l.id === live.id);
       if (!layer) return;
-      out.push({ id: live.id, kind, layer, name: live.name || tr(KIND_NAMES[kind]) });
+      out.push({ id: live.id, kind, layer, name: tr(live.name || KIND_NAMES[kind]) });
     });
     return out;
   }

@@ -15,6 +15,7 @@ const L = require('./perf-lib');
 
 const REPO = path.join(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const EV_LIMIT = 90000; // tek çağrı bundan uzun sürerse araç takılmış sayılır
 
 function electronPath() {
   const dir = path.join(REPO, 'node_modules/electron/dist');
@@ -47,6 +48,10 @@ const panelReady = '!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cf
 
 /* opts: settings, presets, port. Dönen: { a, app, work, errors, ready } */
 async function startPanel(opts) {
+  // Önceki koşudan kalan uygulama bu kapıyı tutuyorsa yeni koşu farkında olmadan ona bağlanırdı
+  if (await fetch('http://127.0.0.1:' + opts.port + '/json/version').then(() => true, () => false)) {
+    throw new Error('Kapı ' + opts.port + ' dolu: açık kalan uygulamayı kapatın ya da --port= verin');
+  }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-walk-'));
   const ud = path.join(work, 'ud');
   fs.mkdirSync(path.join(ud, 'presets'), { recursive: true });
@@ -56,6 +61,7 @@ async function startPanel(opts) {
     for (const f of fs.readdirSync(opts.presets)) { if (n++ > 300) break; fs.copyFileSync(path.join(opts.presets, f), path.join(ud, 'presets', f)); }
   }
   const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + opts.port], { stdio: 'ignore' });
+  process.on('exit', () => { try { app.kill(); } catch { /* kapalı */ } });
   let t = null;
   for (let i = 0; i < 1200 && !t; i++) {
     await sleep(50);
@@ -63,6 +69,12 @@ async function startPanel(opts) {
   }
   if (!t) throw new Error('panel açılmadı');
   const a = await cdp(t.webSocketDebuggerUrl);
+  // Yanıtsız çağrı aracı sessizce bekletmesin: hangi adımda durduğu yazılsın
+  const rawEv = a.ev;
+  a.ev = (e) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Panel ' + EV_LIMIT / 1000 + ' sn yanıt vermedi: ' + e.slice(0, 160))), EV_LIMIT);
+    rawEv(e).then((v) => { clearTimeout(timer); resolve(v); }, (err) => { clearTimeout(timer); reject(err); });
+  });
   await a.call('Runtime.enable');
   await a.call('Page.enable');
   const errors = [];

@@ -812,7 +812,7 @@
     if (draft.engine === 'variation') {
       rows.push(
         el('div', { class: 'studio-note' }, [
-          el('span', { text: trStudio('Bu bir varyasyon presetidir: temel mod “' + (draft.base || '—') + '” ve o anki tüm ayarları saklanır. ') }),
+          el('span', { text: trStudio('Bu bir varyasyon presetidir: temel mod') + ' “' + (draft.base || '—') + '” ' + trStudio('ve o anki tüm ayarları saklanır.') }),
         ])
       );
       rows.push(
@@ -838,7 +838,7 @@
         icon: compileState.ok ? 'check' : 'x',
         text: compileState.ok
           ? trStudio('Derlendi')
-          : (compileState.line ? trStudio('Satır ') + compileState.line + ': ' : '') + trStudio(compileState.message),
+          : (compileState.line ? trStudio('Kod satırı') + ' ' + compileState.line + ': ' : '') + trStudio(compileState.message),
       });
       const ed = codeEditor(draft.shader, (v) => { draft.shader = v; markDirty(); scheduleCompile(); });
       ed.id = 'studioCode';

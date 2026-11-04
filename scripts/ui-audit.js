@@ -31,7 +31,7 @@ const SHELF = ['milkdrop', 'vis', 'bg', 'templates', 'scenes', 'effects', 'modul
 
 /* Sayfada çalışır. Kullanıcı verisi taşıyan yerler (preset ve sahne adları, kod alanları) dışarıda. */
 const SCAN = String.raw`(() => {
-  const SKIP = 'script,style,textarea,code,pre,.md-grid,.md-list,.md-item,.sv-lt,.cm-editor,.studio-sidebar,[data-noi18n]';
+  const SKIP = 'script,style,textarea,code,pre,.md-grid,.md-list,.md-item,.sv-lt,.cm-editor,.studio-sidebar,[data-noi18n],[data-user-text]';
   const seen = new Map();
   const add = (t, el) => {
     t = t.replace(/\s+/g, ' ').trim();
@@ -69,7 +69,8 @@ async function walk(s, locale) {
   const clipped = new Map();
   const visited = [];
   const scan = async (where) => {
-    await q('new Promise((r) => { document.querySelectorAll(".sv-content details").forEach((d) => { d.open = true; }); requestAnimationFrame(() => setTimeout(r, 30)); })');
+    // Gizli pencerede (ekran kapalı, oturum kilitli) animasyon karesi gelmiyor: tek başına beklenmez
+    await q('new Promise((r) => { document.querySelectorAll(".sv-content details").forEach((d) => { d.open = true; }); const go = () => setTimeout(r, 30); requestAnimationFrame(go); setTimeout(go, 400); })');
     const r = JSON.parse(await q(SCAN));
     for (const t of r.texts) if (!texts.has(t)) texts.set(t, where);
     for (const t of r.clipped) if (!clipped.has(t)) clipped.set(t, where);

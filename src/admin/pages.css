@@ -171,12 +171,12 @@ button.group-label:hover { background: var(--sv-well); }
 .studio-note.sv-clamp:not(.open) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .sv-more { display: block; justify-self: start; align-self: flex-start; width: auto; height: 20px; padding: 0; margin-block: -4px 6px; border: 0; background: none; color: var(--accent-text); font-size: 11.5px; font-weight: 550; cursor: pointer; }
 .sv-more:hover { text-decoration: underline; }
-/* Üç ve daha çok seçenekli kısa bölme dar denetçide kendi satırında: yazılar kırılmasın */
+/* Üç ve daha çok seçenekli bölme dar denetçide kendi satırında; sığmayan seçenek kesilmiyor, alt satıra iniyor */
 #svInspector .ctrl:has(> .segment button:nth-child(3)) > .segment,
-body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment { grid-column: 1 / -1; grid-row: 2; display: flex; margin-top: 4px; width: 100%; }
+body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; margin-top: 4px; width: 100%; }
 #svInspector .ctrl:has(> .segment button:nth-child(3)), body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) { padding-block: 6px; }
 #svInspector .ctrl:has(> .segment button:nth-child(3)) > .segment button,
-body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment button { flex: 1 1 0; min-width: 0; padding-inline: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment button { flex: 1 1 auto; min-width: 0; padding-inline: 8px; white-space: nowrap; }
 
 /* Gelişmiş ayarlar: bölüm başlığıyla aynı satır */
 .adv-summary.adv-summary { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; min-height: 36px; margin: 0 0 8px; padding: 0 12px 0 var(--sv-inset); border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); color: var(--muted); font-size: 12.5px; font-weight: 600; }
