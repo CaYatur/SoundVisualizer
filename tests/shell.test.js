@@ -84,8 +84,16 @@ test('yazı tipi uygulamayla geliyor, lisansıyla', () => {
 test('önizleme çizim boyu sınırlı: büyük sahne sayfası yükü büyütmüyor', () => {
   const P = read('src/admin/preview.js');
   assert.match(P, /const PREVIEW_MAX_H = 540;/);
-  assert.match(P, /const PREVIEW_MAX_H_OUTPUT = 360;/);
-  assert.match(P, /const scale = Math\.min\(dpr, \(outputOpen \? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H\) \/ h\);/);
+  assert.match(P, /const PREVIEW_MAX_H_OUTPUT = 180;/);
+  assert.match(P, /const scale = Math\.min\(dpr, \(outputOpen && !full \? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H\) \/ h\);/);
+});
+
+test('çıkış açıkken küçük resim çizilmiyor, temizlik de bekliyor', () => {
+  const M = read('src/main/main.js');
+  assert.match(M, /async function renderThumb\(job\) \{\s*await thumbTurn\(\);/);
+  assert.match(M, /thumbTurn\(\)\.then\(pruneThumbs\)/);
+  assert.match(M, /openWindows\(\)\.length > 0 \|\| !!textureShare\.window\(\) \|\| !!\(exportWin/);
+  assert.match(read('src/admin/shell.css'), /\.md-thumb-box\.pending \{ animation: none; \}/);
 });
 
 // ---------------------------------------------------------------- geri al

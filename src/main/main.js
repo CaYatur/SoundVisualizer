@@ -7267,7 +7267,23 @@ ipcMain.on('thumbs:done', (e, key, r) => {
   j.resolve(r);
 });
 
+/* ÇIKIŞ AÇIKKEN KÜÇÜK RESİM ÇİZİLMEZ (#905). Gizli pencere GPU'yu canlı görüntüyle paylaşıyor ve
+   her preset için shader derliyor. Kitaplık rafı ızgarayla açılınca ölçüldü: tümleşik GPU'da 5
+   katmanlı sahnede 33 ms'yi aşan sayfa karesi 0'dan 30'a çıktı, GPU belleği 200 MB arttı. Hazır
+   küçük resimler yine geliyor; çizilmemişler çıkış kapanınca sırayla çiziliyor. */
+function thumbOutputBusy() {
+  if (SMOKE) return false;
+  return openWindows().length > 0 || !!textureShare.window() || !!(exportWin && !exportWin.isDestroyed());
+}
+async function thumbTurn() {
+  if (!thumbOutputBusy()) return;
+  clearTimeout(thumbIdle);
+  if (thumbWin && !thumbWin.isDestroyed()) { try { thumbWin.destroy(); } catch { /* zaten kapalı */ } }
+  while (thumbOutputBusy()) await new Promise((r) => setTimeout(r, 1500));
+}
+
 async function renderThumb(job) {
+  await thumbTurn();
   clearTimeout(thumbIdle);
   /* Kuyrukta beklerken dokular değiştiyse bu anahtarın görüntüsü artık bu
      değil: çizilmiyor, bekleyenlere yeniden istemeleri söyleniyor. */
@@ -7335,7 +7351,8 @@ ipcMain.handle('milkdrop:thumbs', async (e, ids) => {
   const ready = thumbQueue().request(items);
   if (!thumbPruned) {
     thumbPruned = true;
-    setTimeout(() => { pruneThumbs().catch(() => {}); }, 5000);
+    // Bütün preset dosyalarını okuyor: canlı görüntüyü beklemeden değil
+    setTimeout(() => { thumbTurn().then(pruneThumbs).catch(() => {}); }, 5000);
   }
   return { ok: true, ready };
 });

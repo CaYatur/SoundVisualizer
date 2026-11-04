@@ -25,7 +25,7 @@
      ve çözümleme paneli onu okuyor; ses yavaşlasa BPM takibi bozulurdu. */
   const PREVIEW_FPS_LOW = 20;
   const PREVIEW_MAX_H = 540;
-  const PREVIEW_MAX_H_OUTPUT = 360;
+  const PREVIEW_MAX_H_OUTPUT = 180;
   const BINS = 1024;
   const TIME_LEN = 2048;
 
@@ -118,9 +118,12 @@
     lastW = w;
     lastH = h;
     /* Sahne sayfasında önizleme büyük: çizim yükü kutunun boyuyla değil bu sınırla büyüsün
-       (#905). Çıkış açıkken öncelik çıkışın. Kutu küçükse dpr sınırı geçerli. */
+       (#905). Çıkış açıkken öncelik çıkışın: eski küçük önizlemenin çizim boyu. Tümleşik GPU'da 5
+       katmanlı sahnede 360p çıkış penceresini 64'ten 57 fps'e indiriyordu, 180p indirmiyor.
+       Önizleme Hızı "Tam" ise hep büyük. */
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const scale = Math.min(dpr, (outputOpen ? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H) / h);
+    const full = cfg && cfg.power && cfg.power.previewRate === 'full';
+    const scale = Math.min(dpr, (outputOpen && !full ? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H) / h);
     stack.resize(Math.round(w * scale), Math.round(h * scale));
     layoutLogo(w, h);
   }

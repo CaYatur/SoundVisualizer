@@ -190,7 +190,7 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 .sv-stagebox { flex: none; height: min(56.25cqw, calc(100cqh - var(--below))); min-height: 0; min-width: 0; display: flex; align-items: flex-start; justify-content: center; container-type: size; position: relative; }
 .sv-frame { position: relative; aspect-ratio: 16 / 9; width: min(100cqw, calc(100cqh * 16 / 9)); }
 .sv-frame .preview-stage { width: 100%; height: 100%; border: 0; border-radius: 14px; box-shadow: 0 0 0 1px rgb(var(--on-media-rgb) / .08), 0 18px 50px rgb(var(--shadow-rgb) / .45); }
-.sv-hud { position: absolute; z-index: 5; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 11px; border-radius: 10px; color: rgb(var(--on-media-rgb)); background: var(--media-scrim); backdrop-filter: blur(12px) saturate(1.3); font-size: 12px; white-space: nowrap; }
+.sv-hud { position: absolute; z-index: 5; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 11px; border-radius: 10px; color: rgb(var(--on-media-rgb)); background: var(--media-scrim); font-size: 12px; white-space: nowrap; }
 .sv-hud.b { left: 50%; bottom: 12px; transform: translateX(-50%); }
 .sv-hud.r { right: 12px; top: 12px; padding: 0 3px; gap: 1px; }
 .sv-hud.l { left: 12px; top: 12px; padding: 0 9px; }
@@ -412,6 +412,10 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 #svShelf #dockScenes { background: none; box-shadow: none; border-radius: 0; padding: 0 12px 12px; display: flex; flex-direction: column; height: 100%; }
 #svShelf #dockScenes .scene-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); grid-auto-rows: min-content; gap: 8px; }
 #svShelf .scene-item { margin: 0; }
+
+/* Bekleyen küçük resim kıpırdamıyor: sürekli animasyon panele her karede yeniden boyatıyordu ve
+   çıkış açıkken küçük resim zaten bekliyor (tümleşik GPU'da 61 -> 63 fps, panel CPU 28 -> 18). */
+.md-thumb-box.pending { animation: none; }
 
 /* Basit görünüm: aynı sahnenin sade hali */
 body.sv-simple-on .sv-pages .sv-adv, body.sv-simple-on .sv-adv { display: none !important; }
