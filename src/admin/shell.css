@@ -458,15 +458,20 @@ body.sv-simple-on .sv-pages .sv-adv, body.sv-simple-on .sv-adv { display: none !
 body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; }
 
 /* Dar pencere: üst çubuk önce yazıları bırakır, sayfa kapsülü yerinde kalır. En küçük pencere 1000 x 560. */
-@media (max-width: 1660px) { .brand .sub { display: none; } .sv-audio-chip span:not([data-icon]):not(.svi) { display: none; } .display-btn { max-width: 120px; } }
+@media (max-width: 1660px) { .sv-audio-chip span:not([data-icon]):not(.svi) { display: none; } .display-btn { max-width: 120px; } .topsearch { width: 120px; } .topsearch .ts-kbd { display: none; } }
 @media (max-width: 1520px) {
-  .sv-audio-chip { display: none; }
+  .sv-pages button { padding: 0 11px; }
+  .sv-vu { width: 34px; }
+  .sv-tools .sv-ib { width: 32px; }
+  .topsearch { width: 86px; }
+  .display-btn { max-width: 96px; padding: 0 10px; }
+}
+@media (max-width: 1450px) { .sv-audio-chip { display: none; } }
+@media (max-width: 1400px) {
   .topsearch { width: 40px; padding: 0 12px; }
   .topsearch input { opacity: 0; width: 100%; }
-  .topsearch .ts-kbd { display: none; }
   .topsearch:focus-within input { opacity: 1; }
   .sv-simple > span:last-child { display: none; }
-  .sv-pages button { padding: 0 11px; }
 }
 @media (max-width: 1360px) {
   .brand-text { display: none; }

@@ -169,11 +169,30 @@ async function main() {
   const faders = await q('document.querySelectorAll("#svLive .sv-vfad").length');
   check('Canlı: faderler', faders > 1, faders);
 
-  // Önizleme öteki sayfada yan rafa dönüyor
+  // Önizleme her sayfada kendi yerine geçiyor
   await click('#pageTabs [data-cat="output"]');
   await sleep(400);
-  check('Çıktı: önizleme yan rafta', await q('!!document.querySelector("#dockStageHost #previewStage")'));
+  check('Çıktı: önizleme ortada', await q('!!document.querySelector("#svOutFrame #previewStage")'));
   check('Çıktı: sahne listesi yan rafta', await q('!!document.querySelector("#dock #sceneList")'));
+  await click('#pageTabs [data-cat="time"]');
+  await sleep(400);
+  check('Zaman: önizleme üst sırada', await q('!!document.querySelector("#dockStageHost #previewStage")'));
+  await q("window.SVPanel.setCategory('studio'); window.SVPanel.setSection('scenegen'); 1");
+  await sleep(400);
+  check('Üretici: örnek ruh halleri', await q('document.querySelectorAll("#sections .gen-example").length') === 3);
+  check('Üretici: önizleme ortada', await q('!!document.querySelector("#svOutFrame #previewStage")'));
+  await q("window.SVPanel.setSection('studio'); 1");
+  // Kurulum ağacı yalnız açık kategoriyi gösteriyor
+  await q("window.SVPanel.setCategory('control'); 1");
+  await sleep(400);
+  check('ağaç: yalnız açık kategorinin bölümleri', await q('[...document.querySelectorAll("#navRail .sv-tree-item")].every((n) => n.getAttribute("data-cat") === "control")'));
+  check('ağaç: öteki kategoriler başlık olarak duruyor', await q('document.querySelectorAll("#navRail button.sv-tree-group").length') >= 5);
+  // Uzun açıklama kısalıyor, istenince açılıyor
+  await q("window.SVPanel.setCategory('output'); window.SVPanel.setSection('record'); 1");
+  await sleep(400);
+  check('uzun not iki satırda', await q('!!document.querySelector("#sections .studio-note.sv-clamp + .sv-more")'));
+  await click('#sections .sv-more');
+  check('uzun not açılıyor', await q('!!document.querySelector("#sections .studio-note.sv-clamp.open")'));
   await click('#pageTabs [data-cat="scene"]');
   await sleep(400);
   check('Sahne: önizleme ortada', await q('!!document.querySelector("#svFrame #previewStage")'));

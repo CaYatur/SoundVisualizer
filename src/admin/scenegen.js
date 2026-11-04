@@ -283,7 +283,7 @@
 
     const input = el('input', {
       class: 'p-in wide', type: 'text', value: prompt,
-      placeholder: 'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"',
+      placeholder: 'Bir ruh hali yazın',
       oninput: (e) => { prompt = e.target.value.slice(0, 200); },
     });
     input.addEventListener('keydown', (e) => {

@@ -1936,7 +1936,7 @@
       const MP = window.SVMilkdropPanel;
       if (MP && MP.isOwnLayer) {
         const own = MP.isOwnLayer(l);
-        out.push(miniToggle('Kendi Preseti', () => own, (on) => MP.setLayerOwn(cfg, l, on), rerender, { def: false }));
+        out.push(miniSegment('Preset', [['shared', 'Ortak'], ['own', 'Bağımsız']], () => (own ? 'own' : 'shared'), (v) => MP.setLayerOwn(cfg, l, v === 'own'), rerender));
         if (own) {
           const name = l.settings.milkdrop.name;
           out.push(P().row('Preset', el('button', {
@@ -1960,7 +1960,7 @@
             out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken bu presette durur.' }));
           }
         } else {
-          out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken ortak preseti gösterir.' }));
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Bütün ortak katmanlarla aynı preseti gösterir.' }));
         }
       }
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
