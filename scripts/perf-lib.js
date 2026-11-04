@@ -10,7 +10,9 @@
 
 /* Ölçüm, kullanıcının ayarlarının KOPYASINDA koşuyor. Bu bloklar dışarıya bir
    şey yolluyor ya da gerçek bir aygıtı sürüyor: ışıklar, ağ, kayıt, MCP. */
-const OUTSIDE = ['lighting', 'openrgb', 'artnet', 'oscOut', 'osc', 'stream', 'mcp', 'bridge', 'redundancy', 'textureShare', 'recording'];
+/* dynamicTheme: çalan parça değişince paleti değiştiriyor; yalıtılmış profil işletim sisteminin
+   parça bilgisini yine alıyor. Altın ölçüde müzik dinlerken rastgele bir durum farklı çıkıyordu. */
+const OUTSIDE = ['lighting', 'openrgb', 'artnet', 'oscOut', 'osc', 'stream', 'mcp', 'bridge', 'redundancy', 'textureShare', 'recording', 'dynamicTheme'];
 
 // Gerçek ayar klasöründen: sahneler ve kütüphane yanındaki dosyalarda olabilir (#905)
 function readSettingsFile(file) {
