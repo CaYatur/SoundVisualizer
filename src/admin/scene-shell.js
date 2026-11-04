@@ -133,9 +133,13 @@
   function opacityBar(l) {
     const el = P().el;
     const fill = el('i');
-    const show = () => { fill.style.width = Math.round((l.opacity == null ? 1 : l.opacity) * 100) + '%'; };
-    show();
     const bar = el('span', { class: 'sv-op', title: tr('Saydamlık'), onclick: (e) => e.stopPropagation() }, [fill]);
+    const show = () => {
+      const v = l.opacity == null ? 1 : l.opacity;
+      fill.style.width = Math.round(v * 100) + '%';
+      bar.classList.toggle('set', v < 1);
+    };
+    show();
     bar.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -677,7 +681,7 @@
     if (!stage) return;
     const scene = page === 'scene';
     const pgm = page === 'live' ? document.getElementById('svPgmFrame') : null;
-    const out = page === 'output' && !document.body.hasAttribute('data-wide') ? document.getElementById('svOutFrame') : null;
+    const out = (page === 'output' && !document.body.hasAttribute('data-wide')) || (page === 'studio' && document.body.hasAttribute('data-gen')) ? document.getElementById('svOutFrame') : null;
     const host = pgm || out || (scene ? document.getElementById('svFrame') : document.getElementById('dockStageHost'));
     if (host && stage.parentNode !== host) host.insertBefore(stage, host.firstChild);
     /* Güvenli alan çerçevesi önizlemenin üstünde, hangi sayfaya taşınırsa onunla. */

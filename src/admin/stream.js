@@ -139,164 +139,165 @@
         ])
       );
 
-      // --- ayarlar ---
+    }
+
+    // --- ayarlar: sunucu kapalıyken de görünüyor, önceden ayarlanabilsin ---
+    nodes.push(
+      P().row(
+        'Port',
+        el('input', {
+          class: 'p-in p-num', type: 'number', min: '1024', max: '65535', value: s.port,
+          onchange: async (e) => {
+            const port = P().portValue(e.target, s.port, 1024);
+            if (port == null) return;
+            s.port = port;
+            P().push(true);
+            await sync();
+          },
+        })
+      )
+    );
+
+    const transparent = el('input', {
+      type: 'checkbox',
+      onchange: (e) => {
+        const on = e.target.checked;
+        cfg.background = cfg.background || {};
+        cfg.background.transparent = on;
+        s.transparent = on;
+        (cfg.layers || []).forEach((l) => {
+          if (l && l.kind === 'background') {
+            l.settings = l.settings || {};
+            l.settings.background = Object.assign({}, l.settings.background || {}, { transparent: on });
+          }
+        });
+        P().push(true);
+      },
+    });
+    transparent.checked = !!(cfg.background && cfg.background.transparent);
+    nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
+    nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
+
+    const remote = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        s.remote = e.target.checked;
+        if (s.remote && (!s.remoteToken || s.remoteToken === s.token)) {
+          s.remoteToken = await window.api.streamNewToken();
+        }
+        P().push(true);
+        await sync();
+      },
+    });
+    remote.checked = !!s.remote;
+    nodes.push(P().row('Mobil Uzaktan Kumanda', el('label', { class: 'switch' }, [remote, el('span', { class: 'track' })])));
+
+    const lan = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        if (e.target.checked) {
+          const lanMsg = s.requireToken
+            ? 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adresler, tahmin edilmesi güç iki ayrı güvenlik jetonu içerir. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.'
+            : 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Token Koruması kapalı olduğundan URL bilinen herkes erişebilir — güvenilir bir ev/ofis ağı dışında kullanmayın.';
+          const ok = await P().confirm(lanMsg, { okText: 'Ağa aç' });
+          if (!ok) { e.target.checked = false; return; }
+          if (!s.token) s.token = await window.api.streamNewToken();
+          if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+        }
+        s.lan = e.target.checked;
+        P().push(true);
+        await sync();
+      },
+    });
+    lan.checked = !!s.lan;
+    nodes.push(P().row('Yerel Ağa Aç (telefon erişebilsin)', el('label', { class: 'switch' }, [lan, el('span', { class: 'track' })])));
+
+    // --- token koruması ---
+    const tokenProtection = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        s.requireToken = e.target.checked;
+        if (s.requireToken) {
+          // Token koruma açıldığında tokenlar yoksa üret
+          if (!s.token) s.token = await window.api.streamNewToken();
+          if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+        }
+        P().push(true);
+        await sync();
+      },
+    });
+    tokenProtection.checked = !!s.requireToken;
+    nodes.push(P().row(
+      'Token Koruması',
+      el('label', { class: 'switch' }, [tokenProtection, el('span', { class: 'track' })])
+    ));
+    nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: s.requireToken ? 'Açık: URL\'de ?token= zorunlu.' : 'Kapalı: adresler token olmadan açılır (yerel kullanım için önerilir).' }));
+
+    if (s.requireToken) {
       nodes.push(
-        P().row(
-          'Port',
-          el('input', {
-            class: 'p-in p-num', type: 'number', min: '1024', max: '65535', value: s.port,
-            onchange: async (e) => {
-              const port = P().portValue(e.target, s.port, 1024);
-              if (port == null) return;
-              s.port = port;
-              P().push(true);
-              await sync();
-            },
-          })
-        )
+        el('div', { class: 'ctrl' }, [
+          el('div', { class: 'row' }, [
+            el('label', { class: 'lbl', text: 'Görselleştirici Jetonu (OBS / Web)' }),
+            el('button', {
+              class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeni Jeton',
+              title: 'Görselleştirici için yeni jeton üretir; eski OBS adresi geçersiz olur',
+              onclick: async () => {
+                s.token = await window.api.streamNewToken();
+                while (s.token === s.remoteToken) s.token = await window.api.streamNewToken();
+                P().push(true);
+                await sync();
+              },
+            }),
+          ]),
+          el('input', { class: 'p-in wide', type: 'text', value: s.token || '', readonly: 'readonly' }),
+        ])
       );
 
-      const transparent = el('input', {
-        type: 'checkbox',
-        onchange: (e) => {
-          const on = e.target.checked;
-          cfg.background = cfg.background || {};
-          cfg.background.transparent = on;
-          s.transparent = on;
-          (cfg.layers || []).forEach((l) => {
-            if (l && l.kind === 'background') {
-              l.settings = l.settings || {};
-              l.settings.background = Object.assign({}, l.settings.background || {}, { transparent: on });
-            }
-          });
-          P().push(true);
-        },
-      });
-      transparent.checked = !!(cfg.background && cfg.background.transparent);
-      nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
-      nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
-
-      const remote = el('input', {
-        type: 'checkbox',
-        onchange: async (e) => {
-          s.remote = e.target.checked;
-          if (s.remote && (!s.remoteToken || s.remoteToken === s.token)) {
-            s.remoteToken = await window.api.streamNewToken();
-          }
-          P().push(true);
-          await sync();
-        },
-      });
-      remote.checked = !!s.remote;
-      nodes.push(P().row('Mobil Uzaktan Kumanda', el('label', { class: 'switch' }, [remote, el('span', { class: 'track' })])));
-
-      const lan = el('input', {
-        type: 'checkbox',
-        onchange: async (e) => {
-          if (e.target.checked) {
-            const lanMsg = s.requireToken
-              ? 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adresler, tahmin edilmesi güç iki ayrı güvenlik jetonu içerir. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.'
-              : 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Token Koruması kapalı olduğundan URL bilinen herkes erişebilir — güvenilir bir ev/ofis ağı dışında kullanmayın.';
-            const ok = await P().confirm(lanMsg, { okText: 'Ağa aç' });
-            if (!ok) { e.target.checked = false; return; }
-            if (!s.token) s.token = await window.api.streamNewToken();
-            if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
-          }
-          s.lan = e.target.checked;
-          P().push(true);
-          await sync();
-        },
-      });
-      lan.checked = !!s.lan;
-      nodes.push(P().row('Yerel Ağa Aç (telefon erişebilsin)', el('label', { class: 'switch' }, [lan, el('span', { class: 'track' })])));
-
-      // --- token koruması ---
-      const tokenProtection = el('input', {
-        type: 'checkbox',
-        onchange: async (e) => {
-          s.requireToken = e.target.checked;
-          if (s.requireToken) {
-            // Token koruma açıldığında tokenlar yoksa üret
-            if (!s.token) s.token = await window.api.streamNewToken();
-            if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
-          }
-          P().push(true);
-          await sync();
-        },
-      });
-      tokenProtection.checked = !!s.requireToken;
-      nodes.push(P().row(
-        'Token Koruması',
-        el('label', { class: 'switch' }, [tokenProtection, el('span', { class: 'track' })])
-      ));
-      nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: s.requireToken ? 'Açık: URL\'de ?token= zorunlu.' : 'Kapalı: adresler token olmadan açılır (yerel kullanım için önerilir).' }));
-
-      if (s.requireToken) {
+      if (s.remote) {
         nodes.push(
           el('div', { class: 'ctrl' }, [
             el('div', { class: 'row' }, [
-              el('label', { class: 'lbl', text: 'Görselleştirici Jetonu (OBS / Web)' }),
+              el('label', { class: 'lbl', text: 'Mobil Kumanda Jetonu' }),
               el('button', {
                 class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeni Jeton',
-                title: 'Görselleştirici için yeni jeton üretir; eski OBS adresi geçersiz olur',
+                title: 'Mobil kumanda için yeni jeton üretir; eski kumanda adresi geçersiz olur',
                 onclick: async () => {
-                  s.token = await window.api.streamNewToken();
-                  while (s.token === s.remoteToken) s.token = await window.api.streamNewToken();
+                  s.remoteToken = await window.api.streamNewToken();
+                  while (s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
                   P().push(true);
                   await sync();
                 },
               }),
             ]),
-            el('input', { class: 'p-in wide', type: 'text', value: s.token || '', readonly: 'readonly' }),
+            el('input', { class: 'p-in wide', type: 'text', value: s.remoteToken || '', readonly: 'readonly' }),
           ])
         );
-
-        if (s.remote) {
-          nodes.push(
-            el('div', { class: 'ctrl' }, [
-              el('div', { class: 'row' }, [
-                el('label', { class: 'lbl', text: 'Mobil Kumanda Jetonu' }),
-                el('button', {
-                  class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeni Jeton',
-                  title: 'Mobil kumanda için yeni jeton üretir; eski kumanda adresi geçersiz olur',
-                  onclick: async () => {
-                    s.remoteToken = await window.api.streamNewToken();
-                    while (s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
-                    P().push(true);
-                    await sync();
-                  },
-                }),
-              ]),
-              el('input', { class: 'p-in wide', type: 'text', value: s.remoteToken || '', readonly: 'readonly' }),
-            ])
-          );
-        }
       }
-
-      nodes.push(P().slider('Tarayıcı Kaynağı Kare Hızı', 'stream.overlayFps', { step: 1, fmt: (v) => Math.round(v) + ' FPS' }));
-      nodes.push(P().slider('Tarayıcı Kaynağı Çözünürlük Ölçeği', 'stream.quality', { step: 0.05, percent: true }));
-
-      // --- bağlı istemciler ---
-      if (status.clients && status.clients.length) {
-        const list = el('div', { class: 'client-list' });
-        status.clients.forEach((c) => {
-          list.appendChild(
-            el('div', { class: 'client-row' }, [
-              el('span', { class: 'client-kind', icon: c.kind === 'remote' ? 'phone' : 'tv', text: c.kind === 'remote' ? 'Kumanda' : 'Yayın katmanı' }),
-              el('span', { class: 'client-addr', text: (c.address || '').replace('::ffff:', '') }),
-            ])
-          );
-        });
-        nodes.push(el('div', { class: 'studio-group', text: 'Bağlı İstemciler' }));
-        nodes.push(list);
-      }
-
-      nodes.push(
-        el('div', { class: 'studio-note' }, [
-          el('span', { text: 'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.' }),
-        ])
-      );
     }
+
+    nodes.push(P().slider('Tarayıcı Kaynağı Kare Hızı', 'stream.overlayFps', { step: 1, fmt: (v) => Math.round(v) + ' FPS' }));
+    nodes.push(P().slider('Tarayıcı Kaynağı Çözünürlük Ölçeği', 'stream.quality', { step: 0.05, percent: true }));
+
+    // --- bağlı istemciler ---
+    if (status.clients && status.clients.length) {
+      const list = el('div', { class: 'client-list' });
+      status.clients.forEach((c) => {
+        list.appendChild(
+          el('div', { class: 'client-row' }, [
+            el('span', { class: 'client-kind', icon: c.kind === 'remote' ? 'phone' : 'tv', text: c.kind === 'remote' ? 'Kumanda' : 'Yayın katmanı' }),
+            el('span', { class: 'client-addr', text: (c.address || '').replace('::ffff:', '') }),
+          ])
+        );
+      });
+      nodes.push(el('div', { class: 'studio-group', text: 'Bağlı İstemciler' }));
+      nodes.push(list);
+    }
+
+    nodes.push(
+      el('div', { class: 'studio-note' }, [
+        el('span', { text: 'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.' }),
+      ])
+    );
 
     return el('div', { class: 'stream-panel' }, nodes);
   }

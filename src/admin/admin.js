@@ -1860,11 +1860,11 @@
     });
 
     const children = [
+      enabledRow,
       status,
       identityStatus,
       controlStatus,
       priorityNote,
-      enabledRow,
       el('div', { class: 'ctrl lighting-actions' }, [refreshBtn, settingsBtn]),
     ];
     if (!available || !lighting.enabled) return el('div', { class: 'lighting-panel' }, children);
@@ -2830,7 +2830,7 @@
         wide: true,
         title: 'Genel Işık Ayarları',
         desc: isWindows()
-          ? 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.'
+          ? 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Yalnız birinde geçerli ayarlarda o çıkışın adı yazar. Art-Net kendi kartındaki ayarları kullanır.'
           : 'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.',
         roots: ['lighting'],
         rootOmit: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
@@ -3604,8 +3604,16 @@
     CATEGORIES.filter((c) => c.setup).forEach((cat) => {
       const secs = schema.filter((s) => s.category === cat.id && (!s.show || s.show()));
       if (!secs.length) return;
-      rail.appendChild(el('div', { class: 'sv-tree-group', 'data-cat': cat.id, title: tr(cat.desc), onclick: () => setCategory(cat.id) }, [el('span', { icon: cat.icon }), el('span', { text: tr(cat.title) })]));
-      const want = cat.id === activeCategory ? (secs.find((s) => s.id === selectedSection(cat.id)) || secs[0]) : null;
+      const open = cat.id === activeCategory;
+      const total = secs.reduce((a, s) => a + (sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0), 0);
+      rail.appendChild(el('button', { class: 'sv-tree-group' + (open ? ' open' : ''), type: 'button', 'data-cat': cat.id, title: tr(cat.desc), 'aria-expanded': open ? 'true' : 'false', onclick: () => setCategory(cat.id) }, [
+        el('span', { icon: cat.icon }), el('span', { class: 'sv-tree-name', text: tr(cat.title) }),
+        !open && secs.some((s) => serviceRunning(s.id)) ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
+        !open && total > 0 ? el('span', { class: 'sv-badge', text: String(total), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
+        el('span', { class: 'sv-caret', icon: 'chevron-down' }),
+      ]));
+      if (!open) return;
+      const want = secs.find((s) => s.id === selectedSection(cat.id)) || secs[0];
       secs.forEach((s) => {
         const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
         rail.appendChild(el('button', {
@@ -3615,6 +3623,7 @@
           serviceRunning(s.id) ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
           n > 0 ? el('span', { class: 'sv-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null]));
       });
+      if (total > 0) rail.appendChild(categoryResetRow(cat.id));
     });
     rail.scrollTop = top;
   }
@@ -4093,6 +4102,7 @@
     const single = SECTION_PAGES[cat.id] && shown.length === 1 && !(window.api && window.api.allSections);
     document.body.toggleAttribute('data-single', !!single);
     document.body.toggleAttribute('data-wide', !!(single && WIDE_SECTIONS.includes(shown[0].id)));
+    document.body.toggleAttribute('data-gen', !!(single && GEN_SECTIONS.includes(shown[0].id)));
     if (single) {
       document.body.setAttribute('data-sec', shown[0].id);
       $('catTitle').textContent = tr(shown[0].title);
@@ -4104,7 +4114,7 @@
 
     // Sıfırlanacak bir şey yoksa (ör. Kitaplık) düğme boşuna durmasın
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
-    $('catResetBtn').classList.toggle('hidden', !resettable);
+    $('catResetBtn').classList.toggle('hidden', !resettable || !!single);
 
     /* Bir bölümün hatası yalnız o kartı düşürür: eskiden döngü kesiliyor,
        altındaki bölümler ve düzen hiç çizilmiyordu. */
@@ -4124,6 +4134,15 @@
       const q = root.querySelector('.sv-queue-box');
       if (q) $('svOutBelow').appendChild(el('section', { class: 'sv-card sv-queue-card' }, [q]));
     }
+    /* Tek bölümlü sayfada kartın sıfırlama rozeti sayfa başlığında: formun üstünde ayrı satır tutmuyor. */
+    const headActs = $('svHeadActs');
+    if (headActs) {
+      headActs.replaceChildren();
+      const acts = single && (page === 'setup' || page === 'output') ? root.querySelector('.card > .card-head .ch-actions') : null;
+      if (acts) headActs.appendChild(acts);
+    }
+    document.body.toggleAttribute('data-roomy', !!single && page === 'setup' && root.querySelectorAll('.card > .group').length > 1);
+    clampNotes(root);
     renderNav();
     /* Konum bu görevde, boy ölçülüp ızgara oturduktan sonra yazılır.
        Sonraki karede ikinci bir atama, kullanıcının gördüğü gidiş-gelişti. */
@@ -4158,6 +4177,8 @@
   const STUDIO_TABS = { studio: 'Shader', mdedit: 'MilkDrop', scenegen: 'Sahne Üretici', mdgen: 'Preset Üretici' };
   // Kendi düzenleyicisi olan bölümler: önizleme yerine bütün genişliği kullanıyor
   const WIDE_SECTIONS = ['mapping', 'aspect'];
+  /* Sonucu önizlemede görülen üreticiler: önizleme ortada büyük duruyor. */
+  const GEN_SECTIONS = ['scenegen', 'mdgen'];
   const sectionKey = (catId) => 'sv-section-' + catId;
   function selectedSection(catId) {
     try { return localStorage.getItem(sectionKey(catId)); } catch { return null; }
@@ -4260,6 +4281,7 @@
     }
     nodes.push(el('div', { class: 'sv-dest-group', text: tr('Uyarlama') }));
     OUTPUT_GROUPS[1][1].map(byId).filter(Boolean).forEach((s) => nodes.push(rowFor(s)));
+    if (sorted.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0)) nodes.push(categoryResetRow('output'));
     host.replaceChildren(...nodes);
   }
 
@@ -4501,6 +4523,24 @@
 
   /* Satırın altındaki açıklama ipucuna geçiyor: formlar kısa kalıyor, açıklama ⓘ'de. Canlı güncellenen
      (kimlikli) ya da içinde düğme olan notlar yerinde. */
+  /* Kategorinin tamamını sıfırlama: ağacın içinde, kategorinin altında. Başlıktaki düğme yalnız
+     o bölümü sıfırlıyor; ikisi yan yana aynı simgeyle durmasın. */
+  function categoryResetRow(catId) {
+    return el('button', { class: 'sv-nav-reset', type: 'button', icon: 'reset', text: tr('Kategoriyi Sıfırla'), title: tr('Bu kategoriyi varsayılana döndür'), onclick: () => resetCategory(catId) });
+  }
+
+  /* Uzun açıklama iki satırda kalıyor, gerisi isteğe bağlı: form yazı duvarına dönmesin. */
+  function clampNotes(root) {
+    root.querySelectorAll('.studio-note:not(.sv-clamp)').forEach((n) => {
+      if (n.id || n.children.length || n.textContent.length < 170) return;
+      n.classList.add('sv-clamp');
+      const more = el('button', { class: 'sv-more', type: 'button', text: tr('Devamı'), onclick: () => {
+        more.textContent = tr(n.classList.toggle('open') ? 'Kısalt' : 'Devamı');
+      } });
+      n.after(more);
+    });
+  }
+
   function tuckHint(ctrl) {
     const lbl = ctrl.querySelector(':scope > .row > label.lbl, :scope > label.lbl');
     if (!lbl) return;
@@ -4574,7 +4614,8 @@
       if (!card) return;
       const n = sectionShowsResetChrome(sec) ? countModified(sectionPaths(sec)) : 0;
       let chip = card.querySelector('.chip-mod');
-      const acts = card.querySelector('.ch-actions');
+      const acts = card.querySelector('.ch-actions') || ($('svHeadActs') && document.body.hasAttribute('data-single') ? $('svHeadActs').querySelector('.ch-actions') : null);
+      if (acts && !chip) chip = acts.querySelector('.chip-mod');
       if (n > 0 && !chip && acts) {
         // Kart sıfırdan değişikliğe geçtiyse rozet ve sıfırlama düğmesi belirir
         acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı' }));
@@ -4585,12 +4626,12 @@
             onclick: () => resetSection(sec),
           })
         );
-        chip = card.querySelector('.chip-mod');
+        chip = acts.querySelector('.chip-mod');
       }
       if (chip) {
         chip.textContent = String(n);
         chip.classList.toggle('hidden', n === 0);
-        const btn = card.querySelector('.ch-actions .icon-btn');
+        const btn = acts && acts.querySelector('.icon-btn');
         if (btn) btn.classList.toggle('hidden', n === 0);
       }
     });
@@ -4598,7 +4639,7 @@
     renderNav();
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     const catBtn = $('catResetBtn');
-    if (catBtn) catBtn.classList.toggle('hidden', !resettable);
+    if (catBtn) catBtn.classList.toggle('hidden', !resettable || document.body.hasAttribute('data-single'));
     nudgeScroll(root, pin, before);
   }
 
@@ -5916,6 +5957,8 @@
           el('div', { class: 'scene-acts' }, [
             el('button', { class: 'icon-btn small', type: 'button', icon: 'refresh', title: tr('Mevcut görünümle güncelle'), onclick: () => actions.updateScene(sc.id) }),
             el('button', { class: 'icon-btn small', type: 'button', icon: 'trash', title: tr('Sil'), onclick: () => actions.deleteScene(sc.id) }),
+            el('button', { class: 'icon-btn small sv-tl-add', type: 'button', icon: 'plus', title: tr('Oynatma kafasına ekle'), 'aria-label': tr('Oynatma kafasına ekle'),
+              onclick: (e) => { e.stopPropagation(); if (window.SVTimelinePanel) window.SVTimelinePanel.addSceneAtHead(sc.id); } }),
           ]),
         ])
       );

@@ -973,6 +973,11 @@
 
     // ---- Gelişmiş / sıfırlama ----
     'Kategoriyi Sıfırla': 'Reset Category',
+    'karanlık sinematik uzay': 'dark cinematic space',
+    'enerjik neon techno': 'energetic neon techno',
+    'sakin orman sabahı': 'calm forest morning',
+    'Devamı': 'More',
+    'Kısalt': 'Less',
     'Bu kategoriyi varsayılana döndür': 'Reset this category to defaults',
     'Bu bölümdeki ayarlar varsayılana dönecek. Emin misiniz?': 'The settings in this section will return to their defaults. Are you sure?',
     'Bu kategorideki tüm ayarlar varsayılana dönecek. Emin misiniz?': 'All settings in this category will return to their defaults. Are you sure?',
@@ -2855,7 +2860,7 @@
     'Kilidi aç': 'Unlock',
     // ---- Genel Işık Ayarları (ortak görünüm + backend etiketleri) ----
     'Genel Işık Ayarları': 'General Light Settings',
-    'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, color and audio response — the shared look for Windows Dynamic Lighting and OpenRGB. Each control names the outputs it applies to. Art-Net uses the settings on its own card.',
+    'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Yalnız birinde geçerli ayarlarda o çıkışın adı yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, color and audio response — the shared view of Windows Dynamic Lighting and OpenRGB. A setting that applies to only one of them names it. Art-Net uses the settings on its own card.',
     'Bu ayarlar Windows Dynamic Lighting ve OpenRGB çıkışlarının ortak görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.': 'These settings are the shared look for Windows Dynamic Lighting and OpenRGB. Art-Net uses the settings on its own card. You can edit them here even before turning an output on.',
     'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, color and audio response — the OpenRGB output. Art-Net uses the settings on its own card.',
     'Bu ayarlar OpenRGB çıkışının görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.': 'These settings are the look of the OpenRGB output. Art-Net uses the settings on its own card. You can edit them here even before turning an output on.',

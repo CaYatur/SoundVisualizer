@@ -339,7 +339,7 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 .sv-insp .ctrl > .row > .switch { grid-column: 3; justify-self: end; }
 .sv-insp .ctrl > .row > .seg, .sv-insp .ctrl > .row > .segment { grid-column: 2 / span 2; }
 .sv-insp .ctrl > select, .sv-insp .ctrl > .seg, .sv-insp .ctrl > .segment, .sv-insp .ctrl > .sel { grid-column: 2 / span 2; grid-row: 1; width: 100%; margin: 0; }
-.sv-insp .ctrl > *:not(.row):not(input[type='range']):not(select):not(.seg):not(.segment):not(.sel) { grid-column: 1 / -1; }
+.sv-insp .ctrl > :where(:not(.row):not(input[type='range']):not(select):not(.seg):not(.segment):not(.sel)) { grid-column: 1 / -1; }
 .sv-insp .ctrl.modified > .row > label.lbl { color: var(--text); }
 .sv-insp .studio-note { margin: 4px 12px 8px; font-size: 11.5px; line-height: 1.45; }
 .sv-insp .layer-tabs { display: flex; gap: 2px; padding: 3px; margin: 8px 10px; border: 0; border-radius: 11px; background: rgb(var(--fg-rgb) / .05); flex-wrap: wrap; }

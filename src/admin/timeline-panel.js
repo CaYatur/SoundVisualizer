@@ -1625,6 +1625,7 @@
     remove: deleteSelection,
     fit: fitAll,
     toggleLoop,
+    addSceneAtHead,
     selectAll: selectAllClips,
     full: (v) => setFull(v == null ? !fullWin : v),
     _select: (s) => { selection = s; multi = []; },

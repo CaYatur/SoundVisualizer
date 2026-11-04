@@ -94,7 +94,7 @@ function el(tag, props, kids) {
     n.width = 0;
     n.height = 0;
     n.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 200 });
-    n.getContext = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+    n.getContext = () => new Proxy({ createLinearGradient: () => ({ addColorStop() {} }), measureText: () => ({ width: 40 }) }, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
   }
   (kids || []).forEach((c) => c && n.appendChild(c));
   return n;
