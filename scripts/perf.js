@@ -176,7 +176,7 @@ async function main() {
   }
   const tOpen = Date.now();
   await admin.ev(`window.api.openVisualizer(${JSON.stringify(display.id)}).then(() => 1)`);
-  const vis = await cdp((await waitTarget('visualizer/index.html', 20000)).webSocketDebuggerUrl);
+  const vis = await cdp((await waitTarget('visualizer/index', 20000)).webSocketDebuggerUrl);
   await vis.call('Runtime.enable');
   if (THROTTLE > 1) await vis.call('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
   await until(() => vis.ev('!!(window.SVStage && window.SVStage.stack && window.SVStage.stack() && window.SVStage.stack().entries.length)'), 30000);

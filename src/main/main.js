@@ -1078,6 +1078,14 @@ function resolveDisplayIds(input) {
   return wanted;
 }
 
+/* Paketli sürümde betikler tek dosyada (scripts/bundle-pages.js). Geliştirmede bayat paket
+   yüklenmesin diye yalnız SV_BUNDLED ile; öz test ve kare kapısı paketi böyle denetler. */
+function visualizerPage() {
+  const gen = path.join(__dirname, '..', 'visualizer', 'index.gen.html');
+  const use = (app.isPackaged || process.env.SV_BUNDLED) && fs.existsSync(gen);
+  return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
+}
+
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = visualizerRect(display);
@@ -1125,7 +1133,7 @@ function createVisualizerWindow(display) {
   outputOpenedAt.set(win, Date.now()); // gösteri öncesi denetim: açılış payı
   notifyVisualizerStatus();
 
-  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  win.loadFile(visualizerPage());
   attachSmoke(win, 'VIS');
 
   /* Beyaz parlama: show:false + show() Electron hatası.
@@ -3122,7 +3130,7 @@ function createFloatingWindow() {
   floatingWin = win;
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true);
-  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  win.loadFile(visualizerPage());
   attachSmoke(win, 'FLOAT');
   applyFloatingPrefs();
   applyGeometryLockAll();

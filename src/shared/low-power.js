@@ -4,6 +4,7 @@
  * https://github.com/CaYatur/SoundVisualizer
  * SPDX-License-Identifier: MIT
  */
+'use strict';
 /* DÜŞÜK GÜÇ KİPİ (#458). Pildeki dizüstü ve gözetimsiz uzun koşular için kare
    hızını sınırlar, en pahalı geçişleri kapatır.
 
