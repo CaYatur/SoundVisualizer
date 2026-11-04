@@ -76,7 +76,7 @@ input[type='text']:hover, input[type='number']:hover, input[type='search']:hover
 input[type='text']:focus, input[type='number']:focus, input[type='search']:focus, input[type='url']:focus, input[type='password']:focus, input.p-in:focus, input.num:focus, input.txt:focus,
 textarea:not(.code-input):not(.mded-input):focus, select:focus { border: 0; outline: 0; box-shadow: var(--sv-focus); }
 textarea:not(.code-input):not(.mded-input) { border: 0; border-radius: 9px; padding: 8px 10px; background-color: var(--sv-fill); color: var(--text); font-size: 12.5px; }
-select, .sel { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; }
+select { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; }
 .p-in.p-in, select.p-in, input.p-in, .up-name.up-name, .md-tags-in.md-tags-in { border: 0; border-radius: 8px; background-color: var(--sv-fill); color: var(--text); min-height: 28px; padding: 0 9px; font-size: 12.5px; box-shadow: none; }
 .p-in.p-in:hover, .up-name.up-name:hover { background-color: rgb(var(--fg-rgb) / .1); }
 .p-in.p-in:focus, .up-name.up-name:focus, .md-tags-in.md-tags-in:focus { box-shadow: var(--sv-focus); border: 0; }
@@ -118,7 +118,7 @@ input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.14); }
 .group-label { display: flex; align-items: center; gap: 6px; width: 100%; }
 .sv-form .group-label { padding: 6px var(--sv-inset) 4px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong); }
 .sv-insp .group-label { padding-left: var(--sv-inset); }
-.sv-form .group > :not(.ctrl):not(.group-label) .group-label, .sv-insp .group > :not(.ctrl):not(.group-label) .group-label { padding-inline: 0; }
+.sv-form .group > :where(:not(.ctrl):not(.group-label)) .group-label, .sv-insp .group > :where(:not(.ctrl):not(.group-label)) .group-label { padding-inline: 0; }
 button.group-label {
   height: 36px; margin: 0; padding: 0 8px 0 var(--sv-inset); border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left;
   font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong);
@@ -133,14 +133,14 @@ button.group-label:hover { background: var(--sv-well); }
 /* Satırlar: her şey aynı iki kenarda */
 .sv-form .ctrl, .sv-insp .ctrl { padding: 0 var(--sv-inset); min-height: 36px; }
 .ctrl .ctrl { padding: 0; }
-.sv-form .group > :not(.ctrl):not(.group-label):not(.sv-export-run),
-.sv-insp .group > :not(.ctrl):not(.group-label):not(.sv-export-run) { margin-inline: var(--sv-inset); }
-.sv-form .group > :not(.ctrl):not(.group-label) .ctrl,
-.sv-insp .group > :not(.ctrl):not(.group-label) .ctrl { padding-inline: 0; }
 .sv-form .studio-note, .sv-insp .studio-note { margin-block: 2px 6px; margin-inline: 0; padding-inline: 0; }
 .sv-insp .layer-panel > .studio-note { margin-inline: calc(10px + var(--sv-inset)); }
 .sv-insp .layer-pane .studio-note, .sv-insp .layer-body > .studio-note { margin-inline: var(--sv-inset); }
 .sv-insp .card > .studio-note { margin-inline: var(--sv-inset); }
+.sv-form .group > :where(:not(.ctrl):not(.group-label):not(.sv-export-run)),
+.sv-insp .group > :where(:not(.ctrl):not(.group-label):not(.sv-export-run)) { margin-inline: var(--sv-inset); }
+.sv-form .group > :where(:not(.ctrl):not(.group-label)) .ctrl,
+.sv-insp .group > :where(:not(.ctrl):not(.group-label)) .ctrl { padding-inline: 0; }
 .sv-form .ctrl > .studio-note, .sv-insp .ctrl > .studio-note, .sv-form .ctrl > .dim-hint, .sv-insp .ctrl > .dim-hint { margin-inline: 0; padding-inline: 0; }
 .sv-form .settings-io-note { display: block; min-height: 0; margin-block: 2px 6px; padding: 0; font-size: 11.5px; line-height: 1.45; color: var(--muted2); background: none; border: 0; }
 .sv-form .ctrl.settings-io-note { padding-inline: var(--sv-inset); }

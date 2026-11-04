@@ -4534,6 +4534,7 @@
 
   /* Uzun açıklama iki satırda kalıyor, gerisi isteğe bağlı: form yazı duvarına dönmesin. */
   function clampNotes(root) {
+    const added = [];
     root.querySelectorAll('.studio-note:not(.sv-clamp)').forEach((n) => {
       if (n.id || n.children.length || n.textContent.length < 170) return;
       n.classList.add('sv-clamp');
@@ -4541,7 +4542,12 @@
         more.textContent = tr(n.classList.toggle('open') ? 'Kısalt' : 'Devamı');
       } });
       n.after(more);
+      added.push([n, more]);
     });
+    // Sığan not iki satırda bitiyor: düğme boşuna durmasın
+    if (added.length) requestAnimationFrame(() => added.forEach(([n, more]) => {
+      if (n.isConnected && n.scrollHeight <= n.clientHeight + 1) { n.classList.remove('sv-clamp'); more.remove(); }
+    }));
   }
 
   function tuckHint(ctrl) {
