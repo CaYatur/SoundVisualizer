@@ -41,7 +41,7 @@ test('yayın ayarları sunucu kapalıyken de görünüyor', () => {
 });
 
 test('Kurulum ağacı yalnız açık kategorinin bölümlerini gösteriyor, kategori sıfırlama ağaçta', () => {
-  assert.match(admin, /if \(!open\) return;\n\s*const want = secs\.find/);
+  assert.match(admin, /if \(!open && !\(window\.api && window\.api\.allSections\)\) return;/);
   assert.match(admin, /if \(total > 0\) rail\.appendChild\(categoryResetRow\(cat\.id\)\)/);
   assert.match(admin, /nodes\.push\(categoryResetRow\('output'\)\)/);
   // Başlıktaki düğme tek bölümlü sayfada bölümü sıfırlıyor, kategoriyi değil

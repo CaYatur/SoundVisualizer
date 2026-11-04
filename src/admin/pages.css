@@ -249,8 +249,6 @@ body[data-page='setup'][data-roomy] .work-head { max-width: 1180px; }
 body[data-page='setup'][data-single] .sv-form > .card { width: 100%; max-width: 860px; }
 body[data-page='setup'][data-single][data-roomy] .sv-form > .card { max-width: 1180px; display: block; columns: 2 420px; column-gap: 10px; }
 body[data-page='setup'][data-single][data-roomy] .sv-form > .card > .group { break-inside: avoid; }
-.wh-actions #catResetBtn { width: 32px; height: 32px; padding: 0; font-size: 0; gap: 0; justify-content: center; }
-.wh-actions #catResetBtn .svi { width: 15px; height: 15px; }
 label.adv-toggle { border: 0; background: none; padding: 0 4px; height: 32px; }
 
 /* Ağaç: yalnız açık kategorinin bölümleri görünür, kalanı başlık olarak bekler */
@@ -372,8 +370,7 @@ body[data-page='studio'][data-sec='studio'] #svAmbient { opacity: .13; }
 .studio-listcard { min-height: 0; }
 .studio-listcard .studio-toolbar { flex: none; padding: 0 10px 8px; gap: 4px; }
 .studio-listcard .studio-toolbar .btn { height: 26px; padding: 0 8px; font-size: 12px; border: 0; background: var(--sv-fill); }
-.studio-listcard .studio-toolbar .btn.ghost { width: 28px; padding: 0; font-size: 0; gap: 0; justify-content: center; }
-.studio-listcard .studio-toolbar .btn.ghost .svi { width: 15px; height: 15px; }
+.studio-listcard .studio-toolbar .icon-btn { width: 26px; height: 26px; background: var(--sv-fill); }
 .studio-sidebar { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; padding: 0 6px 8px; border: 0; background: none; }
 .studio-list { gap: 1px; }
 .studio-group { padding: 8px 8px 4px; font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted2); }
@@ -680,7 +677,8 @@ body[data-page='live'] #svStageTools { display: none; }
 .up-name.up-name:hover { background-color: var(--sv-fill); }
 .up-actions { flex: none; flex-wrap: nowrap; }
 .up-main input { background: none; }
-.up-main .scene-meta { flex: none; white-space: nowrap; }
+.up-main .scene-meta { flex: none; white-space: nowrap; color: var(--muted); }
+.tpl-card .tpl-group { color: var(--muted); }
 .up-actions .btn { height: 28px; padding: 0 9px; font-size: 12.5px; }
 
 /* Ses aygıtı ve sinyal satırları */

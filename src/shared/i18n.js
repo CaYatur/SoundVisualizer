@@ -789,8 +789,8 @@
     'Seçili klipleri sil (Del)': 'Delete the selected clips (Del)',
     'Geçiş (sn, 0 = genel)': 'Transition (s, 0 = global)',
     // Zaman çizelgesi düzenleyicisi (#636)
-    '1) “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.': '1) Add a “Clip Track”. 2) Double-click its lane, or use “Clip at Playhead”, to place a clip. 3) Click the clip and choose which scene it plays.',
-    'Parça boş. Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.': 'This track is empty. Double-click its lane, or use “Clip at Playhead”, then click the clip and choose its scene.',
+    '1) “Yeni Şerit” menüsünden “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da aynı menüden “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.': '1) Add a “Clip Track” from the “New Track” menu. 2) Double-click its lane, or use “Clip at Playhead” in the same menu, to place a clip. 3) Click the clip and choose the scene it plays.',
+    'Parça boş. Şeride çift tıklayın ya da “Yeni Şerit” menüsünden “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.': 'This track is empty. Double-click its lane, or use “Clip at Playhead” in the “New Track” menu, then click the clip and choose its scene.',
     'kaynak yok': 'no source',
     'hedef seçilmedi': 'no target',
     'anahtar': 'key',
@@ -974,6 +974,7 @@
 
     // ---- Gelişmiş / sıfırlama ----
     'Kategoriyi Sıfırla': 'Reset Category',
+    'Shader kodu': 'Shader code',
     'Uniform': 'Uniform',
     'Adım': 'Step',
     'Parametreyi Kaldır': 'Remove Parameter',

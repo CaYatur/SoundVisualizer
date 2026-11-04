@@ -1735,14 +1735,14 @@
       host.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',
-          text: '1) “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.',
+          text: '1) “Yeni Şerit” menüsünden “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da aynı menüden “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.',
         })
       );
     } else if (tl.tracks.some((t) => t.kind === 'clip' && !t.clips.length)) {
       host.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',
-          text: 'Parça boş. Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.',
+          text: 'Parça boş. Şeride çift tıklayın ya da “Yeni Şerit” menüsünden “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.',
         })
       );
     }

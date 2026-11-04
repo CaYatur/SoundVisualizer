@@ -107,6 +107,7 @@
     const pre = el('pre', { class: 'code-hl' }, [code]);
     const ta = el('textarea', {
       class: 'code-input',
+      'aria-label': trStudio('Shader kodu'),
       spellcheck: 'false',
       autocomplete: 'off',
       autocapitalize: 'off',
@@ -933,9 +934,9 @@
     const toolbar = el('div', { class: 'studio-toolbar' }, [
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Shader'), title: trStudio('Sıfırdan GLSL shader'), onclick: () => startDraft(() => newShader('visualizer')) }),
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Varyasyon'), title: trStudio('Şu anki görünümü preset olarak sakla'), onclick: () => startDraft(() => newVariation('visualizer')) }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'import', text: trStudio('İçe Aktar'), title: trStudio('Shadertoy / ISF / MilkDrop / .svpreset / .svpack'), onclick: importAny }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'box', text: trStudio('Paket Dışa Aktar'), title: trStudio('Tüm kendi presetlerini tek dosyada paylaş'), onclick: () => exportPreset(true) }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'folder', text: trStudio('Klasör'), title: trStudio('Preset klasörünü aç'), onclick: () => window.api.openPresetsFolder() }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'import', 'aria-label': trStudio('İçe Aktar'), title: trStudio('Shadertoy / ISF / MilkDrop / .svpreset / .svpack'), onclick: importAny }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'box', 'aria-label': trStudio('Paket Dışa Aktar'), title: trStudio('Tüm kendi presetlerini tek dosyada paylaş'), onclick: () => exportPreset(true) }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'folder', 'aria-label': trStudio('Klasör'), title: trStudio('Preset klasörünü aç'), onclick: () => window.api.openPresetsFolder() }),
     ]);
 
     const sidebar = el('div', {

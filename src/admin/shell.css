@@ -39,7 +39,7 @@ body { isolation: isolate; }
 .brand { gap: 10px; }
 .brand-logo { width: 34px; height: 34px; border-radius: 0; box-shadow: none; filter: drop-shadow(0 3px 10px rgb(var(--accent-rgb) / .35)); }
 .wordmark-svg { height: 15px; }
-.brand .sub { font-size: 10.5px; }
+.brand .sub { font-size: 11px; }
 .sv-pages {
   justify-self: center; display: flex; gap: 2px; padding: 4px; border-radius: 14px;
   background: rgb(var(--fg-rgb) / .055); box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .05);

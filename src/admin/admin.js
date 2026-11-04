@@ -3598,7 +3598,7 @@
       return false;
     };
     // Kurulum ağacı yalnız o sayfada görünüyor; başka sayfada şemayı boşuna kurmuyor
-    if (pageOf(activeCategory) !== 'setup') return;
+    if (pageOf(activeCategory) !== 'setup' && !(window.api && window.api.allSections)) return;
     const rail = $('navRail');
     const top = rail.scrollTop;
     rail.innerHTML = '';
@@ -3615,8 +3615,9 @@
         !open && total > 0 ? el('span', { class: 'sv-badge', text: String(total), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
         el('span', { class: 'sv-caret', icon: 'chevron-down' }),
       ]));
-      if (!open) return;
-      const want = secs.find((s) => s.id === selectedSection(cat.id)) || secs[0];
+      // Öz test bütün bölümleri sırayla geziyor: orada ağaç açık kalıyor
+      if (!open && !(window.api && window.api.allSections)) return;
+      const want = open ? (secs.find((s) => s.id === selectedSection(cat.id)) || secs[0]) : null;
       secs.forEach((s) => {
         const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
         rail.appendChild(el('button', {
