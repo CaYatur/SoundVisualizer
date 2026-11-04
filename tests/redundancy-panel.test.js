@@ -92,10 +92,10 @@ test('yeni parola sonrası birincil, yedek bağlı değilken çiziliyor', async 
   assert.ok(panel.children.length > 2, 'parola satırı ve altı çizildi');
 });
 
-test('Gösteri kategorisi: Çıkış ile Kontrol arasında; önce denetim, sonra yedeklilik', () => {
+test('Gösteri kategorisi: Kurulumda Kontrol önünde; önce denetim, sonra yedeklilik', () => {
   const admin = read('src/admin/admin.js');
   const ids = [...admin.slice(admin.indexOf('const CATEGORIES = ['), admin.indexOf('];', admin.indexOf('const CATEGORIES = ['))).matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]);
-  assert.deepStrictEqual(ids.slice(ids.indexOf('output'), ids.indexOf('output') + 3), ['output', 'show', 'control']);
+  assert.deepStrictEqual(ids.slice(ids.indexOf('show'), ids.indexOf('show') + 2), ['show', 'control']);
   const pre = admin.indexOf("id: 'preshow',\n        category: 'show',");
   const red = admin.indexOf("id: 'redundancy',\n        category: 'show',");
   assert.ok(pre > 0 && red > pre, 'iki bölüm Gösteri\'de, denetim önce');

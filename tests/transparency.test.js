@@ -145,7 +145,7 @@ test('katman panosu: yığın açıkken en üstte tek şeffaf arkaplan anahtarı
   const end = src.indexOf('function effectsPanel(', i);
   const body = src.slice(i, end > i ? end : i + 8000);
   const transRow = body.indexOf("P().row('Şeffaf Arkaplan'");
-  const listStart = body.indexOf('if (!list.length)');
+  const listStart = body.indexOf('if (!list.length');
   assert.ok(transRow > 0, 'şeffaf arkaplan anahtarı yok');
   assert.ok(transRow < listStart, 'şeffaf arkaplan anahtarı listenin üstünde olmalı');
   assert.ok(body.indexOf('cfg.background.transparent = v') > 0, 'anahtar kök background.transparent yazmıyor');

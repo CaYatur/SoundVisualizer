@@ -460,14 +460,15 @@
     if (d > 0.5 || d < -0.5) root.scrollTop += d;
   }
 
-  function layerTabs(key, tabs) {
+  /* `sticky`: denetçide bir sekme hep açık; basınca kapanmıyor. */
+  function layerTabs(key, tabs, sticky) {
     const el = P().el;
     const pane = el('div', { class: 'layer-pane' });
     const bar = el('div', { class: 'layer-tabs', role: 'tablist' });
     const show = (k) => {
       const root = (typeof document !== 'undefined' && document.getElementById)
         ? document.getElementById('sections') : null;
-      const before = (root && bar.getBoundingClientRect) ? bar.getBoundingClientRect().top : null;
+      const before = (root && root.offsetParent && bar.getBoundingClientRect) ? bar.getBoundingClientRect().top : null;
       pane.innerHTML = '';
       const t = tabs.find((x) => x.key === k);
       if (t) t.build().forEach((n) => n && pane.appendChild(n));
@@ -482,12 +483,13 @@
     tabs.forEach((t) => bar.appendChild(el('button', {
       type: 'button', class: 'layer-tab', role: 'tab', 'data-k': t.key, 'data-anchor': t.label, text: t.label,
       onclick: () => {
-        const now = foldStates[key + '_tab'] === t.key ? '' : t.key;
+        const now = !sticky && foldStates[key + '_tab'] === t.key ? '' : t.key;
         foldStates[key + '_tab'] = now;
         show(now);
       },
     })));
-    show(foldStates[key + '_tab'] || '');
+    const first = sticky && !tabs.some((t) => t.key === foldStates[key + '_tab']) ? tabs[0].key : (foldStates[key + '_tab'] || '');
+    show(first);
     return [bar, pane];
   }
 
@@ -2175,12 +2177,25 @@
     return out;
   }
 
-  function layersPanel() {
+  /* `view`: yok = bütün kart (eski yerleşim); { only: id } = o katmanın düzenleyicisi (denetçi);
+     { scene: true } = sahneye ait üst bölüm; { add: true } = ekleme düğmeleri. */
+  /* Katman satırındaki alt yazı: ne çiziliyor. */
+  function layerSummary(l) {
+    const opts = typeOptionsFor(l.kind);
+    const t = opts.find(([v]) => v === l.type);
+    if (t) return tr(t[1]);
+    const k = LAYER_KIND_LABELS.find(([id]) => id === l.kind);
+    return k ? tr(k[1]) : String(l.type || l.kind || '');
+  }
+
+  function layersPanel(view) {
     const el = P().el;
     const cfg = P().cfg();
     const nodes = [];
     const list = Array.isArray(cfg.layers) ? cfg.layers : (cfg.layers = []);
     const rerender = () => P().apply();
+    const only = view && view.only;
+    const addOnly = !!(view && view.add);
 
     /* K1: when layer stack hides the Background card, surface the same
        WebGL→solid info notice here (non-blocking). */
@@ -2260,7 +2275,8 @@
       }));
     }
 
-    if (!list.length) {
+    if (only || addOnly) nodes.length = 0;
+    if (!list.length && !addOnly) {
       // Son katman silinince liste boş kalır; düğme başlangıç listesini kurar
       nodes.push(
         el('div', { class: 'studio-note', text: 'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.' })
@@ -2276,6 +2292,7 @@
       );
       return el('div', {}, nodes);
     }
+    if (view && view.scene) return el('div', { class: 'layer-panel' }, nodes);
 
     /* KATMANLAR KAPALI GELİYOR (#622). Her katman bütün ayarlarıyla açık
        duruyordu: altı katmanlı gerçek bir sahnede kart 4.356 piksel boyundaydı
@@ -2288,7 +2305,7 @@
     const openNew = (ly) => { openSet.add(layerKey(ly, list.length - 1)); saveLayerOpen(openSet); };
     const keys = list.map((ly, j) => layerKey(ly, j));
     const allOpen = keys.length > 0 && keys.every((k) => openSet.has(k));
-    nodes.push(el('div', { class: 'layer-toolbar' }, [
+    if (!only && !addOnly) nodes.push(el('div', { class: 'layer-toolbar' }, [
       el('span', { class: 'dim-hint', text: 'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.' }),
       el('button', {
         class: 'btn ghost tiny', type: 'button',
@@ -2302,13 +2319,15 @@
     ]));
 
     for (let i = list.length - 1; i >= 0; i--) {
+      if (addOnly) break;
+      if (only && (!list[i] || list[i].id !== only)) continue;
       const raw = list[i];
       const l = (list[i] = window.SVLayers.normalizeLayer(raw));
       const typeOpts = typeOptionsFor(l.kind);
       const typeLabel = (typeOpts.find(([v]) => v === l.type) || [null, l.type])[1];
       const kindLabel = LAYER_KIND_LABELS.find(([k]) => k === l.kind)[1];
       const key = layerKey(l, i);
-      const open = openSet.has(key) && !l.locked;
+      const open = (only || openSet.has(key)) && !l.locked;
 
       const enable = el('input', {
         type: 'checkbox',
@@ -2358,7 +2377,7 @@
         saveLayerOpen(openSet);
         rerender();
       };
-      const kids = [layerHead(list, i, l, tr(l.name || kindLabel), bits.join(' · '), flags, open, toggle, rerender)];
+      const kids = only ? [] : [layerHead(list, i, l, tr(l.name || kindLabel), bits.join(' · '), flags, open, toggle, rerender)];
 
       if (l.locked) {
         kids.push(el('div', { class: 'layer-body locked' }, [
@@ -2402,6 +2421,8 @@
          görünüyor. */
       body.push.apply(body, layerOwnSettings(l, rerender));
 
+      /* Denetçide karışım en üstte, kaynak ilk sekmede (#905). */
+      const sourceKids = only ? body.splice(0, body.length) : null;
       if (l.kind !== 'logo') {
         body.push(miniSelect('Karışım', BLEND_LABELS, () => l.blend, (v) => { l.blend = v; }, undefined, 'normal'));
         body.push(miniSlider('Saydamlık', () => l.opacity, (v) => { l.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
@@ -2546,7 +2567,8 @@
         const prevTx = audioTx.build;
         audioTx.build = () => prevTx().concat(textAudioKids(txt, rerender));
       }
-      body.push.apply(body, layerTabs(key, tabs));
+      if (only) tabs.unshift({ key: 'source', label: 'Kaynak', build: () => sourceKids });
+      body.push.apply(body, layerTabs(key, tabs, !!only));
 
       // ---- Kopyala / çoğalt ----
       body.push(el('div', { class: 'layer-foot' }, [
@@ -2577,6 +2599,8 @@
       kids.push(el('div', { class: 'layer-body' }, body));
       nodes.push(el('div', { class: 'stack-item layer open', 'data-id': l.id }, kids));
     }
+
+    if (only) return el('div', { class: 'layer-panel' }, nodes);
 
     // Ekleme menüsü
     const addRow = el('div', { class: 'add-row' });
@@ -2645,6 +2669,7 @@
         },
       }));
     }
+    if (addOnly) return addRow;
     nodes.push(addRow);
 
     nodes.push(
@@ -2926,6 +2951,6 @@
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
     isWindows: isWindowsPlatform, parseClock, formatClock,
-    sourceStatusText,
+    sourceStatusText, layerSummary,
   };
 })();

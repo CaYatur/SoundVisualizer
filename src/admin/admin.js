@@ -29,6 +29,8 @@
 
   // Arayüz durumu (yapılandırmaya değil, yerel depolamaya yazılır)
   let activeCategory = localStorage.getItem('sv-category') || 'scene';
+  // Basit görünüm: aynı sahnenin sade hali, ayar taşımıyor
+  let simpleOn = localStorage.getItem('sv-simple') === '1';
   let advancedOn = localStorage.getItem('sv-advanced') === '1';
   let activeSceneId = null;
   let sceneActionInFlight = false; // sahne uygula/kaydet sırasındaki push'lar vurguyu silmesin
@@ -544,6 +546,29 @@
     jumpTo: (e) => jumpTo(Object.assign({ path: null, advanced: false }, e)),
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
     openSettings: () => setCategory('settings'),
+    setCategory: (id) => setCategory(id),
+    scenes: () => ensureScenes(),
+    activeSceneId: () => activeSceneId,
+    sceneGradient: (s) => sceneGradient(s),
+    sceneSummary: (s) => sceneSummary(s),
+    saveScene: () => actions.saveScene(),
+    /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
+       gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
+    sectionCard: (id, opts) => {
+      const sec = sectionSchema().find((x) => x.id === id);
+      const o = opts || {};
+      if (!sec || (!o.always && sec.show && !sec.show())) return null;
+      const MP = window.SVMilkdropPanel;
+      if (o.part && MP && MP.setPart) MP.setPart(o.part);
+      try {
+        return buildCard(sec);
+      } catch (e) {
+        console.error('Bölüm çizilemedi:', id, e);
+        return brokenCard(sec);
+      } finally {
+        if (o.part && MP && MP.setPart) MP.setPart('');
+      }
+    },
     isBlackedOut: () => isBlackedOut(),
     toggleBlackout,
     // Yeniden çiz ve ardından gönder. Paneller çizim sırasında bağımlı
@@ -2524,39 +2549,47 @@
   // --------------------------------------------------------------------------
   const CATEGORIES = [
     {
-      id: 'scene', icon: 'palette', title: 'Sahne',
+      id: 'scene', icon: 'layers', title: 'Sahne',
       desc: 'Ekranda görünen her şey: arkaplan, görselleştirici, logo ve görsel nesneler.',
     },
     {
-      id: 'audio', icon: 'speaker', title: 'Ses',
-      desc: 'Hangi sesin yakalanacağı ve görüntüye nasıl çevrileceği.',
+      id: 'live', icon: 'broadcast', title: 'Canlı',
+      desc: 'Gösteriyi sürün: klip destesi, tempo ve Otomatik VJ.',
     },
     {
-      id: 'lighting', icon: 'bulb', title: 'Işık',
-      desc: 'RGB aygıtlarını ve ışıkları müzikle sürün: OpenRGB, Art-Net / DMX ve Windows\'ta Dynamic Lighting.',
+      id: 'time', icon: 'timeline', title: 'Zaman', adv: true,
+      desc: 'Parçaya bağlı zaman çizelgesi: sahneler, otomasyon ve işaretler.',
     },
     {
-      id: 'output', icon: 'tv', title: 'Çıkış',
-      desc: 'Görüntünün nereye ve nasıl gideceği: ekran, yayın, performans ve video dosyası.',
-    },
-    {
-      id: 'show', icon: 'check-circle', title: 'Gösteri',
-      desc: 'Gösterinin aksamadan sürmesi için: başlamadan önce denetim ve ikinci makineyle sıcak yedek.',
-    },
-    {
-      id: 'control', icon: 'sliders', title: 'Kontrol',
-      desc: 'MIDI denetleyicileri ve OSC ile ayarları canlı sürün.',
-    },
-    {
-      id: 'studio', icon: 'flask', title: 'Studio',
+      id: 'studio', icon: 'code', title: 'Stüdyo', adv: true,
       desc: 'Kendi görselleştiricini ve arkaplanını yap; içe/dışa aktar.',
     },
     {
-      id: 'library', icon: 'library', title: 'Kitaplık',
+      id: 'output', icon: 'upload', title: 'Çıktı',
+      desc: 'Görüntünün nereye ve nasıl gideceği: ekran, yayın, performans ve video dosyası.',
+    },
+    {
+      id: 'audio', setup: true, icon: 'speaker', title: 'Ses',
+      desc: 'Hangi sesin yakalanacağı ve görüntüye nasıl çevrileceği.',
+    },
+    {
+      id: 'lighting', setup: true, icon: 'bulb', title: 'Işık',
+      desc: 'RGB aygıtlarını ve ışıkları müzikle sürün: OpenRGB, Art-Net / DMX ve Windows\'ta Dynamic Lighting.',
+    },
+    {
+      id: 'show', setup: true, icon: 'check-circle', title: 'Gösteri',
+      desc: 'Gösterinin aksamadan sürmesi için: başlamadan önce denetim ve ikinci makineyle sıcak yedek.',
+    },
+    {
+      id: 'control', setup: true, icon: 'sliders', title: 'Kontrol',
+      desc: 'MIDI denetleyicileri ve OSC ile ayarları canlı sürün.',
+    },
+    {
+      id: 'library', setup: true, icon: 'library', title: 'Kitaplık',
       desc: 'Kayıtlı sahneler, renk şablonları ve ayar yedekleri.',
     },
     {
-      id: 'settings', icon: 'gear', title: 'Ayarlar',
+      id: 'settings', setup: true, icon: 'gear', title: 'Ayarlar',
       desc: 'Dil, arayüz teması, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
     },
   ];
@@ -3281,7 +3314,7 @@
       },
       {
         id: 'timeline',
-        category: 'control',
+        category: 'time',
         icon: 'timeline',
         wide: true,
         title: 'Zaman Çizelgesi',
@@ -3290,7 +3323,7 @@
       },
       {
         id: 'clipdeck',
-        category: 'control',
+        category: 'live',
         icon: 'grid',
         wide: true,
         title: 'Klip Destesi',
@@ -3299,7 +3332,7 @@
       },
       {
         id: 'tempo',
-        category: 'control',
+        category: 'live',
         icon: 'drum',
         title: 'Tempo ve Otomatik VJ',
         desc: 'Parçanın temposunu bulur; sahneleri, modları veya renkleri ölçüye hizalı olarak kendiliğinden değiştirir.',
@@ -4151,33 +4184,57 @@
   // Sol kategori rayı
   // --------------------------------------------------------------------------
   function renderNav() {
+    const tabs = $('pageTabs');
+    if (tabs) {
+      tabs.replaceChildren(...CATEGORIES.filter((c) => !c.setup).map((cat) => {
+        const n = categoryModifiedCount(cat.id);
+        return el('button', {
+          class: (cat.id === activeCategory ? 'on' : '') + (cat.adv ? ' sv-adv' : ''), type: 'button', role: 'tab',
+          // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
+          'data-cat': cat.id, title: tr(cat.desc), onclick: () => setCategory(cat.id),
+        }, [el('span', { icon: cat.icon }), el('span', { text: tr(cat.title) }),
+          n > 0 ? el('span', { class: 'sv-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null]);
+      }));
+    }
     const rail = $('navRail');
     rail.innerHTML = '';
-    rail.appendChild(el('div', { class: 'nav-group-label', text: tr('Kategoriler') }));
-    CATEGORIES.forEach((cat) => {
+    rail.appendChild(el('div', { class: 'sv-tree-head', text: tr('Kurulum') }));
+    CATEGORIES.filter((c) => c.setup).forEach((cat) => {
       const n = categoryModifiedCount(cat.id);
-      const item = el(
-        'button',
-        {
-          class: 'nav-item' + (cat.id === activeCategory ? ' active' : ''),
-          type: 'button',
-          // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
-          'data-cat': cat.id,
-          title: tr(cat.desc),
-          onclick: () => setCategory(cat.id),
-        },
-        [
-          el('span', { class: 'nav-ico', icon: cat.icon }),
-          el('span', { class: 'nav-label', text: tr(cat.title) }),
-          n > 0 ? el('span', { class: 'nav-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
-        ]
-      );
-      rail.appendChild(item);
+      rail.appendChild(el('button', {
+        class: 'sv-tree-item' + (cat.id === activeCategory ? ' on' : ''), type: 'button',
+        'data-cat': cat.id, title: tr(cat.desc), onclick: () => setCategory(cat.id),
+      }, [el('span', { icon: cat.icon }), el('span', { text: tr(cat.title) }),
+        n > 0 ? el('span', { class: 'sv-badge', text: String(n) }) : null]));
     });
-    rail.appendChild(el('div', { class: 'nav-spacer' }));
-    rail.appendChild(
-      el('div', { class: 'nav-foot', text: tr('Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.') })
-    );
+  }
+
+  /* Üst çubuk ve görüntü üstündeki canlı değerler: ~30 Hz mesajla. */
+  let hudBeatIdx = 0;
+  let hudBass = 0;
+  function paintLiveHud(d) {
+    const pct = (v) => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100) + '%';
+    for (const id of ['chipL', 'hudL']) { const n = $(id); if (n) n.style.setProperty('--v', pct(d.level)); }
+    for (const id of ['chipB', 'hudB']) { const n = $(id); if (n) n.style.setProperty('--v', pct(d.bass)); }
+    const f = $('hudFps');
+    if (f) { const t = Number.isFinite(d.fps) ? Math.round(d.fps) + ' fps' : ''; if (f.textContent !== t) f.textContent = t; }
+    const tp = window.SVAutoVJ && window.SVAutoVJ.tempoOf ? window.SVAutoVJ.tempoOf() : null;
+    const bpm = tp && tp.bpm;
+    const b = $('hudBpm');
+    if (b) { const t = bpm ? Math.round(bpm) + ' BPM' : ''; if (b.textContent !== t) b.textContent = t; }
+    const bass = Number(d.bass) || 0;
+    if (bass > 0.6 && hudBass <= 0.6) {
+      hudBeatIdx = (hudBeatIdx + 1) % 4;
+      const dots = $('hudBeat');
+      if (dots) for (let i = 0; i < dots.children.length; i++) dots.children[i].classList.toggle('on', i === hudBeatIdx);
+    }
+    hudBass = bass;
+  }
+
+  // Sayfa: üst kapsüldeki kategori ya da Kurulum altındakiler
+  function pageOf(id) {
+    const cat = CATEGORIES.find((c) => c.id === id);
+    return cat && cat.setup ? 'setup' : id;
   }
 
   function setCategory(id) {
@@ -4563,6 +4620,17 @@
   function render() {
     renderWanted = false;
     syncUiTheme();
+    const page = pageOf(activeCategory);
+    document.body.setAttribute('data-page', page);
+    document.body.classList.toggle('sv-simple-on', simpleOn);
+    if (window.SVSceneShell) window.SVSceneShell.placeStage(page);
+    if ((page === 'scene' || page === 'live') && window.SVSceneShell) {
+      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      renderNav();
+      if (page === 'scene') window.SVSceneShell.paint();
+      else if (window.SVLiveShell) window.SVLiveShell.paint();
+      return;
+    }
     const root = $('sections');
     const paneScroll = captureLayerPaneScroll(root);
     /* Kategori değişirken eski sayfanın kutusu yeni sayfada aranmaz: aynı
@@ -6699,7 +6767,37 @@
     /* Üst sağ dişli → tek Ayarlar kategorisi (modal yok). */
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
-      settingsBtn.addEventListener('click', () => setCategory('settings'));
+      settingsBtn.addEventListener('click', () => {
+        const cur = CATEGORIES.find((c) => c.id === activeCategory);
+        if (!cur || !cur.setup) setCategory('settings');
+      });
+    }
+    const chip = $('audioChip');
+    if (chip) chip.addEventListener('click', () => setCategory('audio'));
+    const simple = $('simpleToggle');
+    if (simple) {
+      simple.checked = simpleOn;
+      simple.addEventListener('change', (e) => {
+        simpleOn = !!e.target.checked;
+        localStorage.setItem('sv-simple', simpleOn ? '1' : '0');
+        // Basit görünümde olmayan sayfada kalınmasın
+        const cur = CATEGORIES.find((c) => c.id === activeCategory);
+        if (simpleOn && cur && cur.adv) setCategory('scene'); else render();
+      });
+    }
+    const themeBtn = $('themeBtn');
+    if (themeBtn && window.SVUiTheme) {
+      themeBtn.addEventListener('click', (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const T = window.SVUiTheme;
+        const now = T.current();
+        const menu = el('div', { class: 'sv-menu' }, [el('div', { class: 'sv-mh', text: tr('Arayüz teması') })]
+          .concat((T.list ? T.list() : []).map((t) => el('button', {
+            class: t.id === now ? 'on' : '', type: 'button', text: tr(t.name),
+            onclick: () => { T.set(t.id); menu.remove(); },
+          }))));
+        window.SVSceneShell.placeMenu(menu, r.right - 216, r.bottom + 6);
+      });
     }
 
     // Gelişmiş ayarlar anahtarı + kategori sıfırlama
@@ -6883,6 +6981,7 @@
         const nm = d.mdPreset && d.mdPreset.id ? (d.mdPreset.name || adsiz) : lv.getAttribute('data-cfg');
         if (nm !== null && lv.textContent !== nm) lv.textContent = nm;
       }
+      paintLiveHud(d);
       setMeter('mLevel', d.level);
       setMeter('mBass', d.bass);
       setMeter('mMid', d.mid);

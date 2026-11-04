@@ -21,6 +21,7 @@
   const EN = {
     'Ses Görselleştirici — Yönetici Paneli': 'Sound Visualizer — Admin Panel',
     'Ses Görselleştirici · Yönetici Paneli': 'Sound Visualizer · Admin Panel',
+    'Ses Görselleştirici': 'Sound Visualizer',
     'Ayarlar': 'Settings',
     'Dil': 'Language',
     'Otomatik (Sistem dili)': 'Automatic (System language)',
