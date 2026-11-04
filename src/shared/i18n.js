@@ -3714,6 +3714,26 @@
 
     // Katmanlar & Sahneler
     'Katman': 'Layer',
+    // Oyun kumandası analog eşleme
+    'Göreli (artımlı)': 'Relative (incremental)',
+    'Tam eksen': 'Full axis',
+    'Yalnız + yön': '+ direction only',
+    'Yalnız − yön': '− direction only',
+    'Eksen aralığı': 'Axis range',
+    'Ölü bölge': 'Deadzone',
+    'Tepki eğrisi': 'Response curve',
+    'Ters çevir': 'Invert',
+    'Hız (aralık/sn)': 'Rate (range/s)',
+    'Canlı eksen değerleri': 'Live axis values',
+    // Katman satırı sağ tık menüsü
+    'Yeniden Adlandır': 'Rename',
+    'Solo': 'Solo',
+    'Soloyu Kapat': 'Unsolo',
+    'Sesi Aç': 'Unmute',
+    'Kilidi Aç': 'Unlock',
+    'Öne Taşı': 'Bring Forward',
+    'Arkaya Taşı': 'Send Backward',
+    'kopya': 'copy',
     'Katmanlar': 'Layers',
     '{n} Katman': '{n} Layers',
     'Dosyaya': 'To a File',

@@ -752,3 +752,14 @@ body[data-page='live'] #svStageTools { display: none; }
 .lighting-panel > .lighting-priority-note { padding: 0; border-radius: 0; }
 /* Aydınlatma Tara + Windows Ayarları: genel .ctrl blok kuralı esnek satırı ezip düğmeleri yapıştırıyordu */
 #sections .ctrl.lighting-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Anahtar (switch) satırları: etiket kalan genişliği kullanır, anahtar sağda sabit kalır */
+.sv-insp .ctrl:has(> .row > .switch) { display: block; }
+.sv-insp .ctrl > .row:has(> .switch) { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0; }
+.sv-insp .ctrl > .row:has(> .switch) > label.lbl { flex: 1 1 auto; min-width: 0; font-size: 12.5px; grid-column: auto; overflow-wrap: anywhere; }
+.sv-insp .ctrl > .row:has(> .switch) > .switch { flex: 0 0 auto; margin-left: auto; display: inline-block; }
+/* Dinamik tema: seçim kutusu tam genişlik, ipucu ve alt satırlar aynı girintide */
+.sv-insp .dynamic-theme-panel select { width: 100%; min-width: 0; }
+.sv-insp .dynamic-theme-panel .subctrls { margin-left: var(--sv-inset); margin-right: var(--sv-inset); padding-left: 10px; }
+.sv-insp .dynamic-theme-panel .subctrls .ctrl { padding: 0; }
+.sv-insp .dynamic-theme-panel .dim-hint { margin: 4px 0 0; padding: 0; }

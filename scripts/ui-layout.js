@@ -15,6 +15,7 @@
  *   düğme      düğmenin yazısı ya da simgesi kendi kenarına 6 pikselden yakın
  *   yapışık    yan yana iki düğmenin arasında boşluk yok
  *   yalnız     alt satıra tek başına düşen simge düğmesi
+ *   sıkışık    etiket birden çok satıra bölünmüş ama yanında 40 pikselden fazla boş yer var
  *
  * Tasarım değişikliğinden sonra ve yeni bir kart eklerken çalıştırın:
  *   npm run ui-layout -- --settings=<settings.json> --presets=<klasör> [--size=1468x836] [--port=9792]
@@ -35,7 +36,7 @@ const PROBE = `JSON.stringify((() => {
   const BOX = '.group, .sv-card, .card, .dock-block, .sv-module, .sv-pcard, .sv-menu, .nav-rail, .sv-secnav, .layer-pane';
   const IGNORE = '.sv-hud, .topbar, .sv-gal, .md-grid, .md-list, .sv-scenes, .preview-stage, .tl-heads, .tl-toolbar, .sv-pages, .code-editor, .md-imports-body, .sv-moment';
   const name = (e) => (e.textContent || e.value || e.placeholder || e.getAttribute('aria-label') || e.tagName).replace(/\\s+/g, ' ').trim().slice(0, 34);
-  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set() };
+  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set() };
   for (const e of document.querySelectorAll('button, select, input:not([type=checkbox]):not([type=range]):not([type=color]), textarea, label.lbl, .studio-note, .settings-io-note, .studio-status, small, h3, a')) {
     if (!vis(e) || e.closest(IGNORE)) continue;
     let box = e.parentElement && e.parentElement.closest(BOX);
@@ -57,6 +58,23 @@ const PROBE = `JSON.stringify((() => {
     const r = e.getBoundingClientRect();
     const lh = parseFloat(getComputedStyle(e).lineHeight) || 16;
     if (r.height > lh * 1.7 && getComputedStyle(e).whiteSpace !== 'nowrap') out['sözcük'].add(t.slice(0, 24));
+  }
+  // Sıkışık: etiket sarıyor ama satırda sağında boş yer kalıyor (sola yaslanıp sağı kullanmıyor)
+  for (const e of document.querySelectorAll('label.lbl')) {
+    if (!vis(e) || e.closest(IGNORE)) continue;
+    const lh = parseFloat(getComputedStyle(e).lineHeight) || 16;
+    const r = e.getBoundingClientRect();
+    if (r.height < lh * 1.7) continue;
+    const g = document.createRange(); g.selectNodeContents(e);
+    const right = Math.max(...[...g.getClientRects()].map((x) => x.right));
+    const host = e.closest('.ctrl') || e.parentElement;
+    let limit = (e.parentElement.closest(BOX) || host).getBoundingClientRect().right;
+    for (const o of host.querySelectorAll('*')) {
+      if (e.contains(o) || o.contains(e) || !vis(o)) continue;
+      const b = o.getBoundingClientRect();
+      if (b.left >= r.right - 1 && Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > 4) limit = Math.min(limit, b.left);
+    }
+    if (limit - right >= 40 && limit - r.right >= 40) out['sıkışık'].add(name(e));
   }
   // Hiza: bölümün doğrudan satırları (etiket, modül, not, tam genişlik düğme) aynı sol kenarda başlamalı
   for (const g of document.querySelectorAll('#sections .group, #svInspector .group')) {
@@ -120,7 +138,7 @@ const PROBE = `JSON.stringify((() => {
 })())`;
 
 (async () => {
-  const s = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: Number(arg('port', 9792)) });
+  const s = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: Number(arg('port', 9792)), asWindows: process.argv.includes('--as-windows') });
   const { a } = s;
   await a.call('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   await sleep(1500);

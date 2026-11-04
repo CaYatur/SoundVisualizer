@@ -1034,3 +1034,14 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .xf-tag.dim { color: var(--muted2); font-weight: 400; }
 .xf-val { margin: 0 auto; font-variant-numeric: tabular-nums; font-size: 12px; }
 .xf-slider { width: 100%; margin: 6px 0; }
+
+/* Oyun kumandası: analog ayrıntı satırı ve canlı eksen göstergesi */
+.map-row.gp-opts { flex-wrap: wrap; gap: 6px 10px; margin-top: -2px; padding-left: 12px; font-size: 12px; color: var(--muted); }
+.map-row.gp-opts select.p-in { flex: 0 1 150px; }
+.gp-opt { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gp-opt .p-num { width: 64px; }
+.gp-axes { display: grid; gap: 4px; margin: 4px 0 6px; }
+.gp-axis { display: grid; grid-template-columns: minmax(0, 120px) 1fr 52px; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.gp-bar { position: relative; height: 6px; border-radius: 3px; background: rgb(var(--fg-rgb) / .1); overflow: hidden; }
+.gp-bar i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 3px; }
+.gp-v { text-align: right; }

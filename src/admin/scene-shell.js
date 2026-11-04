@@ -49,6 +49,63 @@
   function selected() {
     return layers().find((l) => l && l.id === sel) || null;
   }
+  /* Katman işlemleri kimlikle çalışır: elde tutulan nesne eskimiş olsa da (düzenleyici yenilediyse)
+     işlem listedeki güncel katmana uygulanır. Satır düğmeleri, denetçi ve sağ tık menüsü bunları paylaşır. */
+  const byId = (id) => layers().find((x) => x && x.id === id) || null;
+  const act = {
+    rename(id, name) {
+      const l = byId(id);
+      const v = String(name == null ? '' : name).trim();
+      if (!l || !v) return false;
+      l.name = v;
+      P().apply();
+      return true;
+    },
+    remove(id) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      if (i < 0 || list[i].locked) return false;
+      list.splice(i, 1);
+      if (sel === id) { sel = ''; write(STORE.sel, ''); }
+      P().apply();
+      return true;
+    },
+    duplicate(id) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      if (i < 0) return null;
+      const copy = JSON.parse(JSON.stringify(list[i]));
+      copy.id = null;
+      copy.name = (list[i].name || list[i].kind) + ' (' + tr('kopya') + ')';
+      copy.solo = false;
+      copy.locked = false;
+      const made = window.SVLayers.normalizeLayer(copy);
+      list.splice(i + 1, 0, made);
+      select(made.id, true);
+      P().apply();
+      return made.id;
+    },
+    // dir: +1 öne (listede yukarı), -1 arkaya
+    move(id, dir) {
+      const list = layers();
+      const i = list.findIndex((x) => x && x.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= list.length) return false;
+      const [m] = list.splice(i, 1);
+      list.splice(j, 0, m);
+      P().apply();
+      return true;
+    },
+    flag(id, key) {
+      const l = byId(id);
+      if (!l) return false;
+      if (key === 'enabled') l.enabled = l.enabled === false;
+      else l[key] = !l[key];
+      P().apply();
+      return true;
+    },
+  };
+
   /* `quiet`: seçim yazılır, çizimi çağıran yapar (yeni katman eklenince hemen ardından apply var). */
   function select(id, quiet) {
     sel = id || '';
@@ -165,15 +222,20 @@
       class: 'sv-lt' + (l.id === sel ? ' sel' : '') + (l.enabled === false || l.muted ? ' off' : ''),
       'data-id': l.id, draggable: l.locked ? 'false' : 'true', role: 'button', tabindex: '0',
       onclick: () => select(l.id),
-      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(l.id); } },
+      onkeydown: (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(l.id); }
+        // Klavyeyle bağlam menüsü: Shift+F10 ya da Menü tuşu
+        else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { e.preventDefault(); openLayerMenu(l.id, row); }
+      },
+      oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); openLayerMenu(l.id, row, e.clientX, e.clientY); },
     }, [
       thumbOf(l),
       el('span', { class: 'sv-nm' }, [el('b', { text: titleOf(l) }), el('span', { text: subOf(l) })]),
       el('span', { class: 'sv-lt-acts' }, [
-        toggle('solo', !!l.solo, 'S', null, 'Solo: yalnızca solo katmanlar çizilir', () => { l.solo = !l.solo; P().apply(); }),
-        toggle('mute', !!l.muted, 'M', null, 'Sessiz: katmanı ayarlarını kaybetmeden gizler', () => { l.muted = !l.muted; P().apply(); }),
-        toggle('lock', !!l.locked, '', 'lock', 'Kilit: kazara düzenlemeyi engeller', () => { l.locked = !l.locked; P().apply(); }),
-        toggle('vis', l.enabled === false, '', l.enabled === false ? 'eye-off' : 'eye', 'Katmanı aç/kapat', () => { l.enabled = l.enabled === false; P().apply(); }),
+        toggle('solo', !!l.solo, 'S', null, 'Solo: yalnızca solo katmanlar çizilir', () => act.flag(l.id, 'solo')),
+        toggle('mute', !!l.muted, 'M', null, 'Sessiz: katmanı ayarlarını kaybetmeden gizler', () => act.flag(l.id, 'muted')),
+        toggle('lock', !!l.locked, '', 'lock', 'Kilit: kazara düzenlemeyi engeller', () => act.flag(l.id, 'locked')),
+        toggle('vis', l.enabled === false, '', l.enabled === false ? 'eye-off' : 'eye', 'Katmanı aç/kapat', () => act.flag(l.id, 'enabled')),
       ]),
       l.kind === 'logo' ? null : opacityBar(l),
     ]);
@@ -229,6 +291,55 @@
     const menu = el('div', { class: 'sv-menu sv-add' }, [el('div', { class: 'sv-mh', text: tr('Katman Ekle') }), addRow]);
     addRow.addEventListener('click', (ev) => { if (ev.target.closest('button')) menu.remove(); });
     placeMenu(menu, r.left, r.bottom + 6);
+  }
+
+  /* Katman satırının sağ tık menüsü. Satırdaki düğmelerle aynı işlemler (act). */
+  function openLayerMenu(id, row, x, y) {
+    const el = P().el;
+    const l = byId(id);
+    if (!l) return null;
+    const list = layers();
+    const i = list.indexOf(l);
+    const item = (icon, text, fn, opts) => el('button', {
+      type: 'button', role: 'menuitem', icon, text: tr(text), 'data-act': (opts && opts.key) || '',
+      disabled: !!(opts && opts.disabled),
+      onclick: () => { menu.remove(); fn(); if (row && row.isConnected) row.focus(); },
+    });
+    const rename = () => {
+      select(id);
+      const inp = document.querySelector('#svInspector .sv-ititle input');
+      if (inp) { inp.focus(); inp.select(); }
+    };
+    const menu = el('div', { class: 'sv-menu sv-layer-menu', role: 'menu', 'aria-label': tr('Katman') }, [
+      el('div', { class: 'sv-mh', text: titleOf(l) }),
+      item('pencil', 'Yeniden Adlandır', rename, { key: 'rename' }),
+      item('copy', 'Çoğalt', () => act.duplicate(id), { key: 'duplicate' }),
+      item(l.enabled === false ? 'eye' : 'eye-off', l.enabled === false ? 'Göster' : 'Gizle', () => act.flag(id, 'enabled'), { key: 'visible' }),
+      item('sparkle', l.solo ? 'Soloyu Kapat' : 'Solo', () => act.flag(id, 'solo'), { key: 'solo' }),
+      item(l.muted ? 'speaker' : 'mute', l.muted ? 'Sesi Aç' : 'Sessiz', () => act.flag(id, 'muted'), { key: 'mute' }),
+      item('lock', l.locked ? 'Kilidi Aç' : 'Kilitle', () => act.flag(id, 'locked'), { key: 'lock' }),
+      el('hr'),
+      item('arrow-up', 'Öne Taşı', () => act.move(id, 1), { key: 'up', disabled: i >= list.length - 1 }),
+      item('arrow-down', 'Arkaya Taşı', () => act.move(id, -1), { key: 'down', disabled: i <= 0 }),
+      el('hr'),
+      item('trash', 'Kaldır', () => act.remove(id), { key: 'remove', disabled: !!l.locked }),
+    ]);
+    menu.addEventListener('keydown', (e) => {
+      const items = [...menu.querySelectorAll('button:not([disabled])')];
+      const k = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); items[(k + 1) % items.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(k - 1 + items.length) % items.length].focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+      else if (e.key === 'Tab') { e.preventDefault(); menu.remove(); if (row) row.focus(); }
+    });
+    if (x == null && row) { const r = row.getBoundingClientRect(); x = r.left + 24; y = r.bottom - 4; }
+    placeMenu(menu, x || 0, y || 0);
+    // Esc ile kapanınca odak satıra dönsün
+    menu.addEventListener('keydown', (e) => { if (e.key === 'Escape' && row) setTimeout(() => row.isConnected && row.focus(), 0); });
+    const first = menu.querySelector('button:not([disabled])');
+    if (first) first.focus();
+    return menu;
   }
 
   function sceneColors() {
@@ -468,13 +579,13 @@
         el('span', { class: 'sv-names' }, [
           el('input', {
             value: titleOf(l), 'aria-label': tr('Katman adı'),
-            onchange: (e) => { l.name = e.target.value.trim() || l.name; P().apply(); },
+            onchange: (e) => { if (!act.rename(l.id, e.target.value)) e.target.value = titleOf(byId(l.id) || l); },
           }),
           el('small', { text: subOf(l) }),
         ]),
         el('button', {
           class: 'sv-ib sm', type: 'button', icon: 'x', title: tr('Kaldır'), 'aria-label': tr('Kaldır'), disabled: !!l.locked,
-          onclick: () => { const list = layers(); const i = list.indexOf(l); if (i >= 0 && !l.locked) { list.splice(i, 1); sel = ''; write(STORE.sel, ''); P().apply(); } },
+          onclick: () => act.remove(l.id),
         }),
       ])]));
       const card = l.kind === 'visualizer' && l.type === 'milkdrop' ? mdCard(l) : null;
@@ -761,5 +872,5 @@
     });
   }
 
-  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
+  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

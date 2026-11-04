@@ -13,7 +13,10 @@
    titremeyi yutar.
 
    Eşleme: { id, kind: 'button' | 'axis', index, pad: -1 (hepsi) | n,
-             target, min, max } */
+             target, min, max,
+             // analog ayrıntı (eksen → sürekli ayar); yoksa varsayılanlar
+             mode: 'abs' | 'rel', range: 'full' | 'pos' | 'neg', deadzone, curve: 'linear' | 'expo',
+             expo, invert, smooth (0..0.95), rate (göreli kipte saniyede tam aralık) } */
 (function () {
   const DEAD = 0.08;
 
@@ -69,7 +72,78 @@
     return b + m.index + (m.pad >= 0 ? ' · #' + (m.pad + 1) : '');
   }
 
-  const api = { diff, learnFrom, matches, label, axis01 };
+  /* Analog seçenekleri: eksik ya da bozuk alanlar güvenli varsayılana döner. */
+  const OPTS = { mode: 'abs', range: 'full', deadzone: DEAD, curve: 'linear', expo: 2, invert: false, smooth: 0, rate: 0.5 };
+  function clampNum(v, lo, hi, d) { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }
+  function opts(m) {
+    const o = m || {};
+    return {
+      mode: o.mode === 'rel' ? 'rel' : 'abs',
+      range: o.range === 'pos' || o.range === 'neg' ? o.range : 'full',
+      deadzone: clampNum(o.deadzone, 0, 0.9, OPTS.deadzone),
+      curve: o.curve === 'expo' ? 'expo' : 'linear',
+      expo: clampNum(o.expo, 1, 5, OPTS.expo),
+      invert: !!o.invert,
+      smooth: clampNum(o.smooth, 0, 0.95, 0),
+      rate: clampNum(o.rate, 0.01, 10, OPTS.rate),
+    };
+  }
+
+  /* Ham eksen (-1..1) → biçimlenmiş iki yönlü değer (-1..1): ölü bölge (kalanı yeniden ölçekler,
+     sıçrama olmaz), ters çevirme, üstel eğri. */
+  function shape(m, raw) {
+    const o = opts(m);
+    let v = Math.max(-1, Math.min(1, Number(raw) || 0));
+    const a = Math.abs(v);
+    v = a <= o.deadzone ? 0 : Math.sign(v) * (a - o.deadzone) / (1 - o.deadzone);
+    if (o.invert) v = -v;
+    if (o.curve === 'expo') v = Math.sign(v) * Math.pow(Math.abs(v), o.expo);
+    return v;
+  }
+
+  /* Mutlak kip: biçimlenmiş değer → 0..1. 'pos' / 'neg' eksenin yalnız bir yarısını kullanır
+     (tetik ya da çubuğun tek yönü). */
+  function abs01(m, raw) {
+    const o = opts(m);
+    const v = shape(m, raw);
+    if (o.range === 'pos') return Math.max(0, v);
+    if (o.range === 'neg') return Math.max(0, -v);
+    return (v + 1) / 2;
+  }
+
+  /* Göreli kip: çubuk tutuldukça değer artar ya da azalır; bırakınca yerinde kalır. dt milisaniye. */
+  function relStep(m, cur01, raw, dt) {
+    const o = opts(m);
+    let v = shape(m, raw);
+    if (o.range === 'pos') v = Math.max(0, v);
+    else if (o.range === 'neg') v = -Math.max(0, -v);
+    const next = (Number(cur01) || 0) + v * o.rate * (Math.max(0, Number(dt) || 0) / 1000);
+    return Math.max(0, Math.min(1, next));
+  }
+
+  /* Yumuşatma: kare hızından bağımsız üstel yaklaşma (16 ms'lik adıma göre). */
+  function smoothTo(m, prev, target, dt) {
+    const k = opts(m).smooth;
+    if (!k || prev == null || !Number.isFinite(prev)) return target;
+    const f = Math.pow(k, Math.max(0, Number(dt) || 0) / 16);
+    return target + (prev - target) * f;
+  }
+
+  /* Durumdan eşlemenin ham değeri: pad -1 ise en çok sapan kumanda. */
+  function rawOf(m, state) {
+    let best = null;
+    const tag = (m.kind === 'axis' ? ':a:' : ':b:') + m.index;
+    for (const k of Object.keys(state || {})) {
+      if (!k.endsWith(tag)) continue;
+      const p = Number(k.slice(0, k.indexOf(':')));
+      if (m.pad != null && m.pad >= 0 && m.pad !== p) continue;
+      const v = Number(state[k]) || 0;
+      if (best == null || Math.abs(v) > Math.abs(best)) best = v;
+    }
+    return best;
+  }
+
+  const api = { diff, learnFrom, matches, label, axis01, opts, shape, abs01, relStep, smoothTo, rawOf, OPTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVGamepadMap = api;
 })();

@@ -60,7 +60,7 @@ async function startPanel(opts) {
     let n = 0;
     for (const f of fs.readdirSync(opts.presets)) { if (n++ > 300) break; fs.copyFileSync(path.join(opts.presets, f), path.join(ud, 'presets', f)); }
   }
-  const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + opts.port], { stdio: 'ignore' });
+  const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + opts.port], { stdio: 'ignore', env: opts.asWindows ? { ...process.env, SV_UI_AS_WINDOWS: '1' } : process.env });
   process.on('exit', () => { try { app.kill(); } catch { /* kapalı */ } });
   let t = null;
   for (let i = 0; i < 1200 && !t; i++) {

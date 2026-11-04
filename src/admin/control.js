@@ -442,36 +442,130 @@
   function padCount() {
     try { return Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean).length; } catch { return 0; }
   }
+  // Analog eşlemenin son yazılan değeri (0..1); ayara kaydedilmez
+  const padVal = new Map();
+  let padAt = 0;
+  let padTick = 0;
+  /* Hedefin şu anki değeri 0..1 olarak (göreli kip buradan devam eder). */
+  function value01Of(t, map) {
+    const v = P().get(t.path);
+    if (Array.isArray(t.steps) && t.steps.length) {
+      const i = t.steps.indexOf(v);
+      return i < 0 ? 0 : (i + 0.5) / t.steps.length;
+    }
+    const lo = map && map.min != null ? map.min : t.min;
+    const hi = map && map.max != null ? map.max : t.max;
+    if (typeof v !== 'number' || hi === lo) return 0;
+    return Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  }
+  /* Sürekli (analog) eşleme: eksen ya da analog tetik bir kaydırıcıyı sürer. Her okumada çalışır;
+     göreli kip ve yumuşatma olay beklemeden ilerlesin diye. */
+  function continuous(m) {
+    if (!m || !(m.index >= 0)) return null;
+    const t = targetFor(m.target);
+    if (!t || t.action) return null;
+    return t;
+  }
+  function driveAnalog(m, t, raw, dt) {
+    const G = GPM();
+    const o = G.opts(m);
+    let want;
+    if (o.mode === 'rel') {
+      const base = padVal.has(m.id) ? padVal.get(m.id) : value01Of(t, m);
+      want = G.relStep(m, base, m.kind === 'button' ? raw * 2 - 1 : raw, dt);
+      // Göreli kipte yumuşatma yok: değer zaten adım adım ilerliyor
+      if (want === padVal.get(m.id)) return;
+      padVal.set(m.id, want);
+    } else {
+      const target = m.kind === 'button' ? Math.max(0, Math.min(1, raw)) : G.abs01(m, raw);
+      const prev = padVal.has(m.id) ? padVal.get(m.id) : null;
+      want = G.smoothTo(m, prev, target, dt);
+      if (Math.abs(want - target) < 0.0005) want = target;
+      if (prev != null && Math.abs(want - prev) < 0.0005) return;
+      padVal.set(m.id, want);
+    }
+    applyMapping(m, want);
+  }
+  function paintAxes(state) {
+    const host = document.getElementById('gamepadAxes');
+    if (!host) return false;
+    const keys = Object.keys(state).filter((k) => k.includes(':a:') || (state[k] > 0 && state[k] < 1));
+    const sig = keys.join(',');
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.replaceChildren(...keys.map((k) => {
+        const [p, kind, i] = k.split(':');
+        const en = !!(window.SVI18n && window.SVI18n.locale === 'en');
+        const name = (kind === 'a' ? (en ? 'Axis ' : 'Eksen ') : (en ? 'Button ' : 'Düğme ')) + i + ' · #' + (Number(p) + 1);
+        return P().el('div', { class: 'gp-axis', 'data-k': k }, [P().el('span', { class: 'gp-n', text: name }), P().el('span', { class: 'gp-bar' }, [P().el('i')]), P().el('span', { class: 'gp-v sv-mono' })]);
+      }));
+    }
+    for (const row of host.children) {
+      const v = Number(state[row.dataset.k]) || 0;
+      const bipolar = row.dataset.k.includes(':a:');
+      const bar = row.querySelector('i');
+      bar.style.left = bipolar ? (Math.min(0, v) * 50 + 50) + '%' : '0%';
+      bar.style.width = (bipolar ? Math.abs(v) * 50 : v * 100) + '%';
+      row.querySelector('.gp-v').textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
+    }
+    return true;
+  }
   function pollGamepads() {
     if (!navigator.getGamepads) return;
     const cfg = P().cfg();
     const g = cfg.control.gamepad || {};
-    const r = GPM().diff(padState, navigator.getGamepads());
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const dt = padAt ? Math.min(100, now - padAt) : 16;
+    padAt = now;
+    // Ölü bölgeyi eşleme uygular; burada yalnız çok küçük titreme yutulur
+    const r = GPM().diff(padState, navigator.getGamepads(), 0.02);
     padState = r.state;
-    if (!r.events.length) return;
-    const e0 = r.events[r.events.length - 1];
-    lastSignal.gamepad = GPM().label(e0, !!(window.SVI18n && window.SVI18n.locale === 'en')) + ' → ' + (Math.round(e0.raw * 100) / 100);
-    const chip = document.getElementById('gamepadSignal');
-    if (chip) chip.textContent = lastSignal.gamepad;
+    const shown = (padTick++ % 3 === 0) ? paintAxes(r.state) : !!document.getElementById('gamepadAxes');
+    if (r.events.length) {
+      const e0 = r.events[r.events.length - 1];
+      lastSignal.gamepad = GPM().label(e0, !!(window.SVI18n && window.SVI18n.locale === 'en')) + ' → ' + (Math.round(e0.raw * 100) / 100);
+      const chip = document.getElementById('gamepadSignal');
+      if (chip) chip.textContent = lastSignal.gamepad;
+    }
     if (learning && learning.surface === 'gamepad') {
       const got = GPM().learnFrom(r.events);
       const m = got && (g.mappings || []).find((x) => x.id === learning.id);
-      if (m) { Object.assign(m, got); learning = null; syncGamepad(); P().push(true); P().rerender(); }
+      if (m) {
+        Object.assign(m, got);
+        // Öğrenilen yön: çubuğun tek yönü ya da tetik yalnız o yarıyı kullansın diye ipucu
+        if (got.kind === 'axis' && m.range == null) m.range = 'full';
+        padVal.delete(m.id);
+        learning = null; syncGamepad(); P().push(true); P().rerender();
+      }
       return;
     }
-    if (!g.enabled) return;
+    if (!g.enabled) { if (!shown) syncGamepad(); return; }
+    const analog = new Set();
+    for (const m of g.mappings || []) {
+      const t = continuous(m);
+      if (!t) continue;
+      analog.add(m);
+      const raw = GPM().rawOf(m, r.state);
+      if (raw == null) continue;
+      /* Mutlak kip kumanda dokunulmadan ayarı ezmesin: ilk hareketten sonra sürer.
+         Göreli kip zaten ortada sıfır adım atar. */
+      if (GPM().opts(m).mode === 'abs' && !padVal.has(m.id) && !r.events.some((ev) => GPM().matches(m, ev))) continue;
+      driveAnalog(m, t, raw, dt);
+    }
     for (const ev of r.events) {
       for (const m of g.mappings || []) {
-        if (!GPM().matches(m, ev)) continue;
-        if (ev.value01 < 0.5) m._armed = true;
-        applyMapping(m, ev.value01);
+        if (analog.has(m) || !GPM().matches(m, ev)) continue;
+        // Eksen → eylem: biçimlenmiş değer eşiği geçince bir kez
+        const v = ev.kind === 'axis' ? GPM().abs01(Object.assign({}, m, { range: m.range || 'pos' }), ev.raw) : ev.value01;
+        if (v < 0.5) m._armed = true;
+        applyMapping(m, v);
       }
     }
   }
   function syncGamepad() {
     const cfg = P().cfg();
-    const on = !!(cfg.control.gamepad && cfg.control.gamepad.enabled) || (learning && learning.surface === 'gamepad');
-    if (on && !padTimer) padTimer = setInterval(pollGamepads, 16);
+    const on = !!(cfg.control.gamepad && cfg.control.gamepad.enabled) || (learning && learning.surface === 'gamepad') || !!document.getElementById('gamepadAxes');
+    if (on && !padTimer) { padAt = 0; padTimer = setInterval(pollGamepads, 16); }
     else if (!on && padTimer) { clearInterval(padTimer); padTimer = null; }
   }
 
@@ -715,6 +809,7 @@
         );
       }
 
+      const analogOpts = surface === 'gamepad' && t && !t.action && !t.steps ? gamepadOpts(m) : null;
       host.appendChild(
         el('div', { class: 'map-row' + (isLearning ? ' learning' : '') }, [
           learnBtn,
@@ -727,6 +822,7 @@
           }),
         ])
       );
+      if (analogOpts) host.appendChild(analogOpts);
     });
 
     host.appendChild(
@@ -737,6 +833,40 @@
     );
     setTimeout(refreshValueChips, 0);
     return host;
+  }
+
+  /* Oyun kumandası eşlemesinin analog ayrıntısı: kip, eksen yarısı, ölü bölge, eğri, ters, yumuşatma, hız. */
+  function gamepadOpts(m) {
+    const el = P().el;
+    const o = GPM().opts(m);
+    const save = (k, v) => { m[k] = v; padVal.delete(m.id); P().push(true); };
+    const sel = (k, list, label) => {
+      const s = el('select', { class: 'p-in', 'aria-label': T(label), title: T(label), onchange: (e) => { save(k, e.target.value); P().rerender(); } });
+      for (const [v, text] of list) { const op = el('option', { value: v, text: T(text) }); if (o[k] === v) op.selected = true; s.appendChild(op); }
+      return s;
+    };
+    const num = (k, lo, hi, step, label) => el('label', { class: 'gp-opt' }, [
+      el('span', { text: T(label) }),
+      el('input', {
+        class: 'p-in p-num', type: 'number', min: lo, max: hi, step, value: o[k], 'aria-label': T(label),
+        onchange: (e) => { const n = parseFloat(e.target.value); save(k, Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : GPM().OPTS[k]); },
+      }),
+    ]);
+    const inv = el('input', { type: 'checkbox', onchange: (e) => save('invert', e.target.checked) });
+    inv.checked = o.invert;
+    const kids = [
+      sel('mode', [['abs', 'Mutlak'], ['rel', 'Göreli (artımlı)']], 'Kip'),
+    ];
+    if (m.kind === 'axis') {
+      kids.push(sel('range', [['full', 'Tam eksen'], ['pos', 'Yalnız + yön'], ['neg', 'Yalnız − yön']], 'Eksen aralığı'));
+      kids.push(num('deadzone', 0, 0.9, 0.01, 'Ölü bölge'));
+      kids.push(sel('curve', [['linear', 'Doğrusal'], ['expo', 'Üstel']], 'Tepki eğrisi'));
+      if (o.curve === 'expo') kids.push(num('expo', 1, 5, 0.1, 'Üs'));
+      kids.push(el('label', { class: 'gp-opt' }, [inv, el('span', { text: T('Ters çevir') })]));
+    }
+    if (o.mode === 'rel') kids.push(num('rate', 0.01, 10, 0.05, 'Hız (aralık/sn)'));
+    else kids.push(num('smooth', 0, 0.95, 0.05, 'Yumuşatma'));
+    return el('div', { class: 'map-row gp-opts' }, kids);
   }
 
   function panel(surface) {
@@ -802,6 +932,9 @@
           el('label', { class: 'lbl', text: n ? n + ' ' + T('kumanda bağlı') : T('Kumanda bulunamadı (bir düğmeye basın)') }),
           el('span', { id: 'gamepadSignal', class: 'map-signal', text: lastSignal.gamepad || T('sinyal bekleniyor…') }),
         ])]));
+        // Canlı eksen göstergesi: eşleme yaparken hangi eksenin ne kadar oynadığı
+        nodes.push(el('div', { id: 'gamepadAxes', class: 'gp-axes', 'aria-live': 'off', 'aria-label': T('Canlı eksen değerleri') }));
+        setTimeout(syncGamepad, 0);
       }
       nodes.push(el('div', { class: 'note', text: T('Xbox, PlayStation ve genel USB/Bluetooth kumandalar çalışır (Windows, macOS, Linux). Kumanda yalnızca uygulama pencerelerinden biri öndeyken okunur; bu Chromium sınırıdır.') }));
       nodes.push(mappingRows('gamepad'));
