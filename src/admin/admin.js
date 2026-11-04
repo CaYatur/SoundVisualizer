@@ -5984,13 +5984,31 @@
     const arr = ensureScenes();
     // Sıralama sürükle-bırak ya da ok tuşlarıyla; sıra kullanıcının
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
+    // Düzen kullanıcının seçimi (ayarda); varsayılan tek sütun liste: canlı gösteride sıra belirsiz olmasın
+    cfg.ui = cfg.ui || {};
+    const view = cfg.ui.sceneView === 'grid' ? 'grid' : 'list';
+    host.classList.toggle('is-grid', view === 'grid');
+    host.classList.toggle('is-list', view !== 'grid');
+    const dock = $('dockScenes');
+    const head = dock && dock.querySelector('.dock-head');
+    if (head) {
+      let tg = head.querySelector('.scene-view');
+      if (!tg) {
+        tg = el('div', { class: 'scene-view sv-seg', role: 'group', 'aria-label': tr('Sahne düzeni') });
+        head.insertBefore(tg, head.querySelector('#sceneSaveBtn'));
+      }
+      tg.replaceChildren(...[['list', 'list', 'Liste'], ['grid', 'grid', 'Izgara']].map(([v, ic, lb]) => el('button', {
+        class: 'icon-btn small' + (view === v ? ' on' : ''), type: 'button', icon: ic, title: tr(lb), 'aria-label': tr(lb), 'aria-pressed': String(view === v),
+        onclick: () => { if (cfg.ui.sceneView === v) return; cfg.ui.sceneView = v; push(true); renderScenes(); },
+      })));
+    }
     if (!arr.length) {
       host.appendChild(
         el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') })
       );
       return;
     }
-    arr.forEach((sc) => {
+    arr.forEach((sc, i) => {
       const thumb = el('div', {
         class: 'scene-thumb',
         title: tr('Bu sahneyi uygula'),
@@ -6002,6 +6020,8 @@
       host.appendChild(
         el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
           dragHandle(tr('Sahneyi taşı')),
+          // Sıra numarası: ızgarada da hangi sahnenin kaçıncı olduğu açık
+          el('span', { class: 'scene-num', text: String(i + 1), title: tr('Sıra') + ' ' + (i + 1) }),
           thumb,
           el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
           el('div', { class: 'scene-acts' }, [

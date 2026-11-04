@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--
+  SoundVisualizer — CaYaDev Ses Görselleştirici
+  Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+  https://github.com/CaYatur/SoundVisualizer
+  SPDX-License-Identifier: MIT
+-->
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline';" />
+    <title>Mod Küçük Resim</title>
+    <style>
+      html, body { margin: 0; background: #000; overflow: hidden; }
+      canvas { position: absolute; left: 0; top: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- Gizli pencere (#957): Görsel ve Zemin modlarının küçük resmi dışa aktarıcıyla AYNI katman
+         motoruyla çiziliyor. Betik listesi src/main/mode-thumbs.js PAGE_FILES ile aynı sırada. -->
+    <div id="stage"></div>
+    <canvas id="comp"></canvas>
+    <script src="../shared/defaults.js"></script>
+    <script src="../shared/screensaver.js"></script>
+    <script src="../shared/i18n.js"></script>
+    <script src="../visualizer/audio.js"></script>
+    <script src="../visualizer/modes/glow.js"></script>
+    <script src="../visualizer/modes/round-image.js"></script>
+    <script src="../shared/gl-link.js"></script>
+    <script src="../visualizer/modes/gradient.js"></script>
+    <script src="../visualizer/modes/backgrounds.js"></script>
+    <script src="../visualizer/modes/bars.js"></script>
+    <script src="../visualizer/modes/centerbars.js"></script>
+    <script src="../visualizer/modes/wave.js"></script>
+    <script src="../visualizer/modes/circular.js"></script>
+    <script src="../visualizer/modes/blocks.js"></script>
+    <script src="../visualizer/modes/spectrogram.js"></script>
+    <script src="../visualizer/modes/ribbon.js"></script>
+    <script src="../visualizer/modes/orb.js"></script>
+    <script src="../visualizer/modes/starburst.js"></script>
+    <script src="../visualizer/modes/tunnel.js"></script>
+    <script src="../visualizer/modes/dots.js"></script>
+    <script src="../visualizer/modes/radialwave.js"></script>
+    <script src="../visualizer/modes/particles.js"></script>
+    <script src="../visualizer/modes/terrain.js"></script>
+    <script src="../visualizer/modes/sprites.js"></script>
+    <script src="../visualizer/postfx.js"></script>
+    <script src="../visualizer/postfx-extra.js"></script>
+    <script src="../visualizer/mapper.js"></script>
+    <script src="../shared/logo-runtime.js"></script>
+    <script src="../shared/logo-swap.js"></script>
+    <script src="../shared/reveal.js"></script>
+    <script src="../shared/gif-anim.js"></script>
+    <script src="../visualizer/gif-player.js"></script>
+    <script src="../visualizer/modes/media.js"></script>
+    <script src="../shared/source-layers.js"></script>
+    <script src="../visualizer/modes/source.js"></script>
+    <script src="../visualizer/layers.js"></script>
+    <script src="../shared/presets.js"></script>
+    <script src="../shared/presets-shaders.js"></script>
+    <script src="../shared/presets-milkdrop-pack.js"></script>
+    <script src="../shared/presets-milkdrop.js"></script>
+    <script src="../shared/onset.js"></script>
+    <script src="../shared/transition.js"></script>
+    <script src="../shared/warp.js"></script>
+    <script src="../shared/milkdrop.js"></script>
+    <script src="../shared/milkdrop-audio.js"></script>
+    <script src="../shared/milkdrop-hlsl.js"></script>
+    <script src="../shared/milkdrop-shader.js"></script>
+    <script src="../shared/tempo.js"></script>
+    <script src="../shared/milkdrop-cycle.js"></script>
+    <script src="../shared/milkdrop-library.js"></script>
+    <script src="../shared/recorder.js"></script>
+    <script src="../shared/schema.js"></script>
+    <script src="../shared/templates.js"></script>
+    <script src="../shared/lyrics.js"></script>
+    <script src="../shared/analysis.js"></script>
+    <script src="../shared/spectrum.js"></script>
+    <script src="../shared/stereo-bands.js"></script>
+    <script src="../shared/modulation.js"></script>
+    <script src="../shared/analysis-export.js"></script>
+    <script src="../shared/timeline.js"></script>
+    <script src="../shared/nowplaying.js"></script>
+    <script src="../shared/lyrics-sync.js"></script>
+    <script src="../shared/formulas.js"></script>
+    <script src="../shared/formulas-extra.js"></script>
+    <script src="../shared/solids.js"></script>
+    <script src="../visualizer/modes/extras.js"></script>
+    <script src="../visualizer/modes/generative.js"></script>
+    <script src="../visualizer/modes/generative2.js"></script>
+    <script src="../visualizer/modes/milkdrop.js"></script>
+    <script src="../visualizer/modes/text.js"></script>
+    <script src="../visualizer/modes/nowplaying.js"></script>
+    <script src="../visualizer/modes/backgrounds-extra.js"></script>
+    <script src="../visualizer/modes/backgrounds-gen.js"></script>
+    <script src="../visualizer/modes/backgrounds-gen2.js"></script>
+    <script src="../visualizer/modes/shaderhost.js"></script>
+    <script src="../visualizer/modes/geometry3d.js"></script>
+    <script src="../shared/mode-catalog.js"></script>
+    <script src="../shared/demo-audio.js"></script>
+    <script src="mode-thumbs.js"></script>
+  </body>
+</html>

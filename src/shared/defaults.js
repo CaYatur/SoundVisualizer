@@ -350,6 +350,8 @@
       scale: 1,
       // Paneldeki geçiş ve animasyonları kapat (sistemin tercihi ayrıca izlenir)
       reduceMotion: false,
+      // Sahne listesinin düzeni: 'list' (tek sütun, sıralı) | 'grid' (satır satır ızgara)
+      sceneView: 'list',
     },
 
     power: {

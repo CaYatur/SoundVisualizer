@@ -623,13 +623,70 @@
     for (const [g, items] of groups) {
       if (g) box.appendChild(el('div', { class: 'sv-gh', text: g }));
       for (const it of items) {
-        box.appendChild(el('button', {
+        const th = el('span', { class: 'sv-th', icon: kind === 'bg' ? 'image' : 'bars' });
+        const btn = el('button', {
           class: 'sv-gi nothumb' + (l && l.kind === want && l.type === it.id ? ' cur' : ''), type: 'button',
           onclick: () => applyMode(want, it.id, it.label),
-        }, [el('span', { class: 'sv-th', icon: kind === 'bg' ? 'image' : 'bars' }), el('b', { text: it.label })]));
+        }, [th, el('b', { text: it.label })]);
+        btn.dataset.thumb = kind + ':' + it.id;
+        if (it.id !== 'none') setModeThumb(btn, modeThumbUrls.get(kind + ':' + it.id));
+        box.appendChild(btn);
       }
     }
+    requestModeThumbs(box);
     return box;
+  }
+
+  /* GÖRSEL / ZEMİN KÜÇÜK RESİMLERİ (#957). Ana süreç önce uygulamayla gelen
+     resmi veriyor; yoksa gizli pencerede tek tek çiziyor (kuyruk ve seyreklik
+     MilkDrop küçük resimleriyle ortak). İstek boşta (requestIdleCallback)
+     gidiyor: galeri açılırken panel takılmasın. url '' = çizilemedi, simge kalıyor. */
+  const modeThumbUrls = new Map();
+  let modeThumbBound = false;
+  function setModeThumb(btn, url) {
+    if (!url || btn.dataset.thumbUrl === url) return;
+    btn.dataset.thumbUrl = url;
+    const th = btn.querySelector('.sv-th');
+    if (!th) return;
+    const img = new Image();
+    img.alt = '';
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    img.onload = () => btn.classList.remove('nothumb');
+    img.onerror = () => img.remove();
+    img.src = url;
+    th.appendChild(img);
+  }
+  function requestModeThumbs(box) {
+    const api = window.api;
+    if (!api || typeof api.modeThumbs !== 'function') return;
+    if (!modeThumbBound && typeof api.onModeThumb === 'function') {
+      modeThumbBound = true;
+      api.onModeThumb((t) => {
+        if (!t || typeof t.id !== 'string') return;
+        modeThumbUrls.set(t.id, t.url || '');
+        document.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => { if (b.dataset.thumb === t.id) setModeThumb(b, t.url); });
+      });
+    }
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 200));
+    idle(() => {
+      if (!box.isConnected) return;
+      const items = [];
+      box.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => {
+        const id = b.dataset.thumb;
+        if (modeThumbUrls.has(id) || /:none$/.test(id)) return;
+        const i = id.indexOf(':');
+        items.push({ id, kind: id.slice(0, i), type: id.slice(i + 1) });
+      });
+      if (!items.length) return;
+      api.modeThumbs(items).then((r) => {
+        const ready = (r && r.ready) || {};
+        for (const id of Object.keys(ready)) {
+          modeThumbUrls.set(id, ready[id]);
+          box.querySelectorAll('.sv-gi[data-thumb]').forEach((b) => { if (b.dataset.thumb === id) setModeThumb(b, ready[id]); });
+        }
+      }, () => {});
+    }, { timeout: 1500 });
   }
 
   /* Seçili katman bu türdense onun modu değişiyor; değilse o türün ilk katmanı. Hiç yoksa yeni

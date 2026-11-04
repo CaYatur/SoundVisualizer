@@ -45,7 +45,8 @@ const HIDDEN_WINDOW_SITES = [
   { file: 'src/main/layer-sources.js', count: 1, teardown: ['layerSources.shutdown()'] },
   // Dışa aktarma render penceresi ve MilkDrop küçük resim penceresi (#575)
   // Köprünün çalan penceresi ve köprü kipinin durum penceresi (#813)
-  { file: 'src/main/main.js', count: 4, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()', 'closeBridgePlayer()', 'closeBridgeWin()'] },
+  // Görsel/Zemin küçük resim penceresi (#957)
+  { file: 'src/main/main.js', count: 5, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()', 'closeModeThumbWin()', 'closeBridgePlayer()', 'closeBridgeWin()'] },
 ];
 
 /* Ana süreçte gizli pencere açan yerleri sayar: dosya -> adet.

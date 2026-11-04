@@ -2856,6 +2856,7 @@
     // ---- Küçük resimler (#575) ----
     'Düzen': 'Layout',
     'Liste': 'List',
+    'Sahne düzeni': 'Scene layout',
     // 'Izgara' → 'Grid' aşağıda arkaplan adlarıyla zaten var
     'Küçük resim hazırlanıyor…': 'Preparing thumbnail…',
     'Küçük resim çizilemedi': 'The thumbnail could not be drawn',

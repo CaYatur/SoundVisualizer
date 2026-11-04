@@ -493,3 +493,17 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
   .sv-op { left: 60px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Sahne listesi düzeni (#957): varsayılan tek sütun, sıra yukarıdan aşağı. Izgara isteğe bağlı,
+   satır satır; numara rozeti sırayı her iki düzende de açık gösterir. */
+#svShelf #dockScenes .scene-list.is-list { display: flex; flex-direction: column; gap: 6px; }
+#svShelf #dockScenes .scene-list.is-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.scene-num {
+  flex: 0 0 auto; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 600 12px/1 inherit; font-variant-numeric: tabular-nums;
+  background: rgb(var(--fg-rgb) / .08); color: var(--text);
+}
+.scene-item.active .scene-num { background: var(--accent); color: var(--on-accent); }
+.scene-view { display: inline-flex; gap: 4px; margin-left: auto; margin-right: 6px; }
+.scene-view .icon-btn.on { background: rgb(var(--accent-rgb) / .18); color: var(--accent); }

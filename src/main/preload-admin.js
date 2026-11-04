@@ -185,6 +185,9 @@ contextBridge.exposeInMainWorld('api', {
      `sv-thumb://t/<anahtar>.webp` adresinden. */
   milkdropThumbs: (ids) => ipcRenderer.invoke('milkdrop:thumbs', ids),
   onMilkdropThumb: (cb) => ipcRenderer.on('milkdrop:thumb', (e, t) => cb(t)),
+  // Görsel/Zemin küçük resimleri (#957)
+  modeThumbs: (items) => ipcRenderer.invoke('modes:thumbs', items),
+  onModeThumb: (cb) => ipcRenderer.on('modes:thumb', (e, t) => cb(t)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),

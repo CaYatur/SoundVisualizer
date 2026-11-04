@@ -88,8 +88,16 @@ test('önizleme çizim boyu sınırlı: büyük sahne sayfası yükü büyütmü
   assert.match(P, /const scale = Math\.min\(dpr, \(outputOpen && !full \? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H\) \/ h\);/);
 });
 
-test('çıkış açıkken küçük resim çizilmiyor, temizlik de bekliyor', () => {
+test('çıkış açıkken küçük resim seyrek çiziliyor ama kuyruk durmuyor (#957)', () => {
   const M = read('src/main/main.js');
+  // Gerileme: #905 çıkış açıkken kuyruğu sonsuza dek bekletiyordu, bütün hücreler çizgili kalıyordu
+  assert.doesNotMatch(M, /while \(thumbOutputBusy\(\)\)/);
+  const src = /function thumbGapMs\(busy, now, lastEnd\) \{[\s\S]*?\n\}/.exec(M)[0];
+  const gap = new Function('THUMB_BUSY_GAP_MS', src + '; return thumbGapMs;')(1500);
+  assert.strictEqual(gap(false, 1000, 999), 0);
+  assert.strictEqual(gap(true, 1000, 500), 1000);
+  assert.strictEqual(gap(true, 5000, 0), 0);
+  assert.match(M, /thumbLastEnd = Date\.now\(\);\n  closeThumbWinSoon\(\);/);
   assert.match(M, /async function renderThumb\(job\) \{\s*await thumbTurn\(\);/);
   assert.match(M, /thumbTurn\(\)\.then\(pruneThumbs\)/);
   assert.match(M, /openWindows\(\)\.length > 0 \|\| !!textureShare\.window\(\) \|\| !!\(exportWin/);
@@ -171,4 +179,17 @@ test('değişmeyen durum adım eklemiyor, geçmiş sınırlı', () => {
   let n = 0;
   while (h.canUndo()) { h.undo(); n++; }
   assert.strictEqual(n, U.MAX);
+});
+
+test('Sahne rafı: Liste / Izgara seçimi, varsayılan liste, numara rozeti (#957)', () => {
+  const defaults = read('src/shared/defaults.js');
+  const css = read('src/admin/shell.css');
+  assert.match(defaults, /sceneView: 'list'/);
+  assert.match(admin, /cfg\.ui\.sceneView/);
+  assert.match(admin, /classList\.toggle\('is-grid'/);
+  assert.match(admin, /scene-num/);
+  assert.match(css, /#dockScenes \.scene-list\.is-list/);
+  assert.match(css, /\.scene-num/);
+  assert.match(i18n, /'Sahne düzeni': 'Scene layout'/);
+  for (const k of ['Liste', 'Izgara']) assert.ok(i18n.includes("'" + k + "':"), k);
 });
