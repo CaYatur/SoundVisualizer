@@ -130,6 +130,6 @@ test('panel galeriye resmi boşta istiyor, ana süreç protokol ve IPC ile veriy
   assert.match(shell, /api\.modeThumbs\(items\)/);
   assert.match(main, /ipcMain\.handle\('modes:thumbs'/);
   assert.match(main, /modeThumbsLib\.fileForModeUrl\(/);
-  assert.match(main, /async function renderModeThumb\(meta\) \{\n  await thumbTurn\(\);/);
+  assert.match(main, /async function renderModeThumb\(meta\) \{\r?\n  await thumbTurn\(\);/);
   assert.match(pre, /modeThumbs: \(items\) => ipcRenderer\.invoke\('modes:thumbs'/);
 });
