@@ -714,3 +714,41 @@ body[data-page='live'] #svStageTools { display: none; }
   .studio-editor-grid { grid-template-columns: minmax(0, 1fr) 250px; }
   body[data-page='time'] .dock { grid-template-columns: 196px minmax(0, 1fr) 240px; }
 }
+
+/* ---- Yerleşim düzeltmeleri (ui-layout): düğme kenarı, yapışık düğmeler, hizalar ---- */
+/* Eski üçgenli katlanır satırlar yeni "Gelişmiş" satırıyla aynı görünümde */
+.fold-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 4px 0; padding: 0 12px; border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0; }
+.fold-head:hover { background: var(--sv-fill); color: var(--text); }
+.fold-head .fold-caret { margin-right: 0; }
+.fold-body { padding-left: 0; border-left: 0; }
+/* Yan yana düğmeler arasında nefes payı */
+.sv-btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sv-shelf-mode, .sv-sm { gap: 4px; }
+.tl-group { gap: 4px; }
+.sv-hud .dock-head-actions, #previewTools { gap: 4px; }
+/* TAKE yuvarlak düğmesinde yazı tek satır */
+.sv-take { white-space: nowrap; }
+/* Stüdyo araç çubuğu: simgeler bir arada kalıyor, Klasör alt satıra tek başına düşmüyor */
+.studio-toolbar-icons { display: flex; gap: 4px; margin-left: auto; }
+/* Stüdyo yan sütunu: başlık, etiket ve parametreler tek sol kenarda */
+.studio-side-col .studio-params { padding: 0; }
+.studio-side-col .studio-save .ctrl.ctrl { padding-left: 6px; }
+.studio-side-col .studio-note { margin-inline: 6px; }
+/* Tempoya Vur: dar sütunda simge + yazı kenara dayanmasın */
+.bpm-box > .btn { gap: 5px; padding-inline: 8px; white-space: nowrap; }
+/* Dar canlı sütununda simge düşüyor, yazı sığıyor */
+.autovj-panel { container-type: inline-size; }
+@container (max-width: 300px) { .bpm-box > .btn .svi { display: none; } }
+/* Çıktı sayfası: uzun seçim metinleri (kodek, çözünürlük) dar formda kesilmesin; etiket üstte, seçim tam genişlikte */
+@container forms (max-width: 619px) {
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) { grid-template-columns: minmax(0, 1fr); row-gap: 4px; padding-block: 4px; }
+  body[data-page='output'] .sv-form .ctrl:has(> label.lbl + select) > select { grid-column: 1 / -1; width: 100%; max-width: none; }
+}
+/* Dışa aktarma düğmeleri tek yükseklikte; sığmazsa alt satıra iniyor */
+.sv-export-run > .row { flex-wrap: wrap; }
+.sv-export-run > .row > .btn { height: 38px; margin: 0; }
+.sv-export-run #exportAnalysisBtn, .sv-export-run #exportCancelBtn { flex: 1 1 auto; justify-content: center; }
+/* Işık: not, durum satırlarıyla aynı sol kenarda (eski kutu dolgusu girinti yapıyordu) */
+.lighting-panel > .lighting-priority-note { padding: 0; border-radius: 0; }
+/* Aydınlatma Tara + Windows Ayarları: genel .ctrl blok kuralı esnek satırı ezip düğmeleri yapıştırıyordu */
+#sections .ctrl.lighting-actions { display: flex; flex-wrap: wrap; gap: 6px; }

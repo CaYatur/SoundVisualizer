@@ -1353,13 +1353,29 @@
     return data && data.background;
   }
 
+  /* Çok koyu renkler kartta simsiyah görünüyordu: tonu koruyup açıklığı
+     okunur bir tabana çekiyoruz. Çözülemeyen renk olduğu gibi kalıyor. */
+  function visibleSwatch(c) {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c || '').trim());
+    if (!m) return c;
+    const h = m[1].length === 3 ? m[1].split('').map((x) => x + x).join('') : m[1];
+    const rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(...rgb), mn = Math.min(...rgb), l = (mx + mn) / 2;
+    const MIN_L = 0.16;
+    if (l >= MIN_L) return c;
+    // Gri tonlarda (doygunluk yok) eşit kaldırma; renkli tonlarda oranı koruyarak
+    const lift = mx > 0 ? MIN_L * 2 / (mx + mn || 1e-6) : 0;
+    const out = mx > 0 ? rgb.map((v) => Math.min(1, v * lift)) : rgb.map(() => MIN_L);
+    return '#' + out.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  }
+
   function sceneGradient(scene) {
     const bg = sceneBackground(scene && scene.data);
     if (!bg) return 'linear-gradient(135deg,#2a1f2e,#161013)';
-    if (bg.type === 'solid') return bg.solidColor || '#08080f';
+    if (bg.type === 'solid') return visibleSwatch(bg.solidColor || '#08080f');
     const cols = (bg.gradient && bg.gradient.colors) || [];
     if (!cols.length) return 'linear-gradient(135deg,#2a1f2e,#161013)';
-    return 'linear-gradient(135deg,' + cols.join(',') + ')';
+    return 'linear-gradient(135deg,' + cols.map(visibleSwatch).join(',') + ')';
   }
 
   function sceneSummary(scene) {

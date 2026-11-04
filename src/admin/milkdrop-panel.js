@@ -1960,7 +1960,7 @@
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
       const locked = control(cfg).locked === true;
-      nodes.push(el('div', { class: 'row' }, [
+      nodes.push(el('div', { class: 'row sv-btn-row' }, [
         el('button', { class: 'btn ghost', type: 'button', icon: 'chevron-left', text: 'Önceki', onclick: back }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki', onclick: forward }, [el('span', { class: 'svi-after', icon: 'chevron-right' })]),
         el('button', {

@@ -353,7 +353,7 @@
     }
     nodes.push(list);
 
-    nodes.push(el('div', { class: 'row' }, [
+    nodes.push(el('div', { class: 'row sv-btn-row' }, [
       el('button', {
         class: 'btn', type: 'button', text: '+ Yönlendirme Ekle',
         onclick: () => { routes.push(newRoute(cfg)); rerender(); },
