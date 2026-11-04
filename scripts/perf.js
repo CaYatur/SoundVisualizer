@@ -31,6 +31,8 @@
     npm run perf -- --trace=<dosya öneki> --trace-cats=gpu.angle,toplevel   (iz kaydı)
     npm run perf -- --profile-panel=<dosya>   (kararlı durumda panelin CPU profili)
     npm run perf -- --profile-main=<dosya>    (preset taramasında ana sürecin CPU profili)
+    npm run perf -- --config-send=10          (tam yapılandırma gönderimi: panelin süresi, çıkıştaki en uzun kare)
+    npm run perf -- --panel-js=<dosya> --main-js=<dosya>   (ölçümden önce panelde ve ana süreçte çalışacak deney betiği)
 
    --low bir benzetimdir, gerçek zayıf makinenin yerini tutmaz; kısma yalnız
    sayfanın ana iş parçacığına uygulanır ve bu kipte süreç CPU'su anlamsızdır.
@@ -210,6 +212,17 @@ async function main() {
   await sleep(1500);
   /* MILKDROP: gerçek preset METNİYLE. Metin boş giderse motor varsayılan
      presete düşer ve kimlik değişse de ölçülen şey hep aynı presettir. */
+  // TAM YAPILANDIRMA GÖNDERİMİ: düz arkaplanda, kare ekrana takılıyken sıçrama görünsün
+  if (+arg('config-send', 0)) {
+    const panelMs = [], outGap = [];
+    for (let i = 0; i < +arg('config-send', 0); i++) {
+      await vis.ev('window.__perf.reset()');
+      panelMs.push(await admin.ev('(() => { const t = performance.now(); window.SVPanel.apply(); return performance.now() - t; })()'));
+      await sleep(900);
+      outGap.push((await readFrames(vis)).summary.max);
+    }
+    res.configSend = { panelMs: L.medMax(panelMs), outGap: L.medMax(outGap) };
+  }
   const mdIds = JSON.parse(await admin.ev(`JSON.stringify(window.SVPresets.byKind('milkdrop').map((p) => p.id))`));
   const sourceOf = (id) => `(async () => { const p = window.SVPresets.get(${JSON.stringify(id)}); if (p && p.source) return p.source; return window.api.milkdropPresetSource ? await window.api.milkdropPresetSource(${JSON.stringify(id)}) : ''; })()`;
   await setScene(oneLayer('milkdrop'));

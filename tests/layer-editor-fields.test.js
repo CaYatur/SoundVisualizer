@@ -36,3 +36,18 @@ test('katman kaydırıcılarının şema yolları var, genişletilmiş aralığa
   for (const key of ['sensitivity', 'barCount', 'spectrum.tilt']) assert.ok(paths.includes('visualizer.' + key), key);
   for (const key of ['scale', 'x', 'speed']) assert.ok(paths.includes('logo.' + key), key);
 });
+
+/* Anahtar adı aramak yetmedi: `size`, `speed` gibi adlar başka denetimlerde de geçtiği için Görsel
+   Nesneler'in 17 ayarı kaybolduğunda bu dosya geçiyordu. Etiketler 3.1.7 ile v4'ün gerçekten çizdiği
+   listeden (#905): denetimi kaldıran değişiklik, listeyi bilerek güncellemek zorunda. */
+test('katman düzenleyicisinin ayar etiketleri duruyor', () => {
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const src = ['src/admin/scene-panels.js', 'src/shared/mode-catalog.js', 'src/admin/logo-swap-panel.js', 'src/admin/logo-lib-ui.js', 'src/admin/lyrics-lib-ui.js'].map(read).join(' ');
+  const labels = JSON.parse(read('tests/fixtures/layer-labels.json'));
+  const lost = [];
+  for (const [card, list] of Object.entries(labels)) {
+    for (const l of list) if (!src.includes("'" + l + "'") && !src.includes('"' + l + '"')) lost.push(card + ': ' + l);
+  }
+  assert.deepStrictEqual(lost, []);
+  assert.ok(labels.images.includes('Kopya Sayısı'), 'görsel nesne ayarları listede');
+});

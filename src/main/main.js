@@ -1014,10 +1014,19 @@ function configForTextureShare(cfg) {
    yapılandırmanın yarısı (~330 KB) ve her gönderimde her pencereye
    kopyalanıyordu (#695). */
 const RENDERER_OMIT = ['scenes', 'userPresets'];
+/* Etiket tablosu gerçek ayarda 291 KB; çizici onu yalnız otomatik geçiş havuzu bir etikete bağlıyken
+   okuyor (milkdrop-library.js pool). Her tam gönderimde her pencereye kopyalanıyordu. */
+function tagPoolInUse(cfg) {
+  const on = (md) => !!md && md.autoFrom === 'tag';
+  if (on(cfg.milkdrop)) return true;
+  return Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.settings && on(l.settings.milkdrop));
+}
 function rendererConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return cfg;
   const out = Object.assign({}, cfg);
   for (const k of RENDERER_OMIT) delete out[k];
+  const lib = out.milkdropLibrary;
+  if (lib && lib.tags && !tagPoolInUse(cfg)) out.milkdropLibrary = Object.assign({}, lib, { tags: {} });
   return out;
 }
 
@@ -3756,7 +3765,9 @@ function applyIncomingConfig(config, opts) {
     const p = pickKeys(config, patchKeys);
     if (p) streamServer.broadcast({ type: 'config-patch', patch: p });
   } else {
-    streamServer.broadcast({ type: 'config', config });
+    // Web çıkışı sahne listesini ve etiketleri okumuyor; kumanda sahne listesini gösteriyor
+    streamServer.broadcast({ type: 'config', config: rendererConfig(config) }, 'overlay');
+    streamServer.broadcast({ type: 'config', config }, 'remote');
   }
   syncBridge(); // ses köprüsü (#813)
   // Köprü kipinde görüntü, ışık, yayın ve OSC çıkışları kapalı kalır
