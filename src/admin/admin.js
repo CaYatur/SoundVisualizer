@@ -2514,17 +2514,26 @@
             label: 'Akıllı Sessizlik Filtresi',
             hint: 'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).',
           },
-          /* MilkDrop alt bölümü (#957): MilkDrop kendi ham ses yolunu kullanır ve
-             yukarıdaki genel ayarlardan etkilenmez; kendi kapısı, kazancı ve
-             yumuşatması burada. Varsayılanlar nötr (eski davranışın aynısı). */
+        ],
+      },
+      {
+        /* MilkDrop Ses Girişi (#957): Ses Analizi'nin hemen altında ayrı kart.
+           MilkDrop kendi ham ses yolunu kullanır, genel analiz ayarlarından
+           etkilenmez; kapı, kazanç ve yumuşatma burada. Varsayılanlar nötr. */
+        id: 'mdaudio',
+        category: 'audio',
+        icon: 'wave',
+        title: 'MilkDrop Ses Girişi',
+        desc: 'Yalnızca MilkDrop presetlerini etkiler.',
+        controls: [
           {
-            type: 'toggle', path: 'audio.milkdrop.gate', label: 'MilkDrop · Sessizlik Filtresi',
-            hint: 'MilkDrop yukarıdaki genel ses ayarlarını (Hassasiyet, Yumuşatma, Bas Vurgusu, Akıllı Sessizlik Filtresi) kullanmaz. Bu filtre açıkken ses eşiğin altında bekleme süresi kadar kalırsa MilkDrop tam sessizlik görür.',
+            type: 'toggle', path: 'audio.milkdrop.gate', label: 'Sessizlik Filtresi',
+            hint: 'MilkDrop, Ses Analizi kartındaki genel ayarları (Hassasiyet, Yumuşatma, Bas Vurgusu, Akıllı Sessizlik Filtresi) kullanmaz. Bu filtre açıkken ses eşiğin altında bekleme süresi kadar kalırsa MilkDrop tam sessizlik görür.',
           },
-          { type: 'slider', path: 'audio.milkdrop.gateThreshold', label: 'MilkDrop · Filtre Eşiği', min: 0, max: 0.2, step: 0.005, hint: 'Bu RMS düzeyinin altındaki ses MilkDrop için dip gürültüsü sayılır.' },
-          { type: 'slider', path: 'audio.milkdrop.gateHold', label: 'MilkDrop · Bekleme', min: 0, max: 3, step: 0.05, hint: 'Filtrenin kapanmadan önce beklediği süre (saniye). Ses eşiği aşınca hemen açılır.' },
-          { type: 'slider', path: 'audio.milkdrop.gain', label: 'MilkDrop · Kazanç', min: 0, max: 4, step: 0.05, hint: 'Yalnız MilkDrop\'a giden sesin genliği. 1 = değişmez.' },
-          { type: 'slider', path: 'audio.milkdrop.smoothing', label: 'MilkDrop · Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true, hint: 'Yalnız MilkDrop\'a giden sesin kareler arası yumuşatması. 0 = değişmez.' },
+          { type: 'slider', path: 'audio.milkdrop.gateThreshold', label: 'Filtre Eşiği', min: 0, max: 0.2, step: 0.005, hint: 'Bu RMS düzeyinin altındaki ses MilkDrop için dip gürültüsü sayılır.' },
+          { type: 'slider', path: 'audio.milkdrop.gateHold', label: 'Bekleme', min: 0, max: 3, step: 0.05, hint: 'Filtrenin kapanmadan önce beklediği süre (saniye). Ses eşiği aşınca hemen açılır.' },
+          { type: 'slider', path: 'audio.milkdrop.gain', label: 'Kazanç', min: 0, max: 4, step: 0.05, hint: 'Yalnız MilkDrop\'a giden sesin genliği. 1 = değişmez.' },
+          { type: 'slider', path: 'audio.milkdrop.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true, hint: 'Yalnız MilkDrop\'a giden sesin kareler arası yumuşatması. 0 = değişmez.' },
         ],
       },
       {

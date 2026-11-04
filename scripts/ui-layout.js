@@ -36,7 +36,7 @@ const PROBE = `JSON.stringify((() => {
   const BOX = '.group, .sv-card, .card, .dock-block, .sv-module, .sv-pcard, .sv-menu, .nav-rail, .sv-secnav, .layer-pane';
   const IGNORE = '.sv-hud, .topbar, .sv-gal, .md-grid, .md-list, .sv-scenes, .preview-stage, .tl-heads, .tl-toolbar, .sv-pages, .code-editor, .md-imports-body, .sv-moment';
   const name = (e) => (e.textContent || e.value || e.placeholder || e.getAttribute('aria-label') || e.tagName).replace(/\\s+/g, ' ').trim().slice(0, 34);
-  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set(), 'ikon-yazı': new Set(), 'iç kenar': new Set(), 'halka': new Set() };
+  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set(), 'ikon-yazı': new Set(), 'iç kenar': new Set(), 'halka': new Set(), 'seçici': new Set() };
   for (const e of document.querySelectorAll('button, select, input:not([type=checkbox]):not([type=range]):not([type=color]), textarea, label.lbl, .studio-note, .settings-io-note, .studio-status, small, h3, a')) {
     if (!vis(e) || e.closest(IGNORE)) continue;
     let box = e.parentElement && e.parentElement.closest(BOX);
@@ -176,6 +176,21 @@ const PROBE = `JSON.stringify((() => {
       const pr = p.getBoundingClientRect();
       if (r.top - sp < pr.top - 0.5 || r.left - sp < pr.left - 0.5 || r.right + sp > pr.right + 0.5 || (o.overflowY !== 'visible' && p.scrollHeight <= p.clientHeight + 1 && r.bottom + sp > pr.bottom + 0.5)) out['halka'].add(name(e));
       break;
+    }
+  }
+  /* seçici (#957): açılır kutuda yazı tek satır ve dikeyde ortada, ok sağda ortalı */
+  for (const e of document.querySelectorAll('select, .display-btn')) {
+    if (!vis(e)) continue;
+    const s = getComputedStyle(e), r = e.getBoundingClientRect();
+    if (s.whiteSpace !== 'nowrap') { out['seçici'].add(name(e) + ' (sarıyor)'); continue; }
+    if (Math.abs(parseFloat(s.paddingTop) - parseFloat(s.paddingBottom)) > 1) out['seçici'].add(name(e) + ' (dikey dolgu)');
+    if (e.matches('.display-btn')) {
+      const a = getComputedStyle(e, '::after');
+      const h = parseFloat(a.height), top = parseFloat(a.top);
+      if (a.position !== 'absolute' || !(Math.abs(parseFloat(a.right)) <= 14)) out['seçici'].add(name(e) + ' (ok sağda değil)');
+      // top:50% + translateY(-50%) -> ok ortası kutu ortasında
+      if (!(Math.abs(top - r.height / 2) <= 1.5) || Math.abs(new DOMMatrix(a.transform).f + h / 2) > 1) out['seçici'].add(name(e) + ' (ok ortalı değil)');
+      if (parseFloat(s.paddingRight) < h + 10) out['seçici'].add(name(e) + ' (sağ dolgu)');
     }
   }
   const res = {};

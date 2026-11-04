@@ -12,7 +12,7 @@
    (yazı → ikon), hiçbir zaman üst üste binmez. Ölçüm yalnız boyut ya da
    içerik değişince yapılır; her karede değil. */
 (function () {
-  const MAX = 5;
+  const MAX = 6;
   const GAP = 6;
 
   // Saf: üç kutunun sınırları çakışıyor mu (yatay, px)

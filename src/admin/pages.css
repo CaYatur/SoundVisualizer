@@ -76,7 +76,7 @@ input[type='text']:hover, input[type='number']:hover, input[type='search']:hover
 input[type='text']:focus, input[type='number']:focus, input[type='search']:focus, input[type='url']:focus, input[type='password']:focus, input.p-in:focus, input.num:focus, input.txt:focus,
 textarea:not(.code-input):not(.mded-input):focus, select:focus { border: 0; outline: 0; box-shadow: var(--sv-focus); }
 textarea:not(.code-input):not(.mded-input) { border: 0; border-radius: 9px; padding: 8px 10px; background-color: var(--sv-fill); color: var(--text); font-size: 12.5px; }
-select { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; }
+select { min-height: 28px; border: 0; border-radius: 8px; padding: 0 6px 0 9px; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; line-height: normal; vertical-align: middle; }
 .p-in.p-in, select.p-in, input.p-in, .up-name.up-name, .md-tags-in.md-tags-in { border: 0; border-radius: 8px; background-color: var(--sv-fill); color: var(--text); min-height: 28px; padding: 0 9px; font-size: 12.5px; box-shadow: none; }
 .p-in.p-in:hover, .up-name.up-name:hover { background-color: rgb(var(--fg-rgb) / .1); }
 .p-in.p-in:focus, .up-name.up-name:focus, .md-tags-in.md-tags-in:focus { box-shadow: var(--sv-focus); border: 0; }
