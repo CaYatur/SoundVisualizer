@@ -881,7 +881,10 @@ function handleUpgrade(req, socket) {
     serverNow: Date.now(),
     version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
   });
-  sendJson(client, { type: 'config', config: publicConfig(hooks.getConfig()) });
+  // Yayın katmanı sahne listesini çizmiyor, panel gönderimlerinde de almıyor. Kumanda alıyor.
+  const openingConfig = client.kind === 'overlay' && typeof hooks.getRendererConfig === 'function'
+    ? hooks.getRendererConfig() : hooks.getConfig();
+  sendJson(client, { type: 'config', config: publicConfig(openingConfig) });
   sendJson(client, { type: 'presets', presets: publicPresets(hooks.getPresets()) });
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
   if (np && np.has) {

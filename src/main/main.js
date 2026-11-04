@@ -4604,6 +4604,7 @@ function syncStreamServer() {
   return streamServer
     .start(peerOnly ? { port: s.port, lan: !!s.lan, peerOnly: true } : s, {
       getConfig: () => currentConfig,
+      getRendererConfig: () => rendererConfig(currentConfig),
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
       getVersion: () => app.getVersion(),

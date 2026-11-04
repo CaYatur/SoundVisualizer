@@ -40,7 +40,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Changing a setting no longer costs the output a frame** (#905). Each full settings send copied a
   291 KB MilkDrop tag table to every window, which only matters when auto advance picks from a tag.
   With the CPU slowed 4 times, the output's longest frame during a send fell from 67-93 ms to 13.5 ms.
-  The OBS overlay also no longer receives the scene list on every send.
+  The OBS overlay no longer receives the scene list at all, so its first message fell from 704 KB to 24 KB.
 - **The panel costs less while an output is open** (#905). On an RTX machine the panel fell from 21-29%
   to 13-17% CPU and total memory by about 200 MB. On a Radeon 610M the panel fell from 26-38% to 14-20%.
   The preview draws smaller while an output is open, unless Preview Rate is Full, and preset thumbnails
