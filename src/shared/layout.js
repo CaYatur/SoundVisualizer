@@ -256,28 +256,19 @@
 
   function round(v) { return Math.round(v * 10000) / 10000; }
 
-  // layers.js stackOn ile aynı kural: anahtar yoksa katman listesi belirler
-  function stackOn(cfg) {
-    const s = cfg && cfg.layerStack;
-    if (s && typeof s.enabled === 'boolean') return s.enabled;
-    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-  }
-
   // Açılış modülü (#537): tarayıcıda pencereden, testte modülden
   function reveal() {
     if (typeof window !== 'undefined' && window.SVReveal) return window.SVReveal;
     try { return typeof require === 'function' ? require('./reveal') : null; } catch (e) { return null; }
   }
 
-  /* Öğenin açılış ayarı ve onu tutan nesne: katman yığınında katman,
-     katmansız kipte bölüm (shared/reveal.js holderOf). */
-  function revealOf(layer, cfg) {
+  // Öğenin açılış ayarı katmanda
+  function revealOf(layer) {
     const R = reveal();
-    return R ? R.normalize(R.specOf(layer, cfg, stackOn(cfg)) || { type: 'none' }) : null;
+    return R ? R.normalize(R.specOf(layer) || { type: 'none' }) : null;
   }
-  function revealHolder(layer, cfg) {
-    const R = reveal();
-    return R ? R.holderOf(layer, cfg, stackOn(cfg), true) : null;
+  function revealHolder(layer) {
+    return reveal() ? layer : null;
   }
 
   // Katman hangi öğe türü (yoksa null: düzenlenemez)
@@ -302,22 +293,14 @@
        yoksa genel logoyu kullanıyor (layers.js `l.settings.logo || cfg.logo`).
        Katmana kısmi bir `{ x }` yazmak logonun kaynağını kaybettirirdi. */
     if (kind === 'logo') {
-      /* Katmansız kipte katman sentezlenmiş: `settings.logo` genel logonun
-         o anki KOPYASI, bir sonraki yapılandırmada yeniden kuruluyor. Yazılan
-         kaybolurdu (sürüklenen logo geri zıplıyordu) — kaynak genel logo. */
-      const own = stackOn(cfg) && layer.settings && layer.settings.logo;
+      const own = layer.settings && layer.settings.logo;
       if (own) return own;
       if (!cfg.logo) { if (!create) return {}; cfg.logo = {}; }
       return cfg.logo;
     }
-    const stack = stackOn(cfg);
-    if (stack) {
-      if (!layer.settings) { if (!create) return {}; layer.settings = {}; }
-      if (!layer.settings[sec]) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings[sec] = {}; }
-      return create ? layer.settings[sec] : Object.assign({}, cfg && cfg[sec], layer.settings[sec]);
-    }
-    if (!cfg[sec]) { if (!create) return {}; cfg[sec] = {}; }
-    return cfg[sec];
+    if (!layer.settings) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings = {}; }
+    if (!layer.settings[sec]) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings[sec] = {}; }
+    return create ? layer.settings[sec] : Object.assign({}, cfg && cfg[sec], layer.settings[sec]);
   }
 
   // Öğeyi normalize (dx, dy) kadar taşır; değişen bölümü döndürür
@@ -462,7 +445,7 @@
       // Açılış animasyonu görünüşün parçası (#537); yoksa 'none' (içe aktarım temizlesin)
       const R = reveal();
       if (R) {
-        const spec = R.specOf(l, cfg, stackOn(cfg));
+        const spec = R.specOf(l);
         el.reveal = spec ? R.normalize(spec) : { type: 'none' };
       }
       elements.push(el);
@@ -589,7 +572,7 @@
 
   const api = {
     SAFE, PLATFORM_ZONES, platformZones, KINDS, canResize, resizeBy, frameGuides, elementGuides, mergeGuides, snapBox,
-    kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
+    kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
     revealOf, revealHolder,

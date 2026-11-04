@@ -439,20 +439,12 @@
   }
 
   function applyMedia() {
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+    /* Tekil oynatıcı hep kapalı: açık kalırsa ilk kamera iki kez istenir ve ikinci
+       katmanın aygıtı hiç açılmaz. Medyayı katmanların havuzu oynatıyor. */
+    mediaOn = Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasMediaLayer) {
-      /* Klasik tek oynatıcıyı kapat. Açık bırakılırsa ilk kamera iki kez
-         istenir ve ikinci katmanın aygıtı hiç açılmaz. */
-      mediaOn = true;
-      media.apply({ enabled: false });
-      stack.syncMedia(cfg);
-      return;
-    }
-    if (stack.syncMedia) stack.syncMedia(cfg);
-    mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
-    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
+    media.apply({ enabled: false });
+    stack.syncMedia(cfg);
   }
 
   // --------------------------------------------------------------------------
@@ -681,9 +673,6 @@
        sayfayı kullanıyor ama onda bu köprü yok (web-shim): OBS kaynağı değişmiyor. */
     if (window.SVLowPower && window.api.getPowerSource) cfg = window.SVLowPower.apply(cfg, onBattery);
 
-    if (!window.SVLayers || !window.SVLayers.stackOn(cfg)) {
-      sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
-    }
     applyMedia();
     applyScene();
     applyLogo();

@@ -929,11 +929,7 @@ function wantsTransparent() {
   if (!cfg || !cfg.background) return false;
   if (cfg.background.type === 'transparent') return true;
   if (cfg.background.transparent) return true;
-  const stack = cfg.layerStack;
-  const stackOn = stack && typeof stack.enabled === 'boolean'
-    ? stack.enabled
-    : !!(cfg.layers && cfg.layers.length);
-  if (stackOn && Array.isArray(cfg.layers)) {
+  if (Array.isArray(cfg.layers)) {
     for (let i = 0; i < cfg.layers.length; i++) {
       const l = cfg.layers[i];
       if (l && l.kind === 'background' && l.enabled !== false && !l.muted
@@ -4461,7 +4457,7 @@ function stackHelpers() {
 }
 function setRemotePath(cfg, p, value) {
   const L = stackHelpers();
-  const stack = !!(L && L.stackOn(cfg));
+  const stack = !!L;
   if (stack && p === 'visualizer.type') { L.adoptVisualizer(cfg, { type: value }); return; }
   if (stack && p === 'background.type') { L.adoptBackground(cfg, { type: value }); return; }
   setConfigPath(cfg, p, value);

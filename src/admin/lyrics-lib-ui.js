@@ -427,7 +427,7 @@
     nodes.push(SP().miniToggle('Çalan Parçayı İzle', () => txt.lyricsFollow === true, (v) => {
       txt.lyricsFollow = !!v;
       if (v && window.api && window.api.nowPlayingSubscribe) window.api.nowPlayingSubscribe(true);
-      if (ctx && ctx.sync) ctx.sync();
+      
     }, rerender, { def: false }));
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
@@ -439,7 +439,7 @@
         ['partial', 'Kısmen Eşleme'],
       ], () => txt.lyricsMatch || 'exact', (v) => {
         txt.lyricsMatch = v === 'partial' ? 'partial' : 'exact';
-        if (ctx && ctx.sync) ctx.sync();
+        
       }, rerender, 'exact'));
       nodes.push(statusNode(el, txt));
     }

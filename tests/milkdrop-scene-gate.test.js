@@ -14,7 +14,6 @@ test('Scene MilkDrop category is gated by stack + MilkDrop usage', () => {
   const j = admin.indexOf('const engineInUse = ');
   assert.ok(j > 0);
   const rule = admin.slice(j, j + 400);
-  assert.match(rule, /isStackOn\(\)/);
   assert.match(rule, /l\.type === type/);
   assert.match(rule, /kind === 'visualizer'/);
   assert.ok(admin.includes('MilkDrop Preset'), 'studio MilkDrop tools remain');

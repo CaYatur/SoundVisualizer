@@ -29,10 +29,7 @@ test('dışa aktarıma girecek video dosyaları: yığında açık medya katmanl
     ],
   };
   assert.deepStrictEqual(EM.mediaFiles(stack), ['sv-media://local/a.mp4'], 'açık, dosya kaynaklı, tekrarsız');
-  assert.deepStrictEqual(EM.mediaFiles({ media: { enabled: true, source: 'file', file: 'd.mp4' } }), ['d.mp4']);
-  assert.deepStrictEqual(EM.mediaFiles({ media: { enabled: false, source: 'file', file: 'd.mp4' } }), []);
-  // Yığın kapalıyken listedeki katmanlar kullanılmaz (layers.js stackOn)
-  assert.deepStrictEqual(EM.mediaFiles(Object.assign({}, stack, { layerStack: { enabled: false } })), []);
+  assert.deepStrictEqual(EM.mediaFiles({ media: { enabled: true, source: 'file', file: 'd.mp4' } }), [], 'katman yoksa dosya yok');
   assert.deepStrictEqual(EM.mediaFiles(null), []);
 });
 

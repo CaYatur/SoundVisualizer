@@ -132,16 +132,14 @@
      düzeni görsel olarak yok olurdu. Her katman kendi çekimini alıyor. */
   function applyVisualizer(cfg, items, targets) {
     const layers = R().visualizerLayers(cfg.layers);
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
 
     if (layers.length) {
       const hit = targets === 'first' ? layers.slice(0, 1) : layers;
       hit.forEach((l, i) => { l.type = items[i % items.length].id; });
-      if (!isStack && cfg.visualizer) cfg.visualizer.type = items[0].id;
       return true;
     }
     // Yığında görselleştiricilerin hepsi kilitliyse değiştirilecek bir şey yok
-    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
+    if ((cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
     if (cfg.visualizer) { cfg.visualizer.type = items[0].id; return true; }
     return false;
   }
@@ -159,15 +157,13 @@
     const setCustom = () => {
       if (preset) cfg.custom = Object.assign({}, cfg.custom, { backgroundId: preset });
     };
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
     const layers = R().backgroundLayers(cfg.layers);
     if (layers.length) {
       layers.forEach((l) => { l.type = type; l.presetId = preset; });
-      if (!isStack && cfg.background && !cfg.background.transparent) { cfg.background.type = type; setCustom(); }
       return true;
     }
     // Background layers exist but all are locked or transparent: report it, do not fall back
-    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'background' && (l.locked || R().isTransparentBackground(l)))) return false;
+    if ((cfg.layers || []).some((l) => l && l.kind === 'background' && (l.locked || R().isTransparentBackground(l)))) return false;
     if (!cfg.background || cfg.background.transparent || cfg.background.type === 'transparent') return false;
     cfg.background.type = type;
     setCustom();

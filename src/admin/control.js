@@ -177,7 +177,7 @@
      currentType / adoptVisualizer / adoptBackground). */
   function stackLive(cfg) {
     const L = window.SVLayers;
-    return !!(L && L.stackOn && L.currentType && L.stackOn(cfg));
+    return !!(L && L.currentType && cfg);
   }
 
   /* Dönüş true: eylem sahneyi kendisi uyguladı ve gönderdi; çağıran yeniden

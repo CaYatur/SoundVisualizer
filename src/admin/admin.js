@@ -1274,7 +1274,7 @@
      şeridi alıyordu. */
   function sceneBackground(data) {
     const L = window.SVLayers;
-    if (data && L && L.stackOn && L.firstLayerIndex && L.layerConfig && L.stackOn(data)) {
+    if (data && L && L.firstLayerIndex && L.layerConfig) {
       const i = L.firstLayerIndex(data, 'background');
       if (i >= 0) {
         try { return L.layerConfig(data, data.layers[i]).background; } catch (e) { /* eksik sahne verisi */ }
@@ -2590,28 +2590,14 @@
   // --------------------------------------------------------------------------
   function sectionSchema() {
     const v = cfg.visualizer;
-    const isStackOn = () => {
-      if (window.SVLayers && typeof window.SVLayers.stackOn === 'function') {
-        return window.SVLayers.stackOn(cfg);
-      }
-      const s = cfg && cfg.layerStack;
-      if (s && typeof s.enabled === 'boolean') return s.enabled;
-      return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-    };
-    const notStack = () => !isStackOn();
+    const notStack = () => false;
     /* Kendi ayar kartı olan motor (MilkDrop, 3B geometri, geri besleme)
        kullanımdayken kartı görünür. Motorlar ayarlarını sahneden okuyor
        (cfg.milkdrop / cfg.geometry / cfg.feedback), katmandan değil; yığın
        açıkken kart gizlenince katmandaki geometrinin ailesi ve formülü
        hiçbir yerden seçilemiyordu.
-         yığın açık → bu türde en az bir görselleştirici katmanı;
-         yığın kapalı → klasik görselleştirici bu tür. */
-    const engineInUse = (type) => {
-      if (isStackOn()) {
-        return (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === type);
-      }
-      return v.type === type;
-    };
+         bu türde en az bir görselleştirici katmanı. */
+    const engineInUse = (type) => (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === type);
     const isGradient = () => cfg.background.type === 'gradient';
     // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
     const usesPalette = () => cfg.background.type !== 'solid';
@@ -3961,11 +3947,8 @@
   function sceneHasCamera() {
     const L = window.SVLayers;
     const cam = (m) => !!(m && m.source !== 'file');
-    if (L && L.stackOn(cfg) && Array.isArray(cfg.layers)) {
-      return cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false && !l.muted
-        && cam(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {})));
-    }
-    return !!(cfg.media && cfg.media.enabled && cam(cfg.media));
+    return Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false && !l.muted
+      && cam(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {})));
   }
 
   // Kusursuz döngü bu biçimde ve bölümlemesiz gerçekten uygulanıyor mu

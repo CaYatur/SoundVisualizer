@@ -48,13 +48,13 @@ test('düzen içe aktarımı: yeni sahnede metin öğesi ikinci bir görselleşt
   const SL = require('../src/visualizer/layers.js');
   const fresh = () => ({ background: { type: 'gradient' }, visualizer: { type: 'bars' }, text: { enabled: false } });
   const src = fresh();
-  SL.setStackEnabled(src, true);
+  SL.enableStack(src);
   src.layers.push(SL.normalizeLayer(SL.makeTextLayer({ source: 'static', text: 'Merhaba' })));
   const file = LY.exportLayout(SL.resolve(src), src, {});
   assert.deepStrictEqual(file.elements.map((e) => e.kind), ['bars', 'text']);
 
   const cfg = fresh();
-  SL.setStackEnabled(cfg, true);
+  SL.enableStack(cfg);
   const make = (s) => SL.normalizeLayer(s);
   const r = LY.importLayout(cfg, JSON.parse(JSON.stringify(file)), make);
   assert.deepStrictEqual(r, { ok: true, updated: 1, added: 1, skipped: 0 });
