@@ -81,8 +81,8 @@ test('kaynak: renk sablonlari asla gizlenmez (usesPalette stripte cagrilmaz)', (
   /* Keep usesPalette helper for Background card sliders, but the
      Renkler ve Hazır Şablonlar strip must not call it. */
   assert.match(adminSrc, /const usesPalette\s*=\s*\(\)\s*=>/);
-  const stripAt = adminSrc.indexOf("title: 'Renkler ve Hazır Şablonlar'");
-  assert.ok(stripAt > 0, 'Renkler ve Hazır Şablonlar karti yok');
+  const stripAt = adminSrc.indexOf("title: 'Renk Teması'");
+  assert.ok(stripAt > 0, 'Renk Teması karti yok');
   const stripBlock = adminSrc.slice(stripAt, adminSrc.indexOf('controls:', stripAt));
   assert.match(stripBlock, /show:\s*\(\)\s*=>\s*true/);
   assert.doesNotMatch(stripBlock, /usesPalette\s*\(/);

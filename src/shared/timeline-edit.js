@@ -313,6 +313,7 @@
   // ==========================================================================
   /* Tür başına varsayılan renk: tuvalde türler renginden ayırt edilsin.
      Klibin kendi rengi, yoksa parçanın rengi, yoksa bu. */
+  const SCENE_TINTS = ['#a8843f', '#4f79ad', '#b0524f', '#7560b5', '#3f9272', '#a15a7e', '#5a8f9e', '#8a7a4f'];
   const TYPE_COLORS = {
     scene: '#4f8cff',
     preset: '#a970ff',
@@ -326,6 +327,12 @@
     const ok = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
     if (clip && ok(clip.color)) return clip.color;
     if (track && ok(track.color)) return track.color;
+    /* Sahne klipleri birbirinden ayrılsın: aynı sahne hep aynı ton. */
+    if (clip && clip.type === 'scene' && clip.ref) {
+      let h = 0;
+      for (const ch of String(clip.ref)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      return SCENE_TINTS[Math.abs(h) % SCENE_TINTS.length];
+    }
     return TYPE_COLORS[clip && clip.type] || TYPE_COLORS.scene;
   }
 

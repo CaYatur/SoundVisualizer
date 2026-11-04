@@ -83,6 +83,8 @@
   // --------------------------------------------------------------------------
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
+  /* render() işaretleri zaten yeni çizdi: aynı anda gelen push ikinci kez taramasın. */
+  let marksFresh = false;
   function push(immediate) {
     if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(cfg);
     if (isBlackedOut()) {
@@ -105,7 +107,7 @@
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
     // "Varsayılandan farklı" noktaları ve sayaçları anında güncelle
     // (kategori değiştirip dönmeyi beklemeden)
-    refreshModifiedMarks();
+    if (!marksFresh) refreshModifiedMarks();
     if (immediate) {
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = null;
@@ -387,8 +389,17 @@
       e.dataset.icon = props.icon;
     }
     (kids || []).forEach((c) => c && e.appendChild(c));
+    if (tag === 'input' && props && props.type === 'range') queueMicrotask(() => paintRange(e));
     return e;
   }
+
+  /* Kaydırıcının dolgusu: tarayıcıda izin parçası için özellik yok, yüzde değişkende. */
+  function paintRange(r) {
+    const min = Number(r.min) || 0;
+    const max = r.max === '' ? 100 : Number(r.max);
+    r.style.setProperty('--p', (max > min ? ((Number(r.value) - min) / (max - min)) * 100 : 0) + '%');
+  }
+  document.addEventListener('input', (e) => { if (e.target && e.target.type === 'range') paintRange(e.target); }, true);
 
   /* Sürükle-bırak ile sıralama.
 
@@ -541,7 +552,7 @@
     audioSources: () => el('div', { class: 'br-sources' }, [buildControl(audioSourcesDef()), buildControl(AUDIO_REFRESH_DEF)]),
     portValue,
     push,
-    rerender: () => render(),
+    rerender: () => { if (window.SVSceneShell) window.SVSceneShell.invalidateShelf(); render(); },
     // "Gelişmiş" görünüm açık mı (yedeklilik: atış aralığı ve eşik)
     advanced: () => advancedOn,
     // Bir bölüme git (yedeklilik durum bandı, #815)
@@ -557,6 +568,8 @@
     sceneGradient: (s) => sceneGradient(s),
     sceneSummary: (s) => sceneSummary(s),
     saveScene: () => actions.saveScene(),
+    sceneThumbShot: (id) => sceneThumbShot(id),
+    sectionsOf: (cat) => sectionSchema().filter((x) => x.category === cat && (!x.show || x.show())).map((x) => x.id),
     renderScenes: () => renderScenes(),
     /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
        gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
@@ -566,12 +579,14 @@
       if (!sec || (!o.always && sec.show && !sec.show())) return null;
       const MP = window.SVMilkdropPanel;
       if (o.part && MP && MP.setPart) MP.setPart(o.part);
+      compactPresets = !!o.compact;
       try {
         return buildCard(sec);
       } catch (e) {
         console.error('Bölüm çizilemedi:', id, e);
         return brokenCard(sec);
       } finally {
+        compactPresets = false;
         if (o.part && MP && MP.setPart) MP.setPart('');
       }
     },
@@ -579,7 +594,7 @@
     toggleBlackout,
     // Yeniden çiz ve ardından gönder. Paneller çizim sırasında bağımlı
     // alanları düzeltebildiği için sıra bu şekilde olmalı.
-    apply: () => { render(); push(true); },
+    apply: applyAll,
     toast: svToast,
     confirm: svConfirm,
     imageOk,
@@ -618,6 +633,27 @@
     set: (p, v) => setPath(cfg, p, v),
     syncToggles: (p, v) => syncToggleInputs(p, v),
 
+    /* MODÜL BAŞLIĞI. Arka planda çalışan bir şey için aç-kapa anahtarı yerine durum ve eylem:
+       "Yayında · 2 istemci  [Durdur]". `status` durum satırının düğümü, `toggle(açılsın mı)` eylem.
+       Ayarın yeri (cfg) ve davranışı değişmiyor: MCP, OSC ve sahneler aynı alanı okuyup yazıyor. */
+    clampNotes,
+    moduleHead(o) {
+      const on = !!o.on;
+      const act = el('button', {
+        class: 'btn ' + (on ? 'ghost' : 'primary') + ' sv-module-act', type: 'button', icon: on ? 'stop' : 'play',
+        text: tr(on ? (o.stop || 'Durdur') : (o.start || 'Başlat')), disabled: !!o.disabled,
+        'data-module': o.id || '', 'aria-pressed': on ? 'true' : 'false',
+        onclick: (e) => {
+          e.currentTarget.disabled = true;
+          Promise.resolve(o.toggle(!on)).finally(() => { if (e.currentTarget) e.currentTarget.disabled = false; });
+        },
+      });
+      return el('div', { class: 'sv-module' + (on ? ' on' : '') + (o.error ? ' err' : '') }, [
+        el('span', { class: 'sv-led' }),
+        el('div', { class: 'sv-module-txt' }, [el('b', { text: tr(o.title) }), o.status || null]),
+        act,
+      ]);
+    },
     // Sık kullanılan satır üreticileri — panellerin görünümü kartlarla aynı kalsın
     row(labelText, node) {
       return el('div', { class: 'ctrl' }, [
@@ -1047,6 +1083,27 @@
   function presetsCtrl(def) {
     const grid = el('div', { class: 'presets' });
     const current = (cfg.background.gradient.colors || []).map((c) => String(c).toLowerCase()).join(',');
+    if (compactPresets) {
+      const sel = el('select', {
+        onchange: (e) => {
+          const p = window.SV.GRADIENT_PRESETS[Number(e.target.value)];
+          if (!p) return;
+          cfg.background.gradient.colors = p.colors.slice();
+          push(true);
+          render();
+        },
+      });
+      sel.appendChild(el('option', { value: '', text: tr('Özel') }));
+      let host = sel;
+      window.SV.GRADIENT_PRESETS.forEach((p, i) => {
+        if (p.group) { host = el('optgroup', { label: tr(p.group) }); sel.appendChild(host); }
+        const on = p.colors.map((c) => String(c).toLowerCase()).join(',') === current;
+        const o = el('option', { value: String(i), text: tr(p.name) });
+        if (on) { o.selected = true; sel.value = String(i); }
+        host.appendChild(o);
+      });
+      return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: tr('Hazır Tema') }), sel])]);
+    }
     window.SV.GRADIENT_PRESETS.forEach((p) => {
       // 'group' taşıyan girdi aynı zamanda bir şablondur; başlık onun önüne gelir
       if (p.group) grid.appendChild(el('div', { class: 'preset-group', text: p.group }));
@@ -1235,7 +1292,7 @@
       ? tr('Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.')
       : window.SVUiTheme.moreContrast()
         ? tr('Cihazınız daha fazla karşıtlık istiyor; panel Yüksek Karşıtlık temasını kullanıyor.')
-        : tr('Cihazınız şu an {0} kullanıyor; değişince panel de değişir. Sistemde yüksek karşıtlık açılırsa panel Yüksek Karşıtlık temasına geçer.').replace('{0}', tr(prefersDark() ? 'Karanlık' : 'Aydınlık'));
+        : tr('Cihazınız şu an {0} kullanıyor; değişince panel de değişir. Sistemde yüksek karşıtlık açılırsa panel Yüksek Karşıtlık temasına geçer.').replace('{0}', window.SVUiTheme.current() ? tr(window.SVUiTheme.current().name) : tr(prefersDark() ? 'Karanlık' : 'Aydınlık'));
     return el('div', { class: 'ctrl' }, [
       grid,
       el('div', { class: 'studio-note dim-hint', text: sysNote, style: 'margin-top:6px;' }),
@@ -1309,7 +1366,8 @@
     const d = (scene && scene.data) || {};
     const parts = [];
     if (d.layerStack && d.layerStack.enabled && Array.isArray(d.layers) && d.layers.length) {
-      parts.push(d.layers.length + ' ' + (d.layers.length === 1 ? tr('Katman') : tr('Katmanlar')));
+      const n = d.layers.length;
+      parts.push(n === 1 ? '1 ' + tr('Katman') : tr('{n} Katman').replace('{n}', String(n)));
     } else {
       const type = (d.visualizer && d.visualizer.type) || 'none';
       parts.push(MC().label('visualizer', type));
@@ -1673,10 +1731,12 @@
       onclick: () => window.api.exportQueueClear(),
     });
     const list = el('div', { class: 'export-queue', id: 'exportQueueList' });
-    const box = el('div', { class: 'ctrl' }, [
-      el('label', { class: 'lbl', text: 'Dışa Aktarma Kuyruğu' }),
-      el('div', { class: 'studio-note dim-hint', text: 'Her iş eklendiği andaki sahneyi ve ayarları kullanır; biri hata verse de sonraki çalışır. Bir sahneyi birden çok şarkıya ya da bir şarkıyı birden çok çözünürlüğe aynı klasöre çıkarmak için.' }),
-      el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, [add, addMany, run, clear]),
+    const box = el('div', { class: 'ctrl sv-queue-box' }, [
+      el('div', { class: 'sv-chead' }, [
+        el('h3', { class: 'sv-grow', text: tr('Dışa Aktarma Kuyruğu') }),
+        el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': tr('Her iş eklendiği andaki sahneyi ve ayarları kullanır; biri hata verse de sonraki çalışır. Bir sahneyi birden çok şarkıya ya da bir şarkıyı birden çok çözünürlüğe aynı klasöre çıkarmak için.') }),
+        el('div', { class: 'sv-queue-acts' }, [clear, addMany, add, run]),
+      ]),
       list,
     ]);
     setTimeout(renderExportQueue, 0);
@@ -1716,14 +1776,15 @@
       else status.textContent = exportStatusText;
     }
 
-    return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [runBtn, anBtn, cancelBtn]),
+    return el('div', { class: 'sv-export-run' }, [
+      el('div', { class: 'row' }, [runBtn, cancelBtn, anBtn]),
       bar,
       status,
     ]);
   }
 
   // --------------------------------------------------------------------------
+  const actions_moduleHead = (o) => window.SVPanel.moduleHead(o);
   function lightingPanelCtrl() {
     const lighting = cfg.lighting || (cfg.lighting = window.SV.defaultConfig().lighting);
     const devices = Array.isArray(lightingInfo.devices) ? lightingInfo.devices : [];
@@ -1741,22 +1802,11 @@
     const resolvedStatusText = available ? devices.length + ' uyumlu aydınlatma aygıtı bulundu' : statusText;
     const status = el('div', { class: available ? 'lighting-status ok' : 'lighting-status', icon: available ? 'check' : '', text: resolvedStatusText });
 
-    const enabledInput = el('input', {
-      type: 'checkbox',
-      onchange: (e) => {
-        lighting.enabled = available && e.target.checked;
-        apply(true);
-      },
+    const enabledRow = actions_moduleHead({
+      id: 'lighting', title: 'Dynamic Lighting', on: available && !!lighting.enabled, disabled: !available, status,
+      start: 'Işığı Başlat', stop: 'Işığı Durdur',
+      toggle: (next) => { lighting.enabled = available && next; apply(true); },
     });
-    enabledInput.checked = available && !!lighting.enabled;
-    enabledInput.disabled = !available;
-
-    const enabledRow = el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [
-        el('label', { class: 'lbl', text: 'Windows Dynamic Lighting Etkin' }),
-        el('label', { class: 'switch' }, [enabledInput, el('span', { class: 'track' })]),
-      ]),
-    ]);
 
     const refreshBtn = el('button', {
       class: 'btn ghost small',
@@ -1813,11 +1863,11 @@
     });
 
     const children = [
+      enabledRow,
       status,
       identityStatus,
       controlStatus,
       priorityNote,
-      enabledRow,
       el('div', { class: 'ctrl lighting-actions' }, [refreshBtn, settingsBtn]),
     ];
     if (!available || !lighting.enabled) return el('div', { class: 'lighting-panel' }, children);
@@ -2178,8 +2228,6 @@
       });
       statusRow.appendChild(artThumb);
     }
-    wrap.appendChild(statusRow);
-
     // 2. Ana Etkinleştirme Switch'i (Uygulamanın standart switch bileşeni)
     const mainSwitchInput = el('input', {
       type: 'checkbox',
@@ -2196,11 +2244,10 @@
       el('label', { class: 'lbl', text: tr('Dinamik Renk Temasını Etkinleştir') }),
       mainSwitch,
     ]);
-    const mainCtrl = el('div', { class: 'ctrl' }, [
-      mainRow,
-      el('div', { class: 'dim-hint', text: tr('Şarkı değiştiğinde veya yeni kapak geldiğinde renkleri otomatik uyarla.') }),
-    ]);
-    wrap.appendChild(mainCtrl);
+    const mainLabel = mainRow.querySelector('label.lbl');
+    if (mainLabel) mainLabel.appendChild(el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': tr('Şarkı değiştiğinde veya yeni kapak geldiğinde renkleri otomatik uyarla.') }));
+    wrap.appendChild(el('div', { class: 'ctrl' }, [mainRow]));
+    if (dt.enabled) wrap.appendChild(statusRow);
 
     if (dt.enabled) {
       const sub = el('div', { class: 'subctrls' });
@@ -2466,7 +2513,7 @@
         category: 'scene',
         icon: 'palette',
         wide: true,
-        title: 'Renkler ve Hazır Şablonlar',
+        title: 'Renk Teması',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
         /* Theme/preset strip: always visible (show => true).
            usesPalette helper stays for Background card speed/reactivity
@@ -2580,7 +2627,7 @@
         category: 'scene',
         icon: 'disco',
         wide: true,
-        title: 'Dinamik Renk Teması (Windows)',
+        title: 'Albüm Kapağından Renk',
         desc: 'Çalan şarkının albüm kapağına veya şarkı geçişlerine göre renk temasını otomatik değiştirin.',
         show: () => !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows),
         controls: [{ type: 'dynamictheme' }],
@@ -2786,7 +2833,7 @@
         wide: true,
         title: 'Genel Işık Ayarları',
         desc: isWindows()
-          ? 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.'
+          ? 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Yalnız birinde geçerli ayarlarda o çıkışın adı yazar. Art-Net kendi kartındaki ayarları kullanır.'
           : 'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.',
         roots: ['lighting'],
         rootOmit: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
@@ -3102,7 +3149,7 @@
         category: 'output',
         icon: 'film',
         wide: true,
-        title: 'Video Dışa Aktar (MP3 → Video)',
+        title: 'Video Dışa Aktar',
         desc: 'Çevrimdışı kip: bir ses dosyası seçin, sahne kare kare ve olabildiğince hızlı çizilir. Ekran kaydı değildir; aynı iş her seferinde aynı videoyu verir.',
         controls: [
           { type: 'audiofile' },
@@ -3111,6 +3158,8 @@
                alanı yok. Seçmek alanları dolduruyor; bir alan elle
                değişince "Özel"e dönüyor. */
             type: 'select', path: 'export.profile', label: 'Hazır Profil', rebuild: true,
+            // Çıktı listesi aynı seçimi yapıyor; yalnız bütün kartların tarandığı öz testte kart içinde
+            show: () => !!(window.api && window.api.allSections),
             value: () => (window.SVExportFormats ? window.SVExportFormats.matchProfile(cfg.export) : 'custom'),
             options: () => exportProfileOptions(),
             onChange: (id) => {
@@ -3256,7 +3305,34 @@
           { type: 'exportqueue', tail: true },
         ],
       },
-    ];
+    ].map(groupExport);
+  }
+
+  /* Dışa aktarma formu: ne giriyor, ne çıkıyor, nasıl kodlanıyor, yanına ne yazılıyor. */
+  const EXPORT_GROUPS = [
+    ['Girdi', ['export.duration.mode', 'export.duration.seconds', 'export.duration.bars', 'export.duration.bpm']],
+    ['Görüntü', ['export.profile', 'export.format', 'export.resolution', 'export.fps']],
+    ['Kodlama', ['export.encoder', 'export.quality', 'export.speed']],
+    ['Ek Çıktılar', ['export.chapters', 'export.chapterList', 'export.loop', 'export.loopCrossfade', 'export.analysis']],
+  ];
+  function groupExport(sec) {
+    if (sec.id !== 'export') return sec;
+    const rank = (d) => {
+      if (d.tail) return 99;
+      if (d.type === 'audiofile') return 0;
+      if (d.type === 'note') return 1.5;
+      const i = EXPORT_GROUPS.findIndex((g) => g[1].includes(d.path));
+      return i < 0 ? 98 : i;
+    };
+    const controls = sec.controls.map((d, i) => [d, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([d]) => {
+      if (d.tail) return d;
+      const r = rank(d);
+      const name = d.type === 'audiofile' ? 'Girdi' : d.type === 'note' ? 'Görüntü' : (EXPORT_GROUPS[r] || [])[0];
+      const out = Object.assign({}, d, { group: name });
+      delete out.advanced;
+      return out;
+    });
+    return Object.assign({}, sec, { controls });
   }
 
   /* Profiller: yalnız biçimi bu makinede çalışanlar. */
@@ -3502,26 +3578,58 @@
     const tabs = $('pageTabs');
     if (tabs) {
       tabs.replaceChildren(...CATEGORIES.filter((c) => !c.setup).map((cat) => {
-        const n = categoryModifiedCount(cat.id);
         return el('button', {
           class: 'nav-item' + (cat.id === activeCategory ? ' on' : '') + (cat.adv ? ' sv-adv' : ''), type: 'button', role: 'tab',
           // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
           'data-cat': cat.id, title: tr(cat.desc), onclick: () => setCategory(cat.id),
-        }, [el('span', { icon: cat.icon }), el('span', { class: 'nav-label', text: tr(cat.title) }),
-          n > 0 ? el('span', { class: 'sv-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null]);
+        }, [el('span', { icon: cat.icon }), el('span', { class: 'nav-label', text: tr(cat.title) })]);
       }));
     }
+    const serviceRunning = (id) => {
+      const c = cfg.control || {};
+      if (id === 'lighting') return !!(cfg.lighting && cfg.lighting.enabled);
+      if (id === 'openrgb') return !!(cfg.openrgb && cfg.openrgb.enabled);
+      if (id === 'artnet') return !!(cfg.artnet && cfg.artnet.enabled);
+      if (id === 'midi') return !!(c.midi && c.midi.enabled);
+      if (id === 'osc') return !!(c.osc && c.osc.enabled);
+      if (id === 'oscOut') return !!(c.oscOut && c.oscOut.enabled);
+      if (id === 'gamepad') return !!(c.gamepad && c.gamepad.enabled);
+      if (id === 'mcp') return !!(cfg.mcp && cfg.mcp.enabled);
+      return false;
+    };
+    // Kurulum ağacı yalnız o sayfada görünüyor; başka sayfada şemayı boşuna kurmuyor
+    if (pageOf(activeCategory) !== 'setup' && !(window.api && window.api.allSections)) return;
     const rail = $('navRail');
+    const top = rail.scrollTop;
     rail.innerHTML = '';
     rail.appendChild(el('div', { class: 'sv-tree-head', text: tr('Kurulum') }));
+    const schema = sectionSchema();
     CATEGORIES.filter((c) => c.setup).forEach((cat) => {
-      const n = categoryModifiedCount(cat.id);
-      rail.appendChild(el('button', {
-        class: 'nav-item sv-tree-item' + (cat.id === activeCategory ? ' on' : ''), type: 'button',
-        'data-cat': cat.id, title: tr(cat.desc), onclick: () => setCategory(cat.id),
-      }, [el('span', { icon: cat.icon }), el('span', { class: 'nav-label', text: tr(cat.title) }),
-        n > 0 ? el('span', { class: 'sv-badge', text: String(n) }) : null]));
+      const secs = schema.filter((s) => s.category === cat.id && (!s.show || s.show()));
+      if (!secs.length) return;
+      const open = cat.id === activeCategory;
+      const total = secs.reduce((a, s) => a + (sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0), 0);
+      rail.appendChild(el('button', { class: 'sv-tree-group' + (open ? ' open' : ''), type: 'button', 'data-cat': cat.id, title: tr(cat.desc), 'aria-expanded': open ? 'true' : 'false', onclick: () => setCategory(cat.id) }, [
+        el('span', { icon: cat.icon }), el('span', { class: 'sv-tree-name', text: tr(cat.title) }),
+        !open && secs.some((s) => serviceRunning(s.id)) ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
+        !open && total > 0 ? el('span', { class: 'sv-badge', text: String(total), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
+        el('span', { class: 'sv-caret', icon: 'chevron-down' }),
+      ]));
+      // Öz test bütün bölümleri sırayla geziyor: orada ağaç açık kalıyor
+      if (!open && !(window.api && window.api.allSections)) return;
+      const want = open ? (secs.find((s) => s.id === selectedSection(cat.id)) || secs[0]) : null;
+      secs.forEach((s) => {
+        const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
+        rail.appendChild(el('button', {
+          class: 'nav-item sv-tree-item' + (s === want ? ' on' : ''), type: 'button', 'data-cat': cat.id, 'data-sec': s.id,
+          title: tr(s.desc || cat.desc), onclick: () => setSection(s.id),
+        }, [el('span', { class: 'nav-label', text: tr(s.title) }),
+          serviceRunning(s.id) ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
+          n > 0 ? el('span', { class: 'sv-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null]));
+      });
+      if (total > 0) rail.appendChild(categoryResetRow(cat.id));
     });
+    rail.scrollTop = top;
   }
 
   /* Üst çubuk ve görüntü üstündeki canlı değerler: ~30 Hz mesajla. */
@@ -3932,6 +4040,16 @@
     window.SVUiTheme.onChange(() => { if (activeCategory === 'settings') scheduleRender(); });
   }
 
+  let compactPresets = false;
+  /* render() de önizlemeye yapılandırma veriyor, push da: ikisi bir arada 11 ms'lik birleştirmeyi iki
+     kez yapıyordu. */
+  let previewFromPush = false;
+  function applyAll() {
+    previewFromPush = true;
+    try { render(); } finally { previewFromPush = false; }
+    marksFresh = true;
+    try { push(true); } finally { marksFresh = false; }
+  }
   function render() {
     renderWanted = false;
     syncUiTheme();
@@ -3945,7 +4063,7 @@
     if (page !== 'scene') for (const id of ['svLayers', 'svInspector', 'svShelf']) { if ($(id)) $(id).replaceChildren(); }
     if ((page === 'scene' || page === 'live') && $('sections')) $('sections').replaceChildren();
     if ((page === 'scene' || page === 'live') && window.SVSceneShell) {
-      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(cfg);
       renderNav();
       if (page === 'scene') window.SVSceneShell.paint();
       else if (window.SVLiveShell) window.SVLiveShell.paint();
@@ -3974,7 +4092,7 @@
     const themeFocus = aeTheme && aeTheme !== root && root.contains(aeTheme) && aeTheme.classList
       && aeTheme.classList.contains('ui-theme-opt') ? aeTheme.dataset.theme : null;
     holdSectionsFocus(root);
-    if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(cfg);
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -3984,10 +4102,24 @@
     const sections = sectionSchema().filter((s) => s.category === cat.id && (!s.show || s.show()));
     const shown = paintSectionNav(cat, sections);
     root.classList.toggle('single', shown.length === 1 || shown.every((s) => s.wide));
+    if ($('svOutBelow')) $('svOutBelow').replaceChildren();
+    /* Tek bölümlü sayfada başlık bölümün kendisi; kartta ikinci kez yazılmıyor. */
+    const single = SECTION_PAGES[cat.id] && shown.length === 1 && !(window.api && window.api.allSections);
+    document.body.toggleAttribute('data-single', !!single);
+    document.body.toggleAttribute('data-wide', !!(single && WIDE_SECTIONS.includes(shown[0].id)));
+    document.body.toggleAttribute('data-gen', !!(single && GEN_SECTIONS.includes(shown[0].id)));
+    if (single) {
+      document.body.setAttribute('data-sec', shown[0].id);
+      $('catTitle').textContent = tr(shown[0].title);
+      $('catDesc').textContent = tr(shown[0].desc || cat.desc);
+    } else {
+      document.body.removeAttribute('data-sec');
+    }
+    if (window.SVSceneShell) window.SVSceneShell.placeStage(page);
 
     // Sıfırlanacak bir şey yoksa (ör. Kitaplık) düğme boşuna durmasın
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
-    $('catResetBtn').classList.toggle('hidden', !resettable);
+    $('catResetBtn').classList.toggle('hidden', !resettable || !!single);
 
     /* Bir bölümün hatası yalnız o kartı düşürür: eskiden döngü kesiliyor,
        altındaki bölümler ve düzen hiç çizilmiyordu. */
@@ -4002,6 +4134,20 @@
       if (card) root.appendChild(card);
     });
 
+    /* Çıktı'da kuyruk önizlemenin altında: kartın değil işin kendisine ait, form uzayınca da görünüyor. */
+    if (page === 'output' && $('svOutBelow')) {
+      const q = root.querySelector('.sv-queue-box');
+      if (q) $('svOutBelow').appendChild(el('section', { class: 'sv-card sv-queue-card' }, [q]));
+    }
+    /* Tek bölümlü sayfada kartın sıfırlama rozeti sayfa başlığında: formun üstünde ayrı satır tutmuyor. */
+    const headActs = $('svHeadActs');
+    if (headActs) {
+      headActs.replaceChildren();
+      const acts = single && (page === 'setup' || page === 'output') ? root.querySelector('.card > .card-head .ch-actions') : null;
+      if (acts) headActs.appendChild(acts);
+    }
+    document.body.toggleAttribute('data-roomy', !!single && page === 'setup' && root.querySelectorAll('.card > .group').length > 1);
+    clampNotes(root);
     renderNav();
     /* Konum bu görevde, boy ölçülüp ızgara oturduktan sonra yazılır.
        Sonraki karede ikinci bir atama, kullanıcının gördüğü gidiş-gelişti. */
@@ -4030,7 +4176,14 @@
   const SECTION_PAGES = {
     output: ['display', 'stream', 'textureShare', 'record', 'export', 'mapping', 'aspect', 'power'],
     studio: ['studio', 'mdedit', 'scenegen', 'mdgen'],
+    // Kurulum: bölümler ağaçta, şema sırasıyla
+    audio: [], lighting: [], show: [], control: [], library: [], settings: [],
   };
+  const STUDIO_TABS = { studio: 'Shader', mdedit: 'MilkDrop', scenegen: 'Sahne Üretici', mdgen: 'Preset Üretici' };
+  // Kendi düzenleyicisi olan bölümler: önizleme yerine bütün genişliği kullanıyor
+  const WIDE_SECTIONS = ['mapping', 'aspect'];
+  /* Sonucu önizlemede görülen üreticiler: önizleme ortada büyük duruyor. */
+  const GEN_SECTIONS = ['scenegen', 'mdgen'];
   const sectionKey = (catId) => 'sv-section-' + catId;
   function selectedSection(catId) {
     try { return localStorage.getItem(sectionKey(catId)); } catch { return null; }
@@ -4042,6 +4195,7 @@
     categoryScrollById.set(sec.category, 0);
     pendingCategoryScrollId = sec.category;
     if (sec.category === activeCategory) render();
+    else setCategory(sec.category);
   }
   function paintSectionNav(cat, sections) {
     const host = $('svSecNav');
@@ -4055,14 +4209,85 @@
     const sorted = sections.slice().sort((a, b) => rank(a) - rank(b));
     const want = selectedSection(cat.id);
     const sel = sorted.find((s) => s.id === want) || sorted[0];
+    if (cat.setup) {
+      host.replaceChildren();
+      return sel ? [sel] : [];
+    }
+    if (cat.id === 'output') {
+      paintOutputNav(host, sorted, sel);
+      return sel ? [sel] : [];
+    }
     host.replaceChildren(...sorted.map((s) => {
       const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
       return el('button', {
-        class: 'sv-secbtn' + (s === sel ? ' on' : ''), type: 'button', 'data-sec': s.id, icon: s.icon, text: tr(s.title),
+        class: 'sv-secbtn' + (s === sel ? ' on' : ''), type: 'button', 'data-sec': s.id, icon: s.icon, text: tr(STUDIO_TABS[s.id] || s.title), title: tr(s.title),
         onclick: () => setSection(s.id),
       }, n ? [el('span', { class: 'sv-secmark', text: String(n) })] : []);
     }));
     return sel ? [sel] : [];
+  }
+
+  /* ÇIKTI LİSTESİ: görüntü nereye gidiyor? Canlı çıkışlar ve dosya profilleri aynı listede; profil
+     seçmek ayarları dolduruyor, bir alan elle değişince liste "Özel"i gösteriyor. */
+  const OUTPUT_GROUPS = [
+    ['Canlı', ['display', 'stream', 'textureShare', 'record']],
+    ['Uyarlama', ['mapping', 'aspect', 'power']],
+  ];
+  function outputRunning(id) {
+    if (id === 'stream') return !!(cfg.stream && cfg.stream.enabled);
+    if (id === 'textureShare') return !!(cfg.textureShare && cfg.textureShare.enabled);
+    if (id === 'mapping') return !!(cfg.mapping && cfg.mapping.enabled);
+    return false;
+  }
+  function destRow(text, sub, ico, on, onclick, attrs, running) {
+    return el('button', Object.assign({ class: 'sv-dest' + (on ? ' on' : ''), type: 'button', title: text, onclick }, attrs), [
+      el('span', { class: 'sv-dest-ico' }, [ico]),
+      el('span', { class: 'sv-dest-txt' }, [el('b', { text }), sub ? el('small', { text: sub }) : null]),
+      running ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
+    ]);
+  }
+  function ratioGlyph(res) {
+    const FX = window.SVExportFormats;
+    const r = FX && FX.RESOLUTIONS ? FX.RESOLUTIONS[res] : null;
+    const w = r ? r[0] : 16;
+    const h = r ? r[1] : 9;
+    const s = 22 / Math.max(w, h);
+    const g = el('span', { class: 'sv-dest-ratio' });
+    g.style.width = Math.round(w * s) + 'px';
+    g.style.height = Math.round(h * s) + 'px';
+    return g;
+  }
+  function paintOutputNav(host, sorted, sel) {
+    const FX = window.SVExportFormats;
+    const nodes = [];
+    const rowFor = (s) => destRow(tr(s.title), '', el('span', { icon: s.icon }), s === sel, () => setSection(s.id), { 'data-sec': s.id }, outputRunning(s.id));
+    const byId = (id) => sorted.find((s) => s.id === id);
+    nodes.push(el('div', { class: 'sv-dest-group', text: tr('Canlı') }));
+    OUTPUT_GROUPS[0][1].map(byId).filter(Boolean).forEach((s) => nodes.push(rowFor(s)));
+    const exp = byId('export');
+    if (exp && FX) {
+      nodes.push(el('div', { class: 'sv-dest-group', text: tr('Dosyaya') }));
+      const cur = FX.matchProfile(cfg.export);
+      const lang = window.SVI18n && window.SVI18n.locale === 'en' ? 1 : 0;
+      exportProfileOptions().forEach((o) => {
+        const p = FX.profile(o.value);
+        const on = exp === sel && cur === o.value;
+        const go = () => {
+          if (p) cfg.export = FX.applyProfile(cfg.export, o.value);
+          setSection('export');
+          if (p) { render(); push(true); }
+        };
+        const fmt = p ? FX.format(p.set.format) : null;
+        const sub = p
+          ? [(p.set.resolution || '').replace(/^(\d+x\d+)$/, (m) => m.replace('x', '×')), p.set.fps + ' fps', fmt ? String(fmt.label[lang] || fmt.label[0]).split(' ')[0] : ''].filter(Boolean).join(' · ')
+          : tr('Kendi ayarların');
+        nodes.push(destRow(p ? String(p.label[lang]).split(' — ')[0] : tr(o.label), sub, p ? ratioGlyph(p.set.resolution) : el('span', { icon: 'sliders' }), on, go, { 'data-sec': p ? undefined : 'export', 'data-profile': o.value }));
+      });
+    }
+    nodes.push(el('div', { class: 'sv-dest-group', text: tr('Uyarlama') }));
+    OUTPUT_GROUPS[1][1].map(byId).filter(Boolean).forEach((s) => nodes.push(rowFor(s)));
+    if (sorted.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0)) nodes.push(categoryResetRow('output'));
+    host.replaceChildren(...nodes);
   }
 
   /* KART DÜZENİ (#622, #695).
@@ -4245,9 +4470,22 @@
     let currentGroup = null;
     let host = null;
 
+    /* Grup başlığı açılıp kapanıyor; seçim makinede kalıyor. */
     const openGroup = (name) => {
-      const wrap = el('div', { class: 'group' });
-      if (name) wrap.appendChild(el('div', { class: 'group-label', text: name }));
+      const key = 'sv-closed:' + (card.getAttribute('data-card') || '') + ':' + (name || '');
+      let shut = false;
+      try { shut = !!name && localStorage.getItem(key) === '1'; } catch { /* yalnız kolaylık */ }
+      const wrap = el('div', { class: 'group' + (shut ? ' closed' : '') });
+      if (name) {
+        wrap.appendChild(el('button', {
+          class: 'group-label', type: 'button', 'aria-expanded': shut ? 'false' : 'true',
+          onclick: (e) => {
+            const closed = wrap.classList.toggle('closed');
+            e.currentTarget.setAttribute('aria-expanded', closed ? 'false' : 'true');
+            try { if (closed) localStorage.setItem(key, '1'); else localStorage.removeItem(key); } catch { /* yalnız kolaylık */ }
+          },
+        }, [el('span', { class: 'sv-grow', text: name }), el('span', { class: 'sv-caret', icon: 'chevron-down' })]));
+      }
       card.appendChild(wrap);
       return wrap;
     };
@@ -4262,6 +4500,7 @@
       }
       const c = buildControl(def);
       if (!c) return;
+      tuckHint(c);
       if (def.label) c.setAttribute('data-anchor', String(def.label).slice(0, 80));
       if (def.path) {
         c.setAttribute('data-path', def.path);
@@ -4286,6 +4525,64 @@
       host.appendChild(c);
     });
   }
+
+  /* Satırın altındaki açıklama ipucuna geçiyor: formlar kısa kalıyor, açıklama ⓘ'de. Canlı güncellenen
+     (kimlikli) ya da içinde düğme olan notlar yerinde. */
+  /* Kategorinin tamamını sıfırlama: ağacın içinde, kategorinin altında. Başlıktaki düğme yalnız
+     o bölümü sıfırlıyor; ikisi yan yana aynı simgeyle durmasın. */
+  function categoryResetRow(catId) {
+    return el('button', { class: 'sv-nav-reset', type: 'button', icon: 'reset', text: tr('Kategoriyi Sıfırla'), title: tr('Bu kategoriyi varsayılana döndür'), onclick: () => resetCategory(catId) });
+  }
+
+  /* Uzun açıklama iki satırda kalıyor, gerisi isteğe bağlı: form yazı duvarına dönmesin. */
+  function clampNotes(root) {
+    const added = [];
+    root.querySelectorAll('.studio-note:not(.sv-clamp):not(.sv-fit)').forEach((n) => {
+      if (n.id || n.children.length || n.textContent.length < 100) return;
+      n.classList.add('sv-clamp');
+      const more = el('button', { class: 'sv-more', type: 'button', text: tr('Devamı'), onclick: () => {
+        more.textContent = tr(n.classList.toggle('open') ? 'Kısalt' : 'Devamı');
+      } });
+      n.after(more);
+      added.push([n, more]);
+    });
+    // Sığan not iki satırda bitiyor: düğme boşuna durmasın
+    if (added.length) requestAnimationFrame(() => added.forEach(([n, more]) => {
+      if (n.isConnected && n.scrollHeight <= n.clientHeight + 1) { n.classList.replace('sv-clamp', 'sv-fit'); more.remove(); }
+    }));
+  }
+
+  function tuckHint(ctrl) {
+    const lbl = ctrl.querySelector(':scope > .row > label.lbl, :scope > label.lbl');
+    if (!lbl) return;
+    ctrl.querySelectorAll(':scope > .studio-note.dim-hint').forEach((n) => {
+      if (n.id || n.children.length) return;
+      const text = n.textContent;
+      if (!text) return;
+      lbl.appendChild(el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': tr(text) }));
+      n.remove();
+    });
+  }
+  /* İpucu tek öğe ve sabit konumlu: kartların taşma sınırı onu kesmesin. Fare ve klavyeyle açılıyor. */
+  let tipNode = null;
+  function showTip(btn) {
+    if (!tipNode) { tipNode = el('div', { class: 'sv-tip', role: 'tooltip' }); document.body.appendChild(tipNode); }
+    tipNode.textContent = btn.getAttribute('aria-label');
+    tipNode.style.display = 'block';
+    const r = btn.getBoundingClientRect();
+    const t = tipNode.getBoundingClientRect();
+    tipNode.style.left = Math.max(8, Math.min(innerWidth - t.width - 8, r.left + r.width / 2 - t.width / 2)) + 'px';
+    tipNode.style.top = (r.bottom + 8 + t.height > innerHeight ? r.top - t.height - 8 : r.bottom + 8) + 'px';
+  }
+  function hideTip() { if (tipNode) tipNode.style.display = 'none'; }
+  document.addEventListener('pointerover', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('.sv-info') : null;
+    if (b) showTip(b); else hideTip();
+  });
+  document.addEventListener('focusin', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('sv-info')) showTip(e.target);
+  });
+  document.addEventListener('focusout', hideTip);
 
   // Tek bir ayarı varsayılana döndür (onay istemez — geri alması kolay)
   function resetPath(path) {
@@ -4328,7 +4625,8 @@
       if (!card) return;
       const n = sectionShowsResetChrome(sec) ? countModified(sectionPaths(sec)) : 0;
       let chip = card.querySelector('.chip-mod');
-      const acts = card.querySelector('.ch-actions');
+      const acts = card.querySelector('.ch-actions') || ($('svHeadActs') && document.body.hasAttribute('data-single') ? $('svHeadActs').querySelector('.ch-actions') : null);
+      if (acts && !chip) chip = acts.querySelector('.chip-mod');
       if (n > 0 && !chip && acts) {
         // Kart sıfırdan değişikliğe geçtiyse rozet ve sıfırlama düğmesi belirir
         acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı' }));
@@ -4339,12 +4637,12 @@
             onclick: () => resetSection(sec),
           })
         );
-        chip = card.querySelector('.chip-mod');
+        chip = acts.querySelector('.chip-mod');
       }
       if (chip) {
         chip.textContent = String(n);
         chip.classList.toggle('hidden', n === 0);
-        const btn = card.querySelector('.ch-actions .icon-btn');
+        const btn = acts && acts.querySelector('.icon-btn');
         if (btn) btn.classList.toggle('hidden', n === 0);
       }
     });
@@ -4352,7 +4650,7 @@
     renderNav();
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     const catBtn = $('catResetBtn');
-    if (catBtn) catBtn.classList.toggle('hidden', !resettable);
+    if (catBtn) catBtn.classList.toggle('hidden', !resettable || document.body.hasAttribute('data-single'));
     nudgeScroll(root, pin, before);
   }
 
@@ -4463,7 +4761,25 @@
         });
       });
     });
-    return out.concat(layerSearchEntries());
+    return out.concat(layerSearchEntries(), shelfSearchEntries());
+  }
+
+  /* Efekt ve mod adları ayar değil, rafta duruyor: "bloom" yazan kullanıcı "bulunamadı" görmesin.
+     Sonuç ilgili rafı açıyor; görsel ve zemin rafında aramayı da o ada göre süzüyor. */
+  function shelfSearchEntries() {
+    const out = [];
+    const FX = window.SVPostFX;
+    const entry = (label, section, shelf, filter) => ({
+      kind: 'control', icon: 'layers', label, category: 'scene', categoryTitle: 'Sahne', section,
+      sectionId: null, path: null, advanced: false, keywords: [], shelf, filter,
+    });
+    if (FX && FX.EFFECT_IDS) FX.EFFECT_IDS.forEach((id) => { const d = FX.EFFECTS[id]; if (d) out.push(entry(d.label, 'Efekt Zinciri', 'effects', '')); });
+    const MC = window.SVModeCatalog;
+    if (MC) {
+      (MC.VISUALIZERS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Görsel', 'vis', m.label)); });
+      (MC.BACKGROUNDS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Zemin', 'bg', m.label)); });
+    }
+    return out;
   }
 
   /* Sahnedeki ayarlar katman denetçisinde: kart tanımlarında yoklar, her türün sekmeleri okunuyor
@@ -4582,6 +4898,11 @@
     localStorage.setItem('sv-category', activeCategory);
     if (entry.sectionId && SECTION_PAGES[entry.category]) {
       try { localStorage.setItem(sectionKey(entry.category), entry.sectionId); } catch { /* yalnız kolaylık */ }
+    }
+    if (entry.shelf && window.SVSceneShell) {
+      render();
+      window.SVSceneShell.setShelf(entry.shelf, entry.filter ? tr(entry.filter) : '');
+      return;
     }
     if (entry.anchor) {
       // Gelişmiş sekmeyi basit görünüm gizliyor
@@ -5496,9 +5817,32 @@
     });
   };
 
+  /* Sahnenin küçük resmi: sahne uygulanınca ya da kaydedilince önizlemeden. Makineye özgü kolaylık,
+     ayar dosyasına girmiyor: tarayıcı deposunda, sahne başına ~10 KB. */
+  const SCENE_THUMB = 'sv-scene-thumb:';
+  function grabSceneThumb(id) {
+    setTimeout(() => {
+      if (!window.SVPreview || !window.SVPreview.nextFrame) return;
+      window.SVPreview.nextFrame(() => {
+        const stage = $('pvStage');
+        const list = stage ? stage.querySelectorAll('canvas') : [];
+        if (!list.length || isBlackedOut()) return;
+        const c = document.createElement('canvas');
+        c.width = 240;
+        c.height = 135;
+        const g = c.getContext('2d');
+        list.forEach((n) => { if (n.width && n.height && n.style.display !== 'none') { try { g.drawImage(n, 0, 0, c.width, c.height); } catch { /* henüz çizilmedi */ } } });
+        try { localStorage.setItem(SCENE_THUMB + id, c.toDataURL('image/webp', 0.7)); } catch { /* depo dolu: renk özeti kalır */ }
+      });
+    }, 1400);
+  }
+  function sceneThumbShot(id) {
+    try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch { return ''; }
+  }
   actions.applyScene = (id, opts) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
+    grabSceneThumb(id);
     const def = window.SV.DEFAULT_CONFIG;
     const blacked = isBlackedOut();
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
@@ -5647,6 +5991,8 @@
           el('div', { class: 'scene-acts' }, [
             el('button', { class: 'icon-btn small', type: 'button', icon: 'refresh', title: tr('Mevcut görünümle güncelle'), onclick: () => actions.updateScene(sc.id) }),
             el('button', { class: 'icon-btn small', type: 'button', icon: 'trash', title: tr('Sil'), onclick: () => actions.deleteScene(sc.id) }),
+            el('button', { class: 'icon-btn small sv-tl-add', type: 'button', icon: 'plus', title: tr('Oynatma kafasına ekle'), 'aria-label': tr('Oynatma kafasına ekle'),
+              onclick: (e) => { e.stopPropagation(); if (window.SVTimelinePanel) window.SVTimelinePanel.addSceneAtHead(sc.id); } }),
           ]),
         ])
       );
@@ -6211,7 +6557,7 @@
       keys: SCENE_KEYS,
       get: (k) => cfg[k],
       set: (k, v) => { if (v === undefined) delete cfg[k]; else cfg[k] = v; },
-      apply: () => { render(); push(true); },
+      apply: applyAll,
       changed: () => { undoBtn.disabled = !undoHistory.canUndo(); redoBtn.disabled = !undoHistory.canRedo(); },
     });
     window.SVUndoHistory = undoHistory;

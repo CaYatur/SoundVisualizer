@@ -14,12 +14,13 @@
     <link rel="stylesheet" href="studio.css" />
     <link rel="stylesheet" href="bridge.css" />
     <link rel="stylesheet" href="shell.css" />
+    <link rel="stylesheet" href="pages.css" />
     <!-- Arayüz teması gövde çizilmeden önce (#770) -->
     <script src="../shared/ui-themes.js"></script>
     <script src="theme-boot.js"></script>
   </head>
   <body>
-    <div id="svAmbient" aria-hidden="true"></div>
+    <canvas id="svAmbient" width="32" height="18" aria-hidden="true"></canvas>
     <!-- ================= ÜST ÇUBUK ================= -->
     <header class="topbar">
       <div class="sv-top-left">
@@ -179,6 +180,7 @@
               <div class="sv-hud b" id="svHudInfo">
                 <span class="sv-beat" id="hudBeat" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                 <span id="hudBpm"></span>
+                <span id="hudKey"></span>
                 <div class="sv-vu" aria-hidden="true"><i id="hudL"></i><i id="hudB"></i></div>
                 <span id="hudFps"></span>
               </div>
@@ -202,11 +204,16 @@
               <span class="track"></span>
               <span class="adv-label">Gelişmiş</span>
             </label>
+            <div id="svHeadActs" class="sv-head-acts"></div>
             <button id="catResetBtn" class="btn ghost small" title="Bu kategoriyi varsayılana döndür" data-icon="reset">Kategoriyi Sıfırla</button>
           </div>
         </div>
         <nav id="svSecNav" class="sv-secnav"></nav>
-        <div id="sections" class="sections sv-content" tabindex="-1"></div>
+        <div id="svOutCenter" class="sv-out-center">
+          <div class="sv-out-stage"><div id="svOutFrame" class="sv-frame"><div id="svOutTools" class="sv-hud r"></div></div></div>
+          <div id="svOutBelow" class="sv-out-below"></div>
+        </div>
+        <div id="sections" class="sections sv-content sv-insp sv-form" tabindex="-1"></div>
       </main>
 
       <!-- --- Sağ: canlı önizleme + izleme --- -->
@@ -243,6 +250,7 @@
           </div>
         </section>
 
+        <section id="svTimeSide" class="dock-block sv-time-side"></section>
         <section id="dockScenes" class="dock-block dock-grow">
           <div class="dock-head">
             <h3>Sahneler</h3>

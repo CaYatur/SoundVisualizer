@@ -812,7 +812,7 @@
   function nowplayingStatusRow() {
     const el = P().el;
     const N = window.SVNowPlaying;
-    const line = el('div', { class: 'txt-info np-status' });
+    const line = el('div', { class: 'txt-info np-status', 'data-user-text': '' });
     let status = null;
     const paint = () => {
       const live = window.SVNowLive && window.SVNowLive.state;
@@ -1701,10 +1701,10 @@
             const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
               ? window.SVNowLive.state : null;
             const statusText = live
-              ? ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
-              : 'Şu anda sistemde çalan parça yok (yedek kullanılır)';
+              ? ([live.title, live.artist].filter(Boolean).join(' — ') || tr('(adsız)'))
+              : tr('Şu anda sistemde çalan parça yok (yedek kullanılır)');
             const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
-            out.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText })));
+            out.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText, 'data-user-text': '' })));
 
             out.push(el('div', { class: 'row' }, [
               el('button', {
@@ -1936,7 +1936,7 @@
       const MP = window.SVMilkdropPanel;
       if (MP && MP.isOwnLayer) {
         const own = MP.isOwnLayer(l);
-        out.push(miniToggle('Kendi Preseti', () => own, (on) => MP.setLayerOwn(cfg, l, on), rerender, { def: false }));
+        out.push(miniSegment('Preset', [['shared', 'Ortak'], ['own', 'Bağımsız']], () => (own ? 'own' : 'shared'), (v) => MP.setLayerOwn(cfg, l, v === 'own'), rerender));
         if (own) {
           const name = l.settings.milkdrop.name;
           out.push(P().row('Preset', el('button', {
@@ -1960,7 +1960,7 @@
             out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken bu presette durur.' }));
           }
         } else {
-          out.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken ortak preseti gösterir.' }));
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Bütün ortak katmanlarla aynı preseti gösterir.' }));
         }
       }
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
@@ -3034,18 +3034,6 @@
       window.api.artnetStatus().then((s) => { artnetState = s; }).catch(() => {});
     }
 
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: async (e) => {
-        a.enabled = e.target.checked;
-        P().push(true);
-        artnetState = await window.api.artnetSync();
-        P().rerender();
-      },
-    });
-    enable.checked = !!a.enabled;
-    nodes.push(P().row('Art-Net Çıkışı', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
     // Durum: parçalar ayrı düğümlerde (sayı içeren birleşik metin çevrilemez)
     const st = el('div', { class: 'studio-status ' + (artnetState.running ? 'ok' : artnetState.error ? 'err' : '') });
     if (artnetState.running) {
@@ -3062,7 +3050,16 @@
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));
     }
-    nodes.push(st);
+    nodes.push(P().moduleHead({
+      id: 'artnet', title: 'Art-Net Çıkışı', on: !!a.enabled, error: !!artnetState.error, status: st,
+      start: 'Göndermeyi Başlat', stop: 'Göndermeyi Durdur',
+      toggle: async (next) => {
+        a.enabled = next;
+        P().push(true);
+        artnetState = await window.api.artnetSync();
+        P().rerender();
+      },
+    }));
 
     if (a.enabled) {
       nodes.push(

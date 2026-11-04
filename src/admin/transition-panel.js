@@ -49,8 +49,9 @@
     }
 
     // ------------------------------------------------------------- tür
-    const opts = T.TRANSITION_IDS.map((id) => ({ value: id, label: T.TRANSITIONS[id].label }));
-    nodes.push(P().segment('Tür', 'transition.type', opts, { rebuild: true }));
+    // 20 tür: düğme grubu yerine seçim kutusu, denetçide yer açılıyor
+    const opts = T.TRANSITION_IDS.map((id) => [id, T.TRANSITIONS[id].label]);
+    nodes.push(SP().miniSelect('Tür', opts, () => tr.type, (v) => { tr.type = v; }, rerender));
 
     // --------------------------------------------------------- süre / eğri
     nodes.push(SP().miniSelect('Süre Birimi', UNIT_LABELS, () => tr.unit || 'seconds', (v) => { tr.unit = v; }, rerender));

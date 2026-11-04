@@ -275,19 +275,26 @@
     ];
   }
 
+  const EXAMPLES = ['karanlık sinematik uzay', 'enerjik neon techno', 'sakin orman sabahı'];
+
   function panel() {
     const el = P().el;
     const nodes = [];
 
     const input = el('input', {
       class: 'p-in wide', type: 'text', value: prompt,
-      placeholder: 'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"',
+      placeholder: 'Bir ruh hali yazın',
       oninput: (e) => { prompt = e.target.value.slice(0, 200); },
     });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { seed = (Math.random() * 1e9) | 0; generate(); apply(); }
     });
     nodes.push(P().row('Ruh Hali', input));
+    /* Örnekler tek tıkla üretiyor; yazı çevrilmiş haliyle okunuyor, üretici iki dili de anlıyor. */
+    nodes.push(el('div', { class: 'gen-examples' }, EXAMPLES.map((t) => el('button', {
+      class: 'gen-example', type: 'button', text: t,
+      onclick: (e) => { prompt = e.currentTarget.textContent; seed = (Math.random() * 1e9) | 0; generate(); apply(); },
+    }))));
 
     nodes.push(
       el('div', { class: 'gen-actions' }, [

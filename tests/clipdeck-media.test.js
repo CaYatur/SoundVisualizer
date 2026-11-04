@@ -53,6 +53,7 @@ function mount(cfg) {
   window.SVPanel = {
     cfg: () => cfg, el,
     row: (label, node) => el('div', { class: 'row' }, [el('label', { text: label }), node]),
+    moduleHead: (o) => el('div', { class: 'sv-module' }, [el('button', { class: 'sv-module-act', text: o.on ? (o.stop || 'Durdur') : (o.start || 'Başlat'), onclick: () => o.toggle(!o.on) })]),
     push() {}, apply() { applied++; }, rerender() {}, confirm: () => Promise.resolve(true), toast() {}, actions: () => ({ applyScene() {} }),
   };
   window.SVTimelinePanel = null;

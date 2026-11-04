@@ -202,7 +202,7 @@ body {
 .svi-lead { margin-right: .42em; }
 .svi-after { display: inline-flex; margin-left: .38em; vertical-align: -0.22em; }
 .btn .svi, .filebtn .svi { width: 1.2em; height: 1.2em; }
-.nav-ico .svi { width: 17px; height: 17px; }
+
 .card-head .ico .svi { width: 16px; height: 16px; }
 .sr-ico .svi, .source-icon .svi { width: 15px; height: 15px; }
 .icon-btn .svi { width: 16px; height: 16px; }
@@ -288,10 +288,7 @@ body {
   padding: 12px 10px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 3px;
 }
-.nav-group-label {
-  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--muted2); padding: 12px 10px 5px;
-}
+
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 11px; border-radius: var(--radius-sm);
@@ -309,16 +306,12 @@ body {
   width: 3px; height: 20px; border-radius: 0 3px 3px 0;
   background: linear-gradient(180deg, var(--accent2), var(--accent));
 }
-.nav-ico { font-size: 15px; width: 19px; text-align: center; flex-shrink: 0; }
+
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.nav-badge {
-  font-size: 11px; font-weight: 700; min-width: 18px; text-align: center;
-  padding: 2px 5px; border-radius: 20px;
-  background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); border: 1px solid rgb(var(--accent-rgb) / .3);
-}
-.nav-item.active .nav-badge { background: rgb(var(--fg-rgb) / .16); color: var(--text-strong); border-color: transparent; }
-.nav-spacer { flex: 1; min-height: 8px; }
-.nav-foot { font-size: 11px; color: var(--muted2); padding: 8px 11px; line-height: 1.5; }
+
+
+
+
 
 /* -------- Orta: çalışma alanı -------- */
 .work { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -482,8 +475,8 @@ body {
 }
 .advanced.open .adv-summary .caret { transform: rotate(90deg); }
 .adv-summary .count { margin-left: auto; font-size: 11px; color: var(--muted2); font-weight: 700; }
-.adv-body { display: none; padding: 12px 2px 2px; }
-.advanced.open .adv-body { display: block; }
+
+
 
 /* ============================ KONTROLLER ============================ */
 .ctrl { margin-bottom: 12px; position: relative; }
@@ -602,10 +595,12 @@ select.sel-ctrl { font-size: 13px; margin-top: 6px; }
 /* presets */
 /* Hazır şablon gruplarında 10 ve 6 öğe var (#622). `auto-fill` 9 sütun
    veriyordu ve her 10'luk grubun son şablonu alt satırda TEK BAŞINA
-   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 4, 6, 7, 8, 10 —
-   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. */
+   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 2, 4, 6, 7, 8, 10 —
+   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. 2 sütun dar denetçide:
+   dört sütunda "Okyanus" iki satıra bölünüyordu. */
 .ctrl:has(> .presets) { container-type: inline-size; }
 .presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 7px; }
+@container (max-width: 239px) { .presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 500px) { .presets { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @container (min-width: 590px) { .presets { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @container (min-width: 670px) { .presets { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
@@ -627,7 +622,7 @@ select.sel-ctrl { font-size: 13px; margin-top: 6px; }
   cursor: pointer; font-size: 12px; color: var(--text); transition: .15s;
 }
 .filebtn:hover { border-color: var(--accent); background: var(--card3); }
-.logo-preview { margin-top: 10px; max-height: 78px; max-width: 100%; border-radius: 8px; display: none; border: 1px solid var(--line); }
+
 
 .logo-lib { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .logo-lib-search { width: 100%; margin: 6px 0 8px; }
@@ -739,10 +734,7 @@ video.logo-lib-thumb { pointer-events: none; }
 .settings-io-panel .up-toolbar { margin-top: 12px; }
 
 /* ---------- Ek görsel nesneler ---------- */
-.img-card {
-  border: 1px solid var(--line); border-radius: 12px; background: var(--card2);
-  padding: 10px; margin-top: 10px;
-}
+
 .img-head { display: flex; gap: 10px; align-items: center; }
 .img-thumb {
   width: 50px; height: 50px; object-fit: contain; border-radius: 9px;
@@ -1263,7 +1255,7 @@ body.tl-full-open { overflow: hidden; }
 }
 .tl-panel .tl-head input.tl-trackname:hover { border-color: var(--line); }
 .tl-panel .tl-head input.tl-trackname:focus { border-color: var(--accent); background: var(--card2); }
-.tl-kind { font-size: 12px; width: 16px; text-align: center; }
+
 input[type=color].tl-swatch { width: 16px; height: 16px; padding: 0; border: 1px solid var(--line2); border-radius: 4px; background: none; cursor: pointer; flex: none; }
 input[type=color].tl-swatch::-webkit-color-swatch-wrapper { padding: 0; }
 input[type=color].tl-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
@@ -1499,9 +1491,9 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
   padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px;
   background: var(--card2); color: var(--muted); font-size: 11.5px;
 }
-.mcp-group { border-top: 1px solid var(--line); padding-top: 8px; }
-.mcp-group-title { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
-.mcp-switches { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+
+
+
 .mcp-card .switch input:disabled + .track { opacity: 0.38; filter: grayscale(0.35); }
 .mcp-setup {
   width: min(720px, calc(100vw - 28px));
@@ -1550,16 +1542,16 @@ input[type="email"],
 input[type="tel"],
 input[type="number"],
 textarea:not(.code-input):not(.mded-input) {
-  background: var(--card2);
+  background: rgb(var(--fg-rgb) / .07);
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 8px;
-  padding: 0 8px;
+  padding: 0 9px;
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.2;
   outline: none;
-  height: 30px;
+  height: 28px;
   box-sizing: border-box;
 }
 textarea:not(.code-input):not(.mded-input) {

@@ -344,6 +344,13 @@
     return window.SVUiTheme ? window.SVUiTheme.alpha(name, a) : 'transparent';
   }
 
+  const UI_FONT = "'Geist', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif";
+  // Rengi siyaha doğru koyulaştır: klibin alt tonu
+  function shade(hex, k) {
+    const n = parseInt(String(hex).slice(1), 16) || 0;
+    return 'rgb(' + Math.round(((n >> 16) & 255) * k) + ',' + Math.round(((n >> 8) & 255) * k) + ',' + Math.round((n & 255) * k) + ')';
+  }
+
   function rgba(hex, a) {
     const n = parseInt(String(hex).slice(1), 16) || 0;
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
@@ -387,13 +394,14 @@
     const strong = css('--text-strong');
     const solo = TL().anySolo ? TL().anySolo(tl) : false;
 
-    // --- Şerit zeminleri: tek ve çift şerit ayrı tonda, seçili parça belirgin ---
+    // --- Şerit zeminleri: yalnız seçili parça belirgin ---
     for (let i = 0; i < tl.tracks.length; i++) {
       const y = RULER_H + i * TRACK_H;
       const trk = tl.tracks[i];
-      const picked = selection && selection.trackId === trk.id;
-      ctx.fillStyle = picked ? tint('--fg-rgb', 0.05) : i % 2 ? tint('--fg-rgb', 0.018) : 'transparent';
-      ctx.fillRect(0, y, w, TRACK_H);
+      if (selection && selection.trackId === trk.id) {
+        ctx.fillStyle = tint('--fg-rgb', 0.045);
+        ctx.fillRect(0, y, w, TRACK_H);
+      }
     }
 
     // --- Izgara ve cetvel ---
@@ -421,7 +429,7 @@
     // --- Parçalar ---
     for (let i = 0; i < tl.tracks.length; i++) {
       const y = RULER_H + i * TRACK_H;
-      ctx.strokeStyle = line;
+      ctx.strokeStyle = tint('--fg-rgb', 0.05);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, y + TRACK_H - 0.5);
@@ -433,26 +441,27 @@
       else drawAutomationTrack(trk, i, y, w, accent, dim, live);
     }
 
-    // --- İşaretler: cetvelde bayrak, şeritlerde ince çizgi ---
-    ctx.font = '11px system-ui, sans-serif';
+    // --- İşaretler: cetvelin alt bandında etiket, şeritlerde ince çizgi ---
+    ctx.font = '500 11px ' + UI_FONT;
     for (const m of tl.markers) {
       const x = xOf(m.t);
       if (x < -2 || x > w + 2) continue;
-      ctx.strokeStyle = tint('--cue-armed', 0.7);
+      ctx.strokeStyle = tint('--fg-rgb', 0.14);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(Math.round(x) + 0.5, RULER_H);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
-      // Bayrak cetvelin alt bandında: ölçü ve süre yazılarının altında
-      ctx.fillStyle = css('--cue-armed');
+      const label = m.name || '';
+      const lw = label ? ctx.measureText(label).width + 12 : 8;
+      ctx.fillStyle = tint('--fg-rgb', 0.12);
       ctx.beginPath();
-      ctx.moveTo(x, RULER_H - 11);
-      ctx.lineTo(x + 7, RULER_H - 7);
-      ctx.lineTo(x, RULER_H - 3);
-      ctx.closePath();
+      ctx.roundRect(x, RULER_H - 17, lw, 15, 5);
       ctx.fill();
-      if (m.name) ctx.fillText(m.name, x + 9, RULER_H - 3);
+      if (label) {
+        ctx.fillStyle = fg;
+        ctx.fillText(label, x + 6, RULER_H - 5.5);
+      }
     }
 
     /* --- Tempo değişimleri: cetvelin alt bandında camgöbeği ♩ etiketi. İlk
@@ -472,24 +481,26 @@
       ctx.stroke();
       ctx.fillStyle = on ? strong : css('--tempo');
       const sig = e.beatsPerBar !== tl.tempo[i - 1].beatsPerBar ? ' ' + e.beatsPerBar + '/4' : '';
-      ctx.fillText('♩' + (Math.round(e.bpm * 10) / 10) + sig, x + 3, RULER_H - 4);
+      ctx.fillText('♩' + (Math.round(e.bpm * 10) / 10) + sig, x + 3, RULER_H - 5);
     }
     ctx.lineWidth = 1;
 
-    // --- Oynatma kafası: çizgi ve cetvelde üçgen ---
+    // --- Oynatma kafası: parlayan çizgi ve cetvelde küçük tutamak ---
     const px = xOf(transport.time);
-    ctx.strokeStyle = accent;
+    const head = css('--accent2');
+    ctx.save();
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = head;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(px, RULER_H - 2);
+    ctx.moveTo(px, 0);
     ctx.lineTo(px, h);
     ctx.stroke();
-    ctx.fillStyle = accent;
+    ctx.restore();
+    ctx.fillStyle = head;
     ctx.beginPath();
-    ctx.moveTo(px - 6, RULER_H - 10);
-    ctx.lineTo(px + 6, RULER_H - 10);
-    ctx.lineTo(px, RULER_H - 2);
-    ctx.closePath();
+    ctx.roundRect(px - 5, 0, 10, 12, [0, 0, 5, 5]);
     ctx.fill();
 
     // --- Kutu seçimi ---
@@ -513,8 +524,6 @@
   function drawRuler(w, h, tl, fg, dim, line) {
     const cfg = tlCfg();
     const v = view();
-    ctx.fillStyle = tint('--fg-rgb', 0.04);
-    ctx.fillRect(0, 0, w, RULER_H);
 
     const showBars = cfg.ruler !== 'time';
     const showTime = cfg.ruler !== 'bars';
@@ -539,34 +548,36 @@
     // Saniye ızgarası — etiketler arası en az 60 piksel
     const secSteps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
     let step = secSteps[secSteps.length - 1];
+    const minLabel = showBars && showTime ? 86 : 60;
     for (const s of secSteps) {
-      if (s * v.zoom >= 60) {
+      if (s * v.zoom >= minLabel) {
         step = s;
         break;
       }
     }
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.strokeStyle = line;
+    ctx.font = '500 11px ' + UI_FONT;
+    ctx.strokeStyle = tint('--fg-rgb', 0.1);
     ctx.lineWidth = 1;
     const t0 = Math.floor(v.scroll / step) * step;
     for (let t = t0; xOf(t) < w + 1; t += step) {
       const x = Math.round(xOf(t)) + 0.5;
       if (x < -1) continue;
       ctx.beginPath();
-      ctx.moveTo(x, RULER_H - 8);
+      ctx.moveTo(x, 0);
       ctx.lineTo(x, RULER_H);
       ctx.stroke();
       if (showBars) {
         const b = TL().secondsToBars(tl.tempo, t);
-        ctx.fillStyle = fg;
-        ctx.fillText(b.bar + '.' + b.beat, x + 3, 12);
+        ctx.fillStyle = dim;
+        ctx.fillText(b.bar + '.' + b.beat, x + 5, 12);
       }
       if (showTime) {
-        ctx.fillStyle = dim;
-        ctx.fillText(fmtTime(t), x + 3, showBars ? 23 : 12);
+        const lab = fmtTime(t);
+        ctx.fillStyle = tint('--fg-rgb', 0.32);
+        ctx.fillText(lab, showBars ? x + 5 + 34 : x + 5, 12);
       }
     }
-    ctx.strokeStyle = line;
+    ctx.strokeStyle = tint('--fg-rgb', 0.08);
     ctx.beginPath();
     ctx.moveTo(0, RULER_H - 0.5);
     ctx.lineTo(w, RULER_H - 0.5);
@@ -623,13 +634,24 @@
       if (x + cw < 0 || x > w) continue;
       const sel = isPicked(c);
       const col = TE().clipColor(c, trk);
-      const top = y + 4;
-      const hh = TRACK_H - 8;
+      const top = y + 3;
+      const hh = TRACK_H - 6;
       ctx.globalAlpha = live ? 1 : 0.35;
-      ctx.fillStyle = rgba(col, sel ? 0.62 : 0.4);
-      ctx.fillRect(x, top, cw, hh);
-      ctx.fillStyle = col;
-      ctx.fillRect(x, top, cw, 3);
+      // Düz yüzey ve üstte ince ışık: taslaktaki gibi canlı, okunur
+      const face = ctx.createLinearGradient(0, top, 0, top + hh);
+      face.addColorStop(0, col);
+      face.addColorStop(1, shade(col, 0.82));
+      ctx.fillStyle = face;
+      ctx.beginPath();
+      ctx.roundRect(x, top, cw, hh, 7);
+      ctx.fill();
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, top, cw, hh, 7);
+      ctx.clip();
+      ctx.fillStyle = tint('--on-media-rgb', 0.18);
+      ctx.fillRect(x, top, cw, 1);
+      ctx.restore();
       /* Geçiş (fade) rampası ve tutamacı (#636 TL-2): klibin sol üstünden
          sürüklenerek ayarlanıyor. Rampanın solu kararık: geçiş o sürede
          tamamlanıyor. */
@@ -669,24 +691,30 @@
         }
         ctx.restore();
       }
-      ctx.strokeStyle = sel ? css('--text-strong') : rgba(col, 0.9);
-      ctx.lineWidth = sel ? 2 : 1;
-      ctx.strokeRect(x + 0.5, top + 0.5, cw - 1, hh - 1);
+      if (sel) {
+        ctx.strokeStyle = css('--text-strong');
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(x + 1, top + 1, cw - 2, hh - 2, 6);
+        ctx.stroke();
+      }
       if (cw > 26) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(x + 3, top, cw - 6, hh);
         ctx.clip();
-        ctx.fillStyle = fg;
-        ctx.font = '600 11px system-ui, sans-serif';
-        const ico = TYPE_ICONS[c.type];
-        if (ico && window.SVIcons) window.SVIcons.draw(ctx, ico, x + 5, top + 5, 13);
-        ctx.fillText(clipLabel(c), x + (ico && window.SVIcons ? 22 : 6), top + 16);
-        if (cw > 80) {
-          ctx.font = '11px system-ui, sans-serif';
-          ctx.fillStyle = tint('--fg-rgb', 0.6);
-          ctx.fillText(fmtTime(c.dur) + (c.fade > 0 ? ' · ' + tt('geçiş') + ' ' + c.fade.toFixed(2) : ''), x + 6, top + hh - 5);
+        const onClip = 'rgb(' + css('--on-media-rgb') + ')';
+        ctx.fillStyle = onClip;
+        ctx.font = '550 12px ' + UI_FONT;
+        ctx.textBaseline = 'middle';
+        const tall = hh >= 40 && cw > 80;
+        ctx.fillText(clipLabel(c), x + 8, tall ? top + 14 : top + hh / 2 + 0.5);
+        if (tall) {
+          ctx.font = '500 11px ' + UI_FONT;
+          ctx.fillStyle = tint('--on-media-rgb', 0.7);
+          ctx.fillText(fmtTime(c.dur) + (c.fade > 0 ? ' · ' + tt('geçiş') + ' ' + c.fade.toFixed(2) : ''), x + 8, top + hh - 11);
         }
+        ctx.textBaseline = 'alphabetic';
         ctx.restore();
       }
       ctx.globalAlpha = 1;
@@ -694,19 +722,19 @@
   }
 
   function drawAutomationTrack(trk, index, y, w, accent, dim, live) {
-    const top = y + 6;
-    const bot = y + TRACK_H - 6;
+    const top = y + 7;
+    const bot = y + TRACK_H - 5;
     const keys = trk.keys;
-    const col = trk.color || accent;
+    const col = trk.color || css('--cue-armed') || accent;
     ctx.fillStyle = dim;
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.fillText(trk.target || tt('hedef seçilmedi'), 6, y + 13);
+    ctx.font = '500 11px ' + UI_FONT;
+    if (!trk.target || !keys.length) ctx.fillText(trk.target || tt('hedef seçilmedi'), 8, y + 15);
     if (!keys.length) return;
     /* Eğri piksel piksel örneklenir: segment eğrisi doğrusal olmadığı için
        anahtarları düz çizgiyle birleştirmek yanlış şekil gösterirdi. */
     ctx.globalAlpha = live ? 1 : 0.35;
     ctx.strokeStyle = col;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
     for (let px = 0; px <= w; px += 2) {
       const v = TL().evalKeys(keys, tOf(px));
@@ -715,6 +743,12 @@
       else ctx.lineTo(px, yy);
     }
     ctx.stroke();
+    // Eğrinin altı hafif dolu: şeridin değeri uzaktan okunsun
+    ctx.lineTo(w, bot + 5);
+    ctx.lineTo(0, bot + 5);
+    ctx.closePath();
+    ctx.fillStyle = rgba(col, 0.1);
+    ctx.fill();
 
     for (let ki = 0; ki < keys.length; ki++) {
       const k = keys[ki];
@@ -723,9 +757,12 @@
       const yy = bot - (bot - top) * Math.max(0, Math.min(1, k.v));
       const sel = selection && selection.kind === 'key' && selection.trackId === trk.id && selection.keyIndex === ki;
       ctx.fillStyle = sel ? css('--text-strong') : col;
+      ctx.strokeStyle = css('--card');
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, yy, sel ? 4.5 : 3.5, 0, Math.PI * 2);
+      ctx.arc(x, yy, sel ? 5.5 : 4.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
@@ -1135,7 +1172,36 @@
     setTimeout(draw);
   }
 
+  // Sahne listesinden: oynatma kafasına sahne klibi
+  function addSceneAtHead(id) {
+    const trk = targetClipTrack();
+    if (trk.locked) { P().toast('Parça kilitli.', 'warn'); return; }
+    const c = addClipAt(trk, snap(ensureTransport().time, false));
+    c.type = 'scene';
+    c.ref = id;
+    commit();
+    linkOutput();
+    P().rerender();
+  }
+
+  /* Çizelge çıkışı sürüyor mu: `timeline.enabled`. Anahtar yerine kullanımla açılıyor. */
+  function linkOutput() {
+    const cfg = tlCfg();
+    if (cfg.enabled) return;
+    cfg.enabled = true;
+    P().apply();
+    start();
+  }
+  function unlinkOutput() {
+    const cfg = tlCfg();
+    cfg.enabled = false;
+    ensureTransport().pause();
+    reanchor();
+    P().apply();
+  }
+
   function togglePlay() {
+    linkOutput();
     if (syncTransportFromAnchor().playing) pause();
     else play();
     refreshToolbar();
@@ -1559,6 +1625,7 @@
     remove: deleteSelection,
     fit: fitAll,
     toggleLoop,
+    addSceneAtHead,
     selectAll: selectAllClips,
     full: (v) => setFull(v == null ? !fullWin : v),
     _select: (s) => { selection = s; multi = []; },
@@ -1602,35 +1669,8 @@
     const host = el('div', { class: 'tl-panel' + (fullWin ? ' tl-full' : '') });
     hostEl = host;
 
-    // --- Açma anahtarı ---
-    host.appendChild(
-      p.row(
-        'Zaman Çizelgesini Etkinleştir',
-        (() => {
-          const box = el('input', { type: 'checkbox' });
-          box.checked = !!cfg.enabled;
-          box.addEventListener('change', () => {
-            cfg.enabled = box.checked;
-            if (!box.checked) {
-              ensureTransport().pause();
-              reanchor();
-            }
-            p.apply();
-          });
-          return el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]);
-        })()
-      )
-    );
-
-    if (!cfg.enabled) {
-      host.appendChild(
-        el('div', {
-          class: 'ctrl settings-io-note',
-          text: 'Zaman çizelgesi kapalı. Açtığınızda oynatma kafası tüm görselleştirici ekranlarını birlikte sürer.',
-        })
-      );
-      return host;
-    }
+    /* Etkinleştirme anahtarı yok: çizelge açılır açılmaz düzenleniyor. İlk parça eklenince ya da Oynat'a
+       basılınca çıkışa bağlanıyor (`linkOutput`); araç çubuğundaki bağ düğmesi durumu gösterip ayırıyor. */
 
     /* Otomatik VJ de sahne değiştiriyor; ikisi aynı anda açıkken sahneyi
        birbirlerinin elinden alırlar. */
@@ -1644,12 +1684,15 @@
       );
     }
 
-    host.appendChild(toolbar());
+    const toolbarEl = toolbar();
+    host.appendChild(toolbarEl);
 
     // --- Düzenleyici: başlıklar + tuval, boyu ayarlanabilir ---
     const cv = el('canvas', { class: 'tl-canvas' });
     headsBox = heads();
     const body = el('div', { class: 'tl-body' }, [headsBox, el('div', { class: 'tl-canvas-wrap' }, [cv])]);
+    // Zaman sayfasında boy sayfadan geliyor: kullanıcının boyu olarak saklanmıyor
+    const pageFit = () => !!document.body && typeof document.body.getAttribute === 'function' && document.body.getAttribute('data-page') === 'time';
     /* Boy: kullanıcı tutamaktan ayarladıysa o; yoksa parçalara göre (en az
        üç şerit, en çok varsayılan) — iki parçalı bir çizelgenin altında boş
        bir alan kalmasın. */
@@ -1661,7 +1704,7 @@
       const ro = new ResizeObserver(() => {
         if (!body.isConnected) { ro.disconnect(); return; }
         // Tam pencerede boy pencereden geliyor; kullanıcının boyu olarak saklanmamalı
-        if (fullWin) { last = 0; draw(); return; }
+        if (fullWin || pageFit()) { last = 0; draw(); return; }
         const hh = Math.round(body.getBoundingClientRect().height);
         if (!last) { last = hh; return; }
         if (Math.abs(hh - last) > 2) { last = hh; cfg.editorHeight = hh; draw(); }
@@ -1692,14 +1735,14 @@
       host.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',
-          text: '1) “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.',
+          text: '1) “Yeni Şerit” menüsünden “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da aynı menüden “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.',
         })
       );
     } else if (tl.tracks.some((t) => t.kind === 'clip' && !t.clips.length)) {
       host.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',
-          text: 'Parça boş. Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.',
+          text: 'Parça boş. Şeride çift tıklayın ya da “Yeni Şerit” menüsünden “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.',
         })
       );
     }
@@ -1711,45 +1754,59 @@
       b.addEventListener('click', fn);
       return b;
     };
-    host.appendChild(
-      el('div', { class: 'tl-actions' }, [
-        addBtn(['plus', 'Klip Parçası'], 'Sahne, şablon ya da renk klipleri için bir parça', () => {
-          const t = TL().makeTrack({ kind: 'clip', name: tt('Parça') + ' ' + (tl.tracks.length + 1) });
-          tl.tracks.push(t);
-          selection = { kind: 'track', trackId: t.id };
-          commit();
-          p.rerender();
-        }),
-        addBtn(['plus', 'Otomasyon Parçası'], 'Bir ayarı zamana yayan eğri', () => {
-          const t = TL().makeTrack({ kind: 'automation', name: tt('Otomasyon') + ' ' + (tl.tracks.length + 1) });
-          tl.tracks.push(t);
-          selection = { kind: 'track', trackId: t.id };
-          commit();
-          p.rerender();
-        }),
-        addBtn(['plus', 'Kafada Klip'], 'Oynatma kafasının bulunduğu yere, seçili (ya da ilk) klip parçasına', () => {
-          const trk = targetClipTrack();
-          if (trk.locked) {
-            p.toast('Parça kilitli.', 'warn');
-            return;
-          }
-          addClipAt(trk, snap(ensureTransport().time, false));
-          p.rerender();
-        }),
-        addBtn(['plus', 'Kafada İşaret'], 'Oynatma kafasına adlandırılmış bir işaret (M)', () => {
-          addMarkerAtPlayhead();
-          p.rerender();
-        }),
-      ])
-    );
+    /* Parça ve klip eklemek tek düğmede: araç çubuğu kalabalıklaşmıyor. */
+    const addMenu = [
+      ['clapper', 'Klip Parçası', 'Sahne, şablon ya da renk klipleri için bir parça', () => {
+        const t = TL().makeTrack({ kind: 'clip', name: tt('Parça') + ' ' + (tl.tracks.length + 1) });
+        tl.tracks.push(t);
+        selection = { kind: 'track', trackId: t.id };
+        commit();
+        linkOutput();
+        p.rerender();
+      }],
+      ['wave', 'Otomasyon Parçası', 'Bir ayarı zamana yayan eğri', () => {
+        const t = TL().makeTrack({ kind: 'automation', name: tt('Otomasyon') + ' ' + (tl.tracks.length + 1) });
+        tl.tracks.push(t);
+        selection = { kind: 'track', trackId: t.id };
+        commit();
+        p.rerender();
+      }],
+      ['plus', 'Kafada Klip', 'Oynatma kafasının bulunduğu yere, seçili (ya da ilk) klip parçasına', () => {
+        const trk = targetClipTrack();
+        if (trk.locked) {
+          p.toast('Parça kilitli.', 'warn');
+          return;
+        }
+        addClipAt(trk, snap(ensureTransport().time, false));
+        p.rerender();
+      }],
+      ['plus', 'Kafada İşaret', 'Oynatma kafasına adlandırılmış bir işaret (M)', () => {
+        addMarkerAtPlayhead();
+        p.rerender();
+      }],
+    ];
+    toolbarEl.appendChild(el('button', {
+      class: 'btn small tl-add', type: 'button', icon: 'plus', text: 'Yeni Şerit', 'aria-haspopup': 'menu',
+      onclick: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const m = el('div', { class: 'sv-menu' }, addMenu.map(([ico, text, title, fn]) => el('button', {
+          type: 'button', icon: ico, text, title, onclick: () => { m.remove(); fn(); },
+        })));
+        window.SVSceneShell.placeMenu(m, r.right - 216, r.bottom + 6);
+      },
+    }));
 
     // --- Seçili öğe ---
     inspectorBox = inspector();
-    host.appendChild(inspectorBox);
+    const side = typeof document.getElementById === 'function' ? document.getElementById('svTimeSide') : null;
+    const inPage = side && document.body.getAttribute('data-page') === 'time' && !fullWin;
+    if (inPage) side.replaceChildren(el('div', { class: 'dock-head' }, [el('h3', { text: tt('Seçim') })]), inspectorBox);
+    else host.appendChild(inspectorBox);
 
     // --- Seyrek değişen ayarlar ---
     moreBox = moreSettings();
-    host.appendChild(moreBox);
+    if (inPage) side.appendChild(moreBox);
+    else host.appendChild(moreBox);
 
     return host;
   }
@@ -1780,6 +1837,11 @@
       p.push(true);
       refreshToolbar();
     });
+    /* Çıkışa bağ: çizelge sahneleri sürüyor mu, tek bakışta. */
+    const linkBtn = btn(['broadcast', cfg.enabled ? 'Çıkışa Bağlı' : 'Çıkışa Bağla'],
+      cfg.enabled ? 'Çizelge çıkıştaki sahneleri sürüyor. Ayırmak için basın.' : 'Oynatma kafası tüm görselleştirici ekranlarını birlikte sürsün.',
+      () => { if (tlCfg().enabled) unlinkOutput(); else linkOutput(); },
+      'tl-link' + (cfg.enabled ? ' on' : ''));
     const undoBtn = btn(['undo'], 'Geri al (Ctrl+Z)', () => undo());
     const fullBtn = btn(['fullscreen'], 'Tam pencere (F). Esc ile kapanır', () => setFull(!fullWin));
     const redoBtn = btn(['redo'], 'Yinele (Ctrl+Y)', () => redo());
@@ -1809,6 +1871,7 @@
         }),
       ]),
       el('div', { class: 'tl-clock', title: 'Süre · ölçü.vuruş' }, [timeLabel, barLabel]),
+      linkBtn,
       /* Oynatma kafasındaki tempo. Önce hep ilk girişi düzenliyor ve bütün
          listeyi tek girişle değiştiriyordu: bir gösteri dosyasından gelen
          tempo değişimleri sessizce siliniyordu. Değişimler cetvelde (♩). */
@@ -1929,7 +1992,6 @@
       };
       const head = el('div', { class: 'tl-head' + (picked ? ' sel' : '') + (trk.kind === 'automation' ? ' auto' : '') }, [
         color,
-        el('span', { class: 'tl-kind', icon: trk.kind === 'clip' ? 'clapper' : 'wave', title: trk.kind === 'clip' ? 'Klip parçası' : 'Otomasyon parçası' }),
         name,
         tog('M', 'Sustur', 'muted', 'm'),
         tog('S', 'Solo: yalnız solo parçalar çalar', 'solo', 's'),

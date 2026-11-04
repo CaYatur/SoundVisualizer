@@ -41,6 +41,11 @@
     });
     const th = el('span', { class: 'sv-th' });
     th.style.background = P().sceneGradient(sc);
+    const own = P().sceneThumbShot ? P().sceneThumbShot(sc.id) : '';
+    const shot = !own && window.SVSceneShell && window.SVSceneShell.sceneThumb ? window.SVSceneShell.sceneThumb(sc) : null;
+    if (shot && shot.id) th.setAttribute('data-thumb-for', shot.id);
+    const url = own || (shot && shot.url);
+    if (url) th.appendChild(el('img', { src: url, alt: '', onerror: (e) => { e.target.remove(); } }));
     box.appendChild(th);
     if (live) box.appendChild(el('span', { class: 'sv-st', text: tr('Canlı') }));
     else if (armed) box.appendChild(el('span', { class: 'sv-st', text: tr('Sırada') }));
@@ -101,7 +106,11 @@
       const sum = SP && SP.layerSummary ? SP.layerSummary(l) : '';
       return sum && sum !== n ? n + ': ' + sum : n;
     };
-    const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan' }, [
+    /* Göstergedeki yeşil şerit: ölçülen ses seviyesi, kanalın saydamlığıyla çarpılmış. Katman başına ayrı
+       ölçüm yok; sessiz ya da kapalı kanal sıfır gösteriyor. */
+    const reach = (l) => (l.muted || l.enabled === false ? 0 : (l.opacity == null ? 1 : l.opacity));
+    const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan', style: '--chan:' + reach(l) }, [
+      window.SVSceneShell && window.SVSceneShell.thumbOf ? window.SVSceneShell.thumbOf(l) : el('span', { class: 'sv-th' }),
       fader(() => (l.opacity == null ? 1 : l.opacity), (v) => { l.opacity = v; }, nameOf(l)),
       el('span', { class: 'sv-lbl', text: SP && SP.layerSummary ? SP.layerSummary(l) : tr(l.name || l.kind), title: nameOf(l) }),
       el('span', { class: 'sv-sm' }, [
@@ -118,14 +127,15 @@
       return el('label', { class: 'sv-fxrow' }, [el('span', { class: 'switch small' }, [inp, el('span', { class: 'track' })]), el('span', { text: tr(def ? def.label : f.type) })]);
     })));
     if (!chain.length) fx.appendChild(el('div', { class: 'sv-hint', text: tr('Efekt zinciri boş.') }));
-    const master = el('div', { class: 'sv-chan sv-master' }, [
+    const master = el('div', { class: 'sv-chan sv-master', style: '--chan:' + (cfg.master == null ? 1 : cfg.master) }, [
+      el('span', { class: 'sv-th' }, [el('span', { icon: 'upload' })]),
       fader(() => (cfg.master == null ? 1 : cfg.master), (v) => { cfg.master = v; }, tr('Çıkış')),
       el('span', { class: 'sv-lbl', text: tr('Çıkış') }),
       el('span', { class: 'sv-sm' }, [el('button', {
         class: 'sv-tgl mute' + (P().isBlackedOut() ? ' act' : ''), type: 'button', text: 'K', title: tr('Karart'), onclick: () => { P().toggleBlackout(); paint(); },
       })]),
     ]);
-    return el('section', { class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
+    return el('section', { id: 'svMixer', class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
   }
 
   /* ANLIK EFEKTLER. Basılı tutulduğu sürece çıkışta; ayara yazılmaz, geri alma geçmişine girmez.
@@ -192,8 +202,9 @@
       const md = own ? l.settings.milkdrop : (cfg.milkdrop || {});
       const name = md.name ? tr(md.name) : tr('Yerleşik varsayılan');
       return el('div', { class: 'sv-qitem' }, [
+        window.SVSceneShell.thumbOf(l),
         el('span', { class: 'sv-nm' }, [
-          el('b', { text: tr(l.name || 'MilkDrop') }),
+          el('b', { text: window.SVSceneShell.titleOf(l) }),
           el('span', Object.assign({ text: name }, own ? { 'data-md-layer': l.id, 'data-cfg': name } : { id: 'svLiveMdName' })),
         ]),
         el('button', {
@@ -225,13 +236,21 @@
     const el = P().el;
     const all = scenes();
     if (bank * PER_BANK >= Math.max(all.length, 1)) bank = 0;
-    const cued = sceneById(cue);
     const live = sceneById(P().activeSceneId());
+    /* Sıra boşsa bir sonraki sahne sırada: AL her zaman bir yere gidiyor, gösteri elle ilerletilebiliyor. */
+    if (!sceneById(cue) && all.length) {
+      const at = live ? all.indexOf(live) : -1;
+      cue = all[(at + 1) % all.length].id;
+      if (cue === P().activeSceneId()) cue = '';
+    }
+    const cued = sceneById(cue);
 
     const pvwFrame = el('div', { class: 'sv-m169' });
     if (cued) {
       pvwFrame.style.background = P().sceneGradient(cued);
-      pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) }));
+      const shot = P().sceneThumbShot ? P().sceneThumbShot(cued.id) : '';
+      if (shot) pvwFrame.appendChild(el('img', { class: 'sv-pvw-img', src: shot, alt: '' }));
+      else pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) }));
     } else {
       pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: tr('Izgaradan bir sahne seçin; AL ile canlıya geçer.') }));
     }

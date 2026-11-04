@@ -107,6 +107,7 @@
     const pre = el('pre', { class: 'code-hl' }, [code]);
     const ta = el('textarea', {
       class: 'code-input',
+      'aria-label': trStudio('Shader kodu'),
       spellcheck: 'false',
       autocomplete: 'off',
       autocapitalize: 'off',
@@ -281,6 +282,7 @@
     const sb = document.querySelector('.studio-sidebar');
     if (sb) sidebarScroll = sb.scrollTop;
     selectedId = id;
+    try { localStorage.setItem('sv-studio-last', id || ''); } catch { /* yalnız kolaylık */ }
     draft = p ? JSON.parse(JSON.stringify(p)) : null;
     // Kaydedilmiş parametre değerlerini taslağa taşı (editörde canlı görünsün)
     if (draft) {
@@ -538,6 +540,67 @@
   }
 
   // ==========================================================================
+  // Liste küçük resimleri
+  // ==========================================================================
+  /* Her shader bir kez küçük çiziliyor, sonuç saklanıyor. Boştayken ve teker teker: derleme
+     pahalı, listeyi açmak beklemesin. Kod değişince özet değişiyor, resim yenileniyor. */
+  const THUMB_W = 104;
+  const THUMB_H = 60;
+  const thumbQueue = [];
+  let thumbHost = null;
+  let thumbBusy = false;
+
+  function sourceHash(text) {
+    let h = 5381;
+    const s = String(text || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return h >>> 0;
+  }
+  function storedThumb(p) {
+    try {
+      const v = JSON.parse(localStorage.getItem('sv-shader-thumb:' + p.id) || 'null');
+      return v && v.h === sourceHash(p.shader) ? v.url : '';
+    } catch { return ''; }
+  }
+  function drawThumb(p) {
+    if (!thumbHost) thumbHost = new window.SVShaderHost({ transparent: true });
+    thumbHost.resize(THUMB_W, THUMB_H);
+    if (!thumbHost.setSource(p.shader, p.controls).ok) return '';
+    const audio = window.SVPreview && window.SVPreview.audioEngine ? window.SVPreview.audioEngine() : null;
+    // Sekizinci saniye: açılış karesi çoğu shader'da boş ya da tek renk
+    if (!thumbHost.render(audio, P().cfg(), 8, 0.016, p.controls, valuesFor(p))) return '';
+    const c = document.createElement('canvas');
+    c.width = THUMB_W;
+    c.height = THUMB_H;
+    c.getContext('2d').drawImage(thumbHost.canvas, 0, 0, THUMB_W, THUMB_H);
+    return c.toDataURL('image/webp', 0.6);
+  }
+  function runThumbs() {
+    const job = thumbQueue.shift();
+    if (!job) { thumbBusy = false; return; }
+    if (job.img.isConnected) {
+      try {
+        const url = drawThumb(job.p);
+        if (url) {
+          job.img.src = url;
+          localStorage.setItem('sv-shader-thumb:' + job.p.id, JSON.stringify({ h: sourceHash(job.p.shader), url }));
+        }
+      } catch { /* çizilemeyen shader listede simgesiz kalır */ }
+    }
+    requestIdleCallback(runThumbs, { timeout: 400 });
+  }
+  function thumbFor(p) {
+    const img = P().el('img', { class: 'si-thumb', alt: '' });
+    const url = p.engine === 'shader' && p.shader ? storedThumb(p) : '';
+    if (url) img.src = url;
+    else if (p.engine === 'shader' && p.shader && typeof requestIdleCallback === 'function' && window.SVShaderHost) {
+      thumbQueue.push({ p, img });
+      if (!thumbBusy) { thumbBusy = true; requestIdleCallback(runThumbs, { timeout: 400 }); }
+    }
+    return img;
+  }
+
+  // ==========================================================================
   // Arayüz
   // ==========================================================================
   function presetList() {
@@ -567,6 +630,7 @@
               onclick: () => guardedSelect(p.id),
             },
             [
+              thumbFor(p),
               // title: dar listede kısaltılan uzun adın tamamı fare üstünde görünsün
               el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name, ...(p.builtin ? {} : { 'data-user-text': '' }), title: p.builtin ? trStudio(p.name) : p.name }),
               el('span', { class: 'si-tag', text: trStudio(p.builtin ? 'yerleşik' : p.engine === 'shader' ? 'shader' : 'varyasyon') }),
@@ -578,6 +642,7 @@
     return host;
   }
 
+  const openParams = new Set();
   function paramsEditor() {
     const el = P().el;
     const host = el('div', { class: 'studio-params' });
@@ -611,36 +676,52 @@
         typeSel.appendChild(o);
       });
 
-      const extras = [];
+      /* Üstte asıl iş: değeri kaydırıp önizlemede görmek. Tanım (uniform adı, tür, sınırlar) ayrıntıda. */
+      const field = (cap, node) => el('label', { class: 'sp-f' }, [el('span', { text: trStudio(cap) }), node]);
+      const fields = [field('Uniform', nameIn), field('Etiket', labelIn), field('Tür', typeSel)];
+      let value;
       if (c.type === 'slider' || !c.type) {
-        for (const [key, ph] of [['min', 'min'], ['max', 'max'], ['step', 'adım'], ['default', 'varsayılan']]) {
-          extras.push(
-            el('input', {
-              class: 'p-in p-num', type: 'number', step: 'any', placeholder: trStudio(ph),
-              value: c[key] == null ? '' : c[key],
-              oninput: (e) => { c[key] = parseFloat(e.target.value); markDirty(); },
-            })
-          );
+        const num = (v) => String(Math.round((Number(v) || 0) * 1000) / 1000);
+        const val = el('span', { class: 'val', text: num(c.default) });
+        const range = el('input', {
+          type: 'range', min: c.min == null ? 0 : c.min, max: c.max == null ? 1 : c.max, step: c.step == null ? 0.01 : c.step, value: c.default == null ? 0 : c.default,
+          'aria-label': labelVal,
+          oninput: (e) => { c.default = parseFloat(e.target.value); val.textContent = num(c.default); markDirty(); },
+        });
+        value = [range, val];
+        for (const [key, cap] of [['min', 'En Az'], ['max', 'En Çok'], ['step', 'Adım']]) {
+          fields.push(field(cap, el('input', {
+            class: 'p-in p-num', type: 'number', step: 'any', value: c[key] == null ? '' : c[key],
+            oninput: (e) => { c[key] = parseFloat(e.target.value); range.setAttribute(key, e.target.value); markDirty(); },
+          })));
         }
       } else if (c.type === 'color') {
-        extras.push(
-          el('input', {
-            class: 'p-in', type: 'color', value: c.default || '#3aa6ff',
-            oninput: (e) => { c.default = e.target.value; markDirty(); },
-          })
-        );
+        value = [el('input', {
+          class: 'p-in', type: 'color', value: c.default || '#3aa6ff',
+          oninput: (e) => { c.default = e.target.value; markDirty(); },
+        })];
       } else {
         const t = el('input', { type: 'checkbox', onchange: (e) => { c.default = e.target.checked; markDirty(); } });
         t.checked = !!c.default;
-        extras.push(el('label', { class: 'switch small' }, [t, el('span', { class: 'track' })]));
+        value = [el('label', { class: 'switch small' }, [t, el('span', { class: 'track' })])];
       }
 
       const del = el('button', {
-        class: 'btn ghost small', type: 'button', icon: 'x', title: 'Parametreyi kaldır',
+        class: 'btn ghost small', type: 'button', icon: 'x', text: 'Parametreyi Kaldır',
         onclick: () => { draft.controls.splice(i, 1); markDirty(); scheduleCompile(); P().rerender(); },
       });
-
-      host.appendChild(el('div', { class: 'studio-param' }, [nameIn, labelIn, typeSel, ...extras, del]));
+      const row = el('div', { class: 'studio-param' + (openParams.has(c.name) ? ' open' : '') }, [
+        el('div', { class: 'sp-main' }, [
+          el('span', { class: 'sp-name', text: labelVal, title: c.name }),
+          ...value,
+          el('button', {
+            class: 'icon-btn small', type: 'button', icon: 'sliders', title: trStudio('Tanımı Düzenle'), 'aria-label': trStudio('Tanımı Düzenle'),
+            onclick: () => { if (row.classList.toggle('open')) openParams.add(c.name); else openParams.delete(c.name); },
+          }),
+        ]),
+        el('div', { class: 'sp-detail' }, [...fields, del]),
+      ]);
+      host.appendChild(row);
     });
 
     host.appendChild(
@@ -716,20 +797,22 @@
       );
     });
 
-    const rows = [
+    // Ad ve tür "Kaydet" grubunda, sağ sütunda; orta sütun yalnız kod
+    const rows = [];
+    const meta = [
       P().row('Ad', nameIn),
       P().row('Tür', kindSeg),
       P().row('Açıklama', descIn),
     ];
 
     if (draft.builtin) {
-      rows.push(el('div', { class: 'studio-note', text: trStudio('Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.') }));
+      meta.push(el('div', { class: 'studio-note', text: trStudio('Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.') }));
     }
 
     if (draft.engine === 'variation') {
       rows.push(
         el('div', { class: 'studio-note' }, [
-          el('span', { text: trStudio('Bu bir varyasyon presetidir: temel mod “' + (draft.base || '—') + '” ve o anki tüm ayarları saklanır. ') }),
+          el('span', { text: trStudio('Bu bir varyasyon presetidir: temel mod') + ' “' + (draft.base || '—') + '” ' + trStudio('ve o anki tüm ayarları saklanır.') }),
         ])
       );
       rows.push(
@@ -755,7 +838,7 @@
         icon: compileState.ok ? 'check' : 'x',
         text: compileState.ok
           ? trStudio('Derlendi')
-          : (compileState.line ? trStudio('Satır ') + compileState.line + ': ' : '') + trStudio(compileState.message),
+          : (compileState.line ? trStudio('Kod satırı') + ' ' + compileState.line + ': ' : '') + trStudio(compileState.message),
       });
       const ed = codeEditor(draft.shader, (v) => { draft.shader = v; markDirty(); scheduleCompile(); });
       ed.id = 'studioCode';
@@ -765,8 +848,8 @@
 
       rows.push(
         el('div', { class: 'studio-editor-grid' }, [
-          el('div', { class: 'studio-code-col' }, [status, ed]),
-          el('div', { class: 'studio-side-col' }, [preview, el('div', { class: 'studio-group', text: trStudio('Parametreler') }), paramsEditor()]),
+          el('div', { class: 'sv-card studio-code-col' }, [ed, status]),
+          el('div', { class: 'studio-side-col', 'data-studio-side': '1' }, [preview, el('div', { class: 'studio-group', text: trStudio('Parametreler') }), paramsEditor()]),
         ])
       );
       setTimeout(startPreview, 0);
@@ -789,7 +872,10 @@
         ? null
         : el('button', { class: 'btn ghost small danger', type: 'button', icon: 'trash', text: 'Sil', onclick: deleteDraft }),
     ]);
-    rows.push(actions);
+    const saveBox = el('div', { class: 'studio-save' }, [el('div', { class: 'studio-group', text: trStudio('Kaydet') })].concat(meta, [actions]));
+    const side = rows.length ? rows[rows.length - 1].querySelector && rows[rows.length - 1].querySelector('[data-studio-side]') : null;
+    if (side) side.appendChild(saveBox);
+    else rows.push(el('div', { class: 'studio-side-col' }, [saveBox]));
 
     return el('div', { class: 'studio-editor' }, rows);
   }
@@ -830,12 +916,27 @@
   function panel() {
     const el = P().el;
     stopPreview();
+    /* Sayfa boş açılmasın: son çalışılan preset, yoksa ilk shader. */
+    if (!draft && !selectedId) {
+      let last = '';
+      try { last = localStorage.getItem('sv-studio-last') || ''; } catch { /* yalnız kolaylık */ }
+      const all = IS().all();
+      const first = IS().get(last) || all.find((p) => p.engine === 'shader') || all[0];
+      if (first) {
+        selectedId = first.id;
+        draft = JSON.parse(JSON.stringify(first));
+        const saved = (P().cfg().custom.params || {})[draft.id] || {};
+        for (const c of draft.controls || []) if (c.name in saved) c.value = saved[c.name];
+        dirty = false;
+        compileNow();
+      }
+    }
     const toolbar = el('div', { class: 'studio-toolbar' }, [
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Shader'), title: trStudio('Sıfırdan GLSL shader'), onclick: () => startDraft(() => newShader('visualizer')) }),
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Varyasyon'), title: trStudio('Şu anki görünümü preset olarak sakla'), onclick: () => startDraft(() => newVariation('visualizer')) }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'import', text: trStudio('İçe Aktar'), title: trStudio('Shadertoy / ISF / MilkDrop / .svpreset / .svpack'), onclick: importAny }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'box', text: trStudio('Paket Dışa Aktar'), title: trStudio('Tüm kendi presetlerini tek dosyada paylaş'), onclick: () => exportPreset(true) }),
-      el('button', { class: 'btn ghost small', type: 'button', icon: 'folder', text: trStudio('Klasör'), title: trStudio('Preset klasörünü aç'), onclick: () => window.api.openPresetsFolder() }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'import', 'aria-label': trStudio('İçe Aktar'), title: trStudio('Shadertoy / ISF / MilkDrop / .svpreset / .svpack'), onclick: importAny }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'box', 'aria-label': trStudio('Paket Dışa Aktar'), title: trStudio('Tüm kendi presetlerini tek dosyada paylaş'), onclick: () => exportPreset(true) }),
+      el('button', { class: 'icon-btn small', type: 'button', icon: 'folder', 'aria-label': trStudio('Klasör'), title: trStudio('Preset klasörünü aç'), onclick: () => window.api.openPresetsFolder() }),
     ]);
 
     const sidebar = el('div', {
@@ -852,9 +953,12 @@
     }
 
     return el('div', { class: 'studio' }, [
-      toolbar,
       el('div', { class: 'studio-body' }, [
-        sidebar,
+        el('div', { class: 'sv-card studio-listcard' }, [
+          el('div', { class: 'sv-chead' }, [el('h3', { class: 'sv-grow', text: trStudio('Presetler') })]),
+          toolbar,
+          sidebar,
+        ]),
         el('div', { class: 'studio-main' }, [editor()]),
       ]),
     ]);

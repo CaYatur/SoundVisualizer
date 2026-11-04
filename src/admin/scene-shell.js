@@ -81,12 +81,43 @@
     return box;
   }
 
+  /* Sahnenin küçük resmi: üstteki MilkDrop katmanının presetinden, yoksa boş (renk özeti kalır). */
+  function sceneThumb(sc) {
+    const md = window.SVMilkdropPanel;
+    const data = sc && sc.data;
+    if (!data || !md || !md.thumbFor) return null;
+    const list = Array.isArray(data.layers) ? data.layers : [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const l = list[i];
+      if (!l || l.kind !== 'visualizer' || l.type !== 'milkdrop' || l.enabled === false) continue;
+      const own = l.settings && l.settings.milkdrop;
+      const src = own && own.independent ? own : (data.milkdrop || {});
+      if (src.presetId) return { id: src.presetId, url: md.thumbFor(src) };
+    }
+    return null;
+  }
+
+  /* Satırın başlığı: türü değil ne olduğunu söylesin. "Görselleştirici / Galaksi" yerine "Galaksi". */
+  function titleOf(l) {
+    const custom = l.name && !DEFAULT_NAMES.has(l.name);
+    if (custom) return tr(l.name);
+    if (l.kind === 'visualizer' && l.type === 'milkdrop') return 'MilkDrop';
+    if (l.kind === 'visualizer' || l.kind === 'background') return SP().layerSummary ? SP().layerSummary(l) : tr(l.name || l.kind);
+    return tr(l.name || l.kind);
+  }
+  const DEFAULT_NAMES = new Set(['Görselleştirici', 'Arkaplan', 'Katman', 'Visualizer', 'Background', 'Layer']);
+
   function subOf(l) {
     const cfg = P().cfg();
     if (l.kind === 'visualizer' && l.type === 'milkdrop') {
       const own = l.settings && l.settings.milkdrop;
       const md = own && own.independent ? own : cfg.milkdrop;
       return (md && md.name) ? tr(md.name) : tr('MilkDrop');
+    }
+    if (l.kind === 'visualizer' || l.kind === 'background') {
+      if (l.name && !DEFAULT_NAMES.has(l.name)) return SP().layerSummary ? SP().layerSummary(l) : (l.type || l.kind);
+      const k = (SP().LAYER_KIND_LABELS || []).find(([id]) => id === l.kind);
+      return k ? tr(k[1]) : tr(l.kind);
     }
     return SP().layerSummary ? SP().layerSummary(l) : (l.type || l.kind);
   }
@@ -102,9 +133,13 @@
   function opacityBar(l) {
     const el = P().el;
     const fill = el('i');
-    const show = () => { fill.style.width = Math.round((l.opacity == null ? 1 : l.opacity) * 100) + '%'; };
-    show();
     const bar = el('span', { class: 'sv-op', title: tr('Saydamlık'), onclick: (e) => e.stopPropagation() }, [fill]);
+    const show = () => {
+      const v = l.opacity == null ? 1 : l.opacity;
+      fill.style.width = Math.round(v * 100) + '%';
+      bar.classList.toggle('set', v < 1);
+    };
+    show();
     bar.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -133,7 +168,7 @@
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(l.id); } },
     }, [
       thumbOf(l),
-      el('span', { class: 'sv-nm' }, [el('b', { text: tr(l.name || l.kind) }), el('span', { text: subOf(l) })]),
+      el('span', { class: 'sv-nm' }, [el('b', { text: titleOf(l) }), el('span', { text: subOf(l) })]),
       el('span', { class: 'sv-lt-acts' }, [
         toggle('solo', !!l.solo, 'S', null, 'Solo: yalnızca solo katmanlar çizilir', () => { l.solo = !l.solo; P().apply(); }),
         toggle('mute', !!l.muted, 'M', null, 'Sessiz: katmanı ayarlarını kaybetmeden gizler', () => { l.muted = !l.muted; P().apply(); }),
@@ -227,19 +262,106 @@
     ]);
   }
 
-  /* Sahnenin renkleri zemine yansıyor. Karelerden örnek alınmıyor: paletten, yalnız çizimde. */
+  /* Sahnenin rengi zemine yansıyor: önizlemenin 32x18'lik kopyası büyük bulanıklıkla, saniyede sekiz kez.
+     Küçük tuvale GPU'da kopya, geri okuma yok. Önizleme duraklatılınca ya da yokken son renk kalıyor. */
+  let ambientOn = false;
+  let ambientAt = 0;
+  let hudFrames = 0;
+  let hudAt = 0;
+  let hudBeat = 0;
+  let hudBass = 0;
+  /* Önizlemenin kendi bilgisi: çıkış kapalıyken de BPM, akor, seviye ve kare hızı görünsün. */
+  function hudTick(now) {
+    hudFrames++;
+    const P0 = window.SVPreview;
+    const lv = P0.getLevels ? P0.getLevels() : null;
+    if (!lv) return;
+    const pct = (v) => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100) + '%';
+    const L = document.getElementById('hudL');
+    const B = document.getElementById('hudB');
+    if (L) L.style.setProperty('--v', pct(lv.level));
+    if (B) B.style.setProperty('--v', pct(lv.bass));
+    if (hudFrames % 2 === 0) {
+      const mix = document.getElementById('svMixer');
+      if (mix) mix.style.setProperty('--lvl', (Math.min(1, Number(lv.level) || 0)).toFixed(3));
+    }
+    const bass = Number(lv.bass) || 0;
+    if (bass > 0.6 && hudBass <= 0.6) {
+      hudBeat = (hudBeat + 1) % 4;
+      const dots = document.getElementById('hudBeat');
+      if (dots) for (let i = 0; i < dots.children.length; i++) dots.children[i].classList.toggle('on', i === hudBeat);
+    }
+    hudBass = bass;
+    if (now - hudAt < 500) return;
+    const fps = Math.round((hudFrames * 1000) / Math.max(1, now - hudAt));
+    hudAt = now;
+    hudFrames = 0;
+    const set = (id, t) => { const n = document.getElementById(id); if (n && n.textContent !== t) n.textContent = t; };
+    set('hudFps', fps + ' fps');
+    const tp = window.SVAutoVJ && window.SVAutoVJ.tempoOf ? window.SVAutoVJ.tempoOf() : null;
+    set('hudBpm', tp && tp.bpm ? Math.round(tp.bpm) + ' BPM' : '');
+    const eng = P0.audioEngine ? P0.audioEngine() : null;
+    const an = eng && eng.analysis;
+    const chord = an && an.chord && an.chord.confidence > 0.4 ? an.chord.name : '';
+    set('hudKey', chord || '');
+  }
+
+  function ambientFrame(now) {
+    hudTick(now);
+    if (now - ambientAt < 125) return;
+    ambientAt = now;
+    const a = document.getElementById('svAmbient');
+    const stage = document.getElementById('pvStage');
+    if (!a || !stage) return;
+    const list = stage.querySelectorAll('canvas');
+    if (!list.length) return;
+    const g = a.getContext('2d');
+    g.clearRect(0, 0, a.width, a.height);
+    list.forEach((c) => {
+      if (!c.width || !c.height || c.style.display === 'none') return;
+      try { g.drawImage(c, 0, 0, a.width, a.height); } catch { /* henüz çizilmedi */ }
+    });
+  }
   function paintAmbient() {
     const a = document.getElementById('svAmbient');
     if (!a) return;
-    const c = sceneColors();
-    if (c.length < 2) { a.style.background = 'none'; return; }
-    a.style.background = 'radial-gradient(900px 520px at 22% 8%, ' + c[Math.min(2, c.length - 1)] + ', transparent 70%),'
-      + 'radial-gradient(900px 520px at 82% 12%, ' + c[c.length - 1] + ', transparent 70%)';
+    if (!ambientOn && window.SVPreview && window.SVPreview.onFrame) {
+      ambientOn = true;
+      const c = sceneColors();
+      const g = a.getContext('2d');
+      if (c.length > 1) {
+        const f = g.createLinearGradient(0, 0, a.width, 0);
+        c.forEach((col, i) => f.addColorStop(i / (c.length - 1), col));
+        g.fillStyle = f;
+        g.fillRect(0, 0, a.width, a.height);
+      }
+      window.SVPreview.onFrame(ambientFrame);
+    }
+    const t = window.SVUiTheme && window.SVUiTheme.current && window.SVUiTheme.current();
+    a.style.opacity = t && t.scheme === 'light' ? '.18' : '';
+  }
+
+  /* Katman listesi yalnız gösterdiği şey değişince yeniden kuruluyor; ayar değiştirmek satırları
+     kurmasın. Satırlar katman nesnesine bağlı: düzenleyici nesneyi yenilediyse imza aynı olsa da kuruluyor. */
+  let notesWatched = null;
+  let layersPainted = '';
+  let layersBound = [];
+  function layersSig() {
+    const cfg = P().cfg();
+    const x = cfg.crossfade;
+    return JSON.stringify([
+      sel, activeSceneName(), sceneColors(), x ? [x.enabled, x.value] : null,
+      layers().map((l) => l && [l.id, l.kind, l.type, titleOf(l), subOf(l), l.enabled, !!l.muted, !!l.solo, !!l.locked, l.opacity, l.group]),
+    ]);
   }
 
   function paintLayers(host) {
     const el = P().el;
     const list = layers();
+    const sig = layersSig();
+    if (sig === layersPainted && host.firstChild && list.length === layersBound.length && list.every((l, i) => l === layersBound[i])) return;
+    layersPainted = sig;
+    layersBound = list.slice();
     const box = el('div', { class: 'sv-cbody' });
     box.appendChild(el('div', {
       class: 'sv-scene-tile' + (sel ? '' : ' sel'), role: 'button', tabindex: '0',
@@ -268,21 +390,72 @@
   }
 
   // Denetçi: seçili katman ya da sahnenin kendisi
+  /* Ana efektler: sırası ve ayarları Efekt Zinciri rafında, burada açıp kapatmak. */
+  function masterFx() {
+    const el = P().el;
+    const cfg = P().cfg();
+    const FX = window.SVPostFX;
+    const chain = Array.isArray(cfg.postfx) ? cfg.postfx : [];
+    const on = chain.filter((f) => f && f.enabled !== false).length;
+    return el('div', { class: 'card sv-masterfx', 'data-card': 'masterfx' }, [
+      el('div', { class: 'card-head' }, [
+        el('div', { class: 'ch-main' }, [el('h3', { text: tr('Ana Efektler') })]),
+        el('div', { class: 'ch-actions' }, [el('span', { class: 'sv-mono', text: on + ' / ' + chain.length })]),
+      ]),
+      el('div', { class: 'group' }, chain.map((f) => {
+        const def = FX && FX.EFFECTS && FX.EFFECTS[f.type];
+        const inp = el('input', { type: 'checkbox', onchange: (e) => { f.enabled = e.target.checked; P().apply(); } });
+        inp.checked = f.enabled !== false;
+        return el('label', { class: 'sv-fxline' }, [el('span', { class: 'switch small' }, [inp, el('span', { class: 'track' })]), el('span', { text: tr(def ? def.label : f.type) })]);
+      }).concat([
+        el('button', { class: 'btn ghost small sv-fxadd', type: 'button', icon: 'plus', text: tr('Efekt Ekle'), onclick: () => setShelf('effects') }),
+      ])),
+    ]);
+  }
+
+  /* MilkDrop katmanının ilk sorusu: ne çalıyor? Büyük resim, ad, önceki ve sonraki preset. */
+  function mdCard(l) {
+    const el = P().el;
+    const MP = window.SVMilkdropPanel;
+    if (!MP || !MP.isOwnLayer) return null;
+    const own = MP.isOwnLayer(l);
+    const md = own ? l.settings.milkdrop : (P().cfg().milkdrop || {});
+    const go = (dir) => { MP.pickFor(own ? l.id : ''); MP.act(dir); };
+    const th = thumbOf(l);
+    const nav = (dir, icon, title) => el('button', { class: 'sv-ib sm', type: 'button', icon, title: tr(title), 'aria-label': tr(title), onclick: () => go(dir) });
+    return el('div', { class: 'sv-pcard' }, [
+      th,
+      el('div', { class: 'sv-pinfo' }, [
+        el('b', { text: md.name ? tr(md.name) : tr('Yerleşik varsayılan') }),
+        el('small', { text: tr(own ? 'Bu katmanın kendi preseti' : 'Ortak preset') }),
+        el('div', { class: 'sv-pnav' }, [nav('Prev', 'chevron-left', 'Önceki preset'), nav('Next', 'chevron-right', 'Sonraki preset')]),
+      ]),
+    ]);
+  }
+
   function paintInspector(host) {
     const el = P().el;
     const l = selected();
     const nodes = [];
     const body = el('div', { class: 'sv-cbody sv-insp' });
     if (!l) {
+      const swatch = el('span', { class: 'sv-th' });
+      const cols = sceneColors();
+      if (cols.length > 1) swatch.style.background = 'linear-gradient(135deg,' + cols.join(',') + ')';
       nodes.push(el('div', { class: 'sv-ihead' }, [el('div', { class: 'sv-ititle' }, [
-        el('span', { class: 'sv-th', icon: 'layers' }),
+        swatch,
         el('span', { class: 'sv-names' }, [el('input', { value: activeSceneName(), readonly: 'readonly', 'aria-label': tr('Sahne') }), el('small', { text: tr('Sahne ayarları') })]),
+        el('button', { class: 'sv-ib sm', type: 'button', icon: 'save', title: tr('Mevcut görünümü yeni sahne olarak kaydet'), 'aria-label': tr('Kaydet'), onclick: () => { P().saveScene(); paint(); } }),
       ])]));
-      body.appendChild(SP().layersPanel({ scene: true }));
+      /* Sıra: renk, geçiş, efektler, gruplar. Palet ızgarası Kitaplık'ta; burada seçim kutusu. */
       for (const id of ['colorPresets', 'dynamicTheme', 'transition']) {
-        const c = P().sectionCard(id);
+        const c = P().sectionCard(id, { compact: true });
         if (c) body.appendChild(c);
       }
+      body.appendChild(masterFx());
+      const grp = P().sectionCard('groups');
+      if (grp) body.appendChild(grp);
+      body.appendChild(SP().layersPanel({ scene: true }));
       // Eski sayfa başındaki "kategoriyi sıfırla": katman listesine dokunmuyor
       body.appendChild(el('button', {
         class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Sahne Ayarlarını Sıfırla',
@@ -294,7 +467,7 @@
         thumbOf(l),
         el('span', { class: 'sv-names' }, [
           el('input', {
-            value: tr(l.name || l.kind), 'aria-label': tr('Katman adı'),
+            value: titleOf(l), 'aria-label': tr('Katman adı'),
             onchange: (e) => { l.name = e.target.value.trim() || l.name; P().apply(); },
           }),
           el('small', { text: subOf(l) }),
@@ -304,6 +477,8 @@
           onclick: () => { const list = layers(); const i = list.indexOf(l); if (i >= 0 && !l.locked) { list.splice(i, 1); sel = ''; write(STORE.sel, ''); P().apply(); } },
         }),
       ])]));
+      const card = l.kind === 'visualizer' && l.type === 'milkdrop' ? mdCard(l) : null;
+      if (card) body.appendChild(card);
       body.appendChild(SP().layersPanel({ only: l.id }));
       const sec = l.kind === 'visualizer' && ENGINE_SECTION[l.type];
       if (sec) {
@@ -384,6 +559,20 @@
     return '';
   }
 
+  /* MilkDrop rafı 10.000 presetin etiketini sayıyor ve ızgarayı ölçüyor (apply başına 46 ms). Yalnız
+     hedef katman ya da etkin preset değişince çiziliyor; raf içinden gelen değişiklik `invalidateShelf`
+     ile bildiriliyor. Öteki sekmeler ucuz, onlarda karşılaştırma yok. */
+  let shelfPainted = '';
+  let shelfStale = true;
+  function shelfSig() {
+    if (shelfTab !== 'milkdrop' || !shelfOpen) return '';
+    const l = layers().find((x) => x && x.id === sel);
+    const own = l && l.settings && l.settings.milkdrop;
+    const md = own || P().cfg().milkdrop || {};
+    return JSON.stringify([query, sel, l ? l.type : '', l ? l.name : '', md.id || md.name || '', md.presetId || '']);
+  }
+  function invalidateShelf() { shelfStale = true; }
+
   function paintShelf(host) {
     const el = P().el;
     const lib = isLib(shelfTab);
@@ -396,7 +585,7 @@
       el('div', { class: 'sv-tabs', role: 'tablist' }, tabs.map((t) => el('button', {
         class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tr(t.label), onclick: () => setShelf(t.id),
       }))),
-      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' ? el('label', { class: 'sv-shelf-search' }, [
+      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' }, [
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
@@ -437,8 +626,9 @@
     body.onscroll = () => { scrollOf.shelf = body.scrollTop; };
   }
 
-  function setShelf(id) {
+  function setShelf(id, filter) {
     shelfTab = id;
+    if (filter !== undefined) query = filter;
     write(STORE.shelf, id);
     if (!shelfOpen) { shelfOpen = true; write(STORE.open, '1'); }
     scrollOf.shelf = 0;
@@ -462,16 +652,70 @@
   /* Düğüm elde tutuluyor: Canlı sayfası monitörünü yeniden kurarken eski kap gidiyor, önizleme
      onunla belgeden düşer ve id ile bir daha bulunamazdı. */
   let stageNode = null;
+  /* ÖNİZLEME ARAÇLARI. En-boy yalnız önizlemeyi değiştiriyor: dikey ya da kare çıktının nasıl duracağını
+     görmek için; çıkış pencereleri kendi boyunda. Seçimler makinede kalıyor. */
+  const ASPECTS = [['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1], ['4:3', 4 / 3], ['21:9', 21 / 9]];
+  function setAspect(name) {
+    const hit = ASPECTS.find((x) => x[0] === name) || ASPECTS[0];
+    document.documentElement.style.setProperty('--sv-ar', String(hit[1]));
+    write('sv-preview-aspect', hit[0]);
+    const badge = document.querySelector('.preview-badge');
+    if (badge) badge.textContent = hit[0];
+  }
+  function setSafe(on) {
+    write('sv-preview-safe', on ? '1' : '0');
+    document.querySelectorAll('.sv-safe').forEach((n) => { n.hidden = !on; });
+    const b = document.getElementById('svSafeBtn');
+    if (b) b.classList.toggle('on', on);
+  }
+  function previewTools() {
+    const host = document.getElementById('previewTools');
+    if (!host || host.dataset.built) return;
+    host.dataset.built = '1';
+    const el = P().el;
+    const sel = el('select', {
+      class: 'sv-hud-select', title: tr('Önizlemenin en-boy oranı'), 'aria-label': tr('Önizlemenin en-boy oranı'),
+      onchange: (e) => setAspect(e.target.value),
+    }, ASPECTS.map((x) => el('option', { value: x[0], text: x[0] })));
+    sel.value = read('sv-preview-aspect') || '16:9';
+    const safe = el('button', {
+      id: 'svSafeBtn', class: 'icon-btn small', type: 'button', icon: 'target', title: tr('Güvenli alan'), 'aria-label': tr('Güvenli alan'),
+      onclick: () => setSafe(read('sv-preview-safe') !== '1'),
+    });
+    const full = el('button', {
+      class: 'icon-btn small', type: 'button', icon: 'fullscreen', title: tr('Tam ekran önizleme'), 'aria-label': tr('Tam ekran önizleme'),
+      onclick: () => {
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
+        const f = document.getElementById('previewStage');
+        if (f && f.parentElement && f.parentElement.requestFullscreen) f.parentElement.requestFullscreen();
+      },
+    });
+    const pill = document.getElementById('previewSource');
+    const pause = document.getElementById('previewToggle');
+    const grid = document.getElementById('layoutEditBtn');
+    host.replaceChildren(pill, sel, safe, grid, pause, full);
+    setAspect(sel.value);
+    setSafe(read('sv-preview-safe') === '1');
+  }
+
   function placeStage(page) {
+    previewTools();
     const stage = stageNode || (stageNode = document.getElementById('previewStage'));
     if (!stage) return;
     const scene = page === 'scene';
     const pgm = page === 'live' ? document.getElementById('svPgmFrame') : null;
-    const host = pgm || (scene ? document.getElementById('svFrame') : document.getElementById('dockStageHost'));
+    const out = (page === 'output' && !document.body.hasAttribute('data-wide')) || (page === 'studio' && document.body.hasAttribute('data-gen')) ? document.getElementById('svOutFrame') : null;
+    const host = pgm || out || (scene ? document.getElementById('svFrame') : document.getElementById('dockStageHost'));
     if (host && stage.parentNode !== host) host.insertBefore(stage, host.firstChild);
+    /* Güvenli alan çerçevesi önizlemenin üstünde, hangi sayfaya taşınırsa onunla. */
+    if (!stage.querySelector('.sv-safe')) { const sf = P().el('div', { class: 'sv-safe' }); sf.hidden = read('sv-preview-safe') !== '1'; stage.appendChild(sf); }
+    /* Araçlar önizlemenin üstünde: her sayfada aynı yerde. */
     const tools = document.getElementById('previewTools');
-    const toolHost = scene ? document.getElementById('svHudTools') : document.getElementById('dockStageTools');
-    if (tools && toolHost && tools.parentNode !== toolHost) toolHost.appendChild(tools);
+    if (tools && !document.getElementById('svStageTools')) {
+      const hud = P().el('div', { id: 'svStageTools', class: 'sv-hud r' });
+      stage.appendChild(hud);
+      hud.appendChild(tools);
+    }
     // Sahne listesi rafta kaldıysa yan rafa dönsün
     if (!scene && scenesNode && !document.getElementById('dockScenes')) {
       const dock = document.getElementById('dock');
@@ -490,8 +734,19 @@
     const keepInput = f && f.closest && f.closest('.sv-shelf-search') ? f.selectionStart : null;
     // Düzenleyici katmanı normalleştirip listeye yeniden yazıyor: satırlar o nesneye bağlansın
     paintInspector(b);
+    if (!notesWatched && window.MutationObserver) {
+      /* Katman sekmeleri kendi içinde yeniden kuruluyor; paint'e uğramıyor. */
+      notesWatched = new MutationObserver(() => P().clampNotes(b));
+      notesWatched.observe(b, { childList: true, subtree: true });
+    }
+    P().clampNotes(b);
     paintLayers(a);
-    paintShelf(c);
+    const sig = shelfSig();
+    if (shelfStale || !sig || sig !== shelfPainted || !c.querySelector('[data-shelf-body] .md-library')) {
+      paintShelf(c);
+      shelfPainted = sig;
+      shelfStale = false;
+    }
     if (keepInput !== null) {
       const inp = c.querySelector('.sv-shelf-search input');
       if (inp) { inp.focus(); inp.setSelectionRange(keepInput, keepInput); }
@@ -506,5 +761,5 @@
     });
   }
 
-  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal };
+  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

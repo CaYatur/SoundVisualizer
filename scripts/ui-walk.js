@@ -169,11 +169,34 @@ async function main() {
   const faders = await q('document.querySelectorAll("#svLive .sv-vfad").length');
   check('Canlı: faderler', faders > 1, faders);
 
-  // Önizleme öteki sayfada yan rafa dönüyor
+  // Önizleme her sayfada kendi yerine geçiyor
   await click('#pageTabs [data-cat="output"]');
   await sleep(400);
-  check('Çıktı: önizleme yan rafta', await q('!!document.querySelector("#dockStageHost #previewStage")'));
+  check('Çıktı: önizleme ortada', await q('!!document.querySelector("#svOutFrame #previewStage")'));
   check('Çıktı: sahne listesi yan rafta', await q('!!document.querySelector("#dock #sceneList")'));
+  await click('#pageTabs [data-cat="time"]');
+  await sleep(400);
+  check('Zaman: önizleme üst sırada', await q('!!document.querySelector("#dockStageHost #previewStage")'));
+  await q("window.SVPanel.setCategory('studio'); window.SVPanel.setSection('scenegen'); 1");
+  await sleep(400);
+  await q(`(() => { const i = document.getElementById('searchInput'); i.value = 'bloom'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(150);
+  check('arama efekt adını buluyor', await q('document.querySelectorAll("#searchResults .sr-item").length') > 0);
+  await q(`(() => { const i = document.getElementById('searchInput'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); })()`);
+  check('Üretici: örnek ruh halleri', await q('document.querySelectorAll("#sections .gen-example").length') === 3);
+  check('Üretici: önizleme ortada', await q('!!document.querySelector("#svOutFrame #previewStage")'));
+  await q("window.SVPanel.setSection('studio'); 1");
+  // Kurulum ağacı yalnız açık kategoriyi gösteriyor
+  await q("window.SVPanel.setCategory('control'); 1");
+  await sleep(400);
+  check('ağaç: yalnız açık kategorinin bölümleri', await q('[...document.querySelectorAll("#navRail .sv-tree-item")].every((n) => n.getAttribute("data-cat") === "control")'));
+  check('ağaç: öteki kategoriler başlık olarak duruyor', await q('document.querySelectorAll("#navRail button.sv-tree-group").length') >= 5);
+  // Uzun açıklama kısalıyor, istenince açılıyor
+  await q("window.SVPanel.setCategory('output'); window.SVPanel.setSection('record'); 1");
+  await sleep(400);
+  check('uzun not iki satırda', await q('!!document.querySelector("#sections .studio-note.sv-clamp + .sv-more")'));
+  await click('#sections .sv-more');
+  check('uzun not açılıyor', await q('!!document.querySelector("#sections .studio-note.sv-clamp.open")'));
   await click('#pageTabs [data-cat="scene"]');
   await sleep(400);
   check('Sahne: önizleme ortada', await q('!!document.querySelector("#svFrame #previewStage")'));
@@ -293,6 +316,37 @@ async function main() {
   await q("window.SVPanel.setCategory('time'); 1");
   await sleep(300);
   check('Zaman: önizleme çizelgenin üstünde', await q('document.getElementById("previewStage").getBoundingClientRect().bottom <= document.querySelector("#sections .card").getBoundingClientRect().top + 60'));
+  // Yeni kalıplar: durum ve eylem başlığı, ayar grubu, önizleme araçları, profil, çizelge menüsü
+  await q("window.SVPanel.setCategory('output'); window.SVPanel.setSection('stream'); 1");
+  await sleep(300);
+  check('yayın: anahtar değil eylem düğmesi', await q('!!document.querySelector("#sections .sv-module-act") && !document.querySelector("#sections .sv-module input[type=checkbox]")'));
+  await click('#svSecNav [data-profile="reels-shorts"]');
+  await sleep(300);
+  check('profil seçimi ayarı dolduruyor', await q('window.SVPanel.cfg().export.resolution') === '1080x1920');
+  check('kuyruk önizlemenin altında', await q('!!document.querySelector("#svOutBelow .sv-queue-box")'));
+  const shutBefore = await q('!!document.querySelector("#sections .group.closed")');
+  await click('#sections button.group-label');
+  await sleep(100);
+  check('ayar grubu kapanıyor', await q('!!document.querySelector("#sections .group.closed")') !== shutBefore);
+  await click('#sections button.group-label');
+  await q("window.SVPanel.setCategory('scene'); 1");
+  await sleep(300);
+  check('önizlemede araçlar', await q('document.querySelectorAll("#svStageTools select, #svStageTools button").length') >= 5);
+  await q('document.getElementById("svSafeBtn").click(); 1');
+  check('güvenli alan açılıyor', await q('!document.querySelector("#previewStage .sv-safe").hidden'));
+  await q('document.getElementById("svSafeBtn").click(); 1');
+  const ambient = await q('(() => { const a = document.getElementById("svAmbient"); return a && a.tagName; })()');
+  check('zemin önizlemeden besleniyor', ambient === 'CANVAS');
+  await q("window.SVPanel.setCategory('time'); 1");
+  await sleep(350);
+  check('çizelgede etkinleştirme anahtarı yok', await q('!!document.querySelector(".tl-toolbar") && !!document.querySelector(".tl-canvas")'));
+  await q('document.querySelector(".tl-add").click(); 1');
+  await sleep(120);
+  check('Yeni Şerit menüsü', await q('document.querySelectorAll(".sv-menu > button").length') >= 4);
+  await q('document.querySelectorAll(".sv-menu").forEach((m) => m.remove()); 1');
+  await q("window.SVPanel.setCategory('studio'); 1");
+  await sleep(350);
+  check('Stüdyo kodla açılıyor', await q('!!document.querySelector("#studioCode") || !!document.querySelector(".studio-editor")'));
   // Anlık efekt: basılıyken zincirde, bırakınca yok
   await q("window.SVPanel.setCategory('live'); 1");
   await sleep(350);

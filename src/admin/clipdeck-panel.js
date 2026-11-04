@@ -730,25 +730,20 @@
     const c = cfg();
     const host = el('div', { class: 'cd-panel' });
 
-    host.appendChild(
-      p.row(
-        'Klip Destesini Etkinleştir',
-        (() => {
-          const box = el('input', { type: 'checkbox' });
-          box.checked = !!c.enabled;
-          box.addEventListener('change', () => {
-            c.enabled = box.checked;
-            if (!box.checked) {
-              ensureEngine().stopAll();
-              releaseTransition(); // kullanıcının geçiş ayarını geri ver
-            }
-            p.apply();
-            if (box.checked && window.SVTimelinePanel) window.SVTimelinePanel.start();
-          });
-          return el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]);
-        })()
-      )
-    );
+    host.appendChild(p.moduleHead({
+      id: 'clipdeck', title: 'Klip Destesi', on: !!c.enabled,
+      status: el('div', { class: 'studio-status', text: c.enabled ? 'Vuruş ızgarası akıyor' : 'Kapalı' }),
+      start: 'Desteyi Başlat', stop: 'Desteyi Durdur',
+      toggle: (next) => {
+        c.enabled = next;
+        if (!next) {
+          ensureEngine().stopAll();
+          releaseTransition(); // kullanıcının geçiş ayarını geri ver
+        }
+        p.apply();
+        if (next && window.SVTimelinePanel) window.SVTimelinePanel.start();
+      },
+    }));
 
     if (!c.enabled) {
       /* Deste kapalıysa kullanıcının geçiş ayarını geri ver. Yalnızca

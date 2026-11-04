@@ -4604,6 +4604,7 @@ function syncStreamServer() {
   return streamServer
     .start(peerOnly ? { port: s.port, lan: !!s.lan, peerOnly: true } : s, {
       getConfig: () => currentConfig,
+      getRendererConfig: () => rendererConfig(currentConfig),
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
       getVersion: () => app.getVersion(),
@@ -10517,11 +10518,16 @@ async function runSmoke() {
        Bu yüzden burada gerçek düğmeye tıklanır ve sonucun YAPILANDIRMAYA
        yazıldığı doğrulanır. */
     const btnRes = await awc5.executeJavaScript(`(function(){
+      /* Parça ve işaret ekleme "Yeni Şerit" menüsünde; menü her seferinde yeniden açılıyor. */
       function clickByText(txt) {
-        var all = document.querySelectorAll("#sections button");
+        var opener = document.querySelector("#sections .tl-add");
+        if (!opener) return false;
+        opener.click();
+        var all = document.querySelectorAll(".sv-menu button");
         for (var i = 0; i < all.length; i++) {
           if ((all[i].textContent || "").indexOf(txt) >= 0) { all[i].click(); return true; }
         }
+        document.querySelectorAll(".sv-menu").forEach(function (m) { m.remove(); });
         return false;
       }
       var c = window.SVPanel.cfg();
@@ -10563,11 +10569,12 @@ async function runSmoke() {
        ZATEN SEÇİLİ bir klip varken çiziliyordu, boş parçada panel "bir klip
        seçin" diyordu ve seçilecek klip yoktu. Çizelge bu haliyle kullanılamaz
        durumdaydı. */
-    /* #636'dan beri düğme düzenleyicinin altındaki "＋ Kafada Klip": seçili
-       (yoksa ilk) klip parçasına, oynatma kafasına ekliyor. Şeride çift
-       tıklamak da ekliyor; burada düğme sınanıyor. */
+    /* "Yeni Şerit" menüsündeki "Kafada Klip": seçili (yoksa ilk) klip parçasına,
+       oynatma kafasına ekliyor. Şeride çift tıklamak da ekliyor; burada düğme sınanıyor. */
     const clipRes = await awc5.executeJavaScript(`(function(){
-      var bs = document.querySelectorAll("#sections .tl-panel button");
+      var opener = document.querySelector("#sections .tl-add");
+      if (opener) opener.click();
+      var bs = document.querySelectorAll(".sv-menu button");
       var found = null;
       for (var j = 0; j < bs.length; j++) {
         var tx = bs[j].textContent || "";
@@ -11283,7 +11290,7 @@ async function runSmoke() {
           if (window.SVLayoutEditor) window.SVLayoutEditor.close();
           await new Promise(function (r) { setTimeout(r, 300); });
           var stage = document.getElementById('previewStage');
-          return !!(stage && stage.closest('#dock')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
+          return !!(stage && stage.closest('#dock, .sv-frame')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
         })()`);
         console.log('[SMOKE] düzen editörü: ' + JSON.stringify(lay) + ', adsız ' + layUnnamed + ', önizleme yerine döndü ' + back);
         if (!lay || lay.err || !lay.open || !lay.inDialog) errors.push('layout editor did not open with the preview: ' + JSON.stringify(lay));
