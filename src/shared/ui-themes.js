@@ -258,7 +258,8 @@
     const n = normalizeId(id);
     if (n === SYSTEM_ID) {
       if (moreContrast === true) return BY_ID.contrast;
-      return BY_ID[prefersDark === false ? 'light' : 'dark'];
+      // Koyu cihazda uygulamanın kendi kimliği: CaYaDev
+      return BY_ID[prefersDark === false ? 'light' : DEFAULT_ID];
     }
     return BY_ID[n];
   }

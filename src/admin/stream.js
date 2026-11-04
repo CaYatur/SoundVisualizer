@@ -82,22 +82,6 @@
     const s = cfg.stream;
     const nodes = [];
 
-    // --- açma/kapama ---
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: async (e) => {
-        s.enabled = e.target.checked;
-        if (s.enabled) {
-          if (!s.token) s.token = await window.api.streamNewToken();
-          if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
-        }
-        P().push(true);
-        await sync();
-      },
-    });
-    enable.checked = !!s.enabled;
-    nodes.push(P().row('Yayın Sunucusunu Aç', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
     // --- durum ---
     // Parçalar ayrı düğümlerde: çeviri sözlüğü tam metin eşleştirdiği için
     // sayı içeren birleşik bir cümle hiçbir zaman çevrilemezdi.
@@ -121,7 +105,19 @@
     } else {
       statusBox.appendChild(el('span', { text: 'Kapalı' }));
     }
-    nodes.push(statusBox);
+    nodes.push(P().moduleHead({
+      id: 'stream', title: 'Yayın Sunucusu', on: !!s.enabled, error: !!status.error, status: statusBox,
+      start: 'Yayını Başlat', stop: 'Yayını Durdur',
+      toggle: async (next) => {
+        s.enabled = next;
+        if (s.enabled) {
+          if (!s.token) s.token = await window.api.streamNewToken();
+          if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+        }
+        P().push(true);
+        await sync();
+      },
+    }));
 
     if (s.enabled) {
       // --- adresler ---

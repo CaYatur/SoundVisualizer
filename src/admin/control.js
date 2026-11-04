@@ -745,12 +745,12 @@
     const nodes = [];
 
     if (surface === 'midi') {
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: (e) => { cfg.control.midi.enabled = e.target.checked; P().push(true); if (e.target.checked) initMidi(); },
-      });
-      enable.checked = !!cfg.control.midi.enabled;
-      nodes.push(P().row('MIDI Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      nodes.push(P().moduleHead({
+        id: 'midi', title: 'MIDI', on: !!cfg.control.midi.enabled, error: !!midiError,
+        status: el('div', { class: 'studio-status', text: cfg.control.midi.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: (next) => { cfg.control.midi.enabled = next; P().push(true); if (next) initMidi(); P().rerender(); },
+      }));
 
       if (midiError) {
         nodes.push(el('div', { class: 'studio-status err', text: midiError }));
@@ -788,12 +788,12 @@
       tempoNodes(cfg).forEach((n) => nodes.push(n));
     } else if (surface === 'gamepad') {
       const g = cfg.control.gamepad || (cfg.control.gamepad = { enabled: false, mappings: [] });
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: (e) => { g.enabled = e.target.checked; P().push(true); syncGamepad(); },
-      });
-      enable.checked = !!g.enabled;
-      nodes.push(P().row(T('Oyun Kumandası Etkin'), el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      nodes.push(P().moduleHead({
+        id: 'gamepad', title: T('Oyun Kumandası'), on: !!g.enabled,
+        status: el('div', { class: 'studio-status', text: g.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: (next) => { g.enabled = next; P().push(true); syncGamepad(); P().rerender(); },
+      }));
       if (!navigator.getGamepads) {
         nodes.push(el('div', { class: 'studio-status err', text: T('Bu ortamda Gamepad API kullanılamıyor.') }));
       } else {
@@ -808,17 +808,17 @@
     } else if (surface === 'oscout') {
       oscOutNodes(cfg).forEach((n) => nodes.push(n));
     } else {
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: async (e) => {
-          cfg.control.osc.enabled = e.target.checked;
+      nodes.push(P().moduleHead({
+        id: 'osc', title: 'OSC Girişi', on: !!cfg.control.osc.enabled,
+        status: el('div', { class: 'studio-status', text: cfg.control.osc.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: async (next) => {
+          cfg.control.osc.enabled = next;
           P().push(true);
           oscState = await window.api.oscSync();
           P().rerender();
         },
-      });
-      enable.checked = !!cfg.control.osc.enabled;
-      nodes.push(P().row('OSC Girişi Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      }));
       /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister, sunucu
          açılamaz. Windows'ta böyle bir sınır yok; orada 1'den başlar. */
       const oscMin = window.SV_PLATFORM && window.SV_PLATFORM.isWindows ? 1 : 1024;
@@ -970,7 +970,12 @@
       },
     });
 
-    nodes.push(toggle('OSC Çıkışı Etkin', 'enabled'));
+    nodes.push(P().moduleHead({
+      id: 'oscout', title: 'OSC Çıkışı', on: !!o.enabled,
+      status: el('div', { class: 'studio-status', text: o.enabled ? 'Gönderiyor' : 'Kapalı' }),
+      start: 'Göndermeyi Başlat', stop: 'Göndermeyi Durdur',
+      toggle: (next) => { o.enabled = next; sync(); },
+    }));
     nodes.push(P().row('Hedef Adres', text(o.host, oscHostOk, (v) => {
       o.host = v.startsWith('[') && v.endsWith(']') ? v.slice(1, -1) : v;
     }, 'Adres bir IPv4, IPv6 ya da ana bilgisayar adı olmalı.')));

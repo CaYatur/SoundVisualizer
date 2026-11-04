@@ -3034,18 +3034,6 @@
       window.api.artnetStatus().then((s) => { artnetState = s; }).catch(() => {});
     }
 
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: async (e) => {
-        a.enabled = e.target.checked;
-        P().push(true);
-        artnetState = await window.api.artnetSync();
-        P().rerender();
-      },
-    });
-    enable.checked = !!a.enabled;
-    nodes.push(P().row('Art-Net Çıkışı', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
     // Durum: parçalar ayrı düğümlerde (sayı içeren birleşik metin çevrilemez)
     const st = el('div', { class: 'studio-status ' + (artnetState.running ? 'ok' : artnetState.error ? 'err' : '') });
     if (artnetState.running) {
@@ -3062,7 +3050,16 @@
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));
     }
-    nodes.push(st);
+    nodes.push(P().moduleHead({
+      id: 'artnet', title: 'Art-Net Çıkışı', on: !!a.enabled, error: !!artnetState.error, status: st,
+      start: 'Göndermeyi Başlat', stop: 'Göndermeyi Durdur',
+      toggle: async (next) => {
+        a.enabled = next;
+        P().push(true);
+        artnetState = await window.api.artnetSync();
+        P().rerender();
+      },
+    }));
 
     if (a.enabled) {
       nodes.push(

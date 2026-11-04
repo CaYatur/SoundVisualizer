@@ -202,10 +202,13 @@
     const on = model.enabled === true;
     const nodes = [
       el('div', { class: 'studio-note dim-hint', text: tx('mcp.card.note') }),
-      toggle(tx('mcp.card.master'), on, setEnabled),
+      P().moduleHead({
+        id: 'mcp', title: tx('mcp.card.master'), on,
+        status: el('div', { class: 'studio-status mcp-status', text: on ? statusText() : tr('Kapalı') }),
+        start: 'Başlat', stop: 'Durdur', toggle: setEnabled,
+      }),
     ];
     if (!on) return el('div', { class: 'mcp-card' }, nodes);
-    nodes.push(el('div', { class: 'mcp-status', text: statusText() }));
     if (status && status.portBusy) {
       const busy = status.requestedPort || status.configuredPort || model.port;
       nodes.push(el('div', { class: 'studio-note', text: tx('mcp.port.busy').split('{port}').join(String(busy)) }));

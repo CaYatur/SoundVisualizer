@@ -294,7 +294,12 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    nodes.push(SP().miniToggle('Haritalama Etkin', () => !!m.enabled, (v) => { m.enabled = v; }, rerender));
+    nodes.push(P().moduleHead({
+      id: 'mapping', title: 'Projeksiyon Haritalama', on: !!m.enabled,
+      status: el('div', { class: 'studio-status', text: m.enabled ? 'Uygulanıyor' : 'Kapalı' }),
+      start: 'Haritalamayı Uygula', stop: 'Haritalamayı Kaldır',
+      toggle: (next) => { m.enabled = next; rerender(); },
+    }));
     if (!m.enabled) {
       nodes.push(el('div', {
         class: 'studio-note dim-hint',

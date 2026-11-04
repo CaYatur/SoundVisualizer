@@ -86,7 +86,8 @@ async function walk(s, locale) {
     await q(`window.SVPanel.setCategory(${JSON.stringify(id)}); 1`);
     await sleep(350);
     await scan('sayfa:' + id);
-    const secs = JSON.parse(await q('JSON.stringify([...document.querySelectorAll("#svSecNav button")].map((b) => b.getAttribute("data-sec")))'));
+    // Tek bölümlü sayfalar (Çıktı, Stüdyo, Kurulum): her bölüm ayrı taranıyor
+    const secs = JSON.parse(await q(`JSON.stringify(window.SVPanel.sectionsOf(${JSON.stringify(id)}))`));
     for (const sec of secs) {
       await q(`window.SVPanel.setSection(${JSON.stringify(sec)}); 1`);
       await sleep(250);

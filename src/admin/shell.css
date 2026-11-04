@@ -22,7 +22,7 @@ body {
     var(--bg);
 }
 button, input, select, textarea { font: inherit; }
-#svAmbient { position: fixed; inset: 0; z-index: -1; opacity: .12; pointer-events: none; }
+#svAmbient { position: fixed; inset: -6%; width: 112%; height: 112%; z-index: -1; opacity: .24; filter: blur(70px) saturate(1.25); pointer-events: none; }
 body { isolation: isolate; }
 :focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }

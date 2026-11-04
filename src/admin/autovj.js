@@ -581,9 +581,12 @@
 
     // --- tempo göstergesi ---
     nodes.push(el('div', { class: 'bpm-box' }, [
-      el('span', { id: 'beatDot', class: 'beat-dot' }),
-      el('span', { id: 'bpmValue', class: 'bpm-value', text: tempo && tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM' }),
-      el('div', { class: 'bpm-conf' }, [el('i', { id: 'bpmConf' })]),
+      el('div', { class: 'bpm-hero' }, [
+        el('span', { id: 'bpmValue', class: 'bpm-value', text: tempo && tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM' }),
+        el('span', { id: 'beatDot', class: 'beat-dot' }),
+        el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': T('Tempo, spektral akıdan bulunan vuruşların aralık histogramıyla kestirilir ve 60–180 BPM aralığına katlanır; böylece aynı parça bazen 75 bazen 150 görünmez. Dış bir tempo kaynağına bağlanılmaz — elle vurarak sabitleyebilirsiniz.') }),
+      ]),
+      el('div', { class: 'bpm-conf', title: 'Tempo güveni' }, [el('i', { id: 'bpmConf' })]),
       el('button', {
         class: 'btn small', type: 'button', icon: 'hand', text: 'Tempoya Vur',
         title: 'Ritimle birkaç kez basın; tempo elle sabitlenir',
@@ -593,6 +596,11 @@
           P().push(true);
           P().rerender();
         },
+      }),
+      el('button', {
+        class: 'btn small', type: 'button', icon: 'reset', text: 'Sıfırla',
+        title: 'Elle verilen tempoyu bırak, müzikten bulsun',
+        onclick: () => { raw.bpmLock = 0; P().push(true); P().rerender(); },
       }),
     ]));
 
@@ -604,30 +612,27 @@
       min: 1, max: 16, step: 1, fmt: (v) => String(Math.round(v)),
     }));
 
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Tempo, spektral akıdan bulunan vuruşların aralık histogramıyla kestirilir ve 60–180 BPM aralığına katlanır; böylece aynı parça bazen 75 bazen 150 görünmez. Dış bir tempo kaynağına bağlanılmaz — elle vurarak sabitleyebilirsiniz.' }));
 
     // --- otomatik VJ ---
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: (e) => {
-        raw.enabled = e.target.checked;
+    /* Durum satırı — kapalıyken de duruyor ki kullanıcı nereye bakacağını
+       bilsin. Döngü bunu yerinde günceller. */
+    const stText = statusText(a, ctx);
+    nodes.push(P().moduleHead({
+      id: 'autovj', title: 'Otomatik VJ', on: !!a.enabled,
+      status: el('div', {
+        id: 'autovjStatus', class: 'studio-status autovj-status',
+        icon: statusWarn ? 'warning' : '',
+        text: stText,
+      }),
+      start: 'Otomatik VJ\'yi Başlat', stop: 'Durdur',
+      toggle: (next) => {
+        raw.enabled = next;
         restartTiming();
         lastResult = null;
         lastFailure = null;
         P().push(true);
         P().rerender();
       },
-    });
-    enable.checked = !!a.enabled;
-    nodes.push(P().row('Otomatik VJ', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
-    /* Durum satırı — kapalıyken de duruyor ki kullanıcı nereye bakacağını
-       bilsin. Döngü bunu yerinde günceller. */
-    const stText = statusText(a, ctx);
-    nodes.push(el('div', {
-      id: 'autovjStatus', class: 'studio-note autovj-status',
-      icon: statusWarn ? 'warning' : '',
-      text: stText,
     }));
 
     if (a.enabled) {

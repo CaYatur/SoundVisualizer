@@ -17,6 +17,8 @@
    gösteriliyor — bozuk bir preset sessizce boş ekran vermemeli. */
 (function () {
   const P = () => window.SVPanel;
+  // Raftaki kütüphaneyi de değiştirebilir: raf bu kez yeniden çizilsin
+  const applyShelf = () => { if (window.SVSceneShell) window.SVSceneShell.invalidateShelf(); P().apply(); };
   const SP = () => window.SVScenePanels;
 
   let loaded = false;
@@ -150,7 +152,7 @@
     if (!L || !id) return;
     const lib = library(cfg);
     lib.favorites = L.withFavorite(lib, id, on);
-    P().apply();
+    applyShelf();
   }
 
   /* PAKET (#576). Dışa aktarılan: listede GÖRÜNEN kendi presetleri — süzgeç
@@ -294,7 +296,7 @@
     if (L && tagged.length && control(cfg).importFolderTags !== false) lib.tags = L.addTags(lib, tagged);
     if (r.textures && r.textures.copied) lib.textureRev = (+lib.textureRev || 0) + 1;
     libResult = libResultText(r);
-    P().apply();
+    applyShelf();
   }
 
   async function pickLibrary(kind) {
@@ -519,7 +521,7 @@
       const h = list.clientHeight || 0;
       const y = Math.floor(activeIdx / st.cols) * st.pitch;
       if (y < s) return y;
-      if (h && y + st.pitch > s + h) return y + st.pitch - h;
+      if (h && y + st.pitch > s + h) return Math.ceil((y + st.pitch - h) / st.pitch) * st.pitch;
       return s;
     };
 
@@ -570,7 +572,7 @@
     adoptDelta({ upsert: saved });
     if (L) L.adopt(library(P().cfg()), read.library, saved);
     refresh(() => {
-      P().apply();
+      applyShelf();
       P().toast(saved.length + ' ' + tr('preset içe aktarıldı.'), 'ok');
     });
   }
@@ -582,7 +584,7 @@
     const lib = library(cfg);
     const before = JSON.stringify(L.tagsOf(lib, id));
     lib.tags = L.withTags(lib, id, input);
-    if (JSON.stringify(L.tagsOf(lib, id)) !== before) P().apply();
+    if (JSON.stringify(L.tagsOf(lib, id)) !== before) applyShelf();
   }
 
   /* Katman yığını AÇIKKEN sahneyi cfg.visualizer.type belirlemiyor:
@@ -795,11 +797,11 @@
     if (!p) return;
     loadWithText(cfg, p, (c) => {
       // Katmanın seçimi ortak ◀ ▶ geçmişine ve "şimdi kes"e girmiyor
-      if (pickTarget(c)) { P().apply(); return; }
+      if (pickTarget(c)) { applyShelf(); return; }
       if (cut) control(c).cutTo = p.id;
       const h = history();
       if (h) h.note(p.id);
-      P().apply();
+      applyShelf();
     });
   }
 
@@ -915,7 +917,7 @@
   };
   const spriteErr = (code) => tr(SPRITE_ERR[code] || 'Sprite başlatılamadı');
 
-  /* Liste isteği bir sonraki göreve bırakılıyor: `P().apply()` önce paneli
+  /* Liste isteği bir sonraki göreve bırakılıyor: `applyShelf()` önce paneli
      çiziyor, ayarı SONRA gönderiyor. Hemen sorulsaydı ana süreç yeni
      seçilen dosyayı henüz bilmez, eskisini okurdu. Aynı sayfanın IPC
      iletileri sırasıyla işleniyor; ayar önce varıyor. */
@@ -963,7 +965,7 @@
     if (name === 'Lock') {
       const c = control(cfg);
       c.locked = c.locked !== true;
-      P().apply();
+      applyShelf();
       return true;
     }
     if (!presets.length) return false;
@@ -1042,7 +1044,7 @@
     const next = Object.assign({}, lib.ratings);
     next[id] = k;
     lib.ratings = next;
-    P().apply();
+    applyShelf();
   }
 
   function syncStars() {
@@ -1180,7 +1182,7 @@
     const el = P().el;
     const cfg = P().cfg();
     const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
-    const rerender = () => P().apply();
+    const rerender = () => applyShelf();
     const nodes = [];
 
     // Ortak liste değişiklik yayınıyla güncel (#574): her çizimde ondan

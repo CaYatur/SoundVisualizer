@@ -281,6 +281,7 @@
     const sb = document.querySelector('.studio-sidebar');
     if (sb) sidebarScroll = sb.scrollTop;
     selectedId = id;
+    try { localStorage.setItem('sv-studio-last', id || ''); } catch { /* yalnız kolaylık */ }
     draft = p ? JSON.parse(JSON.stringify(p)) : null;
     // Kaydedilmiş parametre değerlerini taslağa taşı (editörde canlı görünsün)
     if (draft) {
@@ -716,14 +717,16 @@
       );
     });
 
-    const rows = [
+    // Ad ve tür "Kaydet" grubunda, sağ sütunda; orta sütun yalnız kod
+    const rows = [];
+    const meta = [
       P().row('Ad', nameIn),
       P().row('Tür', kindSeg),
       P().row('Açıklama', descIn),
     ];
 
     if (draft.builtin) {
-      rows.push(el('div', { class: 'studio-note', text: trStudio('Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.') }));
+      meta.push(el('div', { class: 'studio-note', text: trStudio('Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.') }));
     }
 
     if (draft.engine === 'variation') {
@@ -765,8 +768,8 @@
 
       rows.push(
         el('div', { class: 'studio-editor-grid' }, [
-          el('div', { class: 'studio-code-col' }, [status, ed]),
-          el('div', { class: 'studio-side-col' }, [preview, el('div', { class: 'studio-group', text: trStudio('Parametreler') }), paramsEditor()]),
+          el('div', { class: 'sv-card studio-code-col' }, [ed, status]),
+          el('div', { class: 'studio-side-col', 'data-studio-side': '1' }, [preview, el('div', { class: 'studio-group', text: trStudio('Parametreler') }), paramsEditor()]),
         ])
       );
       setTimeout(startPreview, 0);
@@ -789,7 +792,10 @@
         ? null
         : el('button', { class: 'btn ghost small danger', type: 'button', icon: 'trash', text: 'Sil', onclick: deleteDraft }),
     ]);
-    rows.push(actions);
+    const saveBox = el('div', { class: 'studio-save' }, [el('div', { class: 'studio-group', text: trStudio('Kaydet') })].concat(meta, [actions]));
+    const side = rows.length ? rows[rows.length - 1].querySelector && rows[rows.length - 1].querySelector('[data-studio-side]') : null;
+    if (side) side.appendChild(saveBox);
+    else rows.push(el('div', { class: 'studio-side-col' }, [saveBox]));
 
     return el('div', { class: 'studio-editor' }, rows);
   }
@@ -830,6 +836,21 @@
   function panel() {
     const el = P().el;
     stopPreview();
+    /* Sayfa boş açılmasın: son çalışılan preset, yoksa ilk shader. */
+    if (!draft && !selectedId) {
+      let last = '';
+      try { last = localStorage.getItem('sv-studio-last') || ''; } catch { /* yalnız kolaylık */ }
+      const all = IS().all();
+      const first = IS().get(last) || all.find((p) => p.engine === 'shader') || all[0];
+      if (first) {
+        selectedId = first.id;
+        draft = JSON.parse(JSON.stringify(first));
+        const saved = (P().cfg().custom.params || {})[draft.id] || {};
+        for (const c of draft.controls || []) if (c.name in saved) c.value = saved[c.name];
+        dirty = false;
+        compileNow();
+      }
+    }
     const toolbar = el('div', { class: 'studio-toolbar' }, [
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Shader'), title: trStudio('Sıfırdan GLSL shader'), onclick: () => startDraft(() => newShader('visualizer')) }),
       el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Varyasyon'), title: trStudio('Şu anki görünümü preset olarak sakla'), onclick: () => startDraft(() => newVariation('visualizer')) }),
@@ -852,9 +873,12 @@
     }
 
     return el('div', { class: 'studio' }, [
-      toolbar,
       el('div', { class: 'studio-body' }, [
-        sidebar,
+        el('div', { class: 'sv-card studio-listcard' }, [
+          el('div', { class: 'sv-chead' }, [el('h3', { class: 'sv-grow', text: trStudio('Presetler') })]),
+          toolbar,
+          sidebar,
+        ]),
         el('div', { class: 'studio-main' }, [editor()]),
       ]),
     ]);

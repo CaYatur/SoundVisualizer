@@ -293,6 +293,37 @@ async function main() {
   await q("window.SVPanel.setCategory('time'); 1");
   await sleep(300);
   check('Zaman: önizleme çizelgenin üstünde', await q('document.getElementById("previewStage").getBoundingClientRect().bottom <= document.querySelector("#sections .card").getBoundingClientRect().top + 60'));
+  // Yeni kalıplar: durum ve eylem başlığı, ayar grubu, önizleme araçları, profil, çizelge menüsü
+  await q("window.SVPanel.setCategory('output'); window.SVPanel.setSection('stream'); 1");
+  await sleep(300);
+  check('yayın: anahtar değil eylem düğmesi', await q('!!document.querySelector("#sections .sv-module-act") && !document.querySelector("#sections .sv-module input[type=checkbox]")'));
+  await click('#svSecNav [data-profile="reels-shorts"]');
+  await sleep(300);
+  check('profil seçimi ayarı dolduruyor', await q('window.SVPanel.cfg().export.resolution') === '1080x1920');
+  check('kuyruk önizlemenin altında', await q('!!document.querySelector("#svOutBelow .sv-queue-box")'));
+  const shutBefore = await q('!!document.querySelector("#sections .group.closed")');
+  await click('#sections button.group-label');
+  await sleep(100);
+  check('ayar grubu kapanıyor', await q('!!document.querySelector("#sections .group.closed")') !== shutBefore);
+  await click('#sections button.group-label');
+  await q("window.SVPanel.setCategory('scene'); 1");
+  await sleep(300);
+  check('önizlemede araçlar', await q('document.querySelectorAll("#svStageTools select, #svStageTools button").length') >= 5);
+  await q('document.getElementById("svSafeBtn").click(); 1');
+  check('güvenli alan açılıyor', await q('!document.querySelector("#previewStage .sv-safe").hidden'));
+  await q('document.getElementById("svSafeBtn").click(); 1');
+  const ambient = await q('(() => { const a = document.getElementById("svAmbient"); return a && a.tagName; })()');
+  check('zemin önizlemeden besleniyor', ambient === 'CANVAS');
+  await q("window.SVPanel.setCategory('time'); 1");
+  await sleep(350);
+  check('çizelgede etkinleştirme anahtarı yok', await q('!!document.querySelector(".tl-toolbar") && !!document.querySelector(".tl-canvas")'));
+  await q('document.querySelector(".tl-add").click(); 1');
+  await sleep(120);
+  check('Yeni Şerit menüsü', await q('document.querySelectorAll(".sv-menu > button").length') >= 4);
+  await q('document.querySelectorAll(".sv-menu").forEach((m) => m.remove()); 1');
+  await q("window.SVPanel.setCategory('studio'); 1");
+  await sleep(350);
+  check('Stüdyo kodla açılıyor', await q('!!document.querySelector("#studioCode") || !!document.querySelector(".studio-editor")'));
   // Anlık efekt: basılıyken zincirde, bırakınca yok
   await q("window.SVPanel.setCategory('live'); 1");
   await sleep(350);

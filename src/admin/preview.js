@@ -197,6 +197,11 @@
     return true;
   }
 
+  /* Kareyi kopyalamak isteyenler: WebGL tamponu çizimden sonraki görevde boşalıyor (preserveDrawingBuffer
+     kapalı), kopya çizimle aynı görevde alınmalı. */
+  let frameTap = null;
+  const nextTaps = [];
+
   function renderFrame(now, dt, t, skipScene) {
     if (!stack || !audio) return;
     const live = now - lastRealFrame < REAL_FRAME_TIMEOUT;
@@ -243,6 +248,8 @@
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
     stack.draw(audio, mcfg, t, sceneDt);
     reportMdLive(now);
+    if (frameTap) frameTap(now);
+    if (nextTaps.length) nextTaps.splice(0).forEach((fn) => fn());
 
     // logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {
@@ -404,6 +411,8 @@
     // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
     audioEngine: () => audio,
     stack: () => stack,
+    onFrame: (fn) => { frameTap = fn; },
+    nextFrame: (fn) => { nextTaps.push(fn); },
     ingest,
     setPaused,
     setOutputOpen: (open) => {

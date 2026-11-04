@@ -42,7 +42,7 @@ test('yayın: yapılandırma ve yama jetonsuz gider, kaynak değişmez', () => {
   assert.deepStrictEqual(Stream.publicConfig({ audio: {} }), { audio: {} });
   assert.strictEqual(Stream.publicConfig(null), null);
   const src = read('src/main/stream-server.js');
-  assert.match(src, /type: 'config', config: publicConfig\(hooks\.getConfig\(\)\)/);
+  assert.match(src, /type: 'config', config: publicConfig\(openingConfig\)/);
   assert.match(src, /obj\.type === 'config-patch'\) obj = Object\.assign\(\{\}, obj, \{ patch: publicConfig\(obj\.patch\) \}\)/);
   // Web sayfaları jetonu yapılandırmadan okumuyor
   for (const f of ['src/web/web-shim.js', 'src/web/remote.js']) {

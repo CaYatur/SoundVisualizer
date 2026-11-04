@@ -73,18 +73,6 @@
       return el('div', { class: 'texture-panel' }, nodes);
     }
 
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: async (e) => {
-        t.enabled = e.target.checked;
-        P().push(true);
-        try { state = await window.api.textureSync(); } catch {}
-        P().rerender();
-      },
-    });
-    enable.checked = !!t.enabled;
-    nodes.push(P().row(protocolName() + ' Çıkışı', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
     // --- Durum. Sayılar ayrı düğümlerde: birleşik metin çevrilemez. ---
     const st = el('div', { class: 'studio-status ' + (state.running && !state.error ? 'ok' : state.error ? 'err' : '') });
     if (state.running && !state.error) {
@@ -106,7 +94,16 @@
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));
     }
-    nodes.push(st);
+    nodes.push(P().moduleHead({
+      id: 'texture', title: protocolName() + ' Çıkışı', on: !!t.enabled, error: !!state.error, status: st,
+      start: 'Paylaşımı Başlat', stop: 'Paylaşımı Durdur',
+      toggle: async (next) => {
+        t.enabled = next;
+        P().push(true);
+        try { state = await window.api.textureSync(); } catch {}
+        P().rerender();
+      },
+    }));
 
     if (!t.enabled) {
       nodes.push(el('div', {
