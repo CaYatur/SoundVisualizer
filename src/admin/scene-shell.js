@@ -178,8 +178,11 @@
     menu.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
     menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
     setTimeout(() => {
-      const off = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('pointerdown', off, true); } };
+      const close = () => { menu.remove(); document.removeEventListener('pointerdown', off, true); document.removeEventListener('keydown', esc, true); };
+      const off = (e) => { if (!menu.contains(e.target)) close(); };
+      const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
       document.addEventListener('pointerdown', off, true);
+      document.addEventListener('keydown', esc, true);
     }, 0);
   }
 
@@ -327,19 +330,13 @@
     P().apply();
   }
 
+  /* Sahne rafı: yan raftaki listenin kendisi. Kaydetme, yeniden adlandırma, sıralama, silme ve
+     içe/dışa aktarma iki kez yazılmasın. */
+  let scenesNode = null;
   function sceneShelf() {
-    const el = P().el;
-    const cfg = P().cfg();
-    const q = query.toLocaleLowerCase();
-    const box = el('div', { class: 'sv-gal' });
-    (cfg.scenes || []).forEach((s) => {
-      if (!s || (q && String(s.name || '').toLocaleLowerCase().indexOf(q) < 0)) return;
-      box.appendChild(el('button', {
-        class: 'sv-gi nothumb' + (s.id === cfg._activeSceneId ? ' cur' : ''), type: 'button',
-        onclick: () => P().applyScene(s.id),
-      }, [el('span', { class: 'sv-th', icon: 'layers' }), el('b', { text: s.name || '' })]));
-    });
-    return box;
+    if (!scenesNode) scenesNode = document.getElementById('dockScenes');
+    if (scenesNode && P().renderScenes) setTimeout(() => P().renderScenes(), 0);
+    return scenesNode;
   }
 
   function targetLine() {
@@ -366,7 +363,7 @@
       el('div', { class: 'sv-tabs', role: 'tablist' }, tabs.map((t) => el('button', {
         class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tr(t.label), onclick: () => setShelf(t.id),
       }))),
-      lib && shelfTab !== 'milkdrop' ? el('label', { class: 'sv-shelf-search' }, [
+      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' ? el('label', { class: 'sv-shelf-search' }, [
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
@@ -442,6 +439,11 @@
     const tools = document.getElementById('previewTools');
     const toolHost = scene ? document.getElementById('svHudTools') : document.getElementById('dockStageTools');
     if (tools && toolHost && tools.parentNode !== toolHost) toolHost.appendChild(tools);
+    // Sahne listesi rafta kaldıysa yan rafa dönsün
+    if (!scene && scenesNode && !document.getElementById('dockScenes')) {
+      const dock = document.getElementById('dock');
+      if (dock) dock.appendChild(scenesNode);
+    }
   }
 
   function paint() {

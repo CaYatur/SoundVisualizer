@@ -54,7 +54,7 @@
     const all = scenes();
     const from = bank * PER_BANK;
     const grid = el('div', { class: 'sv-scenes' }, all.slice(from, from + PER_BANK).map((s, i) => cell(s, from + i)));
-    if (!all.length) grid.appendChild(el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü sahne yap.') }));
+    if (!all.length) grid.appendChild(el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') }));
     return grid;
   }
 
@@ -128,6 +128,34 @@
     return el('section', { class: 'sv-card sv-mixer' }, [el('div', { class: 'sv-strips' }, strips), fx, master]);
   }
 
+  /* MILKDROP SIRASI. Her MilkDrop katmanı için ekrandaki preset ve "sonraki" düğmesi. Ad ölçer
+     mesajıyla güncelleniyor (admin.js `data-md-layer`), liste yeniden çizilmiyor. */
+  function mdQueue() {
+    const el = P().el;
+    const MP = window.SVMilkdropPanel;
+    const cfg = P().cfg();
+    const list = (cfg.layers || []).filter((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop');
+    if (!list.length || !MP || !MP.isOwnLayer) return null;
+    const rows = list.slice().reverse().map((l) => {
+      const own = MP.isOwnLayer(l);
+      const md = own ? l.settings.milkdrop : (cfg.milkdrop || {});
+      const name = md.name ? tr(md.name) : tr('Yerleşik varsayılan');
+      return el('div', { class: 'sv-qitem' }, [
+        el('span', { class: 'sv-nm' }, [
+          el('b', { text: tr(l.name || 'MilkDrop') }),
+          el('span', Object.assign({ text: name }, own ? { 'data-md-layer': l.id, 'data-cfg': name } : { id: 'svLiveMdName' })),
+        ]),
+        el('button', {
+          class: 'sv-ib sm', type: 'button', icon: 'next', title: tr('Sonraki preset'), 'aria-label': tr('Sonraki preset'),
+          onclick: () => { MP.pickFor(own ? l.id : ''); MP.act('Next'); },
+        }),
+      ]);
+    });
+    return el('div', { class: 'card sv-queue' }, [
+      el('div', { class: 'card-head' }, [el('div', { class: 'ch-main' }, [el('h3', { text: tr('MilkDrop Sırası') })])]),
+    ].concat(rows));
+  }
+
   function monitor(kind, title, sub, inner) {
     const el = P().el;
     return el('div', { class: 'sv-card sv-mon ' + kind }, [
@@ -183,7 +211,7 @@
     const scenesCard = el('section', { class: 'sv-card sv-scenes-card sv-insp-free' }, [el('div', { class: 'sv-chead' }, headKids), lowerBody]);
 
     const rail = el('aside', { class: 'sv-card sv-rail' }, [el('div', { class: 'sv-cbody sv-insp' },
-      ['tempo', 'transition'].map((id) => P().sectionCard(id)).filter(Boolean))]);
+      [P().sectionCard('tempo'), mdQueue(), P().sectionCard('transition')].filter(Boolean))]);
 
     host.replaceChildren(mons, scenesCard, mixer(), rail);
     if (window.SVSceneShell) window.SVSceneShell.placeStage('live');

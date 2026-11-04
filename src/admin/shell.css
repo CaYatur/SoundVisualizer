@@ -402,6 +402,13 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 .sv-master { margin-left: 8px; }
 .sv-rail { grid-column: 2; grid-row: 1 / span 3; }
 
+.sv-qitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 5px 12px; }
+.sv-queue { padding-bottom: 6px; }
+
+#svShelf #dockScenes { background: none; box-shadow: none; border-radius: 0; padding: 0 12px 12px; display: flex; flex-direction: column; height: 100%; }
+#svShelf #dockScenes .scene-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); grid-auto-rows: min-content; gap: 8px; }
+#svShelf .scene-item { margin: 0; }
+
 /* Basit görünüm: aynı sahnenin sade hali */
 body.sv-simple-on .sv-pages .sv-adv, body.sv-simple-on .sv-adv { display: none !important; }
 body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; }

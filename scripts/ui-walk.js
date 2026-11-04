@@ -174,9 +174,10 @@ async function main() {
   check('galeri seçili zemini değiştiriyor', !!bgType, bgType);
   await click('#undoBtn');
   await sleep(600);
-  for (const tab of ['/^(Şablon|Preset)$/', '/^(Sahne|Scene)$/']) {
-    check('raf sekmesi: ' + tab, await clickText('#svShelf', tab) && (await sleep(300), true));
-  }
+  check('raf sekmesi: şablon', await clickText('#svShelf', '/^(Şablon|Preset)$/') && (await sleep(300), await q('!!document.querySelector("#svShelf .card")')));
+  await clickText('#svShelf', '/^(Sahne|Scene)$/');
+  await sleep(400);
+  check('raf sekmesi: sahne listesi ve düğmeleri', await q('document.querySelectorAll("#svShelf .scene-item").length') > 0 && await q('!!document.querySelector("#svShelf #sceneSaveBtn")'));
   await click('#svShelf .sv-shelf-mode button:nth-child(2)');
   await sleep(300);
   for (const tab of ['/Efekt Zinciri|Effect Chain/', '/Modülasyon|Modulation/', '/Gruplar|Groups/']) {
@@ -224,6 +225,7 @@ async function main() {
   await click('#pageTabs [data-cat="output"]');
   await sleep(400);
   check('Çıktı: önizleme yan rafta', await q('!!document.querySelector("#dockStageHost #previewStage")'));
+  check('Çıktı: sahne listesi yan rafta', await q('!!document.querySelector("#dock #sceneList")'));
   await click('#pageTabs [data-cat="scene"]');
   await sleep(400);
   check('Sahne: önizleme ortada', await q('!!document.querySelector("#svFrame #previewStage")'));
@@ -242,8 +244,35 @@ async function main() {
   await q('document.getElementById("simpleToggle").click()');
   await sleep(300);
 
-  // İngilizce: sahne sayfasında Türkçe kalmasın
-  await q(`window.SVI18n && window.SVI18n.setLocale ? window.SVI18n.setLocale('en') : 0`);
+  // Tema menüsü: bütün seçimler, seçilen uygulanıyor
+  await click('#themeBtn');
+  await sleep(150);
+  const themes = await q('document.querySelectorAll(".sv-menu [data-theme]").length');
+  check('tema menüsü bütün temaları listeliyor', themes >= 7, themes);
+  const before = await q('window.SVUiTheme.choice()');
+  await click('.sv-menu [data-theme="neon"]');
+  await sleep(150);
+  check('tema seçilince uygulanıyor, menü kapanıyor', await q('window.SVUiTheme.choice()') === 'neon' && !await q('!!document.querySelector(".sv-menu")'));
+  await q(`window.SVUiTheme.set(${JSON.stringify(before)})`);
+  await click('#themeBtn');
+  await sleep(100);
+  await q(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await sleep(100);
+  check('menü Esc ile kapanıyor', !await q('!!document.querySelector(".sv-menu")'));
+
+  // Ekran seçici üst çubukta
+  await click('#displayBtn');
+  await sleep(200);
+  check('ekran seçici üst çubuktan açılıyor', await q('!document.getElementById("displayMenu").classList.contains("hidden")'));
+  await click('#displayBtn');
+  await sleep(100);
+
+  // Sayfa kısayolları
+  await q(`document.dispatchEvent(new KeyboardEvent('keydown', { key: '2', altKey: true, bubbles: true }))`);
+  await sleep(300);
+  check('Alt+2 Canlı sayfası', await page() === 'live');
+  await q(`document.dispatchEvent(new KeyboardEvent('keydown', { key: '1', altKey: true, bubbles: true }))`);
+  await sleep(300);
 
   if (arg('out')) {
     fs.mkdirSync(arg('out'), { recursive: true });

@@ -11,6 +11,7 @@ const assert = require('node:assert');
 
 global.window = global.window || {};
 require('../src/shared/defaults.js');
+require('../src/shared/schema.js');
 require('../src/shared/lyrics-clock.js');
 require('../src/admin/lyrics-lib-ui.js');
 const L = require('../src/visualizer/layers.js');

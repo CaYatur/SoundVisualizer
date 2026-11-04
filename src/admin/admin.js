@@ -553,6 +553,7 @@
     sceneGradient: (s) => sceneGradient(s),
     sceneSummary: (s) => sceneSummary(s),
     saveScene: () => actions.saveScene(),
+    renderScenes: () => renderScenes(),
     /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
        gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
     sectionCard: (id, opts) => {
@@ -6177,12 +6178,16 @@
       themeBtn.addEventListener('click', (e) => {
         const r = e.currentTarget.getBoundingClientRect();
         const T = window.SVUiTheme;
-        const now = T.current();
+        const UT = window.SVUiThemes;
+        const now = T.choice();
         const menu = el('div', { class: 'sv-menu' }, [el('div', { class: 'sv-mh', text: tr('Arayüz teması') })]
-          .concat((T.list ? T.list() : []).map((t) => el('button', {
-            class: t.id === now ? 'on' : '', type: 'button', text: tr(t.name),
-            onclick: () => { T.set(t.id); menu.remove(); },
-          }))));
+          .concat(UT.CHOICES.map((c) => {
+            const name = c.name || (UT.byId(c.id) || {}).name || c.id;
+            return el('button', {
+              class: c.id === now ? 'on' : '', type: 'button', 'data-theme': c.id, text: tr(name),
+              onclick: () => { T.set(c.id); menu.remove(); },
+            });
+          })));
         window.SVSceneShell.placeMenu(menu, r.right - 216, r.bottom + 6);
       });
     }
