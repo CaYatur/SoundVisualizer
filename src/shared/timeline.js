@@ -280,6 +280,11 @@
          hedef silinmişse ilk uygun hedef. */
       target: typeof s.target === 'string' ? s.target.slice(0, 120) : '',
       fade: Math.max(0, num(s.fade, 0)),
+      /* Klibin KENDİ geçişi (#957): tür ve yumuşatma; boşsa sahnenin
+         varsayılanı. Yalnız bu klipte saklanıyor, sahnenin geçişine
+         dokunmuyor: aynı sahnenin iki klibi farklı geçebilir. */
+      transType: typeof s.transType === 'string' ? s.transType.slice(0, 40) : '',
+      transEase: typeof s.transEase === 'string' ? s.transEase.slice(0, 40) : '',
       /* Kullanıcının verdiği renk (#636); boşsa parçanın rengi, o da yoksa
          türün rengi kullanılıyor (shared/timeline-edit.js clipColor). Model
          her çizimde yeniden kurulduğu için burada TAŞINMAZSA ilk çizimde

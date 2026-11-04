@@ -74,7 +74,7 @@ test('boyutlandırma tutamacı: köşeden sürükleme ve +/− tuşları, yalnı
   assert.match(ED, /LY\(\)\.canResize\(e\.layer\)/);
   assert.match(ED, /class: 'lay-handle'/);
   // Tutamaçtan başlayan sürükleme kutunun taşıma sürüklemesini tetiklemesin
-  assert.match(ED, /h\.addEventListener\('pointerdown', \(ev\) => \{ ev\.stopPropagation\(\); startResize\(ev, e\.id, b\); \}\)/);
+  assert.match(ED, /h\.addEventListener\('pointerdown', \(ev\) => \{ if \(ev\.button != null && ev\.button !== 0\) return; ev\.stopPropagation\(\); startResize\(ev, e\.id, b\); \}\)/);
   assert.match(ED, /LY\(\)\.resizeBy\(d\.e\.layer, P\(\)\.cfg\(\), startBox, startVals,/);
   assert.match(ED, /ev\.key === '\+' \|\| ev\.key === '='/);
   assert.match(ED, /if \(!k\) \{ resizeKey\(ev, id\); return; \}/);

@@ -198,6 +198,9 @@
     };
     show();
     bar.addEventListener('pointerdown', (e) => {
+      /* Yalnız sol tuş (#957): sağ tık satırın menüsünü açarken saydamlığı
+         da tıklanan yere çekiyordu. Olay satıra gidiyor, menü açılıyor. */
+      if (e.button != null && e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       bar.setPointerCapture(e.pointerId);
@@ -293,6 +296,38 @@
     placeMenu(menu, r.left, r.bottom + 6);
   }
 
+  /* Satır içi yeniden adlandırma: dolu ve seçili; Enter kaydeder, Esc ya
+     da boş ad vazgeçer. Kaydetme act.rename üzerinden (kalıcı yol). */
+  function startRename(id) {
+    const l = byId(id);
+    if (!l) return null;
+    const find = () => [...document.querySelectorAll('.sv-lt')].find((r) => r.getAttribute('data-id') === id);
+    if (sel !== id) select(id);
+    const row = find();
+    const b = row && row.querySelector('.sv-nm b');
+    if (!b) return null;
+    const inp = P().el('input', { class: 'txt sv-rename', type: 'text', value: titleOf(l), 'aria-label': tr('Katman adı') });
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      if (save && act.rename(id, inp.value)) return; // apply() listeyi yeniden çiziyor
+      if (inp.isConnected) inp.replaceWith(b);
+    };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    ['click', 'pointerdown', 'mousedown'].forEach((t) => inp.addEventListener(t, (e) => e.stopPropagation()));
+    inp.addEventListener('blur', () => finish(true));
+    b.replaceWith(inp);
+    if (row) row.draggable = false;
+    inp.focus();
+    inp.select();
+    return inp;
+  }
+
   /* Katman satırının sağ tık menüsü. Satırdaki düğmelerle aynı işlemler (act). */
   function openLayerMenu(id, row, x, y) {
     const el = P().el;
@@ -303,13 +338,12 @@
     const item = (icon, text, fn, opts) => el('button', {
       type: 'button', role: 'menuitem', icon, text: tr(text), 'data-act': (opts && opts.key) || '',
       disabled: !!(opts && opts.disabled),
-      onclick: () => { menu.remove(); fn(); if (row && row.isConnected) row.focus(); },
+      onclick: () => { menu.remove(); fn(); if ((!opts || opts.key !== 'rename') && row && row.isConnected) row.focus(); },
     });
-    const rename = () => {
-      select(id);
-      const inp = document.querySelector('#svInspector .sv-ititle input');
-      if (inp) { inp.focus(); inp.select(); }
-    };
+    /* Önce denetçideki ada odaklanıyordu; ardından satıra geri odaklanmak
+       onu hemen bırakıyordu ve hiçbir şey olmuyordu (#957). Artık satırın
+       içinde düzenleyici açılıyor. */
+    const rename = () => startRename(id);
     const menu = el('div', { class: 'sv-menu sv-layer-menu', role: 'menu', 'aria-label': tr('Katman') }, [
       el('div', { class: 'sv-mh', text: titleOf(l) }),
       item('pencil', 'Yeniden Adlandır', rename, { key: 'rename' }),
@@ -929,5 +963,5 @@
     });
   }
 
-  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
+  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

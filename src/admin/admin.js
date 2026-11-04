@@ -4622,8 +4622,16 @@
     parkResetFocus(root);
     const pin = pinElement(root);
     const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+    /* Otomasyonla sürülen ayar işaretli (#957): kırmızı kaydırıcı ve öncelik
+       ipucu. Çalan otomasyon elle/MIDI/oyun kolu değerini ezer. */
+    const autoP = window.SVTimelinePanel && window.SVTimelinePanel.automatedPaths ? window.SVTimelinePanel.automatedPaths() : null;
+    const autoTip = tr('Otomasyon bu ayarı sürüyor: oynarken elle, MIDI ve oyun kolu değerini geçersiz kılar; modülatörler üstüne uygulanır.');
     root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
-      node.classList.toggle('modified', isModified(node.getAttribute('data-path')));
+      const path = node.getAttribute('data-path');
+      node.classList.toggle('modified', isModified(path));
+      const on = !!(autoP && autoP.has(path));
+      node.classList.toggle('sv-automated', on);
+      if (on) node.title = autoTip; else if (node.title === autoTip) node.title = '';
     });
     /* Layer-internal (attachDefault) controls: no config path; get/defVal
        live on _svSyncModified. Path-based refresh does not touch them;
@@ -5913,13 +5921,37 @@
       if (keepKey != null) cfg.background.transparentKey = keepKey;
       if (keepCover != null) cfg.background.coverTaskbar = !!keepCover;
     }
+    /* Geçiş ÜSTÜNE YAZMA (klip/yuva geçişi): görselleştirici geçişi sahnenin
+       İLK gönderiminde başlatıyor. Önce sahne kendi geçişiyle gönderiliyor,
+       klibin süresi ancak sonraki gönderimde yazılıyordu — geçiş hiç
+       yavaşlamıyordu. Süre burada, gönderimden ÖNCE ve saniye cinsinden. */
+    /* Üstüne yazma YALNIZ bu gönderim için: gönderimden sonra sahnenin
+       kendi geçişi geri konuyor. Önce kalıcıydı; klibin geçişi sahnenin
+       genel geçişine sızıyor, sahne güncellenince ona kaydediliyordu. */
+    let keepTransition = null;
+    if (opts && opts.transition && cfg.transition) {
+      keepTransition = window.SV.clone(cfg.transition);
+      const ot = opts.transition;
+      if (ot.type === 'cut') cfg.transition.enabled = false;
+      else if (ot.duration > 0 || ot.type || ot.ease) {
+        cfg.transition.enabled = true;
+        if (ot.duration > 0) {
+          cfg.transition.duration = ot.duration;
+          cfg.transition.unit = 'seconds';
+        }
+        if (ot.type) cfg.transition.type = ot.type;
+        if (ot.ease) cfg.transition.ease = ot.ease;
+      }
+    }
+    const restoreTransition = () => { if (keepTransition) { cfg.transition = keepTransition; keepTransition = null; } };
     sceneActionInFlight = true;
     activeSceneId = id;
     cfg._activeSceneId = id;
     /* quiet: vurgunun bu gönderimde silinmemesi için bayrak açık kalır.
        Çağıran push'tan sonra releaseSceneAction ile kapatır. */
-    if (opts && opts.quiet) return;
+    if (opts && opts.quiet) return; // çağıran gönderiyor; üstüne yazma o gönderimde geçerli
     push(true);
+    restoreTransition();
     sceneActionInFlight = false;
     /* Zaman çizelgesi klibi ateşlerken (light) Zaman sayfası baştan
        kurulmuyor: render() çizelge panelini de söküp yeniden kuruyordu,

@@ -302,6 +302,15 @@ test('tarayıcı: koruma gerçekten yakalıyor', () => {
 /* Panel betiklerindeki renk dizeleri: hepsi KULLANICI İÇERİĞİ. Panelin kendi
    rengi buraya girmez; SVUiTheme.color / SVUiTheme.alpha kullanılır. */
 const JS_CONTENT = {
+  'transition-preview.js': {
+    '#ffbe3c': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#e63c5a': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#ffecc8': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#080e28': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#3cdcff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#8c50ff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#000000': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+  },
   'admin.js': {
     '#000000': [4, 'karartma ve palet: görüntünün kendi siyahı'],
     '#2a1f2e': [2, 'arkaplanı olmayan sahnenin küçük resmi'],

@@ -488,8 +488,9 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .tl-tog.m.on { background: var(--danger); color: var(--on-solid); }
 .tl-tog.s.on { background: var(--solo); color: var(--on-solo); }
 .tl-tog.l.on { color: var(--lock); background: none; }
-.tl-head .tl-tog.s:not(.on), .tl-head .tl-tog.l:not(.on) { opacity: 0; }
-.tl-head:hover .tl-tog { opacity: 1; }
+/* M/S/kilit her zaman görünür (#957); kapalıyken soluk */
+.tl-head .tl-tog:not(.on) { opacity: .55; }
+.tl-head .tl-tog:hover { opacity: 1; }
 .tl-canvas-wrap { background: none; }
 #svTimeSide .dock-head { padding: 2px 0 6px; }
 #svTimeSide .tl-inspector { border: 0; margin: 0; padding: 0; }
