@@ -24,6 +24,8 @@
      45 Hz'de kalıyor, çünkü Otomatik VJ'nin tempo motoru (autovj.js), Studio
      ve çözümleme paneli onu okuyor; ses yavaşlasa BPM takibi bozulurdu. */
   const PREVIEW_FPS_LOW = 20;
+  const PREVIEW_MAX_H = 540;
+  const PREVIEW_MAX_H_OUTPUT = 360;
   const BINS = 1024;
   const TIME_LEN = 2048;
 
@@ -115,9 +117,11 @@
     }
     lastW = w;
     lastH = h;
-    // Önizleme küçük olduğu için dpr'ı 2 ile sınırla
+    /* Sahne sayfasında önizleme büyük: çizim yükü kutunun boyuyla değil bu sınırla büyüsün
+       (#905). Çıkış açıkken öncelik çıkışın. Kutu küçükse dpr sınırı geçerli. */
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    stack.resize(Math.round(w * dpr), Math.round(h * dpr));
+    const scale = Math.min(dpr, (outputOpen ? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H) / h);
+    stack.resize(Math.round(w * scale), Math.round(h * scale));
     layoutLogo(w, h);
   }
 
@@ -396,7 +400,11 @@
     stack: () => stack,
     ingest,
     setPaused,
-    setOutputOpen: (open) => { outputOpen = !!open; },
+    setOutputOpen: (open) => {
+      if (outputOpen === !!open) return;
+      outputOpen = !!open;
+      resize(true);
+    },
     getLevels,
     isPaused: () => paused,
     isLive: () => liveSource,
