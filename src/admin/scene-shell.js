@@ -208,6 +208,34 @@
     return hit ? hit.name : tr('Sahne');
   }
 
+  // A/B çapraz geçişi: yalnız A ya da B grubunda katman varken
+  function crossfader() {
+    const el = P().el;
+    const cfg = P().cfg();
+    const x = cfg.crossfade;
+    if (!x || x.enabled === false) return null;
+    if (!(cfg.layers || []).some((l) => l && (l.group === 'A' || l.group === 'B'))) return null;
+    return el('div', { class: 'sv-xf' }, [
+      el('span', { text: 'A' }),
+      el('input', {
+        type: 'range', min: 0, max: 1, step: 0.005, value: x.value == null ? 0 : x.value, 'aria-label': tr('A/B Çapraz Geçiş'),
+        oninput: (e) => { x.value = parseFloat(e.target.value); P().push(false); },
+        onchange: () => P().push(true),
+      }),
+      el('span', { text: 'B' }),
+    ]);
+  }
+
+  /* Sahnenin renkleri zemine yansıyor. Karelerden örnek alınmıyor: paletten, yalnız çizimde. */
+  function paintAmbient() {
+    const a = document.getElementById('svAmbient');
+    if (!a) return;
+    const c = sceneColors();
+    if (c.length < 2) { a.style.background = 'none'; return; }
+    a.style.background = 'radial-gradient(900px 520px at 22% 8%, ' + c[Math.min(2, c.length - 1)] + ', transparent 70%),'
+      + 'radial-gradient(900px 520px at 82% 12%, ' + c[c.length - 1] + ', transparent 70%)';
+  }
+
   function paintLayers(host) {
     const el = P().el;
     const list = layers();
@@ -231,10 +259,8 @@
       ]),
       box,
     ];
-    if (window.SVGroupPanel && window.SVGroupPanel.crossfader) {
-      const xf = window.SVGroupPanel.crossfader();
-      if (xf) nodes.push(xf);
-    }
+    const xf = crossfader();
+    if (xf) nodes.push(xf);
     host.replaceChildren(...nodes.filter(Boolean));
     box.scrollTop = scrollOf.layers;
     box.addEventListener('scroll', () => { scrollOf.layers = box.scrollTop; });
@@ -448,6 +474,7 @@
 
   function paint() {
     aimPicker();
+    paintAmbient();
     const a = document.getElementById('svLayers');
     const b = document.getElementById('svInspector');
     const c = document.getElementById('svShelf');

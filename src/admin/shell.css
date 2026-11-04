@@ -22,6 +22,8 @@ body {
     var(--bg);
 }
 button, input, select, textarea { font: inherit; }
+#svAmbient { position: fixed; inset: 0; z-index: -1; opacity: .12; pointer-events: none; }
+body { isolation: isolate; }
 :focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--fg-rgb) / .14); border: 3px solid transparent; background-clip: padding-box; border-radius: 6px; }
@@ -102,7 +104,7 @@ button, input, select, textarea { font: inherit; }
 
 /* ------------------------------------------------------------- çalışma alanı */
 .workspace { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 0 12px 12px; }
-/* Altbilgi yalnız Kurulum'da: sürüm, kaynak bağlantısı ve fabrika ayarlarına dönüş orada aranıyor */
+/* Altbilgi yalnız Kurulum'da: fabrika ayarlarına dönüş orada aranıyor */
 .footer { display: none; }
 body[data-page='setup'] .footer { display: flex; border: 0; background: none; padding: 0 16px 10px; }
 .nav-rail { display: none; }
