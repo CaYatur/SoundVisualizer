@@ -1,3 +1,12 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+/* Zaman çizelgesi başarım yoklaması: panel penceresinde çalıştırılacak ifade.
+   Oynatma + kaydırma sırasında panel yeniden kurulumu, sahne uygulaması ve
+   tuval çizimi sayılarını döndürür (beklenen: yeniden kurulum 0). */
 (async()=>{
 const P=window.SVPanel; P.setCategory('time'); await new Promise(r=>setTimeout(r,800));
 P.cfg().scenes=[{id:'s1',name:'A',data:{}},{id:'s2',name:'B',data:{}}];const scenes=P.cfg().scenes;
