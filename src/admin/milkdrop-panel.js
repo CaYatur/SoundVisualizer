@@ -720,13 +720,24 @@
     return md.presetId || '';
   }
 
+  /* Bağımsız katmanda ekrandaki preset (#905): kendi geçişi açıksa son mesajdaki payı,
+     aksi halde katmanın ayarı. */
+  function layerLiveId(l) {
+    const m = l.settings.milkdrop;
+    const F = window.SVMdFollow;
+    const f = F && F.layers && F.layers[l.id];
+    if (f && f.id && m.ownAuto === true && (performance.now() - F.at) < 1500) return f.id;
+    return m.presetId || '';
+  }
+
   // Rastgele seçim motorunkiyle aynı kural: o an görülen hariç, puana göre
   function randomPick(cfg, md) {
     const C = CY();
     if (!C) return presets[(Math.random() * presets.length) | 0];
     const ratings = ratingsOf(cfg);
     const w = md.useRatings === false ? null : (p) => C.ratingOf(p, ratings);
-    return C.pick(presets, liveId(md), 'random', Math.random, w);
+    const tl = pickTarget(cfg);
+    return C.pick(presets, tl ? layerLiveId(tl) : liveId(md), 'random', Math.random, w);
   }
 
   /* `cut`: karışmadan yükle (#570, "şimdi kes"). Motor bunu elle seçimin
@@ -828,7 +839,7 @@
   function stepList(cfg, md, dir, cut) {
     if (!presets.length) return;
     const tl = pickTarget(cfg);
-    const cur = tl ? tl.settings.milkdrop.presetId : liveId(md);
+    const cur = tl ? layerLiveId(tl) : liveId(md);
     const i = presets.findIndex((p) => p.id === cur);
     const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
     go(cfg, presets[j], cut);

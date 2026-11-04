@@ -162,13 +162,59 @@ test('ortak izleme lideri bağlantısından önce geliyor: pencereler arası tek
 });
 
 // ---------------------------------------------------------------- yığın
-test('yığın kimliği motora veriyor, payı katmana göre topluyor, ortakları bağlıyor', () => {
+test('yığın kimliği motora veriyor, payı katmana göre topluyor', () => {
   const L = read('src/visualizer/layers.js');
   assert.match(L, /if \(e\.mode\) e\.mode\.layerId = layer\.id;/);
   assert.match(L, /milkdropLayers\(\) \{[\s\S]*?own\.ownAuto !== true[\s\S]*?\[e\.layer\.id\] = e\.mode\.livePreset\(\)/);
-  assert.match(L, /_linkShared\(\) \{[\s\S]*?e\.mode\.sharedLeader = lead;/);
-  assert.match(L, /draw\(audio, cfg, t, dt\) \{\s*this\._linkShared\(\);/);
-  assert.match(L, /drawTo\(ctx, audio, cfg, t, dt, drawLogo, reuse\) \{\s*this\._linkShared\(\);/);
+});
+
+test('lider ÇİZİLEN ilk ortak katman: öndeki katman çizilmezse görünen katman donmuyor', () => {
+  global.window = global.window || {};
+  global.window.SV = global.window.SV || {};
+  const { LayerStack } = require('../src/visualizer/layers.js');
+  const S = Object.create(LayerStack.prototype);
+  const mode = () => ({ livePreset() { return { id: this.tag }; } });
+  const a = { layer: { id: 'a', settings: {} }, mode: Object.assign(mode(), { tag: 'A' }) };
+  const b = { layer: { id: 'b', settings: {} }, mode: Object.assign(mode(), { tag: 'B' }) };
+  const own = { layer: { id: 'c', settings: { milkdrop: { independent: true } } }, mode: Object.assign(mode(), { tag: 'C' }) };
+
+  // İki katman da çiziliyor
+  S._sharedLead = null;
+  S._shareLead(a); S._shareLead(own); S._shareLead(b);
+  assert.strictEqual(a.mode.sharedLeader, null);
+  assert.strictEqual(b.mode.sharedLeader, a.mode);
+  assert.strictEqual(own.mode.sharedLeader, null);
+
+  // Öndeki katman bu karede çizilmiyor: görünen katman kendi seçiyor
+  S._sharedLead = null;
+  S._shareLead(b);
+  assert.strictEqual(b.mode.sharedLeader, null, 'lider kalıntısı yok');
+  S.entries = [a, b];
+  assert.strictEqual(S.milkdropPreset().id, 'B', 'panel çizilen katmanın seçimini görüyor');
+});
+
+test('lider bir kare çizilmezse izleyen kendi sayacıyla yürüyor', () => {
+  const e = engine();
+  const m = e.make();
+  const cfg = { milkdrop: { presetId: 'p1', source: PRESETS[0].source, blendTime: 0, autoNext: 2, autoOrder: 'sequential' }, milkdropControl: {}, milkdropLibrary: {} };
+  m._ensurePreset(cfg);
+  m.sharedLeader = null;
+  run(m, cfg, 3);
+  assert.ok(m.autoPick, 'aralık doldu');
+});
+
+test('MCP bağımsız katmanın döngüsünü ayrı değiştiriyor, ortak döngüye dokunmuyor', () => {
+  const M = read('src/shared/mcp.js');
+  assert.match(M, /layerId: sp\('string'/);
+  assert.match(M, /ownAuto: sp\('boolean'/);
+  assert.match(M, /layerId must be a MilkDrop layer with its own preset\./);
+  assert.match(M, /layer\.settings\.milkdrop = nextLayer;/);
+});
+
+test('panelde adım ve rastgele bağımsız katmanın ekrandaki presetinden başlıyor', () => {
+  const P = read('src/admin/milkdrop-panel.js');
+  assert.match(P, /const cur = tl \? layerLiveId\(tl\) : liveId\(md\);/);
+  assert.match(P, /C\.pick\(presets, tl \? layerLiveId\(tl\) : liveId\(md\), 'random'/);
 });
 
 // ---------------------------------------------------------------- dağıtım

@@ -1954,7 +1954,7 @@
     }
 
     draw(audio, cfg, t, dt) {
-      this._linkShared();
+      this._sharedLead = null;
       const tick = this._tickTransition(dt);
       const isBlackout = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
         (
@@ -2233,6 +2233,7 @@
            draw'da. audio.ready yalnizca ingestFrame'de true; aygitsiz ortamda
            clear+return GL'yi hic acmiyordu. AudioEngine sifir tamponlarla
            baslar; gercek kare gelince ayni yol canli sinyali surer. */
+        this._shareLead(e);
         e.mode.draw(audio, lcfg, t, dt);
         return;
       }
@@ -2354,7 +2355,7 @@
        canlı CSS birleştirmesiyle aynı kareyi bu yoldan da kurup piksel
        piksel karşılaştırır; ikinci çizim durumlu modları ilerletirdi. */
     drawTo(ctx, audio, cfg, t, dt, drawLogo, reuse) {
-      this._linkShared();
+      if (!reuse) this._sharedLead = null;
       const W = this.width;
       const H = this.height;
       ctx.save();
@@ -2492,6 +2493,8 @@
        desen ve aynı ~30 Hz mesaja biniyor. null = yığında MilkDrop yok;
        `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
     milkdropPreset() {
+      // Seçimi yapan katman: listede önde duran ama çizilmeyen katman eski seçimi söylerdi
+      if (this._sharedLead) return this._sharedLead.livePreset();
       for (const e of this.entries) {
         if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
         // Kendi preseti olan katman (#909) ortak seçimi temsil etmiyor
@@ -2515,17 +2518,15 @@
       return out;
     }
 
-    /* Ortak MilkDrop katmanları tek seçimde (#905): ilki seçer, ötekiler onu alır.
-       Çizim alttan üste, yani lider aynı karede önce çiziliyor. */
-    _linkShared() {
-      let lead = null;
-      for (const e of this.entries) {
-        if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
-        const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
-        if (own && own.independent === true) { e.mode.sharedLeader = null; continue; }
-        e.mode.sharedLeader = lead;
-        if (!lead) lead = e.mode;
-      }
+    /* Ortak MilkDrop katmanları tek seçimde (#905): bu karede ÇİZİLEN ilk ortak katman seçer,
+       sonrakiler onu alır. Listedeki ilki değil: örtülen ya da kapatılan katmanın sayacı
+       yürümez, ona bağlı görünür katman da donup kalırdı. */
+    _shareLead(e) {
+      if (!e.mode || typeof e.mode.livePreset !== 'function') return;
+      const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+      if (own && own.independent === true) { e.mode.sharedLeader = null; return; }
+      e.mode.sharedLeader = this._sharedLead || null;
+      if (!this._sharedLead) this._sharedLead = e.mode;
     }
 
     /* O an çizilen MilkDrop görüntüsünün renkleri, soldan sağa (#589).

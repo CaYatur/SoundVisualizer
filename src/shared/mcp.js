@@ -1162,6 +1162,8 @@
         autoNextBars: sp('number', 'Bars between presets when the unit is bars.', { minimum: 1 }),
         trackAdvance: sp('boolean', 'Next preset when the track changes.'),
         hardCut: sp('string', 'Hard cut mode; off disables it.'),
+        layerId: sp('string', 'A MilkDrop layer with its own preset. It gets its own cycle; the shared cycle stays as it is. Omit for the shared cycle.'),
+        ownAuto: sp('boolean', 'With layerId: the layer advances on its own; false leaves it on its preset.'),
       },
     },
     sv_save_preset: {
@@ -2038,6 +2040,21 @@
   });
   tool('sv_set_milkdrop_cycle', 'presetApply', 'Change how the existing MilkDrop library advances. Does not write preset source.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
+      if (args && args.layerId) {
+        const layer = (Array.isArray(cfg.layers) ? cfg.layers : []).find(function (l) { return l && l.id === args.layerId; });
+        const own = layer && layer.settings && layer.settings.milkdrop;
+        if (!own || own.independent !== true) return fail('layerId must be a MilkDrop layer with its own preset.');
+        const nextLayer = Object.assign({}, own);
+        ['autoNext', 'autoOrder', 'autoFrom', 'autoTag', 'autoNextUnit', 'autoNextBars', 'trackAdvance', 'hardCut'].forEach(function (k) {
+          if (args[k] !== undefined) nextLayer[k] = args[k];
+        });
+        const offLayer = rangeError('milkdrop', nextLayer, own);
+        if (offLayer) return fail(offLayer);
+        if (args.ownAuto === true) nextLayer.ownAuto = true;
+        else if (args.ownAuto === false) delete nextLayer.ownAuto;
+        layer.settings.milkdrop = nextLayer;
+        return { layerId: args.layerId, presetId: nextLayer.presetId || '', ownAuto: nextLayer.ownAuto === true, autoNext: nextLayer.autoNext, autoOrder: nextLayer.autoOrder };
+      }
       const next = Object.assign({}, cfg.milkdrop);
       ['autoNext', 'autoOrder', 'autoFrom', 'autoTag', 'autoNextUnit', 'autoNextBars', 'trackAdvance', 'hardCut'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
