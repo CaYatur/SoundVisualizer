@@ -1250,7 +1250,7 @@
            kaybolurdu. "—" yazması "preset hiç yazmadı" demek; 0 yazan bir
            preset 0.0000 gösterir. */
         const mval = window.SVMdMonitor;
-        nodes.push(P().row('monitor', el('span', {
+        nodes.push(P().row('İzleme Değeri', el('span', {
           id: 'mdMonitorVal', class: 'md-num',
           text: (mval === null || mval === undefined) ? '—' : Number(mval).toFixed(4),
         })));
@@ -1414,7 +1414,7 @@
         && !(cfg.openrgb && cfg.openrgb.enabled) && !(cfg.artnet && cfg.artnet.enabled)) {
       nodes.push(el('div', {
         class: 'studio-note md-err',
-        text: 'Işık çıkışı kapalı: Aydınlatma bölümünden Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
+        text: 'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
       }));
     }
 

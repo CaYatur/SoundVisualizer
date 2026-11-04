@@ -38,6 +38,7 @@ function setup(layers, openIds) {
   };
   window.SVLayers = L;
   window.SVPanel = {
+    sliderMax: (d) => d.max,
     el,
     cfg: () => cfg,
     row: (label, ctrl) => el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), ctrl])]),

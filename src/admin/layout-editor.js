@@ -538,7 +538,7 @@
         inp.addEventListener('change', () => { LY().sectionOf(cur.layer, P().cfg(), true).content = inp.value; P().push(true); });
         side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı İçeriği' }), inp]));
       } else {
-        side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Çalan parça sistemden okunur; okunamazsa metin kartındaki elle girilen parça bilgisi çizilir.' }));
+        side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Çalan parça sistemden okunur; okunamazsa Çalan Parça katmanına elle yazılan parça bilgisi çizilir.' }));
       }
     }
     if (LY().canResize(cur.layer)) {

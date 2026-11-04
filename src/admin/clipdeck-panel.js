@@ -1315,7 +1315,7 @@
       box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.' }));
     } else if ((spec.type === 'video' || spec.type === 'image' || spec.type === 'shader') && !targetOptions(spec.type).length) {
       box.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: spec.type === 'image'
-        ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'
+        ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne sayfasında Katman Ekle menüsünden Görsel Nesneler ekleyin.'
         : 'Bu tür için uygun hedef yok.' }));
     }
     return box;

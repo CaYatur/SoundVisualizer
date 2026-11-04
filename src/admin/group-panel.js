@@ -70,14 +70,14 @@
         ]),
       ]));
       if (!hasA && !hasB) {
-        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Fader "A" ve "B" gruplarına atanmış katmanları karşılıklı kısar. Katman kartındaki Grup ve Fader bölümünden bir katmana A ya da B yazın.' }));
+        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Fader "A" ve "B" gruplarına atanmış katmanları karşılıklı kısar. Bir katman seçip Grup ve Fader bölümüne A ya da B yazın.' }));
       }
     }
 
     // ------------------------------------------------------- grup faderları
     const groups = usedGroups(cfg);
     if (!groups.length) {
-      nodes.push(el('div', { class: 'studio-note', text: 'Henüz grup yok. Katman kartındaki Grup ve Fader bölümünden bir grup adı yazın.' }));
+      nodes.push(el('div', { class: 'studio-note', text: 'Henüz grup yok. Bir katman seçip Grup ve Fader bölümünden bir grup adı yazın.' }));
       return el('div', { class: 'grp-panel' }, nodes);
     }
 

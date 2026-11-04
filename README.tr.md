@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3910%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3911%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1257,11 +1257,16 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 
 </div>
 
-- **Sekiz kategori** — Sahne, Ses, Işık, Çıkış, Kontrol, Studio, Kitaplık ve Ayarlar.
+- **Üstte beş sayfa** — Sahne, Canlı, Zaman, Stüdyo ve Çıktı; dişlinin arkasında Ses, Işık, Gösteri,
+  Kontrol, Kitaplık ve Ayarlar (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> sayfa değiştirir).
+- **Sahne**: katman listesi, büyük önizleme, seçili katmanın denetçisi ve preset, şablon, efekt ve
+  modülasyon rafı. **Canlı**: AL düğmeli Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
+  katman faderleri ve klip destesi.
+- Sahne değişikliklerinde **geri al ve yinele** (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Her yerde canlı** — her değişiklik anında çıkış pencerelerine ulaşıyor ve kendini kaydediyor.
 - Her sayfanın yanında kendi demo sinyaliyle bir **canlı önizleme**, ses ölçerleri ve kayıtlı sahneler.
-- Her kartta ve kategoride **değişti işaretleri**; bölümü ya da bütün kategoriyi sıfırlama.
-- Her kategorideki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- Her kartta ve sayfada **değişti işaretleri**; bölümü ya da bütün sayfayı sıfırlama.
+- Her sayfadaki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 - **Gelişmiş** anahtarları seyrek kullanılan denetimleri siz isteyene kadar gizliyor; **genişletilmiş
   aralıklar** sürgü sınırlarını 5 katına çıkarıyor.
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test
@@ -1903,7 +1908,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3910 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3911 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

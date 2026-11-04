@@ -272,7 +272,7 @@ test('ana süreç: kaydedilen presetin metni katmanın kopyasına da gidiyor', (
 
 test('metinler çevrilmiş', () => {
   const i18n = read('src/shared/i18n.js');
-  for (const s of ['Kendi Preseti', 'Seçim Nereye', 'Ortak katmanlar', 'Listeden seçilen preset bu katmana gider.', 'Kapalıyken ortak preseti gösterir.', 'MilkDrop Presetleri kartında bu katman için seçin']) {
+  for (const s of ['Kendi Preseti', 'Seçim Nereye', 'Ortak katmanlar', 'Listeden seçilen preset bu katmana gider.', 'Kapalıyken ortak preseti gösterir.', 'Sahne sayfasının MilkDrop rafında bu katman için seçin']) {
     assert.ok(i18n.includes("'" + s + "':"), s);
   }
 });

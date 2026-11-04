@@ -28,6 +28,7 @@
     'dilim': 'slices',
     'Sahne ayarları': 'Scene settings',
     'Katman Ekle': 'Add Layer',
+    'İzleme Değeri': 'Monitor Value',
     'Katman adı': 'Layer name',
     'Sıralamak için sürükleyin. Üstteki katman önde görünür.': 'Drag to reorder. The top layer shows in front.',
     'Şuna uygulanır:': 'Applies to:',
@@ -226,7 +227,7 @@
     'Bu katman kendi aralığıyla geçer; havuz ve sert geçiş ortak ayardan gelir. Bütün ekranlar aynı seçimi gösterir.': 'This layer advances on its own interval; the pool and hard cuts come from the shared settings. Every screen shows the same choice.',
     'Kapalıyken bu presette durur.': 'When off, it stays on this preset.',
     'Kapalıyken ortak preseti gösterir.': 'When off, it shows the shared preset.',
-    'MilkDrop Presetleri kartında bu katman için seçin': 'Choose for this layer on the MilkDrop Presets card',
+    'Sahne sayfasının MilkDrop rafında bu katman için seçin': 'Choose for this layer on the MilkDrop shelf of the Scene page',
     'Çıkış açıkken seyrek (önerilen)': 'Slower while an output is open (recommended)',
     'Her zaman akıcı': 'Always smooth',
     'Her zaman seyrek (düşük güç)': 'Always slower (low power)',
@@ -467,7 +468,7 @@
     'Çalan Parça — Başlık': 'Now Playing — Title',
     'Çalan Parça — Sanatçı': 'Now Playing — Artist',
     'Çalan Parça — Başlık ve Sanatçı': 'Now Playing — Title and Artist',
-    'Çalan parça sistemden okunur; okunamazsa metin kartındaki elle girilen parça bilgisi çizilir.': 'Now playing is read from the system; if it cannot be read, the track details typed on the text card are drawn.',
+    'Çalan parça sistemden okunur; okunamazsa Çalan Parça katmanına elle yazılan parça bilgisi çizilir.': 'Now playing is read from the system; if it cannot be read, the track details typed on the Now Playing layer are drawn.',
     'Düzeni Dışa Aktar': 'Export Layout',
     'Düzeni İçe Aktar': 'Import Layout',
     'Dışa aktarılacak öğe yok.': 'There is no element to export.',
@@ -514,7 +515,7 @@
     'Bu işarete git': 'Jump to this marker',
     'Kafada İşaret': 'Marker at Playhead',
     'Sözlerden İşaret Üret': 'Create Markers from Lyrics',
-    'Önce Metin bölümünden bir LRC ya da SRT dosyası yükleyin.': 'Load an LRC or SRT file from the Text section first.',
+    'Önce bir Metin katmanında kaynağı Şarkı Sözü yapıp LRC ya da SRT dosyası yükleyin.': 'First set the source of a Text layer to Lyrics and load an LRC or SRT file.',
     'YouTube Bölümlerini Kopyala': 'Copy YouTube Chapters',
     'İşaretçileri video açıklamasına yapıştırılacak bölüm listesi olarak kopyalar': 'Copies the markers as a chapter list to paste into a video description',
     'Önce zaman çizelgesine işaret ekleyin.': 'Add a marker to the timeline first.',
@@ -657,7 +658,7 @@
     'Görsel Seç': 'Choose Image',
     'Tür seçin; sonra kaynağını seçin. Video, görsel ve shader yuvaları bir hedefe uygulanır (ana medya, bir katman ya da bir görsel nesne).': 'Pick a type, then its source. Video, image and shader slots apply to a target (the main media, a layer or an image object).',
     'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.': 'An action runs the same action as a MIDI or OSC mapping. Transition settings do not apply to actions.',
-    'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An image slot replaces the picture of an image object, and there are none yet. Add one in Scene › Visual Objects.',
+    'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne sayfasında Katman Ekle menüsünden Görsel Nesneler ekleyin.': 'An image slot replaces the picture of an image object, and there are none yet. On the Scene page, add Visual Objects from the Add Layer menu.',
     'Bu tür için uygun hedef yok.': 'There is no suitable target for this type.',
     // Arkaplanların kendi ayarları (#638)
     'Damla Sayısı': 'Drop Count',
@@ -833,7 +834,7 @@
     'Şeritleri alçalt': 'Shorter lanes',
     'Şeritleri yükselt (tam pencerede yer açar)': 'Taller lanes (uses the room in full window)',
     'Oynatma kafasındaki tempo. Tempo değişimleri cetvelde (♩)': 'Tempo at the playhead. Tempo changes are on the ruler (♩)',
-    'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An Image clip replaces the picture of an image object, and there is none yet. Add one under Scene › Image Objects.',
+    'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne sayfasında Katman Ekle menüsünden Görsel Nesneler ekleyin.': 'An Image clip replaces the picture of an image object, and there is none yet. On the Scene page, add Visual Objects from the Add Layer menu.',
     'Böl': 'Split',
     'Oynatma kafasında böl (S)': 'Split at the playhead (S)',
     'Oynatma kafası bu klibin içinde değil.': 'The playhead is not inside this clip.',
@@ -2196,14 +2197,14 @@
     'Grup': 'Group',
     'Grup ve Fader': 'Group & Fader',
     'grup adı (boş = gruplanmamış)': 'group name (empty = ungrouped)',
-    'Henüz grup yok. Katman kartındaki Grup ve Fader bölümünden bir grup adı yazın.':
-      'No groups yet. Type a group name in the Group & Fader section of a layer card.',
-    'Fader "A" ve "B" gruplarına atanmış katmanları karşılıklı kısar. Katman kartındaki Grup ve Fader bölümünden bir katmana A ya da B yazın.':
-      'The fader trades off layers assigned to the "A" and "B" groups. Put A or B in the Group & Fader section of a layer card.',
+    'Henüz grup yok. Bir katman seçip Grup ve Fader bölümünden bir grup adı yazın.':
+      'No groups yet. Select a layer and type a group name under Group & Fader.',
+    'Fader "A" ve "B" gruplarına atanmış katmanları karşılıklı kısar. Bir katman seçip Grup ve Fader bölümüne A ya da B yazın.':
+      'The fader trades off layers assigned to the "A" and "B" groups. Select a layer and put A or B in its Group & Fader section.',
     'Grup faderı katman saydamlığıyla çarpılır; katmanın kendi ayarı korunur.':
       'The group fader multiplies layer opacity; the layer keeps its own setting.',
-    'Aynı gruptaki katmanlar Katman Grupları kartındaki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.':
-      'Layers in the same group are driven together by the single fader on the Layer Groups card. A linear fader does not look linear; the exponential curve gives a real sense of fading.',
+    'Aynı gruptaki katmanlar Gruplar sekmesindeki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.':
+      'Layers in the same group are driven together by the single fader on the Groups tab. A linear fader does not look linear; the exponential curve gives a real sense of fading.',
     'Grubu sustur': 'Mute group',
     'Solo — yalnızca solo katmanlar çizilir': 'Solo — only soloed layers are drawn',
     'Sessiz — katmanı ayarlarını kaybetmeden gizler': 'Mute — hides the layer without losing its settings',
@@ -2220,8 +2221,8 @@
       'The mask is applied to the canvas of the layer itself, so it does not move with the transform and is independent of the blend mode. A 2D mask cannot be applied to shader-based layers (Studio, gradient).',
     '— efekt ekle —': '— add effect —',
     'Ekle': 'Add',
-    'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.':
-      'This chain applies to this layer only, independently of the scene-wide Effect Chain card.',
+    'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri sekmesinden bağımsızdır.':
+      'This chain applies to this layer only, independently of the scene-wide Effect Chain tab.',
     'Yapıştır': 'Paste',
     'Katmanı panoya al; başka bir sahnede yapıştırılabilir': 'Copy the layer to the clipboard; it can be pasted into another scene',
 
@@ -2635,8 +2636,8 @@
     'MilkDrop görüntüsü (canlı)': 'MilkDrop picture (live)',
     'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır: görüntü soldan sağa sekiz dilime bölünür ve her dilimin parlak bölgelerinin rengi saniyede yaklaşık 30 kez okunur; ışıkların sırası dilimlerin sırasını izler. Işığın parlaklığını yine ışık kipi sesle belirler. Dynamic Lighting, OpenRGB ve Art-Net\'te çalışır; sahnede MilkDrop yoksa arkaplan renklerine döner.':
       'With the MilkDrop picture selected, the lights take their color from the current frame: the picture is cut into eight slices from left to right and the color of each slice\'s bright areas is read about 30 times a second; the order of the lights follows the order of the slices. The lighting mode still sets the brightness from the audio. Works with Dynamic Lighting, OpenRGB and Art-Net; with no MilkDrop in the scene it falls back to the background colors.',
-    'Işık çıkışı kapalı: Aydınlatma bölümünden Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.':
-      'No light output is on: turn on Dynamic Lighting, OpenRGB or Art-Net in the Lighting section.',
+    'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.':
+      'No light output is on: turn on Dynamic Lighting, OpenRGB or Art-Net on the Lighting page.',
     /* Her ekranda aynı preset (#585) */
     'Hepsinde aynı preset': 'Same preset on all',
     'Her ekran kendi seçer': 'Each display picks its own',
