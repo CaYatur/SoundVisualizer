@@ -337,9 +337,26 @@
     a.style.opacity = t && t.scheme === 'light' ? '.18' : '';
   }
 
+  /* Katman listesi yalnız gösterdiği şey değişince yeniden kuruluyor; ayar değiştirmek satırları
+     kurmasın. Satırlar katman nesnesine bağlı: düzenleyici nesneyi yenilediyse imza aynı olsa da kuruluyor. */
+  let layersPainted = '';
+  let layersBound = [];
+  function layersSig() {
+    const cfg = P().cfg();
+    const x = cfg.crossfade;
+    return JSON.stringify([
+      sel, activeSceneName(), sceneColors(), x ? [x.enabled, x.value] : null,
+      layers().map((l) => l && [l.id, l.kind, l.type, titleOf(l), subOf(l), l.enabled, !!l.muted, !!l.solo, !!l.locked, l.opacity, l.group]),
+    ]);
+  }
+
   function paintLayers(host) {
     const el = P().el;
     const list = layers();
+    const sig = layersSig();
+    if (sig === layersPainted && host.firstChild && list.length === layersBound.length && list.every((l, i) => l === layersBound[i])) return;
+    layersPainted = sig;
+    layersBound = list.slice();
     const box = el('div', { class: 'sv-cbody' });
     box.appendChild(el('div', {
       class: 'sv-scene-tile' + (sel ? '' : ' sel'), role: 'button', tabindex: '0',

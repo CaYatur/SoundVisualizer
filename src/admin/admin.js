@@ -83,6 +83,8 @@
   // --------------------------------------------------------------------------
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
+  /* render() işaretleri zaten yeni çizdi: aynı anda gelen push ikinci kez taramasın. */
+  let marksFresh = false;
   function push(immediate) {
     if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(cfg);
     if (isBlackedOut()) {
@@ -105,7 +107,7 @@
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
     // "Varsayılandan farklı" noktaları ve sayaçları anında güncelle
     // (kategori değiştirip dönmeyi beklemeden)
-    refreshModifiedMarks();
+    if (!marksFresh) refreshModifiedMarks();
     if (immediate) {
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = null;
@@ -4043,7 +4045,8 @@
   function applyAll() {
     previewFromPush = true;
     try { render(); } finally { previewFromPush = false; }
-    push(true);
+    marksFresh = true;
+    try { push(true); } finally { marksFresh = false; }
   }
   function render() {
     renderWanted = false;

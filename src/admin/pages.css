@@ -195,6 +195,7 @@ body[data-single] .sv-form > .card > .group:not(:has(> .group-label)) { padding-
 .sv-nav-reset:hover { background: rgb(var(--danger-rgb) / .12); color: var(--danger-text); }
 .sv-nav-reset .svi { width: 13px; height: 13px; }
 
+.sv-insp .ctrl > .row > span:has(> .btn) { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
 /* Dar başlık ve yedekleme */
 .sv-insp .studio-subheading { padding-inline: 0; margin-inline: var(--sv-inset); }
 .settings-io-panel { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
@@ -308,7 +309,8 @@ body[data-page='output'][data-wide] #sections { grid-column: 2; }
 .sv-queue-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 body[data-single] .sv-form > .card > .group:has(.sv-export-run) { position: sticky; bottom: 0; z-index: 3; padding: 0; background: var(--card-end); box-shadow: 0 -12px 22px 2px var(--bg), var(--sv-well-line); }
 .sv-export-run { margin: 0; padding: 10px var(--sv-inset); display: grid; gap: 8px; }
-.sv-export-run > .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.sv-export-run > .row { display: flex; flex-wrap: nowrap; gap: 6px; }
+.sv-export-run > .row > .btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .sv-export-run #exportRunBtn { flex: 1 1 auto; height: 38px; justify-content: center; font-weight: 600; margin: 0; }
 .sv-export-run #exportAnalysisBtn, .sv-export-run #exportCancelBtn { margin: 0 !important; }
 .sv-export-run .export-status { margin: 0; }
