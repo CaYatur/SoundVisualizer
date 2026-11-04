@@ -4180,6 +4180,11 @@
     document.body.setAttribute('data-page', page);
     document.body.classList.toggle('sv-simple-on', simpleOn);
     if (window.SVSceneShell) window.SVSceneShell.placeStage(page);
+    /* Görünmeyen sayfanın kartları belgede kalmasın: aynı kimlikler iki kez olur, durum satırları
+       ve canlı adlar eski kopyaya yazılırdı. */
+    if (page !== 'live' && $('svLive')) $('svLive').replaceChildren();
+    if (page !== 'scene') for (const id of ['svLayers', 'svInspector', 'svShelf']) { if ($(id)) $(id).replaceChildren(); }
+    if ((page === 'scene' || page === 'live') && $('sections')) $('sections').replaceChildren();
     if ((page === 'scene' || page === 'live') && window.SVSceneShell) {
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
       renderNav();

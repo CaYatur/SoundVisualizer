@@ -10217,8 +10217,7 @@ async function runSmoke() {
     }
     // Studio: yeni shader oluştur, derlensin
     await awc.executeJavaScript(
-      "(function(){var i=Array.from(document.querySelectorAll('.nav-item .nav-label')).findIndex(function(n){return n.textContent.indexOf('Studio')>=0;});" +
-      "if(i>=0) document.querySelectorAll('.nav-item')[i].click();})()"
+      "(function(){var b=document.querySelector('[data-cat=\"studio\"]'); if(b) b.click();})()"
     );
     await wait(320);
     const studioProbe = await awc.executeJavaScript(
@@ -10480,7 +10479,7 @@ async function runSmoke() {
       for (var n = 0; n < navs.length; n++) {
         var lbl = navs[n].querySelector(".nav-label");
         var txt = lbl ? (lbl.textContent || "") : "";
-        if (txt.indexOf("Kontrol") >= 0 || txt.indexOf("Control") >= 0) { navs[n].click(); break; }
+        if (navs[n].getAttribute("data-cat") === "time") { navs[n].click(); break; }
       }
       window.SVPanel.rerender();
 
@@ -11084,6 +11083,8 @@ async function runSmoke() {
           const tiny = [];
           for (const c of cats) {
             click('[data-cat="' + c + '"]'); await sleep(400);
+            // Klip destesi Canlı sayfasında ikinci sekmede
+            if (c === 'live' && window.SVLiveShell) { window.SVLiveShell.setLower('deck'); await sleep(300); }
             // Katlanır bölümlerin içeriği kapalıyken DOM'da yok
             const folds = document.querySelectorAll('.sv-content .fold-head:not(.open)');
             folds.forEach((h) => h.click());

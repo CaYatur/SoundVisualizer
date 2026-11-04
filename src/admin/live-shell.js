@@ -203,5 +203,5 @@
     if (e.key === 'Enter' && cue) { e.preventDefault(); takeCue(); }
   });
 
-  window.SVLiveShell = { paint };
+  window.SVLiveShell = { paint, setLower: (v) => { lower = v === 'deck' ? 'deck' : 'scenes'; paint(); } };
 })();
