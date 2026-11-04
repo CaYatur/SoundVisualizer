@@ -290,6 +290,8 @@
          her çizimde yeniden kurulduğu için burada TAŞINMAZSA ilk çizimde
          sessizce silinirdi. */
       color: hexColor(s.color),
+      // Parça opaklığı (#957): bu parçanın sahnesi alttakilerin üstüne bu oranla biner
+      opacity: Math.max(0, Math.min(1, s.opacity == null ? 1 : num(s.opacity, 1))),
     };
   }
 
@@ -324,6 +326,9 @@
       t.keys = sortKeys(s.keys);
     } else {
       t.clips = (Array.isArray(s.clips) ? s.clips : []).map(makeClip).sort((a, b) => a.start - b.start);
+      // Parça opaklığı (#957): sahnesi alttakilerin üstüne bu oranla biner
+      const op = Number(s.opacity);
+      t.opacity = Number.isFinite(op) ? Math.max(0, Math.min(1, op)) : 1;
     }
     return t;
   }
@@ -410,6 +415,86 @@
       if (!cur || e.clip.start >= cur.clip.start) best.set(e.track, e);
     }
     return Array.from(best.values());
+  }
+
+  /* Geçiş ilerlemesi zamanın SAF işlevi (#957). Önceden klip geçişi oynatma
+     klibe girince bir kez tetiklenen bir animasyondu: oynatıcı geçişin ortasına
+     park edilince o kare görünmüyor, süre/tür değişince ancak baştan oynatınca
+     yansıyordu. Artık ilerleme = (t - klip başı) / süre, yumuşatmayla; aynı t
+     her zaman aynı kareyi verir. fallbackDur: klibin kendi süresi yoksa (0)
+     sahnenin genel geçiş süresi. ease: (x) => y; verilmezse doğrusal. */
+  function transitionProgress(clip, t, fallbackDur, ease) {
+    if (!clip) return null;
+    const dur = clip.fade > 0 ? clip.fade : Math.max(0, Number(fallbackDur) || 0);
+    if (!(dur > 0) || clip.transType === 'cut') return null;
+    const raw = (t - clip.start) / dur;
+    if (raw < 0 || raw >= 1) return null;
+    const f = typeof ease === 'function' ? ease : null;
+    return { raw, p: f ? f(raw) : raw, dur, local: t - clip.start };
+  }
+
+  /* t anında geçiş penceresinde olan sahne/şablon klibi (parça başına etkin
+     olan). Klibin kendi geçişi olmasa da genel süreyle pencere açılır. */
+  function transitionAt(tl, t, fallbackDur, ease) {
+    if (!tl || !Array.isArray(tl.tracks)) return null;
+    // Geçiş öndeki (en üst parçadaki) sahnenin geçişi
+    for (const e of sceneStack(tl, t).slice(0, 1)) {
+      const c = e.clip;
+      const pr = transitionProgress(c, t, fallbackDur, ease);
+      if (pr) return Object.assign({ track: e.track, clip: c }, pr);
+    }
+    return null;
+  }
+
+  /* İşaret vuruş testi (#957): bayrağın tamamı (etiket kapsülü + 4 px pay),
+     cetvel boyunca dikey çizginin ±4 px'i. Önceden yalnız bayrağın ilk 12
+     px'i ve 14 px'lik bir bant tutuyordu; işaret seçmek çok zordu. Üst üste
+     binen işaretlerde sağdaki (sonra çizilen, üstte görünen) kazanır.
+     o: { xOf(t), widthOf(m), rulerH, pad } */
+  function markerHit(markers, x, y, o) {
+    if (!Array.isArray(markers) || !o || typeof o.xOf !== 'function') return null;
+    const rh = o.rulerH || 0;
+    if (y < 0 || y >= rh) return null;
+    const pad = o.pad == null ? 4 : o.pad;
+    for (let i = markers.length - 1; i >= 0; i--) {
+      const m = markers[i];
+      const mx = o.xOf(m.t);
+      const w = typeof o.widthOf === 'function' ? Math.max(8, o.widthOf(m) || 0) : 8;
+      const inPill = y >= rh - 19 - pad && x >= mx - pad && x <= mx + w + pad;
+      const onLine = y >= rh - 19 - pad && Math.abs(x - mx) <= 4;
+      if (inPill || onLine) return m;
+    }
+    return null;
+  }
+
+  /* Bitişik işarete atlama: dir -1 önceki, +1 sonraki (t'ye göre) */
+  function markerStep(markers, t, dir) {
+    if (!Array.isArray(markers) || !markers.length) return null;
+    const list = markers.slice().sort((a, b) => a.t - b.t);
+    if (dir > 0) return list.find((m) => m.t > t + 1e-6) || null;
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].t < t - 1e-6) return list[i];
+    return null;
+  }
+
+  /* Üst üste binen sahne klipleri (#957): katman listesindeki gibi BİLEŞİM.
+     Önceden her parçanın klibi sırayla uygulanıyor, sonuncusu (en ALTTAKİ
+     parça) sahneyi ezip kazanıyordu. Artık en üstteki parçanın sahnesi önde,
+     alttakiler arkada katman olarak çalışmaya devam ediyor. Susturulan parça
+     atlanır, solo varsa yalnız solo parçalar (activeClipsAt süzüyor).
+     sceneStack: etkin sahne/şablon klipleri, EN ÜSTTEKİ parça önce. */
+  function isSceneClip(c) { return !!c && (c.type === 'scene' || c.type === 'preset'); }
+  function sceneStack(tl, t) {
+    return activeClipsAt(tl, t).filter((e) => isSceneClip(e.clip));
+  }
+
+  /* Aynı parçada bu klipten önce biten (giden) klip: geçişin "nereden"i */
+  function clipBefore(trk, clip) {
+    let best = null;
+    for (const c of (trk && trk.clips) || []) {
+      if (c === clip || c.id === clip.id) continue;
+      if (c.start < clip.start && (!best || c.start > best.start)) best = c;
+    }
+    return best;
   }
 
   /* Otomasyonun o andaki değerleri: { 'dotted.path': değer }.
@@ -606,6 +691,13 @@
     timelineLength,
     clipsAt,
     activeClipsAt,
+    transitionProgress,
+    transitionAt,
+    clipBefore,
+    markerHit,
+    markerStep,
+    sceneStack,
+    isSceneClip,
     automationAt,
     audible,
     anySolo,

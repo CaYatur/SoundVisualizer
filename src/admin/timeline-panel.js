@@ -59,6 +59,9 @@
      | { kind: 'track', trackId } */
   let selection = null;
   let drag = null;
+  // İşaret kapsül genişlikleri (çizimde ölçülür, vuruş testi okur) ve üzerindeki işaret
+  const markerW = new Map();
+  let hoverMarkerId = '';
   let canvas = null;
   let ctx = null;
   let lastAnchorKey = '';
@@ -169,11 +172,41 @@
   // --------------------------------------------------------------------------
   // Klip uygulama — zaman çizelgesindeki sahne/şablon değişimleri
   // --------------------------------------------------------------------------
+  /* Sarma/park (#957): oynatıcı bir klibin geçiş penceresine ATLARSA (sürekli
+     oynatma değil) giden klip önce geçişsiz uygulanır, sonra bu klip yeniden
+     ateşlenir; gösterici ilerlemeyi gösteri saatinden aldığı için o anın
+     ara karesi çizilir. Klip zaten uygulanmış olsa da (pencereden çıkıp geri
+     dönülünce) aynısı yapılır. */
+  let lastClipT = null;
+  const inWinBefore = new Map(); // parça -> önceki karede geçiş penceresinde olan klip
+  function inTransWindow(clip, t) {
+    if (!clip || (clip.type !== 'scene' && clip.type !== 'preset')) return false;
+    const dur = clip.fade > 0 ? clip.fade : 0.7;
+    return clip.transType !== 'cut' && t >= clip.start && t < clip.start + dur;
+  }
+  /* Sahne bileşimi (#957): aynı anda birden çok parçada sahne klibi varsa en
+     üstteki parçanın sahnesi önde uygulanır, alttakilerin katmanları onun
+     ARKASINA (parça sırasıyla, parça opaklığıyla) eklenir. Önceden her parça
+     sırayla ateşleniyor ve son ateşlenen, yani en ALTTAKİ parça sahneyi
+     ezip kazanıyordu. Alttaki sahneler arkada çalışmaya devam ettiği için
+     üstteki klip bitince hemen görünürler. */
+  let lastSceneSig = '';
+  function underOf(stack) {
+    // stack: en üst önce; arka katmanlar en alttan üste doğru
+    return stack.slice(1).reverse().filter((e) => e.clip.type === 'scene' && e.clip.ref)
+      .map((e) => ({ id: e.clip.ref, opacity: e.track.opacity == null ? 1 : e.track.opacity, track: e.track.id }));
+  }
   function applyClipsAt(t) {
     const tl = ensureTransport().tl;
     const active = TL().activeClipsAt ? TL().activeClipsAt(tl, t) : TL().clipsAt(tl, t);
+    const isScene = TL().isSceneClip || ((c) => c.type === 'scene' || c.type === 'preset');
+    const scenes = active.filter((e) => isScene(e.clip));
+    const jumped = lastClipT == null || t < lastClipT - 1e-3 || t - lastClipT > 0.25;
+    lastClipT = t;
     const seen = new Set();
+    // Medya, palet, eylem: parça başına bağımsız
     for (const entry of active) {
+      if (isScene(entry.clip)) continue;
       const key = entry.track.id;
       seen.add(key);
       if (lastAppliedClip.get(key) === entry.clip.id) continue;
@@ -183,6 +216,29 @@
     for (const key of Array.from(lastAppliedClip.keys())) {
       if (!seen.has(key)) lastAppliedClip.delete(key);
     }
+    if (!scenes.length) { lastSceneSig = ''; inWinBefore.clear(); return; }
+    const top = scenes[0];
+    const under = underOf(scenes);
+    const sig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':' + (e.track.opacity == null ? 1 : e.track.opacity)).join('|');
+    const key = top.track.id;
+    const win = inTransWindow(top.clip, t);
+    const was = inWinBefore.get(key) === top.clip.id;
+    inWinBefore.clear();
+    if (win) inWinBefore.set(key, top.clip.id);
+    const topChanged = lastSceneSig.split('|')[0] !== sig.split('|')[0];
+    // Geçiş penceresine DIŞARIDAN atlandıysa (sarma/park) giden sahne önce kesmeyle
+    if (jumped && win && !was && TL().clipBefore) {
+      const prev = TL().clipBefore(top.track, top.clip);
+      const dp = window.SVClipDeckPanel;
+      if (prev && prev.ref && dp && dp.applyFaded) dp.applyFaded(prev.type, prev.ref, 0, prev.target, { light: true, transType: 'cut', under });
+      lastSceneSig = sig;
+      fireClip(top.clip, under);
+      return;
+    }
+    if (sig === lastSceneSig) return;
+    lastSceneSig = sig;
+    // Öndeki sahne aynı, yalnız arkadakiler değişti: geçişsiz güncelle
+    fireClip(top.clip, under, !topChanged);
   }
 
   /* Sahne uygulaması panelin KENDİ eylemini çağırır, kopyasını değil:
@@ -196,17 +252,19 @@
      yazılıp tuvalde gösteriliyordu; ateşleme onu hiç okumuyordu ve her
      klip genel geçiş ayarıyla değişiyordu. 0 = genel ayar (Geçiş kartı),
      > 0 = bu klibin süresi, destenin yuvalarıyla aynı yoldan. */
-  function fireClip(clip) {
+  function fireClip(clip, under, cut) {
     if (!clip.ref) return;
+    const extra = under && under.length ? { under } : {};
     const dp = window.SVClipDeckPanel;
     if (!dp) return;
     // Hedef medya klipleri için (#637 CD-3 ile aynı biçim); diğer türler yok sayıyor
     // light: Zaman sayfası baştan kurulmasın (çizelge bir an kayboluyordu)
     /* Klibin kendi geçişi (#957): süre, tür, yumuşatma; boş olan sahnenin
        varsayılanı. Sahnenin kaydına yazılmıyor. */
+    if (cut && dp.applyFaded) { dp.applyFaded(clip.type, clip.ref, 0, clip.target, Object.assign({ light: true, transType: 'cut' }, extra)); return; }
     const own = clip.fade > 0 || clip.transType || clip.transEase;
-    if (own && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade, clip.target, { light: true, transType: clip.transType || '', transEase: clip.transEase || '' });
-    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref, clip.target, { light: true });
+    if (own && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade, clip.target, Object.assign({ light: true, transType: clip.transType || '', transEase: clip.transEase || '' }, extra));
+    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref, clip.target, Object.assign({ light: true }, extra));
   }
 
   // --------------------------------------------------------------------------
@@ -408,9 +466,88 @@
     commit();
     linkOutput();
   }
-  // Kayıt aç/kapat
-  function toggleRecord(trk) {
+  /* Hedefi kaldır (#957): seçilen hedef geri alınamıyordu. Noktalar kalır,
+     yalnız bağlantı çözülür; kayıt da durur. */
+  function clearTarget(trk) {
     if (!trk || trk.kind !== 'automation' || !trk.target) return false;
+    recording.delete(trk.id);
+    trk.target = '';
+    if (trk.autoNamed) trk.name = tt('Otomasyon') + ' ' + (trackIndex(trk.id) + 1);
+    commit();
+    linkOutput();
+    refreshHeads(); refreshInspector(); draw();
+    return true;
+  }
+  /* Öğren (#957): R'ye hedefsiz basınca önceden HİÇBİR ŞEY olmuyordu. Artık
+     parça "öğreniyor" durumuna geçer (kırmızı, yanıp söner) ve uygulamada
+     oynatılan ilk sayısal ayar (data-path taşıyan denetim) hedef olur; ardından
+     kayıt kendiliğinden kurulur. Esc ya da ikinci basış vazgeçer. */
+  let learning = null; // { id, off }
+  function stopLearn() {
+    if (!learning) return;
+    learning.off();
+    learning = null;
+    refreshHeads(); draw();
+  }
+  function startLearn(trk) {
+    stopLearn();
+    /* Hangi ayarın oynatıldığını denetimin yolundan (data-path) ya da,
+       katman denetimleri gibi yolu olmayanlarda, hedef kataloğundaki
+       değerlerin önceki/sonraki farkından bul. */
+    const leaves = () => {
+      const out = new Map();
+      const walk = (o, pre, d) => {
+        if (d > 8 || o == null) return;
+        if (typeof o === 'number') { out.set(pre, o); return; }
+        if (typeof o !== 'object') return;
+        for (const k of Object.keys(o)) {
+          if (!pre && (k === 'timeline' || k === 'scenes' || k === 'presets')) continue;
+          walk(o[k], pre ? pre + '.' + k : k, d + 1);
+        }
+      };
+      walk(P().cfg ? P().cfg() : null, '', 0);
+      return out;
+    };
+    let before = leaves();
+    const learnFrom = (path) => {
+      const tk = trackById(learning && learning.id);
+      stopLearn();
+      if (!tk) return;
+      setTarget(tk, path);
+      recording.set(tk.id, getInCfg(path));
+      if (P().toast) P().toast(tt('Hedef öğrenildi') + ': ' + (targetMeta(tk).label || path), 'ok');
+      refreshHeads(); refreshInspector(); draw();
+    };
+    const onInput = (e) => {
+      const t = e.target;
+      if (!t || !t.closest || t.closest('.tl-panel, .tl-target-menu')) return;
+      const host = t.closest('[data-path]');
+      const direct = host && host.getAttribute('data-path');
+      if (direct && typeof getInCfg(direct) === 'number') { learnFrom(direct); return; }
+      // Yapılandırma denetimin kendi dinleyicisinde güncellenir: bir tur bekle
+      setTimeout(() => {
+        if (!learning) return;
+        const now = leaves();
+        let hit = '';
+        for (const [k, v] of now) if (before.has(k) && before.get(k) !== v) { hit = k; break; }
+        if (hit) learnFrom(hit);
+        else before = now;
+      }, 0);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') stopLearn(); };
+    document.addEventListener('input', onInput, true);
+    document.addEventListener('change', onInput, true);
+    document.addEventListener('keydown', onKey, true);
+    learning = { id: trk.id, off: () => { document.removeEventListener('input', onInput, true); document.removeEventListener('change', onInput, true); document.removeEventListener('keydown', onKey, true); } };
+    if (P().toast) P().toast(tt('Öğren: uygulamada bir ayarı oynatın (Esc vazgeçer)'), 'info');
+    refreshHeads(); draw();
+  }
+  function isLearning(trk) { return !!(learning && trk && learning.id === trk.id); }
+  // Kayıt aç/kapat; hedef yoksa öğrenmeye geçer
+  function toggleRecord(trk) {
+    if (!trk || trk.kind !== 'automation') return false;
+    if (isLearning(trk)) { stopLearn(); return true; }
+    if (!trk.target) { startLearn(trk); return true; }
     if (recording.has(trk.id)) {
       recording.delete(trk.id);
       if (recordDirty) { recordDirty = false; commit(); }
@@ -431,6 +568,11 @@
       recording.set(id, v);
       TE().recordKey(trk, t, v, 0.08);
       recordDirty = true;
+      /* Kaydı yapılandırmaya da yaz (#957): panel yeniden çizilince model
+         yapılandırmadan kurulur; yazılmamış noktalar o anda kayboluyordu
+         (R "hiçbir şey yapmıyor" gibi görünüyordu). Kalıcı kayıt durunca. */
+      const ct = (tlCfg().tracks || []).find((x) => x && x.id === id);
+      if (ct) ct.keys = trk.keys.map((k) => Object.assign({}, k));
     }
     if (recordDirty) draw();
   }
@@ -574,11 +716,27 @@
       ctx.stroke();
       const label = m.name || '';
       const lw = label ? ctx.measureText(label).width + 12 : 8;
+      markerW.set(m.id, lw);
       const msel = selection && selection.kind === 'marker' && selection.markerId === m.id;
-      ctx.fillStyle = msel ? css('--accent') || tint('--fg-rgb', 0.4) : tint('--fg-rgb', 0.12);
+      const mhov = !msel && hoverMarkerId === m.id;
+      if (msel || mhov) {
+        // Seçili/üstündeki işaretin çizgisi şeritlerde de belirgin
+        ctx.strokeStyle = msel ? css('--accent') || strong : tint('--fg-rgb', 0.35);
+        ctx.lineWidth = msel ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x) + 0.5, RULER_H);
+        ctx.lineTo(Math.round(x) + 0.5, h);
+        ctx.stroke();
+      }
+      ctx.fillStyle = msel ? css('--accent') || tint('--fg-rgb', 0.4) : tint('--fg-rgb', mhov ? 0.26 : 0.12);
       ctx.beginPath();
       ctx.roundRect(x, RULER_H - 17, lw, 15, 5);
       ctx.fill();
+      if (msel) {
+        ctx.strokeStyle = strong;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
       if (label) {
         ctx.fillStyle = msel ? css('--on-accent') || strong : fg;
         ctx.fillText(label, x + 6, RULER_H - 5.5);
@@ -939,12 +1097,11 @@
   function hit(x, y) {
     const tl = ensureTransport().tl;
     if (y < RULER_H) {
-      // İşaret bayrakları cetvelin alt bandında: tutulup sürükleniyor
+      // İşaretler cetvel kaydırma ve döngü sürüklemesinden ÖNCE (#957): kapsülün
+      // tamamı + pay ve cetvel boyunca çizginin ±4 px'i
+      const mk = TL().markerHit(tl.markers, x, y, { xOf, widthOf: (m) => markerW.get(m.id) || 8, rulerH: RULER_H });
+      if (mk) return { kind: 'marker', marker: mk };
       if (y >= RULER_H - 14) {
-        for (let mi = tl.markers.length - 1; mi >= 0; mi--) {
-          const mx = xOf(tl.markers[mi].t);
-          if (x >= mx - 3 && x <= mx + 9) return { kind: 'marker', marker: tl.markers[mi] };
-        }
         // Tempo etiketleri de bu bantta; işaret bayrağı önce
         for (let ti = tl.tempo.length - 1; ti >= 1; ti--) {
           const tx = xOf(tl.tempo[ti].t);
@@ -1134,8 +1291,11 @@
       list.replaceChildren(...(hits.length ? hits.map((it) => el('button', {
         type: 'button', class: it.path === trk.target ? 'on' : '', title: it.path + ' [' + fmtNum(it.min) + '…' + fmtNum(it.max) + ']',
         text: it.group + ' · ' + it.label,
-        onclick: () => { m.remove(); setTarget(trk, it.path); refreshHeads(); refreshInspector(); draw(); },
+        // Seçili hedefe yeniden tıklamak onu kaldırır (#957)
+        onclick: () => { m.remove(); if (it.path === trk.target) clearTarget(trk); else { setTarget(trk, it.path); refreshHeads(); refreshInspector(); draw(); } },
       })) : [el('div', { class: 'tl-target-empty', text: tt('Eşleşen ayar yok') })]));
+      if (trk.target) list.insertBefore(el('button', { type: 'button', class: 'tl-target-clear', icon: 'x', text: tt('Hedefi Kaldır'),
+        onclick: () => { m.remove(); clearTarget(trk); } }), list.firstChild);
     };
     q.addEventListener('input', fill);
     m.append(q, list);
@@ -1211,7 +1371,8 @@
         commit(); linkOutput(); draw();
       }, trk.locked);
       add('Hedef seç…', '', () => openTargetPicker(trk, cx, cy));
-      add(recording.has(trk.id) ? 'Kaydı durdur' : 'Kaydet (öğren)', 'R', () => { toggleRecord(trk); rr(); }, !trk.target);
+      add('Hedefi Kaldır', '', () => clearTarget(trk), !trk.target);
+      add(recording.has(trk.id) ? 'Kaydı durdur' : isLearning(trk) ? 'Öğrenmeyi bırak' : trk.target ? 'Kaydet' : 'Öğren', 'R', () => { toggleRecord(trk); rr(); });
       add('Noktaları temizle', '', () => { trk.keys = []; commit(); draw(); }, trk.locked || !trk.keys.length);
     } else if (h.kind === 'track' && trk) {
       add('Buraya klip ekle', 'Çift tık', () => { addClipAt(trk, snap(at, false)); P().rerender(); }, trk.locked);
@@ -1230,6 +1391,14 @@
     add(trk.muted ? 'Sesi aç (M kapalı)' : 'Sustur', '', () => { trk.muted = !trk.muted; commit(); linkOutput(); refreshHeads(); draw(); });
     if (trk.kind === 'clip') add(trk.solo ? 'Soloyu kaldır' : 'Solo', '', () => { trk.solo = !trk.solo; commit(); refreshHeads(); draw(); });
     add(trk.locked ? 'Kilidi aç' : 'Kilitle', '', () => { trk.locked = !trk.locked; commit(); refreshHeads(); draw(); });
+    // Parça opaklığı (#957): bu parçanın sahnesi alttakilerin üstünde bu oranla
+    if (trk.kind === 'clip') {
+      const opNow = Math.round((trk.opacity == null ? 1 : trk.opacity) * 100);
+      add('Parça opaklığı…', '%' + opNow, () => {
+        subMenu([['1', '%100'], ['0.75', '%75'], ['0.5', '%50'], ['0.25', '%25']], String(trk.opacity == null ? 1 : trk.opacity),
+          (v) => { trk.opacity = Number(v); commit(); applyClipsAt(ensureTransport().time); refreshHeads(); draw(); }, lastMenuXY[0], lastMenuXY[1]);
+      });
+    }
     add('Parçayı yukarı', '', () => { const [t] = tl.tracks.splice(i, 1); tl.tracks.splice(i - 1, 0, t); commit(); P().rerender(); }, i <= 0);
     add('Parçayı aşağı', '', () => { const [t] = tl.tracks.splice(i, 1); tl.tracks.splice(i + 1, 0, t); commit(); P().rerender(); }, i >= tl.tracks.length - 1);
     add('Parçayı sil…', '', async () => {
@@ -1239,7 +1408,9 @@
       selection = null; commit(); P().rerender();
     });
   }
+  let lastMenuXY = [0, 0];
   function openMenu(items, cx, cy) {
+    lastMenuXY = [cx, cy];
     const el = P().el;
     const m = el('div', { class: 'sv-menu tl-ctx', role: 'menu' });
     items.forEach((it) => {
@@ -1660,6 +1831,16 @@
       if (e.button === 0 && cv.setPointerCapture) { try { cv.setPointerCapture(e.pointerId); } catch { /* yok say */ } }
     });
 
+    // İşaretin üstüne gelince vurgu ve el imleci (#957)
+    cv.addEventListener('mousemove', (e) => {
+      if (drag) return;
+      const r = cv.getBoundingClientRect();
+      const h = hit(e.clientX - r.left, e.clientY - r.top);
+      const id = h.kind === 'marker' ? h.marker.id : '';
+      cv.style.cursor = id ? 'grab' : '';
+      if (id !== hoverMarkerId) { hoverMarkerId = id; draw(); }
+    });
+    cv.addEventListener('mouseleave', () => { if (hoverMarkerId) { hoverMarkerId = ''; cv.style.cursor = ''; draw(); } });
     cv.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const r = cv.getBoundingClientRect();
@@ -2070,6 +2251,21 @@
     return tag === 'input' || tag === 'textarea' || tag === 'select' || !!(tg && tg.isContentEditable);
   }
 
+  /* Bitişik işarete atla ve seç (#957): Alt+←/→, işaret seçiliyken Tab */
+  function jumpMarker(dir) {
+    const tr = ensureTransport();
+    const cur = selection && selection.kind === 'marker' ? selMarker() : null;
+    const m = TL().markerStep(tr.tl.markers, cur ? cur.t : tr.time, dir);
+    if (!m) return false;
+    selection = { kind: 'marker', markerId: m.id };
+    multi = [];
+    seek(m.t);
+    applyClipsAt(ensureTransport().time);
+    refreshInspector();
+    draw();
+    return true;
+  }
+
   function onEditorKey(e) {
     const tg = e.target;
     if (isTyping(tg)) return;
@@ -2092,6 +2288,9 @@
     else if (mod && low === 'v') { if (pasteAtPlayhead()) refreshAll(); }
     else if ((!mod && low === 's') || (mod && low === 'k')) { if (splitAtPlayhead()) refreshAll(); }
     else if (k === 'Delete' || k === 'Backspace') { if (deleteSelection()) refreshAll(); }
+    else if ((k === 'ArrowLeft' || k === 'ArrowRight') && e.altKey && !e.shiftKey && !mod && (!selection || selection.kind === 'marker')) jumpMarker(k === 'ArrowLeft' ? -1 : 1);
+    // İşaret seçiliyken Tab / Shift+Tab sıradaki işarete geçer
+    else if (k === 'Tab' && !mod && selection && selection.kind === 'marker') { if (!jumpMarker(e.shiftKey ? -1 : 1)) done = false; }
     else if (k === 'ArrowLeft' || k === 'ArrowRight') {
       const dir = k === 'ArrowLeft' ? -1 : 1;
       if (e.shiftKey && !e.altKey) nudgeBar(dir);
@@ -2226,6 +2425,7 @@
     _setTarget: (id, path) => { const t = trackById(id); if (t) setTarget(t, path); },
     _record: (id) => toggleRecord(trackById(id)),
     _recording: () => Array.from(recording.keys()),
+    _learning: () => (learning ? learning.id : ''),
     _recordTick: (t) => recordTick(t),
     _catalog: () => { catCache = null; return targetCatalog(); },
     shortcuts: () => SHORTCUTS.slice(),
@@ -2586,7 +2786,9 @@
         });
         return b;
       };
-      const head = el('div', { class: 'tl-head' + (picked ? ' sel' : '') + (trk.kind === 'automation' ? ' auto' : '') }, [
+      const head = el('div', { class: 'tl-head' + (picked ? ' sel' : '') + (trk.kind === 'automation' ? ' auto' : ''),
+        // Üst üste binen sahneler (#957): üstteki parça önde, alttakiler arkada çalışır
+        title: trk.kind === 'clip' ? tt('Üstteki parça önde görünür; alttaki parçaların sahneleri arkasında çalışmaya devam eder. Susturulan parça atlanır, solo varsa yalnız solo parçalar.') : '' }, [
         color,
         name,
         tog('M', 'Sustur', 'muted', 'm'),
@@ -2594,7 +2796,8 @@
         tog(['lock'], 'Kilitle: taşınamaz, silinemez', 'locked', 'l'),
         trk.kind === 'automation' ? el('button', { class: 'tl-tog pick', type: 'button', icon: 'search', title: tt('Hedef seç') + ' — ' + tt(PRECEDENCE),
           onclick: (e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openTargetPicker(trk, r.left, r.bottom + 4); } }) : null,
-        trk.kind === 'automation' ? el('button', { class: 'tl-tog rec' + (recording.has(trk.id) ? ' on' : ''), type: 'button', text: 'R', title: tt('Kaydet (öğren): oynarken ayarın elle değişimini noktalara yazar'),
+        trk.kind === 'automation' ? el('button', { class: 'tl-tog rec' + (recording.has(trk.id) ? ' on' : '') + (isLearning(trk) ? ' learn' : ''), type: 'button', text: 'R', 'aria-pressed': recording.has(trk.id) || isLearning(trk) ? 'true' : 'false',
+          title: trk.target ? tt('Kaydet: oynarken ayarın elle değişimini noktalara yazar') : tt('Öğren: basın, sonra uygulamada bir ayarı oynatın; o ayar hedef olur'),
           onclick: (e) => { e.stopPropagation(); toggleRecord(trk); refreshHeads(); draw(); } }) : null,
       ].filter(Boolean));
       head.addEventListener('contextmenu', (e) => {
@@ -2602,15 +2805,16 @@
         selection = { kind: 'track', trackId: trk.id };
         const items = [];
         trackMenuItems(trk, (text, key, fn, off) => items.push([text, key, fn, off]));
-        if (trk.kind === 'automation') items.unshift(['Hedef seç…', '', () => openTargetPicker(trk, e.clientX, e.clientY)]);
+        if (trk.kind === 'automation') items.unshift(['Hedef seç…', '', () => openTargetPicker(trk, e.clientX, e.clientY)], ['Hedefi Kaldır', '', () => clearTarget(trk), !trk.target]);
         else items.unshift(['Kafada klip ekle', '', () => { addClipAt(trk, snap(ensureTransport().time, false)); P().rerender(); }, trk.locked]);
         openMenu(items, e.clientX, e.clientY);
       });
       head.style.height = TRACK_H + 'px';
       // Başlığın boş yerine tıklamak parçayı seçiyor (denetçide parça ayarları)
       head.addEventListener('mousedown', (e) => {
-        const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-        if (tag === 'input' || tag === 'button') return;
+        // Düğmenin içindeki simgeye (svg) basınca da düğme sayılır: yoksa başlık
+        // yeniden kurulup düğme tıklamadan önce siliniyordu (#957, hedef seçici açılmıyordu)
+        if (e.target && e.target.closest && e.target.closest('input, button, select')) return;
         selection = { kind: 'track', trackId: trk.id };
         refreshHeads();
         refreshInspector();
@@ -2875,7 +3079,10 @@
         text: trk.target ? (meta.missing ? '! ' + trk.target : meta.group + ' · ' + meta.label) : tt('Hedef seç…'),
         title: tt('Otomasyonun süreceği ayarı ara ve seç') });
       pick.addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); openTargetPicker(trk, r.left, r.bottom + 4); });
-      grid.appendChild(p.row('Hedef Ayar', pick));
+      // Hedef çipinde × ile kaldırma (#957)
+      const clr = trk.target ? el('button', { class: 'icon-btn small tl-target-x', type: 'button', icon: 'x', title: tt('Hedefi Kaldır'), 'aria-label': tt('Hedefi Kaldır'),
+        onclick: () => clearTarget(trk) }) : null;
+      grid.appendChild(p.row('Hedef Ayar', clr ? el('div', { class: 'tl-inline' }, [pick, clr]) : pick));
       const target = el('input', { class: 'txt', type: 'text', value: trk.target, placeholder: 'ör. postfx.0.params.strength' });
       target.addEventListener('change', () => { setTarget(trk, target.value.trim()); refreshInspector(); draw(); });
       grid.appendChild(p.row('Yol (gelişmiş)', target));

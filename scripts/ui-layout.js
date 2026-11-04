@@ -36,7 +36,7 @@ const PROBE = `JSON.stringify((() => {
   const BOX = '.group, .sv-card, .card, .dock-block, .sv-module, .sv-pcard, .sv-menu, .nav-rail, .sv-secnav, .layer-pane';
   const IGNORE = '.sv-hud, .topbar, .sv-gal, .md-grid, .md-list, .sv-scenes, .preview-stage, .tl-heads, .tl-toolbar, .sv-pages, .code-editor, .md-imports-body, .sv-moment';
   const name = (e) => (e.textContent || e.value || e.placeholder || e.getAttribute('aria-label') || e.tagName).replace(/\\s+/g, ' ').trim().slice(0, 34);
-  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set() };
+  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set(), 'ikon-yazı': new Set(), 'iç kenar': new Set() };
   for (const e of document.querySelectorAll('button, select, input:not([type=checkbox]):not([type=range]):not([type=color]), textarea, label.lbl, .studio-note, .settings-io-note, .studio-status, small, h3, a')) {
     if (!vis(e) || e.closest(IGNORE)) continue;
     let box = e.parentElement && e.parentElement.closest(BOX);
@@ -131,6 +131,37 @@ const PROBE = `JSON.stringify((() => {
     if (kids.length < 3 || !kids[kids.length - 1].matches('.icon-btn')) continue;
     if (kids[kids.length - 2].getBoundingClientRect().bottom <= kids[kids.length - 1].getBoundingClientRect().top) out['yalnız'].add(name(kids[kids.length - 1]));
   }
+  // İkon yazının üstüne biniyor mu (#957): etiket içindeki düğme/ikon ile etiket metni
+  for (const lbl of document.querySelectorAll('.ctrl label.lbl')) {
+    const t = lbl.querySelector(':scope > .lbl-t');
+    if (!t || !vis(lbl)) continue;
+    const g = document.createRange(); g.selectNodeContents(t);
+    const tr = g.getBoundingClientRect(); const tb = t.getBoundingClientRect();
+    const right = Math.min(tr.right, tb.right);
+    for (const ic of lbl.querySelectorAll(':scope > button, :scope > .svi')) {
+      if (!vis(ic)) continue;
+      const r = ic.getBoundingClientRect();
+      if (r.left < right - 0.5 && r.right > tr.left && Math.min(r.bottom, tr.bottom) - Math.max(r.top, tr.top) > 2) out['ikon-yazı'].add(name(lbl));
+    }
+  }
+  // Aynı bölmedeki bloklar aynı iç kenarda mı (#957): kitaplık gibi kenara yapışan bölüm
+  for (const pane of document.querySelectorAll('.sv-insp .layer-pane.open')) {
+    if (!vis(pane)) continue;
+    const pl = pane.getBoundingClientRect().left;
+    const lefts = [];
+    for (const k of pane.children) {
+      if (!vis(k)) continue;
+      const s = getComputedStyle(k);
+      const first = [...k.querySelectorAll('*')].find((x) => vis(x) && x.children.length === 0 && (x.textContent || '').trim()) || k;
+      const g = document.createRange(); g.selectNodeContents(first);
+      const L = (first === k ? k.getBoundingClientRect().left + parseFloat(s.paddingLeft) : first.getBoundingClientRect().left) - pl;
+      lefts.push([Math.round(L), k]);
+    }
+    if (lefts.length < 3) continue;
+    const cnt = {}; lefts.forEach(([L]) => { cnt[L] = (cnt[L] || 0) + 1; });
+    const mode = +Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x])[0];
+    for (const [L, k] of lefts) if (L < mode - 3) out['iç kenar'].add(name(k) + ' ' + L + '<' + mode);
+  }
   const res = {};
   for (const k of Object.keys(out)) if (out[k].size) res[k] = [...out[k]].slice(0, 8);
   if (document.documentElement.scrollWidth > innerWidth + 1) res.yatay = ['sayfa yana kayıyor'];
@@ -179,6 +210,40 @@ const PROBE = `JSON.stringify((() => {
       await check(p + ' / ' + sec);
     }
   }
+  // Üst çubuk çakışması (#957): 1024-1920 genişlik x çıkış açık/kapalı x Basit açık/kapalı
+  const HEAD = `JSON.stringify((() => {
+    const bar = document.querySelector('.topbar');
+    if (window.SVTopbarFit) window.SVTopbarFit.fit(bar);
+    const vis = (e) => { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden') return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const items = [...bar.querySelectorAll('.sv-top-left > *, .sv-pages > button, .sv-tools > *:not(.display-controls), .display-controls > *:not(.display-field):not(.status), .display-field > :not(.display-menu)')].filter(vis);
+    const nm = (e) => e.id || e.className || e.tagName;
+    const hit = [];
+    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+      if (items[i].contains(items[j]) || items[j].contains(items[i])) continue;
+      const A = items[i].getBoundingClientRect(), B = items[j].getBoundingClientRect();
+      if (Math.min(A.right, B.right) - Math.max(A.left, B.left) > 0.5 && Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top) > 0.5) hit.push(nm(items[i]) + ' x ' + nm(items[j]));
+    }
+    const br = bar.getBoundingClientRect();
+    for (const e of items) { const r = e.getBoundingClientRect(); if (r.left < br.left - 0.5 || r.right > br.right + 0.5) hit.push(nm(e) + ' dışarı taşıyor'); }
+    return { hit: hit.slice(0, 6), fit: bar.getAttribute('data-fit') };
+  })())`;
+  await q("window.SVPanel.setCategory('scene'); 1");
+  const openTxt = JSON.parse(await q("JSON.stringify(document.getElementById('openBtn').textContent)"));
+  for (const simple of [false, true]) {
+    await q(`(() => { const on = document.body.classList.contains('sv-simple-on'); const t = document.querySelector('.sv-simple input'); if (on !== ${simple} && t) t.click(); return 1; })()`);
+    for (const out of [false, true]) {
+      await q(`(() => { const c = document.getElementById('closeBtn'), o = document.getElementById('openBtn'); c.disabled = ${!out}; o.lastChild.textContent = ${out} ? 'Ekranları Uygula' : ${JSON.stringify(openTxt)}; return 1; })()`);
+      for (let w = 1024; w <= 1920; w += 64) {
+        await a.call('Emulation.setDeviceMetricsOverride', { width: w, height: H, deviceScaleFactor: 1, mobile: false });
+        await sleep(120);
+        const r = JSON.parse(await q(HEAD));
+        n++;
+        if (r.hit.length) { bad++; console.log('üst çubuk', w, out ? 'çıkış açık' : 'çıkış kapalı', simple ? 'basit' : 'tam', 'düzey ' + r.fit, JSON.stringify(r.hit)); }
+      }
+    }
+  }
+  await q(`(() => { const c = document.getElementById('closeBtn'), o = document.getElementById('openBtn'); c.disabled = true; o.lastChild.textContent = ${JSON.stringify(openTxt)}; return 1; })()`);
+  await a.call('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
   console.log(`${n} durum, ${bad} sorunlu, panel hatası ${s.errors.length}`);
   if (s.errors.length) console.log(s.errors.slice(0, 3).join('\n').slice(0, 600));
   await s.stop();

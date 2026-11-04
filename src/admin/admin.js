@@ -321,14 +321,21 @@
   }
   function labelTextOf(lbl) {
     let t = lbl.querySelector(':scope > .lbl-t');
-    if (t) return t;
+    // Dar sütunda etiket üç noktayla kısalır (#957); tam adı ipucunda kalsın
+    if (t) { tipLabel(t); return t; }
     const kids = Array.from(lbl.childNodes).filter((n) => !(n.nodeType === 1 && /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(n.tagName)));
     if (!kids.some((n) => (n.textContent || '').trim())) return null;
     t = document.createElement('span');
     t.className = 'lbl-t';
     lbl.insertBefore(t, kids[0]);
     kids.forEach((n) => t.appendChild(n));
+    tipLabel(t);
     return t;
+  }
+  function tipLabel(t) {
+    const lbl = t.parentElement;
+    const txt = (t.textContent || '').trim();
+    if (txt && lbl && !lbl.getAttribute('title') && !t.getAttribute('title')) t.setAttribute('title', txt);
   }
   function linkLabels(root) {
     root.querySelectorAll('.ctrl').forEach((c) => {
@@ -1208,6 +1215,18 @@
   /* Kartlar temanın kendi renkleriyle küçük bir panel çizer: zemin, kart,
      yazı, vurgu. Renkler src/shared/ui-themes.js tablosundan; bu dosyada
      renk yazılmaz. Seçim hemen uygulanır ve ayar dosyasına gider. */
+  /* Arayüz temasının TEK yazma yolu (#957): başlıktaki tema menüsü yalnız
+     SVUiTheme.set() çağırıyordu; cfg.ui.theme eski kalınca bir sonraki
+     çizimde syncUiTheme() (ör. Ayarlar açılınca) eski temayı geri yüklüyordu.
+     Artık ikisi de buradan: ayara yazar, uygular, kaydeder. */
+  function commitUiTheme(id, render) {
+    if (!window.SVUiTheme) return;
+    const nid = window.SVUiThemes ? window.SVUiThemes.normalizeId(id) : id;
+    if (!cfg.ui || typeof cfg.ui !== 'object') cfg.ui = {};
+    cfg.ui.theme = nid;
+    window.SVUiTheme.set(nid);
+    if (render !== false) { push(true); scheduleRender(); }
+  }
   function uiThemeCtrl() {
     const UT = window.SVUiThemes;
     if (!UT || !window.SVUiTheme) return null;
@@ -1215,9 +1234,7 @@
     const prefersDark = () => !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
     const opts = [];
     const pick = (id) => {
-      if (!cfg.ui || typeof cfg.ui !== 'object') cfg.ui = {};
-      cfg.ui.theme = id;
-      window.SVUiTheme.set(id);
+      commitUiTheme(id, false);
       opts.forEach((o) => {
         const on = o.dataset.theme === id;
         o.classList.toggle('active', on);
@@ -1250,10 +1267,10 @@
       const isSystem = c.id === UT.SYSTEM_ID;
       let swatch;
       if (isSystem) {
-        // Yarısı Karanlık, yarısı Aydınlık
-        swatch = el('span', { class: 'ui-theme-split', 'aria-hidden': 'true' }, [
-          preview(UT.byId('dark')), preview(UT.byId('light')),
-        ]);
+        // Cihazın şu an çözdüğü tema (#957): koyu → Karanlık, açık → Aydınlık, karşıtlık → Yüksek Karşıtlık
+        const mc = !!(window.SVUiTheme.moreContrast && window.SVUiTheme.moreContrast());
+        swatch = preview(UT.resolve(UT.SYSTEM_ID, prefersDark(), mc));
+        swatch.setAttribute('data-resolved', UT.resolve(UT.SYSTEM_ID, prefersDark(), mc).id);
       } else {
         swatch = preview(UT.byId(c.id));
       }
@@ -5825,6 +5842,8 @@
     SCENE_KEYS.forEach((k) => {
       if (cfg[k] !== undefined) data[k] = window.SV.clone(cfg[k]);
     });
+    // Çizelgenin arkaya eklediği alt parça katmanları sahneye kaydedilmez (#957)
+    if (Array.isArray(data.layers)) data.layers = data.layers.filter((l) => !(l && l.tlUnder));
     return data;
   }
 
@@ -5874,6 +5893,25 @@
   function sceneThumbShot(id) {
     try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch { return ''; }
   }
+  /* Bir sahnenin katman listesi, uygulamadan (bileşim için, #957) */
+  const underCache = new Map();
+  function sceneLayersOf(id) {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc || !sc.data) return null;
+    const hit = underCache.get(id);
+    if (hit && hit.data === sc.data) return hit.layers;
+    const def = window.SV.DEFAULT_CONFIG;
+    const tmp = {};
+    SCENE_KEYS.forEach((k) => {
+      const v = sc.data[k] !== undefined ? sc.data[k] : def[k];
+      if (v !== undefined) tmp[k] = window.SV.clone(v);
+    });
+    if (window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(tmp);
+    const layers = (Array.isArray(tmp.layers) ? tmp.layers : []).filter((l) => l && !l.tlUnder);
+    underCache.set(id, { data: sc.data, layers });
+    return layers;
+  }
+
   actions.applyScene = (id, opts) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
@@ -5913,6 +5951,27 @@
     }
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
+    }
+    /* Çizelge bileşimi (#957): alt parçalardaki sahnelerin katmanları bu
+       sahnenin ARKASINA eklenir (en alttaki önce). Katman kimlikleri parçaya
+       göre ayrışır; opaklık parça opaklığıyla çarpılır. Kilitli ve işaretli
+       (tlUnder): sahne kaydına girmez, düzenlenmez. */
+    if (opts && Array.isArray(opts.under) && opts.under.length && Array.isArray(cfg.layers)) {
+      const back = [];
+      for (const u of opts.under) {
+        const ls = sceneLayersOf(u.id);
+        const op = u.opacity == null ? 1 : Math.max(0, Math.min(1, Number(u.opacity) || 0));
+        if (!ls || op <= 0) continue;
+        for (const l of ls) {
+          const c = window.SV.clone(l);
+          c.id = String(c.id || 'ly') + '@' + (u.track || u.id);
+          c.opacity = (c.opacity == null ? 1 : c.opacity) * op;
+          c.locked = true;
+          c.tlUnder = true;
+          back.push(c);
+        }
+      }
+      cfg.layers = back.concat(cfg.layers.filter((l) => !(l && l.tlUnder)));
     }
     /* Şeffaf arkaplan çıkış ayarıdır; sahne görünümünü değiştirmek onu
        kapatıp pencereyi yeniden kurdurmamalı. */
@@ -6692,7 +6751,7 @@
             const name = c.name || (UT.byId(c.id) || {}).name || c.id;
             return el('button', {
               class: c.id === now ? 'on' : '', type: 'button', 'data-theme': c.id, text: tr(name),
-              onclick: () => { T.set(c.id); menu.remove(); },
+              onclick: () => { commitUiTheme(c.id); menu.remove(); },
             });
           })));
         window.SVSceneShell.placeMenu(menu, r.right - 216, r.bottom + 6);

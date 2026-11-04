@@ -560,8 +560,9 @@
          çizilen eğriyi görünmez kılardı.
          Yazma kopyala-yaz: kullanıcının kayıtlı ayarına dokunulmaz. */
       let base = cfg;
+      let showT = -1;
       if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
-        const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+        showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;
         window.SVShowDebug.time = showT;
@@ -592,6 +593,7 @@
       // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
+      if (showT >= 0 && stack.syncTimeline) stack.syncTimeline(cfg.timeline, showT);
       stack.draw(audio, mcfg, t, dt);
       drawCount++;
       applyMapping(mcfg);

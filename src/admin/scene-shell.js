@@ -280,8 +280,10 @@
     menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
     setTimeout(() => {
       const close = () => { menu.remove(); document.removeEventListener('pointerdown', off, true); document.removeEventListener('keydown', esc, true); };
-      const off = (e) => { if (!menu.contains(e.target)) close(); };
-      const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      // Menü bir öğeyle kapandıysa dinleyiciler de gider; yoksa bir sonraki
+      // Esc (ör. satır içi ad kutusunun) burada yutuluyordu (#957).
+      const off = (e) => { if (!menu.isConnected || !menu.contains(e.target)) close(); };
+      const esc = (e) => { if (!menu.isConnected) { close(); return; } if (e.key === 'Escape') { e.stopPropagation(); close(); } };
       document.addEventListener('pointerdown', off, true);
       document.addEventListener('keydown', esc, true);
     }, 0);
@@ -307,12 +309,20 @@
     const b = row && row.querySelector('.sv-nm b');
     if (!b) return null;
     const inp = P().el('input', { class: 'txt sv-rename', type: 'text', value: titleOf(l), 'aria-label': tr('Katman adı') });
+    const initial = inp.value; // değişmeyen ad kaydedilmez (çevrilmiş ad kalıcı ada yazılmasın)
     let done = false;
     const finish = (save) => {
       if (done) return;
       done = true;
-      if (save && act.rename(id, inp.value)) return; // apply() listeyi yeniden çiziyor
-      if (inp.isConnected) inp.replaceWith(b);
+      if (row) row.classList.remove('sv-renaming');
+      // Ad değişmese de düzenleyici HER durumda kapanır (#957): önceden
+      // değişmeyen adda yeniden çizim olmuyor ve kutu açık kalıyordu.
+      const ok = !!(save && inp.value !== initial && act.rename(id, inp.value));
+      if (inp.isConnected) {
+        if (ok) { const cur = byId(id); if (cur) b.textContent = titleOf(cur); }
+        inp.replaceWith(b);
+      }
+      if (row && row.isConnected) row.draggable = !(byId(id) || {}).locked;
     };
     inp.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -322,7 +332,8 @@
     ['click', 'pointerdown', 'mousedown'].forEach((t) => inp.addEventListener(t, (e) => e.stopPropagation()));
     inp.addEventListener('blur', () => finish(true));
     b.replaceWith(inp);
-    if (row) row.draggable = false;
+    // Düzenlerken S / M / kilit / göz ve opaklık çubuğu gizlenir, kutu satırı doldurur (#957)
+    if (row) { row.draggable = false; row.classList.add('sv-renaming'); }
     inp.focus();
     inp.select();
     return inp;

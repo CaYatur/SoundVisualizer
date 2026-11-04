@@ -118,6 +118,8 @@ input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.14); }
 .group-label { display: flex; align-items: center; gap: 6px; width: 100%; }
 .sv-form .group-label { padding: 6px var(--sv-inset) 4px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong); }
 .sv-insp .group-label { padding-left: var(--sv-inset); }
+/* Katman bölmesinde başlık, denetimlerin iç kenarına hizalı (#957) */
+.sv-insp .layer-pane > .group-label { padding-left: calc(var(--sv-inset) * 2); }
 .sv-form .group > :where(:not(.ctrl):not(.group-label)) .group-label, .sv-insp .group > :where(:not(.ctrl):not(.group-label)) .group-label { padding-inline: 0; }
 button.group-label {
   height: 36px; margin: 0; padding: 0 8px 0 var(--sv-inset); border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left;
@@ -766,3 +768,23 @@ body[data-page='live'] #svStageTools { display: none; }
 .sv-insp .dynamic-theme-panel .subctrls { margin-left: var(--sv-inset); margin-right: var(--sv-inset); padding-left: 10px; }
 .sv-insp .dynamic-theme-panel .subctrls .ctrl { padding: 0; }
 .sv-insp .dynamic-theme-panel .dim-hint { margin: 4px 0 0; padding: 0; }
+
+/* Ayar satırı ızgarası (#957): [nokta][etiket][sıfırla] sabit yuvalarda. Sıfırlama
+   düğmesi eskiden etiketin sağına mutlak konumla biniyordu ve uzun etiketin son
+   harflerini örtüyordu ("Yatay Konum (X)"). Artık akışta, yeri hep ayrılmış;
+   etiket sığmazsa üç noktayla kısalır, tam adı ipucunda. */
+.ctrl label.lbl { min-width: 0; flex: 0 1 auto; }
+.ctrl > .row > label.lbl { flex: 1 1 auto; }
+.ctrl > .row > .val { flex: none; }
+.ctrl label.lbl > .lbl-t { display: block; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctrl label.lbl > .lbl-t:has(> :not(.svi)) { display: inline-flex; }
+.ctrl > .row > label.lbl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex: none; background: transparent; }
+.ctrl-reset.ctrl-reset { position: static; margin: 0 0 0 2px; display: inline-flex; visibility: hidden; flex: none; }
+.ctrl.modified .ctrl-reset.ctrl-reset { visibility: visible; }
+/* Katman bölmesindeki kitaplık da ortak iç kenarda (#957) */
+.sv-insp .layer-pane > .logo-lib, .sv-insp .layer-body > .logo-lib, .sv-insp .card > .logo-lib, .sv-insp .group > .logo-lib { margin-inline: var(--sv-inset); }
+.sv-insp .logo-lib .studio-note { margin-inline: 0; }
+/* Satırsız başlık da değişiklik noktası sütununa hizalı (#957): 5px nokta + 6px boşluk */
+.sv-insp .layer-pane > .ctrl > label.lbl { margin-left: 11px; }
+/* Stüdyo yan sütununda başlıkla aynı kenar: nokta sütunu yok, sıfırlama ikonu değişikliği gösteriyor */
+.studio-side-col .ctrl > .row > label.lbl::before { display: none; }

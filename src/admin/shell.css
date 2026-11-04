@@ -66,9 +66,9 @@ body { isolation: isolate; }
 .sv-vr { width: 1px; height: 22px; background: rgb(var(--fg-rgb) / .1); margin: 0 3px; flex: none; }
 .topsearch {
   --ts-w: 148px; position: relative; width: var(--ts-w); height: 36px; flex: none; padding: 0 8px 0 11px; gap: 8px; border: 0; border-radius: 11px;
-  background: rgb(var(--fg-rgb) / .055); box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .05); transition: width .14s;
+  background: rgb(var(--fg-rgb) / .055); box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .05);
 }
-.topsearch:focus-within { z-index: 30; width: 260px; margin-left: calc(var(--ts-w) - 260px); border: 0; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2); }
+.topsearch:focus-within { transition: width .14s; z-index: 30; width: 260px; margin-left: calc(var(--ts-w) - 260px); border: 0; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2); }
 .topsearch .ts-kbd { font: 500 10.5px/1 'Geist Mono', monospace; padding: 3px 5px; border-radius: 5px; background: rgb(var(--fg-rgb) / .08); color: var(--muted); white-space: nowrap; border: 0; }
 .sv-simple { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 10px; border-radius: 11px; color: var(--muted); font-weight: 550; white-space: nowrap; cursor: pointer; }
 .sv-simple:hover { background: rgb(var(--fg-rgb) / .06); color: var(--text); }
@@ -458,41 +458,41 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 body.sv-simple-on .sv-pages .sv-adv, body.sv-simple-on .sv-adv { display: none !important; }
 body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; }
 
-/* Dar pencere: üst çubuk önce yazıları bırakır, sayfa kapsülü yerinde kalır. En küçük pencere 1000 x 560. */
-@media (max-width: 1660px) { .sv-audio-chip span:not([data-icon]):not(.svi) { display: none; } .display-btn { max-width: 120px; } .topsearch { --ts-w: 120px; } .topsearch .ts-kbd { display: none; } }
-@media (max-width: 1520px) {
-  .sv-pages button { padding: 0 11px; }
-  .sv-vu { width: 34px; }
-  .sv-tools .sv-ib { width: 32px; }
-  .topsearch { --ts-w: 86px; }
-  .display-btn { max-width: 96px; padding: 0 10px; }
-}
-@media (max-width: 1450px) { .sv-audio-chip { display: none; } }
-@media (max-width: 1400px) {
-  .topsearch { --ts-w: 40px; padding: 0 12px; }
-  .topsearch input { opacity: 0; width: 100%; }
-  .topsearch:focus-within input { opacity: 1; }
-  .sv-simple > span:last-child { display: none; }
-}
+/* Dar pencere (#957): üst çubuk artık pencere genişliğine değil GERÇEK yere bakar.
+   topbar-fit.js çakışma gördükçe .tb-fitN düzeylerini sırayla açar: yazılar
+   ikona döner, hiçbir öğe komşusunun üstüne binmez. En küçük pencere 1000 x 560. */
+.topbar > * { min-width: 0; }
+.topbar.tb-fit1 .sv-audio-chip #audioChipName, .topbar.tb-fit1 .topsearch .ts-kbd { display: none; }
+.topbar.tb-fit1 .display-btn { max-width: 110px; }
+.topbar.tb-fit1 .topsearch { --ts-w: 110px; }
+.topbar.tb-fit2 .topsearch { --ts-w: 40px; padding: 0 12px; }
+.topbar.tb-fit2 .topsearch input { opacity: 0; width: 100%; }
+.topbar.tb-fit2 .topsearch:focus-within input { opacity: 1; }
+.topbar.tb-fit2 .sv-simple > span:last-child { display: none; }
+.topbar.tb-fit2 .sv-pages button { padding: 0 10px; }
+.topbar.tb-fit3 .sv-pages .nav-label, .topbar.tb-fit3 .brand-text { display: none; }
+.topbar.tb-fit3 .sv-vu { width: 30px; }
+.topbar.tb-fit4 .sv-tools .btn { font-size: 0; padding: 0 10px; gap: 0; }
+.topbar.tb-fit4 .display-btn { max-width: 80px; }
+.topbar.tb-fit4 .display-field > span { display: none; }
+.topbar.tb-fit5 .sv-vr, .topbar.tb-fit5 #themeBtn, .topbar.tb-fit5 #statusText { display: none; }
+.topbar.tb-fit5 .sv-tools .sv-ib { width: 30px; }
+.topbar.tb-fit5 .sv-pages button { padding: 0 7px; }
 @media (max-width: 1360px) {
-  .brand-text { display: none; }
-  .sv-pages button .svi { display: none; }
-  #undoBtn, #redoBtn { display: none; }
-  .display-btn { max-width: 90px; }
   body[data-page='scene'] .sv-scene { grid-template-columns: 236px minmax(0, 1fr) 300px; }
   body[data-page='live'] .sv-live { grid-template-columns: minmax(0, 1fr) 270px; }
   .sv-scenes { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 @media (max-width: 1120px) {
-  #blackoutBtn { font-size: 0; padding: 0 10px; gap: 0; }
-  #openBtn, #closeBtn { padding: 0 10px; }
-  .sv-pages button { padding: 0 8px; }
-  .sv-vr, #themeBtn { display: none; }
   body[data-page='scene'] .sv-scene { grid-template-columns: 200px minmax(0, 1fr) 260px; }
   .sv-lt { grid-template-columns: 44px minmax(0, 1fr) auto; }
   .sv-lt .sv-th { width: 44px; height: 28px; }
   .sv-op { left: 60px; }
 }
+/* Arama kutusu (#957): ortak input:hover kuralı içteki alana ayrı, daha açık bir
+   dikdörtgen boyuyordu. Vurgu artık kutunun tamamında, ortak kutu tonuyla. */
+.topsearch input[type='text'], .topsearch input[type='text']:hover, .topsearch input[type='search'], .topsearch input[type='search']:hover { background: none; box-shadow: none; height: auto; padding: 0; }
+.topsearch:hover:not(:focus-within) { background: rgb(var(--fg-rgb) / .1); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Sahne listesi düzeni (#957): varsayılan tek sütun, sıra yukarıdan aşağı. Izgara isteğe bağlı,
@@ -508,3 +508,8 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 .scene-item.active .scene-num { background: var(--accent); color: var(--on-accent); }
 .scene-view { display: inline-flex; gap: 4px; margin-left: auto; margin-right: 6px; }
 .scene-view .icon-btn.on { background: rgb(var(--accent-rgb) / .18); color: var(--accent); }
+
+/* Satır içi ad düzenleme (#957): kutu satır düğmelerinin üstüne binmesin */
+.sv-lt.sv-renaming .sv-lt-acts, .sv-lt.sv-renaming .sv-op { display: none; }
+.sv-lt.sv-renaming .sv-nm { grid-column: 2 / -1; min-width: 0; }
+.sv-lt.sv-renaming .sv-rename { width: 100%; min-width: 0; box-sizing: border-box; }

@@ -238,6 +238,7 @@
     if (slot.type === 'scene') {
       const o = { transition: { duration: Number(ev.fade) || 0, type: ev.transition || '', ease: ev.ease || '' } };
       if (ev.light) o.light = true;
+      if (ev.under) o.under = ev.under; // çizelgede alttaki parçaların sahneleri (#957)
       applyRef(slot.type, slot.ref, slot.target, o);
       return;
     }
@@ -714,7 +715,7 @@
     mediaPicker,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
-    applyFaded: (type, ref, fade, target, opts) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0, light: !!(opts && opts.light), transition: (opts && opts.transType) || '', ease: (opts && opts.transEase) || '' }),
+    applyFaded: (type, ref, fade, target, opts) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0, light: !!(opts && opts.light), transition: (opts && opts.transType) || '', ease: (opts && opts.transEase) || '', under: (opts && opts.under) || null }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,

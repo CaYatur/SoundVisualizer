@@ -1931,3 +1931,8 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Otomasyonla sürülen ayar (#957) */
 .ctrl.sv-automated input[type=range] { accent-color: var(--danger); }
 .ctrl.sv-automated { box-shadow: inset 3px 0 0 var(--danger); }
+
+/* Öğren (#957): hedef bekleyen kayıt düğmesi yanıp söner */
+.tl-tog.rec.learn { background: rgb(var(--danger-rgb) / .35); color: var(--text-strong); animation: tlLearn 1s ease-in-out infinite; }
+@keyframes tlLearn { 50% { background: var(--danger); color: var(--on-solid); } }
+.tl-target-menu .tl-target-clear { color: var(--danger-text); }
