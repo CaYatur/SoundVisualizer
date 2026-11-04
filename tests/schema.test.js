@@ -46,14 +46,14 @@ test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () =
     seen++;
     assert.doesNotMatch(m[0], /\b(min|max|noExtend):/, m[1]);
   }
-  assert.strictEqual(seen, 71);
+  assert.strictEqual(seen, 18);
   assert.match(admin, /const known = window\.SVSchema\.rangeFor\(def\.path\);/);
   assert.match(admin, /def\.min = known\.min;/);
   assert.doesNotMatch(admin, /RANGE_FACTOR/);
 });
 
 test('özel paneller de aralığı şemadan alıyor', () => {
-  for (const f of ['src/admin/scene-panels.js', 'src/admin/media-panel.js', 'src/admin/stream.js', 'src/admin/control.js']) {
+  for (const f of ['src/admin/scene-panels.js', 'src/admin/stream.js', 'src/admin/control.js']) {
     for (const m of read(f).matchAll(/\.slider\('[^']*', '([^']+)', \{([^\n]*)/g)) {
       if (!Schema.rangeFor(m[1])) continue;
       assert.doesNotMatch(m[2], /\b(min|max|noExtend):/, f + ' ' + m[1]);

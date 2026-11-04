@@ -135,7 +135,7 @@ async function main() {
   const a = await cdp(t.webSocketDebuggerUrl);
   await a.call('Runtime.enable');
   for (let i = 0; i < 2400; i++) {
-    if (await a.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector("#sections .card") && window.SVTemplates)') === true) break;
+    if (await a.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card") && window.SVTemplates)') === true) break;
     await sleep(50);
   }
   await a.ev('(() => { window.__done = null; window.api.onExportDone((d) => { window.__done = d; }); return 1; })()');

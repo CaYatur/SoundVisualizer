@@ -47,7 +47,7 @@ test('İngilizce arayüzde Türkçe kalan metinlerin karşılığı var', () => 
     ['Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini izler.', 'src/admin/lighting-general.js'],
     ['Görüntü süreci kapandı. Dışa aktarma durduruldu.', 'src/main/main.js'],
     ['Dinamik renk teması yalnızca Windows’ta kullanılabilir.', 'src/admin/admin.js'],
-    ['Üstte', 'src/admin/nowplaying-panel.js'],
+    ['Üstte', 'src/admin/scene-panels.js'],
   ];
   for (const [tr, file] of cases) {
     assert.ok(read(file).includes(tr), file + ' metni değişti: ' + tr);

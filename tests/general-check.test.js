@@ -25,7 +25,7 @@ test('pencere çubuğundaki konum kilidi kaydediliyor', () => {
    Linux'ta Dynamic Lighting kartı hiç yok. */
 test('ışık kategorisinin açıklaması platforma bağlı değil ve çevrili', () => {
   const A = read('src/admin/admin.js');
-  const m = A.match(/id: 'lighting', icon: 'bulb', title: 'Işık',\s*desc: '((?:[^'\\]|\\.)*)'/);
+  const m = A.match(/id: 'lighting', setup: true, icon: 'bulb', title: 'Işık',\s*desc: '((?:[^'\\]|\\.)*)'/);
   assert.ok(m, 'ışık kategorisi');
   const desc = m[1].replace(/\\'/g, "'");
   assert.ok(!desc.startsWith('Windows'), desc);

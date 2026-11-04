@@ -33,36 +33,6 @@ function runSetMode(file, own) {
   return (ownObj, cfg) => make(ownObj, cfg, () => {});
 }
 
-for (const [file, own, type] of [
-  ['src/admin/text-panel.js', 'T', 'text'],
-  ['src/admin/nowplaying-panel.js', 'C', 'nowplaying'],
-]) {
-  test(path.basename(file) + ': bindirme yazının kipi görselleştiriciyi değiştirmez', () => {
-    const make = runSetMode(file, own);
-    const mine = {};
-    const cfg = { visualizer: { type: 'bars', colorMode: 'custom', rainbow: false } };
-    make(mine, cfg)('rainbow');
-    assert.strictEqual(mine.colorMode, 'rainbow');
-    assert.strictEqual(mine.useCustomColor, false);
-    assert.strictEqual(cfg.visualizer.colorMode, 'custom', 'Barlar etkilenmemeli');
-    assert.strictEqual(cfg.visualizer.rainbow, false);
-  });
-
-  test(path.basename(file) + ': görselleştiricinin kendisiyse ikisi aynı kalır', () => {
-    const make = runSetMode(file, own);
-    const mine = {};
-    const cfg = { visualizer: { type, colorMode: 'custom', rainbow: false } };
-    make(mine, cfg)('theme');
-    assert.strictEqual(mine.colorMode, 'theme');
-    assert.strictEqual(cfg.visualizer.colorMode, 'theme');
-  });
-
-  test(path.basename(file) + ': kart çizicinin okuduğu sırayla gösterir', () => {
-    const src = read(file);
-    const get = body(src, 'const getMode = () =>');
-    assert.match(get, new RegExp(own + '\\.colorMode\\s*\\|\\| \\(' + own + '\\.useCustomColor \\? .custom. : null\\)\\s*\\|\\| \\(cfg\\.visualizer && cfg\\.visualizer\\.colorMode\\)'));
-  });
-}
 
 test('çiziciler önce yazının kendi kipini okur', () => {
   assert.match(read('src/visualizer/modes/text.js'), /const colorMode = T\.colorMode\s*\|\| \(T\.useCustomColor \? 'custom' : null\)/);

@@ -329,8 +329,8 @@ test('görselleştirici listesi panelin tür seçicisiyle aynı kaynaktan', () =
      bu test hem kaynağın ortak olduğunu hem dışlamaların doğru olduğunu
      sabitliyor. */
   const MC = require('../src/shared/mode-catalog.js');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
-  assert.match(src, /path: 'visualizer\.type', label: 'Tür', rebuild: true, grouped: true,\s*options: MC\(\)\.options\('visualizer'\)/,
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf-8');
+  assert.match(src, /function typeOptionsFor\(kind\) \{[\s\S]{0,300}layerPairs|function typeOptionsFor\(kind\) \{[\s\S]{0,300}options/,
     'panelin tür seçicisi katalogdan okumuyor');
   assert.deepStrictEqual(A.VISUALIZERS, MC.cycleIds('visualizer'));
   const all = MC.ids('visualizer');

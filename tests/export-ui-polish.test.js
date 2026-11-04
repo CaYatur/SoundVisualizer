@@ -28,7 +28,7 @@ test('karışım kipi "Ekran" İngilizcede Screen, ekran/monitör Display kalır
   assert.strictEqual(t('Ekran'), 'Display');
   assert.strictEqual(t('Ekran\u200B'), 'Screen');
   // Dört karışım listesi de ayrı anahtarı kullanıyor; Türkçede ikisi de "Ekran" görünür
-  for (const f of ['src/admin/admin.js', 'src/admin/media-panel.js', 'src/admin/scene-panels.js']) {
+  for (const f of ['src/admin/scene-panels.js']) {
     assert.match(read(f), /'screen'.{0,20}'Ekran\\u200B'|label: 'Ekran\\u200B'/, f);
     assert.ok(!/'screen'[^\n]{0,20}'Ekran'/.test(read(f)), f + ' eski anahtarı kullanıyor');
   }
@@ -36,11 +36,11 @@ test('karışım kipi "Ekran" İngilizcede Screen, ekran/monitör Display kalır
   assert.match(read('src/admin/admin.js'), /title: 'Ekran',/);
 });
 
-test('Yerleşim seçimi paneli yeniden kuruyor; yansıma boyu yansıma 0 iken de görünür', () => {
-  const admin = read('src/admin/admin.js');
-  assert.match(admin, /path: 'visualizer\.position', label: 'Yerleşim', rebuild: true,/);
-  const line = admin.split('\n').find((l) => l.includes("path: 'visualizer.reflectionLength'"));
-  assert.ok(line && !/v\.reflection\)/.test(line), 'boy yansıma değerine bağlı değil');
+test('yerleşim seçimi paneli yeniden kuruyor; yansıma boyu yansıma 0 iken de görünür', () => {
+  const panel = read('src/admin/scene-panels.js');
+  assert.match(panel, /'Yerleşim'/);
+  const line = panel.split('\n').find((l) => l.includes("'Yansıma Boyu'"));
+  assert.ok(line && !/reflection\)/.test(line), 'boy yansıma değerine bağlı değil');
 });
 
 test('düzen içe aktarımı: yeni sahnede metin öğesi ikinci bir görselleştirici katmanı olarak gelir, tekrarında çoğalmaz', () => {

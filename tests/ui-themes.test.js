@@ -596,7 +596,7 @@ test('öz test her temayı panelin seçicisinden tarıyor ve kullanıcının tem
   const m = read('src/main/main.js');
   const i = m.indexOf('Arayüz temaları: ekrandaki yazıların karşıtlığı (#770)');
   assert.ok(i > 0, 'öz test adımı');
-  const step = m.slice(i, i + 5000);
+  const step = m.slice(i, i + 6000);
   assert.match(step, /ui-contrast-audit\.js/);
   assert.match(step, /for \(const t of UT\.THEMES\)/);
   assert.match(step, /\.ui-theme-opt\[data-theme=/);

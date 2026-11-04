@@ -337,9 +337,11 @@
      bir küçük resimden ayrı görünmeli — presetlerin ~%9'u gerçekten siyah
      başlıyor. */
   const VIEW_KEY = 'sv-md-view';
+  // Seçim yoksa rafta küçük resimli ızgara, kartta liste (#905)
   let viewMode = (() => {
-    try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'; } catch (e) { return 'list'; }
+    try { const v = localStorage.getItem(VIEW_KEY); return v === 'grid' || v === 'list' ? v : ''; } catch (e) { return ''; }
   })();
+  const viewNow = () => viewMode || (part === 'library' ? 'grid' : 'list');
   const thumbKeys = new Map();
   const thumbWanted = new Set();
   let thumbTexSig = null;
@@ -349,6 +351,16 @@
   // Gözlemci (IntersectionObserver) yoksa istenen ilk hücre sayısı
   const THUMB_FIRST = 24;
   const thumbUrl = (key) => 'sv-thumb://t/' + key + '.webp';
+
+  // Denetçideki ve katman satırındaki resim: anahtar henüz yoksa bir sonraki çizimde
+  function thumbFor(md) {
+    const id = md && md.presetId;
+    if (!id) return '';
+    const key = thumbKeys.get(id);
+    if (key) return thumbUrl(key);
+    if (key === undefined) wantThumb(id);
+    return '';
+  }
 
   function setView(v) {
     viewMode = v === 'grid' ? 'grid' : 'list';
@@ -376,9 +388,11 @@
 
   function thumbBox(id) {
     if (typeof document === 'undefined') return null;
-    const root = (document.getElementById && document.getElementById('sections')) || document;
-    if (!root || !root.querySelectorAll) return null;
-    for (const b of root.querySelectorAll('.md-thumb-box')) if (b.getAttribute('data-id') === id) return b;
+    const gid = (x) => (document.getElementById ? document.getElementById(x) : null);
+    for (const root of [gid('svShelf'), gid('sections')]) {
+      if (!root || !root.querySelectorAll) continue;
+      for (const b of root.querySelectorAll('.md-thumb-box')) if (b.getAttribute('data-id') === id) return b;
+    }
     return null;
   }
 
@@ -400,6 +414,8 @@
   function setThumb(id, key) {
     thumbKeys.set(id, key);
     paintThumb(thumbBox(id), key);
+    // Katman satırı ve denetçi başlığı da aynı preseti gösteriyor olabilir
+    if (key && window.SVSceneShell && window.SVSceneShell.thumbReady) window.SVSceneShell.thumbReady(id, thumbUrl(key));
   }
 
   function wantThumb(id) {
@@ -1155,6 +1171,11 @@
     if (id !== starsFor) syncStars();
   }
 
+  /* Yeni yerleşimde liste rafta, oynatma ayarları denetçide (#905). `setPart` bir sonraki
+     çizimin hangi parçayı vereceğini söylüyor; bayrak boşsa bütün kart. */
+  let part = '';
+  function setPart(p) { part = p || ''; }
+
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
@@ -1593,6 +1614,7 @@
     }
 
     // İçe aktarma
+    const libFrom = nodes.length;
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
         class: 'btn', type: 'button', icon: busy ? '' : 'folder-open', text: busy || '.milk Dosyaları Ekle',
@@ -1721,6 +1743,7 @@
     }));
 
     // Arama
+    const listFrom = nodes.length;
     if (presets.length > 6) {
       nodes.push(P().row('Ara', el('input', {
         class: 'p-in md-search', type: 'search', value: filter,
@@ -1777,7 +1800,7 @@
     }
 
     const target = pickTarget(cfg);
-    if (ownLayers(cfg).length) {
+    if (ownLayers(cfg).length && part !== 'library') {
       const pickSel = el('select', { class: 'sel' });
       if (hasSharedLayer(cfg)) pickSel.appendChild(el('option', { value: '', text: tt('Ortak katmanlar') }));
       for (const l of ownLayers(cfg)) {
@@ -1794,12 +1817,12 @@
     const viewSel = el('select', { class: 'sel' });
     for (const [v, label] of [['list', 'Liste'], ['grid', 'Izgara']]) {
       const o = el('option', { value: v, text: tr(label) });
-      if (v === viewMode) o.selected = true;
+      if (v === viewNow()) o.selected = true;
       viewSel.appendChild(o);
     }
     viewSel.addEventListener('change', () => { setView(viewSel.value); listScroll = 0; P().rerender(); });
     nodes.push(P().row('Düzen', viewSel));
-    const grid = viewMode === 'grid';
+    const grid = viewNow() === 'grid';
 
     // Liste ya da ızgara
     const list = el('div', {
@@ -1916,6 +1939,7 @@
       }
       if (grid) setTimeout(() => watchThumbs(list), 0);
     }
+    const listAt = nodes.length;
     nodes.push(list);
     if (grid) {
       nodes.push(el('div', {
@@ -1924,6 +1948,7 @@
       }));
     }
 
+    const libTo = nodes.length;
     // Gezinme ve otomatik geçiş
     if (presets.length > 1) {
       // Düğmeler ve denetleyici eylemleri aynı yoldan (bkz. `act`)
@@ -2101,6 +2126,19 @@
       text: 'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.',
     }));
 
+    if (part === 'library') {
+      /* Rafta önce süzgeçler ve ızgara; içe aktarma araçları açılır bölümde. Izgara kendi
+         penceresini (listWindow) kendi kaydırmasıyla sürüyor, o yüzden kalan yüksekliği alıyor. */
+      const bar = nodes.slice(listFrom, listAt);
+      const more = el('details', { class: 'md-imports' }, [
+        el('summary', { class: 'btn small', text: tr('İçe Aktar') }),
+        el('div', { class: 'md-imports-body' }, nodes.slice(libFrom, listFrom)),
+      ]);
+      return el('div', { class: 'md-panel md-library' }, [
+        el('div', { class: 'md-lib-bar' }, bar.concat([more])),
+      ].concat(nodes.slice(listAt, libTo)));
+    }
+    if (part === 'control') return el('div', { class: 'md-panel' }, nodes.slice(0, libFrom).concat(nodes.slice(libTo)));
     return el('div', { class: 'md-panel' }, nodes);
   }
 
@@ -2124,7 +2162,7 @@
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
-    isOwnLayer, setLayerOwn, setLayerAuto, pickFor: (id) => { pickFor = id || ''; },
+    isOwnLayer, setLayerOwn, setLayerAuto, setPart, thumbFor, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

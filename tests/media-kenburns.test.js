@@ -58,8 +58,8 @@ test('kayma büyütmenin bıraktığı payla sınırlı; panel, varsayılan ve �
   assert.match(D, /kenBurns: 0, /);
   assert.match(D, /kenBurnsPeriod: 20, /);
   assert.match(D, /beatPulse: 0, /);
-  const panel = read('src/admin/media-panel.js');
-  for (const p of ['media.kenBurns', 'media.kenBurnsPeriod', 'media.beatPulse']) assert.ok(panel.includes("'" + p + "'"), p);
+  const panel = read('src/admin/scene-panels.js');
+  for (const p of ['kenBurns', 'kenBurnsPeriod', 'beatPulse']) assert.ok(new RegExp('\\b' + p + '\\b').test(panel), p);
   const i18n = read('src/shared/i18n.js');
   for (const k of ['Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'Ken Burns Döngüsü', 'Vuruşta Nabız']) assert.ok(i18n.includes("'" + k + "':"), k);
 });

@@ -150,12 +150,15 @@ async function main() {
   app = spawn(electronPath(), args, { stdio: 'ignore' });
   const admin = await cdp((await waitTarget('admin/index.html', 60000)).webSocketDebuggerUrl);
   await admin.call('Runtime.enable');
-  await until(() => admin.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector("#sections .card"))'), 60000);
+  await until(() => admin.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card"))'), 60000);
   res.startup = { panelMs: Date.now() - t0 };
+  // Deneme: panelde betik çalıştır (biçim ya da sınır karşılaştırması)
+  if (arg('panel-js')) await admin.ev(fs.readFileSync(arg('panel-js'), 'utf8'));
   let mainT = null;
   await until(async () => { try { mainT = (await (await fetch('http://127.0.0.1:' + INSPECT + '/json/list')).json())[0]; return !!mainT; } catch { return false; } }, 15000);
   const mainP = await cdp(mainT.webSocketDebuggerUrl);
   await mainP.call('Runtime.enable');
+  if (arg('main-js')) await mainP.ev(fs.readFileSync(arg('main-js'), 'utf8'));
   await mainP.ev(pumpJs());
   res.gpu = await admin.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); const e = gl && gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; })()`);
   res.library = JSON.parse(await admin.ev(`window.api.listPresets().then((l) => JSON.stringify({ n: l.length, mb: Math.round(JSON.stringify(l).length / 1048576) }))`));

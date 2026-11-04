@@ -5,6 +5,23 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Interface
+
+- **A new panel** (#905). The picture sits in the centre, with tools around it on floating surfaces.
+  The top bar has the page tabs (Scene, Live, Time, Studio, Output), the screen picker, search,
+  undo and redo, and a Simple switch that hides what you rarely use. Everything else moves to Setup
+  behind the gear: audio, lighting, show, control, library and settings. All themes stay.
+- **Scene page.** Layers on the left, with solo, mute, lock, on/off and a drag bar for opacity, and
+  drag to reorder. An inspector on the right shows only what the selected layer or engine reads.
+  A shelf under the picture holds the library (MilkDrop with thumbnails, visuals, backgrounds,
+  templates, scenes) and the tools (effect chain, modulation, groups).
+- **Live page.** Cue and live monitors with a TAKE button, a scene grid with banks and F keys, layer
+  and output faders, effects on the chain, tempo, Auto VJ, the MilkDrop queue and the clip deck.
+- **Undo and redo** for everything in the scene, not only the timeline.
+- **Media layers get eight settings back.** Kaleidoscope slices, hue, saturation, bass zoom, bass
+  opacity, Ken Burns, its period and beat pulse were only on the old media card. Karaoke fill and held
+  syllables (#938) were only on the old text card. All are on the layer now.
+
 ### Performance
 
 - **Presets with many shape instances draw much faster** (#905). A custom shape runs its frame

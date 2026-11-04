@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 
 const npSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'nowplaying.js'), 'utf8');
-const panelSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'nowplaying-panel.js'), 'utf8');
 const adminSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
 const sceneSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
 const defaultsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'defaults.js'), 'utf8');
@@ -25,35 +24,9 @@ test('kaynak: NP cover overlay cizer', () => {
   assert.match(npSrc, /drawImage\s*\(\s*coverImg/);
 });
 
-test('kaynak: NP panel cover ayarlari', () => {
-  assert.match(panelSrc, /coverOverlay/);
-  assert.match(panelSrc, /coverSize/);
-  assert.match(panelSrc, /Albüm Kapağı|coverSide/);
-});
-
 test('kaynak: dynamicTheme karti Windows-only', () => {
   assert.match(adminSrc, /id:\s*'dynamicTheme'[\s\S]{0,400}SV_PLATFORM\.isWindows/);
   assert.match(adminSrc, /applyDynamicThemeNow[\s\S]{0,300}isWindows/);
-});
-
-test('kaynak: NP sistem kaynagi non-Windows manuel', () => {
-  assert.match(panelSrc, /isWin/);
-  assert.match(panelSrc, /C\.source\s*=\s*'manual'/);
-  assert.doesNotMatch(panelSrc, /Sistemden okuma \(SMTC\)/);
-});
-test('UI: NP panel cover toggle is always visible (not only inside foldable)', () => {
-  const toggleAt = panelSrc.indexOf("miniToggle('Kapağı Göster'");
-  const foldAt = panelSrc.indexOf("foldable('Albüm Kapağı (Bindirme)'");
-  assert.ok(toggleAt > 0, 'Kapağı Göster toggle missing');
-  assert.ok(foldAt > 0, 'Albüm Kapağı foldable missing');
-  assert.ok(toggleAt < foldAt, 'toggle should come before foldable');
-});
-
-test('UI: Visualizer card exposes coverOverlay when type is nowplaying', () => {
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverOverlay'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSize'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSide'/);
-  assert.match(adminSrc, /coverOverlay'[\s\S]{0,160}rebuild:\s*true/);
 });
 
 test('UI: Layers panel exposes coverOverlay for nowplaying layers', () => {
@@ -79,10 +52,6 @@ test('kaynak: NP cover anchors to bar\/text; supports top; display size', () => 
 });
 
 test('UI: coverSide offers top; logo\/images cornerRadius exposed', () => {
-  assert.match(panelSrc, /\['top'/);
-  assert.match(adminSrc, /value:\s*'top'/);
-  assert.match(adminSrc, /logo\.cornerRadius/);
-  assert.match(adminSrc, /cornerRadius/);
   assert.match(sceneSrc, /\['top'/);
   assert.match(sceneSrc, /cornerRadius/);
 });
@@ -97,12 +66,6 @@ test('defaults+UI: coverFit natural default; square option; separate coverAudioS
   assert.match(npSrc, /coverFit === 'natural'/);
   assert.match(npSrc, /coverAudioScale/);
   assert.match(npSrc, /1 \/ pulse/); // undo text pulse for cover
-  assert.match(panelSrc, /coverFit/);
-  assert.match(panelSrc, /Kapak Sığdırma|natural/);
-  assert.match(panelSrc, /square/);
-  assert.match(panelSrc, /coverAudioScale/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverFit'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverAudioScale'/);
   assert.match(sceneSrc, /setCover\('coverFit'/);
   assert.match(sceneSrc, /setCover\('coverAudioScale'/);
 });
@@ -114,23 +77,16 @@ test('kaynak: natural fit uses aspect coverW/coverH not forced square', () => {
 
 test('defaults: coverSource auto, macOS/Linux paneli manuala ceker', () => {
   assert.match(defaultsSrc, /coverSource:\s*'auto'/);
-  assert.match(panelSrc, /if \(!isWin\) C\.coverSource = 'manual'/);
   assert.match(sceneSrc, /if \(!coverWin\) setCover\('coverSource', 'manual'\)/);
 });
 
-test('UI: sisteme ozgu NP alanlari yalniz fromSystem icinde', () => {
-  assert.match(panelSrc, /if \(fromSystem\) \{[\s\S]{0,500}appName/);
-  assert.match(panelSrc, /if \(fromSystem\) \{[\s\S]{0,700}elapsed/);
-  assert.match(panelSrc, /if \(fromSystem && C\.show\.bar !== false\)/);
-  assert.match(panelSrc, /if \(fromSystem\) kids\.push\(P\(\)\.color\('Çubuk'/);
-  assert.doesNotMatch(panelSrc, /Sistemden okuma \(SMTC\)/);
+test('UI: sisteme ozgu NP alanlari yalniz sistem kaynaginda', () => {
+  assert.match(sceneSrc, /if \(b\.fromSystem\) \{[\s\S]{0,300}appName/);
+  assert.match(sceneSrc, /if \(b\.fromSystem\) \{[\s\S]{0,300}elapsed/);
+  assert.match(sceneSrc, /if \(b\.fromSystem && b\.showOf\(\)\.bar !== false\)/);
 });
 
 test('UI: logo kaynagi ve kapak dosyasi platforma gore', () => {
-  assert.match(adminSrc, /path:\s*'logo\.source'[\s\S]{0,450}isWindows\(\)/);
-  assert.match(adminSrc, /case 'npcoverfile'/);
-  assert.match(adminSrc, /path:\s*'nowplaying\.coverSource'/);
-  assert.match(adminSrc, /Elle yazılan parça adı ve sanatçı ekrana gelir/);
   assert.match(sceneSrc, /if \(!logoWin\) lg\.source = 'manual'/);
   assert.match(sceneSrc, /if \(logoWin\)/);
 });
