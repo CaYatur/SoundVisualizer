@@ -303,10 +303,10 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 }
 .sv-insp .ctrl:hover { background: rgb(var(--fg-rgb) / .025); }
 .sv-insp .ctrl > .row { display: contents; }
-.sv-insp .ctrl label.lbl { grid-column: 1; grid-row: 1; font-size: 12.5px; font-weight: 450; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; margin: 0; letter-spacing: 0; text-transform: none; }
+.sv-insp .ctrl label.lbl { grid-column: 1; grid-row: 1; font-size: 12.5px; line-height: 1.25; font-weight: 450; color: var(--muted); white-space: normal; display: flex; align-items: center; gap: 6px; margin: 0; letter-spacing: 0; text-transform: none; }
 .sv-insp .ctrl .val { grid-column: 3; grid-row: 1; font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; min-width: 44px; }
 .sv-insp .ctrl > input[type='range'] { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; }
-.sv-insp .ctrl > .row > select, .sv-insp .ctrl > .row > .sel, .sv-insp .ctrl > .row > input:not([type='range']):not([type='checkbox']) { grid-column: 2 / span 2; width: 100%; max-width: none; height: 28px; margin: 0; font-size: 12.5px; }
+.sv-insp .ctrl > .row > select, .sv-insp .ctrl > .row > .sel, .sv-insp .ctrl > .row > input:not([type='range']):not([type='checkbox']) { grid-column: 2 / span 2; width: 100%; max-width: none; height: 28px; margin: 0; padding-block: 0; font-size: 12.5px; }
 .sv-insp .ctrl > .row > .switch { grid-column: 3; justify-self: end; }
 .sv-insp .ctrl > .row > .seg, .sv-insp .ctrl > .row > .segment { grid-column: 2 / span 2; }
 .sv-insp .ctrl > select, .sv-insp .ctrl > .seg, .sv-insp .ctrl > .segment, .sv-insp .ctrl > .sel { grid-column: 2 / span 2; grid-row: 1; width: 100%; margin: 0; }
@@ -331,8 +331,11 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 .sv-insp .adv-summary { margin: 4px 10px 6px; width: calc(100% - 20px); }
 
 .sv-insp .ctrl > .segment { grid-column: 2 / span 2; grid-row: 1; }
-.sv-insp .segment { display: flex; height: 28px; padding: 2px; gap: 1px; border: 0; border-radius: 8px; background: rgb(var(--fg-rgb) / .06); flex-wrap: nowrap; }
-.sv-insp .segment button { flex: 1 1 0; min-width: 0; height: auto; padding: 0 4px; border: 0; border-radius: 6px; background: none; font-size: 12px; font-weight: 550; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; }
+/* Çok seçenekli düğme grubu kendi satırında: dar sütunda bir harfe düşmesin, uzamasın */
+.sv-insp .ctrl:has(> .segment button:nth-child(7)) > .segment { grid-column: 1 / -1; grid-row: 2; margin-top: 4px; }
+.sv-insp .studio-subheading { padding: 0 12px; }
+.sv-insp .segment { display: flex; min-height: 28px; padding: 2px; gap: 1px; border: 0; border-radius: 8px; background: rgb(var(--fg-rgb) / .06); flex-wrap: wrap; }
+.sv-insp .segment button { flex: 1 1 auto; min-width: 0; min-height: 24px; height: auto; padding: 0 7px; border: 0; border-radius: 6px; background: none; font-size: 12px; font-weight: 550; color: var(--muted); white-space: nowrap; box-shadow: none; }
 .sv-insp .segment button:hover { color: var(--text); }
 .sv-insp .segment button.active { background: var(--card3); color: var(--text-strong); box-shadow: 0 1px 4px rgb(var(--shadow-rgb) / .25), inset 0 0 0 1px rgb(var(--fg-rgb) / .06); }
 .sv-insp .studio-note { background: none; border: 0; padding: 2px 0; color: var(--muted2); }

@@ -49,11 +49,12 @@
   function selected() {
     return layers().find((l) => l && l.id === sel) || null;
   }
-  function select(id) {
+  /* `quiet`: seçim yazılır, çizimi çağıran yapar (yeni katman eklenince hemen ardından apply var). */
+  function select(id, quiet) {
     sel = id || '';
     write(STORE.sel, sel);
     aimPicker();
-    paint();
+    if (!quiet) paint();
   }
   // Kitaplıktan seçilen preset seçili katmana: kendi preseti olan katman, yoksa ortak
   function aimPicker() {

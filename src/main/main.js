@@ -4085,6 +4085,7 @@ ipcMain.on('cam-status', (e, msg) => {
 
 // Ses giriş cihazlarını listele (renderer enumerateDevices sonucu admin'e iletilir)
 ipcMain.on('report-audio-devices', (e, devices) => {
+  if (SHOTS) return; // gerçek aygıt adları görüntüye girmesin
   notifyAdmin('audio-devices', devices);
 });
 
@@ -12033,6 +12034,12 @@ app.on('window-all-closed', () => {
 // "canlı" gösterip docs/screenshots/ altına PNG kaydeder. Gerçek ses yakalanmaz.
 // ----------------------------------------------------------------------------
 async function runShots() {
+  /* Gerçek ses aygıtının adı panele hiç gitmez: demo sesi ölçeri oynatınca panel "Yakalanıyor:
+     Hoparlör (…)" yazıyordu ve README görseline giriyordu. Gerçek adlar yalnız aşağıdaki denetim için. */
+  const realDevices = await nativeAudio.listDevices().then((l) => l.map((d) => d.name).filter(Boolean)).catch(() => []);
+  const shotDevices = [{ name: 'System Audio', kind: 'output', loopback: true, isDefault: true }];
+  nativeAudio.listDevices = async () => shotDevices;
+  nativeAudio.diagnoseAudio = async () => ({ ok: true, devices: shotDevices });
   /* Üretici KULLANICININ AYARLARINA YAZMAZ. Panel görüntüleri için panele
      gösterilmelik bir şov (zaman çizelgesi, klip destesi, MilkDrop) veriliyor;
      panel bunu ana sürece geri yollarsa diske gitmesin. Öz testteki kural. */
@@ -12051,6 +12058,9 @@ async function runShots() {
           'requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(d);r();});});})'
       );
     } catch (e) { /* pencere kapanmış olabilir */ }
+    const text = await win.webContents.executeJavaScript('document.body.innerText').catch(() => '');
+    const leak = realDevices.find((n) => text.includes(n));
+    if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
     const img = await win.webContents.capturePage();
     fs.writeFileSync(path.join(shotsDir, name), img.toPNG());
     console.log('[SHOTS] saved ' + name);
@@ -12125,7 +12135,7 @@ async function runShots() {
       if (!adminWin || adminWin.isDestroyed()) return false;
       try {
         const n = await adminWin.webContents.executeJavaScript(
-          "document.getElementById('sections') ? document.getElementById('sections').children.length : 0"
+          "document.querySelectorAll('.sv-content .card, .sv-content .sv-lt').length"
         );
         if (n > 0) return true;
       } catch (e) { /* henüz yüklenmedi */ }
@@ -12150,53 +12160,7 @@ async function runShots() {
     if (!(await adminReady())) console.log('[SHOTS] panel hazır olmadı, yine de kaydediliyor');
   }
 
-  /* Panel görüntüleri: kategori + o kategoride öne çıkan kart.
-
-     Kartın kimliğine göre kaydırma yapılıyor; kategoriyi açıp en üstten
-     ekran almak yeni motorları göstermezdi (Sahne kategorisinde on kart var). */
   const want = (name) => !SHOTS_ONLY || String(name).toLowerCase().includes(SHOTS_ONLY);
-
-  const PANELS = [
-    ['scene', null, 'panel-scene.png'],
-    ['scene', 'modulation', 'panel-modulation.png'],
-    ['scene', 'transition', 'panel-transition.png'],
-    ['scene', 'layers', 'panel-layers.png'],
-    ['scene', 'effects', 'panel-effects.png'],
-    ['scene', 'geometry', 'panel-geometry.png'],
-    ['audio', 'deepanalysis', 'panel-analysis.png'],
-    ['output', 'mapping', 'panel-mapping.png'],
-    ['output', 'record', 'panel-record.png'],
-    ['output', 'stream', 'panel-output.png'],
-    ['library', 'templates', 'panel-templates.png'],
-    ['studio', null, 'panel-studio.png'],
-    ['control', 'oscOut', 'panel-control.png'],
-  ];
-
-  if (adminWin && !adminWin.isDestroyed()) {
-    const awc = adminWin.webContents;
-    for (const [cat, cardId, name] of PANELS) {
-      if (!want(name)) continue;
-      try {
-        await awc.executeJavaScript(
-          '(function(){var b=document.querySelector(\'.nav-item[data-cat="' + cat + '"]\');' +
-            "if(!b){var all=document.querySelectorAll('.nav-item');for(var i=0;i<all.length;i++){if(all[i].dataset&&all[i].dataset.cat==='" + cat + "'){b=all[i];break;}}}" +
-            'if(b)b.click();return !!b})()'
-        );
-        await wait(900);
-        if (cardId) {
-          await awc.executeJavaScript(
-            "(function(){var c=document.querySelector('.sv-content .card[data-card=\"" + cardId + "\"]');" +
-              "if(!c){var cards=document.querySelectorAll('.sv-content .card');for(var i=0;i<cards.length;i++){if(cards[i].id==='card-" + cardId + "'){c=cards[i];break;}}}" +
-              "if(c)c.scrollIntoView({block:'start'});return !!c})()"
-          );
-          await wait(500);
-        }
-        await save(adminWin, name);
-      } catch (e) {
-        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
-      }
-    }
-  }
 
   /* Gösterilmelik şov: boş bir zaman çizelgesi ya da klip destesi kartın ne
      yaptığını anlatmıyor. Panele kaydedilmeyen bir yapılandırma veriliyor
@@ -12209,7 +12173,13 @@ async function runShots() {
   const tlClip = (ref, startBar, bars, color) => ({ type: 'preset', ref, start: startBar * bar, dur: bars * bar, fade: 1, color });
   const SHOW = {
     layerStack: { enabled: true },
-    layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
+    layers: [
+      { id: 'ly_show_bg', name: 'Background', kind: 'background', type: 'gradient', enabled: true, settings: {} },
+      { id: 'ly_show_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} },
+      { id: 'ly_show_geo', name: 'Wire Torus', kind: 'visualizer', type: 'geometry', enabled: true, blend: 'screen', opacity: 0.7, settings: {} },
+      { id: 'ly_show_bars', name: 'Spectrum', kind: 'visualizer', type: 'bars', enabled: true, blend: 'screen', opacity: 0.55, settings: {} },
+      { id: 'ly_show_np', name: 'Track Info', kind: 'nowplaying', type: 'nowplaying', enabled: true, settings: {} },
+    ],
     visualizer: { type: 'milkdrop' },
     milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
     timeline: {
@@ -12257,43 +12227,61 @@ async function runShots() {
       }],
     },
   };
-  /* [kategori, kart, dosya, kaydırılacak öğe, önce tıklanacak düğme]. MCP
-     kartı bilerek yok: açıkken kurulum komutu kullanıcının uygulama veri
-     klasörünün yolunu gösteriyor. */
-  const SHOW_PANELS = [
-    ['scene', 'milkdrop', 'panel-milkdrop.png', '.md-grid'],
-    ['control', 'timeline', 'panel-timeline.png'],
-    ['control', 'clipdeck', 'panel-clipdeck.png'],
-    ['studio', 'mdedit', 'panel-mdedit.png', null, 'button'],
+  /* Panel görüntüleri, hepsi şov yapılandırmasında. [sayfa, dosya, görünmesi gereken öğe,
+     hazırlık]. Sayfanın düzeni değişince eski adres sessizce başka bir ekranı kaydederdi:
+     öğe yoksa görüntü YAZILMAZ ve koşu başarısız biter. MCP kartı bilerek yok: açıkken kurulum
+     komutu kullanıcının uygulama veri klasörünün yolunu gösteriyor. */
+  const SHELL = 'window.SVSceneShell';
+  const PANELS = [
+    ['scene', 'panel-scene.png', '#svInspector .layer-tabs', `${SHELL}.select('ly_show_md');${SHELL}.setShelf('milkdrop')`],
+    ['scene', 'panel-layers.png', '#svInspector .layer-tabs', `${SHELL}.select('ly_show_bars')`],
+    ['scene', 'panel-milkdrop.png', '.md-grid', `${SHELL}.select('ly_show_md');${SHELL}.setShelf('milkdrop')`],
+    ['scene', 'panel-effects.png', '.card[data-card="effects"]', `${SHELL}.setShelf('effects')`],
+    ['scene', 'panel-modulation.png', '.card[data-card="modulation"]', `${SHELL}.setShelf('modulation')`],
+    ['scene', 'panel-templates.png', '.card[data-card="templates"]', `${SHELL}.setShelf('templates')`],
+    ['scene', 'panel-transition.png', '.card[data-card="transition"]', `${SHELL}.select('')`],
+    ['scene', 'panel-geometry.png', '.card[data-card="geometry"]', `${SHELL}.select('ly_show_geo')`],
+    ['live', 'panel-clipdeck.png', '.card[data-card="clipdeck"]', "window.SVLiveShell.setLower('deck')"],
+    ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
+    ['studio', 'panel-studio.png', '.sv-content .card'],
+    ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
+    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]'],
+    ['output', 'panel-mapping.png', '.card[data-card="mapping"]'],
+    ['output', 'panel-record.png', '.card[data-card="record"]'],
+    ['output', 'panel-output.png', '.card[data-card="stream"]'],
+    ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
   ];
-  if (adminWin && !adminWin.isDestroyed() && SHOW_PANELS.some((p) => want(p[2]))) {
+  const missing = [];
+  if (adminWin && !adminWin.isDestroyed() && PANELS.some((p) => want(p[1]))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
     await wait(1500);
-    for (const [cat, cardId, name, inner, click] of SHOW_PANELS) {
+    for (const [page, name, need, prep] of PANELS) {
       if (!want(name)) continue;
       try {
-        await awc.executeJavaScript(
-          "(function(){var b=document.querySelector('.nav-item[data-cat=\"" + cat + "\"]');if(b)b.click();return !!b})()"
-        );
-        await wait(1200);
-        const card = "document.querySelector('.sv-content .card[data-card=\"" + cardId + "\"]')||document.getElementById('card-" + cardId + "')";
-        if (click) {
-          await awc.executeJavaScript('(function(){var c=' + card + ';var b=c&&c.querySelector(' + JSON.stringify(click) + ');if(b)b.click();return !!b})()');
-          await wait(1500);
+        await awc.executeJavaScript(`window.SVPanel.setCategory(${JSON.stringify(page)})`);
+        await wait(900);
+        if (prep) {
+          await awc.executeJavaScript(`(function(){${prep}})()`);
+          await wait(1200);
         }
-        await awc.executeJavaScript(
-          '(function(){var c=' + card + ';var t=c&&' + (inner ? 'c.querySelector(' + JSON.stringify(inner) + ')' : 'null') + ';' +
-            "if(t)t.scrollIntoView({block:'center'});else if(c)c.scrollIntoView({block:'start'});return !!c})()"
+        const found = await awc.executeJavaScript(
+          `(function(){var c=document.querySelector(${JSON.stringify(need)});if(!c||!c.getClientRects().length)return false;` +
+            "c.style.scrollMarginTop='96px';c.scrollIntoView({block:'start'});return true})()"
         );
-        await wait(1500);
+        if (!found) { missing.push(name + ' (' + need + ')'); continue; }
+        await wait(1200);
         await save(adminWin, name);
       } catch (e) {
-        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
+        missing.push(name + ': ' + (e && e.message));
       }
     }
     awc.send('external-config', realCfg);
     await wait(600);
+  }
+  if (missing.length) {
+    console.log('[SHOTS] HEDEF BULUNAMADI, görüntü yazılmadı:\n  ' + missing.join('\n  '));
+    process.exitCode = 1;
   }
 
   // ==========================================================================
@@ -12701,6 +12689,7 @@ async function runShots() {
   clearInterval(pump);
   console.log('[SHOTS] done');
   closeVisualizer(); // kasıtlı: koruma geri açmasın
+  if (missing.length) app.exit(1);
   app.quit();
 }
 

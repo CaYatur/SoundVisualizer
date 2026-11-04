@@ -119,7 +119,7 @@
     lastH = h;
     /* Sahne sayfasında önizleme büyük: çizim yükü kutunun boyuyla değil bu sınırla büyüsün
        (#905). Çıkış açıkken öncelik çıkışın: eski küçük önizlemenin çizim boyu. Tümleşik GPU'da 5
-       katmanlı sahnede 360p çıkış penceresini 64'ten 57 fps'e indiriyordu, 180p indirmiyor.
+       katmanlı sahnede 360p çıkış penceresini 56-58 fps'e indiriyordu, 180p'de 61 kalıyor.
        Önizleme Hızı "Tam" ise hep büyük. */
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const full = cfg && cfg.power && cfg.power.previewRate === 'full';

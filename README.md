@@ -1248,11 +1248,16 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 
 </div>
 
-- **Eight categories** — Scene, Audio, Lighting, Output, Control, Studio, Library and Settings.
+- **Five pages on top** — Scene, Live, Time, Studio and Output — and Audio, Lighting, Show, Control,
+  Library and Settings behind the gear (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> switches pages).
+- **Scene** is a layer list, a large preview, an inspector for the selected layer and a shelf of
+  presets, templates, effects and modulation. **Live** has Next and Live monitors with TAKE, a scene
+  grid on the F keys, layer faders and the clip deck.
+- **Undo and redo** for scene changes (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Live everywhere** — every change reaches the output windows immediately and saves itself.
 - **A live preview** with its own demo signal, audio meters and saved scenes beside every page.
-- **Modified badges** on each card and category, with a reset for the section or the whole category.
-- **Search** across every setting in every category (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- **Modified badges** on each card and page, with a reset for the section or the whole page.
+- **Search** across every setting on every page (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 - **Advanced** toggles hide rarely used controls until you want them; **extended ranges** raise the
   slider limits 5×.
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is

@@ -156,6 +156,7 @@ async function main() {
   await q('document.querySelectorAll(".sv-add .add-row button")[0].click()');
   await sleep(350);
   check('menüden katman eklendi, menü kapandı', await cfg('c.layers.length') === nLayers + 1 && !await q('!!document.querySelector(".sv-add")'));
+  check('yeni katman seçili, denetçide açık', await cfg('c.layers[c.layers.length - 1].id') === await q('window.SVSceneShell.selected() && window.SVSceneShell.selected().id') && await q('!!document.querySelector("#svInspector .layer-tabs")'));
   await click('#undoBtn');
   await sleep(600);
 

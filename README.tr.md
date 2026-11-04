@@ -1257,11 +1257,16 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 
 </div>
 
-- **Sekiz kategori** — Sahne, Ses, Işık, Çıkış, Kontrol, Studio, Kitaplık ve Ayarlar.
+- **Üstte beş sayfa** — Sahne, Canlı, Zaman, Stüdyo ve Çıktı; dişlinin arkasında Ses, Işık, Gösteri,
+  Kontrol, Kitaplık ve Ayarlar (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> sayfa değiştirir).
+- **Sahne**: katman listesi, büyük önizleme, seçili katmanın denetçisi ve preset, şablon, efekt ve
+  modülasyon rafı. **Canlı**: AL düğmeli Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
+  katman faderleri ve klip destesi.
+- Sahne değişikliklerinde **geri al ve yinele** (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Her yerde canlı** — her değişiklik anında çıkış pencerelerine ulaşıyor ve kendini kaydediyor.
 - Her sayfanın yanında kendi demo sinyaliyle bir **canlı önizleme**, ses ölçerleri ve kayıtlı sahneler.
-- Her kartta ve kategoride **değişti işaretleri**; bölümü ya da bütün kategoriyi sıfırlama.
-- Her kategorideki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- Her kartta ve sayfada **değişti işaretleri**; bölümü ya da bütün sayfayı sıfırlama.
+- Her sayfadaki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 - **Gelişmiş** anahtarları seyrek kullanılan denetimleri siz isteyene kadar gizliyor; **genişletilmiş
   aralıklar** sürgü sınırlarını 5 katına çıkarıyor.
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test

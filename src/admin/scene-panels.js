@@ -1847,7 +1847,7 @@
           const name = l.settings.milkdrop.name;
           out.push(P().row('Preset', el('button', {
             class: 'btn ghost tiny', type: 'button', text: name ? tr(name) : tr('Yerleşik varsayılan'),
-            title: tr('MilkDrop Presetleri kartında bu katman için seçin'),
+            title: tr('Sahne sayfasının MilkDrop rafında bu katman için seçin'),
             // Kendi geçişi açıkken ad ölçer mesajıyla güncelleniyor (admin.js)
             'data-md-layer': l.id, 'data-cfg': name ? tr(name) : tr('Yerleşik varsayılan'),
             onclick: () => { MP.pickFor(l.id); P().rerender(); },
@@ -2333,7 +2333,12 @@
        hatırlanıyor (bu makinede, ayar dosyasında değil). */
     const openSet = layerOpenState();
     // Yeni eklenen katman açık gelsin: kullanıcı onu ayarlamak için ekledi
-    const openNew = (ly) => { openSet.add(layerKey(ly, list.length - 1)); saveLayerOpen(openSet); };
+    const openNew = (ly) => {
+      openSet.add(layerKey(ly, list.length - 1));
+      saveLayerOpen(openSet);
+      // Eklenen katman hemen denetçide açılsın
+      if (window.SVSceneShell) window.SVSceneShell.select(ly.id, true);
+    };
     const keys = list.map((ly, j) => layerKey(ly, j));
     const allOpen = keys.length > 0 && keys.every((k) => openSet.has(k));
     if (!only && !addOnly) nodes.push(el('div', { class: 'layer-toolbar' }, [
@@ -2553,7 +2558,7 @@
               rerender();
             };
             out.push(P().row('Ekle', sel));
-            out.push(el('div', { class: 'studio-note dim-hint', text: 'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.' }));
+            out.push(el('div', { class: 'studio-note dim-hint', text: 'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri sekmesinden bağımsızdır.' }));
             return out;
           },
         },
@@ -2566,7 +2571,7 @@
             })),
             miniSelect('Fader Eğrisi', [['linear', 'Doğrusal'], ['exp', 'Üstel'], ['log', 'Logaritmik']],
               () => l.opacityCurve || 'linear', (v) => { l.opacityCurve = v; }),
-            el('div', { class: 'studio-note dim-hint', text: 'Aynı gruptaki katmanlar Katman Grupları kartındaki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.' }),
+            el('div', { class: 'studio-note dim-hint', text: 'Aynı gruptaki katmanlar Gruplar sekmesindeki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.' }),
           ],
         },
       ];

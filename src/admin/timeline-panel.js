@@ -2103,7 +2103,7 @@
         box.appendChild(el('div', {
           class: 'ctrl settings-io-note warn',
           text: c.type === 'image'
-            ? 'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'
+            ? 'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne sayfasında Katman Ekle menüsünden Görsel Nesneler ekleyin.'
             : 'Bu tür için uygun hedef yok.',
         }));
       } else if (c.type === 'action') {
@@ -2374,7 +2374,7 @@
     fromLyrics.addEventListener('click', () => {
       const cues = (p.cfg().text && p.cfg().text.lyrics && p.cfg().text.lyrics.cues) || [];
       if (!cues.length) {
-        p.toast('Önce Metin bölümünden bir LRC ya da SRT dosyası yükleyin.', 'warn');
+        p.toast('Önce bir Metin katmanında kaynağı Şarkı Sözü yapıp LRC ya da SRT dosyası yükleyin.', 'warn');
         return;
       }
       tl.markers = TL().markersFromCues(cues);
