@@ -73,20 +73,6 @@ test('panel: birden çok görselleştirici katmanından yalnız ilki çevriliyor
   assert.strictEqual(cfg.layers[1].type, 'tunnel');
 });
 
-test('panel: yığın kapalıyken katman listesine dokunulmuyor', () => {
-  /* Yığın kapalıyken sahneyi zaten cfg.visualizer.type belirliyor; listeyi
-     değiştirmek kullanıcının sakladığı düzeni sessizce bozardı. */
-  const cfg = {
-    layerStack: { enabled: false },
-    layers: [{ id: 'ly_vis', kind: 'visualizer', type: 'bars', enabled: true, settings: {} }],
-    visualizer: { type: 'bars' },
-    milkdrop: {},
-  };
-  MDP.load(cfg, preset);
-  assert.strictEqual(cfg.layers[0].type, 'bars');
-  assert.strictEqual(cfg.visualizer.type, 'milkdrop');
-});
-
 test('resolve: çevrilen katman gerçekten çizilecek listeye giriyor', () => {
   /* Asıl sözleşme bu: panelin yazdığı şey resolve()'un döndürdüğü listede
      görünmezse kullanıcı yine hiçbir değişiklik görmez. */

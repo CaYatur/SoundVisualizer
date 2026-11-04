@@ -858,7 +858,7 @@
     try { return require('./export-formats.js'); } catch (e) { return null; }
   }
   function layersApi() {
-    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.setStackEnabled) return window.SVLayers;
+    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.enableStack) return window.SVLayers;
     try { return require('../visualizer/layers.js'); } catch (e) { return null; }
   }
   /* Mod kimlikleri uygulamanın kendi kataloğundan (mode-catalog.js) gelir;
@@ -934,8 +934,8 @@
   }
   function ensureLayers(cfg) {
     const L = layersApi();
-    if (L && L.setStackEnabled) {
-      if (!L.stackOn(cfg)) L.setStackEnabled(cfg, true);
+    if (L && L.enableStack) {
+      L.enableStack(cfg);
       if (!Array.isArray(cfg.layers)) cfg.layers = [];
       return cfg.layers;
     }

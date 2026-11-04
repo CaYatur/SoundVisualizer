@@ -491,7 +491,7 @@
        deepMerge(defaultConfig(), saved) ile açıyor; false olsaydı bu değer
        v3.0.0 öncesi her ayar dosyasına sızar ve dolu bir katman listesi olan
        kullanıcının sahnesi sessizce arkaplan+görselleştiriciye dönerdi.
-       null iken stackOn() listenin dolu olup olmadığına bakar; panel ilk
+       null iken panel ilk
        çizimde bunu somut bir değere çeviriyor. */
     layerStack: { enabled: null },
 

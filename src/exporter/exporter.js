@@ -324,23 +324,14 @@
      katman başına oynatıcı havuzu, katmansız kipte tek oynatıcı. Videolar
      ilk kare çizilmeden yüklenir; her kareden önce o karenin zamanına
      sarılır (seekMedia). */
-  let mediaSingle = null;
   function setupMedia() {
     const L = window.SVLayers;
     if (!window.SVMedia || !L || !stack) return;
-    const isStack = L.stackOn(cfg);
-    const hasLayer = isStack && Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasLayer) { stack.syncMedia(cfg); return; }
-    if (!isStack && cfg.media && cfg.media.enabled) {
-      mediaSingle = new window.SVMedia();
-      stack.setMedia(mediaSingle);
-      mediaSingle.apply(Object.assign({}, cfg.media, { enabled: true }));
-    }
+    if (Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(cfg);
   }
   function mediaPlayers() {
     const out = [];
     if (stack && stack._mediaPool) for (const m of stack._mediaPool.values()) out.push(m);
-    if (mediaSingle) out.push(mediaSingle);
     return out;
   }
   async function seekMedia(t) {

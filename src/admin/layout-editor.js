@@ -47,14 +47,13 @@
     const cfg = P().cfg();
     const stack = window.SVPreview && window.SVPreview.stack && window.SVPreview.stack();
     if (!stack || !Array.isArray(stack.entries)) return [];
-    const on = LY().stackOn(cfg);
     const out = [];
     stack.entries.forEach((e) => {
       const live = e && e.layer;
       const kind = LY().kindOf(live);
       if (!kind || live.enabled === false || live.muted) return;
-      // Katman yığınında yazılacak nesne yapılandırmadaki katman; yoksa genel bölüm
-      const layer = on ? (cfg.layers || []).find((l) => l && l.id === live.id) : live;
+      // Yazılacak nesne yapılandırmadaki katman
+      const layer = (cfg.layers || []).find((l) => l && l.id === live.id);
       if (!layer) return;
       out.push({ id: live.id, kind, layer, name: live.name || tr(KIND_NAMES[kind]) });
     });
@@ -433,9 +432,7 @@
   /* DÜZEN DOSYASI (#538): yerleştirilebilir öğeler, kullanıcı içeriği
      olmadan (src/shared/layout.js exportLayout). */
   function effectiveLayers() {
-    const cfg = P().cfg();
-    if (LY().stackOn(cfg)) return cfg.layers || [];
-    return window.SVLayers && window.SVLayers.resolve ? window.SVLayers.resolve(cfg) : [];
+    return P().cfg().layers || [];
   }
 
   async function exportFile() {
@@ -458,7 +455,7 @@
     const ok = await P().confirm(tr('Dosyadaki öğeler bu sahnede aynı türdeki öğelerin konumunu ve görünüşünü değiştirecek; eksik olanlar eklenecek. Logo görseliniz ve parça bilgileriniz değişmez.'), { okText: tr('Düzeni Uygula') });
     if (!ok) return;
     const cfg = P().cfg();
-    if (!LY().stackOn(cfg) && window.SVLayers && window.SVLayers.setStackEnabled) window.SVLayers.setStackEnabled(cfg, true);
+    if (window.SVLayers && window.SVLayers.enableStack) window.SVLayers.enableStack(cfg);
     const res = LY().importLayout(cfg, data, (spec) => (window.SVLayers ? window.SVLayers.normalizeLayer(spec) : spec));
     if (!res.ok) { P().toast('İçe aktarılamadı: ' + res.error, 'err'); return; }
     if (window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(cfg);

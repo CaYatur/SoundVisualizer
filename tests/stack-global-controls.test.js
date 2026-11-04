@@ -30,7 +30,7 @@ const ROOT = path.join(__dirname, '..');
 function stackScene() {
   const cfg = SV.defaultConfig();
   cfg.lighting.enabled = false;
-  L.setStackEnabled(cfg, true);
+  L.enableStack(cfg);
   return cfg;
 }
 const visIndex = (cfg) => cfg.layers.findIndex((l) => l.kind === 'visualizer' && l.type !== 'text');
@@ -80,7 +80,7 @@ test('currentType: yığında ekrandaki katmanın türü, klasik alan değil', (
   assert.strictEqual(cfg.visualizer.type, 'none', 'klasik alan yığında bilerek boş');
   assert.strictEqual(L.currentType(cfg, 'visualizer'), 'bars');
   assert.strictEqual(L.currentType(cfg, 'background'), cfg.layers[bgIndex(cfg)].type);
-  assert.strictEqual(L.currentType(SV.defaultConfig(), 'visualizer'), 'bars');
+  assert.strictEqual(L.currentType(SV.defaultConfig(), 'visualizer'), null, 'liste kurulmadan katman yok');
 });
 
 // --- arkaplan türü -------------------------------------------------------------
@@ -89,14 +89,6 @@ test('adoptBackground: yığında ilk arkaplan katmanı, kapalıyken yalnız kla
   const cfg = stackScene();
   L.adoptBackground(cfg, { type: 'ink' });
   assert.strictEqual(drawn(cfg, 'background').background.type, 'ink');
-  const classic = SV.defaultConfig();
-  classic.layers = JSON.parse(JSON.stringify(cfg.layers));
-  classic.layerStack = { enabled: false };
-  const before = JSON.stringify(classic.layers);
-  L.adoptBackground(classic, { type: 'aurora' });
-  assert.strictEqual(classic.background.type, 'aurora');
-  assert.strictEqual(JSON.stringify(classic.layers), before, 'kapalı yığının listesi değişmez');
-  assert.strictEqual(L.stackOn(classic), false, 'yığın açılmaz');
 });
 
 test('adoptBackground: arkaplan katmanı yoksa en alta eklenir', () => {
@@ -109,25 +101,6 @@ test('adoptBackground: arkaplan katmanı yoksa en alta eklenir', () => {
 });
 
 // --- yığın aç/kapa gidiş-dönüşü ---------------------------------------------------
-
-test('görselleştiricisiz sahne yığın açılıp kapanınca görselleştiricisiz kalır', () => {
-  const cfg = SV.defaultConfig();
-  cfg.visualizer.type = 'none';
-  const before = L.resolve(cfg).map((l) => l.kind + ':' + l.type);
-  L.setStackEnabled(cfg, true);
-  L.setStackEnabled(cfg, false);
-  assert.deepStrictEqual(L.resolve(cfg).map((l) => l.kind + ':' + l.type), before);
-  assert.strictEqual(cfg.visualizer.type, 'none');
-});
-
-test('açık yığını yeniden açmak klasik yedeği silmez', () => {
-  const cfg = SV.defaultConfig();
-  cfg.visualizer.type = 'blocks';
-  L.setStackEnabled(cfg, true);
-  L.setStackEnabled(cfg, true);
-  L.setStackEnabled(cfg, false);
-  assert.strictEqual(cfg.visualizer.type, 'blocks');
-});
 
 // --- modülasyon ve zaman çizelgesi ---------------------------------------------
 
@@ -198,14 +171,6 @@ test('Sonraki Arkaplan yığında ekrandaki katmanı değiştirir', () => {
   assert.strictEqual(drawn(cfg, 'background').background.type, ids[(ids.indexOf(cur) + 1) % ids.length]);
 });
 
-test('klasik kipte eylemler eskisi gibi klasik alanı değiştirir', () => {
-  const cfg = SV.defaultConfig();
-  const C = freshControl(cfg);
-  C.runAction('nextVisualizer', cfg);
-  assert.notStrictEqual(cfg.visualizer.type, 'bars');
-  assert.strictEqual(L.stackOn(cfg), false);
-});
-
 test('OSC kaydırıcısı yığında ekrandaki katmanın değerini değiştirir', async () => {
   const cfg = stackScene();
   cfg.control.osc.enabled = true;
@@ -270,10 +235,6 @@ test('kumanda kaydırıcısı yığında katmanın değerine de yazar, klasikte 
   const cfg = stackScene();
   set(cfg, 'visualizer.barCount', 30);
   assert.strictEqual(drawn(cfg, 'visualizer').visualizer.barCount, 30);
-  const classic = SV.defaultConfig();
-  set(classic, 'visualizer.type', 'blocks');
-  assert.strictEqual(classic.visualizer.type, 'blocks');
-  assert.strictEqual(L.stackOn(classic), false);
 });
 
 test('kumanda sayfası katman yardımcısını yükler ve ekrandaki türü işaretler', () => {
@@ -317,7 +278,7 @@ test('yığın açık ve liste boşken "Katman Listesini Oluştur" listeyi yine 
   const cfg = SV.defaultConfig();
   cfg.layerStack = { enabled: true };
   cfg.layers = [];
-  L.setStackEnabled(cfg, true);
+  L.enableStack(cfg);
   assert.ok(cfg.layers.length > 0, 'düğme işlevsiz kalmamalı');
 });
 

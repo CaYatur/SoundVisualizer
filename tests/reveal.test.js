@@ -72,22 +72,6 @@ test('ayarın yeri: yığında katman, katmansız kipte sentezlenen katmanın b�
   const stackCfg = { layerStack: { enabled: true }, layers: [{ id: 'a', kind: 'visualizer', type: 'text', reveal: { type: 'fade' } }] };
   assert.strictEqual(LY.revealOf(stackCfg.layers[0], stackCfg).type, 'fade');
   assert.strictEqual(LY.revealHolder(stackCfg.layers[0], stackCfg), stackCfg.layers[0]);
-  const classic = { layerStack: { enabled: false }, text: { enabled: true } };
-  const synth = { id: 'ly_text', kind: 'visualizer', type: 'text' };
-  LY.revealHolder(synth, classic).reveal = { type: 'wipe' };
-  assert.strictEqual(classic.text.reveal.type, 'wipe');
-  assert.strictEqual(synth.reveal, undefined, 'sentezlenen katmana yazılmaz');
-  assert.strictEqual(LY.revealOf(synth, classic).type, 'wipe');
-  // Bilinmeyen sentez kimliği: yer yok
-  assert.strictEqual(R.holderOf({ id: 'ly_x' }, classic, false, true), null);
-});
-
-test('katmansız kipte logo genel logoya yazılır (sentezlenen kopyaya değil)', () => {
-  const cfg = { layerStack: { enabled: false }, logo: { src: 'x.png', x: 0.5, y: 0.5 } };
-  const synth = { id: 'ly_logo', kind: 'logo', settings: { logo: { src: 'x.png', x: 0.5, y: 0.5 } } };
-  LY.moveBy(synth, cfg, 0.1, 0);
-  assert.ok(close(cfg.logo.x, 0.6), 'sürüklenen logo geri zıplamasın');
-  assert.strictEqual(synth.settings.logo.x, 0.5);
 });
 
 test('düzen dosyası açılışı taşır; eski dosya hedefinkini korur, "none" temizler', () => {
@@ -109,11 +93,6 @@ test('düzen dosyası açılışı taşır; eski dosya hedefinkini korur, "none"
   none.elements[0].reveal = { type: 'none' };
   LY.importLayout(target, none, (s) => s);
   assert.strictEqual(target.layers[0].reveal, undefined);
-  // Katmansız kipte bölümdeki açılış dışa aktarımda öğenin alanı
-  const classic = { layerStack: { enabled: false }, text: { enabled: true, reveal: { type: 'fade' } } };
-  const d2 = LY.exportLayout([{ id: 'ly_text', kind: 'visualizer', type: 'text' }], classic, {});
-  assert.strictEqual(d2.elements[0].reveal.type, 'fade');
-  assert.strictEqual(d2.elements[0].params.reveal, undefined);
 });
 
 /* Çizici: sahte tuvallerle gerçek LayerStack. */

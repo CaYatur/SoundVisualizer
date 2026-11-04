@@ -76,11 +76,11 @@ test('katman yığınında konum katmanın kendi ayarına yazılıyor; okunan bi
   assert.strictEqual(L.moveBy({ kind: 'background' }, cfg, 0.1, 0.1), null);
 });
 
-test('katmansız kipte genel ayar; logo birleştirilmeden çizicinin okuduğu nesneye', () => {
+test('yazılan değer katmana; logo birleştirilmeden çizicinin okuduğu nesneye', () => {
   const cfg = { visualizer: { barCenterX: 0.5 }, logo: { src: 'x.png', x: 0.5, y: 0.5, scale: 0.2 } };
   const bars = { kind: 'visualizer', type: 'bars' };
   L.moveBy(bars, cfg, -0.1, 0);
-  assert.ok(close(cfg.visualizer.barCenterX, 0.4));
+  assert.ok(close(bars.settings.visualizer.barCenterX, 0.4));
   // Logo katmanının kendi logosu yoksa genel logo; kaynağı korunur
   const logo = { kind: 'logo', settings: {} };
   L.moveBy(logo, Object.assign(cfg, { layerStack: { enabled: true } }), 0.1, 0);
@@ -336,7 +336,7 @@ test('taze profilde ilk sürükleme: varsayılanlar +0,1 / -0,05 kayar, 0\'a ç�
   L.KINDS.bars.fields.forEach((f) => { startVals[f.key] = L.getField(layer, cfg, f.key); });
   Object.keys(startVals).forEach((k) => L.setField(layer, cfg, k, startVals[k]));
   L.moveBy(layer, cfg, 0.1, -0.05);
-  const v = cfg.visualizer;
+  const v = layer.settings.visualizer;
   assert.ok(close(v.barCenterX, 0.6), String(v.barCenterX));
   assert.ok(close(v.baseline, 0.95), String(v.baseline));
   assert.strictEqual(v.barSpan, 1);

@@ -287,12 +287,6 @@
     return 'cam|' + (m.deviceId || '');
   }
 
-  function stackOn(cfg) {
-    const s = cfg && cfg.layerStack;
-    if (s && typeof s.enabled === 'boolean') return s.enabled;
-    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-  }
-
   /* SAYDAM MOD — "şeffaf arkaplan".
 
      İki ayrı saydamlık var ve ikisi de aynı şeyi istiyor: katmanların
@@ -321,7 +315,7 @@
     if (bg.type === 'transparent') return true;
     if (cfg.isBlackout === true) return false;
     if (bg.transparent) return true;
-    if (stackOn(cfg) && Array.isArray(cfg.layers)) {
+    if (Array.isArray(cfg.layers)) {
       for (let i = 0; i < cfg.layers.length; i++) {
         const l = cfg.layers[i];
         if (l && l.kind === 'background' && l.enabled !== false && !l.muted
@@ -419,44 +413,19 @@
     if (cfg.text) cfg.text.enabled = false;
   }
 
-  function setStackEnabled(cfg, enabled) {
+  /* Eski (katmansız) sahneyi listeye çevirir (#905). Çevrilmiş sahnede kök alanlar zaten
+     temiz; yeniden yedeklemek gerçek görüntüyü silerdi. Boş liste yine sentezlenir. */
+  function enableStack(cfg) {
     if (!cfg) return;
     cfg.layerStack = cfg.layerStack || {};
-    const on = !!enabled;
-    if (on) {
-      /* Zaten açıksa klasik alanlar temizlenmiş durumda ('none'); yeniden
-         yedeklemek gerçek klasik sahneyi silerdi. Boş liste yine sentezlenir:
-         "Katmanlara Geç" düğmesi tam bu durumda (açık, liste boş) görünüyor. */
-      const already = cfg.layerStack.enabled === true;
-      if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
-        cfg.layers = synthesize(cfg);
-      }
-      if (already) return;
-      /* Fresh snapshot every time the stack is turned on — do not ratchet
-         previous backup flags to true. Overlay modes added as layers while
-         the stack is on must not leak into classic roots on the way back. */
-      cfg.layerStack.classicBackup = snapshotClassic(cfg);
-      clearClassicOverlays(cfg);
-      cfg.layerStack.enabled = true;
-    } else {
-      cfg.layerStack.enabled = false;
-      const b = cfg.layerStack.classicBackup;
-      if (b) {
-        restoreClassic(cfg, b);
-      } else {
-        /* No snapshot (legacy / template): keep the scene lit via the
-           visualizer type from the layer list, but do NOT promote logo /
-           text / images / media layers into classic toggles — those stay
-           at whatever the classic roots already are (usually off). */
-        const list = Array.isArray(cfg.layers) ? cfg.layers : [];
-        const vis = list.find((l) => l && l.kind === 'visualizer'
-          && l.type !== 'text' && l.type !== 'nowplaying');
-        /* kind nowplaying is a dedicated overlay, not a classic visualizer type. */
-        if (cfg.visualizer && cfg.visualizer.type === 'none') {
-          cfg.visualizer.type = vis ? vis.type : 'bars';
-        }
-      }
+    const already = cfg.layerStack.enabled === true;
+    if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
+      cfg.layers = synthesize(cfg);
     }
+    if (already) return;
+    cfg.layerStack.classicBackup = snapshotClassic(cfg);
+    clearClassicOverlays(cfg);
+    cfg.layerStack.enabled = true;
   }
 
   /* v4 göçü (#905): sahneyi ekrandaki görüntüsünü koruyarak katman listesine çevirir.
@@ -473,7 +442,7 @@
       doc.layers = [];
       out.archived = true;
     }
-    setStackEnabled(doc, true);
+    enableStack(doc);
     out.changed = true;
     return out;
   }
@@ -488,7 +457,7 @@
       cfg.layerStack = Object.assign({}, cfg.layerStack, { enabled: true });
       return;
     }
-    setStackEnabled(cfg, true);
+    enableStack(cfg);
   }
 
   /* Listeyi arkaplan ve görselleştiriciyle yeniden başlatır (#905). Kök alanlar yığına
@@ -540,9 +509,6 @@
       cfg.custom = Object.assign({}, cfg.custom);
       if (presetId) cfg.custom.visualizerId = presetId;
     }
-    const hadLayers = Array.isArray(cfg.layers) && cfg.layers.length > 0;
-    if (!stackOn(cfg) && !hadLayers) return null;
-    if (!stackOn(cfg)) setStackEnabled(cfg, true);
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
     let layer = liveVisualizerLayers(cfg)[0];
     if (!layer) {
@@ -575,7 +541,6 @@
      listeyi kullanmaz; anahtar açılır, sessiz kalkar, katman çizilir. */
   function revealLayer(cfg, layer) {
     if (!cfg || !layer) return;
-    if (!stackOn(cfg)) setStackEnabled(cfg, true);
     layer.enabled = true;
     layer.muted = false;
   }
@@ -622,7 +587,7 @@
      o değeri taşımıyorken kendisi, aksi halde
      `layers.<i>.settings.<bölüm>.<alt yol>`. */
   function effectivePath(cfg, path) {
-    if (typeof path !== 'string' || !stackOn(cfg)) return path;
+    if (typeof path !== 'string') return path;
     const keys = path.split('.');
     const section = keys[0];
     if (!SECTION_KIND[section] || keys.length < 2 || keys[1] === 'type') return path;
@@ -653,11 +618,8 @@
      'none'; sıradaki moda geçen bir eylem onu okursa listenin başına
      atlıyordu. */
   function currentType(cfg, section) {
-    if (stackOn(cfg)) {
-      const i = firstLayerIndex(cfg, section);
-      return i >= 0 ? cfg.layers[i].type : null;
-    }
-    return (cfg && cfg[section] && cfg[section].type) || null;
+    const i = firstLayerIndex(cfg, section);
+    return i >= 0 ? cfg.layers[i].type : null;
   }
   /* adoptVisualizer'ın arkaplan karşılığı. Bir farkla: yığın kapalıyken
      yalnız klasik alan yazılır, yığın açılmaz. */
@@ -672,7 +634,6 @@
       cfg.custom = Object.assign({}, cfg.custom);
       if (presetId) cfg.custom.backgroundId = presetId;
     }
-    if (!stackOn(cfg)) return null;
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
     const i = firstLayerIndex(cfg, 'background');
     let layer = i >= 0 ? cfg.layers[i] : null;
@@ -721,7 +682,7 @@
 
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez
   function resolve(cfg) {
-    const list = stackOn(cfg) && cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
     const used = list.length ? list.map(normalizeLayer) : synthesize(cfg);
     /* Solo varsa yalnızca solo katmanlar çizilir. Bir kompozitörde solo,
        "diğerlerini kapat" demenin geri alınabilir yoludur; katmanları tek tek
@@ -906,14 +867,13 @@
       ? cfg.layers.map((l) => (l.kind || '') + '.' + (l.type || '') + '.' + (l.presetId || '') + '.' + (l.enabled !== false ? '1' : '0')).join(',')
       : '';
     const grad = ((b.gradient && b.gradient.colors) || []).join(',');
-    const stackState = stackOn(cfg) ? 'stack' : 'classic';
     const black = (cfg.isBlackout === true || (cfg.isBlackout !== false && (
       cfg.background &&
       (cfg.background.type === 'transparent' || (cfg.background.type === 'solid' && cfg.background.solidColor === '#000000')) &&
       cfg.visualizer && cfg.visualizer.type === 'none' &&
       (!cfg.layers || cfg.layers.every((l) => !l.enabled))
     ))) ? 'blackout' : '';
-    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState, black].join('|');
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, black].join('|');
   }
 
   function bandValue(audio, band) {
@@ -1197,43 +1157,6 @@
       return rest;
     }
 
-    // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
-    // logonun da efektlerden geçmesi için)
-    _drawLogoToCanvas(ctx, cfg, audio, t) {
-      if (stackOn(cfg)) return;
-      const l = cfg && cfg.logo;
-      if (!l || !l.enabled) return;
-      const effectiveSrc = resolveLogoSrc(l, cfg);
-      if (!effectiveSrc) {
-        this._lastLogoImg = null;
-        this._lastLogoSrc = '';
-        return;
-      }
-      const gif = this._logoDrawable(l, effectiveSrc, audio, t);
-      if (gif) {
-        this._paintLogo(ctx, gif, l, audio, this.width, this.height);
-        return;
-      }
-      /* GIF_LIB_NO_IMG_FALLBACK */
-      if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(l, effectiveSrc)) {
-        return;
-      }
-      let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
-        ? this.logoEl
-        : this._getImage(effectiveSrc);
-      if (!img || !img.naturalWidth) {
-        if (this._lastLogoSrc === effectiveSrc && this._lastLogoImg && this._lastLogoImg.naturalWidth) {
-          img = this._lastLogoImg;
-        } else {
-          return;
-        }
-      } else {
-        this._lastLogoImg = img;
-        this._lastLogoSrc = effectiveSrc;
-      }
-      this._paintLogo(ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, l, audio, this.width, this.height);
-    }
-
     setSprites(s) { this.sprites = s; }
     setMedia(m) { this.media = m; }
 
@@ -1266,7 +1189,7 @@
       if (!this._mediaPool) this._mediaPool = new Map();
       const byLayer = new Map();
       const wanted = new Map();
-      if (stackOn(cfg) && cfg && Array.isArray(cfg.layers)) {
+      if (cfg && Array.isArray(cfg.layers)) {
         const defMedia = cfg.media || {};
         cfg.layers.forEach((l, i) => {
           if (!l || l.kind !== 'media' || l.enabled === false) return;
@@ -1696,22 +1619,6 @@
        Kimlik önbelleği sayesinde değişmeyen katmanda normalleştirme tekrar
        çalışmaz. */
     _live(e, cfg) {
-      if (!stackOn(cfg)) {
-        if (e.layer && e.layer.id === 'ly_vis' && cfg && cfg.visualizer) {
-          e.layer.settings = e.layer.settings || {};
-          e.layer.settings.visualizer = cfg.visualizer;
-          if (cfg.visualizer.type && cfg.visualizer.type !== 'none') {
-            e.layer.type = cfg.visualizer.type;
-          }
-        } else if (e.layer && e.layer.id === 'ly_bg' && cfg && cfg.background) {
-          e.layer.settings = e.layer.settings || {};
-          e.layer.settings.background = cfg.background;
-          if (cfg.background.type) {
-            e.layer.type = cfg.background.type;
-          }
-        }
-        return e.layer;
-      }
       const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : null;
       if (!list || !list.length) return e.layer;
       let src = null;
@@ -1763,7 +1670,7 @@
        bildirdiği yerleşim kutusu: kırpma ve büyüme merkezi öğeye göre. */
     _reveal(e, l, cfg, t) {
       const R = typeof window !== 'undefined' ? window.SVReveal : null;
-      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      const spec = R ? R.specOf(l) : null;
       if (!spec) { e._rv = null; e._revealDone = true; return null; }
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
       if (!e._rv || e._rv.sig !== sig) {
@@ -1785,7 +1692,7 @@
     // Açılışı bitmemiş katman: altını örtemez (saydam ya da kırpılı)
     _revealPending(e, l, cfg) {
       const R = typeof window !== 'undefined' ? window.SVReveal : null;
-      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      const spec = R ? R.specOf(l) : null;
       if (!spec) return false;
       // Ayar bu karede değiştiyse çizim saati baştan alacak: daha bitmedi
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
@@ -1981,7 +1888,7 @@
           this.compCanvas.width = this.width;
           this.compCanvas.height = this.height;
         }
-        this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio, t));
+        this.drawTo(this.compCtx, audio, cfg, t, dt);
 
         let src = this.compCanvas;
         if (tick) {
@@ -1996,8 +1903,7 @@
               if (e.mode && e.mode.resize) e.mode.resize();
             }
           }
-          tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt,
-            (ctx) => tr.stack._drawLogoToCanvas(ctx, tr.cfg, audio, t));
+          tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt);
           this.compositor.compose(this.transCtx, this.transOut, this.compCanvas,
             this.width, this.height, tr.type, tick.p, tr.opts);
           src = this.transSurface;
@@ -2597,8 +2503,7 @@
     newLayerId,
     synthesize,
     resolve,
-    stackOn,
-    setStackEnabled,
+    enableStack,
     toStack,
     ensureStack,
     rebuildStack,

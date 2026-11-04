@@ -37,17 +37,6 @@
     ['"Trebuchet MS", "Segoe UI", sans-serif', 'Yuvarlak'],
   ];
 
-  function syncToLayers(cfg, T) {
-    if (!cfg || !Array.isArray(cfg.layers)) return;
-    if (window.SVLayers && window.SVLayers.stackOn(cfg)) return;
-    for (const l of cfg.layers) {
-      if (l.type === 'text') {
-        l.settings = l.settings || {};
-        l.settings.text = Object.assign({}, l.settings.text || {}, T);
-      }
-    }
-  }
-
   let wiredLive = false;
   function ensureLive() {
     if (wiredLive) return;
@@ -70,10 +59,9 @@
     const cfg = P().cfg();
     const T = cfg.text || (cfg.text = window.SV.defaultConfig().text);
     const rerender = () => P().apply();
-    const sync = () => syncToLayers(cfg, T);
     const nodes = [];
 
-    nodes.push(SP().miniToggle('Metin Etkin', () => !!T.enabled, (v) => { T.enabled = v; sync(); }, rerender));
+    nodes.push(SP().miniToggle('Metin Etkin', () => !!T.enabled, (v) => { T.enabled = v; }, rerender));
     if (T.enabled === false) {
       return el('div', { class: 'txt-panel' }, nodes);
     }
@@ -86,7 +74,7 @@
       if (I && typeof I.t === 'function' && T.content) T.content = I.t(T.content);
       delete T.placeholder;
     };
-    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { if (v !== 'now') settle(); T.source = v; sync(); }, rerender));
+    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { if (v !== 'now') settle(); T.source = v; }, rerender));
 
     // ------------------------------------------------------------- kaynak
     if ((T.source || 'static') === 'static') {
@@ -94,12 +82,12 @@
         el('label', { class: 'lbl', text: 'Metin' }),
         el('textarea', {
           class: 'p-in txt-area', rows: 2, value: T.content || '',
-          oninput: (e) => { T.content = e.target.value; delete T.placeholder; sync(); P().push(false); },
+          oninput: (e) => { T.content = e.target.value; delete T.placeholder; P().push(false); },
         }),
       ]));
-      nodes.push(SP().miniToggle('Kayan Yazı', () => !!T.marquee, (v) => { T.marquee = v; sync(); }, rerender));
+      nodes.push(SP().miniToggle('Kayan Yazı', () => !!T.marquee, (v) => { T.marquee = v; }, rerender));
       if (T.marquee) {
-        nodes.push(SP().miniSlider('Kayma Hızı', () => T.marqueeSpeed || 0.12, (v) => { T.marqueeSpeed = v; sync(); }, {
+        nodes.push(SP().miniSlider('Kayma Hızı', () => T.marqueeSpeed || 0.12, (v) => { T.marqueeSpeed = v; }, {
           min: 0.02, max: 0.6, step: 0.01,
         }));
       }
@@ -109,11 +97,11 @@
         ['title', 'Parça Adı'],
         ['artist', 'Sanatçı Adı'],
         ['both', 'Parça ve Sanatçı'],
-      ], () => T.field || 'both', (v) => { T.field = v; sync(); }, rerender));
+      ], () => T.field || 'both', (v) => { T.field = v; }, rerender));
       const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
       if (!isWin && (T.nowSource || 'system') === 'system') {
         T.nowSource = 'manual';
-        sync();
+       
       }
       const isAuto = isWin && (T.nowSource || 'system') === 'system';
 
@@ -122,7 +110,7 @@
       }
       if (isWin) nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
           T.nowSource = v ? 'system' : 'manual';
-          sync();
+         
           if (v && window.api && window.api.nowPlayingSubscribe) {
             window.api.nowPlayingSubscribe(true);
           }
@@ -131,7 +119,7 @@
 
         if (isWin) nodes.push(SP().miniToggle('Şarkı Resmini Göster', () => T.showArtwork !== false, (v) => {
           T.showArtwork = v;
-          sync();
+         
           P().push(true);
         }, rerender));
 
@@ -161,7 +149,7 @@
                 if (cur.title) T.nowPlaying.title = cur.title;
                 if (cur.artist) T.nowPlaying.artist = cur.artist;
                 if (cur.artwork) T.nowPlaying.artwork = cur.artwork;
-                sync();
+               
                 P().push(true);
                 rerender();
                 P().toast('Çalan parça bilgileri yedek alanlara aktarıldı.');
@@ -175,7 +163,7 @@
             oninput: (e) => {
               T.nowPlaying = T.nowPlaying || {};
               T.nowPlaying.title = e.target.value;
-              sync();
+             
               P().push(false);
             },
           })));
@@ -185,7 +173,7 @@
             oninput: (e) => {
               T.nowPlaying = T.nowPlaying || {};
               T.nowPlaying.artist = e.target.value;
-              sync();
+             
               P().push(false);
             },
           })));
@@ -208,7 +196,7 @@
                   if (cur.title) T.nowPlaying.title = cur.title;
                   if (cur.artist) T.nowPlaying.artist = cur.artist;
                   if (cur.artwork) T.nowPlaying.artwork = cur.artwork;
-                  sync();
+                 
                   P().push(true);
                   rerender();
                   P().toast('Şarkı bilgileri alanlara yazıldı.');
@@ -223,7 +211,7 @@
             oninput: (e) => {
               T.nowPlaying = T.nowPlaying || {};
               T.nowPlaying.title = e.target.value;
-              sync();
+             
               P().push(false);
             },
           })));
@@ -233,7 +221,7 @@
             oninput: (e) => {
               T.nowPlaying = T.nowPlaying || {};
               T.nowPlaying.artist = e.target.value;
-              sync();
+             
               P().push(false);
             },
           })));
@@ -262,7 +250,7 @@
             if (!r || !r.ok) return;
             T.lyricsSource = r.text;
             T.lyricsName = r.name || '';
-            sync();
+           
             P().push(true);
             const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
             rerender();
@@ -274,7 +262,7 @@
           onclick: () => {
             T.lyricsSource = '';
             T.lyricsName = '';
-            sync();
+           
             P().push(true);
             rerender();
           },
@@ -286,23 +274,23 @@
       }
 
       if (isWin && window.SVLyricsLibUi && window.SVLyricsLibUi.block) {
-        const extra = window.SVLyricsLibUi.block({ txt: T, rerender, sync });
+        const extra = window.SVLyricsLibUi.block({ txt: T, rerender });
         for (let i = 0; i < extra.length; i++) nodes.push(extra[i]);
       }
-      nodes.push(SP().miniSlider('Senkron Kayması', () => T.offset || 0, (v) => { T.offset = v; sync(); }, {
+      nodes.push(SP().miniSlider('Senkron Kayması', () => T.offset || 0, (v) => { T.offset = v; }, {
         min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
       }));
-      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }, rerender));
+      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; }, rerender));
       if (T.karaoke !== false) {
         // Kelime süresi (#938): dolum biçimi ve uzatılan hecenin esnemesi
         nodes.push(SP().miniSelect('Karaoke Dolumu', [['word', 'Kelime Kelime'], ['progressive', 'Kelime İçinde Akan']],
-          () => T.karaokeFill || 'word', (v) => { T.karaokeFill = v; sync(); }, null, 'word'));
-        nodes.push(SP().miniToggle('Uzatılan Heceyi Esnet', () => T.karaokeHold === true, (v) => { T.karaokeHold = v; sync(); }, rerender));
+          () => T.karaokeFill || 'word', (v) => { T.karaokeFill = v; }, null, 'word'));
+        nodes.push(SP().miniToggle('Uzatılan Heceyi Esnet', () => T.karaokeHold === true, (v) => { T.karaokeHold = v; }, rerender));
         if (T.karaokeHold === true) {
-          nodes.push(SP().miniSlider('Esneme Eşiği', () => (T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin), (v) => { T.karaokeHoldMin = v; sync(); }, {
+          nodes.push(SP().miniSlider('Esneme Eşiği', () => (T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin), (v) => { T.karaokeHoldMin = v; }, {
             min: 0.2, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
           }));
-          nodes.push(SP().miniSlider('Esneme Miktarı', () => (T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount), (v) => { T.karaokeHoldAmount = v; sync(); }, {
+          nodes.push(SP().miniSlider('Esneme Miktarı', () => (T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount), (v) => { T.karaokeHoldAmount = v; }, {
             min: 0, max: 1, step: 0.01, percent: true,
           }));
         }
@@ -317,26 +305,26 @@
       nodes.push(SP().foldable('Söz Kütüphanesi', () => window.SVLyricsLibUi.library({ txt: T, rerender, sync }), 'lyrics-lib-text'));
     }
     nodes.push(SP().foldable('Yazı', () => [
-      SP().miniSelect('Yazı Tipi', FONT_LABELS, () => T.font, (v) => { T.font = v; sync(); }),
-      SP().miniSlider('Boyut', () => T.size == null ? 0.09 : T.size, (v) => { T.size = v; sync(); }, {
+      SP().miniSelect('Yazı Tipi', FONT_LABELS, () => T.font, (v) => { T.font = v; }),
+      SP().miniSlider('Boyut', () => T.size == null ? 0.09 : T.size, (v) => { T.size = v; }, {
         min: 0.02, max: 0.35, step: 0.005, fmt: (v) => Math.round(v * 100) + '%',
       }),
-      SP().miniSlider('Kalınlık', () => T.weight || 700, (v) => { T.weight = Math.round(v / 100) * 100; sync(); }, {
+      SP().miniSlider('Kalınlık', () => T.weight || 700, (v) => { T.weight = Math.round(v / 100) * 100; }, {
         min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100),
       }),
-      SP().miniSelect('Hizalama', ALIGN_LABELS, () => T.align || 'center', (v) => { T.align = v; sync(); }),
-      SP().miniSlider('Yatay', () => T.x == null ? 0.5 : T.x, (v) => { T.x = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
-      SP().miniSlider('Dikey', () => T.y == null ? 0.5 : T.y, (v) => { T.y = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
+      SP().miniSelect('Hizalama', ALIGN_LABELS, () => T.align || 'center', (v) => { T.align = v; }),
+      SP().miniSlider('Yatay', () => T.x == null ? 0.5 : T.x, (v) => { T.x = v; }, { min: 0, max: 1, step: 0.005, percent: true }),
+      SP().miniSlider('Dikey', () => T.y == null ? 0.5 : T.y, (v) => { T.y = v; }, { min: 0, max: 1, step: 0.005, percent: true }),
       SP().miniSelect('Dikey Hiza', [['top', 'Üst'], ['middle', 'Orta'], ['bottom', 'Alt']],
-        () => T.vAlign || 'middle', (v) => { T.vAlign = v; sync(); }),
-      SP().miniSlider('Saydamlık', () => T.opacity == null ? 1 : T.opacity, (v) => { T.opacity = v; sync(); }, { min: 0, max: 1, step: 0.01, percent: true }),
-      SP().miniSlider('Kontur', () => T.outline || 0, (v) => { T.outline = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
-      SP().miniSlider('Gölge', () => T.shadow || 0, (v) => { T.shadow = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
-      SP().miniSlider('En Fazla Genişlik', () => (T.maxWidth == null ? 0.9 : T.maxWidth), (v) => { T.maxWidth = v; sync(); },
+        () => T.vAlign || 'middle', (v) => { T.vAlign = v; }),
+      SP().miniSlider('Saydamlık', () => T.opacity == null ? 1 : T.opacity, (v) => { T.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true }),
+      SP().miniSlider('Kontur', () => T.outline || 0, (v) => { T.outline = v; }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniSlider('Gölge', () => T.shadow || 0, (v) => { T.shadow = v; }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniSlider('En Fazla Genişlik', () => (T.maxWidth == null ? 0.9 : T.maxWidth), (v) => { T.maxWidth = v; },
         { min: 0.2, max: 1, step: 0.01, percent: true }),
-      SP().miniToggle('Uzun Yazıyı Kaydır', () => T.scrollOverflow !== false, (v) => { T.scrollOverflow = v; sync(); }, rerender),
+      SP().miniToggle('Uzun Yazıyı Kaydır', () => T.scrollOverflow !== false, (v) => { T.scrollOverflow = v; }, rerender),
       ...(T.scrollOverflow !== false && !T.marquee ? [
-        SP().miniSlider('Kaydırma Hızı', () => (T.scrollSpeed == null ? 1 : T.scrollSpeed), (v) => { T.scrollSpeed = v; sync(); },
+        SP().miniSlider('Kaydırma Hızı', () => (T.scrollSpeed == null ? 1 : T.scrollSpeed), (v) => { T.scrollSpeed = v; },
           { min: 0.25, max: 4, step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }),
       ] : []),
     ]));
@@ -360,7 +348,7 @@
           cfg.visualizer.colorMode = m;
           cfg.visualizer.rainbow = (m === 'rainbow');
         }
-        sync();
+       
       };
       const kids = [
         SP().miniSegment('Renk Modu', [
@@ -383,17 +371,17 @@
     }));
 
     nodes.push(SP().foldable('Hareket ve Ses', () => [
-      SP().miniSelect('Giriş', ANIM_LABELS, () => T.animation || 'fade', (v) => { T.animation = v; sync(); }),
-      SP().miniSlider('Giriş Süresi', () => T.animDuration == null ? 0.45 : T.animDuration, (v) => { T.animDuration = v; sync(); }, {
+      SP().miniSelect('Giriş', ANIM_LABELS, () => T.animation || 'fade', (v) => { T.animation = v; }),
+      SP().miniSlider('Giriş Süresi', () => T.animDuration == null ? 0.45 : T.animDuration, (v) => { T.animDuration = v; }, {
         min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
       }),
-      SP().miniSlider('Bas Nabzı', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; sync(); }, {
+      SP().miniSlider('Bas Nabzı', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; }, {
         min: 0, max: 0.6, step: 0.01,
       }),
-      SP().miniSlider('Titreşim', () => T.audioJitter || 0, (v) => { T.audioJitter = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
-      SP().miniToggle('Harf Harf Tepki', () => !!T.perCharacter, (v) => { T.perCharacter = v; sync(); }, rerender),
+      SP().miniSlider('Titreşim', () => T.audioJitter || 0, (v) => { T.audioJitter = v; }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniToggle('Harf Harf Tepki', () => !!T.perCharacter, (v) => { T.perCharacter = v; }, rerender),
       T.perCharacter
-        ? SP().miniSlider('Harf Yükselmesi', () => T.audioLift == null ? 0.25 : T.audioLift, (v) => { T.audioLift = v; sync(); }, { min: 0, max: 1, step: 0.02 })
+        ? SP().miniSlider('Harf Yükselmesi', () => T.audioLift == null ? 0.25 : T.audioLift, (v) => { T.audioLift = v; }, { min: 0, max: 1, step: 0.02 })
         : null,
     ].filter(Boolean)));
 

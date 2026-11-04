@@ -51,7 +51,6 @@
   let started = false;
   let liveSource = false;
   let onSourceChange = null;
-  let lastSpriteSig = null;
   let lastW = 0;
   let lastH = 0;
 
@@ -127,42 +126,10 @@
   // --------------------------------------------------------------------------
   // Partikül sabitleri yalnızca bu alanlar değişince yeniden üretilir; diğer
   // parametreler (hız, saydamlık, ışıltı…) doğrudan cfg üzerinden canlı okunur.
-  function spriteSignature() {
-    const items = (cfg.images && cfg.images.items) || [];
-    return items.map((i) => [i.id, i.src ? i.src.length : 0, i.count, i.sizeVar, i.seed].join(':')).join('|');
-  }
-
-  function applyImages() {
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    if (isStack) return;
-    const on = !!(cfg.images && cfg.images.enabled);
-    const items = on ? cfg.images.items || [] : [];
-    const sig = on ? spriteSignature() : '';
-    if (sig !== lastSpriteSig) {
-      lastSpriteSig = sig;
-      sprites.setItems(items);
-    } else {
-      // Yapı aynı: yalnızca canlı okunan yapılandırma referansını tazele
-      const withSrc = items.filter((c) => c && c.src);
-      sprites.items.forEach((it, i) => {
-        if (withSrc[i]) it.cfg = withSrc[i];
-      });
-    }
-  }
-
   function applyMedia() {
     if (!media || !stack) return;
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
-      && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasMediaLayer) {
-      media.apply({ enabled: false });
-      stack.syncMedia(cfg);
-      return;
-    }
+    media.apply({ enabled: false });
     if (stack.syncMedia) stack.syncMedia(cfg);
-    const mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
-    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
   }
 
   // --------------------------------------------------------------------------
@@ -382,17 +349,14 @@
     // Düşük güç kipi (#458): panelin ayarı değil, çizilen kopya
     if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
     if (!stack) return;
-    applyImages();
     applyMedia();
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
     /* Modlar setConfig ile yeni kurulur; sv_media bağı ondan sonra.
        Yığındaki her kamera kendi katmanında çizilir. Shader girişi alttaki
        ilk açık medya katmanının görüntüsüdür. */
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+    const mediaOn = Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    const mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
     stack.bindMedia(mediaOn && stack.shaderVideo ? stack.shaderVideo() : null);
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)

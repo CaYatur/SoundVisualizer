@@ -176,7 +176,7 @@ test('Otomatik VJ kilitli katmanın türüne ve rengine dokunmaz', () => {
   // Gözetimsiz otomasyonun ortak yolu (Otomatik VJ paleti, dinamik tema) kilitli katmana yazmaz
   const L = require('../src/visualizer/layers.js');
   const cfg = SV.defaultConfig();
-  L.setStackEnabled(cfg, true);
+  L.enableStack(cfg);
   const i = L.firstLayerIndex(cfg, 'visualizer');
   assert.ok(i >= 0);
   const was = cfg.layers[i].settings.visualizer.color;
@@ -187,7 +187,7 @@ test('Otomatik VJ kilitli katmanın türüne ve rengine dokunmaz', () => {
   assert.strictEqual(L.setEffective(cfg, 'visualizer.color', '#123456'), true);
   assert.strictEqual(cfg.layers[i].settings.visualizer.color, '#123456');
   const vis = fnBody(P, 'function applyVisualizer(cfg, items, targets)');
-  assert.match(vis, /if \(isStack && \(cfg\.layers \|\| \[\]\)\.some\(\(l\) => l && l\.kind === 'visualizer' && l\.locked\)\) return false;/);
+  assert.match(vis, /if \(\(cfg\.layers \|\| \[\]\)\.some\(\(l\) => l && l\.kind === 'visualizer' && l\.locked\)\) return false;/);
   // Durum satırı nedeni söyler
   assert.match(P, /parts\.push\(T\('görselleştirici katmanları kilitli'\)\);/);
 });

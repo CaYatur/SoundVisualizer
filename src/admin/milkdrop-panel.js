@@ -600,8 +600,6 @@
   const hasSharedLayer = (cfg) => (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && !isOwnLayer(l));
   let pickFor = '';
   function pickTarget(cfg) {
-    const L = window.SVLayers;
-    if (!L || !L.stackOn || !L.stackOn(cfg)) return null;
     const own = ownLayers(cfg);
     if (!own.length) return null;
     const hit = pickFor && own.find((l) => l.id === pickFor);
@@ -637,8 +635,6 @@
   }
 
   function pointStackAtMilkdrop(cfg) {
-    const L = window.SVLayers;
-    if (!L || !L.stackOn || !L.stackOn(cfg)) return;
     if (!Array.isArray(cfg.layers) || !cfg.layers.length) return;
     const vis = cfg.layers.filter(
       (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0 && !isOwnLayer(l));
@@ -1781,7 +1777,7 @@
     }
 
     const target = pickTarget(cfg);
-    if (ownLayers(cfg).length && window.SVLayers && window.SVLayers.stackOn(cfg)) {
+    if (ownLayers(cfg).length) {
       const pickSel = el('select', { class: 'sel' });
       if (hasSharedLayer(cfg)) pickSel.appendChild(el('option', { value: '', text: tt('Ortak katmanlar') }));
       for (const l of ownLayers(cfg)) {

@@ -929,11 +929,7 @@ function wantsTransparent() {
   if (!cfg || !cfg.background) return false;
   if (cfg.background.type === 'transparent') return true;
   if (cfg.background.transparent) return true;
-  const stack = cfg.layerStack;
-  const stackOn = stack && typeof stack.enabled === 'boolean'
-    ? stack.enabled
-    : !!(cfg.layers && cfg.layers.length);
-  if (stackOn && Array.isArray(cfg.layers)) {
+  if (Array.isArray(cfg.layers)) {
     for (let i = 0; i < cfg.layers.length; i++) {
       const l = cfg.layers[i];
       if (l && l.kind === 'background' && l.enabled !== false && !l.muted
@@ -4461,7 +4457,7 @@ function stackHelpers() {
 }
 function setRemotePath(cfg, p, value) {
   const L = stackHelpers();
-  const stack = !!(L && L.stackOn(cfg));
+  const stack = !!L;
   if (stack && p === 'visualizer.type') { L.adoptVisualizer(cfg, { type: value }); return; }
   if (stack && p === 'background.type') { L.adoptBackground(cfg, { type: value }); return; }
   setConfigPath(cfg, p, value);
@@ -9465,7 +9461,8 @@ async function runSmoke() {
        gelene kadar karanlık kalıyor ve adım rastgele düşüyordu. */
     const probeMd = milkdropBuiltins()[0];
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' },
         probeMd ? { presetId: probeMd.id, name: probeMd.name, source: probeMd.source } : {}),
       background: { type: 'solid', solidColor: '#000000' } });
@@ -9583,7 +9580,11 @@ async function runSmoke() {
      korunmuyor ve kare gösterildikten sonra okunursa boş görünürdü. */
   const surfaceProbe = async () => {
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'bars' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [
+        { id: 'ly_smoke_bg', kind: 'background', type: 'gradient', enabled: true, settings: {} },
+        { id: 'ly_smoke_vis', kind: 'visualizer', type: 'bars', enabled: true, settings: {} },
+      ],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       background: Object.assign({}, base.background, { type: 'gradient' }),
       postfx: [{ type: 'bloom', enabled: true }] });
     await wait(1200);
@@ -9668,7 +9669,8 @@ async function runSmoke() {
     const prevCtl = currentConfig && currentConfig.milkdropControl;
     currentConfig = Object.assign({}, currentConfig, { milkdropControl: Object.assign({}, prevCtl, { spriteFile: ini }) });
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' }),
       postfx: [], background: { type: 'solid', solidColor: '#000000' } });
     await wait(900);
@@ -11442,7 +11444,8 @@ async function runSmoke() {
         } else {
           currentConfig = Object.assign({}, JSON.parse(JSON.stringify(PINNED)), {
             isBlackout: false,
-            layerStack: { enabled: false },
+            layerStack: { enabled: true },
+            layers: [{ id: 'ly_smoke_media', kind: 'media', enabled: true, settings: {} }],
             visualizer: { type: 'none' },
             background: { type: 'solid', solidColor: '#000000' },
             media: { enabled: true, source: 'file', file: mediaUrl.toMediaUrl(src), loop: true, fit: 'cover', layer: 'back', opacity: 1 },
@@ -12179,7 +12182,8 @@ async function runShots() {
   const bar = 60 / 124 * 4; // 124 BPM'de bir ölçü
   const tlClip = (ref, startBar, bars, color) => ({ type: 'preset', ref, start: startBar * bar, dur: bars * bar, fade: 1, color });
   const SHOW = {
-    layerStack: { enabled: false },
+    layerStack: { enabled: true },
+    layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
     visualizer: { type: 'milkdrop' },
     milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
     timeline: {

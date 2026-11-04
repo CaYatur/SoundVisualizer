@@ -32,30 +32,18 @@
    ve dosya işi main.js'te. */
 const path = require('path');
 
-// layers.js stackOn ile aynı kural: anahtar yoksa katman listesi belirler
-function stackOnCfg(cfg) {
-  const s = cfg && cfg.layerStack;
-  if (s && typeof s.enabled === 'boolean') return s.enabled;
-  return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-}
-
 // Sahnede dışa aktarıma girecek video dosyaları: cfg değerleri (URL ya da yol)
 function mediaFiles(cfg) {
-  const stackOn = stackOnCfg(cfg);
   const out = [];
   const add = (m) => {
     if (!m || m.source !== 'file' || !m.file || typeof m.file !== 'string') return;
     if (out.indexOf(m.file) < 0) out.push(m.file);
   };
   if (!cfg) return out;
-  if (stackOn) {
-    (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((l) => {
-      if (!l || l.kind !== 'media' || l.enabled === false || l.muted) return;
-      add(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {}));
-    });
-  } else if (cfg.media && cfg.media.enabled) {
-    add(cfg.media);
-  }
+  (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((l) => {
+    if (!l || l.kind !== 'media' || l.enabled === false || l.muted) return;
+    add(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {}));
+  });
   return out;
 }
 
@@ -87,4 +75,4 @@ function tempName(dir, i) {
   return path.join(dir, 'media-' + i + '.mp4');
 }
 
-module.exports = { mediaFiles, hasAlpha, transcodeArgs, tempName, stackOnCfg };
+module.exports = { mediaFiles, hasAlpha, transcodeArgs, tempName };

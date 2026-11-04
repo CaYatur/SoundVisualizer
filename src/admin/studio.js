@@ -247,7 +247,7 @@
   function currentLook(cfg, kind) {
     const L = window.SVLayers;
     const section = kind === 'background' ? 'background' : 'visualizer';
-    if (L && L.stackOn && L.firstLayerIndex && L.layerConfig && L.stackOn(cfg)) {
+    if (L && L.firstLayerIndex && L.layerConfig) {
       const i = L.firstLayerIndex(cfg, section);
       if (i >= 0) return L.layerConfig(cfg, cfg.layers[i]);
     }

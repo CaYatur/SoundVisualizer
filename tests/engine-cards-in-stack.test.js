@@ -23,16 +23,12 @@ test('#881: motor kartları engineInUse kuralıyla görünüyor', () => {
   }
 });
 
-test('#881: engineInUse yığın açıkken katmana, kapalıyken klasik türe bakıyor', () => {
-  const m = src.match(/const engineInUse = \(type\) => \{[\s\S]*?\n {4}\};/);
+test('#881: engineInUse katman listesine bakıyor', () => {
+  const m = src.match(/const engineInUse = \(type\) => \(cfg\.layers \|\| \[\]\)\.some\([^\n]*\);/);
   assert.ok(m, 'engineInUse bulunamadı');
-  const make = (cfg, stack) => vm.runInNewContext('(' + m[0].replace('const engineInUse = ', '').replace(/;$/, '') + ')',
-    { cfg, v: cfg.visualizer, isStackOn: () => stack });
+  const make = (cfg) => vm.runInNewContext('(' + m[0].replace('const engineInUse = ', '').replace(/;$/, '') + ')', { cfg });
   const layers = [{ kind: 'background', type: 'gradient' }, { kind: 'visualizer', type: 'geometry' }];
-  const onStack = make({ visualizer: { type: 'bars' }, layers }, true);
-  assert.strictEqual(onStack('geometry'), true);
-  assert.strictEqual(onStack('feedback'), false);
-  const classic = make({ visualizer: { type: 'feedback' }, layers }, false);
-  assert.strictEqual(classic('feedback'), true);
-  assert.strictEqual(classic('geometry'), false, 'yığın kapalıyken katman listesi sayılmaz');
+  const on = make({ visualizer: { type: 'bars' }, layers });
+  assert.strictEqual(on('geometry'), true);
+  assert.strictEqual(on('feedback'), false);
 });
