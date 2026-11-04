@@ -473,26 +473,16 @@
     // ------------------------------------------------------------------
     // Katman yığını.
     //
-    // Boşsa liste eski alanlardan (background / media / images / visualizer /
-    // logo) otomatik SENTEZLENİR; v2.0 ayarları ve sahneleri hiçbir değişiklik
-    // olmadan aynı kareyi verir. Kullanıcı katman eklediği anda bu liste
-    // sahnenin tek kaynağı olur.
+    // Boşsa panel ilk çizimde varsayılan katmanları kuruyor; eski ayarlar göçle
+    // (shared/migrate-v4.js) bir kez listeye çevriliyor.
     //
     // Not: her modun kendi içindeki parlama (glow) yerinde kalır — o, şeklin
     // kendi görünümünün parçası. Kompozisyon seviyesindeki bloom ayrı bir
     // son-işlem efektidir ve varsayılan olarak kapalıdır; ikisi toplanır.
     // ------------------------------------------------------------------
     layers: [],
-    /* Katman yığını anahtarı. Kapalıyken liste korunur ama sahne
-       Arkaplan ve Görselleştirici kartlarından sentezlenir — böylece hem
-       yalın hem katmanlı deneyim tek ayarla değişir.
-
-       Varsayılan false DEĞİL null. Panel kaydedilmiş ayarları
-       deepMerge(defaultConfig(), saved) ile açıyor; false olsaydı bu değer
-       v3.0.0 öncesi her ayar dosyasına sızar ve dolu bir katman listesi olan
-       kullanıcının sahnesi sessizce arkaplan+görselleştiriciye dönerdi.
-       null iken panel ilk
-       çizimde bunu somut bir değere çeviriyor. */
+    /* Eski sürümden kalma anahtar. v4'te sahne her zaman katman listesi: panel ilk çizimde bunu
+       true yapıyor. null, deepMerge eski dosyalara false sızdırmasın diye. */
     layerStack: { enabled: null },
 
     // Ayar biçimi (#905). Yeni kurulumda çevrilecek bir şey yok; göç migrate-v4.js'te

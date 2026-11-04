@@ -283,6 +283,12 @@
         const c = P().sectionCard(id);
         if (c) body.appendChild(c);
       }
+      // Eski sayfa başındaki "kategoriyi sıfırla": katman listesine dokunmuyor
+      body.appendChild(el('button', {
+        class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Sahne Ayarlarını Sıfırla',
+        title: tr('Renkleri, geçişi, efektleri ve modülasyonu varsayılana döndürür; katmanlar kalır.'),
+        onclick: () => P().resetCategory('scene'),
+      }));
     } else {
       nodes.push(el('div', { class: 'sv-ihead' }, [el('div', { class: 'sv-ititle' }, [
         thumbOf(l),

@@ -795,71 +795,36 @@
   }
 
   // Sahne kartında görünen kompakt preset seçici
-  function picker(kind) {
+  /* Studio presetinin kendi kaydırıcıları, katman denetçisinde. Değerler presete göre tutuluyor
+     (custom.params), aynı preseti kullanan katmanlar ve Studio sayfası aynı değeri görür. */
+  function presetParams(id) {
     const el = P().el;
     const cfg = P().cfg();
-    const items = IS().byKind(kind).filter((p) => p.engine === 'shader');
-    const path = kind === 'background' ? 'custom.backgroundId' : 'custom.visualizerId';
-    const current = P().get(path);
-
-    if (!items.length) {
-      return el('div', { class: 'ctrl studio-note', text: 'Henüz Studio preseti yok. Studio sekmesinden bir tane oluşturun.' });
-    }
-
-    const seg = el('div', { class: 'segment' });
-    items.forEach((p) => {
-      seg.appendChild(
-        el('button', {
-          class: p.id === current ? 'active' : '', type: 'button', text: p.name, title: p.description || '',
-          onclick: () => { P().set(path, p.id); P().push(true); P().rerender(); },
-        })
-      );
-    });
-
-    const nodes = [el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: 'Studio Preseti' })]), seg])];
-
-    // Seçili presetin kendi kaydırıcıları
-    const active = IS().get(current);
-    if (active && active.controls && active.controls.length) {
-      cfg.custom.params = cfg.custom.params || {};
-      const store = (cfg.custom.params[active.id] = cfg.custom.params[active.id] || {});
-      for (const c of active.controls) {
-        const cur = c.name in store ? store[c.name] : c.default;
-        if (c.type === 'color') {
-          const inp = el('input', {
-            type: 'color', value: cur || '#ffffff',
-            oninput: (e) => { store[c.name] = e.target.value; P().push(false); },
-          });
-          nodes.push(P().row(trStudio(c.label || c.name), inp));
-        } else if (c.type === 'toggle') {
-          const inp = el('input', { type: 'checkbox', onchange: (e) => { store[c.name] = e.target.checked; P().push(false); } });
-          inp.checked = !!cur;
-          nodes.push(P().row(trStudio(c.label || c.name), el('label', { class: 'switch' }, [inp, el('span', { class: 'track' })])));
-        } else {
-          const val = el('span', { class: 'val', text: (+cur).toFixed(2) });
-          const inp = el('input', {
-            type: 'range',
-            min: c.min == null ? 0 : c.min,
-            max: c.max == null ? 1 : c.max,
-            step: c.step == null ? 0.01 : c.step,
-            value: cur,
-            oninput: (e) => {
-              const v = parseFloat(e.target.value);
-              store[c.name] = v;
-              val.textContent = v.toFixed(2);
-              P().push(false);
-            },
-          });
-          nodes.push(
-            el('div', { class: 'ctrl' }, [
-              el('div', { class: 'row' }, [el('label', { class: 'lbl', text: trStudio(c.label || c.name) }), val]),
-              inp,
-            ])
-          );
-        }
+    const nodes = [];
+    const active = IS().get(id);
+    if (!active || !active.controls || !active.controls.length) return nodes;
+    cfg.custom = cfg.custom || {};
+    cfg.custom.params = cfg.custom.params || {};
+    const store = (cfg.custom.params[active.id] = cfg.custom.params[active.id] || {});
+    for (const c of active.controls) {
+      const cur = c.name in store ? store[c.name] : c.default;
+      const label = trStudio(c.label || c.name);
+      if (c.type === 'color') {
+        const inp = el('input', {
+          type: 'color', value: cur || '#ffffff',
+          oninput: (e) => { store[c.name] = e.target.value; P().push(false); },
+        });
+        nodes.push(P().row(label, inp));
+      } else if (c.type === 'toggle') {
+        const inp = el('input', { type: 'checkbox', onchange: (e) => { store[c.name] = e.target.checked; P().push(false); } });
+        inp.checked = !!cur;
+        nodes.push(P().row(label, el('label', { class: 'switch' }, [inp, el('span', { class: 'track' })])));
+      } else {
+        const opts = { min: c.min == null ? 0 : c.min, max: c.max == null ? 1 : c.max, step: c.step == null ? 0.01 : c.step, extend: true };
+        nodes.push(window.SVScenePanels.miniSlider(label, () => (c.name in store ? store[c.name] : c.default), (v) => { store[c.name] = v; }, opts));
       }
     }
-    return el('div', {}, nodes);
+    return nodes;
   }
 
   function panel() {
@@ -895,5 +860,5 @@
     ]);
   }
 
-  window.SVStudio = { panel, picker, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage, highlight };
+  window.SVStudio = { panel, presetParams, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage, highlight };
 })();

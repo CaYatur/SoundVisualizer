@@ -14,74 +14,21 @@
      npm run ui-walk -- --settings=<settings.json> --presets=<klasör> --out=<görüntü klasörü>
    Çıkış kodu kalan denetim varsa 1. */
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
-const L = require('./perf-lib');
+const { sleep, startPanel } = require('./ui-lib');
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const a = argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
-const REPO = path.join(__dirname, '..');
 const PORT = +arg('port', 9760);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, extra) => {
   results.push(!!ok);
   console.log((ok ? 'GEÇTİ ' : 'KALDI ') + name + (extra === undefined ? '' : ' (' + extra + ')'));
 };
 
-function electronPath() {
-  const dir = path.join(REPO, 'node_modules/electron/dist');
-  const name = process.platform === 'win32' ? 'electron.exe' : process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron';
-  return path.join(dir, name);
-}
-const cdp = (url) => new Promise((resolve, reject) => {
-  const ws = new WebSocket(url);
-  let id = 0;
-  const pend = new Map();
-  const on = [];
-  ws.onmessage = (m) => {
-    const d = JSON.parse(m.data);
-    if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } else on.forEach((f) => f(d));
-  };
-  ws.onerror = reject;
-  ws.onopen = () => {
-    const call = (method, params) => new Promise((r) => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
-    const ev = async (e) => {
-      const r = await call('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true });
-      if (r.result && r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails.exception && r.result.exceptionDetails.exception.description || r.result.exceptionDetails).slice(0, 500));
-      return r.result && r.result.result && r.result.result.value;
-    };
-    resolve({ ws, call, ev, on });
-  };
-});
-
 async function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-walk-'));
-  const ud = path.join(work, 'ud');
-  fs.mkdirSync(path.join(ud, 'presets'), { recursive: true });
-  const settingsFile = arg('settings');
-  fs.writeFileSync(path.join(ud, 'settings.json'), JSON.stringify(L.sanitizeSettings(settingsFile ? L.readSettingsFile(settingsFile) : {})));
-  if (arg('presets')) {
-    let n = 0;
-    for (const f of fs.readdirSync(arg('presets'))) { if (n++ > 300) break; fs.copyFileSync(path.join(arg('presets'), f), path.join(ud, 'presets', f)); }
-  }
-  const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + PORT], { stdio: 'ignore' });
-  let t = null;
-  for (let i = 0; i < 1200 && !t; i++) {
-    await sleep(50);
-    try { t = (await (await fetch('http://127.0.0.1:' + PORT + '/json/list')).json()).find((x) => x.url.includes('admin/index.html')); } catch { /* henüz açılmadı */ }
-  }
-  if (!t) throw new Error('panel açılmadı');
-  const a = await cdp(t.webSocketDebuggerUrl);
-  await a.call('Runtime.enable');
-  await a.call('Page.enable');
-  const errors = [];
-  a.on.push((d) => {
-    if (d.method === 'Runtime.exceptionThrown') errors.push((d.params.exceptionDetails.exception && d.params.exceptionDetails.exception.description || d.params.exceptionDetails.text).slice(0, 300));
-    if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') errors.push(d.params.args.map((x) => x.value || x.description || '').join(' ').slice(0, 300));
-  });
-  for (let i = 0; i < 1200; i++) { if (await a.ev('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card"))') === true) break; await sleep(50); }
+  const session = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: PORT });
+  const { a, errors } = session;
   await a.call('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
   await sleep(1500);
   const q = (s) => a.ev(s);
@@ -295,11 +242,40 @@ async function main() {
     check('genişletilmiş aralık kapanınca sınır dönüyor', await sens() === 3);
   }
 
+  // Arama katman ayarlarını da buluyor: klasik kartlar gidince tanımı yalnız denetçide
+  const search = async (text) => {
+    await q(`(() => { const i = document.getElementById('searchInput'); i.value = ${JSON.stringify(text)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(250);
+    return JSON.parse(await q('JSON.stringify([...document.querySelectorAll("#searchResults .sr-item")].map((b) => b.querySelector(".sr-path").textContent))'));
+  };
+  const pick = async (re) => {
+    const ok = await q(`(() => { const b = [...document.querySelectorAll('#searchResults .sr-item')].find((x) => ${re}.test(x.querySelector('.sr-path').textContent)); if (!b) return false; b.click(); return true; })()`);
+    await sleep(500);
+    return ok;
+  };
+  const shown = (label) => q(`[...document.querySelectorAll('#svInspector [data-anchor]')].some((x) => x.getAttribute('data-anchor') === ${JSON.stringify(label)} && x.getClientRects().length > 0)`);
+  const haveVis = await cfg('c.layers.some((l) => l.kind === "visualizer" && l.type !== "milkdrop")');
+  if (haveVis) {
+    await q("window.SVPanel.setCategory('output'); 1");
+    const paths = await search('Hassasiyet');
+    check('arama katman ayarını buluyor', paths.some((x) => /^(Sahne|Scene) › /.test(x)), paths.slice(0, 3).join(' | '));
+    const ok = await pick('/^(Sahne|Scene) › /');
+    check('sonuç Sahneye gidip ayarı gösteriyor', ok && await page() === 'scene' && await shown('Hassasiyet'));
+  }
+  const saved = await cfg('c.layers.length');
+  await q('(() => { const c = window.SVPanel.cfg(); window.__keep = c.layers; c.layers = c.layers.filter((l) => l.kind !== "logo"); window.SVPanel.apply(); return 1; })()');
+  await sleep(300);
+  const before2 = await cfg('c.layers.length');
+  const addPaths = await search('Resim Kaynağı');
+  check('sahnede olmayan türün ayarı bulunuyor', addPaths.some((x) => /Katman Ekle|Add Layer/.test(x)), addPaths.slice(0, 3).join(' | '));
+  const added2 = await pick('/Katman Ekle|Add Layer/');
+  check('sonuç katmanı ekleyip ayarı açıyor', added2 && await cfg('c.layers.length') === before2 + 1 && await cfg('c.layers[c.layers.length - 1].kind') === 'logo' && await shown('Resim Kaynağı'));
+  await q('(() => { const c = window.SVPanel.cfg(); c.layers = window.__keep; window.SVSceneShell.select(""); window.SVPanel.apply(); return 1; })()');
+  await sleep(300);
+  check('liste geri döndü', await cfg('c.layers.length') === saved);
+
   check('konsol temiz', errors.length === 0, errors.slice(0, 3).join(' | '));
-  try { a.ws.close(); } catch { /* kapandı */ }
-  app.kill();
-  await sleep(800);
-  try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* süreç hâlâ tutuyor */ }
+  await session.stop();
   const bad = results.filter((r) => !r).length;
   console.log(bad ? bad + ' KALDI' : 'HEPSİ GEÇTİ (' + results.length + ')');
   process.exit(bad ? 1 : 0);
