@@ -129,7 +129,10 @@ button.group-label:hover { background: var(--sv-well); }
 .sv-caret { display: inline-flex; color: var(--muted2); transition: transform .14s; }
 .sv-caret .svi { width: 14px; height: 14px; }
 .group.closed .sv-caret { transform: rotate(-90deg); }
-.group.closed > :not(.group-label) { display: none; }
+/* Kapalı grubun gövdesi her zaman gizli (#957): bazı denetimlerin kendi display kuralı bunu eziyordu */
+.group.closed > :not(.group-label) { display: none !important; }
+/* Görünür içeriği olmayan grup başlığı gizli (#957) */
+.group.sv-empty { display: none !important; }
 .group.closed { padding-bottom: 0; }
 
 /* Satırlar: her şey aynı iki kenarda */

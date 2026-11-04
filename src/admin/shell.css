@@ -68,7 +68,10 @@ body { isolation: isolate; }
   --ts-w: 148px; position: relative; width: var(--ts-w); height: 36px; flex: none; padding: 0 8px 0 11px; gap: 8px; border: 0; border-radius: 11px;
   background: rgb(var(--fg-rgb) / .055); box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .05);
 }
-.topsearch:focus-within { transition: width .14s; z-index: 30; width: 260px; margin-left: calc(var(--ts-w) - 260px); border: 0; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2); }
+.topsearch:focus-within { transition: width .14s; z-index: 30; width: var(--ts-open, 260px); margin-left: calc(var(--ts-w) - var(--ts-open, 260px)); border: 0; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2); }
+/* Yer yoksa (#957) kutu büyümez, sayfa kapsülünün üstüne binmez; girdi altta açılır kutuda */
+.topsearch.ts-pop:focus-within { width: var(--ts-w); margin-left: 0; }
+.topsearch .search-results { left: auto; right: 0; width: max(100%, 320px); }
 .topsearch .ts-kbd { font: 500 10.5px/1 'Geist Mono', monospace; padding: 3px 5px; border-radius: 5px; background: rgb(var(--fg-rgb) / .08); color: var(--muted); white-space: nowrap; border: 0; }
 .sv-simple { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 10px; border-radius: 11px; color: var(--muted); font-weight: 550; white-space: nowrap; cursor: pointer; }
 .sv-simple:hover { background: rgb(var(--fg-rgb) / .06); color: var(--text); }
@@ -301,7 +304,7 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 .sv-shelf-search .svi { width: 14px; height: 14px; flex: none; }
 .sv-shelf-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: none; font-size: 12.5px; color: var(--text); }
 .sv-target { padding: 0 14px 8px; font-size: 12px; color: var(--muted2); }
-.sv-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; padding: 2px 12px 12px; }
+.sv-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; padding: 4px 12px 12px; }
 .sv-gi { text-align: left; display: grid; gap: 5px; min-width: 0; border: 0; border-radius: 10px; background: none; padding: 0; color: inherit; cursor: pointer; }
 .sv-gi .sv-th { aspect-ratio: 16 / 9; border-radius: 10px; width: 100%; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .08); transition: transform .12s, box-shadow .12s; position: relative; display: flex; align-items: center; justify-content: center; color: var(--muted); overflow: hidden; }
 .sv-gi .sv-th img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -410,7 +413,7 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 .sv-take:disabled { opacity: .4; cursor: default; filter: none; }
 .sv-scenes-card { grid-column: 1; }
 .sv-scenes-card .card { margin: 0 10px 10px; background: none; box-shadow: none; padding: 0 4px; }
-.sv-scenes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-auto-rows: minmax(64px, 1fr); gap: 8px; padding: 0 12px 12px; min-height: 100%; }
+.sv-scenes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-auto-rows: minmax(64px, 1fr); gap: 8px; padding: 4px 12px 12px; min-height: 100%; }
 .sv-scell { position: relative; border: 0; padding: 0; border-radius: 10px; overflow: hidden; text-align: left; min-height: 0; background: var(--media-bg); cursor: pointer; }
 .sv-scell .sv-th { position: absolute; inset: 0; transition: transform .2s; }
 .sv-scell:hover .sv-th { transform: scale(1.05); }
@@ -419,6 +422,9 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 .sv-scell em { position: absolute; z-index: 1; right: 7px; top: 7px; font: 500 10px/1 'Geist Mono', monospace; font-style: normal; color: rgb(var(--on-media-rgb) / .85); }
 .sv-st { position: absolute; z-index: 1; left: 7px; top: 7px; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 10.5px; font-weight: 700; line-height: 18px; color: rgb(var(--on-media-rgb)); }
 .sv-scell.pgm { box-shadow: 0 0 0 2px var(--danger); }
+/* Seçim halkası kartın İÇİNDE de çiziliyor (#957): kaydırıcının kenarında kesilmesin */
+.sv-scell.pgm::before, .sv-scell.pvw::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 2px var(--danger); }
+.sv-scell.pvw::before { box-shadow: inset 0 0 0 2px var(--cue-live); }
 .sv-scell.pgm .sv-st { background: var(--danger); }
 .sv-scell.pvw { box-shadow: 0 0 0 2px var(--cue-live); }
 .sv-scell.pvw .sv-st { background: var(--cue-live); }
@@ -466,7 +472,7 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 .topbar.tb-fit1 .display-btn { max-width: 110px; }
 .topbar.tb-fit1 .topsearch { --ts-w: 110px; }
 .topbar.tb-fit2 .topsearch { --ts-w: 40px; padding: 0 12px; }
-.topbar.tb-fit2 .topsearch input { opacity: 0; width: 100%; }
+.topbar.tb-fit2 .topsearch input { opacity: 0; width: 0; min-width: 0; flex: 0 0 0; padding: 0; }
 .topbar.tb-fit2 .topsearch:focus-within input { opacity: 1; }
 .topbar.tb-fit2 .sv-simple > span:last-child { display: none; }
 .topbar.tb-fit2 .sv-pages button { padding: 0 10px; }
@@ -513,3 +519,12 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 .sv-lt.sv-renaming .sv-lt-acts, .sv-lt.sv-renaming .sv-op { display: none; }
 .sv-lt.sv-renaming .sv-nm { grid-column: 2 / -1; min-width: 0; }
 .sv-lt.sv-renaming .sv-rename { width: 100%; min-width: 0; box-sizing: border-box; }
+
+/* Başlıktaki etkileşimli öğeler sürükleme bölgesine düşmesin (#957) */
+.topbar button, .topbar input, .topbar select, .topbar label, .topsearch, .search-results { -webkit-app-region: no-drag; }
+/* Dar başlıkta arama yalnız ikon (#957): tıklanınca düğmeye bağlı açılır kutu */
+.topbar.tb-fit2 .topsearch { cursor: pointer; }
+.topbar.tb-fit2 .topsearch:focus-within { cursor: auto; }
+/* Girdi düğmenin altında, sağ kenara bağlı açılır kutuda; sonuçlar onun altında */
+.topsearch.ts-pop:focus-within input, .topbar.tb-fit2 .topsearch:focus-within input { position: absolute; z-index: 201; top: calc(100% + 7px); right: 0; width: 320px; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--popover); box-shadow: 0 0 0 2px var(--accent2), 0 8px 24px rgb(var(--shade-rgb) / .35); }
+.topsearch.ts-pop .search-results, .topbar.tb-fit2 .topsearch .search-results { top: calc(100% + 50px); }

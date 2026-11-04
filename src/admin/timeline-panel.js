@@ -194,10 +194,21 @@
   function underOf(stack) {
     // stack: en üst önce; arka katmanlar en alttan üste doğru
     return stack.slice(1).reverse().filter((e) => e.clip.type === 'scene' && e.clip.ref)
-      .map((e) => ({ id: e.clip.ref, opacity: e.track.opacity == null ? 1 : e.track.opacity, track: e.track.id }));
+      .map((e) => ({ id: e.clip.ref, opacity: opOf(e), track: e.track.id }));
+  }
+  /* Etkin opaklık (#957): parça × klip × otomasyon × giriş/çıkış solması.
+     Önce yalnız ALTTAKİ parçaların parça opaklığı okunuyordu; üstteki
+     klibin opaklığı hiç uygulanmadığı için alttaki katman görünmüyordu. */
+  let opT = 0;
+  function opOf(e) {
+    const T = TL();
+    const raw = T.entryOpacity ? T.entryOpacity(ensureTransport().tl, e.track, e.clip, opT) : (e.track.opacity == null ? 1 : e.track.opacity);
+    // İmza değişimini sınırlamak için 1/100 adım
+    return Math.round(raw * 100) / 100;
   }
   function applyClipsAt(t) {
     const tl = ensureTransport().tl;
+    opT = t;
     const active = TL().activeClipsAt ? TL().activeClipsAt(tl, t) : TL().clipsAt(tl, t);
     const isScene = TL().isSceneClip || ((c) => c.type === 'scene' || c.type === 'preset');
     const scenes = active.filter((e) => isScene(e.clip));
@@ -219,13 +230,18 @@
     if (!scenes.length) { lastSceneSig = ''; inWinBefore.clear(); return; }
     const top = scenes[0];
     const under = underOf(scenes);
-    const sig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':' + (e.track.opacity == null ? 1 : e.track.opacity)).join('|');
+    // Üstteki klibin opaklığı da imzada ve gönderimde (topOpacity)
+    const topOp = opOf(top);
+    if (topOp < 1 || under.length) under.topOpacity = topOp;
+    const sig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':' + opOf(e)).join('|');
     const key = top.track.id;
     const win = inTransWindow(top.clip, t);
     const was = inWinBefore.get(key) === top.clip.id;
     inWinBefore.clear();
     if (win) inWinBefore.set(key, top.clip.id);
-    const topChanged = lastSceneSig.split('|')[0] !== sig.split('|')[0];
+    // Yalnız opaklık değiştiyse öndeki sahne aynı sayılır (geçişsiz güncelleme)
+    const headOf = (x) => x.split('|')[0].replace(/:[^:]*$/, '');
+    const topChanged = headOf(lastSceneSig) !== headOf(sig);
     // Geçiş penceresine DIŞARIDAN atlandıysa (sarma/park) giden sahne önce kesmeyle
     if (jumped && win && !was && TL().clipBefore) {
       const prev = TL().clipBefore(top.track, top.clip);
@@ -254,7 +270,7 @@
      > 0 = bu klibin süresi, destenin yuvalarıyla aynı yoldan. */
   function fireClip(clip, under, cut) {
     if (!clip.ref) return;
-    const extra = under && under.length ? { under } : {};
+    const extra = under && (under.length || under.topOpacity != null) ? { under } : {};
     const dp = window.SVClipDeckPanel;
     if (!dp) return;
     // Hedef medya klipleri için (#637 CD-3 ile aynı biçim); diğer türler yok sayıyor
@@ -435,10 +451,27 @@
     for (const r of (S && S.SLIDERS) || []) {
       if (!out.some((o) => o.path === r.path)) out.push({ path: r.path, label: tt(r.label || r.path), group: tt('Ayarlar'), min: r.min, max: r.max });
     }
+    // Çizelgenin kendi hedefleri (#957): parça ve klip opaklığı
+    const tl = transport && transport.tl;
+    for (const trk of (tl && tl.tracks) || []) {
+      if (trk.kind !== 'clip') continue;
+      out.push({ path: 'tl.track.' + trk.id + '.opacity', label: tt('Parça Opaklığı') + ': ' + (trk.name || trk.id), group: tt('Zaman Çizelgesi'), min: 0, max: 1 });
+      for (const c of trk.clips) out.push({ path: 'tl.clip.' + c.id + '.opacity', label: tt('Klip Opaklığı') + ': ' + (c.name || c.ref || c.id), group: tt('Zaman Çizelgesi'), min: 0, max: 1 });
+    }
     catCache = out;
     return out;
   }
   function getInCfg(path) {
+    // Çizelge içi hedef (#957): değeri parça/klip alanında
+    if (TL().isTimelineTarget && TL().isTimelineTarget(path)) {
+      const m = /^tl\.(track|clip)\.(.+)\.opacity$/.exec(path);
+      const tl = ensureTransport().tl;
+      for (const trk of tl.tracks) {
+        if (m && m[1] === 'track' && trk.id === m[2]) return trk.opacity == null ? 1 : trk.opacity;
+        if (m && m[1] === 'clip' && trk.clips) { const c = trk.clips.find((x) => x.id === m[2]); if (c) return c.opacity == null ? 1 : c.opacity; }
+      }
+      return undefined;
+    }
     const M = window.SVModulation;
     const cfg = P() && P().cfg ? P().cfg() : null;
     if (!cfg || !path) return undefined;
@@ -1360,7 +1393,7 @@
     } else if (h.kind === 'key' && trk) {
       selection = { kind: 'key', trackId: trk.id, keyIndex: h.ki };
       const k = trk.keys[h.ki];
-      ((window.SVModulation && window.SVModulation.CURVE_IDS) || ['linear']).map((id) => [id, curveLabel(id)]).forEach(([id, lb]) => add((k.curve === id ? '• ' : '') + 'Eğri: ' + lb, '', () => { k.curve = id; commit(); draw(); }, trk.locked));
+      keyCurves().map((id) => [id, curveLabel(id)]).forEach(([id, lb]) => add((k.curve === id ? '• ' : '') + 'Eğri: ' + lb, '', () => { k.curve = id; commit(); draw(); }, trk.locked));
       sep();
       add('Noktayı sil', 'Del', () => deleteSelection(), trk.locked);
     } else if (h.kind === 'autotrack' && trk) {
@@ -2389,6 +2422,8 @@
     anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */
     _draw: () => draw(),
+    // Test: sahne bileşimini t anında uygula (#957 opaklık piksel denemesi)
+    _applyAt: (t) => applyClipsAt(t),
     // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
     _perf: () => ({ draws: perf.draws, heads: perf.heads }),
     // Düzenleme eylemleri (MIDI/OSC ve testler aynı yoldan)
@@ -3024,6 +3059,10 @@
         // Klibin geçişini paneldeki küçük önizlemede göster (çıkışa gitmez)
         if (window.SVTransitionPreview) grid.appendChild(p.row('Önizleme', window.SVTransitionPreview.create(() => clipTransSpec(c))));
       }
+      const reapply = () => { commit(); applyClipsAt(ensureTransport().time); draw(); };
+      grid.appendChild(p.row('Opaklık (0..1)', numInput(c.opacity == null ? 1 : c.opacity, 0, 1, 0.01, (v) => { c.opacity = v; reapply(); })));
+      grid.appendChild(p.row('Giriş Solması (sn)', numInput(c.fadeIn || 0, 0, 1e4, 0.05, (v) => { c.fadeIn = v; reapply(); })));
+      grid.appendChild(p.row('Çıkış Solması (sn)', numInput(c.fadeOut || 0, 0, 1e4, 0.05, (v) => { c.fadeOut = v; reapply(); })));
       grid.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
       grid.appendChild(p.row('Hız', numInput(c.speed, 0.05, 20, 0.01, (v) => { c.speed = v; commit(); })));
       const col = el('input', { class: 'tl-swatch big', type: 'color', value: TE().clipColor(c, trk) });
@@ -3061,7 +3100,7 @@
         draw();
       })));
       grid.appendChild(p.row('Değer (0..1)', numInput(k.v, 0, 1, 0.001, (v) => { k.v = v; commit(); draw(); })));
-      const curves = (window.SVModulation && window.SVModulation.CURVE_IDS) || ['linear'];
+      const curves = keyCurves();
       grid.appendChild(p.row('Segment Eğrisi', select(curves.map((cv) => [cv, curveLabel(cv)]), k.curve, (v) => { k.curve = v; commit(); draw(); })));
       box.appendChild(el('div', { class: 'tl-actions' }, [
         act(['trash', 'Anahtarı Sil'], 'Sil (Del)', () => { if (deleteSelection()) refreshAll(); }, 'danger'),
@@ -3140,10 +3179,14 @@
     return box;
   }
 
+  // Nokta eğrileri: modülasyonun eğrileri + 'Tut' (anlık sıçrama, #957)
+  function keyCurves() {
+    return ((window.SVModulation && window.SVModulation.CURVE_IDS) || ['linear']).concat(['hold']);
+  }
   function curveLabel(id) {
     const map = {
       linear: 'Doğrusal', exp: 'Üstel', exp3: 'Üstel (küp)', log: 'Logaritmik',
-      scurve: 'S Eğrisi', ease: 'Yumuşak', abs: 'Mutlak',
+      scurve: 'S Eğrisi', ease: 'Yumuşak', abs: 'Mutlak', hold: 'Tut (anlık)',
     };
     return map[id] || id;
   }

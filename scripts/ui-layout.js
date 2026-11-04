@@ -36,7 +36,7 @@ const PROBE = `JSON.stringify((() => {
   const BOX = '.group, .sv-card, .card, .dock-block, .sv-module, .sv-pcard, .sv-menu, .nav-rail, .sv-secnav, .layer-pane';
   const IGNORE = '.sv-hud, .topbar, .sv-gal, .md-grid, .md-list, .sv-scenes, .preview-stage, .tl-heads, .tl-toolbar, .sv-pages, .code-editor, .md-imports-body, .sv-moment';
   const name = (e) => (e.textContent || e.value || e.placeholder || e.getAttribute('aria-label') || e.tagName).replace(/\\s+/g, ' ').trim().slice(0, 34);
-  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set(), 'ikon-yazı': new Set(), 'iç kenar': new Set() };
+  const out = { kenar: new Set(), 'taşma': new Set(), 'çerçeve': new Set(), 'sözcük': new Set(), hiza: new Set(), 'düğme': new Set(), 'yapışık': new Set(), 'yalnız': new Set(), 'sıkışık': new Set(), 'ikon-yazı': new Set(), 'iç kenar': new Set(), 'halka': new Set() };
   for (const e of document.querySelectorAll('button, select, input:not([type=checkbox]):not([type=range]):not([type=color]), textarea, label.lbl, .studio-note, .settings-io-note, .studio-status, small, h3, a')) {
     if (!vis(e) || e.closest(IGNORE)) continue;
     let box = e.parentElement && e.parentElement.closest(BOX);
@@ -161,6 +161,22 @@ const PROBE = `JSON.stringify((() => {
     const cnt = {}; lefts.forEach(([L]) => { cnt[L] = (cnt[L] || 0) + 1; });
     const mode = +Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x])[0];
     for (const [L, k] of lefts) if (L < mode - 3) out['iç kenar'].add(name(k) + ' ' + L + '<' + mode);
+  }
+  // Seçim/odak halkası kaydırıcının kenarında kesiliyor mu (#957)
+  for (const e of document.querySelectorAll('.sv-scell.pvw, .sv-scell.pgm, .sv-gi.cur .sv-th, .cd-cell.active, .perf-cell.active, .perf-cell.armed, .ui-theme-opt.active, :focus-visible')) {
+    if (!vis(e)) continue;
+    const sh = getComputedStyle(e).boxShadow || '';
+    let sp = 0;
+    for (const part of sh.split(/,(?![^(]*\\))/)) { if (/inset/.test(part)) continue; const n = part.replace(/rgba?\\([^)]*\\)|color\\([^)]*\\)/g, '').trim().split(/\\s+/).map(parseFloat); if (n.length >= 4 && n[3] > sp) sp = n[3]; }
+    if (sp <= 0) continue;
+    const r = e.getBoundingClientRect();
+    for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p);
+      if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+      const pr = p.getBoundingClientRect();
+      if (r.top - sp < pr.top - 0.5 || r.left - sp < pr.left - 0.5 || r.right + sp > pr.right + 0.5 || (o.overflowY !== 'visible' && p.scrollHeight <= p.clientHeight + 1 && r.bottom + sp > pr.bottom + 0.5)) out['halka'].add(name(e));
+      break;
+    }
   }
   const res = {};
   for (const k of Object.keys(out)) if (out[k].size) res[k] = [...out[k]].slice(0, 8);

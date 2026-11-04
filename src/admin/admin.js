@@ -4559,6 +4559,43 @@
     });
   }
 
+  /* Boş grup başlıkları (#957): görünür denetimi kalmayan grup (Gelişmiş kapalı, arama süzgeci,
+     koşula bağlı gizlenen satırlar) başlığıyla birlikte gizlenir; içerik görünür olunca geri gelir.
+     Her bölüm için ayrı kod yok: DOM değişince bir sonraki karede bütün gruplar yeniden ölçülür. */
+  function groupHasContent(g) {
+    const shut = g.classList.contains('closed');
+    const was = g.classList.contains('sv-empty');
+    // Kapalı grubun çocukları CSS ile gizli: ölçüm için bir anlığına aç (boyama olmadan)
+    if (shut) g.classList.remove('closed');
+    if (was) g.classList.remove('sv-empty');
+    let any = false;
+    for (const c of g.children) {
+      if (c.classList.contains('group-label')) continue;
+      if (c.hidden || !c.getClientRects().length) continue;
+      any = true; break;
+    }
+    if (shut) g.classList.add('closed');
+    if (was) g.classList.add('sv-empty');
+    return any;
+  }
+  function syncEmptyGroups(root) {
+    (root || document).querySelectorAll('.group:has(> .group-label)').forEach((g) => {
+      const empty = !groupHasContent(g);
+      if (g.classList.contains('sv-empty') !== empty) g.classList.toggle('sv-empty', empty);
+    });
+  }
+  (function watchEmptyGroups() {
+    if (typeof MutationObserver !== 'function' || window.SVEmptyGroups) return;
+    let raf = 0;
+    const run = () => { raf = 0; syncEmptyGroups(document); };
+    new MutationObserver((list) => {
+      // Kendi sınıf değişimlerimiz yeniden tetiklemesin
+      if (list.every((m) => m.type === 'attributes' && m.target.classList && m.target.classList.contains('group'))) return;
+      if (!raf) raf = requestAnimationFrame(run);
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    window.SVEmptyGroups = { sync: syncEmptyGroups, hasContent: groupHasContent };
+  })();
+
   /* Satırın altındaki açıklama ipucuna geçiyor: formlar kısa kalıyor, açıklama ⓘ'de. Canlı güncellenen
      (kimlikli) ya da içinde düğme olan notlar yerinde. */
   /* Kategorinin tamamını sıfırlama: ağacın içinde, kategorinin altında. Başlıktaki düğme yalnız
@@ -5820,8 +5857,38 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.topsearch')) box.classList.add('hidden');
     });
+    /* Dar başlıkta yalnız ikon kalıyor (#957): kutunun neresine tıklanırsa tıklansın
+       girdi odaklansın; önceden ikon tıklamayı alıyor, görünmez girdi 0 px kalıyordu. */
+    const wrap = input.closest('.topsearch');
+    if (wrap) {
+      wrap.setAttribute('role', 'search');
+      /* Odakta 260 px'e büyüme yalnız yer varsa: sayfa kapsülüyle arada boşluk kalmalı.
+         Yoksa ya da yalnız ikon kaldıysa girdi düğmeye bağlı açılır kutuda açılır. */
+      const room = () => {
+        const bar = wrap.closest('.topbar');
+        const pages = bar && bar.querySelector('.sv-pages');
+        if (!pages || bar.classList.contains('tb-fit2')) return 0;
+        return Math.floor(wrap.getBoundingClientRect().right - pages.getBoundingClientRect().right - 8);
+      };
+      const decide = () => {
+        const w = Math.min(260, room());
+        // En az 180 px yazma alanı yoksa açılır kutu
+        const pop = w < 180;
+        wrap.classList.toggle('ts-pop', pop);
+        if (pop) wrap.style.removeProperty('--ts-open'); else wrap.style.setProperty('--ts-open', w + 'px');
+      };
+      input.addEventListener('focus', decide);
+      window.addEventListener('resize', () => { if (document.activeElement === input) decide(); });
+      wrap.addEventListener('mousedown', (e) => {
+        if (e.target === input || e.target.closest('.search-results')) return;
+        e.preventDefault();
+        input.focus();
+        if (input.value.trim()) renderSearchResults(input.value);
+      });
+    }
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      const k = (e.key || '').toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'k' || (k === 'f' && !e.shiftKey && !(e.target && e.target.closest && e.target.closest('.code-editor, textarea'))))) {
         e.preventDefault();
         input.focus();
         input.select();
@@ -5972,6 +6039,18 @@
         }
       }
       cfg.layers = back.concat(cfg.layers.filter((l) => !(l && l.tlUnder)));
+    }
+    /* Üstteki klibin opaklığı (#957): öndeki sahnenin kendi katmanları bu
+       oranla biner, arkadaki parçaların katmanları görünür. Önce hiç
+       uygulanmıyordu: üst klibi %30'a indirmek alttakini göstermiyordu. */
+    const topOp = opts && Array.isArray(opts.under) && opts.under.topOpacity != null ? Math.max(0, Math.min(1, Number(opts.under.topOpacity))) : 1;
+    if (topOp < 1 && Array.isArray(cfg.layers)) {
+      cfg.layers = cfg.layers.map((l) => {
+        if (!l || l.tlUnder) return l;
+        const c = window.SV.clone(l);
+        c.opacity = (c.opacity == null ? 1 : c.opacity) * topOp;
+        return c;
+      });
     }
     /* Şeffaf arkaplan çıkış ayarıdır; sahne görünümünü değiştirmek onu
        kapatıp pencereyi yeniden kurdurmamalı. */

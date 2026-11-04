@@ -207,6 +207,8 @@
      hissetsin diye kopyalanmaz, ödünç alınır. Modülasyon yüklenmemişse (saf
      birim testi) doğrusal davranılır. */
   function curveFn(name) {
+    // Tut (#957): değer bir sonraki noktaya kadar sabit kalır, o anda sıçrar
+    if (name === 'hold') return () => 0;
     const mod =
       (typeof window !== 'undefined' && window.SVModulation) ||
       (typeof module !== 'undefined' && module.exports && tryRequireModulation());
@@ -292,6 +294,9 @@
       color: hexColor(s.color),
       // Parça opaklığı (#957): bu parçanın sahnesi alttakilerin üstüne bu oranla biner
       opacity: Math.max(0, Math.min(1, s.opacity == null ? 1 : num(s.opacity, 1))),
+      // Klip giriş/çıkış solması (#957, sn): opaklık 0'dan çıkar, sonda 0'a iner
+      fadeIn: Math.max(0, num(s.fadeIn, 0)),
+      fadeOut: Math.max(0, num(s.fadeOut, 0)),
     };
   }
 
@@ -505,11 +510,42 @@
     const solo = anySolo(tl);
     for (const trk of tl.tracks) {
       if (trk.kind !== 'automation' || !audible(trk, solo) || !trk.target) continue;
+      // Çizelgenin kendi hedefleri (parça/klip opaklığı) yapılandırmaya yazılmaz
+      if (isTimelineTarget(trk.target)) continue;
       const norm = evalKeys(trk.keys, t);
       if (norm == null) continue;
       out[trk.target] = trk.min + (trk.max - trk.min) * clamp(norm, 0, 1);
     }
     return out;
+  }
+
+  /* Çizelge içi otomasyon hedefleri (#957): 'tl.track.<id>.opacity' ve
+     'tl.clip.<id>.opacity'. Yapılandırmada karşılıkları yok; bileşim
+     (entryOpacity) onları doğrudan okur. */
+  function isTimelineTarget(path) {
+    return typeof path === 'string' && /^tl\.(track|clip)\./.test(path);
+  }
+  function timelineTargetAt(tl, path, t) {
+    const solo = anySolo(tl);
+    for (const trk of tl.tracks) {
+      if (trk.kind !== 'automation' || trk.target !== path || !audible(trk, solo)) continue;
+      const norm = evalKeys(trk.keys, t);
+      if (norm == null) continue;
+      return clamp(trk.min + (trk.max - trk.min) * clamp(norm, 0, 1), 0, 1);
+    }
+    return null;
+  }
+  /* Bir klibin t anındaki etkin opaklığı: parça × klip (otomasyon varsa o
+     değer sabitin yerine geçer) × giriş/çıkış solması. */
+  function entryOpacity(tl, track, clip, t) {
+    const ta = timelineTargetAt(tl, 'tl.track.' + track.id + '.opacity', t);
+    const ca = timelineTargetAt(tl, 'tl.clip.' + clip.id + '.opacity', t);
+    let op = (ta != null ? ta : track.opacity == null ? 1 : track.opacity) * (ca != null ? ca : clip.opacity == null ? 1 : clip.opacity);
+    const local = t - clip.start;
+    if (clip.fadeIn > 0 && local < clip.fadeIn) op *= clamp(local / clip.fadeIn, 0, 1);
+    const left = clip.start + clip.dur - t;
+    if (clip.fadeOut > 0 && left < clip.fadeOut) op *= clamp(left / clip.fadeOut, 0, 1);
+    return clamp(op, 0, 1);
   }
 
   /* Tempo değiştiğinde müzikal konumları korumak İSTEYEN kullanıcı için açık
@@ -699,6 +735,9 @@
     sceneStack,
     isSceneClip,
     automationAt,
+    isTimelineTarget,
+    timelineTargetAt,
+    entryOpacity,
     audible,
     anySolo,
     applyAutomation,
