@@ -278,7 +278,7 @@ async function runImport(plan, deps) {
     skipped: Object.assign({}, plan.skipped), saved: [],
   };
   const seen = new Set();
-  for (const p of (typeof d.existing === 'function' ? d.existing() : []) || []) {
+  for (const p of (typeof d.existing === 'function' ? await d.existing() : []) || []) {
     if (p && p.kind === 'milkdrop' && typeof p.source === 'string') seen.add(keyOf(p.name || '', p.source));
   }
   let z = null;

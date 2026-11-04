@@ -14,6 +14,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   Main thread draw time fell 21-49% on seven of the eight slowest presets, for example from 47.8 to
   60.2 fps. The eighth has no shapes and did not change. Output is bit for bit the same on all 10,347
   corpus presets in both compatibility modes.
+- **The main process no longer keeps preset text in memory** (#905). With 10,392 presets its working set
+  fell from 311-323 MB to 175-192 MB, its peak from 318-325 MB to 180-197 MB, and the app's total by
+  about 110-180 MB in real scenes. Text is read from the file when a preset is drawn or edited, about
+  0.3-0.8 ms per preset, and the last 32 stay in memory. Starting an export takes about 1.3 s longer at
+  that library size, because the export window still gets every text up front.
 
 ### Visualizer
 
