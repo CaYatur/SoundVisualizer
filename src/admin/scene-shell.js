@@ -346,10 +346,10 @@
     const l = selected();
     if (shelfTab === 'milkdrop') {
       const own = l && l.kind === 'visualizer' && l.type === 'milkdrop';
-      return own ? tr(l.name || 'MilkDrop') + ' ' + tr('katmanına uygulanır') : tr('Ortak MilkDrop presetine uygulanır');
+      return own && window.SVMilkdropPanel.isOwnLayer(l) ? tr('Şuna uygulanır:') + ' ' + tr(l.name || 'MilkDrop') : tr('Ortak MilkDrop presetine uygulanır');
     }
     if (shelfTab === 'vis' || shelfTab === 'bg') {
-      return l ? tr(l.name || l.kind) + ' ' + tr('katmanına uygulanır') : tr('Yeni katman olarak eklenir');
+      return l ? tr('Şuna uygulanır:') + ' ' + tr(l.name || l.kind) : tr('Yeni katman olarak eklenir');
     }
     return '';
   }
@@ -429,8 +429,11 @@
   }
 
   // Önizleme bu sayfada ortada; öteki sayfalarda yan rafta. Aynı düğüm taşınıyor, motor yeniden kurulmuyor.
+  /* Düğüm elde tutuluyor: Canlı sayfası monitörünü yeniden kurarken eski kap gidiyor, önizleme
+     onunla belgeden düşer ve id ile bir daha bulunamazdı. */
+  let stageNode = null;
   function placeStage(page) {
-    const stage = document.getElementById('previewStage');
+    const stage = stageNode || (stageNode = document.getElementById('previewStage'));
     if (!stage) return;
     const scene = page === 'scene';
     const pgm = page === 'live' ? document.getElementById('svPgmFrame') : null;
@@ -449,8 +452,9 @@
     if (!a || !b || !c) return;
     const f = document.activeElement;
     const keepInput = f && f.closest && f.closest('.sv-shelf-search') ? f.selectionStart : null;
-    paintLayers(a);
+    // Düzenleyici katmanı normalleştirip listeye yeniden yazıyor: satırlar o nesneye bağlansın
     paintInspector(b);
+    paintLayers(a);
     paintShelf(c);
     if (keepInput !== null) {
       const inp = c.querySelector('.sv-shelf-search input');

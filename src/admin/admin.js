@@ -4496,7 +4496,9 @@
   // Kaydırıcı sürüklenirken kart yeniden kurulamaz (odak ve sürükleme kopar),
   // bu yüzden yalnızca noktalar ve sayaçlar güncellenir.
   function refreshModifiedMarks() {
-    const root = $('sections');
+    // Sahne ve Canlı sayfalarında kartlar kendi kaplarında
+    const page = document.body ? document.body.getAttribute('data-page') : '';
+    const root = page === 'scene' ? $('svScene') : page === 'live' ? $('svLive') : $('sections');
     if (!root) return;
     parkResetFocus(root);
     const pin = pinElement(root);
@@ -6351,6 +6353,13 @@
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);
     document.addEventListener('keydown', (e) => {
+      // Alt + 1..5: sayfalar. Kapsüldeki sırayla
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key >= '1' && e.key <= '5') {
+        const tops = CATEGORIES.filter((c) => !c.setup && !(simpleOn && c.adv));
+        const c = tops[Number(e.key) - 1];
+        if (c) { e.preventDefault(); setCategory(c.id); }
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey) || activeCategory === 'time') return;
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;

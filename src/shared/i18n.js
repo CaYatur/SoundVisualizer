@@ -26,7 +26,7 @@
     'Katman Ekle': 'Add Layer',
     'Katman adı': 'Layer name',
     'Sıralamak için sürükleyin. Üstteki katman önde görünür.': 'Drag to reorder. The top layer shows in front.',
-    'katmanına uygulanır': 'layer gets this',
+    'Şuna uygulanır:': 'Applies to:',
     'Ortak MilkDrop presetine uygulanır': 'Applies to the shared MilkDrop preset',
     'Yeni katman olarak eklenir': 'Added as a new layer',
     'Kitaplıkta ara': 'Search the library',
