@@ -601,7 +601,7 @@
          'progressive' etkin kelimeyi soldan sağa doldurur; kısa kelimelerde
          neredeyse anında biter. Uzatılan hecede son sesli çoğalır (loooove). */
       karaokeFill: 'progressive',
-      karaokeHold: true,
+      karaokeHold: false, // varsayılan: kelime süresince durur, sesli uzamaz (#938 esneme isteğe bağlı)
       karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelimede sesli uzar (sn)
       karaokeHoldAmount: 0.25,
       offset: 0,        // söz senkron düzeltmesi (sn)

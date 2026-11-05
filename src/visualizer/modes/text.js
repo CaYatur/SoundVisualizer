@@ -408,7 +408,7 @@
         /* Uzatılan hece (#938): ses analizi yok — süre LRC damgalarından.
            Eşik aşılınca son sesli harf çoğalır (love → loooove). Kapalıyken
            veya kısa kelimelerde metin eskisiyle aynı. */
-        const holdOn = T.karaokeHold !== false;
+        const holdOn = T.karaokeHold === true;
         const holdMin = T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin;
         const holdAmt = T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount;
         const stretchFn = window.SVLyrics && window.SVLyrics.stretchHeldVowel;

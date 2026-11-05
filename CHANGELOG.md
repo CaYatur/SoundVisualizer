@@ -96,6 +96,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   when a word is held past a threshold, repeats the held vowel so "love" reads as "loooove" (and
   Turkish "yar" as "yaaar"), in the live output and the exporter. Short words and plain LRC look as
   before.
+  Stretching is off by default: a held word stays "love" for its timed duration while the fill runs
+  across it. Turn on "Uzatılan Heceyi Esnet" on a text layer for the "loooove" look; layers saved with
+  it on keep stretching.
 - **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
   stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
 - **Lyrics editor text no longer shows twice.** With colouring on, the panel's general text box
