@@ -176,6 +176,10 @@ test('sağlayıcının hata sayfası söz sayılmıyor, önbellek temizlenebiliy
   assert.strictEqual(LL.clearCache(dir), 1);
   assert.deepStrictEqual(fs.readdirSync(dir), ['kullanici.txt'], 'yalnız önbellek dosyası silinir');
   assert.match(read('src/admin/extras-panel.js'), /lyricsCacheClear/);
+  assert.match(read('src/admin/extras-panel.js'), /LRCLIB Ekle/);
+  assert.match(read('src/admin/extras-panel.js'), /SVLyricsProviders/);
+  assert.match(read('src/admin/index.html'), /lyrics-providers\.js/);
+
 });
 
 test('kaydırma seçimi koruyor: ikinci tıklama yalnız aynı satırları kaydırır', () => {

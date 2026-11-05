@@ -629,7 +629,8 @@
     // ------------------------------------------------------------------
     /* Otomatik söz bulma (#937): yan .lrc/.srt → gömülü etiket → önbellek →
        kullanıcının tanımladığı sağlayıcılar. Sağlayıcı listesi BOŞ gelir;
-       boşken hiçbir ağ isteği yapılmaz. Sağlayıcı:
+       boşken hiçbir ağ isteği yapılmaz. LRCLIB hazır şablon olarak UI'dan
+       eklenir (src/shared/lyrics-providers.js); varsayılana yazılmaz. Sağlayıcı:
        { name, url: 'https://example.com/api/get?artist={artist}&title={title}',
          format: 'lrc' | 'json', path: 'syncedLyrics', enabled } */
     // Dış tempo: 'off' | 'link' (Ableton Link, yalnız dinleme) | 'midi' (MIDI saati)
