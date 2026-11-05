@@ -568,7 +568,7 @@
          Yazma kopyala-yaz: kullanıcının kayıtlı ayarına dokunulmaz. */
       let base = cfg;
       let showT = -1;
-      if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
+      if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
         showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;

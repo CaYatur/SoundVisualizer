@@ -340,7 +340,7 @@
 
     const full = P() && P().cfg();
     if (!full) return;
-    const tlOn = !!(full.timeline && full.timeline.enabled);
+    const tlOn = !!(full.timeline && full.timeline.enabled && full.timeline.itemEnabled !== false);
     const deckOn = !!(full.clipdeck && full.clipdeck.enabled);
     if (!tlOn && !deckOn) return;
 
@@ -2601,6 +2601,7 @@
       );
     }
 
+    host.appendChild(timelineTabs());
     const toolbarEl = toolbar();
     host.appendChild(toolbarEl);
 
@@ -2728,6 +2729,103 @@
     else host.appendChild(moreBox);
 
     return host;
+  }
+
+
+  /* Birden çok zaman çizelgesi sekmeleri: oluştur, seç, pasifleştir (silmeden). */
+  function timelineTabs() {
+    const p = P();
+    const el = p.el;
+    const cfg = tlCfg();
+    TL().ensureTimelineBank(cfg);
+    const bar = el('div', { class: 'tl-tabs' });
+    const items = TL().listTimelineBank(cfg);
+    for (const it of items) {
+      const isOn = it.id === cfg.id;
+      const passive = it.itemEnabled === false;
+      const b = el('button', {
+        class: 'tl-tab' + (isOn ? ' on' : '') + (passive ? ' passive' : ''),
+        type: 'button',
+        text: it.name || it.id,
+        title: passive
+          ? (it.name || it.id) + ' — pasif (çıkışa/dışa aktarıma uygulanmaz). Sağ tık: menü'
+          : (it.name || it.id) + '. Sağ tık: yeniden adlandır / pasifleştir / sil',
+      });
+      b.addEventListener('click', () => {
+        if (it.id === cfg.id) return;
+        commit(); /* mevcut belgeyi kaydet */
+        TL().switchTimeline(cfg, it.id);
+        transport = null;
+        lastAppliedClip = new Map();
+        lastSceneSig = '';
+        liveHoldHead = null;
+        selection = null;
+        multi = [];
+        invalidateModel();
+        hist = null;
+        p.push(true);
+        p.rerender();
+      });
+      b.addEventListener('contextmenu', (e) => {
+        if (e.preventDefault) e.preventDefault();
+        const m = el('div', { class: 'sv-menu' });
+        const add = (text, fn, danger) => {
+          const x = el('button', { type: 'button', text, class: danger ? 'danger' : '', onclick: () => { m.remove(); fn(); } });
+          m.appendChild(x);
+        };
+        add('Yeniden adlandır', () => {
+          const name = window.prompt(tt('Çizelge adı'), it.name || '');
+          if (name == null) return;
+          const n = String(name).trim();
+          if (!n) return;
+          if (it.id === cfg.id) cfg.name = n;
+          else {
+            const hit = (cfg.bank || []).find((b) => b && b.id === it.id);
+            if (hit) hit.name = n;
+          }
+          p.push(true);
+          p.rerender();
+        });
+        add(passive ? 'Etkinleştir' : 'Pasifleştir (silme)', () => {
+          TL().setTimelineItemEnabled(cfg, it.id, passive);
+          p.push(true);
+          p.rerender();
+        });
+        if (items.length > 1) {
+          add('Sil', () => {
+            if (!window.confirm(tt('Bu zaman çizelgesi silinsin mi?'))) return;
+            TL().removeTimeline(cfg, it.id);
+            transport = null;
+            lastAppliedClip = new Map();
+            selection = null;
+            multi = [];
+            invalidateModel();
+            hist = null;
+            p.push(true);
+            p.rerender();
+          }, true);
+        }
+        window.SVSceneShell.placeMenu(m, e.clientX, e.clientY);
+      });
+      bar.appendChild(b);
+    }
+    const add = el('button', { class: 'tl-tab add', type: 'button', icon: 'plus', title: 'Yeni zaman çizelgesi' });
+    add.addEventListener('click', () => {
+      commit();
+      TL().addTimeline(cfg);
+      transport = null;
+      lastAppliedClip = new Map();
+      lastSceneSig = '';
+      liveHoldHead = null;
+      selection = null;
+      multi = [];
+      invalidateModel();
+      hist = null;
+      p.push(true);
+      p.rerender();
+    });
+    bar.appendChild(add);
+    return bar;
   }
 
   // --------------------------------------------------------------------------

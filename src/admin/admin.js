@@ -3274,6 +3274,11 @@
             show: () => exportDuration().mode === 'bars',
           },
           {
+            /* Zaman çizelgesini dışa aktarıma uygula: sahne klipleri + otomasyon.
+               Varsayılan açık. Döngü açıksa sarılır; kapalıysa sonda son durum. */
+            type: 'toggle', path: 'export.includeTimeline', label: 'Zaman çizelgesini dahil et',
+          },
+          {
             /* Bölümler (#527): tek render, zaman çizelgesi işaretçilerinde
                kesilip işaretçi adlarıyla bir klasöre. Yalnız video biçimleri. */
             type: 'toggle', path: 'export.chapters', label: 'İşaretçilerden bölümlere ayır',
@@ -3364,7 +3369,7 @@
 
   /* Dışa aktarma formu: ne giriyor, ne çıkıyor, nasıl kodlanıyor, yanına ne yazılıyor. */
   const EXPORT_GROUPS = [
-    ['Girdi', ['export.duration.mode', 'export.duration.seconds', 'export.duration.bars', 'export.duration.bpm']],
+    ['Girdi', ['export.duration.mode', 'export.duration.seconds', 'export.duration.bars', 'export.duration.bpm', 'export.includeTimeline']],
     ['Görüntü', ['export.profile', 'export.format', 'export.resolution', 'export.fps']],
     ['Kodlama', ['export.encoder', 'export.quality', 'export.speed']],
     ['Ek Çıktılar', ['export.chapters', 'export.chapterList', 'export.loop', 'export.loopCrossfade', 'export.analysis']],
@@ -6507,6 +6512,7 @@
       loop: !!(cfg.export && cfg.export.loop) && !(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind !== 'sequence'),
       loopCrossfade: cfg.export && cfg.export.loopCrossfade,
       analysis: !!(cfg.export && cfg.export.analysis),
+      includeTimeline: !(cfg.export && cfg.export.includeTimeline === false),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,

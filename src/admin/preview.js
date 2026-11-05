@@ -224,7 +224,7 @@
     sceneSkipped = 0;
 
     let base = cfg;
-    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
+    if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
       let showAnchor = null;
       if (window.SVTimelinePanel && typeof window.SVTimelinePanel.anchor === 'function') {
         showAnchor = window.SVTimelinePanel.anchor();

@@ -449,14 +449,21 @@
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, left: leftBytes, right: rightBytes, sampleRate });
     audio.update(dt);
 
-    /* Zaman çizelgesi otomasyonu. Gösteri saati (showclock.js) BURADA
-       KULLANILMAZ: o duvar saatine dayanır ve aynı işi iki kez
-       çalıştırdığında farklı kareler üretirdi. Çevrimdışı işlemede zaman
-       yalnızca KARE İNDEKSİNDEN gelir — dışa aktarımın regresyon ağı
-       olma özelliği buna bağlı. */
+    /* Zaman çizelgesi: sahne klipleri + otomasyon. Gösteri saati
+       (showclock.js) BURADA KULLANILMAZ: o duvar saatine dayanır ve aynı
+       işi iki kez çalıştırdığında farklı kareler üretirdi. Çevrimdışı
+       işlemede zaman yalnızca KARE İNDEKSİNDEN gelir.
+       includeTimeline varsayılan açık; döngü açıksa sarılır, kapalıysa
+       bitişten sonra son durumda kalır (applyTimelineAt / evalPlayhead). */
     let base = cfg;
-    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline) {
-      base = window.SVTimeline.applyAutomation(cfg, cfg.timeline, t).cfg;
+    const wantTl = cfg.export && cfg.export.includeTimeline !== false;
+    if (wantTl && cfg.timeline && cfg.timeline.itemEnabled !== false && window.SVTimeline) {
+      const tl = window.SVTimeline.makeTimeline(cfg.timeline);
+      if (typeof window.SVTimeline.applyTimelineAt === 'function') {
+        base = window.SVTimeline.applyTimelineAt(cfg, tl, t).cfg;
+      } else {
+        base = window.SVTimeline.applyAutomation(cfg, tl, t).cfg;
+      }
     }
 
     // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
