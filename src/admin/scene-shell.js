@@ -781,7 +781,13 @@
   let scenesNode = null;
   function sceneShelf() {
     if (!scenesNode) scenesNode = document.getElementById('dockScenes');
-    if (scenesNode && P().renderScenes) setTimeout(() => P().renderScenes(), 0);
+    /* Tam yeniden kurulum kaydırmayı sıfırlar. Liste zaten doluysa yalnız
+       seçim göstergesini güncelle; ilk yerleşimde tam kur. */
+    if (scenesNode && P().renderScenes) {
+      const list = scenesNode.querySelector('#sceneList');
+      const full = !list || !list.querySelector('.scene-item');
+      setTimeout(() => P().renderScenes(full ? undefined : { selectionOnly: true }), 0);
+    }
     return scenesNode;
   }
 
@@ -803,7 +809,11 @@
   let shelfPainted = '';
   let shelfStale = true;
   function shelfSig() {
-    if (shelfTab !== 'milkdrop' || !shelfOpen) return '';
+    /* Boş imza her paint()'te rafı söküyordu: Sahne sekmesinde #sceneList
+       kaydırması sahne uygulanınca başa sıçrıyordu. Sekme/sorgu imzası
+       aynıysa raf yerinde kalsın; MilkDrop'ta preset değişince yenilensin. */
+    if (!shelfOpen) return 'closed:' + shelfTab;
+    if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
     const l = layers().find((x) => x && x.id === sel);
     const own = l && l.settings && l.settings.milkdrop;
     const md = own || P().cfg().milkdrop || {};
@@ -996,7 +1006,10 @@
     P().clampNotes(b);
     paintLayers(a);
     const sig = shelfSig();
-    if (shelfStale || !sig || sig !== shelfPainted || !c.querySelector('[data-shelf-body] .md-library')) {
+    /* !sig kaldırıldı: boş imza her sahne değişiminde rafı yıkıyordu.
+       MilkDrop için .md-library yoksa (ilk kurulum) yine boya. */
+    const mdMissing = shelfTab === 'milkdrop' && shelfOpen && !c.querySelector('[data-shelf-body] .md-library');
+    if (shelfStale || sig !== shelfPainted || mdMissing) {
       paintShelf(c);
       shelfPainted = sig;
       shelfStale = false;
