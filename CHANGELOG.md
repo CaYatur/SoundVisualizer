@@ -40,6 +40,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The Time page shortcut list is in English again.** The list was rewritten for the new keys but
   most of its lines had no English text, so the English panel showed them in Turkish. Found by
   `npm run ui-audit`; `tests/timeline-shortcuts-i18n.test.js` now checks every line.
+- **Time page timeline tabs sit clear of the card edge** and use the flat outline of the other
+  panel buttons instead of the old bordered style. Found by `npm run ui-layout`.
+- **`npm run ui-walk` works on a fresh profile on any system language.** It opens the panel in
+  Turkish, saves one scene when the profile has none (so the scene shelf and the Live TAKE checks
+  have something to use), and searches a logo setting that exists outside Windows too.
 - **Search finds layer settings.** A result selects the layer, opens the right tab and highlights the
   control. If the scene has no layer of that kind, the result says so and adds one.
 - **One path for the picture.** Every scene is now a layer list, and the separate Background,

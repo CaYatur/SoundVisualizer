@@ -27,7 +27,9 @@ const check = (name, ok, extra) => {
 };
 
 async function main() {
-  const session = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: PORT });
+  /* Gezinti Türkçe etiketlerle yazıldı: sistem dili ne olursa olsun panel Türkçe açılır
+     (Linux'ta varsayılan İngilizce olunca 'Resim Kaynağı' araması boş dönüyordu). */
+  const session = await startPanel({ settings: arg('settings'), presets: arg('presets'), port: PORT, lang: 'tr-TR' });
   const { a, errors } = session;
   await a.call('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
   await sleep(1500);
@@ -37,6 +39,12 @@ async function main() {
   const cfg = (expr) => q(`(() => { const c = window.SVPanel.cfg(); return JSON.stringify(${expr}); })()`).then((s) => (s === undefined ? undefined : JSON.parse(s)));
   const page = () => q('document.body.getAttribute("data-page")');
 
+  /* Varsayılan profilde sahne yok (scenes: []): raf sahne listesi ve Canlı ızgarası
+     boş kalınca AL zinciri sınanamıyordu. Boşsa geçerli görünüm bir sahne olarak kaydedilir. */
+  if (!(await cfg('(c.scenes || []).length'))) {
+    await q('(() => { window.SVPanel.saveScene(); return 1; })()');
+    await sleep(400);
+  }
   // ------------------------------------------------------------ sayfalar
   for (const id of ['scene', 'live', 'time', 'studio', 'output']) {
     check('kapsül: ' + id, await click(`#pageTabs [data-cat="${id}"]`) && (await sleep(350), await page()) === id);
@@ -289,10 +297,13 @@ async function main() {
   await q('(() => { const c = window.SVPanel.cfg(); window.__keep = c.layers; c.layers = c.layers.filter((l) => l.kind !== "logo"); window.SVPanel.apply(); return 1; })()');
   await sleep(300);
   const before2 = await cfg('c.layers.length');
-  const addPaths = await search('Resim Kaynağı');
+  /* 'Resim Kaynağı' yalnız Windows'ta çiziliyor (şarkı resmi SMTC'den); başka
+     platformda logo katmanının her yerde olan bir ayarı aranır. */
+  const logoField = process.platform === 'win32' ? 'Resim Kaynağı' : 'Nabız';
+  const addPaths = await search(logoField);
   check('sahnede olmayan türün ayarı bulunuyor', addPaths.some((x) => /Katman Ekle|Add Layer/.test(x)), addPaths.slice(0, 3).join(' | '));
   const added2 = await pick('/Katman Ekle|Add Layer/');
-  check('sonuç katmanı ekleyip ayarı açıyor', added2 && await cfg('c.layers.length') === before2 + 1 && await cfg('c.layers[c.layers.length - 1].kind') === 'logo' && await shown('Resim Kaynağı'));
+  check('sonuç katmanı ekleyip ayarı açıyor', added2 && await cfg('c.layers.length') === before2 + 1 && await cfg('c.layers[c.layers.length - 1].kind') === 'logo' && await shown(logoField));
   await q('(() => { const c = window.SVPanel.cfg(); c.layers = window.__keep; window.SVSceneShell.select(""); window.SVPanel.apply(); return 1; })()');
   await sleep(300);
   check('liste geri döndü', await cfg('c.layers.length') === saved);
