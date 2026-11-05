@@ -110,6 +110,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   per-layer picker.
 - **Follow the playing track is on for new lyrics layers on Windows.** Layers that saved it off stay
   off. Linux and macOS do not have the feature; it stays hidden and off there.
+  Its factory default is now on as well, so the reset-to-default button only shows when it is off
+  and brings it back on.
 
 ### Control and show
 
