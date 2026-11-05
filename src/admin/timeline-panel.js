@@ -2740,6 +2740,51 @@
     TL().ensureTimelineBank(cfg);
     const bar = el('div', { class: 'tl-tabs' });
     const items = TL().listTimelineBank(cfg);
+
+    /* Satır içi yeniden adlandırma: Electron'da window.prompt çoğu ortamda
+       çalışmıyor / engelleniyor; sekme üzerinde düzenleyici açılır (katman
+       adlandırmasıyla aynı model). Enter kaydeder, Esc vazgeçer. */
+    function startTabRename(it, btn) {
+      if (!btn || !btn.isConnected) return;
+      if (btn.classList.contains('tl-renaming')) return;
+      const initial = it.name || '';
+      const inp = el('input', {
+        class: 'txt tl-tab-rename',
+        type: 'text',
+        value: initial,
+        'aria-label': tt('Çizelge adı'),
+      });
+      let done = false;
+      const finish = (save) => {
+        if (done) return;
+        done = true;
+        btn.classList.remove('tl-renaming');
+        const n = save ? String(inp.value || '').trim() : '';
+        if (inp.isConnected) inp.replaceWith(btn);
+        if (!n || n === initial) return;
+        if (it.id === cfg.id) cfg.name = n;
+        else {
+          const hit = (cfg.bank || []).find((b) => b && b.id === it.id);
+          if (hit) hit.name = n;
+        }
+        p.push(true);
+        p.rerender();
+      };
+      inp.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      });
+      ['click', 'pointerdown', 'mousedown', 'dblclick'].forEach((t) => {
+        inp.addEventListener(t, (e) => e.stopPropagation());
+      });
+      inp.addEventListener('blur', () => finish(true));
+      btn.classList.add('tl-renaming');
+      btn.replaceWith(inp);
+      inp.focus();
+      inp.select();
+    }
+
     for (const it of items) {
       const isOn = it.id === cfg.id;
       const passive = it.itemEnabled === false;
@@ -2748,8 +2793,8 @@
         type: 'button',
         text: it.name || it.id,
         title: passive
-          ? (it.name || it.id) + ' — ' + tt('pasif (çıkışa/dışa aktarıma uygulanmaz). Sağ tık: menü')
-          : (it.name || it.id) + '. ' + tt('Sağ tık: yeniden adlandır / pasifleştir / sil'),
+          ? (it.name || it.id) + ' — ' + tt('pasif (çıkışa/dışa aktarıma uygulanmaz). Çift tık: adlandır; sağ tık: menü')
+          : (it.name || it.id) + '. ' + tt('Çift tık: adlandır. Sağ tık: menü'),
       });
       b.addEventListener('click', () => {
         if (it.id === cfg.id) return;
@@ -2766,6 +2811,11 @@
         p.push(true);
         p.rerender();
       });
+      b.addEventListener('dblclick', (e) => {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+        startTabRename(it, b);
+      });
       b.addEventListener('contextmenu', (e) => {
         if (e.preventDefault) e.preventDefault();
         const m = el('div', { class: 'sv-menu' });
@@ -2773,19 +2823,7 @@
           const x = el('button', { type: 'button', text, class: danger ? 'danger' : '', onclick: () => { m.remove(); fn(); } });
           m.appendChild(x);
         };
-        add(tt('Yeniden adlandır'), () => {
-          const name = window.prompt(tt('Çizelge adı'), it.name || '');
-          if (name == null) return;
-          const n = String(name).trim();
-          if (!n) return;
-          if (it.id === cfg.id) cfg.name = n;
-          else {
-            const hit = (cfg.bank || []).find((b) => b && b.id === it.id);
-            if (hit) hit.name = n;
-          }
-          p.push(true);
-          p.rerender();
-        });
+        add(tt('Yeniden adlandır'), () => startTabRename(it, b));
         add(passive ? tt('Etkinleştir') : tt('Pasifleştir (silme)'), () => {
           TL().setTimelineItemEnabled(cfg, it.id, passive);
           p.push(true);
@@ -2827,6 +2865,7 @@
     bar.appendChild(add);
     return bar;
   }
+
 
   // --------------------------------------------------------------------------
   // Araç çubuğu
