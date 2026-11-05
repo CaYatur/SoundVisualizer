@@ -60,7 +60,9 @@ test('sıfırlama görselleştiriciyi geri getiriyor: kök alanlar yedekten', ()
   L.ensureStack(cfg);
   assert.strictEqual(cfg.visualizer.type, 'none');
   cfg.layers = []; // son katman silindi
-  assert.deepStrictEqual(L.resolve(cfg).map((l) => l.kind), ['background'], 'yalnız arkaplan kalıyordu');
+  /* Yığın açıkken boş liste bilinçli boş sahne: klasik alanlardan
+     arkaplan/MilkDrop geri sentezlenmez. Sıfırlama (rebuildStack) geri getirir. */
+  assert.deepStrictEqual(L.resolve(cfg).map((l) => l.kind), [], 'boş liste boş kalmalı');
   L.rebuildStack(cfg);
   const drawn = L.resolve(cfg);
   assert.strictEqual(drawn.find((l) => l.kind === 'visualizer').type, 'wave');
