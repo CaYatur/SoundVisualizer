@@ -94,6 +94,13 @@ test('makeTextLayer şarkı sözü katmanı üretir', () => {
   assert.strictEqual(t.source, 'lyrics');
   assert.strictEqual(t.karaoke, true);
   assert.strictEqual(t.align, 'center');
+  assert.strictEqual(t.lyricsFollow, false, 'platform bilinmeden izleme kapalı');
+  assert.strictEqual(L.makeTextLayer({ source: 'lyrics', lyricsFollow: true }).settings.text.lyricsFollow, true, 'Windows paneli açık ister');
+});
+
+test('panel yeni söz katmanında izlemeyi yalnız Windows\'ta açar', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../src/admin/scene-panels.js'), 'utf8');
+  assert.match(src, /lyricsFollow: isWindowsPlatform\(\)/);
 });
 
 test('makeTextLayer çalan parça katmanında alan varsayılanı both', () => {

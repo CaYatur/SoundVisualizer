@@ -104,6 +104,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Lyrics editor text no longer shows twice.** With colouring on, the panel's general text box
   style overrode the editor's, so the raw text and the coloured copy were drawn on top of each other
   at different sizes. Only the coloured copy shows now, aligned with the caret.
+- **Lyrics files come from the lyrics library only** (Windows). The Source tab of a lyrics layer no
+  longer has its own "Load Lyrics File" / "Clear" buttons or file row; add files in the Lyrics Library
+  tab. Follow the playing track and matching are unchanged. Platforms without the library keep the
+  per-layer picker.
+- **Follow the playing track is on for new lyrics layers on Windows.** Layers that saved it off stay
+  off. Linux and macOS do not have the feature; it stays hidden and off there.
 
 ### Control and show
 

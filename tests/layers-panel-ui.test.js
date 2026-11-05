@@ -555,8 +555,10 @@ test('söz kütüphanesi yalnız Windows panelinde görünür', () => {
     assert.strictEqual(all(panel, cls('lyrics-follow')).length, 0);
     const texts = all(panel, (n) => n.attrs && typeof n.attrs.text === 'string').map((n) => n.attrs.text);
     const iFollow = texts.indexOf('Çalan Parçayı İzle');
-    const iLoad = texts.indexOf('Söz Dosyası Yükle');
-    assert.ok(iLoad >= 0 && iLoad < iFollow, 'izle, dosya yüklemenin altında');
+    assert.ok(iFollow >= 0);
+    assert.strictEqual(texts.indexOf('Söz Dosyası Yükle'), -1, 'Windows: söz yalnız kütüphaneden eklenir');
+    assert.strictEqual(texts.indexOf('Temizle'), -1, 'Windows: tek dosya temizleme yok');
+    assert.strictEqual(rowOf(panel, 'Dosya'), undefined, 'Windows: yüklü dosya satırı yok');
     assert.ok(texts.includes('Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.'));
     assert.strictEqual(rowOf(panel, 'Eşleme'), undefined, 'takip kapalıyken eşleme gizli');
     assert.strictEqual(rowOf(panel, 'Parça Adı'), undefined, 'kütüphane kapalıyken alanlar gizli');

@@ -181,7 +181,7 @@
       text.lyricsSource = '';
       text.lyricsName = '';
       text.karaoke = true;
-      text.lyricsFollow = false;
+      text.lyricsFollow = s.lyricsFollow === true;
       text.lyricsMatch = 'exact';
     }
     return normalizeLayer({

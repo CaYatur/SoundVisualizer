@@ -1807,36 +1807,41 @@
           })));
         }
       } else {
-        const doc = txt.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(txt.lyricsSource) : null;
-        const info = doc
-          ? doc.lines.length + ' satır · ' + doc.format.toUpperCase()
-          : 'yüklü dosya yok';
-        out.push(P().row('Dosya', el('span', { class: 'txt-info', text: (txt.lyricsName || '') + ' ' + info })));
-        out.push(el('div', { class: 'row' }, [
-          el('button', {
-            class: 'btn small', type: 'button', icon: 'folder-open', text: 'Söz Dosyası Yükle',
-            onclick: async () => {
-              if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
-              const r = await window.api.importShaderText();
-              if (!r || !r.ok) return;
-              txt.lyricsSource = r.text;
-              txt.lyricsName = r.name || '';
-              P().push(true);
-              const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
-              rerender();
-              P().toast(d ? (d.lines.length + ' satır okundu') : 'Yüklendi.');
-            },
-          }),
-          el('button', {
-            class: 'btn ghost small', type: 'button', text: 'Temizle',
-            onclick: () => {
-              txt.lyricsSource = '';
-              txt.lyricsName = '';
-              P().push(true);
-              rerender();
-            },
-          }),
-        ]));
+        /* Söz kütüphanesi olan yerde (Windows) dosyalar yalnız kütüphaneden eklenir;
+           katmana tek dosya yükleme düğmeleri yalnız kütüphanesiz platformlarda kalır. */
+        const hasLib = isWindowsPlatform() && window.SVLyricsLibUi && window.SVLyricsLibUi.block;
+        if (!hasLib) {
+          const doc = txt.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(txt.lyricsSource) : null;
+          const info = doc
+            ? doc.lines.length + ' satır · ' + doc.format.toUpperCase()
+            : 'yüklü dosya yok';
+          out.push(P().row('Dosya', el('span', { class: 'txt-info', text: (txt.lyricsName || '') + ' ' + info })));
+          out.push(el('div', { class: 'row' }, [
+            el('button', {
+              class: 'btn small', type: 'button', icon: 'folder-open', text: 'Söz Dosyası Yükle',
+              onclick: async () => {
+                if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
+                const r = await window.api.importShaderText();
+                if (!r || !r.ok) return;
+                txt.lyricsSource = r.text;
+                txt.lyricsName = r.name || '';
+                P().push(true);
+                const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
+                rerender();
+                P().toast(d ? (d.lines.length + ' satır okundu') : 'Yüklendi.');
+              },
+            }),
+            el('button', {
+              class: 'btn ghost small', type: 'button', text: 'Temizle',
+              onclick: () => {
+                txt.lyricsSource = '';
+                txt.lyricsName = '';
+                P().push(true);
+                rerender();
+              },
+            }),
+          ]));
+        }
         if (txt.lyricsFollow !== true && window.SVLyricsClock && window.SVLyricsClock.controls) {
           out.push(window.SVLyricsClock.controls({ el }));
         }
@@ -2799,7 +2804,7 @@
           class: 'btn ghost small', type: 'button', icon: 'plus', text: preset.label,
           onclick: () => {
             const layer = window.SVLayers.makeTextLayer
-              ? window.SVLayers.makeTextLayer(preset.spec)
+              ? window.SVLayers.makeTextLayer(preset.spec.source === 'lyrics' ? Object.assign({}, preset.spec, { lyricsFollow: isWindowsPlatform() }) : preset.spec)
               : window.SVLayers.normalizeLayer({
                 name: preset.spec.name,
                 kind: 'visualizer',
