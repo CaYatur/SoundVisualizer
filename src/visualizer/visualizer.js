@@ -197,6 +197,13 @@
   let drawFps = 0;
   let fpsMeasured = false;
   let lastSilent = false;
+  /* Yapılandırma geldiğinde en az bir kare boyanır (#template-output-lag).
+     Sessizlikte duraklat açıkken ve ses yokken çizim atlanırdı; panel
+     önizlemesi setConfig'te drawOnce + demo sesle güncellenirken açık
+     çıkış önceki karenin piksellerinde kalıyordu. Bir sonraki sahne/
+     şablon değişiminde geçiş veya ses o eski kareyi "önceki seçim" gibi
+     gösteriyordu. Bayrak, applyConfig sonrası ilk gerçek çizimde iner. */
+  let needsPaint = false;
   /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
      vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
      karesi taze ise aynı vuruş ikinci kez gitmesin. */
@@ -551,7 +558,7 @@
        Sahne geçişi sürerken duraklamak yok: geçiş ilerlemesini çizim
        karesi taşıyor. Karartma en çok müzik durduğunda kullanılıyor ve
        duraklama tam o anda panik düğmesini işlevsiz bırakıyordu. */
-    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans;
+    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans && !needsPaint;
     if (!silent) {
       /* SIRA BİLİNÇLİ: önce zaman çizelgesi otomasyonu TABANI yazar,
          sonra canlı modülasyon onun üstüne biner. Çizilmiş bir eğri
@@ -595,6 +602,7 @@
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       if (showT >= 0 && stack.syncTimeline) stack.syncTimeline(cfg.timeline, showT);
       stack.draw(audio, mcfg, t, dt);
+      needsPaint = false;
       drawCount++;
       applyMapping(mcfg);
     }
@@ -675,6 +683,9 @@
        sayfayı kullanıyor ama onda bu köprü yok (web-shim): OBS kaynağı değişmiyor. */
     if (window.SVLowPower && window.api.getPowerSource) cfg = window.SVLowPower.apply(cfg, onBattery);
 
+    /* Sahne / şablon / kip: yığın güncellendi; sessizlik çizimi atlasa bile
+       açık ekran yeni seçimi bir karede göstersin (önizlemedeki drawOnce gibi). */
+    needsPaint = true;
     applyMedia();
     applyScene();
     applyLogo();
