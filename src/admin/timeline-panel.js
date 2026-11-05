@@ -2740,6 +2740,7 @@
     TL().ensureTimelineBank(cfg);
     const bar = el('div', { class: 'tl-tabs' });
     const items = TL().listTimelineBank(cfg);
+    let dragId = null; /* sürüklenen sekmenin kimliği */
 
     /* Satır içi yeniden adlandırma: Electron'da window.prompt çoğu ortamda
        çalışmıyor / engelleniyor; sekme üzerinde düzenleyici açılır (katman
@@ -2844,6 +2845,33 @@
           }, true);
         }
         window.SVSceneShell.placeMenu(m, e.clientX, e.clientY);
+      });
+      /* Sıralama yalnız sürükle-bırak ile; tıklama sırayı değiştirmez. */
+      b.draggable = true;
+      b.addEventListener('dragstart', (e) => {
+        if (b.classList.contains('tl-renaming')) { e.preventDefault(); return; }
+        if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/sv-tl-tab', it.id); }
+        dragId = it.id;
+        b.classList.add('dragging');
+      });
+      b.addEventListener('dragend', () => { b.classList.remove('dragging'); dragId = null; });
+      b.addEventListener('dragover', (e) => {
+        if (!dragId) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      });
+      b.addEventListener('drop', (e) => {
+        const from = dragId;
+        dragId = null;
+        if (!from || from === it.id) return;
+        e.preventDefault();
+        const r = b.getBoundingClientRect();
+        const after = e.clientX > r.left + r.width / 2;
+        const ids = items.map((x) => x.id).filter((x) => x !== from);
+        const at = ids.indexOf(it.id) + (after ? 1 : 0);
+        TL().moveTimeline(cfg, from, at);
+        p.push(true);
+        p.rerender();
       });
       bar.appendChild(b);
     }

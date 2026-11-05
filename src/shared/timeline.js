@@ -897,6 +897,27 @@
     if (typeof tl.id !== 'string' || !tl.id) tl.id = newId('tl');
     if (typeof tl.name !== 'string' || !tl.name) tl.name = 'A';
     if (tl.itemEnabled === undefined) tl.itemEnabled = true;
+    /* Sekme sırası: seçim sırayı değiştirmesin (etkin sekme başa atlamasın).
+       Eski kayıtlarda yok: etkin + banka sırasıyla bir kez kurulur; silinenler
+       düşer, bilinmeyenler sona eklenir. */
+    const ids = [tl.id].concat(tl.bank.filter((b) => b && b.id).map((b) => b.id));
+    const known = new Set(ids);
+    const prev = Array.isArray(tl.order) ? tl.order : [];
+    const order = [];
+    for (const id of prev) if (known.has(id) && !order.includes(id)) order.push(id);
+    for (const id of ids) if (!order.includes(id)) order.push(id);
+    tl.order = order;
+    return tl;
+  }
+
+  /* Sürükle-bırak: sekmeyi hedef konuma taşı (tek açık sıralama yolu). */
+  function moveTimeline(cfgTl, id, toIndex) {
+    const tl = ensureTimelineBank(cfgTl);
+    const from = tl.order.indexOf(id);
+    if (from < 0) return tl;
+    tl.order.splice(from, 1);
+    const to = Math.max(0, Math.min(tl.order.length, Math.round(Number(toIndex) || 0)));
+    tl.order.splice(to, 0, id);
     return tl;
   }
 
@@ -904,15 +925,11 @@
     const tl = ensureTimelineBank(cfgTl);
     const cur = snapshotTimeline(tl);
     const others = tl.bank.map((b) => snapshotTimeline(b));
-    /* Active first, then bank (skip duplicate id). */
-    const out = [cur];
-    const seen = new Set([cur.id]);
-    for (const b of others) {
-      if (seen.has(b.id)) continue;
-      seen.add(b.id);
-      out.push(b);
-    }
-    return out;
+    /* Kayıtlı sekme sırası (etkin olan başa alınmaz). */
+    const byId = new Map();
+    byId.set(cur.id, cur);
+    for (const b of others) if (!byId.has(b.id)) byId.set(b.id, b);
+    return tl.order.filter((id) => byId.has(id)).map((id) => byId.get(id));
   }
 
   function stashCurrentIntoBank(cfgTl) {
@@ -968,7 +985,8 @@
       fps: blank.fps,
     });
     /* Current is the new one; bank keeps the previous (and others). */
-    return tl;
+    tl.order = (tl.order || []).filter((x) => x !== id).concat(id);
+    return ensureTimelineBank(tl);
   }
 
   function setTimelineItemEnabled(cfgTl, id, on) {
@@ -989,7 +1007,13 @@
     if (id === tl.id) {
       /* Delete active: promote first bank item or reset to blank. */
       if (tl.bank.length) {
-        const next = tl.bank.shift();
+        /* Sıradaki komşu sekme etkin olsun; sıra korunur. */
+        const pos = tl.order.indexOf(id);
+        const rest = tl.order.filter((x) => x !== id);
+        const wantId = rest[Math.min(Math.max(pos, 0), rest.length - 1)];
+        const i = Math.max(0, tl.bank.findIndex((b) => b && b.id === wantId));
+        const next = tl.bank.splice(i, 1)[0];
+        tl.order = rest;
         applyTimelineSnapshot(tl, next);
       } else {
         const blank = makeTimeline({});
@@ -1099,6 +1123,7 @@
     ensureTimelineBank,
     listTimelineBank,
     switchTimeline,
+    moveTimeline,
     addTimeline,
     setTimelineItemEnabled,
     removeTimeline,
