@@ -820,6 +820,17 @@
     return JSON.stringify([query, sel, l ? l.type : '', l ? l.name : '', md.id || md.name || '', md.presetId || '']);
   }
   function invalidateShelf() { shelfStale = true; }
+  /* Raf kartı boş kaldı mı? Sahne dışı bir sayfaya geçince render() #svShelf'i
+     boşaltıyor, placeStage da sahne listesini yan rafa geri taşıyor. İmza
+     aynı kaldığı için dönüşte raf yeniden çizilmiyor, kart boş görünüyordu
+     (görselleştirici kapatılınca/sayfa değişince "bazen gidiyor"). */
+  function shelfEmpty(c) {
+    const body = c.querySelector('[data-shelf-body]');
+    if (!body) return true;
+    if (!shelfOpen) return false;
+    if (!body.childElementCount) return true;
+    return shelfTab === 'scenes' && !!scenesNode && !body.contains(scenesNode);
+  }
 
   function paintShelf(host) {
     const el = P().el;
@@ -1009,7 +1020,7 @@
     /* !sig kaldırıldı: boş imza her sahne değişiminde rafı yıkıyordu.
        MilkDrop için .md-library yoksa (ilk kurulum) yine boya. */
     const mdMissing = shelfTab === 'milkdrop' && shelfOpen && !c.querySelector('[data-shelf-body] .md-library');
-    if (shelfStale || sig !== shelfPainted || mdMissing) {
+    if (shelfStale || sig !== shelfPainted || mdMissing || shelfEmpty(c)) {
       paintShelf(c);
       shelfPainted = sig;
       shelfStale = false;

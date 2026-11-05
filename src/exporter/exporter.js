@@ -282,6 +282,7 @@
     if (sprites) stack.setSprites(sprites);
     if (alpha) installKeyFilter();
     stack.resize(width, height);
+    stackLayerSig = null; /* yeni iş: imza baştan */
     stack.setConfig(cfg);
     setupMedia();
     /* Kusursuz döngü: canlı kaynaklar (web sayfası, Spout/Syphon) kendi
@@ -437,6 +438,22 @@
     };
   }
 
+  let stackLayerSig = null;
+  function layerSig(c) {
+    const ls = c && Array.isArray(c.layers) ? c.layers : [];
+    return JSON.stringify(ls, (k, v) => (k === 'opacity' ? undefined : v));
+  }
+  function syncStackLayers(base) {
+    if (!stack) return;
+    const sig = layerSig(base);
+    if (stackLayerSig === null) { stackLayerSig = layerSig(cfg); }
+    if (sig === stackLayerSig) return;
+    stackLayerSig = sig;
+    stack.setConfig(base);
+    // Yeni sahnedeki medya katmanları da havuza girsin
+    if (window.SVMedia && Array.isArray(base.layers) && base.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(base);
+  }
+
   function renderFrame(i) {
     const t0 = prof ? performance.now() : 0;
     const t = i / fps;
@@ -465,6 +482,12 @@
         base = window.SVTimeline.applyAutomation(cfg, tl, t).cfg;
       }
     }
+
+    /* Çizelge sahne değiştirince yığını yeni katmanlarla kur. Yığın yalnız
+       başta cfg ile kuruluyordu: ikinci klibin katmanlarının motoru yoktu,
+       kare siyah kalıyordu. Opaklık her karede değişebilir (fade), imzaya
+       girmez; aynı anahtarlı motorlar setConfig'te yeniden kullanılır. */
+    syncStackLayers(base);
 
     // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
     // aynı iş iki kez çalıştırıldığında bit bazında aynı sonucu verir.

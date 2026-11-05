@@ -118,3 +118,20 @@ test('pasif çizelge itemEnabled=false dışa aktarım kapısı için okunur', (
   assert.strictEqual(cfg.timeline.itemEnabled, false);
   assert.notStrictEqual(cfg.export.includeTimeline, false);
 });
+
+test('çizelge sekme sırası seçimle değişmez, yalnız moveTimeline ile', () => {
+  const cfg = { id: 'tl1', name: 'A', bank: [], tracks: [], markers: [] };
+  TL.addTimeline(cfg); TL.addTimeline(cfg); TL.addTimeline(cfg);
+  const names = () => TL.listTimelineBank(cfg).map((x) => x.name);
+  const start = names();
+  assert.deepStrictEqual(start, ['A', 'B', 'C', 'D']);
+  for (const n of ['B', 'D', 'A', 'C']) {
+    TL.switchTimeline(cfg, TL.listTimelineBank(cfg).find((x) => x.name === n).id);
+    assert.deepStrictEqual(names(), start, n + ' seçilince sıra aynı');
+  }
+  const d = TL.listTimelineBank(cfg).find((x) => x.name === 'D').id;
+  TL.moveTimeline(cfg, d, 0);
+  assert.deepStrictEqual(names(), ['D', 'A', 'B', 'C']);
+  TL.removeTimeline(cfg, cfg.id); // etkin C silinir
+  assert.deepStrictEqual(names(), ['D', 'A', 'B']);
+});
