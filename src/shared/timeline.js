@@ -697,6 +697,320 @@
   }
 
   // ==========================================================================
+
+  /* Dışa aktarım / çevrimdışı oynatma kafası haritası.
+     Döngü AÇIK: Transport ile aynı — loop.start..end aralığına sar.
+     Döngü KAPALI: bitişten sonra SON DURUMDA kal (son klip/sahne karesi).
+     Canlı çıkış ve dışa aktarım aynı kuralı kullanır. */
+  function wrapPlayhead(tl, t) {
+    return evalPlayhead(tl, t);
+  }
+
+  /* Son sahne/şablon klibinin bittiği an (saniye). Boşsa 0. */
+  /* Son sahne/önayar klibinin bitişi — döngü kapalıyken "son durum" bunun
+     bir epsilon öncesi. Sahne yoksa 0 (sıkıştırma yok; otomasyon zaten
+     son anahtarı tutar). */
+  function lastContentEnd(tl) {
+    if (!tl || !tl.tracks) return 0;
+    let end = 0;
+    for (const trk of tl.tracks) {
+      if (!trk || trk.kind !== 'clip' || !trk.clips) continue;
+      for (const c of trk.clips) {
+        if (isSceneClip(c)) end = Math.max(end, clipEnd(c));
+      }
+    }
+    return end;
+  }
+
+  function evalPlayhead(tl, t) {
+    const x = Math.max(0, Number(t) || 0);
+    if (!tl) return x;
+    const loop = tl.loop;
+    if (loop && loop.enabled) {
+      const start = Number(loop.start) || 0;
+      const end = Number(loop.end) || 0;
+      if (!(end > start)) return x;
+      const span = end - start;
+      if (x >= end) return start + ((x - start) % span);
+      if (x < start) {
+        const back = (start - x) % span;
+        return end - (back === 0 ? span : back);
+      }
+      return x;
+    }
+    /* Döngü kapalı: içerik bittikten sonra son karede kal.
+       Tam bitiş anında clipsAt boş döner (t < end); bir epsilon geri çek. */
+    const contentEnd = lastContentEnd(tl);
+    if (contentEnd > 0 && x >= contentEnd - TL_EPS) {
+      return Math.max(0, contentEnd - TL_EPS * 2);
+    }
+    return x;
+  }
+
+  function tryRequireSchema() {
+    try { return require('./schema.js'); } catch { return null; }
+  }
+  function tryRequireDefaults() {
+    try { return require('./defaults.js'); } catch { return null; }
+  }
+  function svClone(v) {
+    const SV = (typeof window !== 'undefined' && window.SV) || tryRequireDefaults();
+    if (SV && typeof SV.clone === 'function') return SV.clone(v);
+    return JSON.parse(JSON.stringify(v));
+  }
+  function sceneKeyList() {
+    const S = (typeof window !== 'undefined' && window.SVSchema) || tryRequireSchema();
+    return (S && S.SCENE_KEYS) || [];
+  }
+
+  /* cfg.scenes içinden bir sahnenin SCENE_KEYS görünümünü üretir. */
+  function materializeScene(cfg, sceneId) {
+    if (!cfg || !sceneId) return null;
+    const scenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
+    const sc = scenes.find((x) => x && x.id === sceneId);
+    if (!sc || !sc.data) return null;
+    const def = ((typeof window !== 'undefined' && window.SV && window.SV.DEFAULT_CONFIG)
+      || (tryRequireDefaults() && tryRequireDefaults().DEFAULT_CONFIG) || {});
+    const out = {};
+    for (const k of sceneKeyList()) {
+      const src = sc.data[k] !== undefined ? sc.data[k] : def[k];
+      if (src === undefined) continue;
+      out[k] = svClone(src);
+    }
+    return out;
+  }
+
+  /* t anındaki sahne yığınını + otomasyonu cfg kopyasına uygular.
+     Canlı panel applyClipsAt / applyScene ile aynı bileşim (#957).
+     Dışa aktarım kare kare bunu çağırır; gösteri saati kullanılmaz.
+     Döngü kapalıyken t içerik sonunu aşarsa son durumda kalır. */
+  function applyTimelineAt(cfg, tl, t) {
+    const out = { cfg: cfg, t: Math.max(0, Number(t) || 0), applied: false };
+    if (!cfg || !tl) return out;
+    const wt = evalPlayhead(tl, out.t);
+    out.t = wt;
+    const stack = sceneStack(tl, wt);
+    let next = cfg;
+    if (stack.length && stack[0].clip && stack[0].clip.ref && isSceneClip(stack[0].clip)) {
+      const topMat = materializeScene(cfg, stack[0].clip.ref);
+      if (topMat) {
+        next = Object.assign(svClone(cfg), topMat);
+        const under = stack.slice(1).reverse().filter((e) => e.clip && e.clip.type === 'scene' && e.clip.ref);
+        const back = [];
+        for (const e of under) {
+          const mat = materializeScene(cfg, e.clip.ref);
+          const layers = mat && Array.isArray(mat.layers) ? mat.layers : [];
+          const op = entryOpacity(tl, e.track, e.clip, wt);
+          for (const l of layers) {
+            if (!l || l.tlUnder) continue;
+            const c = svClone(l);
+            c.id = String(c.id || 'ly') + '@' + (e.track && e.track.id || 'trk');
+            c.opacity = (c.opacity == null ? 1 : c.opacity) * op;
+            c.locked = true;
+            c.tlUnder = true;
+            back.push(c);
+          }
+        }
+        const topOp = entryOpacity(tl, stack[0].track, stack[0].clip, wt);
+        let layers = Array.isArray(next.layers) ? next.layers.filter((l) => l && !l.tlUnder) : [];
+        if (topOp < 1) {
+          layers = layers.map((l) => {
+            const c = svClone(l);
+            c.opacity = (c.opacity == null ? 1 : c.opacity) * topOp;
+            return c;
+          });
+        }
+        next.layers = back.concat(layers);
+        out.applied = true;
+      }
+    }
+    const auto = applyAutomation(next, tl, wt);
+    out.cfg = auto.cfg;
+    return out;
+  }
+
+
+  /* Zaman çizelgesi bankası: birden çok çizelge, silmeden pasifleştirme.
+     Çalışan belge cfg.timeline alanlarında kalır (panel / makeTimeline aynı);
+     diğerleri cfg.timeline.bank[] içinde saklanır. */
+
+  const TIMELINE_CONTENT_KEYS = ['tempo', 'tracks', 'markers', 'loop', 'snap', 'fps'];
+
+  function timelineContentKeys() {
+    return TIMELINE_CONTENT_KEYS.slice();
+  }
+
+  function snapshotTimeline(cfgTl) {
+    const s = cfgTl || {};
+    const snap = {
+      id: typeof s.id === 'string' && s.id ? s.id : newId('tl'),
+      name: typeof s.name === 'string' && s.name ? s.name : 'A',
+      itemEnabled: s.itemEnabled !== false,
+    };
+    for (const k of TIMELINE_CONTENT_KEYS) {
+      if (s[k] !== undefined) snap[k] = svClone(s[k]);
+    }
+    /* Normalize through makeTimeline so bank entries stay clean. */
+    const norm = makeTimeline(snap);
+    snap.tempo = norm.tempo;
+    snap.tracks = norm.tracks;
+    snap.markers = norm.markers;
+    snap.loop = norm.loop;
+    snap.snap = norm.snap;
+    snap.fps = norm.fps;
+    return snap;
+  }
+
+  function applyTimelineSnapshot(cfgTl, snap) {
+    if (!cfgTl || !snap) return cfgTl;
+    cfgTl.id = snap.id;
+    cfgTl.name = snap.name;
+    cfgTl.itemEnabled = snap.itemEnabled !== false;
+    const norm = makeTimeline(snap);
+    cfgTl.tempo = TE_tempoList(norm.tempo);
+    cfgTl.tracks = norm.tracks;
+    cfgTl.markers = norm.markers;
+    cfgTl.loop = norm.loop;
+    cfgTl.snap = norm.snap;
+    cfgTl.fps = norm.fps;
+    return cfgTl;
+  }
+
+  /* Tempo may be cumulative map from makeTimeline; store flat list like the panel. */
+  function TE_tempoList(tempo) {
+    if (Array.isArray(tempo) && tempo.length && tempo[0] && tempo[0].beat0 == null && tempo[0].bpm != null) {
+      return tempo.map((e) => ({ t: e.t, bpm: e.bpm, beatsPerBar: e.beatsPerBar }));
+    }
+    /* Cumulative map → flat */
+    const list = [];
+    const arr = Array.isArray(tempo) ? tempo : [];
+    for (const e of arr) {
+      if (!e) continue;
+      list.push({ t: e.t, bpm: e.bpm, beatsPerBar: e.beatsPerBar });
+    }
+    return list.length ? list : [{ t: 0, bpm: 120, beatsPerBar: 4 }];
+  }
+
+  function ensureTimelineBank(cfgTl) {
+    const tl = cfgTl || {};
+    if (!Array.isArray(tl.bank)) tl.bank = [];
+    if (typeof tl.id !== 'string' || !tl.id) tl.id = newId('tl');
+    if (typeof tl.name !== 'string' || !tl.name) tl.name = 'A';
+    if (tl.itemEnabled === undefined) tl.itemEnabled = true;
+    return tl;
+  }
+
+  function listTimelineBank(cfgTl) {
+    const tl = ensureTimelineBank(cfgTl);
+    const cur = snapshotTimeline(tl);
+    const others = tl.bank.map((b) => snapshotTimeline(b));
+    /* Active first, then bank (skip duplicate id). */
+    const out = [cur];
+    const seen = new Set([cur.id]);
+    for (const b of others) {
+      if (seen.has(b.id)) continue;
+      seen.add(b.id);
+      out.push(b);
+    }
+    return out;
+  }
+
+  function stashCurrentIntoBank(cfgTl) {
+    const tl = ensureTimelineBank(cfgTl);
+    const cur = snapshotTimeline(tl);
+    const i = tl.bank.findIndex((b) => b && b.id === cur.id);
+    if (i >= 0) tl.bank[i] = cur;
+    else tl.bank.push(cur);
+    return cur;
+  }
+
+  function switchTimeline(cfgTl, id) {
+    const tl = ensureTimelineBank(cfgTl);
+    if (!id || id === tl.id) return tl;
+    stashCurrentIntoBank(tl);
+    const hit = tl.bank.find((b) => b && b.id === id);
+    if (!hit) return tl;
+    applyTimelineSnapshot(tl, hit);
+    tl.bank = tl.bank.filter((b) => b && b.id !== id);
+    return tl;
+  }
+
+  function nextTimelineName(existing) {
+    const names = new Set((existing || []).map((x) => x && x.name).filter(Boolean));
+    let k = existing ? existing.length : 0;
+    let name = String.fromCharCode(65 + (k % 26));
+    while (names.has(name) && k < 200) {
+      k += 1;
+      name = String.fromCharCode(65 + (k % 26)) + (k >= 26 ? String(Math.floor(k / 26)) : '');
+    }
+    return name;
+  }
+
+  function addTimeline(cfgTl, spec) {
+    const tl = ensureTimelineBank(cfgTl);
+    stashCurrentIntoBank(tl);
+    const all = listTimelineBank(tl);
+    const ids = new Set(all.map((x) => x.id));
+    let n = all.length;
+    let id = 'tl' + n;
+    while (ids.has(id)) id = 'tl' + (++n);
+    const name = (spec && spec.name) || nextTimelineName(all);
+    const blank = makeTimeline(spec || {});
+    applyTimelineSnapshot(tl, {
+      id,
+      name,
+      itemEnabled: true,
+      tempo: TE_tempoList(blank.tempo),
+      tracks: blank.tracks,
+      markers: blank.markers,
+      loop: blank.loop,
+      snap: blank.snap,
+      fps: blank.fps,
+    });
+    /* Current is the new one; bank keeps the previous (and others). */
+    return tl;
+  }
+
+  function setTimelineItemEnabled(cfgTl, id, on) {
+    const tl = ensureTimelineBank(cfgTl);
+    const want = !!on;
+    if (!id || id === tl.id) {
+      tl.itemEnabled = want;
+      return tl;
+    }
+    const hit = tl.bank.find((b) => b && b.id === id);
+    if (hit) hit.itemEnabled = want;
+    return tl;
+  }
+
+  function removeTimeline(cfgTl, id) {
+    const tl = ensureTimelineBank(cfgTl);
+    if (!id) return tl;
+    if (id === tl.id) {
+      /* Delete active: promote first bank item or reset to blank. */
+      if (tl.bank.length) {
+        const next = tl.bank.shift();
+        applyTimelineSnapshot(tl, next);
+      } else {
+        const blank = makeTimeline({});
+        applyTimelineSnapshot(tl, {
+          id: newId('tl'),
+          name: 'A',
+          itemEnabled: true,
+          tempo: TE_tempoList(blank.tempo),
+          tracks: blank.tracks,
+          markers: blank.markers,
+          loop: blank.loop,
+          snap: blank.snap,
+          fps: blank.fps,
+        });
+      }
+      return tl;
+    }
+    tl.bank = tl.bank.filter((b) => b && b.id !== id);
+    return tl;
+  }
+
   // Otomasyonun yapılandırmaya uygulanması
   //
   // Sıra ÖNEMLİ ve bilinçli: önce otomasyon TABANI yazar, sonra canlı
@@ -774,6 +1088,20 @@
     audible,
     anySolo,
     applyAutomation,
+    wrapPlayhead,
+    evalPlayhead,
+    lastContentEnd,
+    materializeScene,
+    applyTimelineAt,
+    timelineContentKeys,
+    snapshotTimeline,
+    applyTimelineSnapshot,
+    ensureTimelineBank,
+    listTimelineBank,
+    switchTimeline,
+    addTimeline,
+    setTimelineItemEnabled,
+    removeTimeline,
     retimeToTempo,
     markerAfter,
     markerBefore,

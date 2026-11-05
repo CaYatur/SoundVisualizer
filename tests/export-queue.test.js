@@ -34,8 +34,10 @@ test('iş eklendiği anın sahnesini taşıyor', () => {
   assert.match(M, /startExportJob\(Object\.assign\(\{\}, item\.opts, \{ audioPath: item\.audioPath, outputPath: item\.outputPath \}\), null, \{ cfg: item\.cfg \}\)/);
   // İş, verilen kopyayı kullanıyor; canlı yapılandırmayı değil
   const job = M.slice(M.indexOf('async function startExportJob('), M.indexOf("ipcMain.handle('export:start'"));
-  assert.match(job, /const jobCfg = \(extra && extra\.cfg\) \|\| currentConfig;/);
-  assert.ok(!/currentConfig\./.test(job.slice(job.indexOf('const jobCfg'))), 'işin içinde currentConfig okunmuyor');
+  assert.match(job, /(?:const|let) jobCfg = \(extra && extra\.cfg\) \|\| currentConfig;/);
+  const jobCfgAt = Math.max(job.indexOf('const jobCfg'), job.indexOf('let jobCfg'));
+  assert.ok(jobCfgAt >= 0, 'jobCfg ataması');
+  assert.ok(!/currentConfig\./.test(job.slice(jobCfgAt)), 'işin içinde currentConfig okunmuyor');
 });
 
 test('hata kuyruğu durdurmuyor; başlamayan iş bekleyiciyi geri alıyor', () => {

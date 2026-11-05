@@ -8349,14 +8349,20 @@ function cleanupExportMedia() {
 }
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
+  opts = opts || {};
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
      (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
-  const jobCfg = (extra && extra.cfg) || currentConfig;
+  let jobCfg = (extra && extra.cfg) || currentConfig;
+  /* Zaman çizelgesini dahil et: panel/MCP opts; yapılandırmada yoksa açık. */
+  if (jobCfg && Object.prototype.hasOwnProperty.call(opts, 'includeTimeline')) {
+    jobCfg = Object.assign({}, jobCfg, {
+      export: Object.assign({}, jobCfg.export || {}, { includeTimeline: opts.includeTimeline !== false }),
+    });
+  }
   /* Kuyruktaki sahnenin videosu o anki ayarda olmayabilir (#539):
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
   exportMediaCfg = jobCfg;
   if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
-  opts = opts || {};
   const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
   /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve

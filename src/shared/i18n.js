@@ -416,6 +416,8 @@
     'Klip Destesi': 'Clip Deck',
     'Sahneleri, şablonları ve medyayı bir ızgaraya yerleştirip vuruşa hizalı ateşleyin. Sütun başlatmak satırın tamamını sahne gibi çalıştırır.': 'Place scenes, templates and media on a grid and fire them on the beat. Launching a column runs the whole row as a scene.',
     'Zaman Çizelgesini Etkinleştir': 'Enable Timeline',
+    'Çizelge adı': 'Timeline name',
+    'Bu zaman çizelgesi silinsin mi?': 'Delete this timeline?',
     'Zaman çizelgesi kapalı. Açtığınızda oynatma kafası tüm görselleştirici ekranlarını birlikte sürer.': 'The timeline is off. Turn it on and the playhead drives every visualizer screen together.',
     'Klip Destesini Etkinleştir': 'Enable Clip Deck',
     'Klip destesi kapalı. Açtığınızda vuruş ızgarası sürekli akar ve yuvalar ölçüye hizalı ateşlenir.': 'The clip deck is off. Turn it on and the beat grid runs continuously, firing slots aligned to the bar.',
