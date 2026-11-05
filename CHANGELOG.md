@@ -92,8 +92,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   default, so nothing goes to the network; a failing or slow provider never blocks playback.
   Following the playing track depends on the Windows media session, so this works on Windows only.
 - **Held syllables** (#938). Word end times, including A2 end tags (`<mm:ss.xx>` after a word), are
-  parsed. Karaoke can fill progressively inside the active word and optionally stretch long-held
-  words, in the live output and the exporter. Existing LRC/SRT files render exactly as before.
+  parsed from timestamps only (no audio analysis). Karaoke fills the active word left-to-right and,
+  when a word is held past a threshold, repeats the held vowel so "love" reads as "loooove" (and
+  Turkish "yar" as "yaaar"), in the live output and the exporter. Short words and plain LRC look as
+  before.
 - **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
   stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
 

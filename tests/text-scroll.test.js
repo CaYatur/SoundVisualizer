@@ -181,13 +181,23 @@ test('vurgu rengi söylenen kelimeyi boyar ve taşan satırda da kalır', () => 
         index: 0,
         progress: 1,
         wordIndex: 0,
-        line: { text: 'AAAA BBBB', words: [{ text: 'AAAA ' }, { text: 'BBBB' }] },
+        wordProgress: 1,
+        line: {
+          text: 'AAAA BBBB',
+          words: [
+            { t: 0, end: 1, text: 'AAAA ' },
+            { t: 1, end: 2, text: 'BBBB' },
+          ],
+        },
       };
     },
+    stretchHeldVowel(text) { return text; },
   };
   try {
     const text = {
       enabled: true, source: 'lyrics', lyricsSource: '[00:00.00]AAAA BBBB', content: '', karaoke: true,
+      /* Bu test kelime-kelime boyamayı doğrular; akan dolum ayrı. */
+      karaokeFill: 'word', karaokeHold: false,
       color: '#ffffff', colorHighlight: '#00ff00', useCustomColor: true,
       scrollOverflow: true, maxWidth: 0.9, align: 'center', animation: 'none',
     };
