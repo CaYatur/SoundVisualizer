@@ -224,6 +224,8 @@
     sceneSkipped = 0;
 
     let base = cfg;
+    /* Önizleme de durmuş çizelgeyi sürmesin: yalnız playing çıpasında
+       otomasyon uygula (açık çıkış ile aynı kural). */
     if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
       let showAnchor = null;
       if (window.SVTimelinePanel && typeof window.SVTimelinePanel.anchor === 'function') {
@@ -238,9 +240,11 @@
       if (!showAnchor) {
         showAnchor = window.SVShowClock.idle();
       }
-      const showT = window.SVShowClock.resolve(showAnchor, Date.now());
-      const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
-      base = auto.cfg;
+      if (showAnchor && showAnchor.playing) {
+        const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+        const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
+        base = auto.cfg;
+      }
     }
 
     modulator.update(base, audio, t, sceneDt);

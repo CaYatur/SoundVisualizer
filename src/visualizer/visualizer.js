@@ -568,7 +568,11 @@
          Yazma kopyala-yaz: kullanıcının kayıtlı ayarına dokunulmaz. */
       let base = cfg;
       let showT = -1;
-      if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
+      /* Durmuş çizelge canlı çıkışı sürmesin (#961): yalnız oynarken
+         (veya çıpa playing iken) otomasyon/sync yazar. Duraklatılmış
+         kafanın bir klip üzerinde durması Sahne/Şablon seçimini ezmesin. */
+      const tlDriving = !!(showAnchor && showAnchor.playing);
+      if (tlDriving && cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
         showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;
