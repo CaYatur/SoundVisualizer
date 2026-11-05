@@ -193,6 +193,31 @@
      ezip kazanıyordu. Alttaki sahneler arkada çalışmaya devam ettiği için
      üstteki klip bitince hemen görünürler. */
   let lastSceneSig = '';
+  /* Canlı düzenleme tutuşu: kullanıcı Sahne/Şablon/MilkDrop/katmanla
+     elle seçim yapınca, oynatma kafası AYNI klipte kaldığı sürece
+     çizelge o klibi yeniden ateşlemesin. Aksi halde opaklık imzası
+     her adımda değişip fireClip eski sahneyi geri yüklüyor; önizleme
+     anında yeni seçimi gösterirken açık çıkış bir geride kalıyor.
+     Kafa boşluğa veya BAŞKA bir sahne klibine geçince tutuş kalkar. */
+  let liveHoldHead = null; // 'trackId:clipId' veya tutuş yoksa null
+  function sceneHeadOf(sig) {
+    if (!sig) return '';
+    return sig.split('|')[0].replace(/:[^:]*$/, '');
+  }
+  function noteLiveEdit() {
+    const tr = ensureTransport();
+    const tl = tr && tr.tl;
+    if (!tl || !TL().activeClipsAt) { liveHoldHead = null; return; }
+    const t = tr.time;
+    const active = TL().activeClipsAt(tl, t);
+    const isScene = TL().isSceneClip || ((c) => c.type === 'scene' || c.type === 'preset');
+    const scenes = active.filter((e) => isScene(e.clip));
+    if (!scenes.length) { liveHoldHead = null; lastSceneSig = ''; return; }
+    const sig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':0').join('|');
+    liveHoldHead = sceneHeadOf(sig);
+    // Mevcut imzayı yut: tutuş varken opaklık adımı yeniden ateşlemesin
+    lastSceneSig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':' + opOf(e)).join('|');
+  }
   function underOf(stack) {
     // stack: en üst önce; arka katmanlar en alttan üste doğru
     return stack.slice(1).reverse().filter((e) => e.clip.type === 'scene' && e.clip.ref)
@@ -229,7 +254,7 @@
     for (const key of Array.from(lastAppliedClip.keys())) {
       if (!seen.has(key)) lastAppliedClip.delete(key);
     }
-    if (!scenes.length) { lastSceneSig = ''; inWinBefore.clear(); return; }
+    if (!scenes.length) { lastSceneSig = ''; liveHoldHead = null; inWinBefore.clear(); return; }
     const top = scenes[0];
     const under = underOf(scenes);
     // Üstteki klibin opaklığı da imzada ve gönderimde (topOpacity)
@@ -242,8 +267,17 @@
     inWinBefore.clear();
     if (win) inWinBefore.set(key, top.clip.id);
     // Yalnız opaklık değiştiyse öndeki sahne aynı sayılır (geçişsiz güncelleme)
-    const headOf = (x) => x.split('|')[0].replace(/:[^:]*$/, '');
-    const topChanged = headOf(lastSceneSig) !== headOf(sig);
+    const head = sceneHeadOf(sig);
+    const topChanged = sceneHeadOf(lastSceneSig) !== head;
+    /* Elle yapılan seçim: aynı klipte kaldıkça sahne yeniden uygulanmaz.
+       Kafa başka klibe geçince tutuş düşer ve yeni klip normal ateşlenir. */
+    if (liveHoldHead != null) {
+      if (head === liveHoldHead) {
+        lastSceneSig = sig;
+        return;
+      }
+      liveHoldHead = null;
+    }
     // Geçiş penceresine DIŞARIDAN atlandıysa (sarma/park) giden sahne önce kesmeyle
     if (jumped && win && !was && TL().clipBefore) {
       const prev = TL().clipBefore(top.track, top.clip);
@@ -2466,6 +2500,8 @@
     _draw: () => draw(),
     // Test: sahne bileşimini t anında uygula (#957 opaklık piksel denemesi)
     _applyAt: (t) => applyClipsAt(t),
+    noteLiveEdit,
+    _liveHoldHead: () => liveHoldHead,
     // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
     _perf: () => ({ draws: perf.draws, heads: perf.heads }),
     // Düzenleme eylemleri (MIDI/OSC ve testler aynı yoldan)

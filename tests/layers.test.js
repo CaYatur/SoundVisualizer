@@ -172,6 +172,19 @@ test('v3.0.0 öncesi ayar dosyası varsayılanlarla birleşince katmanlarını k
   assert.deepStrictEqual(L.resolve(cfg).map((l) => l.id), ['a', 'b']);
 });
 
+
+test('yığın açıkken boş liste sentezlenmez (MilkDrop kalmaz)', () => {
+  const cfg = baseCfg();
+  cfg.visualizer = { type: 'milkdrop' };
+  cfg.layers = [];
+  cfg.layerStack = { enabled: true };
+  assert.deepStrictEqual(L.resolve(cfg), []);
+  // Yığın kapalıysa klasik sentez sürer
+  cfg.layerStack = { enabled: false };
+  const kinds = L.resolve(cfg).map((l) => l.kind + ':' + l.type);
+  assert.ok(kinds.includes('visualizer:milkdrop'), kinds.join(','));
+});
+
 // ------------------------------------------------------ görünürlük kuralları
 test('kapalı ve sessiz katmanlar çizilmez', () => {
   const cfg = baseCfg();

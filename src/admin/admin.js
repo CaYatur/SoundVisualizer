@@ -4098,11 +4098,21 @@
   /* render() de önizlemeye yapılandırma veriyor, push da: ikisi bir arada 11 ms'lik birleştirmeyi iki
      kez yapıyordu. */
   let previewFromPush = false;
+  function noteTimelineLiveEdit() {
+    try {
+      const tp = window.SVTimelinePanel;
+      if (tp && typeof tp.noteLiveEdit === 'function') tp.noteLiveEdit();
+    } catch (_) { /* yoksay */ }
+  }
+
   function applyAll() {
     previewFromPush = true;
     try { render(); } finally { previewFromPush = false; }
     marksFresh = true;
     try { push(true); } finally { marksFresh = false; }
+    /* Katman / şablon / MilkDrop elle düzenlemesi: çizelge klibi üstüne
+       yazmasın (önizleme ile açık çıkış bir geride kalmasın). */
+    noteTimelineLiveEdit();
   }
   function render() {
     renderWanted = false;
@@ -6168,6 +6178,9 @@
     push(true);
     restoreTransition();
     sceneActionInFlight = false;
+    /* Elle sahne seçimi (light değil): çizelge aynı klipteyken eski sahneyi
+       yeniden ateşlemesin — aksi halde önizleme yeni, açık çıkış eski kalır. */
+    if (!(opts && opts.light)) noteTimelineLiveEdit();
     /* Zaman çizelgesi klibi ateşlerken (light) Zaman sayfası baştan
        kurulmuyor: render() çizelge panelini de söküp yeniden kuruyordu,
        oynatırken ya da sürüklerken çizelge her klip sınırında bir an

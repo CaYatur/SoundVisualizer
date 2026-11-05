@@ -86,7 +86,10 @@
     remove(id) {
       const list = layers();
       const i = list.findIndex((x) => x && x.id === id);
-      if (i < 0 || list[i].locked) return false;
+      /* tlUnder kilitli olsa da silinebilir: çizelge alt bileşimi kalıntısı
+         kullanıcının "tüm katmanları kaldır" isteğini engellemesin. */
+      if (i < 0) return false;
+      if (list[i].locked && !list[i].tlUnder) return false;
       list.splice(i, 1);
       if (sel === id) { sel = ''; write(STORE.sel, ''); }
       P().apply();

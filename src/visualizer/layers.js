@@ -683,7 +683,11 @@
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez
   function resolve(cfg) {
     const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
-    const used = list.length ? list.map(normalizeLayer) : synthesize(cfg);
+    /* Yığın açık + boş liste = bilinçli boş sahne. Klasik visualizer.type
+       (ör. milkdrop) hâlâ dolu olsa bile sentezleme; kullanıcı tüm
+       katmanları silince boş kalsın. */
+    const stackOn = !!(cfg && cfg.layerStack && cfg.layerStack.enabled);
+    const used = list.length ? list.map(normalizeLayer) : (stackOn ? [] : synthesize(cfg));
     /* Solo varsa yalnızca solo katmanlar çizilir. Bir kompozitörde solo,
        "diğerlerini kapat" demenin geri alınabilir yoludur; katmanları tek tek
        kapatıp sonra geri açmak zorunda kalmamak için var. */
