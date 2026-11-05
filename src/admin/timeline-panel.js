@@ -2748,8 +2748,8 @@
         type: 'button',
         text: it.name || it.id,
         title: passive
-          ? (it.name || it.id) + ' — pasif (çıkışa/dışa aktarıma uygulanmaz). Sağ tık: menü'
-          : (it.name || it.id) + '. Sağ tık: yeniden adlandır / pasifleştir / sil',
+          ? (it.name || it.id) + ' — ' + tt('pasif (çıkışa/dışa aktarıma uygulanmaz). Sağ tık: menü')
+          : (it.name || it.id) + '. ' + tt('Sağ tık: yeniden adlandır / pasifleştir / sil'),
       });
       b.addEventListener('click', () => {
         if (it.id === cfg.id) return;
@@ -2773,7 +2773,7 @@
           const x = el('button', { type: 'button', text, class: danger ? 'danger' : '', onclick: () => { m.remove(); fn(); } });
           m.appendChild(x);
         };
-        add('Yeniden adlandır', () => {
+        add(tt('Yeniden adlandır'), () => {
           const name = window.prompt(tt('Çizelge adı'), it.name || '');
           if (name == null) return;
           const n = String(name).trim();
@@ -2786,13 +2786,13 @@
           p.push(true);
           p.rerender();
         });
-        add(passive ? 'Etkinleştir' : 'Pasifleştir (silme)', () => {
+        add(passive ? tt('Etkinleştir') : tt('Pasifleştir (silme)'), () => {
           TL().setTimelineItemEnabled(cfg, it.id, passive);
           p.push(true);
           p.rerender();
         });
         if (items.length > 1) {
-          add('Sil', () => {
+          add(tt('Sil'), () => {
             if (!window.confirm(tt('Bu zaman çizelgesi silinsin mi?'))) return;
             TL().removeTimeline(cfg, it.id);
             transport = null;
@@ -2809,7 +2809,7 @@
       });
       bar.appendChild(b);
     }
-    const add = el('button', { class: 'tl-tab add', type: 'button', icon: 'plus', title: 'Yeni zaman çizelgesi' });
+    const add = el('button', { class: 'tl-tab add', type: 'button', icon: 'plus', title: tt('Yeni zaman çizelgesi') });
     add.addEventListener('click', () => {
       commit();
       TL().addTimeline(cfg);

@@ -184,7 +184,7 @@ button.group-label:hover { background: var(--sv-well); }
 body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; margin-top: 4px; width: 100%; }
 #svInspector .ctrl:has(> .segment button:nth-child(3)), body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) { padding-block: 6px; }
 #svInspector .ctrl:has(> .segment button:nth-child(3)) > .segment button,
-body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment button { flex: 1 1 auto; min-width: 0; padding-inline: 8px; white-space: nowrap; }
+body[data-page='output'] #sections .ctrl:has(> .segment button:nth-child(3)) > .segment button { flex: 1 1 auto; min-width: 0; padding-inline: 8px; white-space: normal; line-height: 1.25; overflow-wrap: anywhere; text-align: center; }
 
 /* Gelişmiş ayarlar: bölüm başlığıyla aynı satır */
 .adv-summary.adv-summary { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; min-height: 36px; margin: 0 0 8px; padding: 0 12px 0 var(--sv-inset); border: 0; border-radius: 12px; background: var(--sv-well); box-shadow: var(--sv-well-line); color: var(--muted); font-size: 12.5px; font-weight: 600; }
@@ -748,6 +748,17 @@ body[data-page='live'] #svStageTools { display: none; }
 .bpm-box > .btn { gap: 5px; padding-inline: 8px; white-space: nowrap; }
 /* Dar canlı sütununda simge düşüyor, yazı sığıyor */
 .autovj-panel { container-type: inline-size; }
+/* Uzun TR etiketleri (ör. "Tüm Görselleştirici Katmanları") dar railde taşmasın:
+   segment kendi satırına iner, düğme metni kırılır. */
+.autovj-panel .ctrl:has(> .segment) { padding-block: 6px; }
+.autovj-panel .ctrl:has(> .segment) > .segment {
+  grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap;
+  margin-top: 4px; width: 100%;
+}
+.autovj-panel .ctrl:has(> .segment) > .segment button {
+  flex: 1 1 auto; min-width: 0; white-space: normal; line-height: 1.25;
+  overflow-wrap: anywhere; text-align: center; padding: 5px 8px; height: auto;
+}
 @container (max-width: 300px) { .bpm-box > .btn .svi { display: none; } }
 /* Çıktı sayfası: uzun seçim metinleri (kodek, çözünürlük) dar formda kesilmesin; etiket üstte, seçim tam genişlikte */
 @container forms (max-width: 619px) {

@@ -6192,11 +6192,11 @@
        kayboluyordu. Diğer sayfalarda görünen ayarlar eskimesin diye
        orada yine tam çizim yapılıyor. */
     if (opts && opts.light && activeCategory === 'time') {
-      renderScenes();
+      renderScenes({ selectionOnly: true });
       return;
     }
     render();
-    renderScenes();
+    renderScenes({ selectionOnly: true });
   };
 
   actions.updateScene = (id) => {
@@ -6262,11 +6262,31 @@
   };
 
   // Sağ dock'taki sahne listesi
-  function renderScenes() {
+  function renderScenes(opts) {
     const host = $('sceneList');
     if (!host) return;
-    host.innerHTML = '';
+    const o = opts || {};
     const arr = ensureScenes();
+    /* Seçim göstergesi: kimlik listesi aynıysa yalnız .active güncelle —
+       kaydırma sıfırlanmasın (MilkDrop preset ızgarasıyla aynı yaklaşım). */
+    if (o.selectionOnly) {
+      const items = host.querySelectorAll('.scene-item[data-scene-id]');
+      if (items.length && items.length === arr.length) {
+        let same = true;
+        for (let i = 0; i < items.length; i++) {
+          if (!arr[i] || items[i].getAttribute('data-scene-id') !== arr[i].id) { same = false; break; }
+        }
+        if (same) {
+          items.forEach((n) => {
+            n.classList.toggle('active', n.getAttribute('data-scene-id') === activeSceneId);
+          });
+          return;
+        }
+      }
+    }
+    /* Liste yeniden kurulurken kaydırma yerinde kalsın. */
+    const keepScroll = host.scrollTop;
+    host.innerHTML = '';
     // Sıralama sürükle-bırak ya da ok tuşlarıyla; sıra kullanıcının
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
     // Düzen kullanıcının seçimi (ayarda); varsayılan tek sütun liste: canlı gösteride sıra belirsiz olmasın
@@ -6303,7 +6323,7 @@
       const name = el('input', { class: 'scene-name', type: 'text', value: tr(sc.name || 'Sahne'), title: tr('Sahne adı') });
       name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
       host.appendChild(
-        el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
+        el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : ''), 'data-scene-id': sc.id }, [
           dragHandle(tr('Sahneyi taşı')),
           // Sıra numarası: ızgarada da hangi sahnenin kaçıncı olduğu açık
           el('span', { class: 'scene-num', text: String(i + 1), title: tr('Sıra') + ' ' + (i + 1) }),
@@ -6318,6 +6338,7 @@
         ])
       );
     });
+    if (keepScroll > 0) host.scrollTop = keepScroll;
   }
 
   // --------------------------------------------------------------------------
