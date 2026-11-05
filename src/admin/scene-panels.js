@@ -1852,8 +1852,8 @@
           // Kelime süresi (#938): dolum biçimi ve uzatılan hecenin esnemesi
           out.push(miniSelect('Karaoke Dolumu', [['word', 'Kelime Kelime'], ['progressive', 'Kelime İçinde Akan']],
             () => (txt.karaokeFill == null ? 'progressive' : txt.karaokeFill), (v) => { txt.karaokeFill = v; }, null, 'progressive'));
-          out.push(miniToggle('Uzatılan Heceyi Esnet', () => txt.karaokeHold !== false, (v) => { txt.karaokeHold = v; }, rerender, { def: true }));
-          if (txt.karaokeHold !== false) {
+          out.push(miniToggle('Uzatılan Heceyi Esnet', () => txt.karaokeHold === true, (v) => { txt.karaokeHold = v; }, rerender, { def: false }));
+          if (txt.karaokeHold === true) {
             out.push(miniSlider('Esneme Eşiği', () => (txt.karaokeHoldMin == null ? 0.6 : txt.karaokeHoldMin), (v) => { txt.karaokeHoldMin = v; },
               { min: 0.2, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn', def: 0.6 }));
             out.push(miniSlider('Esneme Miktarı', () => (txt.karaokeHoldAmount == null ? 0.25 : txt.karaokeHoldAmount), (v) => { txt.karaokeHoldAmount = v; },

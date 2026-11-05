@@ -110,9 +110,9 @@ test('görselleştirici ve dışa aktarıcı stretchHeldVowel kullanır', () => 
   const path = require('path');
   const textJs = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'text.js'), 'utf8');
   assert.match(textJs, /stretchHeldVowel/);
-  assert.match(textJs, /karaokeHold !== false/);
+  assert.match(textJs, /karaokeHold === true/);
   assert.match(textJs, /karaokeFill !== 'word'/);
   const defaults = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'defaults.js'), 'utf8');
   assert.match(defaults, /karaokeFill:\s*'progressive'/);
-  assert.match(defaults, /karaokeHold:\s*true/);
+  assert.match(defaults, /karaokeHold:\s*false/);
 });
