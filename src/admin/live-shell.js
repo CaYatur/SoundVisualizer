@@ -18,6 +18,10 @@
   let cue = '';
   let bank = 0;
   let lower = 'scenes';
+  /* Rail / alt gövde kaydırması: Otomatik VJ veya sahne değişiminde paint
+     tüm #svLive'ı yeniden kuruyor; kullanıcı aşağıdaysa başa fırlatılmasın. */
+  let railScroll = 0;
+  let lowerScroll = 0;
 
   const scenes = () => P().scenes();
   const sceneById = (id) => scenes().find((s) => s && s.id === id) || null;
@@ -234,6 +238,10 @@
   function paint() {
     const host = document.getElementById('svLive');
     if (!host) return;
+    const prevRail = host.querySelector('.sv-rail .sv-cbody');
+    const prevLower = host.querySelector('.sv-scenes-card .sv-cbody');
+    if (prevRail) railScroll = prevRail.scrollTop;
+    if (prevLower) lowerScroll = prevLower.scrollTop;
     const el = P().el;
     const all = scenes();
     if (bank * PER_BANK >= Math.max(all.length, 1)) bank = 0;
@@ -285,6 +293,16 @@
       [P().sectionCard('tempo'), mdQueue(), momentaryCard(), P().sectionCard('transition')].filter(Boolean))]);
 
     host.replaceChildren(mons, scenesCard, mixer(), rail);
+    const nextRail = host.querySelector('.sv-rail .sv-cbody');
+    const nextLower = host.querySelector('.sv-scenes-card .sv-cbody');
+    if (nextRail) {
+      nextRail.scrollTop = railScroll;
+      nextRail.onscroll = () => { railScroll = nextRail.scrollTop; };
+    }
+    if (nextLower) {
+      nextLower.scrollTop = lowerScroll;
+      nextLower.onscroll = () => { lowerScroll = nextLower.scrollTop; };
+    }
     if (window.SVSceneShell) window.SVSceneShell.placeStage('live');
   }
 
