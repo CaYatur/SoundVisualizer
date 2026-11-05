@@ -37,6 +37,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   hold the button. They are never saved. Strobe stays at three flashes a second while flash limiting
   is on. `flash` and `strobe` are also regular effects now, so the chain has 42.
 - **Undo and redo** for everything in the scene, not only the timeline.
+- **The Time page shortcut list is in English again.** The list was rewritten for the new keys but
+  most of its lines had no English text, so the English panel showed them in Turkish. Found by
+  `npm run ui-audit`; `tests/timeline-shortcuts-i18n.test.js` now checks every line.
 - **Search finds layer settings.** A result selects the layer, opens the right tab and highlights the
   control. If the scene has no layer of that kind, the result says so and adds one.
 - **One path for the picture.** Every scene is now a layer list, and the separate Background,
