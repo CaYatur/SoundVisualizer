@@ -1352,10 +1352,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .cd-rowlaunch.cursor { border-color: var(--accent); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .cd-cell.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
 /* Deste sekmeleri */
-.tl-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 8px 6px 2px; }
-.tl-tab { height: 26px; min-width: 34px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-.tl-tab:hover { color: var(--text); border-color: var(--line2); }
-.tl-tab.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.tl-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 8px 8px 2px; }
+/* Kenarlık yerine iç gölge: eski tarz çerçeveli düğme görünmesin (ui-layout) */
+.tl-tab { height: 26px; min-width: 34px; padding: 0 10px; border-radius: 7px; border: 0; box-shadow: inset 0 0 0 1px var(--line); background: var(--card); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.tl-tab:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--line2); }
+.tl-tab.on { color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .tl-tab.passive { opacity: .55; text-decoration: line-through; }
 .tl-tab.add { min-width: 28px; padding: 0 8px; }
 .tl-tab.tl-renaming { visibility: hidden; pointer-events: none; }

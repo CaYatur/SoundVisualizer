@@ -46,7 +46,7 @@ const cdp = (url) => new Promise((resolve, reject) => {
 
 const panelReady = '!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg() && document.querySelector(".sv-content .card"))';
 
-/* opts: settings, presets, port. Dönen: { a, app, work, errors, ready } */
+/* opts: settings, presets, port, lang (Electron --lang, ör. 'tr-TR'). Dönen: { a, app, work, errors, ready } */
 async function startPanel(opts) {
   // Önceki koşudan kalan uygulama bu kapıyı tutuyorsa yeni koşu farkında olmadan ona bağlanırdı
   if (await fetch('http://127.0.0.1:' + opts.port + '/json/version').then(() => true, () => false)) {
@@ -60,7 +60,7 @@ async function startPanel(opts) {
     let n = 0;
     for (const f of fs.readdirSync(opts.presets)) { if (n++ > 300) break; fs.copyFileSync(path.join(opts.presets, f), path.join(ud, 'presets', f)); }
   }
-  const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + opts.port], { stdio: 'ignore', env: opts.asWindows ? { ...process.env, SV_UI_AS_WINDOWS: '1' } : process.env });
+  const app = spawn(electronPath(), [REPO, '--user-data-dir=' + ud, '--remote-debugging-port=' + opts.port].concat(opts.lang ? ['--lang=' + opts.lang] : []), { stdio: 'ignore', env: opts.asWindows ? { ...process.env, SV_UI_AS_WINDOWS: '1' } : process.env });
   process.on('exit', () => { try { app.kill(); } catch { /* kapalı */ } });
   let t = null;
   for (let i = 0; i < 1200 && !t; i++) {

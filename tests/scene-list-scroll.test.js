@@ -60,6 +60,6 @@ test('tam liste rebuild scrollTop’u koruyan yardımcı yakalar', () => {
 });
 
 test('çizelge sekmeleri köşeye yapışık değil (padding)', () => {
-  assert.match(CSS, /\.tl-tabs \{[^}]*padding:\s*8px 6px 2px/);
-  assert.match(PAGES, /\.tl-tabs \{[^}]*padding:\s*8px 6px 0/);
+  assert.match(CSS, /\.tl-tabs \{[^}]*padding:\s*8px 8px 2px/);
+  assert.match(PAGES, /\.tl-tabs \{[^}]*padding:\s*8px 8px 0/);
 });
