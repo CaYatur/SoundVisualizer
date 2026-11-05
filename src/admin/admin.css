@@ -1619,9 +1619,11 @@ input[type="number"]:focus,
 textarea:not(.code-input):not(.mded-input):focus {
   border-color: var(--accent);
 }
+/* pages.css içindeki textarea/.p-in.p-in kuralları sonra yüklenip renk, dolgu ve
+   yazı boyunu eziyordu; iki katman kayıyordu. Seçici bu yüzden daha özgül. */
 /* Genel kutu kuralı yükseklik ve yazı ölçüsünü ezer; bu alan pencereyi doldurur. */
-textarea.p-in.lyr-editor-text,
-.lyr-editor-paint {
+.lyr-editor-code > textarea.p-in.lyr-editor-text,
+.lyr-editor-code > .lyr-editor-paint {
   height: 100%;
   min-height: 0;
   max-height: none;
@@ -1640,20 +1642,20 @@ textarea.p-in.lyr-editor-text,
   overflow: auto;
   tab-size: 2;
 }
-textarea.p-in.lyr-editor-text {
+.lyr-editor-code > textarea.p-in.lyr-editor-text {
   grid-area: 1 / 1;
   color: transparent;
   caret-color: var(--text-strong);
 }
-textarea.p-in.lyr-editor-text::selection {
+.lyr-editor-code > textarea.p-in.lyr-editor-text::selection {
   background: rgb(var(--accent-rgb) / .35);
   color: transparent;
 }
-textarea.p-in.lyr-editor-text.lyr-plain {
+.lyr-editor-code > textarea.p-in.lyr-editor-text.lyr-plain {
   color: var(--text);
   caret-color: var(--text);
 }
-textarea.p-in.lyr-editor-text.lyr-plain::selection { color: inherit; }
+.lyr-editor-code > textarea.p-in.lyr-editor-text.lyr-plain::selection { color: inherit; }
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;

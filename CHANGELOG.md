@@ -98,6 +98,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   before.
 - **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
   stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
+- **Lyrics editor text no longer shows twice.** With colouring on, the panel's general text box
+  style overrode the editor's, so the raw text and the coloured copy were drawn on top of each other
+  at different sizes. Only the coloured copy shows now, aligned with the caret.
 
 ### Control and show
 

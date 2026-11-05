@@ -93,3 +93,10 @@ test('bir megabaytı aşan söz alınmaz', () => {
   assert.strictEqual(added.ok, false);
   assert.strictEqual(added.error, 'SIZE');
 });
+
+test('söz düzenleyici: genel textarea/.p-in kuralları iki katmanı kaydırmaz', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../src/admin/admin.css'), 'utf8');
+  // pages.css (0,2,1) özgüllükle sonra yüklenir; düzenleyici kuralı daha özgül olmalı
+  assert.match(css, /\.lyr-editor-code > textarea\.p-in\.lyr-editor-text,\s*\n\.lyr-editor-code > \.lyr-editor-paint \{[^}]*font-size: 14\.5px[^}]*padding: 16px 18px|\.lyr-editor-code > textarea\.p-in\.lyr-editor-text,\s*\n\.lyr-editor-code > \.lyr-editor-paint \{[^}]*padding: 16px 18px[^}]*font-size: 14\.5px/);
+  assert.match(css, /\.lyr-editor-code > textarea\.p-in\.lyr-editor-text \{[^}]*color: transparent/);
+});
