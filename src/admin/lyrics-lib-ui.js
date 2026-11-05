@@ -427,8 +427,9 @@
     nodes.push(SP().miniToggle('Çalan Parçayı İzle', () => txt.lyricsFollow === true, (v) => {
       txt.lyricsFollow = !!v;
       if (v && window.api && window.api.nowPlayingSubscribe) window.api.nowPlayingSubscribe(true);
-      
-    }, rerender, { def: false }));
+    /* Bu blok yalnız Windows'ta çizilir; orada fabrika varsayılanı açık. Yanlış
+       varsayılan (false) açıkken "varsayılana döndür" düğmesini gösteriyordu. */
+    }, rerender, { def: true }));
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.',

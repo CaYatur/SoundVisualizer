@@ -246,3 +246,9 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   assert.strictEqual(L.groupGain(cfg, L.normalizeLayer({ kind: 'visualizer' })), 1);
 });
 
+
+test('Çalan Parçayı İzle: Windows varsayılanı açık, döndür düğmesi açıkken gizli', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../src/admin/lyrics-lib-ui.js'), 'utf8');
+  assert.match(src, /miniToggle\('Çalan Parçayı İzle'[\s\S]*?\{ def: true \}\)/);
+  assert.doesNotMatch(src, /miniToggle\('Çalan Parçayı İzle'[^;]*?\{ def: false \}/);
+});
