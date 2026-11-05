@@ -461,6 +461,7 @@ body[data-page='time'] #sections > .card > .group,
 body[data-page='time'] #sections > .card > .group > * { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; margin: 0; }
 body[data-page='time'] .tl-panel:not(.tl-full) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-toolbar { flex: none; order: 0; margin: 0; }
+body[data-page='time'] .tl-panel:not(.tl-full) > .tl-tabs { flex: none; order: -1; padding: 8px 6px 0; margin: 0; }
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-actions { flex: none; order: 1; margin: 0; }
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-editor { flex: 1 1 auto; min-height: 0; order: 2; display: flex; flex-direction: column; border: 0; border-top: 1px solid rgb(var(--fg-rgb) / .06); border-radius: 0; background: none; box-shadow: none; }
 body[data-page='time'] .tl-panel:not(.tl-full) .tl-body { flex: 1 1 auto; height: auto !important; min-height: 0; resize: none; border-radius: 0; }

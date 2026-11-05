@@ -421,6 +421,8 @@
     'Yeni zaman çizelgesi': 'New timeline',
     'Sağ tık: yeniden adlandır / pasifleştir / sil': 'Right-click: rename / disable / delete',
     'pasif (çıkışa/dışa aktarıma uygulanmaz). Sağ tık: menü': 'disabled (not applied to output/export). Right-click: menu',
+    'pasif (çıkışa/dışa aktarıma uygulanmaz). Çift tık: adlandır; sağ tık: menü': 'disabled (not applied to output/export). Double-click: rename; right-click: menu',
+    'Çift tık: adlandır. Sağ tık: menü': 'Double-click: rename. Right-click: menu',
     'Yeniden adlandır': 'Rename',
     'Pasifleştir (silme)': 'Disable (do not delete)',
     'Etkinleştir': 'Enable',

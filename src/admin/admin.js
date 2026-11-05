@@ -6262,9 +6262,30 @@
   };
 
   // Sağ dock'taki sahne listesi
+  /* #sceneList kaydırması: raf yeniden bağlanınca veya innerHTML temizlenince
+     tarayıcı scrollTop'u 0'a çeker. selectionOnly yetmezdi çünkü üst kabuk
+     (paintShelf) listeyi söküp setTimeout(renderScenes) ile tam kuruyordu.
+     Modül düzeyinde son konum + rAF ile geri yazılır. */
+  let sceneListScroll = 0;
+  function bindSceneListScroll(host) {
+    if (!host || host.dataset.svSceneScrollBound) return;
+    host.dataset.svSceneScrollBound = '1';
+    host.addEventListener('scroll', () => { sceneListScroll = host.scrollTop; }, { passive: true });
+  }
+  function restoreSceneListScroll(host, want) {
+    if (!host || !(want > 0)) return;
+    const apply = () => {
+      if (!host.isConnected) return;
+      if (host.scrollTop !== want) host.scrollTop = want;
+      sceneListScroll = host.scrollTop;
+    };
+    apply();
+    requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); });
+  }
   function renderScenes(opts) {
     const host = $('sceneList');
     if (!host) return;
+    bindSceneListScroll(host);
     const o = opts || {};
     const arr = ensureScenes();
     /* Seçim göstergesi: kimlik listesi aynıysa yalnız .active güncelle —
@@ -6280,12 +6301,13 @@
           items.forEach((n) => {
             n.classList.toggle('active', n.getAttribute('data-scene-id') === activeSceneId);
           });
+          sceneListScroll = host.scrollTop;
           return;
         }
       }
     }
     /* Liste yeniden kurulurken kaydırma yerinde kalsın. */
-    const keepScroll = host.scrollTop;
+    const keepScroll = Math.max(host.scrollTop || 0, sceneListScroll || 0);
     host.innerHTML = '';
     // Sıralama sürükle-bırak ya da ok tuşlarıyla; sıra kullanıcının
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
@@ -6338,7 +6360,7 @@
         ])
       );
     });
-    if (keepScroll > 0) host.scrollTop = keepScroll;
+    restoreSceneListScroll(host, keepScroll);
   }
 
   // --------------------------------------------------------------------------
