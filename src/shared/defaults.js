@@ -597,11 +597,12 @@
       scrollSpeed: 1,
       maxWidth: 0.9,
       karaoke: true,
-      /* Kelime süresi (#938): 'word' kelime bir anda yanar (eski davranış),
-         'progressive' kelime süresi boyunca dolar. Esneme isteğe bağlı. */
-      karaokeFill: 'word',
-      karaokeHold: false,
-      karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelime esner (sn)
+      /* Kelime süresi (#938): süre LRC damgalarından (ses analizi yok).
+         'progressive' etkin kelimeyi soldan sağa doldurur; kısa kelimelerde
+         neredeyse anında biter. Uzatılan hecede son sesli çoğalır (loooove). */
+      karaokeFill: 'progressive',
+      karaokeHold: true,
+      karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelimede sesli uzar (sn)
       karaokeHoldAmount: 0.25,
       offset: 0,        // söz senkron düzeltmesi (sn)
       lyricsSource: '', // LRC/SRT dosya içeriği
