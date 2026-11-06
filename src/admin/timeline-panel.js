@@ -1052,7 +1052,8 @@
       /* Geçiş (fade) rampası ve tutamacı (#636 TL-2): klibin sol üstünden
          sürüklenerek ayarlanıyor. Rampanın solu kararık: geçiş o sürede
          tamamlanıyor. */
-      const fw = Math.min(cw, (c.fade || 0) * view().zoom);
+      const fw = visualClip(c) ? Math.min(cw, (c.fadeIn > 0 ? c.fadeIn : c.fade || 0) * view().zoom) : 0;
+      const ow = visualClip(c) ? Math.min(cw, (c.fadeOut || 0) * view().zoom) : 0;
       if (fw > 1) {
         ctx.fillStyle = tint('--shadow-rgb', 0.28);
         ctx.beginPath();
@@ -1068,9 +1069,21 @@
         ctx.lineTo(x + fw, top);
         ctx.stroke();
       }
-      if ((sel || fw > 1) && cw > 14) {
+      if (visualClip(c) && (sel || fw > 1) && cw > 14) {
         ctx.fillStyle = sel ? css('--text-strong') : tint('--fg-rgb', 0.7);
         ctx.fillRect(x + fw - 3, top - 1, 6, 6);
+      }
+      // Çıkış rampası ve sıfırdayken de görünen simetrik sağ tutamaç.
+      if (ow > 1) {
+        ctx.fillStyle = tint('--shadow-rgb', 0.28);
+        ctx.beginPath(); ctx.moveTo(x + cw - ow, top); ctx.lineTo(x + cw, top);
+        ctx.lineTo(x + cw, top + hh); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = tint('--fg-rgb', 0.55); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x + cw - ow, top); ctx.lineTo(x + cw, top + hh); ctx.stroke();
+      }
+      if (visualClip(c) && (sel || ow > 1) && cw > 14) {
+        ctx.fillStyle = sel ? css('--text-strong') : tint('--fg-rgb', 0.7);
+        ctx.fillRect(x + cw - ow - 3, top - 1, 6, 6);
       }
       // Kaynağı seçilmemiş klip çizgili: ateşlendiğinde hiçbir şey olmayacak
       if (!c.ref) {
@@ -1234,6 +1247,21 @@
     const trk = tl.tracks[index];
     if (!trk) return { kind: 'none' };
     if (trk.kind === 'clip') {
+      const fadeHit = (c, ci) => {
+        const top = RULER_H + index * TRACK_H + 4;
+        const width = c.dur * view().zoom;
+        if (!visualClip(c) || width <= 14 || y < top - 3 || y > top + 8) return null;
+        const left = xOf(c.start);
+        const a = left + Math.min(width, (c.fadeIn > 0 ? c.fadeIn : c.fade || 0) * view().zoom);
+        const b = left + width - Math.min(width, (c.fadeOut || 0) * view().zoom);
+        const da = Math.abs(x - a), db = Math.abs(x - b);
+        if (Math.min(da, db) > 6) return null;
+        return { kind: db < da || (db === da && x > left + width / 2) ? 'fadeOut' : 'fade', index, ci };
+      };
+      // Bitişik klipte seçili sağ tutamaç, komşunun girişinden önce yakalanır.
+      for (let ci = trk.clips.length - 1; ci >= 0; ci--) if (isPicked(trk.clips[ci], trk)) {
+        const h = fadeHit(trk.clips[ci], ci); if (h) return h;
+      }
       for (let ci = trk.clips.length - 1; ci >= 0; ci--) {
         const c = trk.clips[ci];
         const cx = xOf(c.start);
@@ -1242,9 +1270,7 @@
         /* Kenarlardan 6 piksellik şerit kırpma; ortası taşıma. Şeridi daha dar
            yapmak kırpmayı isabet edilemez hale getiriyordu. */
         // Geçiş tutamacı sol üst köşede, rampanın ucunda; kırpmadan önce bakılıyor
-        const top = RULER_H + index * TRACK_H + 4;
-        const fx = cx + Math.min(cw, (c.fade || 0) * view().zoom);
-        if (cw > 14 && y <= top + 8 && x >= fx - 4 && x <= fx + 6) return { kind: 'fade', index, ci };
+        const fh = fadeHit(c, ci); if (fh) return fh;
         const edge = Math.min(6, cw / 3);
         if (x <= cx + edge) return { kind: 'trimL', index, ci };
         if (x >= cx + cw - edge) return { kind: 'trimR', index, ci };
@@ -1468,7 +1494,7 @@
       add('Döngü sonu burası', 'O', () => setLoopEdge('out', at));
       add(tl.loop.enabled ? 'Döngüyü kapat' : 'Döngüyü aç', 'Shift+L', () => { tl.loop.enabled = !tl.loop.enabled; commit(); reanchor(); refreshMore(); draw(); });
       add('Kafayı buraya al', '', () => { seek(at); applyClipsAt(ensureTransport().time); draw(); });
-    } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade') && trk) {
+    } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && trk) {
       const c = trk.clips[h.ci];
       if (!isPicked(c, trk)) multi = [];
       selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
@@ -2003,10 +2029,12 @@
       const r = cv.getBoundingClientRect();
       const h = hit(e.clientX - r.left, e.clientY - r.top);
       const id = h.kind === 'marker' ? h.marker.id : '';
-      cv.style.cursor = id ? 'grab' : '';
+      const fade = h.kind === 'fade' || h.kind === 'fadeOut';
+      cv.style.cursor = id ? 'grab' : fade ? 'ew-resize' : '';
+      cv.title = fade ? tt(h.kind === 'fadeOut' ? 'Çıkış Solması (sn)' : 'Giriş Solması (sn)') : '';
       if (id !== hoverMarkerId) { hoverMarkerId = id; draw(); }
     });
-    cv.addEventListener('mouseleave', () => { if (hoverMarkerId) { hoverMarkerId = ''; cv.style.cursor = ''; draw(); } });
+    cv.addEventListener('mouseleave', () => { cv.style.cursor = ''; cv.title = ''; if (hoverMarkerId) { hoverMarkerId = ''; cv.style.cursor = ''; draw(); } });
     cv.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const r = cv.getBoundingClientRect();
@@ -2067,15 +2095,15 @@
          aynı yere yığılıyordu — ölçüldü: 2 sn'deki A, 5 sn'deki B'nin
          ötesine çekilince ikisi de 8 sn'de kaldı. */
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
-      if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade') && additive) {
+      if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && additive) {
         // Ctrl/Shift+tık: seçime ekle ya da çıkar, taşıma yok
         toggleMulti(trk, trk.clips[h.ci]);
         drag = { kind: 'select' };
-      } else if (h.kind === 'fade') {
+      } else if (h.kind === 'fade' || h.kind === 'fadeOut') {
         const c = trk.clips[h.ci];
         if (!isPicked(c, trk)) multi = [];
         selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
-        drag = trk.locked ? { kind: 'select' } : { kind: 'fade', trackId: trk.id, clip: c };
+        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c };
       } else if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
         const c = trk.clips[h.ci];
         // Seçili bir gruba tıklamak grubu korur (grup taşıma); başka klibe tıklamak tek seçim
@@ -2211,11 +2239,13 @@
         drag.x1 = x;
         drag.y1 = y;
         if (Math.abs(x - drag.x0) + Math.abs(y - drag.y0) > 4) drag.moved = true;
-      } else if (drag.kind === 'fade') {
+      } else if (drag.kind === 'fade' || drag.kind === 'fadeOut') {
         const trk = trackById(drag.trackId);
         const c = drag.clip;
         if (!trk || !trk.clips || trk.clips.indexOf(c) < 0) { drag = null; return; }
-        c.fade = Math.round(Math.max(0, Math.min(c.dur, tOf(x) - c.start)) * 100) / 100;
+        const value = Math.round(Math.max(0, Math.min(c.dur, drag.kind === 'fadeOut' ? c.start + c.dur - tOf(x) : tOf(x) - c.start)) * 100) / 100;
+        if (drag.kind === 'fadeOut') c.fadeOut = value;
+        else { c.fade = value; if (c.fadeIn > 0) c.fadeIn = value; }
         drag.moved = true;
       } else if (drag.kind === 'move' && drag.group) {
         // Grup: birincil yakalamaya göre, hepsi aynı kayma; hiçbiri sıfırın soluna geçmez
@@ -3442,11 +3472,12 @@
         grid.appendChild(p.row('Geçiş Türü', select(transTypePairs(), c.transType || '', (v) => { c.transType = v; commit(); draw(); })));
         grid.appendChild(p.row('Geçiş Eğrisi', select(transEasePairs(), c.transEase || '', (v) => { c.transEase = v; commit(); draw(); })));
         // Klibin geçişini paneldeki küçük önizlemede göster (çıkışa gitmez)
-        if (window.SVTransitionPreview) grid.appendChild(p.row('Önizleme', window.SVTransitionPreview.create(() => clipTransSpec(c))));
         const reapply = () => { commit(); applyClipsAt(ensureTransport().time); draw(); };
         grid.appendChild(p.row('Opaklık (0..1)', numInput(c.opacity == null ? 1 : c.opacity, 0, 1, 0.01, (v) => { c.opacity = v; reapply(); })));
         grid.appendChild(p.row('Giriş Solması (sn)', numInput(c.fadeIn || 0, 0, 1e4, 0.05, (v) => { c.fadeIn = v; reapply(); })));
         grid.appendChild(p.row('Çıkış Solması (sn)', numInput(c.fadeOut || 0, 0, 1e4, 0.05, (v) => { c.fadeOut = v; reapply(); })));
+        // İki uç da önizleme kutusundan önce, yan yana sırada bulunabilsin.
+        if (window.SVTransitionPreview) grid.appendChild(p.row('Önizleme', window.SVTransitionPreview.create(() => clipTransSpec(c))));
         grid.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
         grid.appendChild(p.row('Hız', numInput(c.speed, 0.05, 20, 0.01, (v) => { c.speed = v; commit(); })));
       }
