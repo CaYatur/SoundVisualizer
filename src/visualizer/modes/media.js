@@ -512,6 +512,20 @@
        süresine göre sarar, değilse son karede durur) ve kare çözülene kadar
        bekler. Canlı oynatıcıda katman göründüğü anda başlıyor; dışa
        aktarımda o an t = 0. */
+    /* Timeline klibi: canlı video da klibin yerel saatine bağlıdır.
+       Sarma/duraklatma videoyu serbest duvar saatinde bırakmaz. */
+    seekTimeline(sec) {
+      if (this.offline || this._source !== 'file') return;
+      const v = this.video, d = v.duration;
+      if (!(d > 0) || !isFinite(d)) return;
+      v.pause();
+      const s = Math.max(0, Number(sec) || 0);
+      const target = v.loop ? s % d : Math.min(s, Math.max(0, d - 0.001));
+      if (!v.seeking && Math.abs(v.currentTime - target) > 1 / 120) {
+        try { v.currentTime = target; } catch { /* dosya henüz hazır değil */ }
+      }
+    }
+
     async seekTo(sec) {
       // null: sarılacak bir şey yok (kamera, dosya seçilmemiş); false: kare okunamadı
       if (!this.offline || this._source !== 'file' || !this._loaded) return null;

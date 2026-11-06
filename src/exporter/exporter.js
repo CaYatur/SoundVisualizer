@@ -336,6 +336,12 @@
     return out;
   }
   async function seekMedia(t) {
+    if (cfg.export && cfg.export.includeTimeline !== false && window.SVTimelineCompose && window.SVTimelineCompose.modeOn(cfg)) {
+      if (!exportTl) exportTl = window.SVTimeline.makeTimeline(cfg.timeline);
+      const base = window.SVTimelineCompose.composeAt(cfg, exportTl, t).cfg;
+      const renderer = stack.prepareTimeline(base);
+      if (renderer) return renderer.seekMedia(base.timelineComposition);
+    }
     const list = mediaPlayers().filter((m) => typeof m.seekTo === 'function');
     if (!list.length) return true;
     const res = await Promise.all(list.map((m) => m.seekTo(t)));

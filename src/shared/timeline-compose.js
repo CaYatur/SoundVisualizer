@@ -20,8 +20,8 @@
  *  - Etkin görsel klip yoksa (boşluk / bitiş sonrası) çıkış SİYAH.
  *  - Parça sırası: listede üstteki parça önde. Alttan üste birikir.
  *  - Sahne/Şablon: kaynağın tüm katmanları + efektleri yalnız aralığında.
- *    Genel alanlar (efekt zinciri, geometri, geçiş, modülasyon…) en üstteki
- *    sahne/şablon klibinden gelir.
+ *    Her sahnenin efekt zinciri, geometri, geçiş, modülasyon ve grupları
+ *    kendi alt yığınında korunur; kaynaklar birbirini ezmez.
  *  - Görselleştirici/Video/Görsel/Shader: kendi ayrı katmanı.
  *  - Renk şablonu: kalıcı olmayan zamanlı değiştirici; görsel katmanlar
  *    kurulduktan sonra parça sırasıyla uygulanır (üstteki kazanır).
@@ -160,7 +160,7 @@
     if (clip.type === 'visualizer') return Object.assign(base, { kind: 'visualizer', type: clip.ref });
     if (clip.type === 'shader') return Object.assign(base, { kind: 'visualizer', type: 'custom', presetId: clip.ref });
     if (clip.type === 'video') return Object.assign(base, { kind: 'media', settings: { media: { enabled: true, source: 'file', file: clip.ref, fit: 'cover', loop: true } } });
-    if (clip.type === 'image') return Object.assign(base, { kind: 'media', settings: { media: { enabled: true, source: 'file', file: clip.ref, fit: 'cover' } } });
+    if (clip.type === 'image') return Object.assign(base, { kind: 'sprites', type: 'front', settings: { images: { enabled: true, items: [SV().normalizeImageItem({ id: 'img_' + clip.id, seed: 1, src: clip.ref, layer: 'front' })] } } });
     return null;
   }
 
@@ -169,6 +169,12 @@
     const list = ((sv && sv.GRADIENT_PRESETS) || []).concat(cfg.userPresets || []);
     const hit = list.find((g) => g && g.name === ref);
     return hit && Array.isArray(hit.colors) ? hit.colors.slice() : null;
+  }
+
+  function colorsForClip(cfg, c) {
+    const data = hasLocal(c) && c.local.data;
+    const colors = data && data.background && data.background.gradient && data.background.gradient.colors;
+    return Array.isArray(colors) ? colors.slice() : paletteColors(cfg, c.ref);
   }
 
   function applyPalette(scene, colors) {
@@ -192,9 +198,31 @@
     return act.slice().sort((a, b) => order.get(b.track.id) - order.get(a.track.id));
   }
 
+  /* Geçişin zamanı saf aritmetik: sarma/duraklatma/dışa aktarım aynı p.
+     Giden görüntü yalnız hâlâ ETKİN alt kliplerden oluşur. Biten sahne ya da
+     elle taban geçiş uğruna tekrar diriltilmez; altta içerik yoksa siyah. */
+  function transitionFor(c, data, tl, t) {
+    const T = W('SVTransition') || tryReq('./transition.js');
+    if (!T) return null;
+    const spec = data.transition || {};
+    const own = c.fade > 0 || c.transType || c.transEase;
+    const type = c.transType || (spec.enabled === false && !own ? 'cut' : spec.type) || 'crossfade';
+    const dur = c.fade > 0 ? c.fade : T.durationSeconds(data, (tl.tempo.filter((e) => e.t <= t).pop() || {}).bpm || 120);
+    if (type === 'cut' || !(dur > 0) || t >= c.start + dur) return null;
+    const raw = Math.max(0, Math.min(1, (t - c.start) / dur));
+    return { type, p: T.easeOf(c.transEase || spec.ease || 'smooth')(raw), params: clone(spec.params || {}) };
+  }
+
+  function sourceTime(c, t) {
+    const value = c.inPoint + Math.max(0, t - c.start) * c.speed;
+    return c.outPoint == null ? value : Math.min(value, Math.max(c.inPoint, c.outPoint));
+  }
+
   /* Ana işlev. tl: makeTimeline çıktısı. Döner: { cfg, active, black }. */
   function composeAt(cfg, tl, t, opts) {
     const T = TL();
+    // Paneldeki düzenleme kökü bir klibin görünümüdür, motorun elle tabanı değil.
+    if (cfg && cfg.timeline && cfg.timeline.manualBaseline) cfg = Object.assign({}, cfg, cfg.timeline.manualBaseline);
     const o = opts || {};
     const tt = Math.max(0, Number(t) || 0);
     /* Döngü varsa sarılır. Döngü YOKSA son kareye tutunulmaz (evalPlayhead
@@ -203,9 +231,10 @@
     const out = {};
     for (const k of Object.keys(cfg || {})) out[k] = cfg[k];
     const scene = blackScene();
-    const entries = entriesBottomUp(tl, wt);
+    const entries = cfg.isBlackout === true ? [] : entriesBottomUp(tl, wt);
     let top = null; // en üstteki sahne/şablon verisi
     const palettes = [];
+    const units = [];
     const ids = [];
     for (const e of entries) {
       const c = e.clip;
@@ -217,10 +246,13 @@
         const data = sourceData(cfg, c);
         if (!data) continue; // kaynak yok: katkı yok (siyah kalabilir)
         top = data;
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: data, layers: emitLayers(c, layersOf(data), 1), transition: transitionFor(c, data, tl, wt) });
         scene.layers = scene.layers.concat(emitLayers(c, layersOf(data), op));
         ids.push(c.id);
       } else {
         const ml = hasLocal(c) ? layersOf(materializeData(c.local.data)) : [mediaLayer(c)];
+        const own = hasLocal(c) ? materializeData(c.local.data) : blackScene();
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: own, layers: emitLayers(c, ml.filter(Boolean), 1), transition: null });
         scene.layers = scene.layers.concat(emitLayers(c, ml.filter(Boolean), op));
         ids.push(c.id);
       }
@@ -235,10 +267,22 @@
       for (const k of ['images', 'media', 'logo', 'text']) if (scene[k] && typeof scene[k] === 'object') scene[k] = Object.assign({}, scene[k], { enabled: false });
     }
     if (scene.layers.length) for (const p of palettes) {
-      const cols = paletteColors(cfg, p.ref);
+      const cols = colorsForClip(cfg, p);
       if (cols) applyPalette(scene, cols);
     }
+    /* Her sahnenin TÜM sahne alanları kendi alt yığınına gider: alttaki
+       sahnenin efektleri/geometrisi/MilkDrop/grupları üst sahneyle ezilmez.
+       Klip opaklığı tüm işlenmiş sahneye BİR KEZ uygulanır. */
+    for (const u of units) {
+      u.cfg = Object.assign({}, cfg, u.cfg, { layers: u.layers, layerStack: { enabled: true }, isBlackout: false });
+      delete u.cfg.timelineComposition;
+      if (o.automation !== false && T.applyAutomation) u.cfg = T.applyAutomation(u.cfg, tl, wt).cfg;
+      u.cfg.transition = Object.assign({}, u.cfg.transition, { enabled: false, type: 'cut', blackoutType: 'cut' });
+      for (const p of palettes) { const colors = colorsForClip(cfg, p); if (colors) applyPalette(u.cfg, colors); }
+    }
+    scene.postfx = []; // efektler sahne alt yığınında, birleşik çıkışa ikinci kez uygulanmaz
     for (const k of Object.keys(scene)) out[k] = scene[k];
+    out.timelineComposition = { units, time: wt };
     let res = out;
     if (o.automation !== false && T.applyAutomation) res = T.applyAutomation(out, tl, wt).cfg;
     return { cfg: res, t: wt, active: ids, black: !scene.layers.length };
@@ -255,7 +299,11 @@
       const sc = (Array.isArray(cfg.scenes) ? cfg.scenes : []).find((x) => x && x.id === clip.ref);
       data = sc && sc.data ? clone(sc.data) : null;
     } else if (clip.type === 'preset') data = sourceData(cfg, clip);
-    else {
+    else if (clip.type === 'palette') {
+      const colors = paletteColors(cfg, clip.ref);
+      if (!colors) return null;
+      data = { background: { gradient: { colors } }, layers: [], layerStack: { enabled: true } };
+    } else {
       const ml = mediaLayer(clip);
       if (!ml) return null;
       data = { layers: [normLayer(ml)], layerStack: { enabled: true } };
@@ -306,7 +354,7 @@
 
   function layerSig(c) {
     const ls = c && Array.isArray(c.layers) ? c.layers : [];
-    return JSON.stringify(ls, (k, v) => (k === 'opacity' ? undefined : v));
+    return JSON.stringify([ls, c && c.timelineComposition && c.timelineComposition.units.map((u) => [u.id, sceneKeys().map((k) => u.cfg[k])])], (k, v) => (k === 'opacity' ? undefined : v));
   }
 
   /* Canlı çıkış / önizleme için kare başına bileşim. `state` tüketicinin

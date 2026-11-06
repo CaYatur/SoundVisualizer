@@ -129,13 +129,13 @@ test('palette is a timed modifier over visuals across tracks; top wins; no persi
   assert.ok(TC.composeAt(cfg, solo, 0.5).black);
 });
 
-test('scene effects come from the top scene only within interval; missing source contributes nothing', () => {
+test('scene effects stay in the scene render unit only within interval; missing source contributes nothing', () => {
   const cfg = baseCfg();
   const tl = tlWith([{ id: 'a', clips: [
     { id: 'c1', type: 'scene', ref: 'sc_a', start: 0, dur: 1 },
     { id: 'c2', type: 'scene', ref: 'deleted', start: 1, dur: 1 },
   ] }]);
-  assert.strictEqual(TC.composeAt(cfg, tl, 0.5).cfg.postfx.length, 1);
+  assert.strictEqual(TC.composeAt(cfg, tl, 0.5).cfg.timelineComposition.units[0].cfg.postfx.length, 1);
   const miss = TC.composeAt(cfg, tl, 1.5);
   assert.ok(miss.black);
   assert.deepStrictEqual(miss.cfg.postfx, []);
@@ -202,4 +202,67 @@ test('consumers wire the same composition', () => {
   assert.match(rd('src/exporter/exporter.js'), /SVTimelineCompose\.composeAt\(cfg, exportTl, t\)/);
   for (const f of ['src/admin/index.html', 'src/visualizer/index.html', 'src/exporter/index.html', 'src/web/overlay.html'])
     assert.match(rd(f), /timeline-compose\.js/, f);
+});
+
+test('overlapping scenes preserve their own effects, groups, crossfade, geometry, milkdrop and settings', () => {
+  const cfg = baseCfg();
+  Object.assign(cfg.scenes[0].data, { geometry: { zoom: 2 }, milkdrop: { presetId: 'one' }, layerGroups: { A: { opacity: 0.2 } }, crossfade: { enabled: true, value: 0.2 } });
+  Object.assign(cfg.scenes[1].data, { postfx: [{ id: 'fx2', type: 'blur' }], geometry: { zoom: 3 }, milkdrop: { presetId: 'two' }, layerGroups: { A: { opacity: 0.8 } }, crossfade: { enabled: true, value: 0.8 } });
+  const before = JSON.stringify(cfg);
+  const tl = tlWith([
+    { id: 'up', clips: [{ id: 'a', type: 'scene', ref: 'sc_a', start: 0, dur: 5, opacity: 0.4 }] },
+    { id: 'dn', clips: [{ id: 'b', type: 'scene', ref: 'sc_b', start: 0, dur: 5 }] },
+  ]);
+  const r = TC.composeAt(cfg, tl, 2);
+  const [bottom, top] = r.cfg.timelineComposition.units;
+  assert.strictEqual(bottom.id, 'b'); assert.strictEqual(top.id, 'a');
+  assert.strictEqual(bottom.cfg.postfx[0].id, 'fx2'); assert.strictEqual(top.cfg.postfx[0].id, 'fx1');
+  assert.strictEqual(top.opacity, 0.4); assert.strictEqual(top.cfg.layers[0].opacity, 1, 'group opacity applied once, after FX');
+  assert.strictEqual(bottom.cfg.geometry.zoom, 3); assert.strictEqual(top.cfg.geometry.zoom, 2);
+  assert.strictEqual(bottom.cfg.milkdrop.presetId, 'two'); assert.strictEqual(top.cfg.milkdrop.presetId, 'one');
+  assert.strictEqual(bottom.cfg.layerGroups.A.opacity, 0.8); assert.strictEqual(top.cfg.layerGroups.A.opacity, 0.2);
+  assert.strictEqual(bottom.cfg.crossfade.value, 0.8); assert.strictEqual(top.cfg.crossfade.value, 0.2);
+  assert.deepStrictEqual(r.cfg.postfx, [], 'no double global effect');
+  assert.strictEqual(JSON.stringify(cfg), before);
+});
+
+test('all supported transition styles preserve params, timing, easing and rewind identity', () => {
+  const TR = require('../src/shared/transition.js');
+  const cfg = baseCfg();
+  for (const type of TR.TRANSITION_IDS.filter((id) => id !== 'cut')) {
+    const tl = tlWith([{ id: 's', clips: [{ id: 'a', type: 'scene', ref: 'sc_a', start: 2, dur: 2, fade: 1, transType: type, transEase: 'linear' }] }]);
+    cfg.scenes[0].data.transition = { type: 'cut', params: { direction: 'left', softness: 0.2 } };
+    assert.ok(TC.composeAt(cfg, tl, 1.99).black, type);
+    const at = (t) => TC.composeAt(cfg, tl, t).cfg.timelineComposition.units[0];
+    assert.strictEqual(at(2).transition.p, 0, type);
+    const mid = at(2.5); assert.strictEqual(mid.transition.type, type); assert.strictEqual(mid.transition.p, 0.5);
+    assert.strictEqual(mid.transition.params.direction, 'left');
+    assert.strictEqual(at(3).transition, null);
+    assert.deepStrictEqual(at(2.5), mid, 'rewind pure: ' + type);
+    assert.ok(TC.composeAt(cfg, tl, 4).black, 'end does not retain outgoing scene');
+  }
+});
+
+test('palette local colors are timed, deep isolated, serialization safe; image is sprite not video', () => {
+  const cfg = baseCfg(); const palette = SV.GRADIENT_PRESETS[0];
+  const tl = tlWith([
+    { id: 'p', clips: [{ id: 'p1', type: 'palette', ref: palette.name, start: 1, dur: 1 }] },
+    { id: 's', clips: [{ id: 's1', type: 'scene', ref: 'sc_a', start: 0, dur: 4 }] },
+  ]);
+  const p = tl.tracks[0].clips[0]; TC.ensureLocal(cfg, p).data.background.gradient.colors = ['#ff0000', '#00ff00'];
+  const saved = TL.makeTimeline(JSON.parse(JSON.stringify({ tracks: tl.tracks })));
+  const r = TC.composeAt(cfg, saved, 1.5);
+  assert.deepStrictEqual(r.cfg.timelineComposition.units[0].cfg.background.gradient.colors, ['#ff0000', '#00ff00']);
+  assert.notDeepStrictEqual(TC.composeAt(cfg, saved, 2).cfg.background.gradient.colors, ['#ff0000', '#00ff00']);
+  const im = tlWith([{ id: 'im', clips: [{ id: 'i', type: 'image', ref: 'data:image/png;base64,AA', start: 0, dur: 1 }] }]);
+  assert.strictEqual(TC.composeAt(cfg, im, 0.5).cfg.layers[0].kind, 'sprites');
+});
+
+test('global blackout overrides timeline without mutating clips, then restores current composition', () => {
+  const cfg = baseCfg(); const tl = tlWith([{ id: 's', clips: [{ id: 's', type: 'scene', ref: 'sc_a', start: 0, dur: 3 }] }]);
+  const saved = JSON.stringify(tl);
+  cfg.isBlackout = true; assert.ok(TC.composeAt(cfg, tl, 1).black);
+  assert.strictEqual(TC.composeAt(cfg, tl, 1).cfg.timelineComposition.units.length, 0);
+  cfg.isBlackout = false; assert.ok(!TC.composeAt(cfg, tl, 1).black);
+  assert.strictEqual(JSON.stringify(tl), saved);
 });
