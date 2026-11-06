@@ -261,6 +261,13 @@ test('panel: sol üst tutamaç geçişi ayarlıyor; sarma canlı yapılandırmay
   winFire('mouseup', {});
   assert.strictEqual(clip(cfg, 'cB').fade, 0.75);
   assert.strictEqual(clip(cfg, 'cB').start, 5, 'tutamaç klibi taşımadı');
+  fire(cv, 'mousedown', { clientX: X(7) - 1, clientY: top + 2, detail: 1 });
+  winFire('mousemove', { clientX: X(6.5), clientY: top + 2 });
+  winFire('mouseup', {});
+  assert.strictEqual(clip(cfg, 'cB').fadeOut, 0.5, 'sıfır çıkış sağ üstten sürüklenir');
+  assert.strictEqual(clip(cfg, 'cB').dur, 2, 'çıkış tutamacı kırpma yapmadı');
+  assert.strictEqual(clip(cfg, 'cB').fade, 0.75, 'giriş süresi korunur');
+
   // Geçişi olan klip applyFaded ile, olmayan applyRef ile ateşleniyor
   // Cetvele tıklamak (sürükleme) o andaki klipleri uygular
   fired.length = 0;
