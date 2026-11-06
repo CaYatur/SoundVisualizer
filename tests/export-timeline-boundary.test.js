@@ -48,4 +48,6 @@ test('exporter sahne değişince yığını yeniden kurar', () => {
   assert.match(src, /stack\.setConfig\(base\)/);
   // Opaklık (fade) imzaya girmemeli: her karede yeniden kurulum olmasın
   assert.match(src, /k === 'opacity' \? undefined/);
+  // Boş efekt tuvali Timeline karesinin üstüne kopyalanmamalı
+  assert.match(src, /if \(postfx && postfx\.render\(comp, audio, t, dt\)\)/);
 });
