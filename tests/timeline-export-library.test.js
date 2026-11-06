@@ -69,8 +69,8 @@ test('döngü açıkken applyTimelineAt sarılmış t ile sahne uygular', () => 
   assert.ok(b.cfg.layers.some((l) => l.id === 'A'), 'sarınca ilk sahne');
 });
 
-test('export.includeTimeline varsayılanı açık', () => {
-  assert.strictEqual(SV.DEFAULT_CONFIG.export.includeTimeline, true);
+test('export.includeTimeline varsayılanı kapalı', () => {
+  assert.strictEqual(SV.DEFAULT_CONFIG.export.includeTimeline, false);
   assert.ok(SV.DEFAULT_CONFIG.timeline.id);
   assert.strictEqual(SV.DEFAULT_CONFIG.timeline.itemEnabled, true);
   assert.ok(Array.isArray(SV.DEFAULT_CONFIG.timeline.bank));
@@ -116,7 +116,7 @@ test('pasif çizelge itemEnabled=false dışa aktarım kapısı için okunur', (
   assert.strictEqual(cfg.timeline.itemEnabled, true);
   cfg.timeline.itemEnabled = false;
   assert.strictEqual(cfg.timeline.itemEnabled, false);
-  assert.notStrictEqual(cfg.export.includeTimeline, false);
+  assert.strictEqual(cfg.export.includeTimeline, false);
 });
 
 test('çizelge sekme sırası seçimle değişmez, yalnız moveTimeline ile', () => {

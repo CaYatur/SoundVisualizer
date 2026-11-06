@@ -238,7 +238,7 @@
       isMac: os === 'darwin',
       isLinux: os === 'linux',
     };
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportConfig(job.cfg || {}));
     // Video katmanlarının ara kopyaları (ana süreç hazırladı, #539)
     window.SVExportMediaMap = job.mediaMap && typeof job.mediaMap === 'object' ? job.mediaMap : {};
     alpha = !!job.alpha;
@@ -336,7 +336,7 @@
     return out;
   }
   async function seekMedia(t) {
-    if (cfg.export && cfg.export.includeTimeline !== false && window.SVTimelineCompose && window.SVTimelineCompose.modeOn(cfg)) {
+    if (window.SVTimelineCompose.exportEnabled(cfg)) {
       if (!exportTl) exportTl = window.SVTimeline.makeTimeline(cfg.timeline);
       const base = window.SVTimelineCompose.composeAt(cfg, exportTl, t).cfg;
       const renderer = stack.prepareTimeline(base);
@@ -478,22 +478,13 @@
        (showclock.js) BURADA KULLANILMAZ: o duvar saatine dayanır ve aynı
        işi iki kez çalıştırdığında farklı kareler üretirdi. Çevrimdışı
        işlemede zaman yalnızca KARE İNDEKSİNDEN gelir.
-       includeTimeline varsayılan açık; döngü açıksa sarılır, kapalıysa
-       bitişten sonra son durumda kalır (applyTimelineAt / evalPlayhead). */
+       includeTimeline varsayılan kapalıdır. Açıkken canlı moddan bağımsız
+       aynı yalıtılmış bileşim kullanılır: döngü sarar, boşluk/bitiş siyahtır. */
     let base = cfg;
-    const wantTl = cfg.export && cfg.export.includeTimeline !== false;
-    if (wantTl && window.SVTimelineCompose && window.SVTimelineCompose.modeOn(cfg)) {
-      /* Timeline kullan: canlı çıkışla AYNI yalıtılmış bileşim (kare saati). */
+    if (window.SVTimelineCompose.exportEnabled(cfg)) {
       if (!exportTl) exportTl = window.SVTimeline.makeTimeline(cfg.timeline);
       base = window.SVTimelineCompose.composeAt(cfg, exportTl, t).cfg;
       if (postfx) { const fx = JSON.stringify(base.postfx || []); if (fx !== exportFx) { exportFx = fx; postfx.setChain(base.postfx || []); } }
-    } else if (wantTl && cfg.timeline && cfg.timeline.itemEnabled !== false && window.SVTimeline) {
-      const tl = window.SVTimeline.makeTimeline(cfg.timeline);
-      if (typeof window.SVTimeline.applyTimelineAt === 'function') {
-        base = window.SVTimeline.applyTimelineAt(cfg, tl, t).cfg;
-      } else {
-        base = window.SVTimeline.applyAutomation(cfg, tl, t).cfg;
-      }
     }
 
     /* Çizelge sahne değiştirince yığını yeni katmanlarla kur. Yığın yalnız
@@ -642,7 +633,7 @@
      aynı kare saatiyle çözümleniyor, yani aynı dosya video dışa
      aktarımının yanına yazılanla aynı. İptal ana süreçten soruluyor. */
   async function runAnalysisOnly(job, duration) {
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportConfig(job.cfg || {}));
     fps = job.fps;
     const renderSec = Number(job.durationSec) > 0 ? Number(job.durationSec) : duration;
     totalFrames = Math.max(1, Math.ceil(renderSec * fps));

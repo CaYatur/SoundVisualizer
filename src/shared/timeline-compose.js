@@ -292,9 +292,13 @@
      kopyalanır; sonraki düzenlemeler yalnız bu kopyaya gider. */
   function ensureLocal(cfg, clip) {
     if (!clip) return null;
-    if (clip.local && clip.local.data) return clip.local;
+    dropStaleLocal(clip);
+    if (hasLocal(clip)) return clip.local;
     let data = null;
-    if (clip.type === 'scene') {
+    // Yeni klip henüz kaynak seçmemiş olabilir: elle sahneyi ödünç almadan
+    // boş bir yerel sahneyle düzenlenir. Dolu ama silinmiş kaynak hâlâ hatadır.
+    if (!clip.ref && (isVisual(clip) || clip.type === 'palette')) data = blackScene();
+    else if (clip.type === 'scene') {
       // Ham sahne verisi: varsayılanlarla şişirilmez, bileşimde tamamlanır
       const sc = (Array.isArray(cfg.scenes) ? cfg.scenes : []).find((x) => x && x.id === clip.ref);
       data = sc && sc.data ? clone(sc.data) : null;
@@ -352,6 +356,25 @@
     return !!(t && t.useTimeline === true && t.itemEnabled !== false);
   }
 
+  /* Dışa aktarım canlı moddan bağımsızdır; yalnız açıkça seçilmiş true
+     çizelgeyi ekler. Geçici normal-panel kökleri yerine elle taban alınır. */
+  function exportEnabled(cfg) {
+    return !!(cfg && cfg.export && cfg.export.includeTimeline === true && cfg.timeline && cfg.timeline.itemEnabled !== false);
+  }
+  function exportConfig(cfg) {
+    const out = clone(cfg || {});
+    if (out.timeline && out.timeline.manualBaseline) {
+      const manual = out.timeline.manualBaseline;
+      for (const k of sceneKeys()) {
+        if (manual[k] === undefined) delete out[k];
+        else out[k] = clone(manual[k]);
+      }
+    }
+    if (out.timeline) { delete out.timeline.manualBaseline; delete out.timeline.editTarget; }
+    delete out.timelineComposition;
+    return out;
+  }
+
   function layerSig(c) {
     const ls = c && Array.isArray(c.layers) ? c.layers : [];
     return JSON.stringify([ls, c && c.timelineComposition && c.timelineComposition.units.map((u) => [u.id, sceneKeys().map((k) => u.cfg[k])])], (k, v) => (k === 'opacity' ? undefined : v));
@@ -380,7 +403,7 @@
   }
   function resetLive(state) { if (state) { state.sig = null; state.fx = null; state.tl = null; state.tlSrc = null; } }
 
-  const api = { modeOn, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
+  const api = { modeOn, exportEnabled, exportConfig, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVTimelineCompose = api;
 })();

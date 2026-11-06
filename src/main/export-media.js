@@ -47,6 +47,22 @@ function mediaFiles(cfg) {
   return out;
 }
 
+/* İşte gerçekten kullanılabilecek klip videoları da hazırlanır. Elle video
+   yalnız çizelge eklenmiyorsa alınır; kaynak/kopya hiçbir zaman değiştirilmez. */
+function jobMediaFiles(cfg) {
+  const C = require('../shared/timeline-compose');
+  const T = require('../shared/timeline');
+  const manual = C.exportConfig(cfg);
+  if (!C.exportEnabled(manual)) return mediaFiles(manual);
+  const tl = T.makeTimeline(manual.timeline);
+  const files = new Set();
+  for (const track of tl.tracks) for (const clip of (track.clips || [])) {
+    const frame = C.composeAt(manual, tl, clip.start).cfg;
+    for (const unit of frame.timelineComposition.units) for (const f of mediaFiles(unit.cfg)) files.add(f);
+  }
+  return Array.from(files);
+}
+
 /* ffmpeg'in `-i` çıktısından saydamlık: piksel biçiminde alfa (yuva, rgba,
    argb, gbrap, ya16 …) ya da WebM'in alpha_mode etiketi. */
 function hasAlpha(probeText) {
@@ -75,4 +91,4 @@ function tempName(dir, i) {
   return path.join(dir, 'media-' + i + '.mp4');
 }
 
-module.exports = { mediaFiles, hasAlpha, transcodeArgs, tempName };
+module.exports = { mediaFiles, jobMediaFiles, hasAlpha, transcodeArgs, tempName };

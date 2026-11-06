@@ -1268,10 +1268,10 @@
       /* Süre kaynağı (#523): ses dosyası, sabit saniye, zaman çizelgesinin
          uzunluğu ya da N ölçü (bpm 0 = zaman çizelgesinin temposu). */
       duration: { mode: 'audio', seconds: 30, bars: 16, bpm: 0 },
-      /* Zaman çizelgesini videoya uygula (sahne klipleri + otomasyon).
-         Varsayılan AÇIK: dışa aktarım canlıdakiyle aynı görüntüyü üretir.
-         Döngü açıksa sarılır; kapalıysa bitişten sonra son durumda kalır. */
-      includeTimeline: true,
+      /* İstenirse çizelgeyi videoya uygula (canlı moddan bağımsız).
+         Varsayılan KAPALI; kayıtlı açık tercih korunur.
+         Açıkken döngü sarar; boşluk ve döngüsüz bitiş siyahtır. */
+      includeTimeline: false,
       chapters: false, // zaman çizelgesi işaretçilerinden bölümlere ayır (#527)
       chapterList: false, // işaretçilerden YouTube bölüm listesi .txt (#837)
       analysis: false, // ses analizini videonun yanına yaz: JSON, CSV, MIDI
