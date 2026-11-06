@@ -2983,7 +2983,7 @@
       p.push(true);
       refreshToolbar();
     });
-    const liveEditBtn = btn(['bolt', cfg.applyEditsImmediately ? 'Anında Uygula' : 'Anında Uygula'],
+    const liveEditBtn = btn(['bolt', 'Anında Uygula'],
       cfg.applyEditsImmediately
         ? 'Açık: dururken veya duraklatılmışken yaptığınız düzenlemeler oynatma kafasının olduğu kliğe hemen yazılır. Kapatmak için basın.'
         : 'Kapalı (varsayılan): durmuş çizelge Sahne/Şablon/MilkDrop seçiminizi ezmez. Açınca düzenlemeler kafayı kıpırdatmadan uygulanır.',
@@ -3097,7 +3097,7 @@
     const on = (b, v) => { if (b.classList) b.classList.toggle('on', !!v); };
     on(r.loopBtn, tl.loop.enabled);
     on(r.followBtn, cfg.followPlayhead !== false);
-    if (r.liveEditBtn) on(r.liveEditBtn, !!cfg.applyEditsImmediately);
+    if (r.liveEditBtn) { on(r.liveEditBtn, !!cfg.applyEditsImmediately); r.liveEditBtn.setAttribute('aria-pressed', cfg.applyEditsImmediately ? 'true' : 'false'); }
     on(r.fullBtn, fullWin);
     r.undoBtn.disabled = !history_().canUndo();
     r.redoBtn.disabled = !history_().canRedo();

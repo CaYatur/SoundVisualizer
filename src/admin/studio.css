@@ -1025,9 +1025,21 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   border-radius: 9px;
   padding: 7px 9px;
 }
+/* Grup başlığı, katman sayısı ve M düğmesi birbirine yapışmasın */
+.grp-item > .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.grp-item > .row > .item-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp-count { margin-left: auto; font-size: 11px; color: var(--muted2); }
 .btn.tiny.on.mute { background: var(--danger); color: var(--on-solid); border-color: transparent; }
 
+/* shell.css'teki .sv-insp .ctrl (0,2,0, sonra yüklenir) kutuyu 3 sütunlu grid yapıp
+   sürgüyü grid-area 1/2'ye itiyordu: etiketler, sürgü ve düğmeler tek satıra sıkışıyordu.
+   .sv-insp .ctrl.ctrl.xf-box (0,4,0) bunu ve pages.css'teki iç boşluk sıfırlamasını
+   (.sv-insp .group > :where(..) .ctrl) ezer; satırlar alt alta, kenarda pay kalır. */
+.sv-insp .ctrl.ctrl.xf-box, .ctrl.xf-box {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 8px 9px; min-height: 0; margin: 0;
+}
+.sv-insp .ctrl.xf-box > input.xf-slider, .ctrl.xf-box > input.xf-slider { grid-area: auto; width: 100%; align-self: stretch; }
 .xf-box {
   background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px;
   display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow: hidden; box-sizing: border-box;

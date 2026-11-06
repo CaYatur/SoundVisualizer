@@ -71,7 +71,8 @@ async function shot(a, name, clip) {
       return { x: r.x, y: r.y, w: r.width, h: r.height, labels, trLeft: labels.filter((t) => tr.test(t)) };
     })())`));
     fs.writeFileSync(path.join(out, '01-timeline-context-menu.json'), JSON.stringify(menu, null, 2));
-    if (!menu.missing && menu.w) {
+    if (menu.missing || !menu.w) throw new Error('Timeline sağ tık menüsü açılmadı');
+    {
       files.push(await shot(a, '01-timeline-context-menu', { x: Math.max(0, menu.x - 8), y: Math.max(0, menu.y - 8), width: Math.min(480, menu.w + 16), height: Math.min(520, menu.h + 16) }));
     }
     await q("document.querySelectorAll('.sv-menu').forEach((m) => m.remove()); 1");
@@ -119,41 +120,60 @@ async function shot(a, name, clip) {
       });
       return { x: r.x, y: r.y, w: r.width, h: r.height, btns, panelW: document.getElementById('svInspector').getBoundingClientRect().width };
     })())`));
-    if (xf) {
+    if (!xf) throw new Error('A/B kutusu (.xf-box) yok');
+    {
       files.push(await shot(a, '02-layer-groups-ab', { x: Math.max(0, xf.x - 12), y: Math.max(0, xf.y - 40), width: Math.min(420, xf.w + 24), height: Math.min(280, xf.h + 80) }));
       fs.writeFileSync(path.join(out, '02-layer-groups-ab.json'), JSON.stringify(xf, null, 2));
     }
 
-    // 3) MilkDrop nav after scroll
+    // 3) MilkDrop nav after scroll — satır denetçinin görünür alanında olmalı, değilse HATA
     await a.call('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
     await q(`(() => {
       const cfg = window.SVPanel.cfg();
       const l = (cfg.layers || []).find((x) => x && x.type === 'milkdrop') || (cfg.layers || []).find((x) => x && x.kind === 'visualizer');
-      if (l) { l.type = 'milkdrop'; l.kind = 'visualizer'; window.SVSceneShell.select(l.id); }
+      if (!l) throw new Error('görselleştirici katmanı yok');
+      l.type = 'milkdrop'; l.kind = 'visualizer'; window.SVSceneShell.select(l.id);
       window.SVPanel.apply();
       return 1;
     })()`);
     await sleep(1000);
+    const MDROW = `(() => {
+      const b = document.querySelector('#svInspector .sv-insp');
+      const rnd = [...document.querySelectorAll('#svInspector button')].find((x) => /^\\s*(Random|Rastgele)\\s*$/.test(x.textContent||''));
+      const lock = [...document.querySelectorAll('#svInspector button')].find((x) => /Lock|Kilitle|Kilitli/.test(x.textContent||''));
+      if (!b || !rnd || !lock) return { missing: true, b: !!b, rnd: !!rnd, lock: !!lock };
+      let row = rnd.parentElement; while (row && !row.contains(lock)) row = row.parentElement;
+      const r = row.getBoundingClientRect(), br = b.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height, st: b.scrollTop, inView: r.top >= br.top && r.bottom <= br.bottom && r.bottom <= innerHeight };
+    })()`;
+    // Denetçiyi satır ortaya gelecek kadar kaydır (gerçek kaydırılmış durum)
     await q(`(() => {
       const b = document.querySelector('#svInspector .sv-insp');
-      if (!b) return 0;
-      b.scrollTop = Math.min(b.scrollHeight - b.clientHeight, 380);
+      const rnd = [...document.querySelectorAll('#svInspector button')].find((x) => /^\\s*(Random|Rastgele)\\s*$/.test(x.textContent||''));
+      if (!b || !rnd) return 0;
+      const br = b.getBoundingClientRect();
+      b.scrollTop += rnd.getBoundingClientRect().top - (br.top + br.height / 2);
       return b.scrollTop;
     })()`);
-    await sleep(200);
-    await q(`(() => { const b = [...document.querySelectorAll('#svInspector button')].find((x) => /Random|Rastgele/.test(x.textContent||'')); if (b) b.click(); return !!b; })()`);
-    await sleep(1000);
-    const md = JSON.parse(await q(`JSON.stringify((() => {
-      const row = document.querySelector('#svInspector .sv-btn-row') || [...document.querySelectorAll('#svInspector .row')].find((r) => /Random|Rastgele|Lock|Kilitle/.test(r.textContent||''));
-      const b = document.querySelector('#svInspector .sv-insp');
-      if (!row || !b) return { st: b && b.scrollTop };
-      const r = row.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height, st: b.scrollTop };
-    })())`));
-    if (md && md.w) {
-      files.push(await shot(a, '03-milkdrop-nav-scroll', { x: Math.max(0, md.x - 16), y: Math.max(0, md.y - 80), width: Math.min(420, md.w + 32), height: Math.min(320, md.h + 160) }));
-      fs.writeFileSync(path.join(out, '03-milkdrop-nav-scroll.json'), JSON.stringify(md, null, 2));
-    }
+    await sleep(300);
+    const md0 = JSON.parse(await q('JSON.stringify(' + MDROW + ')'));
+    if (md0.missing) throw new Error('MilkDrop Random/Lock yok: ' + JSON.stringify(md0));
+    if (md0.st < 40) throw new Error('denetçi kaydırılamadı: scrollTop=' + md0.st);
+    if (!md0.inView) throw new Error('MilkDrop satırı görünür alanda değil: ' + JSON.stringify(md0));
+    const clickText = async (re) => {
+      const p = JSON.parse(await q(`JSON.stringify((() => { const b = [...document.querySelectorAll('#svInspector button')].find((x) => ${re}.test(x.textContent||'')); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })())`));
+      for (const type of ['mousePressed', 'mouseReleased']) await a.call('Input.dispatchMouseEvent', { type, x: p.x, y: p.y, button: 'left', clickCount: 1 });
+      await sleep(1000);
+    };
+    await clickText('/^\\s*(Random|Rastgele)\\s*$/');
+    const mdR = JSON.parse(await q('JSON.stringify(' + MDROW + ')'));
+    await clickText('/Lock|Kilitle|Kilitli/');
+    const md = JSON.parse(await q('JSON.stringify(' + MDROW + ')'));
+    md.scrollBefore = md0.st; md.scrollAfterRandom = mdR.st; md.scrollAfterLock = md.st;
+    fs.writeFileSync(path.join(out, '03-milkdrop-nav-scroll.json'), JSON.stringify(md, null, 2));
+    if (md.missing || !md.inView) throw new Error('tıklamadan sonra MilkDrop satırı görünmüyor: ' + JSON.stringify(md));
+    if (Math.abs(mdR.st - md0.st) > 24 || Math.abs(md.st - md0.st) > 24) throw new Error(`kaydırma sıçradı ${md0.st} -> ${mdR.st} -> ${md.st}`);
+    files.push(await shot(a, '03-milkdrop-nav-scroll', { x: Math.max(0, md.x - 16), y: Math.max(0, md.y - 80), width: Math.min(420, md.w + 32), height: Math.min(900 - Math.max(0, md.y - 80), md.h + 160) }));
 
     // 4) Preset shelf card size
     await q("window.SVSceneShell.setShelf('templates'); 1");
