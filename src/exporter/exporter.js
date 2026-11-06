@@ -238,7 +238,7 @@
       isMac: os === 'darwin',
       isLinux: os === 'linux',
     };
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportConfig(job.cfg || {}));
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportJobConfig(job.cfg || {}));
     // Video katmanlarının ara kopyaları (ana süreç hazırladı, #539)
     window.SVExportMediaMap = job.mediaMap && typeof job.mediaMap === 'object' ? job.mediaMap : {};
     alpha = !!job.alpha;
@@ -633,7 +633,7 @@
      aynı kare saatiyle çözümleniyor, yani aynı dosya video dışa
      aktarımının yanına yazılanla aynı. İptal ana süreçten soruluyor. */
   async function runAnalysisOnly(job, duration) {
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportConfig(job.cfg || {}));
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportJobConfig(job.cfg || {}));
     fps = job.fps;
     const renderSec = Number(job.durationSec) > 0 ? Number(job.durationSec) : duration;
     totalFrames = Math.max(1, Math.ceil(renderSec * fps));

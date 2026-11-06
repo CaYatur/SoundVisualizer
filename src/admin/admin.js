@@ -3283,7 +3283,19 @@
           {
             /* Zaman çizelgesini dışa aktarıma uygula: sahne klipleri + otomasyon.
                Varsayılan kapalı; canlı moddan bağımsız. Döngüsüz boşluk/bitiş siyahtır. */
-            type: 'toggle', path: 'export.includeTimeline', label: 'Zaman çizelgesini dahil et',
+            type: 'toggle', path: 'export.includeTimeline', label: 'Zaman çizelgesini dahil et', rebuild: true,
+            hint: 'Dışa aktarım seçilen çizelgenin 0. saniyesinden başlar; boşluklar siyahtır.',
+          },
+          {
+            type: 'select', path: 'export.timelineId', label: 'Dışa aktarılacak çizelge',
+            show: () => cfg.export && cfg.export.includeTimeline === true,
+            value: () => (cfg.export && cfg.export.timelineId) || (cfg.timeline && cfg.timeline.id),
+            options: () => {
+              const items = window.SVTimeline.listTimelineBank(cfg.timeline || {}).map((x) => ({ value: x.id, label: x.name || x.id }));
+              const id = cfg.export && cfg.export.timelineId;
+              if (id && !items.some((x) => x.value === id)) items.push({ value: id, label: tr('Kaynak bulunamadı') + ': ' + id });
+              return items;
+            },
           },
           {
             /* Bölümler (#527): tek render, zaman çizelgesi işaretçilerinde
@@ -3376,7 +3388,7 @@
 
   /* Dışa aktarma formu: ne giriyor, ne çıkıyor, nasıl kodlanıyor, yanına ne yazılıyor. */
   const EXPORT_GROUPS = [
-    ['Girdi', ['export.duration.mode', 'export.duration.seconds', 'export.duration.bars', 'export.duration.bpm', 'export.includeTimeline']],
+    ['Girdi', ['export.duration.mode', 'export.duration.seconds', 'export.duration.bars', 'export.duration.bpm', 'export.includeTimeline', 'export.timelineId']],
     ['Görüntü', ['export.profile', 'export.format', 'export.resolution', 'export.fps']],
     ['Kodlama', ['export.encoder', 'export.quality', 'export.speed']],
     ['Ek Çıktılar', ['export.chapters', 'export.chapterList', 'export.loop', 'export.loopCrossfade', 'export.analysis']],
@@ -6571,6 +6583,7 @@
       loopCrossfade: cfg.export && cfg.export.loopCrossfade,
       analysis: !!(cfg.export && cfg.export.analysis),
       includeTimeline: !!(cfg.export && cfg.export.includeTimeline === true),
+      timelineId: (cfg.export && cfg.export.timelineId) || (cfg.timeline && cfg.timeline.id),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
