@@ -73,6 +73,21 @@ const dir = out ? out.slice(6) : '/workspace/tl-toolbar-shots';
       await sleep(250);
       if(!await q('window.SVPanel.cfg().timeline.tracks[0].clips[0].local.data.layers.length === 1 && window.SVPanel.cfg().scenes[0].data.layers.length === 0')) failures.push('blank child did not stay local');
       await shot('blank-clip-child');
+      await q('window.SVPanel.setCategory("time"); 1'); await sleep(200);
+      const renamed = await q(`(() => { const P=window.SVPanel,T=window.SVTimelineTarget;
+        const i=document.querySelector('.tl-inspector input.txt'); if(!i)return false;
+        const manual=JSON.stringify(T.persistent(P.cfg()).layers), target=JSON.stringify(P.cfg().timeline.editTarget);
+        i.focus();i.value='name1';i.setSelectionRange(3,3);i.dispatchEvent(new Event('input',{bubbles:true}));
+        return document.activeElement===i && i.selectionStart===3 && i.isConnected &&
+          document.querySelector('#tlEditBanner .tl-eb-name').textContent==='name1' &&
+          document.querySelector('.tl-clip-title').textContent==='name1' &&
+          /Clip content|Klip içeriği/.test(document.querySelector('.tl-content-status').textContent) &&
+          /Clip content|Klip içeriği/.test(document.querySelector('#tlEditBanner .tl-eb-meta').textContent) &&
+          JSON.stringify(P.cfg().timeline.editTarget)===target && JSON.stringify(T.persistent(P.cfg()).layers)===manual;
+      })()`);
+      if(!renamed) failures.push('immediate name/content labels or input focus changed');
+      await shot('local-content-renamed');
+
     }
     console.log(JSON.stringify({ lang, rows, failures }, null, 2));
     if (failures.length) process.exitCode=1; else console.log('ui-tl-toolbar-state: OK');
