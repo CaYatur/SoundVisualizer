@@ -122,41 +122,6 @@ test('activeClipsAt: Gece başlamadan yalnız Orman etkin', () => {
   assert.strictEqual(at45[0].clip.ref, 'Gece');
 });
 
-test('oynatma: 0.7 sn\'de Gece seçili olsa da yalnız Orman uygulanır (anında uygula kapalı)', async () => {
-  const cfg = forestNightCfg();
-  await mount(cfg);
-  TP._select({ kind: 'clip', trackId: 'trNight', clipId: 'cNight' });
-  fired.length = 0;
-  TP._applyAt(0.7);
-  assert.deepStrictEqual(fired, [['palette', 'Orman']]);
-});
-
-test('oynatma: Gece bölgesinden 0.7\'ye dönünce Orman yeniden yazılır', async () => {
-  const cfg = forestNightCfg();
-  await mount(cfg);
-  fired.length = 0;
-  TP._applyAt(2.5);
-  assert.ok(fired.some((f) => f[0] === 'palette' && f[1] === 'Gece'), 'örtüşmede Gece kazanır');
-  fired.length = 0;
-  TP._applyAt(0.7);
-  assert.deepStrictEqual(fired, [['palette', 'Orman']], 'geri sarınca üstteki yeniden');
-});
-
-test('oynatma: anında uygula açıkken de aynı sınır davranışı', async () => {
-  const cfg = forestNightCfg({ applyEditsImmediately: true });
-  await mount(cfg);
-  TP._select({ kind: 'clip', trackId: 'trNight', clipId: 'cNight' });
-  fired.length = 0;
-  TP._applyAt(0.7);
-  assert.deepStrictEqual(fired, [['palette', 'Orman']]);
-  fired.length = 0;
-  TP._applyAt(2.5);
-  assert.ok(fired.some((f) => f[1] === 'Gece'));
-  fired.length = 0;
-  TP._applyAt(0.7);
-  assert.deepStrictEqual(fired, [['palette', 'Orman']]);
-});
-
 test('clipLabel: yerleşik Orman İngilizcede Forest; özel ad çevrilmez', async () => {
   const cfg = forestNightCfg();
   await mount(cfg);
@@ -188,4 +153,24 @@ test('clipLabel: yerleşik Orman İngilizcede Forest; özel ad çevrilmez', asyn
   assert.strictEqual(TP._clipLabel({ type: 'palette', ref: 'Orman', name: 'My Forest' }), 'My Forest');
   window.SVI18n = { t: tr, lang: () => 'tr' };
   assert.strictEqual(TP._clipLabel({ type: 'palette', ref: 'Orman', name: '' }), 'Orman');
+});
+
+/* Yalıtılmış mod: palet canlı yapılandırmaya YAZILMAZ; bileşimde zamanlı
+   değiştirici. Seçim çıkışı etkilemez; geri sarınca Orman geri gelir. */
+test('Timeline kullan: Orman/Gece sırası bileşimde, seçim etkisiz, geri sarma doğru', () => {
+  global.window.SVTimeline = TL;
+  require('../src/shared/schema.js');
+  require('../src/visualizer/layers.js');
+  const TC = require('../src/shared/timeline-compose.js');
+  const cfg = forestNightCfg();
+  cfg.scenes = [{ id: 'sc', data: { layerStack: { enabled: true }, layers: [{ id: 'bg', kind: 'background', type: 'gradient', enabled: true, opacity: 1 }] } }];
+  cfg.timeline.tracks.push({ id: 'trS', kind: 'clip', name: 'S', clips: [{ id: 'cs', type: 'scene', ref: 'sc', start: 0, dur: 8 }] });
+  const tl = TL.makeTimeline(cfg.timeline);
+  const cols = (t) => TC.composeAt(cfg, tl, t).cfg.layers[0].settings.background.gradient.colors;
+  const pal = (n) => SV.GRADIENT_PRESETS.find((g) => g.name === n).colors;
+  assert.deepStrictEqual(cols(0.7), pal('Orman'));
+  assert.deepStrictEqual(cols(2.5), pal('Orman'), 'üstteki parça (Orman) önde');
+  assert.deepStrictEqual(cols(4.5), pal('Gece'));
+  assert.deepStrictEqual(cols(0.7), pal('Orman'), 'geri sarınca Orman');
+  assert.ok(!cfg.background.gradient.colors || JSON.stringify(cfg.background.gradient.colors) !== JSON.stringify(pal('Gece')), 'elle ayar yazılmadı');
 });

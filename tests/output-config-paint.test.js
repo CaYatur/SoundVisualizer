@@ -59,6 +59,6 @@ test('sahne ve şablon aynı push/apply yolundan çıkar (özel şablon yolu yok
   assert.match(applyBody, /push\(true\)/);
   const pushAt = ADMIN.indexOf('function push(immediate)');
   const pushBody = ADMIN.slice(pushAt, ADMIN.indexOf('function lightSig', pushAt));
-  assert.match(pushBody, /SVPreview\.setConfig\(cfg\)/);
+  assert.match(pushBody, /SVPreview\.setConfig\(outputConfig\(\)\)/);
   assert.match(pushBody, /sendFullConfig\(\)/);
 });

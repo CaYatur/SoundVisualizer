@@ -16,6 +16,8 @@
     const next = [];
     let now = null;
     let timer = 0;
+    const scopes = new Map();
+    let scopeKey = '';
     const snap = () => {
       const o = {};
       for (const k of env.keys) { const v = env.get(k); if (v !== undefined) o[k] = v; }
@@ -51,6 +53,26 @@
       },
       undo: () => step(past, next),
       redo: () => step(next, past),
+      /* Kapsam (Timeline klip düzenleme): her düzenleme hedefinin kendi
+         geri al yığını var. Hedef değişince bekleyen adım eski kapsama
+         yazılır; yeni kapsam kendi yığınıyla (yoksa boş) devam eder. Böylece
+         bir klipte geri almak elle ayara ya da başka klibe sızmaz. */
+      scope(key, load) {
+        const k = String(key || '');
+        if (k === scopeKey) { if (load) load(); return; }
+        if (timer) { clearTimeout(timer); timer = 0; }
+        settle();
+        scopes.set(scopeKey, { past: past.splice(0), next: next.splice(0), now });
+        scopeKey = k;
+        const got = scopes.get(k);
+        scopes.delete(k);
+        if (got) { past.push(...got.past); next.push(...got.next); }
+        if (load) load();
+        now = snap();
+        env.changed();
+      },
+      scopeKey: () => scopeKey,
+      dropScope(key) { scopes.delete(String(key || '')); },
       canUndo: () => past.length > 0,
       canRedo: () => next.length > 0,
       settleNow: settle,

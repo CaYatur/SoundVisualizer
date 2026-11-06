@@ -1202,6 +1202,7 @@
     /* Açık medya katmanlarının kaynaklarını havuza kurar. Yeni kamera
        eskisinin yerine yazılmaz; kullanılmayan akış kapanır. */
     syncMedia(cfg) {
+      if (cfg.timelineComposition) cfg = Object.assign({}, cfg, { layers: [] });
       this._ownsMedia = true;
       if (!this._mediaPool) this._mediaPool = new Map();
       const byLayer = new Map();
@@ -1400,6 +1401,9 @@
       /* Sahne değiştiyse ve geçiş açıksa, mevcut katmanları giden yığına
          devret. Bu, aşağıdaki yeniden kurulumdan ÖNCE olmalı — sonrasında
          eski katmanlar çoktan atılmış olurdu. */
+      if (!cfg.timelineComposition && this.timelineRenderer) { this.timelineRenderer.dispose(); this.timelineRenderer = null; }
+      const isolated = !!(cfg.timelineComposition || (this.prevCfg && this.prevCfg.timelineComposition));
+      if (isolated && this.trans) this.endTransition();
       const scnSig = sceneSignature(cfg);
       const T = window.SVTransition;
       const spec = cfg && cfg.transition;
@@ -1436,9 +1440,9 @@
       const transOn = isBlackoutTrans || (spec && spec.enabled !== false);
       /* Varış sahnesinin katmanları geçişten ÖNCE çözülüyor: hangi katmanın
          iki sahnede de durduğunu geçiş bilmek zorunda (beginTransition). */
-      const wanted = resolve(cfg);
+      const wanted = cfg.timelineComposition ? [] : resolve(cfg);
       const wantedKeys = new Set(wanted.map((l) => this._key(l)));
-      if (T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
+      if (!isolated && T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
           this.lastSig && scnSig !== this.lastSig && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
           type: transType,
@@ -1926,7 +1930,7 @@
         this.revived = (this.revived || 0) + 1;
       }
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      const single = fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
+      const single = !!cfg.timelineComposition || fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
       if (single) {
         this._ensureComp();
@@ -2306,7 +2310,19 @@
        birleştirir. Yalnız eşlik ölçümü (#539, scripts/parity.js) için:
        canlı CSS birleştirmesiyle aynı kareyi bu yoldan da kurup piksel
        piksel karşılaştırır; ikinci çizim durumlu modları ilerletirdi. */
+    prepareTimeline(cfg) {
+      if (!cfg.timelineComposition || !window.SVTimelineRender) return null;
+      if (!this.timelineRenderer) this.timelineRenderer = new window.SVTimelineRender.Renderer();
+      this.timelineRenderer.prepare(cfg.timelineComposition);
+      return this.timelineRenderer;
+    }
+
     drawTo(ctx, audio, cfg, t, dt, drawLogo, reuse) {
+      if (cfg.timelineComposition && window.SVTimelineRender) {
+        if (!this.timelineRenderer) this.timelineRenderer = new window.SVTimelineRender.Renderer();
+        this.timelineRenderer.draw(ctx, cfg.timelineComposition, audio, t, dt, this.width, this.height, drawLogo);
+        return;
+      }
       if (!reuse) this._sharedLead = null;
       const W = this.width;
       const H = this.height;
@@ -2408,6 +2424,7 @@
 
     // Dynamic Lighting arkaplan rengi ister: en alttaki arkaplan katmanı bildirir
     palette(cfg) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('palette') || [];
       // Örneklenen arkaplan örtülse de çizilmeye devam etsin (_covered)
       this._paletteAt = performance.now();
       for (const e of this.entries) {
@@ -2430,6 +2447,7 @@
        kazanıyor: birden fazla varsa hangisinin izlendiği belirsiz kalırdı,
        ve pratikte yığında bir tane oluyor. */
     milkdropMonitor() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropMonitor');
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.monitorValue === 'function') {
           const v = e.mode.monitorValue();
@@ -2445,6 +2463,7 @@
        desen ve aynı ~30 Hz mesaja biniyor. null = yığında MilkDrop yok;
        `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
     milkdropPreset() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropPreset');
       // Seçimi yapan katman: listede önde duran ama çizilmeyen katman eski seçimi söylerdi
       if (this._sharedLead) return this._sharedLead.livePreset();
       for (const e of this.entries) {
@@ -2460,6 +2479,7 @@
     /* Kendi otomatik geçişi olan katmanların o anki seçimi (#905): katman kimliğine göre.
        Ayara yazılmıyor, panel ve öteki ekranlar buradan öğreniyor. Yoksa null: mesaj büyümesin. */
     milkdropLayers() {
+      if (this.timelineRenderer) return this.timelineRenderer.layerReadouts();
       let out = null;
       for (const e of this.entries) {
         if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
@@ -2485,6 +2505,7 @@
        Işıklar bunları arkaplan paleti yerine alıyor. Yığında MilkDrop yoksa
        boş dizi: çağıran arkaplanın renklerine düşüyor. */
     milkdropColors(n) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropColors', n) || [];
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.sampleColors === 'function') return e.mode.sampleColors(n);
       }
@@ -2496,7 +2517,7 @@
        yerleştiği diskin hızına değil kare sırasına bağlı kalıyor. Geçişte
        giden sahnenin katmanları da sayılıyor. */
     _assetModes() {
-      const out = [];
+      const out = this.timelineRenderer ? this.timelineRenderer.assetModes() : [];
       const add = (list) => {
         for (const e of list || []) {
           if (e.mode && typeof e.mode.texturesPending === 'function') out.push(e.mode);
@@ -2518,6 +2539,7 @@
     }
 
     dispose() {
+      if (this.timelineRenderer) { this.timelineRenderer.dispose(); this.timelineRenderer = null; }
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];
       if (this.postfx) { this.postfx.dispose(); this.postfx = null; }

@@ -1055,10 +1055,11 @@
       scroll: 0,
       ruler: 'both', // time | bars | both
       followPlayhead: true,
-      /* Dururken/duraklatılmışken düzenlemeyi kafadaki klip değerlendirmesine
-         yaz. Varsayılan kapalı: durmuş çizelge Sahne/Şablon/MilkDrop seçimini
-         ezmesin (#idle-drive). Açıkken oynatma kafası kıpırdamadan uygular. */
-      applyEditsImmediately: false,
+      /* "Timeline kullan": açıkken çıkış çizelgenin yalıtılmış bileşimi,
+         kapalıyken (varsayılan) çizelge elle ayara hiç dokunmaz. Eski
+         `applyEditsImmediately` tercihi kaldırıldı; mod açıkken düzenlemeler
+         her zaman hemen yansır. */
+      useTimeline: false,
       // Şerit yüksekliği, piksel (28..120); tam pencerede yer açmak için büyütülür
       laneHeight: 40,
     },

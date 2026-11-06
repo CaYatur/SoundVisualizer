@@ -516,11 +516,17 @@
     'Yarım Vuruş': 'Half Beat',
     '1 saniye': '1 second',
     '0,5 saniye': '0.5 seconds',
-    'Anında Uygula': 'Apply Immediately',
-    'Açık: dururken veya duraklatılmışken yaptığınız düzenlemeler oynatma kafasının olduğu kliğe hemen yazılır. Kapatmak için basın.':
-      'On: edits you make while stopped or paused write immediately to the clip under the playhead. Press to turn off.',
-    'Kapalı (varsayılan): durmuş çizelge Sahne/Şablon/MilkDrop seçiminizi ezmez. Açınca düzenlemeler kafayı kıpırdatmadan uygulanır.':
-      'Off (default): a stopped timeline will not overwrite your Scene/Template/MilkDrop selection. When on, edits apply without moving the playhead.',
+    'Timeline açık: düzenlemek için tek bir görsel klip seçin. Elle ayarlar korunuyor.': 'Timeline is on: select one visual clip to edit. Manual settings are protected.',
+    'Harici değişiklik elle ayarlara uygulandı; Timeline klibi korunuyor.': 'External changes updated manual settings; the Timeline clip is protected.',
+    'Klip ayarları kaydedildi; asıl sahne değiştirilmedi.': 'Clip settings saved; the original scene was not changed.',
+    'Renkler yalnız bu klibin süresince uygulanır.': 'Colors apply only during this clip.',
+    'Timeline kullan': 'Use Timeline',
+    'Açık: çıkış oynatma kafasındaki çizelge bileşimini gösterir; düzenlemeler hemen yansır. Kapalı (varsayılan): çizelge çıkışa dokunmaz, elle ayarlarınız aynen geri gelir.':
+      'On: the output shows the timeline composition at the playhead and edits apply immediately. Off (default): the timeline never touches the output and your manual settings come back exactly.',
+    'Düzenlenen Timeline klibi': 'Editing Timeline clip',
+    'Değişiklikler yalnız bu klibe uygulanır; asıl sahne değişmez.': 'Changes apply to this clip only; the original scene is not changed.',
+    'Klibin kaynağı bulunamadı; düzenlenemez.': 'The clip source is missing; it cannot be edited.',
+    'Bitir': 'Done',
     'Yakalama ızgarası (ölçü/vuruş veya 1 sn / 0,5 sn). Sürüklerken Alt yakalamayı askıya alır; Kapalı serbest yerleştirir. Cetvel biriminden bağımsızdır.':
       'Snap grid (bar/beat or 1 s / 0.5 s). Hold Alt while dragging to suspend snap; Off places freely. Independent of the ruler unit.',
     'Görselleştirici listesi yüklenemedi.': 'Visualizer list could not be loaded.',

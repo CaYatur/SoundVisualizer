@@ -224,6 +224,16 @@
     sceneSkipped = 0;
 
     let base = cfg;
+    const TC = window.SVTimelineCompose;
+    if (TC && (TC.modeOn(cfg) || tlLive.on) && window.SVShowClock) {
+      // Timeline kullan: önizleme de çıkışla aynı yalıtılmış bileşimi çizer
+      let a = window.SVTimelinePanel && window.SVTimelinePanel.anchor ? window.SVTimelinePanel.anchor() : null;
+      if (!a) a = window.SVShowClock.idle();
+      const r = TC.live(cfg, TC.modeOn(cfg) ? window.SVShowClock.resolve(a, Date.now()) : 0, tlLive);
+      base = r.cfg;
+      if (r.rebuild) stack.setConfig(base);
+      if (r.fx) stack.setPostFX(base.postfx);
+    } else
     /* Önizleme de durmuş çizelgeyi sürmesin: yalnız playing çıpasında
        otomasyon uygula (açık çıkış ile aynı kural). */
     if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
@@ -361,6 +371,7 @@
     setConfig(cfg);
   }
 
+  const tlLive = {};
   function setConfig(next) {
     const wasFull = !!(cfg.power && cfg.power.previewRate === 'full');
     rawNext = next;
@@ -371,6 +382,7 @@
     // Önizleme Hızı değişince çizim boyu da değişiyor
     if (wasFull !== !!(cfg.power && cfg.power.previewRate === 'full')) resize(true);
     applyMedia();
+    if (window.SVTimelineCompose) window.SVTimelineCompose.resetLive(tlLive);
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
     /* Modlar setConfig ile yeni kurulur; sv_media bağı ondan sonra.

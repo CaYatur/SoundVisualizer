@@ -123,6 +123,11 @@
 
   function ensureTransport() {
     if (!transport) {
+      /* Göç: eski kayıtta "Çıkışa Bağlı" (enabled) açık olabilir. Yeni mod
+         varsayılan KAPALI; açıkça seçilmedikçe çizelge çıkışa dokunmaz. */
+      const c0 = tlCfg();
+      if (c0 && c0.useTimeline !== true && c0.enabled) c0.enabled = false;
+      if (c0 && 'applyEditsImmediately' in c0) delete c0.applyEditsImmediately;
       transport = new (TL().Transport)(tlModel());
       modelDirty = false;
     } else if (modelDirty) {
@@ -208,6 +213,8 @@
     return sig.split('|')[0].replace(/:[^:]*$/, '');
   }
   function noteLiveEdit() {
+    // Yalıtılmış modda elle düzenleme çizelgeyi tutmaz; çıkış zaten bileşim
+    if (modeOn()) { liveHoldHead = null; return; }
     const tr = ensureTransport();
     const tl = tr && tr.tl;
     if (!tl || !TL().activeClipsAt) { liveHoldHead = null; return; }
@@ -236,95 +243,46 @@
     // İmza değişimini sınırlamak için 1/100 adım
     return Math.round(raw * 100) / 100;
   }
-  /* Düzenlemeleri anında uygula: dururken/duraklatılmışken commit sonrası
-     kafadaki değerlendirmeyi yeniden yazar. Kapalıyken (varsayılan) idle-drive
-     koruması bozulmaz. Tutuşu ve imzayı temizler: geçiş/süre gibi imzaya
-     girmeyen alanlar da yeniden ateşlensin; elle sahne seçimi tutuşu
-     sonraki bilinçli çizelge düzenlemesinde düşer. */
-  function maybeApplyEditsNow() {
-    const cfg = tlCfg();
-    if (!cfg || !cfg.applyEditsImmediately) return;
-    if (!cfg.enabled || cfg.itemEnabled === false) return;
-    const tr = ensureTransport();
-    if (!tr) return;
-    liveHoldHead = null;
-    lastSceneSig = '';
+  /* "Timeline kullan" modu (yalıtılmış bileşim). Açıkken çıkış ve önizleme
+     her karede (oynarken de dururken de) SVTimelineCompose ile oynatma
+     kafasındaki bileşimi çizer; elle ayar hiç değişmez. Ayrı "Anında
+     Uygula" düğmesi yok: mod açıkken her çizelge düzenlemesi commit ile
+     yapılandırmaya, oradan çıkışa gider ve kafa kıpırdamaz. */
+  function modeOn() {
+    const C = window.SVTimelineCompose;
+    return !!(C && C.modeOn(P().cfg()));
+  }
+  function afterTimelineEdit() {
+    /* Mod açıkken bileşim çıkışta her karede yeniden hesaplanıyor; burada
+       canlı yapılandırmaya yazılacak bir şey yok. Kapalıyken çizelge elle
+       ayara hiç dokunmaz. Yalnız eylem kenar durumu sıfırlanır. */
     lastAppliedClip = new Map();
     lastPaletteApplied = null;
-    applyClipsAt(tr.time);
+  }
+
+  /* Mod açıkken tek yan etki: Eylem klipleri. Yalnız SÜREKLİ ileri oynatmada
+     klibe girişte bir kez ateşlenir; sarma, atlama, durdurma, geri alma ve
+     yeniden yansıtma eylemi tekrar çalıştırmaz, dış etkisini geri almaz. */
+  function fireActionsAt(t) {
+    const tr = ensureTransport();
+    const tl = tr.tl;
+    const jumped = lastClipT == null || t < lastClipT - 1e-3 || t - lastClipT > 0.25;
+    lastClipT = t;
+    const next = new Map();
+    for (const e of TL().activeClipsAt(tl, t)) {
+      if (e.clip.type !== 'action') continue;
+      next.set(e.track.id, e.clip.id);
+      if (!tr.playing || jumped) continue;
+      if (lastAppliedClip.get(e.track.id) === e.clip.id) continue;
+      if (window.SVTimelineTarget) window.SVTimelineTarget.withManual(() => fireClip(e.clip));
+      else fireClip(e.clip);
+    }
+    lastAppliedClip = next;
   }
 
   function applyClipsAt(t) {
-    const tl = ensureTransport().tl;
-    opT = t;
-    const active = TL().activeClipsAt ? TL().activeClipsAt(tl, t) : TL().clipsAt(tl, t);
-    const isScene = TL().isSceneClip || ((c) => c.type === 'scene' || c.type === 'preset');
-    const scenes = active.filter((e) => isScene(e.clip));
-    const jumped = lastClipT == null || t < lastClipT - 1e-3 || t - lastClipT > 0.25;
-    lastClipT = t;
-    /* Medya / palet / eylem.
-       Palet küresel ve bildirimsel: kazanan (parça sırasında son) değişince
-       yeniden yazılır — alt parçadaki Gece bitince üstteki Orman geri gelir.
-       Eylem / medya / görselleştirici KENAR tetiklemeli: yalnız KENDİ
-       parçasındaki klip kimliği değişince (giriş veya klip değişimi) ateşlenir.
-       Başka parçadaki palet giriş-çıkışı uzun bir eylemi yeniden çalıştırmaz
-       ve medyayı başa sarmaz. Seçim yok: yalnız t anında etkin klipler. */
-    const nonScenes = active.filter((e) => !isScene(e.clip));
-    const desired = new Map();
-    let palWinner = null;
-    for (const entry of nonScenes) {
-      desired.set(entry.track.id, entry.clip.id);
-      if (entry.clip.type === 'palette') palWinner = entry;
-    }
-    const prev = lastAppliedClip;
-    for (const entry of nonScenes) {
-      if (entry.clip.type === 'palette') continue;
-      if (prev.get(entry.track.id) === entry.clip.id) continue;
-      fireClip(entry.clip);
-    }
-    const palId = palWinner && palWinner.clip ? palWinner.clip.id : null;
-    if (palId !== lastPaletteApplied) {
-      if (palWinner) fireClip(palWinner.clip);
-      lastPaletteApplied = palId;
-    }
-    lastAppliedClip = desired;
-    if (!scenes.length) { lastSceneSig = ''; liveHoldHead = null; inWinBefore.clear(); return; }
-    const top = scenes[0];
-    const under = underOf(scenes);
-    // Üstteki klibin opaklığı da imzada ve gönderimde (topOpacity)
-    const topOp = opOf(top);
-    if (topOp < 1 || under.length) under.topOpacity = topOp;
-    const sig = scenes.map((e) => e.track.id + ':' + e.clip.id + ':' + opOf(e)).join('|');
-    const key = top.track.id;
-    const win = inTransWindow(top.clip, t);
-    const was = inWinBefore.get(key) === top.clip.id;
-    inWinBefore.clear();
-    if (win) inWinBefore.set(key, top.clip.id);
-    // Yalnız opaklık değiştiyse öndeki sahne aynı sayılır (geçişsiz güncelleme)
-    const head = sceneHeadOf(sig);
-    const topChanged = sceneHeadOf(lastSceneSig) !== head;
-    /* Elle yapılan seçim: aynı klipte kaldıkça sahne yeniden uygulanmaz.
-       Kafa başka klibe geçince tutuş düşer ve yeni klip normal ateşlenir. */
-    if (liveHoldHead != null) {
-      if (head === liveHoldHead) {
-        lastSceneSig = sig;
-        return;
-      }
-      liveHoldHead = null;
-    }
-    // Geçiş penceresine DIŞARIDAN atlandıysa (sarma/park) giden sahne önce kesmeyle
-    if (jumped && win && !was && TL().clipBefore) {
-      const prev = TL().clipBefore(top.track, top.clip);
-      const dp = window.SVClipDeckPanel;
-      if (prev && prev.ref && dp && dp.applyFaded) dp.applyFaded(prev.type, prev.ref, 0, prev.target, { light: true, transType: 'cut', under });
-      lastSceneSig = sig;
-      fireClip(top.clip, under);
-      return;
-    }
-    if (sig === lastSceneSig) return;
-    lastSceneSig = sig;
-    // Öndeki sahne aynı, yalnız arkadakiler değişti: geçişsiz güncelle
-    fireClip(top.clip, under, !topChanged);
+    // Kapalıyken çizelge elle ayara HİÇ dokunmaz (eski yıkıcı yol kullanılmıyor)
+    if (modeOn()) fireActionsAt(t);
   }
 
   /* Sahne uygulaması panelin KENDİ eylemini çağırır, kopyasını değil:
@@ -374,7 +332,10 @@
 
     const full = P() && P().cfg();
     if (!full) return;
-    const tlOn = !!(full.timeline && full.timeline.enabled && full.timeline.itemEnabled !== false);
+    const outOn = !!(window.SVTimelineCompose && window.SVTimelineCompose.modeOn(full));
+    /* Mod kapalıyken de kafa oynatılabilir (çıkışa etkisi yok); döngü yalnız
+       kafa ilerlerken veya mod açıkken çalışır. */
+    const tlOn = outOn || !!(full.timeline && full.timeline.itemEnabled !== false && clockAnchor && clockAnchor.playing);
     const deckOn = !!(full.clipdeck && full.clipdeck.enabled);
     if (!tlOn && !deckOn) return;
 
@@ -387,7 +348,7 @@
     /* Yetki yedekteyse (#814) birincil karar vermez: taşıma akar, klipler
        ve deste uygulanmaz; yetki geri gelince kaldığı yerden. */
     const held = !!(window.SVRedundancyPanel && window.SVRedundancyPanel.steppedBack && window.SVRedundancyPanel.steppedBack());
-    if (tr.playing && tlOn && !held) applyClipsAt(tr.time);
+    if (outOn && !held) fireActionsAt(tr.time);
     if (recording.size && tr.playing && tlOn) recordTick(tr.time);
     /* Oynatma kafasını görüş alanında tut. Yapılandırmada bu ayar vardı
        ama hiç uygulanmamıştı: oynatınca kafa sağdan çıkıp kayboluyor ve
@@ -1338,7 +1299,9 @@
     history_().push(TE().snapshot(cfg));
     P().push(true);
     refreshToolbar();
-    maybeApplyEditsNow();
+    afterTimelineEdit();
+    // Düzenlenen klip silindi / türü ya da kaynağı değişti: hedefi tazele
+    if (window.SVTimelineTarget) window.SVTimelineTarget.reloadFromClip(false);
   }
 
   // --------------------------------------------------------------------------
@@ -1375,6 +1338,8 @@
     if (s == null) return;
     TE().restore(tlCfg(), s);
     invalidateModel();
+    // Klip düzenleme hedefi: panelleri klibin geri alınmış kopyasına çek
+    if (window.SVTimelineTarget) window.SVTimelineTarget.reloadFromClip(true);
     P().push(true);
     refreshAll();
   }
@@ -1384,6 +1349,8 @@
     if (s == null) return;
     TE().restore(tlCfg(), s);
     invalidateModel();
+    // Klip düzenleme hedefi: panelleri klibin geri alınmış kopyasına çek
+    if (window.SVTimelineTarget) window.SVTimelineTarget.reloadFromClip(true);
     P().push(true);
     refreshAll();
   }
@@ -1947,23 +1914,40 @@
   }
 
   /* Çizelge çıkışı sürüyor mu: `timeline.enabled`. Anahtar yerine kullanımla açılıyor. */
+  /* Timeline kullan AÇ: oynatma kafası olduğu yerde kalır, oynatma kendiliğinden
+     başlamaz. Çıkış kafadaki yalıtılmış bileşime geçer. Elle ayar
+     (sahne, katman, efekt) yapılandırmada aynen kalır. */
   function linkOutput() {
     const cfg = tlCfg();
-    if (cfg.enabled) return;
+    if (cfg.useTimeline === true && cfg.enabled) return;
+    syncTransportFromAnchor();
+    if (window.SVTimelineTarget) window.SVTimelineTarget.modeChanged(true);
+    cfg.useTimeline = true;
     cfg.enabled = true;
-    P().apply();
+    lastAppliedClip = new Map();
+    lastClipT = ensureTransport().time;
+    reanchor();
+    P().push(true);
     start();
+    refreshToolbar();
+    if (window.SVTimelineTarget) window.SVTimelineTarget.refresh();
   }
+  /* KAPAT: kafa duraklar, yeri korunur. Klip düzenleme hedefi kapanır; elle
+     ayarlar tam olarak geri gelir (hiç değişmedikleri için). */
   function unlinkOutput() {
     const cfg = tlCfg();
-    cfg.enabled = false;
+    if (window.SVTimelineTarget) window.SVTimelineTarget.clear();
+    syncTransportFromAnchor();
     ensureTransport().pause();
+    cfg.useTimeline = false;
+    cfg.enabled = false;
+    if (window.SVTimelineTarget) window.SVTimelineTarget.modeChanged(false);
     reanchor();
-    P().apply();
+    P().push(true);
+    refreshToolbar();
   }
 
   function togglePlay() {
-    linkOutput();
     const tr = syncTransportFromAnchor();
     if (tr.playing) pause();
     else { tr.rate = 1; play(); }
@@ -2556,10 +2540,18 @@
     anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */
     _draw: () => draw(),
+    invalidate: () => invalidateModel(),
+    useTimeline: (on) => { if (on == null) return tlCfg().useTimeline === true; if (on) linkOutput(); else unlinkOutput(); return on; },
+    /* Oynatma kafasındaki yalıtılmış bileşim (önizleme/test/denetim). */
+    composeNow: () => {
+      const C = window.SVTimelineCompose;
+      const tr = syncTransportFromAnchor();
+      return C ? C.composeAt(P().cfg(), tr.tl, tr.time) : null;
+    },
+    _followTarget: () => { if (window.SVTimelineTarget) window.SVTimelineTarget.follow(selection, multi.length); },
     // Test: sahne bileşimini t anında uygula (#957 opaklık piksel denemesi)
     _applyAt: (t) => applyClipsAt(t),
     noteLiveEdit,
-    _maybeApplyEditsNow: maybeApplyEditsNow,
     _liveHoldHead: () => liveHoldHead,
     // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
     _perf: () => ({ draws: perf.draws, heads: perf.heads }),
@@ -2983,22 +2975,14 @@
       p.push(true);
       refreshToolbar();
     });
-    const liveEditBtn = btn(['bolt', 'Anında Uygula'],
-      cfg.applyEditsImmediately
-        ? 'Açık: dururken veya duraklatılmışken yaptığınız düzenlemeler oynatma kafasının olduğu kliğe hemen yazılır. Kapatmak için basın.'
-        : 'Kapalı (varsayılan): durmuş çizelge Sahne/Şablon/MilkDrop seçiminizi ezmez. Açınca düzenlemeler kafayı kıpırdatmadan uygulanır.',
-      () => {
-        cfg.applyEditsImmediately = !cfg.applyEditsImmediately;
-        p.push(true);
-        refreshToolbar();
-        if (cfg.applyEditsImmediately) maybeApplyEditsNow();
-      },
-      'tl-liveedit' + (cfg.applyEditsImmediately ? ' on' : ''));
     /* Çıkışa bağ: çizelge sahneleri sürüyor mu, tek bakışta. */
-    const linkBtn = btn(['broadcast', cfg.enabled ? 'Çıkışa Bağlı' : 'Çıkışa Bağla'],
-      cfg.enabled ? 'Çizelge çıkıştaki sahneleri sürüyor. Ayırmak için basın.' : 'Oynatma kafası tüm görselleştirici ekranlarını birlikte sürsün.',
-      () => { if (tlCfg().enabled) unlinkOutput(); else linkOutput(); },
-      'tl-link' + (cfg.enabled ? ' on' : ''));
+    const useOn = cfg.useTimeline === true;
+    const linkBtn = btn(['broadcast', 'Timeline kullan'],
+      'Açık: çıkış oynatma kafasındaki çizelge bileşimini gösterir; düzenlemeler hemen yansır. Kapalı (varsayılan): çizelge çıkışa dokunmaz, elle ayarlarınız aynen geri gelir.',
+      () => { if (tlCfg().useTimeline === true) unlinkOutput(); else linkOutput(); },
+      'tl-link tl-use' + (useOn ? ' on' : ''));
+    linkBtn.setAttribute('role', 'switch');
+    linkBtn.setAttribute('aria-checked', useOn ? 'true' : 'false');
     const undoBtn = btn(['undo'], 'Geri al (Ctrl+Z)', () => undo());
     const fullBtn = btn(['fullscreen'], 'Tam pencere (F). Esc ile kapanır', () => setFull(!fullWin));
     const redoBtn = btn(['redo'], 'Yinele (Ctrl+Y)', () => redo());
@@ -3052,7 +3036,7 @@
           return s;
         })(),
       ]),
-      group([loopBtn, followBtn, liveEditBtn]),
+      group([loopBtn, followBtn]),
       group([
         btn('−', 'Uzaklaştır (−)', () => zoomBy(1 / 1.25)),
         btn('+', 'Yakınlaştır (+)', () => zoomBy(1.25)),
@@ -3064,7 +3048,7 @@
       group([undoBtn, redoBtn]),
     ]);
 
-    toolbarRefs = { playBtn, loopBtn, followBtn, liveEditBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn };
+    toolbarRefs = { playBtn, loopBtn, followBtn, linkBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn };
     refreshToolbar();
 
     /* Saat ve oynat düğmesi kendi zamanlayıcısından: çizim döngüsü yalnız
@@ -3097,7 +3081,7 @@
     const on = (b, v) => { if (b.classList) b.classList.toggle('on', !!v); };
     on(r.loopBtn, tl.loop.enabled);
     on(r.followBtn, cfg.followPlayhead !== false);
-    if (r.liveEditBtn) { on(r.liveEditBtn, !!cfg.applyEditsImmediately); r.liveEditBtn.setAttribute('aria-pressed', cfg.applyEditsImmediately ? 'true' : 'false'); }
+    if (r.linkBtn) { on(r.linkBtn, cfg.useTimeline === true); r.linkBtn.setAttribute('aria-checked', cfg.useTimeline === true ? 'true' : 'false'); }
     on(r.fullBtn, fullWin);
     r.undoBtn.disabled = !history_().canUndo();
     r.redoBtn.disabled = !history_().canRedo();
@@ -3268,7 +3252,20 @@
     inspectorBox = next;
   }
 
+  /* Seçim → klip düzenleme hedefi. Ertelenir ve çalışırken EN SON seçimi
+     okur: hızlı seçim değişiminde eski çağrı yanlış klibi hedef yapmasın. */
+  let followQueued = false;
+  function queueTargetFollow() {
+    if (followQueued || !window.SVTimelineTarget) return;
+    followQueued = true;
+    setTimeout(() => {
+      followQueued = false;
+      if (window.SVTimelineTarget) window.SVTimelineTarget.follow(selection, multi.length);
+    }, 0);
+  }
+
   function inspector() {
+    queueTargetFollow();
     const p = P();
     const el = p.el;
     const box = el('div', { class: 'tl-inspector' });

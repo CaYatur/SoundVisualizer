@@ -102,8 +102,8 @@ test('validateOptions: omitted values pass, unknown ones are reported', () => {
 
 test('timeline-follow recording reacts to external config changes', () => {
   const admin = read('src/admin/admin.js');
-  const a = admin.indexOf('window.api.onExternalConfig(');
-  const body = admin.slice(a, admin.indexOf('\n    });', a));
+  const a = admin.indexOf('function acceptExternalConfig(incoming)');
+  const body = admin.slice(a, admin.indexOf('window.api.onExternalConfig(acceptExternalConfig)', a));
   assert.match(body, /SVRecordPanel\.ensureFollow\(!!\(cfg\.recording && cfg\.recording\.followTimeline\)\)/);
 });
 

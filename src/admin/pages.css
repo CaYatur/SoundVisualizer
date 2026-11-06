@@ -480,7 +480,15 @@ body[data-page='time'] .tl-panel:not(.tl-full) > .settings-io-note { order: 3; f
 .tl-lbl { color: var(--muted2); font-size: 11.5px; }
 .tl-toolbar input.num, .tl-toolbar .sel { height: 26px; border: 0; border-radius: 7px; background: var(--sv-fill); font-size: 12px; }
 /* Yazılı açma/kapama düğmesi: 28px kare simge kuralı yazıyı komşulara taşırıyordu */
-.tl-toolbar .btn.tl-btn.tl-liveedit { width: auto; min-width: max-content; flex: none; gap: 6px; padding: 0 10px; white-space: nowrap; font-size: 12.5px; font-weight: 550; }
+.tl-toolbar .btn.tl-btn.tl-use { width: auto; min-width: max-content; flex: none; gap: 6px; padding: 0 10px; white-space: nowrap; font-size: 12.5px; font-weight: 550; }
+/* Timeline klip düzenleme hedefi bandı: hangi klibin düzenlendiği her sayfada görünür */
+.tl-edit-banner { position: relative; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 12px; padding: 7px 12px; border-radius: 10px; background: rgb(var(--accent-rgb, 79 140 255) / .16); border: 1px solid rgb(var(--accent-rgb, 79 140 255) / .55); color: var(--text); font-size: 12.5px; }
+.tl-edit-banner[hidden] { display: none; }
+.tl-edit-banner .tl-eb-label { color: var(--muted); }
+.tl-edit-banner .tl-eb-name { font-weight: 700; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-edit-banner .tl-eb-meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl-edit-banner .tl-eb-note { flex: 1 1 220px; min-width: 0; color: var(--muted); }
+.tl-edit-banner .btn { margin-left: auto; }
 .tl-toolbar .btn.tl-link { width: auto; min-width: 0; gap: 6px; padding: 0 10px; font-size: 12.5px; font-weight: 550; color: var(--muted); }
 .tl-toolbar .btn.tl-link.on { color: var(--ok-text); background: rgb(var(--ok-rgb) / .13); box-shadow: none; }
 .tl-toolbar .tl-add { margin-left: auto; height: 28px; border: 0; background: rgb(var(--fg-rgb) / .08); color: var(--text); font-weight: 600; }
@@ -809,3 +817,9 @@ body[data-page='live'] #svStageTools { display: none; }
 .sv-insp .layer-pane > .ctrl > label.lbl { margin-left: 11px; }
 /* Stüdyo yan sütununda başlıkla aynı kenar: nokta sütunu yok, sıfırlama ikonu değişikliği gösteriyor */
 .studio-side-col .ctrl > .row > label.lbl::before { display: none; }
+
+/* Hedef yokken normal sahne araçları okunabilir ama düzenlenemez. */
+.tl-no-target #svLayers, .tl-no-target #svInspector, .tl-no-target #svShelf { opacity: .55; }
+#svInspector .tl-palette-title { margin: 12px; }
+#svInspector:has(.tl-palette-title) p { padding: 0 12px; }
+#svInspector:has(.tl-palette-title) label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; }

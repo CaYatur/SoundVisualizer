@@ -28,7 +28,7 @@ test('xf-box: shell.css .sv-insp .ctrl grid kuralını ezen seçici var', () => 
   assert.match(css, /\.sv-insp \.ctrl\.xf-box > input\.xf-slider[^{]*\{[^}]*grid-area:\s*auto/s);
 });
 
-test('timeline: Anında Uygula düğmesi 28px kare simge genişliğine sıkışmıyor', () => {
+test('timeline: Timeline kullan anahtarı 28px kare simge genişliğine sıkışmıyor', () => {
   const css = fs.readFileSync(path.join(ROOT, 'src/admin/pages.css'), 'utf8');
-  assert.match(css, /\.tl-toolbar \.btn\.tl-btn\.tl-liveedit\s*\{[^}]*width:\s*auto[^}]*min-width:\s*max-content/s);
+  assert.match(css, /\.tl-toolbar \.btn\.tl-btn\.tl-use\s*\{[^}]*width:\s*auto[^}]*min-width:\s*max-content/s);
 });

@@ -141,11 +141,11 @@ const LAYERS = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', '
 
 test('setConfig varış katmanlarını geçişten ÖNCE çözüp anahtarlarını veriyor', () => {
   const fn = /setConfig\(cfg\) \{[\s\S]*?\n    \}/.exec(LAYERS)[0];
-  const w = fn.indexOf('const wanted = resolve(cfg);');
+  const w = fn.indexOf('const wanted = cfg.timelineComposition ? [] : resolve(cfg);');
   const b = fn.indexOf('this.beginTransition(');
   assert.ok(w > 0 && b > w, 'varış katmanları geçişten önce çözülmeli');
   assert.match(fn, /\}, wantedKeys\);/);
-  assert.strictEqual(fn.split('const wanted = resolve(cfg);').length, 2, 'bir kez çözülmeli');
+  assert.strictEqual(fn.split('const wanted = cfg.timelineComposition ? [] : resolve(cfg);').length, 2, 'bir kez çözülmeli');
 });
 
 test('MilkDrop geçişte kalmaya katılıyor', () => {
