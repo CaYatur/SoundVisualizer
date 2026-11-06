@@ -108,7 +108,7 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
   /* `milkdropControl` sahne anahtarı değil; dışa aktarıcı yalnız sahneyi
      alsaydı 'on' motora hiç varmaz, belgelerdeki söz boşa çıkardı. */
   assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: jobCfg \|\| \{\},/);
-  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), window\.SVTimelineCompose\.exportConfig\(job\.cfg \|\| \{\}\)\);/);
+  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), window\.SVTimelineCompose\.exportJobConfig\(job\.cfg \|\| \{\}\)\);/);
   require('../src/visualizer/layers.js');
   const jobCfg = SV.defaultConfig();
   jobCfg.milkdropControl.reduceMotion = 'on';
@@ -117,7 +117,7 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
   jobCfg.timeline.manualBaseline = { layers: [], layerStack: { enabled: true } };
   jobCfg.timeline.editTarget = { trackId: 't', clipId: 'c' };
   const before = JSON.stringify(jobCfg);
-  const cfg = SV.deepMerge(SV.defaultConfig(), require('../src/shared/timeline-compose').exportConfig(jobCfg));
+  const cfg = SV.deepMerge(SV.defaultConfig(), require('../src/shared/timeline-compose').exportJobConfig(jobCfg));
   assert.strictEqual(cfg.milkdropControl.reduceMotion, 'on');
   assert.strictEqual(cfg.timeline.editTarget, undefined);
   assert.strictEqual(JSON.stringify(jobCfg), before, 'iş temizliği özgün yapılandırmayı değiştirmez');

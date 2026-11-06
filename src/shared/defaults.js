@@ -1272,6 +1272,7 @@
          Varsayılan KAPALI; kayıtlı açık tercih korunur.
          Açıkken döngü sarar; boşluk ve döngüsüz bitiş siyahtır. */
       includeTimeline: false,
+      timelineId: '', // boş: iş eklenirken etkin çizelgenin kimliği alınır
       chapters: false, // zaman çizelgesi işaretçilerinden bölümlere ayır (#527)
       chapterList: false, // işaretçilerden YouTube bölüm listesi .txt (#837)
       analysis: false, // ses analizini videonun yanına yaz: JSON, CSV, MIDI

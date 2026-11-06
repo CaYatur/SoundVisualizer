@@ -394,6 +394,32 @@
     return out;
   }
 
+  /* İş başlangıcında ID ile seçilir ve derin kopyalanır. Canlı sekmeyi
+     değiştirmez; eksik/pasif/boş seçimi sessizce başka çizelgeye düşürmez. */
+  function exportJobConfig(cfg, opts) {
+    const out = exportConfig(cfg), options = opts || {};
+    out.export = out.export || {};
+    if (Object.prototype.hasOwnProperty.call(options, 'includeTimeline')) out.export.includeTimeline = options.includeTimeline === true;
+    if (Object.prototype.hasOwnProperty.call(options, 'timelineId')) out.export.timelineId = String(options.timelineId || '');
+    if (out.export.includeTimeline !== true) return out;
+    const T = TL(), timelines = T.listTimelineBank(out.timeline || {});
+    const id = out.export.timelineId || (out.timeline && out.timeline.id);
+    const selected = timelines.find((x) => x.id === id);
+    const fail = (code, message) => {
+      const i = W('SVI18n');
+      throw Object.assign(new Error(i && i.t ? i.t(message) : message), { code });
+    };
+    if (!selected) fail('EXPORT_TIMELINE_MISSING', 'Dışa aktarılacak çizelge bulunamadı; yeniden seçin.');
+    if (selected.itemEnabled === false) fail('EXPORT_TIMELINE_PASSIVE', 'Seçilen çizelge pasif; dışa aktarmadan önce etkinleştirin.');
+    out.timeline = Object.assign({}, out.timeline, selected, { bank: [], order: [selected.id] });
+    out.export.timelineId = selected.id;
+    const tl = T.makeTimeline(out.timeline);
+    const hasContent = tl.tracks.some((track) => (track.clips || []).some((clip) =>
+      composeAt(Object.assign({}, out, { isBlackout: false }), tl, clip.start).cfg.timelineComposition.units.some((u) => u.layers.length > 0)));
+    if (!hasContent) fail('EXPORT_TIMELINE_EMPTY', 'Seçilen çizelgede kullanılabilir görsel klip yok; çizelgeyi ve kaynakları denetleyin.');
+    return out;
+  }
+
   function layerSig(c) {
     const ls = c && Array.isArray(c.layers) ? c.layers : [];
     return JSON.stringify([ls, c && c.timelineComposition && c.timelineComposition.units.map((u) => [u.id, sceneKeys().map((k) => u.cfg[k])])], (k, v) => (k === 'opacity' ? undefined : v));
@@ -422,7 +448,7 @@
   }
   function resetLive(state) { if (state) { state.sig = null; state.fx = null; state.tl = null; state.tlSrc = null; } }
 
-  const api = { modeOn, transitionSettings, exportEnabled, exportConfig, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
+  const api = { modeOn, transitionSettings, exportEnabled, exportConfig, exportJobConfig, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVTimelineCompose = api;
 })();

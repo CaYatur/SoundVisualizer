@@ -46,4 +46,20 @@ test('dışa aktarım açıkça seçilir; canlı mod/hedef ve pasif çizelge ter
     assert.equal(JSON.stringify(cfg),before);
   }
   assert.equal(SV.defaultConfig().export.includeTimeline,false);
+  const cfg=SV.defaultConfig();cfg.timeline.id='A';cfg.timeline.name='A';cfg.timeline.tracks=[];
+  cfg.timeline.bank=[{id:'E',name:'Custom E',itemEnabled:true,tracks:[{id:'t',kind:'clip',clips:[{id:'v',type:'video',ref:'/tmp/chosen.mp4',start:1,dur:2}]}]}];
+  cfg.export.includeTimeline=true;cfg.export.timelineId='E';
+  const before=JSON.stringify(cfg), job=C.exportJobConfig(cfg);
+  assert.equal(job.timeline.id,'E');assert.equal(job.timeline.name,'Custom E');
+  assert.equal(job.timeline.useTimeline,cfg.timeline.useTimeline);
+  assert.deepEqual(M.jobMediaFiles(job),['/tmp/chosen.mp4']);
+  assert.equal(JSON.stringify(cfg),before,'selecting an export bank must not switch the live bank');
+  cfg.timeline.bank[0].tracks[0].clips[0].ref='/tmp/later.mp4';
+  assert.equal(job.timeline.tracks[0].clips[0].ref,'/tmp/chosen.mp4','job captures immutable clip/source settings');
+  assert.throws(()=>C.exportJobConfig(cfg,{timelineId:'deleted'}),e=>e.code==='EXPORT_TIMELINE_MISSING');
+  assert.throws(()=>C.exportJobConfig(cfg,{timelineId:'A'}),e=>e.code==='EXPORT_TIMELINE_EMPTY');
+  cfg.timeline.bank[0].itemEnabled=false;
+  assert.throws(()=>C.exportJobConfig(cfg),e=>e.code==='EXPORT_TIMELINE_PASSIVE');
+  assert.equal(C.exportJobConfig(cfg,{includeTimeline:false,timelineId:'deleted'}).export.includeTimeline,false);
+
 });

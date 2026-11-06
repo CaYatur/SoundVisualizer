@@ -8357,11 +8357,14 @@ async function startExportJob(opts, bench, extra) {
   let jobCfg = (extra && extra.cfg) || currentConfig;
   /* İş kopyası: klip düzenleyicisinin geçici görünümü dışa aktarılmaz.
      Çizelge yalnız açıkça seçilmiş true ile dahil edilir. */
-  jobCfg = require('../shared/timeline-compose').exportConfig(jobCfg);
-  if (jobCfg && Object.prototype.hasOwnProperty.call(opts, 'includeTimeline')) {
-    jobCfg = Object.assign({}, jobCfg, {
-      export: Object.assign({}, jobCfg.export || {}, { includeTimeline: opts.includeTimeline === true }),
-    });
+  try { jobCfg = require('../shared/timeline-compose').exportJobConfig(jobCfg, opts); }
+  catch (e) {
+    const messages = {
+      EXPORT_TIMELINE_MISSING: trUi('Dışa aktarılacak çizelge bulunamadı; yeniden seçin.', 'The export timeline was not found; select it again.'),
+      EXPORT_TIMELINE_PASSIVE: trUi('Seçilen çizelge pasif; dışa aktarmadan önce etkinleştirin.', 'The selected timeline is passive; enable it before exporting.'),
+      EXPORT_TIMELINE_EMPTY: trUi('Seçilen çizelgede kullanılabilir görsel klip yok; çizelgeyi ve kaynakları denetleyin.', 'The selected timeline has no usable visual clips; check the timeline and its sources.'),
+    };
+    return { ok: false, error: messages[e.code] || String(e.message || e) };
   }
   /* Kuyruktaki sahnenin videosu o anki ayarda olmayabilir (#539):
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
