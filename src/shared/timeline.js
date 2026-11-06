@@ -301,6 +301,12 @@
       // Klip giriş/çıkış solması (#957, sn): opaklık 0'dan çıkar, sonda 0'a iner
       fadeIn: Math.max(0, num(s.fadeIn, 0)),
       fadeOut: Math.max(0, num(s.fadeOut, 0)),
+      /* Klibe özel yerel kopya (Timeline kullan modu): Sahne panelinden bu
+         klip düzenlenince kaynağın kopyası burada tutulur. Kaynak sahne
+         değişmez. Model her çizimde yeniden kurulduğu için TAŞINMALI. */
+      local: s.local && typeof s.local === 'object' && s.local.data && typeof s.local.data === 'object'
+        ? { from: s.local.from && typeof s.local.from === 'object' ? { type: String(s.local.from.type || ''), ref: String(s.local.from.ref || '') } : null, data: s.local.data }
+        : undefined,
     };
   }
 
