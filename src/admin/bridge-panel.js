@@ -92,7 +92,7 @@
   }
 
   function fallbackSelect(b, push) {
-    const sel = el('select', { class: 'p-in' });
+    const sel = el('select', { class: 'p-in', 'aria-label': tr('Yedek Giriş') });
     const add = (value, label, user) => sel.appendChild(el('option', Object.assign({ value, text: label }, user ? { 'data-user-text': '' } : {})));
     add('', tr('Olağan ses girişi'));
     const seen = new Set(['']);
@@ -122,7 +122,7 @@
     return captured.some((c) => c !== 'default' && (bare(c) === o || o.includes(bare(c)) || bare(c).includes(o)));
   }
   function outputSelect(b, push) {
-    const sel = el('select', { class: 'p-in' });
+    const sel = el('select', { class: 'p-in', 'aria-label': tr('Çıkış Aygıtı') });
     sel.appendChild(el('option', { value: '', text: tr('Sistemin varsayılan çıkışı') }));
     const outs = (status && status.outputs) || [];
     outs.forEach((o, i) => sel.appendChild(el('option', Object.assign({ value: o.id, text: o.label || (tr('Çıkış') + ' ' + (i + 1)) }, o.label ? { 'data-user-text': '' } : {}))));

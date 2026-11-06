@@ -344,6 +344,20 @@
     const txt = (t.textContent || '').trim();
     if (txt && lbl && !lbl.getAttribute('title') && !t.getAttribute('title')) t.setAttribute('title', txt);
   }
+  /* Liste kutusu: Chromium aria-labelledby hedefini adsız bırakabiliyor.
+     Ad aria-label olur (çeviri bu özniteliği de günceller). labelledby
+     durursa o kazanır ve boş ad aria-label'ı ezer. */
+  function applyCaption(x, t) {
+    const name = ((t && t.textContent) || '').replace(/\s+/g, ' ').trim();
+    if (!name) return;
+    if (x.tagName === 'SELECT') {
+      x.removeAttribute('aria-labelledby');
+      x.setAttribute('aria-label', name);
+      return;
+    }
+    if (!t.id) t.id = 'svlbl-' + (++labelSeq);
+    x.setAttribute('aria-labelledby', t.id);
+  }
   function linkLabels(root) {
     root.querySelectorAll('.ctrl').forEach((c) => {
       const ctls = Array.from(c.querySelectorAll('input:not([type=hidden]), select, textarea'))
@@ -356,8 +370,13 @@
         if (prev && prev.classList.contains('group-label') && prev.textContent.trim()) t = prev;
       }
       if (!t) return;
-      if (!t.id) t.id = 'svlbl-' + (++labelSeq);
-      ctls.forEach((x) => x.setAttribute('aria-labelledby', t.id));
+      ctls.forEach((x) => applyCaption(x, t));
+    });
+    root.querySelectorAll('select.p-in').forEach((x) => {
+      if (hasName(x)) return;
+      const wrap = x.closest('label');
+      const cap = wrap ? labelTextOf(wrap) : null;
+      if (cap && !cap.contains(x)) applyCaption(x, cap);
     });
   }
   /* Gözlemci geri çağrısı zaten toplu (mikro görev). requestAnimationFrame
@@ -6098,6 +6117,13 @@
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
     grabSceneThumb(id);
+    /* Yuvanın geçişi yalnız bu gönderim için. Görüntü sahne anahtarlarından
+       ÖNCE alınır: sahnede geçiş yoksa anahtarlar varsayılanı (0.7 sn)
+       yazar ve sonraki görüntü kullanıcının süresini kaybederdi. */
+    let keepTransition = null;
+    if (opts && opts.transition && cfg.transition) {
+      keepTransition = window.SV.clone(cfg.transition);
+    }
     const def = window.SV.DEFAULT_CONFIG;
     const blacked = isBlackedOut();
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
@@ -6178,12 +6204,11 @@
        İLK gönderiminde başlatıyor. Önce sahne kendi geçişiyle gönderiliyor,
        klibin süresi ancak sonraki gönderimde yazılıyordu — geçiş hiç
        yavaşlamıyordu. Süre burada, gönderimden ÖNCE ve saniye cinsinden. */
-    /* Üstüne yazma YALNIZ bu gönderim için: gönderimden sonra sahnenin
-       kendi geçişi geri konuyor. Önce kalıcıydı; klibin geçişi sahnenin
-       genel geçişine sızıyor, sahne güncellenince ona kaydediliyordu. */
-    let keepTransition = null;
+    /* Üstüne yazma YALNIZ bu gönderim için: gönderimden sonra kullanıcının
+       geçişi geri konuyor. Önce kalıcıydı; klibin geçişi sahnenin genel
+       geçişine sızıyor, sahne güncellenince ona kaydediliyordu. Görüntü
+       yukarıda, sahne anahtarlarından önce alındı. */
     if (opts && opts.transition && cfg.transition) {
-      keepTransition = window.SV.clone(cfg.transition);
       const ot = opts.transition;
       if (ot.type === 'cut') cfg.transition.enabled = false;
       else if (ot.duration > 0 || ot.type || ot.ease) {

@@ -661,6 +661,7 @@
       });
       const typeSel = el('select', {
         class: 'p-in',
+        'aria-label': trStudio('Tür'),
         onchange: (e) => {
           c.type = e.target.value;
           c.default = c.type === 'color' ? '#3aa6ff' : c.type === 'toggle' ? true : 1;

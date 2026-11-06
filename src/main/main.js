@@ -9576,6 +9576,19 @@ async function runSmoke() {
       ' var was = !!(c.autovj && c.autovj.enabled); if (c.autovj) c.autovj.enabled = false; return was ? "kapatıldı" : "zaten kapalı"; })()'
     ).catch((e) => 'hata: ' + (e && e.message));
     console.log('[SMOKE] panelin Otomatik VJ\'si: ' + held);
+    /* Timeline kullan açıksa çıkış elle sahne değil, çizelge bileşimidir.
+       MilkDrop, gradyan, sprite ve otomasyon ölçümleri elle katmanı arar;
+       bileşim üst yığını boşalttığı için hepsi "layer" diye düşüyordu.
+       Bayrak burada kapanır. Klip eklemek onu yeniden açar; o adımdan
+       sonra deste ve Otomatik VJ'den önce yine kapatılır. */
+    const tlOff = await adminWin.webContents.executeJavaScript(
+      '(function(){ var c = window.SVPanel && window.SVPanel.cfg(); if (!c || !c.timeline) return "yok";' +
+      ' var was = c.timeline.useTimeline === true;' +
+      ' if (window.SVTimelinePanel && window.SVTimelinePanel.useTimeline) window.SVTimelinePanel.useTimeline(false);' +
+      ' else { c.timeline.useTimeline = false; if (window.SVPanel.apply) window.SVPanel.apply(); }' +
+      ' return was ? "kapatıldı" : "zaten kapalı"; })()'
+    ).catch((e) => 'hata: ' + (e && e.message));
+    console.log('[SMOKE] timeline kullan: ' + tlOff);
   }
 
   const cam = await cameraProbe(meterWindow());
@@ -9592,6 +9605,7 @@ async function runSmoke() {
      yapılandırmayı da kapatmak, testin her karede boşuna aygıt açmaya
      çalışmasını ve konsolu hata mesajıyla doldurmasını engelliyor. */
   base.media = Object.assign({}, base.media, { enabled: false, source: 'file' });
+  if (base.timeline) base.timeline = Object.assign({}, base.timeline, { useTimeline: false });
   const send = (over) => wc.send('config', Object.assign({}, base, over));
 
   // Her ön mod (gradient bir arkaplan motorudur, ön mod olarak atlanır)
@@ -9735,7 +9749,16 @@ async function runSmoke() {
     }
     return out;
   };
-  const loss = await lossProbe();
+  /* Panel ölçümün ortasında tam ayar basabiliyor (Timeline kullan dahil).
+     Sprite için konan bekletme MilkDrop ve gradyan ölçümünü de sarıyor:
+     basılan ayar elle sahneyi ya da çizelge bileşimini geri getirip
+     ölçülen katmanı siliyordu. */
+  smokeHoldStart();
+  let loss;
+  let surf;
+  let spr;
+  try {
+  loss = await lossProbe();
   console.log('[SMOKE] bağlam kaybı: ' + JSON.stringify(loss));
   if (loss.hata) {
     errors.push('context loss: ' + loss.hata);
@@ -9833,7 +9856,7 @@ async function runSmoke() {
     const after = await sample('after');
     return { before, after, lostGrad, lostFx };
   };
-  const surf = await surfaceProbe();
+  surf = await surfaceProbe();
   console.log('[SMOKE] yüzeylerin bağlam kaybı: ' + JSON.stringify(surf));
   if (surf.hata) {
     errors.push('context loss (surfaces): ' + surf.hata);
@@ -9906,9 +9929,8 @@ async function runSmoke() {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* geçici */ }
     return { launched, killed, before, on, off };
   };
-  smokeHoldStart();
-  let spr;
-  try { spr = await spriteProbe(); } finally { smokeHoldEnd(); }
+  spr = await spriteProbe();
+  } finally { smokeHoldEnd(); }
   console.log('[SMOKE] sprite: ' + JSON.stringify(spr));
   {
     const red = (p) => p && p.rgb && p.rgb[0] >= 200 && p.rgb[1] <= 60 && p.rgb[2] <= 60;
@@ -10629,6 +10651,9 @@ async function runSmoke() {
     // 2) Otomasyon çizim döngüsüne ULAŞIYOR mu?
     const setup = await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
+      /* Otomasyon elle sahnenin üstüne yazılır. Timeline kullan açıksa
+         görselleştirici bileşim dalındadır ve bu sayacı artırmaz. */
+      c.timeline.useTimeline = false;
       c.timeline.enabled = true;
       c.timeline.tempo = [{ t: 0, bpm: 120, beatsPerBar: 4 }];
       c.timeline.tracks = [{
@@ -10638,6 +10663,10 @@ async function runSmoke() {
       }];
       window.SVPanel.apply();
       window.SVTimelinePanel.seek(4);
+      /* İlk taşıma kurulumu, Timeline kullan kapalıyken enabled'ı kapatır.
+         Otomasyonun çalışması için ölçüm bayrağı kapalı, taşıma açık kalır. */
+      if (c.timeline.useTimeline !== true) c.timeline.enabled = true;
+      window.SVPanel.apply();
       window.SVTimelinePanel.play();
       return "hazır";
     })()`);
@@ -10749,6 +10778,21 @@ async function runSmoke() {
     if (!cr.button) errors.push('timeline: no way to add a clip to an empty track - the timeline is unusable');
     if (cr.clips < 1) errors.push('timeline: the add-clip button did not create a clip (got ' + cr.clips + ')');
 
+    /* Klip parçası eklemek Timeline kullan'ı açar. Deste ve Otomatik VJ
+       elle sahneye yazar; bayrak açıkken bu yazı klibin kopyasına gider
+       ve ölçülen geçiş ile katman türleri hemen geri alınır. */
+    const tlBack = await awc5.executeJavaScript(`(function(){
+      if (window.SVTimelinePanel && window.SVTimelinePanel.useTimeline) window.SVTimelinePanel.useTimeline(false);
+      else {
+        var c = window.SVPanel.cfg();
+        if (c.timeline) c.timeline.useTimeline = false;
+        window.SVPanel.apply();
+      }
+      return window.SVPanel.cfg().timeline.useTimeline === true;
+    })()`);
+    console.log('[SMOKE] timeline kullan ölçümden önce: ' + (tlBack ? 'açık kaldı' : 'kapalı'));
+    if (tlBack) errors.push('timeline: Use Timeline stayed on after the hand-scene probes');
+
     /* 2c) Kaynak seçici var olan sahneleri listeliyor mu?
        Kullanıcının sahne kimliği ezberlemesi gerekmemeli. */
     const pickRes = await awc5.executeJavaScript(`(function(){
@@ -10811,20 +10855,36 @@ async function runSmoke() {
     if (fr.active < 1) errors.push('clipdeck: armed slot never fired');
 
     /* 4) Deste, kullanıcının geçiş ayarını KALICI olarak ezmiyor mu?
-       Bir "Kesme" yuvası ateşlemek transition.enabled değerini false yapıp
-       orada bıraksaydı kullanıcının sahne geçişleri bir daha çalışmazdı ve
-       sebebi hiçbir yerde görünmezdi. */
+       Kesme yalnız o gönderimde. applyScene gönderdikten hemen sonra
+       kullanıcının geçişini geri koyar; panelde kesme kalmaz. Sahne
+       verisinde geçiş yoksa varsayılan süre kullanıcınınkinin yerine
+       geçmemeli. */
     const transRes = await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
       c.transition.enabled = true;
       c.transition.duration = 1.75;
       var before = { enabled: c.transition.enabled, duration: c.transition.duration };
+      var sent = [];
+      var preview = window.SVPreview;
+      var origSet = preview && preview.setConfig;
+      if (origSet) {
+        preview.setConfig = function(next) {
+          var t = next && next.transition;
+          if (t) sent.push({ enabled: t.enabled === true, duration: t.duration });
+          return origSet.apply(this, arguments);
+        };
+      }
       var dp = window.SVClipDeckPanel;
-      dp.engine().emit("fire", { deckId: "deck", slot: { type: "scene", ref: "sc_test", row: 0, col: 0 }, fade: 0, transition: "cut", at: 0 });
-      var during = { enabled: c.transition.enabled };
-      return JSON.stringify({ before: before, during: during });
+      try {
+        dp.engine().emit("fire", { deckId: "deck", slot: { type: "scene", ref: "sc_test", row: 0, col: 0 }, fade: 0, transition: "cut", at: 0 });
+      } finally {
+        if (origSet) preview.setConfig = origSet;
+      }
+      var after = { enabled: c.transition.enabled, duration: c.transition.duration };
+      return JSON.stringify({ before: before, sent: sent, after: after });
     })()`);
-    /* Geri verme geçiş tamamlandıktan sonra zamanlayıcıyla oluyor; bekle. */
+    /* Eski yol geri vermeyi zamanlayıcıya bırakıyordu. Hâlâ sonradan
+       ezilmediğini görmek için kısa beklenir. */
     await wait(700);
     const afterRes = await awc5.executeJavaScript(
       'JSON.stringify({ enabled: window.SVPanel.cfg().transition.enabled, duration: window.SVPanel.cfg().transition.duration })'
@@ -10832,7 +10892,8 @@ async function runSmoke() {
     console.log('[SMOKE] geçiş ayarı koruması: ' + transRes + ' -> ' + afterRes);
     const tx = JSON.parse(transRes);
     const ax = JSON.parse(afterRes);
-    if (tx.during.enabled !== false) errors.push('clipdeck: a cut slot did not take over the transition');
+    if (!tx.sent || !tx.sent.some(function (s) { return s.enabled === false; })) errors.push('clipdeck: a cut slot did not take over the transition');
+    if (tx.after.enabled !== true || Math.abs(tx.after.duration - 1.75) > 1e-6) errors.push('clipdeck: the user transition was not restored after the cut (got ' + tx.after.duration + ')');
     if (ax.enabled !== true) errors.push('clipdeck: the user transition setting was NOT restored after the fade');
     if (Math.abs(ax.duration - 1.75) > 1e-6) errors.push('clipdeck: the user transition duration was not restored (got ' + ax.duration + ')');
 
