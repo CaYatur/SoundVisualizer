@@ -36,26 +36,43 @@ async function shot(a, name, clip) {
     await a.call('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
     await q("localStorage.setItem('sv-locale','en'); window.SVPanel.setCategory('time'); 1");
     await sleep(1000);
-    // 1) Timeline context menu
+    // 1) Timeline context menu (EN labels)
     await q(`(() => {
-      const cv = document.querySelector('canvas.tl-canvas, .tl-wrap canvas, #tlCanvas, canvas');
-      if (!cv) throw new Error('timeline canvas yok');
-      const r = cv.getBoundingClientRect();
-      const x = r.left + r.width * 0.35, y = r.top + r.height * 0.45;
-      cv.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y, button: 2 }));
+      const cfg = window.SVPanel.cfg();
+      cfg.timeline.enabled = true;
+      if (!cfg.timeline.tracks || !cfg.timeline.tracks.length) {
+        cfg.timeline.tracks = [{ id: 'tr1', kind: 'clip', name: 'Track 1', clips: [
+          { id: 'c1', type: 'palette', ref: 'Orman', name: '', start: 0, dur: 4 },
+        ] }];
+      }
+      window.SVPanel.apply();
+      if (window.SVPanel.rerender) window.SVPanel.rerender();
       return 1;
     })()`);
-    await sleep(400);
+    await sleep(900);
+    await q(`(() => {
+      const TP = window.SVTimelinePanel;
+      const cv = document.querySelector('.tl-editor canvas, .tl-wrap canvas, canvas');
+      if (!cv) throw new Error('timeline canvas yok');
+      const r = cv.getBoundingClientRect();
+      const x = r.left + Math.min(120, r.width * 0.3);
+      const y = r.top + 50;
+      if (TP && TP._menu) TP._menu(x, y);
+      else cv.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y, button: 2 }));
+      return 1;
+    })()`);
+    await sleep(500);
     const menu = JSON.parse(await q(`JSON.stringify((() => {
-      const m = document.querySelector('.tl-ctx, .sv-menu.tl-ctx, .sv-menu');
-      if (!m) return null;
+      const m = document.querySelector('.sv-menu.tl-ctx, .tl-ctx, .sv-menu');
+      if (!m) return { missing: true };
       const r = m.getBoundingClientRect();
-      const labels = [...m.querySelectorAll('[role=menuitem], button')].map((b) => (b.textContent||'').replace(/\\s+/g,' ').trim());
-      return { x: r.x, y: r.y, w: r.width, h: r.height, labels };
+      const labels = [...m.querySelectorAll('[role=menuitem], button')].map((b) => (b.textContent||'').replace(/\s+/g,' ').trim());
+      const tr = /[çğıöşüÇĞİÖŞÜ]/;
+      return { x: r.x, y: r.y, w: r.width, h: r.height, labels, trLeft: labels.filter((t) => tr.test(t)) };
     })())`));
-    if (menu) {
+    fs.writeFileSync(path.join(out, '01-timeline-context-menu.json'), JSON.stringify(menu, null, 2));
+    if (!menu.missing && menu.w) {
       files.push(await shot(a, '01-timeline-context-menu', { x: Math.max(0, menu.x - 8), y: Math.max(0, menu.y - 8), width: Math.min(480, menu.w + 16), height: Math.min(520, menu.h + 16) }));
-      fs.writeFileSync(path.join(out, '01-timeline-context-menu.json'), JSON.stringify(menu, null, 2));
     }
     await q("document.querySelectorAll('.sv-menu').forEach((m) => m.remove()); 1");
 

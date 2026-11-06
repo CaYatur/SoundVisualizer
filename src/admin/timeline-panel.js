@@ -89,6 +89,9 @@
   /* Zaman çizelgesi klipleri sahne uygular; aynı klibi her karede yeniden
      uygulamak paneli kilitlerdi. Sütun başına en son uygulanan klip tutulur. */
   let lastAppliedClip = new Map();
+  /* Küresel palet kazananının son ateşlenen klibi; set değişince yalnız
+     kazanan yeniden yazılır (eylem/medya kenarı bozulmasın). */
+  let lastPaletteApplied = null;
 
   function tlCfg() {
     return P().cfg().timeline;
@@ -247,6 +250,7 @@
     liveHoldHead = null;
     lastSceneSig = '';
     lastAppliedClip = new Map();
+    lastPaletteApplied = null;
     applyClipsAt(tr.time);
   }
 
@@ -259,31 +263,31 @@
     const jumped = lastClipT == null || t < lastClipT - 1e-3 || t - lastClipT > 0.25;
     lastClipT = t;
     /* Medya / palet / eylem.
-       lastAppliedClip eskiden yalnız YENİ giren klibi ateşliyordu; bir alt
-       parçadaki palet bitince üstteki hâlâ etkin Orman yeniden uygulanmıyor,
-       Gece rengi kafanın gerisinde kalıyordu (#t746u). Set (giriş+çıkış)
-       değişince etkin olanların hepsi yeniden yazılır. Palet küresel
-       gradyanı ezer: aynı anda birden fazlaysa parça sırasındaki SON
-       (alttaki) kazanır — önceki ateşleme sırasıyla aynı. Seçim burada
-       yok: yalnız t anında etkin klipler. */
+       Palet küresel ve bildirimsel: kazanan (parça sırasında son) değişince
+       yeniden yazılır — alt parçadaki Gece bitince üstteki Orman geri gelir.
+       Eylem / medya / görselleştirici KENAR tetiklemeli: yalnız KENDİ
+       parçasındaki klip kimliği değişince (giriş veya klip değişimi) ateşlenir.
+       Başka parçadaki palet giriş-çıkışı uzun bir eylemi yeniden çalıştırmaz
+       ve medyayı başa sarmaz. Seçim yok: yalnız t anında etkin klipler. */
     const nonScenes = active.filter((e) => !isScene(e.clip));
     const desired = new Map();
-    for (const entry of nonScenes) desired.set(entry.track.id, entry.clip.id);
-    let setChanged = lastAppliedClip.size !== desired.size;
-    if (!setChanged) {
-      for (const [k, id] of desired) {
-        if (lastAppliedClip.get(k) !== id) { setChanged = true; break; }
-      }
+    let palWinner = null;
+    for (const entry of nonScenes) {
+      desired.set(entry.track.id, entry.clip.id);
+      if (entry.clip.type === 'palette') palWinner = entry;
     }
-    if (setChanged) {
-      lastAppliedClip = new Map(desired);
-      let palWinner = null;
-      for (const entry of nonScenes) {
-        if (entry.clip.type === 'palette') palWinner = entry;
-        else fireClip(entry.clip);
-      }
+    const prev = lastAppliedClip;
+    for (const entry of nonScenes) {
+      if (entry.clip.type === 'palette') continue;
+      if (prev.get(entry.track.id) === entry.clip.id) continue;
+      fireClip(entry.clip);
+    }
+    const palId = palWinner && palWinner.clip ? palWinner.clip.id : null;
+    if (palId !== lastPaletteApplied) {
       if (palWinner) fireClip(palWinner.clip);
+      lastPaletteApplied = palId;
     }
+    lastAppliedClip = desired;
     if (!scenes.length) { lastSceneSig = ''; liveHoldHead = null; inWinBefore.clear(); return; }
     const top = scenes[0];
     const under = underOf(scenes);
@@ -1011,8 +1015,10 @@
 
   /* Klibin tuvaldeki etiketi: klibin kendi adı, yoksa kaynağın okunur adı.
      Raf ile AYNI çözümleyici: kalıcı "Sahne 1" / "Orman" sözlükten Scene 1 /
-     Forest olur; kullanıcının yazdığı klip adı (c.name) ve sözlükte olmayan
-     sahne/dosya adları olduğu gibi kalır. Kaynak kimliği (ref) değişmez. */
+     Forest olur. c.name DOLUysa asla çevrilmez — kullanıcı "Orman" yazdıysa
+     bilerek o metin kalır (sözlük çakışması bilinçli istisna; raf da boş
+     adlarda tt kullanır). Dosya yolları / özel sahne adları sözlükte yoksa
+     olduğu gibi. Kaynak kimliği (ref) değişmez. */
   function clipLabel(c) {
     if (c.name) return c.name;
     if (c.ref) {
@@ -2344,6 +2350,7 @@
   function stop() {
     ensureTransport().stop();
     lastAppliedClip.clear();
+    lastPaletteApplied = null;
     reanchor();
   }
   function seek(t) {
@@ -2552,6 +2559,7 @@
     // Test: sahne bileşimini t anında uygula (#957 opaklık piksel denemesi)
     _applyAt: (t) => applyClipsAt(t),
     noteLiveEdit,
+    _maybeApplyEditsNow: maybeApplyEditsNow,
     _liveHoldHead: () => liveHoldHead,
     // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
     _perf: () => ({ draws: perf.draws, heads: perf.heads }),
@@ -2854,6 +2862,7 @@
         TL().switchTimeline(cfg, it.id);
         transport = null;
         lastAppliedClip = new Map();
+        lastPaletteApplied = null;
         lastSceneSig = '';
         liveHoldHead = null;
         selection = null;
@@ -2887,6 +2896,7 @@
             TL().removeTimeline(cfg, it.id);
             transport = null;
             lastAppliedClip = new Map();
+            lastPaletteApplied = null;
             selection = null;
             multi = [];
             invalidateModel();
@@ -2932,6 +2942,7 @@
       TL().addTimeline(cfg);
       transport = null;
       lastAppliedClip = new Map();
+      lastPaletteApplied = null;
       lastSceneSig = '';
       liveHoldHead = null;
       selection = null;

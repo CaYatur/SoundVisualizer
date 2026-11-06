@@ -151,12 +151,25 @@
       return true;
     }
     if (type === 'visualizer') {
-      /* Otomatik VJ ile aynı yol: yığında görselleştirici katmanı varsa
-         ilkinin türünü yaz; yoksa klasik cfg.visualizer.type. */
+      /* Katalog kimliği (bars, milkdrop, …); kind değil. Önce etkin, kilitli
+         olmayan, metin/nowplaying olmayan görselleştirici katmanı; yoksa
+         klasik cfg.visualizer. Tip değişince katman ayar iskeleti korunur
+         (normalize); kilitli/gizli katmanlara dokunulmaz. */
+      const MC = window.SVModeCatalog;
+      const known = MC && MC.VISUALIZERS && MC.VISUALIZERS.some((m) => m && m.id === ref);
+      if (!known && ref) return false;
       const cur = P().cfg();
-      const layers = Array.isArray(cur.layers) ? cur.layers.filter((l) => l && l.kind === 'visualizer' && !l.locked) : [];
-      if (layers.length) layers[0].type = ref;
-      else if (cur.visualizer) cur.visualizer.type = ref;
+      const skip = (l) => !l || l.kind !== 'visualizer' || l.locked || l.enabled === false
+        || l.type === 'text' || l.type === 'nowplaying';
+      const layers = Array.isArray(cur.layers) ? cur.layers.filter((l) => !skip(l)) : [];
+      if (layers.length) {
+        const l = layers[0];
+        l.type = ref;
+        if (window.SVLayers && window.SVLayers.normalizeLayer) {
+          const n = window.SVLayers.normalizeLayer(l);
+          for (const k of Object.keys(n)) l[k] = n[k];
+        }
+      } else if (cur.visualizer) cur.visualizer.type = ref;
       else return false;
       P().apply();
       return true;

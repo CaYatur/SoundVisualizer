@@ -136,6 +136,8 @@ test('clipLabel: raf Scene 1 ile aynı — Sahne 1 → Scene 1; özel ad korunur
   assert.strictEqual(TP._clipLabel({ type: 'scene', ref: 'sc1', name: 'Cue A' }), 'Cue A');
   assert.strictEqual(TP._clipLabel({ type: 'palette', ref: 'Orman', name: '' }), 'Forest');
   assert.strictEqual(TP._clipLabel({ type: 'visualizer', ref: 'bars', name: '' }), 'Bars');
+  // Kullanıcı klibe sözlükteki bir kelimeyi ad yazdıysa çevirme
+  assert.strictEqual(TP._clipLabel({ type: 'palette', ref: 'Gece', name: 'Orman' }), 'Orman');
 });
 
 test('boş klipten sahne kaynağı: addClipAt + ref, addSceneAtHead ile aynı etiket', async () => {
