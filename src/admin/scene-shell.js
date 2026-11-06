@@ -133,7 +133,17 @@
 
   /* `quiet`: seçim yazılır, çizimi çağıran yapar (yeni katman eklenince hemen ardından apply var). */
   function select(id, quiet) {
-    sel = id || '';
+    const next = id || '';
+    /* Farklı katman/sahne seçilince denetçi kaydırması eski içeriğe ait kalmasın.
+       Canlı kutuyu da sıfırla: paintInspector yeniden çizmeden önce scrollTop
+       okuyor; yalnız scrollOf yazmak eski değere geri basardı. */
+    if (next !== sel) {
+      scrollOf.inspector = 0;
+      const q = typeof document !== 'undefined' && document && typeof document.querySelector === 'function'
+        ? document.querySelector('#svInspector .sv-insp') : null;
+      if (q) q.scrollTop = 0;
+    }
+    sel = next;
     write(STORE.sel, sel);
     aimPicker();
     if (!quiet) paint();
@@ -668,8 +678,29 @@
       }
     }
     nodes.push(body);
+    /* Yeniden çizimde odak kaybı kaydırmayı başa çekmesin (#sections ile aynı fikir).
+       MilkDrop Rastgele/Kilitle gibi yerinde güncellemeler P().apply → paintInspector
+       yolundan geçiyor; absolute scrollTop + çift rAF ile korunuyor. */
+    const prevBody = host.querySelector('.sv-insp');
+    if (prevBody) scrollOf.inspector = prevBody.scrollTop;
+    const ae = document.activeElement;
+    if (ae && prevBody && prevBody.contains(ae)) {
+      try {
+      if (host.tabIndex < 0) host.tabIndex = -1;
+      host.focus({ preventScroll: true });
+    } catch (e) { /* odak verilemez */ }
+    }
+    const want = scrollOf.inspector;
     host.replaceChildren(...nodes);
-    body.scrollTop = scrollOf.inspector;
+    const applyInspScroll = () => {
+      if (!body.isConnected) return;
+      const max = Math.max(0, body.scrollHeight - body.clientHeight);
+      const next = Math.min(want, max);
+      if (body.scrollTop !== next) body.scrollTop = next;
+      scrollOf.inspector = body.scrollTop;
+    };
+    applyInspScroll();
+    requestAnimationFrame(() => requestAnimationFrame(applyInspScroll));
     body.addEventListener('scroll', () => { scrollOf.inspector = body.scrollTop; });
   }
 

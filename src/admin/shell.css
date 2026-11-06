@@ -558,3 +558,4 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 #svShelf .md-library > .md-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); align-content: start; }
 #svShelf #dockScenes .scene-list.is-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--sv-card, 146px) * 1.9)), 1fr)); }
 #svShelf .md-grid .md-thumb-box, #svShelf .sv-gi .sv-th { aspect-ratio: 16 / 9; }
+#svShelf .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); }

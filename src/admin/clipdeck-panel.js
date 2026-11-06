@@ -150,6 +150,30 @@
       P().apply();
       return true;
     }
+    if (type === 'visualizer') {
+      /* Katalog kimliği (bars, milkdrop, …); kind değil. Önce etkin, kilitli
+         olmayan, metin/nowplaying olmayan görselleştirici katmanı; yoksa
+         klasik cfg.visualizer. Tip değişince katman ayar iskeleti korunur
+         (normalize); kilitli/gizli katmanlara dokunulmaz. */
+      const MC = window.SVModeCatalog;
+      const known = MC && MC.VISUALIZERS && MC.VISUALIZERS.some((m) => m && m.id === ref);
+      if (!known && ref) return false;
+      const cur = P().cfg();
+      const skip = (l) => !l || l.kind !== 'visualizer' || l.locked || l.enabled === false
+        || l.type === 'text' || l.type === 'nowplaying';
+      const layers = Array.isArray(cur.layers) ? cur.layers.filter((l) => !skip(l)) : [];
+      if (layers.length) {
+        const l = layers[0];
+        l.type = ref;
+        if (window.SVLayers && window.SVLayers.normalizeLayer) {
+          const n = window.SVLayers.normalizeLayer(l);
+          for (const k of Object.keys(n)) l[k] = n[k];
+        }
+      } else if (cur.visualizer) cur.visualizer.type = ref;
+      else return false;
+      P().apply();
+      return true;
+    }
     return false;
   }
 
@@ -426,11 +450,17 @@
     if (slot.ref) {
       if (slot.type === 'scene') {
         const sc = (P().cfg().scenes || []).find((x) => x && x.id === slot.ref);
-        if (sc) return sc.name || sc.id;
+        if (sc) return tt(sc.name || sc.id);
       }
       if (slot.type === 'preset' && window.SVTemplates) {
         const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === slot.ref);
         if (tp) return tt(tp.name);
+      }
+      if (slot.type === 'palette') return tt(slot.ref);
+      if (slot.type === 'visualizer') {
+        const MC = window.SVModeCatalog;
+        const hit = MC && MC.VISUALIZERS && MC.VISUALIZERS.find((m) => m.id === slot.ref);
+        return hit ? tt(hit.label || hit.id) : slot.ref;
       }
       if (slot.type === 'shader' && window.SVPresets) {
         const sp = window.SVPresets.get(slot.ref);

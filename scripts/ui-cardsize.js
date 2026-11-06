@@ -10,12 +10,12 @@
 const { sleep, startPanel } = require('./ui-lib');
 
 const PROBE = `JSON.stringify((() => {
-  const g = document.querySelector('#svShelf .sv-gal, #svShelf .md-grid');
+  const g = document.querySelector('#svShelf .sv-gal, #svShelf .md-grid, #svShelf .tpl-grid');
   if (!g) return null;
   const cs = getComputedStyle(g);
   const inner = g.getBoundingClientRect().left + parseFloat(cs.paddingLeft) + g.clientLeft;
   const right = g.getBoundingClientRect().left + g.clientLeft + g.clientWidth - parseFloat(cs.paddingRight);
-  const cards = [...g.children].filter((c) => c.matches('.sv-gi, .md-cell'));
+  const cards = [...g.children].filter((c) => c.matches('.sv-gi, .md-cell, .tpl-card'));
   if (!cards.length) return { cls: g.className, n: 0 };
   const y0 = cards[0].getBoundingClientRect().top;
   const row = cards.filter((c) => Math.abs(c.getBoundingClientRect().top - y0) < 2);
@@ -38,7 +38,7 @@ const PROBE = `JSON.stringify((() => {
     await sleep(800);
     for (const W of [1024, 1600, 1920]) {
       await a.call('Emulation.setDeviceMetricsOverride', { width: W, height: 900, deviceScaleFactor: 1, mobile: false });
-      for (const tab of ['vis', 'bg', 'milkdrop']) {
+      for (const tab of ['vis', 'bg', 'milkdrop', 'templates']) {
         await q(`window.SVSceneShell.setShelf('${tab}'); 1`);
         await sleep(700);
         const ctl = await q("!!document.querySelector('#svShelf .sv-chead .sv-card-size input[type=range]')");
@@ -53,7 +53,7 @@ const PROBE = `JSON.stringify((() => {
           if (r.wmin < v - 1 && r.cols > 1) fails.push(`${W}/${tab}/${v}: kart ${r.wmin.toFixed(0)}px < ${v}`);
           if (r.wmax - r.wmin > 1) fails.push(`${W}/${tab}/${v}: eşit olmayan kart genişliği`);
           if (r.cols > 1 && r.cols === r.tracks && Math.abs(r.rightGap - r.leftGap) > 3) fails.push(`${W}/${tab}/${v}: kenar hizası sol ${r.leftGap.toFixed(1)} sağ ${r.rightGap.toFixed(1)}`);
-          if (r.ratio && Math.abs(r.ratio - 16 / 9) > 0.05) fails.push(`${W}/${tab}/${v}: küçük resim oranı ${r.ratio.toFixed(2)}`);
+          if (tab !== 'templates' && r.ratio && Math.abs(r.ratio - 16 / 9) > 0.05) fails.push(`${W}/${tab}/${v}: küçük resim oranı ${r.ratio.toFixed(2)}`);
         }
         if (sizes[110] && sizes[220] && !(sizes[110] > sizes[220])) fails.push(`${W}/${tab}: boy büyüyünce sütun azalmadı (${sizes[110]} / ${sizes[220]})`);
       }

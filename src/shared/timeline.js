@@ -163,13 +163,17 @@
   // ==========================================================================
   // Yakalama (snap)
   // ==========================================================================
-  const SNAP_MODES = ['off', 'bar', 'beat', 'half', 'quarter', 'frame'];
+  const SNAP_MODES = ['off', 'bar', 'beat', 'half', 'quarter', '1s', '0.5s', 'frame'];
 
   /* Bir saniye değerini en yakın ızgara çizgisine oturt. `frame` kipi kare
      süresine yuvarlar; diğerleri tempo haritasını kullanır. */
   function snapSeconds(map, sec, mode, fps) {
     sec = num(sec, 0);
     if (!mode || mode === 'off') return sec;
+    /* Sabit saniye adımları tempodan bağımsız: ölçü varsayılanı 2 sn
+       (120 BPM 4/4) olduğu için 1 sn / 0,5 sn burada ayrıca sunulur. */
+    if (mode === '1s') return Math.max(0, Math.round(sec));
+    if (mode === '0.5s') return Math.max(0, Math.round(sec * 2) / 2);
     if (mode === 'frame') {
       const f = Math.max(1, num(fps, 60));
       return Math.round(sec * f) / f;
@@ -256,7 +260,7 @@
   // ==========================================================================
   // Klip ve parça
   // ==========================================================================
-  const CLIP_TYPES = ['scene', 'preset', 'palette', 'video', 'image', 'shader', 'action'];
+  const CLIP_TYPES = ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'];
 
   function makeClip(spec) {
     const s = spec || {};
@@ -784,6 +788,44 @@
      Canlı panel applyClipsAt / applyScene ile aynı bileşim (#957).
      Dışa aktarım kare kare bunu çağırır; gösteri saati kullanılmaz.
      Döngü kapalıyken t içerik sonunu aşarsa son durumda kalır. */
+  /* Dışa aktarım / çevrimdışı: t anındaki palet ve görselleştirici klipleri.
+     Canlı applyClipsAt ile aynı kazanan kuralları (palet: son parça;
+     görselleştirici: son uygun). Eylem ve medya burada YOK — yan etki / dosya. */
+  function applyDeclarativeClips(cfg, tl, t) {
+    if (!cfg || !tl) return { cfg: cfg, applied: false };
+    const active = activeClipsAt(tl, t);
+    let pal = null;
+    let vis = null;
+    for (const e of active) {
+      if (!e || !e.clip || isSceneClip(e.clip)) continue;
+      if (e.clip.type === 'palette' && e.clip.ref) pal = e.clip;
+      else if (e.clip.type === 'visualizer' && e.clip.ref) vis = e.clip;
+    }
+    if (!pal && !vis) return { cfg: cfg, applied: false };
+    let next = svClone(cfg);
+    let applied = false;
+    if (pal) {
+      const SV = (typeof window !== 'undefined' && window.SV) || tryRequireDefaults();
+      const built = (SV && SV.GRADIENT_PRESETS) || [];
+      const user = (cfg.userPresets || []);
+      const hit = built.concat(user).find((g) => g && g.name === pal.ref);
+      if (hit && Array.isArray(hit.colors)) {
+        next.background = next.background || {};
+        next.background.gradient = Object.assign({}, next.background.gradient || {}, { colors: hit.colors.slice() });
+        applied = true;
+      }
+    }
+    if (vis) {
+      const skip = (l) => !l || l.kind !== 'visualizer' || l.locked || l.enabled === false
+        || l.type === 'text' || l.type === 'nowplaying';
+      const layers = Array.isArray(next.layers) ? next.layers : null;
+      const target = layers && layers.find((l) => !skip(l));
+      if (target) { target.type = vis.ref; applied = true; }
+      else if (next.visualizer) { next.visualizer.type = vis.ref; applied = true; }
+    }
+    return { cfg: next, applied: applied };
+  }
+
   function applyTimelineAt(cfg, tl, t) {
     const out = { cfg: cfg, t: Math.max(0, Number(t) || 0), applied: false };
     if (!cfg || !tl) return out;
@@ -824,6 +866,9 @@
         out.applied = true;
       }
     }
+    const decl = applyDeclarativeClips(next, tl, wt);
+    next = decl.cfg;
+    if (decl.applied) out.applied = true;
     const auto = applyAutomation(next, tl, wt);
     out.cfg = auto.cfg;
     return out;
@@ -1117,6 +1162,7 @@
     lastContentEnd,
     materializeScene,
     applyTimelineAt,
+    applyDeclarativeClips,
     timelineContentKeys,
     snapshotTimeline,
     applyTimelineSnapshot,
