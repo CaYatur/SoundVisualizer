@@ -57,15 +57,17 @@
          geri al yığını var. Hedef değişince bekleyen adım eski kapsama
          yazılır; yeni kapsam kendi yığınıyla (yoksa boş) devam eder. Böylece
          bir klipte geri almak elle ayara ya da başka klibe sızmaz. */
-      scope(key) {
+      scope(key, load) {
         const k = String(key || '');
-        if (k === scopeKey) return;
-        if (timer) { clearTimeout(timer); timer = 0; settle(); }
+        if (k === scopeKey) { if (load) load(); return; }
+        if (timer) { clearTimeout(timer); timer = 0; }
+        settle();
         scopes.set(scopeKey, { past: past.splice(0), next: next.splice(0), now });
         scopeKey = k;
         const got = scopes.get(k);
         scopes.delete(k);
         if (got) { past.push(...got.past); next.push(...got.next); }
+        if (load) load();
         now = snap();
         env.changed();
       },

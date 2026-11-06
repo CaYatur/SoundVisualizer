@@ -126,6 +126,10 @@
   // Eşlemenin uygulanması
   // --------------------------------------------------------------------------
   function applyMapping(map, value01) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applyMappingManual(map, value01)) : applyMappingManual(map, value01);
+  }
+  function applyMappingManual(map, value01) {
     const cfg = P().cfg();
     const t = targetFor(map.target);
     if (!t) return;
@@ -183,6 +187,10 @@
   /* Dönüş true: eylem sahneyi kendisi uyguladı ve gönderdi; çağıran yeniden
      göndermez (göndermek etkin sahne işaretini silerdi). */
   function runAction(action, cfg) {
+    const editor = window.SVTimelineTarget;
+    return editor && P() && P().cfg() === cfg ? editor.withManual(() => runActionManual(action, P().cfg())) : runActionManual(action, cfg);
+  }
+  function runActionManual(action, cfg) {
     if (action === 'nextVisualizer' || action === 'prevVisualizer') {
       const stack = stackLive(cfg);
       const cur = stack ? window.SVLayers.currentType(cfg, 'visualizer') : cfg.visualizer.type;
@@ -670,6 +678,10 @@
   }
 
   function onOsc(msg) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => onOscManual(msg)) : onOscManual(msg);
+  }
+  function onOscManual(msg) {
     const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
     const last = messages[messages.length - 1] || {};
     const args = Array.isArray(last.args) ? last.args : [];

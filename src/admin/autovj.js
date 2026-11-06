@@ -200,6 +200,10 @@
   /* Bir değişim uygula.
      Dönüş: { ok, kind, pushed } ya da { ok:false, code, kind } */
   function applySwitch() {
+    const target = window.SVTimelineTarget;
+    return target ? target.withManual(applySwitchManual) : applySwitchManual();
+  }
+  function applySwitchManual() {
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const ctx = ctxOf(cfg);

@@ -304,3 +304,100 @@ test('deleted edited clip and missing source: target closes, manual back, nothin
   assert.strictEqual(manualOf(cfg), manual);
   TP.useTimeline(false);
 });
+
+test('canonical persistence never contains editor roots or session fields, even during edit', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true);
+  const manual = manualOf(cfg);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  cfg.layers.push({ id: 'clipChild', kind: 'visualizer', type: 'wave' }); window.SVPanel.push(true);
+  const canonical = window.SVTimelineTarget.persistent(cfg);
+  assert.strictEqual(manualOf(canonical), manual);
+  assert.ok(!canonical.timeline.editTarget && !canonical.timeline.manualBaseline);
+  assert.strictEqual(canonical.timeline.tracks[1].clips[0].local.data.layers.length, 2);
+  const reopened = JSON.parse(JSON.stringify(canonical)); window.SVTimelineTarget.recover(reopened);
+  assert.strictEqual(manualOf(reopened), manual); TP.useTimeline(false);
+});
+
+test('AutoVJ/actions explicitly target manual model, not selected clip; OFF reveals deliberate changes', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true);
+  const source = JSON.stringify(cfg.scenes);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  const clipBefore = JSON.stringify(cfg.timeline.tracks[1].clips[0].local);
+  window.SVTimelineTarget.withManual(() => {
+    assert.strictEqual(cfg.layers[0].id, 'man_vis');
+    cfg.layers[0].type = 'radialWave'; window.SVPanel.push(true);
+  });
+  assert.strictEqual(cfg.layers[0].id, 's_bg', 'editor target restored');
+  assert.strictEqual(JSON.stringify(cfg.timeline.tracks[1].clips[0].local), clipBefore);
+  assert.strictEqual(window.SVTimelineTarget.persistent(cfg).layers[0].type, 'radialWave');
+  assert.strictEqual(JSON.stringify(cfg.scenes), source);
+  TP.useTimeline(false); assert.strictEqual(cfg.layers[0].type, 'radialWave', 'explicit remote intent retained');
+});
+
+test('MCP/remote model adoption preserves editor target and clip, while retaining incoming manual settings', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  const incoming = JSON.parse(JSON.stringify(window.SVTimelineTarget.persistent(cfg)));
+  incoming.layers[0].type = 'tunnel'; incoming.postfx = [{ id: 'remote_fx', type: 'blur' }];
+  const clipBefore = JSON.stringify(incoming.timeline.tracks[1].clips[0].local);
+  window.SVTimelineTarget.adoptIncoming(incoming, cfg);
+  setup(incoming); window.SVTimelineTarget.sync(incoming);
+  assert.strictEqual(incoming.layers[0].id, 's_bg', 'editor still displays clip');
+  assert.strictEqual(JSON.stringify(incoming.timeline.tracks[1].clips[0].local), clipBefore);
+  const persisted = window.SVTimelineTarget.persistent(incoming);
+  assert.strictEqual(persisted.layers[0].type, 'tunnel'); assert.strictEqual(persisted.postfx[0].id, 'remote_fx');
+  window.SVTimelineTarget.clear();
+  assert.strictEqual(incoming.layers[0].type, 'tunnel'); TP.useTimeline(false);
+});
+
+test('mode ON no selection cannot write protected manual model; palette edits are local; action is not visual target', async () => {
+  const cfg = manualCfg();
+  cfg.timeline.tracks.push({ id: 'p', clips: [{ id: 'p1', type: 'palette', ref: SV.GRADIENT_PRESETS[0].name, start: 1, dur: 2 }] });
+  const TP = await mount(cfg); TP.useTimeline(true); const before = manualOf(cfg);
+  cfg.layers[0].type = 'accidental'; window.SVPanel.push(true);
+  assert.strictEqual(manualOf(cfg), before, 'no selection edit rejected');
+  TP._select({ kind: 'clip', trackId: 'p', clipId: 'p1' }); TP._followTarget();
+  assert.strictEqual(cfg.timeline.editTarget.clipId, 'p1');
+  cfg.background.gradient.colors[0] = '#123456'; window.SVPanel.push(true);
+  assert.strictEqual(cfg.timeline.tracks[3].clips[0].local.data.background.gradient.colors[0], '#123456');
+  TP._select({ kind: 'clip', trackId: 'trA', clipId: 'cAct' }); TP._followTarget();
+  assert.ok(!cfg.timeline.editTarget, 'action has no pretend visual target');
+  assert.strictEqual(manualOf(cfg), before); TP.useTimeline(false);
+});
+
+test('switch target repeatedly: undo scopes retain only their own edits, no stale baseline snapshots', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true); const before = manualOf(cfg);
+  const pick = (id) => { TP._select({ kind: 'clip', trackId: 'trS', clipId: id }); TP._followTarget(); };
+  const U = window.SVUndoHistory;
+  pick('cS1'); cfg.layers[0].opacity = 0.3; U.settleNow(); window.SVPanel.push(true);
+  pick('cS2'); cfg.layers[0].opacity = 0.7; U.settleNow(); window.SVPanel.push(true);
+  pick('cS1'); U.undo(); window.SVPanel.push(true); assert.strictEqual(cfg.layers[0].opacity, 1);
+  assert.strictEqual(cfg.timeline.tracks[1].clips[1].local.data.layers[0].opacity, 0.7);
+  U.redo(); window.SVPanel.push(true); assert.strictEqual(cfg.layers[0].opacity, 0.3);
+  pick('cS2'); U.undo(); window.SVPanel.push(true); assert.strictEqual(cfg.layers[0].opacity, 1);
+  TP.useTimeline(false); assert.strictEqual(manualOf(cfg), before);
+});
+
+test('selected clip source/type change reloads target without writing the old source copy into new type', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true); const before = manualOf(cfg);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  const c = cfg.timeline.tracks[1].clips[0];
+  c.type = 'visualizer'; c.ref = 'bars';
+  window.SVTimelineTarget.reloadFromClip(false);
+  assert.strictEqual(cfg.layers[0].type, 'bars'); assert.strictEqual(cfg.layers[0].kind, 'visualizer');
+  c.type = 'action'; c.ref = 'nextScene';
+  window.SVTimelineTarget.reloadFromClip(false);
+  assert.ok(!cfg.timeline.editTarget); assert.strictEqual(manualOf(cfg), before);
+  TP.useTimeline(false);
+});
+
+test('async editor callbacks are invalidated on selection, source change, mode exit; locked tracks cannot become targets', async () => {
+  const cfg = manualCfg(); const TP = await mount(cfg); TP.useTimeline(true);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  const capture = window.SVTimelineTarget.capture(); assert.ok(capture());
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS2' }); TP._followTarget(); assert.ok(!capture());
+  const next = window.SVTimelineTarget.capture(); TP.useTimeline(false); assert.ok(!next());
+  cfg.timeline.tracks[1].locked = true; TP.useTimeline(true);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' }); TP._followTarget();
+  assert.ok(!cfg.timeline.editTarget, 'locked track read-only'); TP.useTimeline(false);
+});

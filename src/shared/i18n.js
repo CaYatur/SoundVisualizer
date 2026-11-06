@@ -516,6 +516,10 @@
     'Yarım Vuruş': 'Half Beat',
     '1 saniye': '1 second',
     '0,5 saniye': '0.5 seconds',
+    'Timeline açık: düzenlemek için tek bir görsel klip seçin. Elle ayarlar korunuyor.': 'Timeline is on: select one visual clip to edit. Manual settings are protected.',
+    'Harici değişiklik elle ayarlara uygulandı; Timeline klibi korunuyor.': 'External changes updated manual settings; the Timeline clip is protected.',
+    'Klip ayarları kaydedildi; asıl sahne değiştirilmedi.': 'Clip settings saved; the original scene was not changed.',
+    'Renkler yalnız bu klibin süresince uygulanır.': 'Colors apply only during this clip.',
     'Timeline kullan': 'Use Timeline',
     'Açık: çıkış oynatma kafasındaki çizelge bileşimini gösterir; düzenlemeler hemen yansır. Kapalı (varsayılan): çizelge çıkışa dokunmaz, elle ayarlarınız aynen geri gelir.':
       'On: the output shows the timeline composition at the playhead and edits apply immediately. Off (default): the timeline never touches the output and your manual settings come back exactly.',

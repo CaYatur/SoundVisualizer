@@ -107,7 +107,7 @@
     // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
-    if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
     // "Varsayılandan farklı" noktaları ve sayaçları anında güncelle
     // (kategori değiştirip dönmeyi beklemeden)
     if (!marksFresh) refreshModifiedMarks();
@@ -144,7 +144,9 @@
   let sentSig = null;
   let fullTimer = null;
 
+  function outputConfig() { return window.SVTimelineTarget ? window.SVTimelineTarget.persistent(cfg) : cfg; }
   function lightSig() {
+    const cfg = outputConfig();
     const m = new Map();
     for (const k of Object.keys(cfg)) {
       if (!HEAVY_KEYS[k]) m.set(k, JSON.stringify(cfg[k]));
@@ -156,6 +158,7 @@
      Metin karşılaştırması pahalı değil (~3 ms), kopyalama iki süreçte birden (~14 ms). */
   let heavySent = null;
   function fullPayload() {
+    const cfg = outputConfig();
     if (!window.api.patchConfig) return cfg;
     const now = {};
     for (const k of Object.keys(HEAVY_KEYS)) now[k] = JSON.stringify(cfg[k]);
@@ -169,7 +172,7 @@
   }
 
   function sendFullConfig() {
-    if (window.SVUndoHistory) window.SVUndoHistory.note();
+    if (window.SVUndoHistory && !(window.SVTimelineTarget && window.SVTimelineTarget.manualWriting())) window.SVUndoHistory.note();
     if (fullTimer) { clearTimeout(fullTimer); fullTimer = null; }
     window.api.updateConfig(fullPayload());
     sentSig = window.api.patchConfig ? lightSig() : null;
@@ -181,10 +184,11 @@
     for (const k of sentSig.keys()) {
       if (!sig.has(k)) { sendFullConfig(); return; }
     }
+    const persisted = outputConfig();
     const patch = {};
     let n = 0;
     for (const [k, v] of sig) {
-      if (sentSig.get(k) !== v) { patch[k] = cfg[k]; n++; }
+      if (sentSig.get(k) !== v) { patch[k] = persisted[k]; n++; }
     }
     sentSig = sig;
     if (n) window.api.patchConfig(patch);
@@ -4078,7 +4082,7 @@
       render();
       /* Paneller çizerken cfg'yi tamamlayabiliyor (katman listesi gibi);
          önizleme son hâli görsün. */
-      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
     });
   }
   function releasePointer() {
@@ -4125,6 +4129,7 @@
   function render() {
     renderWanted = false;
     syncUiTheme();
+    if (window.SVTimelineTarget) setTimeout(() => window.SVTimelineTarget.refresh(), 0);
     const page = pageOf(activeCategory);
     document.body.setAttribute('data-page', page);
     // Ayarlar sayfasında boş grup gizleme kapalı (kullanıcı isteği, #957): kendi başlıklarıyla kalır
@@ -4137,7 +4142,7 @@
     if (page !== 'scene') for (const id of ['svLayers', 'svInspector', 'svShelf']) { if ($(id)) $(id).replaceChildren(); }
     if ((page === 'scene' || page === 'live') && $('sections')) $('sections').replaceChildren();
     if ((page === 'scene' || page === 'live') && window.SVSceneShell) {
-      if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(outputConfig());
       renderNav();
       if (page === 'scene') window.SVSceneShell.paint();
       else if (window.SVLiveShell) window.SVLiveShell.paint();
@@ -4166,7 +4171,7 @@
     const themeFocus = aeTheme && aeTheme !== root && root.contains(aeTheme) && aeTheme.classList
       && aeTheme.classList.contains('ui-theme-opt') ? aeTheme.dataset.theme : null;
     holdSectionsFocus(root);
-    if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(cfg);
+    if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(outputConfig());
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -5823,7 +5828,7 @@
     if (!ok) return; // önizleme kurulamadı: kare de istemeyiz (bkz. syncPreviewSubscription)
     previewReady = true;
     setPill(false);
-    window.SVPreview.setConfig(cfg);
+    window.SVPreview.setConfig(outputConfig());
 
     if (window.api.onNativeAudio) window.api.onNativeAudio((f) => window.SVPreview.ingest(f));
 
@@ -6010,6 +6015,9 @@
   }
 
   actions.saveScene = () => {
+    if (window.SVTimelineTarget && window.SVTimelineTarget.active()) {
+      push(true); svToast(tr('Klip ayarları kaydedildi; asıl sahne değiştirilmedi.'), 'ok'); return;
+    }
     const arr = ensureScenes();
     // Electron window.prompt'u uygulamaz (çağrı sessizce undefined döner), bu
     // yüzden sahne varsayılan adla oluşturulur ve ad alanı düzenlemeye açılır.
@@ -6203,6 +6211,9 @@
   };
 
   actions.updateScene = (id) => {
+    if (window.SVTimelineTarget && window.SVTimelineTarget.active()) {
+      push(true); svToast(tr('Klip ayarları kaydedildi; asıl sahne değiştirilmedi.'), 'ok'); return;
+    }
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc) return;
     sc.data = snapshotScene();
@@ -6415,7 +6426,8 @@
     const preservedScenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
     const sanitized = cloneWithoutUserContent(incoming);
     window.SVMigrateV4.migrate(sanitized);
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
+    const imported = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
+    cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(imported, cfg) : imported;
     window.SVLayers.ensureStack(cfg);
     // Başka makineden gelen yedek bu makinede çalışmayan kaynak taşıyabilir
     platformAdjust(cfg);
@@ -6608,7 +6620,7 @@
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
     // Yarım kalmış Timeline klip düzenleme oturumu: elle ayarı geri koy
-    if (window.SVTimelineTarget) window.SVTimelineTarget.recover(cfg);
+    if (window.SVTimelineTarget) { window.SVTimelineTarget.recover(cfg); window.SVTimelineTarget.modeChanged(!!(cfg.timeline && cfg.timeline.useTimeline)); }
     window.SVLayers.ensureStack(cfg);
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
@@ -6702,7 +6714,7 @@
       if (S && S.applyDelta) S.applyDelta(d);
       scheduleRender(PRESET_CATS);
       if (studio && window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
     };
     async function catchPresets() {
       if (!window.api.presetsSince || presetCatchBusy) return;
@@ -6716,7 +6728,7 @@
           window.SVPresets.setUser(await window.api.listPresets());
           scheduleRender(PRESET_CATS);
           if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-          else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+          else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
           return;
         }
         presetGen = nextGen;
@@ -6773,13 +6785,14 @@
       window.SVPresets.setUser(list);
       scheduleRender(PRESET_CATS);
       if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
     });
 
     // Uzaktan kumandadan (telefon / OBS sayfası) gelen değişiklik: panelin
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
-    window.api.onExternalConfig((incoming) => {
-      cfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+    function acceptExternalConfig(incoming) {
+      const nextCfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+      cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(nextCfg, cfg) : nextCfg;
       window.SVLayers.ensureStack(cfg);
       // Ana süreç yeni bir yapılandırmada; sonraki gönderim tam olsun
       sentSig = null;
@@ -6801,13 +6814,15 @@
       renderScenes();
       /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
          Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
-      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
       /* Timeline-follow recording turned on/off by MCP or another client
          must take effect now, not only when the Output card renders. */
       if (window.SVRecordPanel && window.SVRecordPanel.ensureFollow) {
         window.SVRecordPanel.ensureFollow(!!(cfg.recording && cfg.recording.followTimeline));
       }
-    });
+    }
+    window.SVPanel._acceptExternalConfig = acceptExternalConfig;
+    window.api.onExternalConfig(acceptExternalConfig);
 
     // Aynı ayar klasörünü kullanan başka kopyalar ve ayar çakışması (#564)
     initInstanceBanners();

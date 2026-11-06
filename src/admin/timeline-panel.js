@@ -274,7 +274,8 @@
       next.set(e.track.id, e.clip.id);
       if (!tr.playing || jumped) continue;
       if (lastAppliedClip.get(e.track.id) === e.clip.id) continue;
-      fireClip(e.clip);
+      if (window.SVTimelineTarget) window.SVTimelineTarget.withManual(() => fireClip(e.clip));
+      else fireClip(e.clip);
     }
     lastAppliedClip = next;
   }
@@ -1920,6 +1921,7 @@
     const cfg = tlCfg();
     if (cfg.useTimeline === true && cfg.enabled) return;
     syncTransportFromAnchor();
+    if (window.SVTimelineTarget) window.SVTimelineTarget.modeChanged(true);
     cfg.useTimeline = true;
     cfg.enabled = true;
     lastAppliedClip = new Map();
@@ -1939,6 +1941,7 @@
     ensureTransport().pause();
     cfg.useTimeline = false;
     cfg.enabled = false;
+    if (window.SVTimelineTarget) window.SVTimelineTarget.modeChanged(false);
     reanchor();
     P().push(true);
     refreshToolbar();

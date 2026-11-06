@@ -817,3 +817,9 @@ body[data-page='live'] #svStageTools { display: none; }
 .sv-insp .layer-pane > .ctrl > label.lbl { margin-left: 11px; }
 /* Stüdyo yan sütununda başlıkla aynı kenar: nokta sütunu yok, sıfırlama ikonu değişikliği gösteriyor */
 .studio-side-col .ctrl > .row > label.lbl::before { display: none; }
+
+/* Hedef yokken normal sahne araçları okunabilir ama düzenlenemez. */
+.tl-no-target #svLayers, .tl-no-target #svInspector, .tl-no-target #svShelf { opacity: .55; }
+#svInspector .tl-palette-title { margin: 12px; }
+#svInspector:has(.tl-palette-title) p { padding: 0 12px; }
+#svInspector:has(.tl-palette-title) label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; }

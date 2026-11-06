@@ -728,6 +728,7 @@
   }
 
   function pickImage(cb) {
+    const stillTarget = window.SVTimelineTarget ? window.SVTimelineTarget.capture() : () => true;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -739,7 +740,7 @@
       // Açılamayan dosya (ör. .png adlı metin) katmana yazılmaz
       reader.onload = async () => {
         if (P().imageOk && !(await P().imageOk(reader.result))) return;
-        cb(reader.result, file.name);
+        if (stillTarget()) cb(reader.result, file.name);
       };
       reader.readAsDataURL(file);
     });
@@ -749,6 +750,7 @@
   }
 
   function pickVideoFile(cb) {
+    const stillTarget = window.SVTimelineTarget ? window.SVTimelineTarget.capture() : () => true;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'video/*';
@@ -756,6 +758,7 @@
     input.addEventListener('change', () => {
       const file = input.files && input.files[0];
       if (!file) return;
+      if (!stillTarget()) return;
       const url = URL.createObjectURL(file);
       cb(url, file.name);
     });
@@ -1199,8 +1202,9 @@
             class: 'btn small', type: 'button', icon: 'film', text: m.file ? 'Videoyu Değiştir' : 'Video Seç',
             onclick: async () => {
               if (window.api && window.api.pickVideo) {
+                const stillTarget = window.SVTimelineTarget ? window.SVTimelineTarget.capture() : () => true;
                 const r = await window.api.pickVideo();
-                if (!r) return;
+                if (!r || !stillTarget()) return;
                 m.file = r.url;
                 m.fileName = r.name;
                 m.libraryId = '';
@@ -1821,7 +1825,9 @@
               class: 'btn small', type: 'button', icon: 'folder-open', text: 'Söz Dosyası Yükle',
               onclick: async () => {
                 if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
+                const stillTarget = window.SVTimelineTarget ? window.SVTimelineTarget.capture() : () => true;
                 const r = await window.api.importShaderText();
+                if (!stillTarget()) return;
                 if (!r || !r.ok) return;
                 txt.lyricsSource = r.text;
                 txt.lyricsName = r.name || '';

@@ -112,6 +112,10 @@
      yuvanın `target` alanı ya da yoksa ilk uygun hedef. Hedef söylenmeden
      rastgele bir katmanın üzerine yazılmıyor. */
   function applyRef(type, ref, target, opts) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applyRefManual(type, ref, target, opts)) : applyRefManual(type, ref, target, opts);
+  }
+  function applyRefManual(type, ref, target, opts) {
     if (!ref) return false;
     if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
     if (type === 'action') return runActionRef(ref);
@@ -223,6 +227,10 @@
   }
 
   function releaseTransition() {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => releaseTransitionManual()) : releaseTransitionManual();
+  }
+  function releaseTransitionManual() {
     if (releaseTimer) {
       clearTimeout(releaseTimer);
       releaseTimer = 0;
@@ -248,6 +256,10 @@
      ayarını yaz → yeniden gönder. İkinci gönderim aynı tık içinde olduğu
      için çizim tarafı ikisini de bir sonraki kareden önce işler. */
   function applySlot(ev) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applySlotManual(ev)) : applySlotManual(ev);
+  }
+  function applySlotManual(ev) {
     const slot = ev.slot;
     if (!slot.ref) return;
     // Eylemin geçişi yok: kullanıcının geçiş ayarına hiç dokunulmuyor
