@@ -89,6 +89,14 @@
   /* Zaman çizelgesi klipleri sahne uygular; aynı klibi her karede yeniden
      uygulamak paneli kilitlerdi. Sütun başına en son uygulanan klip tutulur. */
   let lastAppliedClip = new Map();
+  /* Taban kirliliği: görselleştirici/palet klibi sahnenin katmanını veya
+     renklerini YERİNDE değiştirir. Klip etkin kümeden çıkınca (oynatma,
+     sarma, durdur+başa dön) altta aynı sahne klibi kaldığı için imza
+     değişmiyor ve sahne yeniden uygulanmıyordu: görselleştirici başlangıcından
+     önce de görünür kalıyordu. trackId -> clipId; durdurmada SİLİNMEZ,
+     yalnız taban sahne yeniden uygulanınca. */
+  let baseDirty = new Map();
+  const STATEFUL = (c) => c && (c.type === 'visualizer' || c.type === 'palette');
   /* Küresel palet kazananının son ateşlenen klibi; set değişince yalnız
      kazanan yeniden yazılır (eylem/medya kenarı bozulmasın). */
   let lastPaletteApplied = null;
@@ -281,12 +289,16 @@
       if (entry.clip.type === 'palette') continue;
       if (prev.get(entry.track.id) === entry.clip.id) continue;
       fireClip(entry.clip);
+      if (STATEFUL(entry.clip) && entry.clip.ref) baseDirty.set(entry.track.id, entry.clip.id);
     }
     const palId = palWinner && palWinner.clip ? palWinner.clip.id : null;
     if (palId !== lastPaletteApplied) {
-      if (palWinner) fireClip(palWinner.clip);
+      if (palWinner) { fireClip(palWinner.clip); if (palWinner.clip.ref) baseDirty.set(palWinner.track.id, palWinner.clip.id); }
       lastPaletteApplied = palId;
     }
+    // Tabanı kirleten klip(ler)den biri artık etkin değilse taban geri yüklenmeli
+    let restoreBase = false;
+    for (const [tid, cid] of baseDirty) if (desired.get(tid) !== cid) { restoreBase = true; break; }
     lastAppliedClip = desired;
     if (!scenes.length) { lastSceneSig = ''; liveHoldHead = null; inWinBefore.clear(); return; }
     const top = scenes[0];
@@ -312,6 +324,21 @@
       }
       liveHoldHead = null;
     }
+    if (restoreBase) {
+      /* Taban sahneyi kesmeyle yeniden kur, sonra hâlâ etkin olan
+         görselleştirici/palet kliplerini üstüne yeniden yaz. Eylem ve medya
+         yeniden ateşlenmez. */
+      baseDirty = new Map();
+      lastSceneSig = sig;
+      fireClip(top.clip, under, true);
+      for (const entry of nonScenes) {
+        if (!STATEFUL(entry.clip) || !entry.clip.ref) continue;
+        if (entry.clip.type === 'palette' && entry !== palWinner) continue;
+        fireClip(entry.clip);
+        baseDirty.set(entry.track.id, entry.clip.id);
+      }
+      return;
+    }
     // Geçiş penceresine DIŞARIDAN atlandıysa (sarma/park) giden sahne önce kesmeyle
     if (jumped && win && !was && TL().clipBefore) {
       const prev = TL().clipBefore(top.track, top.clip);
@@ -325,6 +352,16 @@
     lastSceneSig = sig;
     // Öndeki sahne aynı, yalnız arkadakiler değişti: geçişsiz güncelle
     fireClip(top.clip, under, !topChanged);
+    // Yeni taban kuruldu: hâlâ etkin görselleştirici/palet yeniden yazılır
+    if (topChanged && baseDirty.size) {
+      baseDirty = new Map();
+      for (const entry of nonScenes) {
+        if (!STATEFUL(entry.clip) || !entry.clip.ref) continue;
+        if (entry.clip.type === 'palette' && entry !== palWinner) continue;
+        fireClip(entry.clip);
+        baseDirty.set(entry.track.id, entry.clip.id);
+      }
+    }
   }
 
   /* Sahne uygulaması panelin KENDİ eylemini çağırır, kopyasını değil:
@@ -2352,6 +2389,10 @@
     lastAppliedClip.clear();
     lastPaletteApplied = null;
     reanchor();
+    /* Anında Uygula açıkken başa dönüş de çıktıya yazılır; kapalıyken
+       durmuş çizelge çıktıya dokunmaz (önceki davranış). */
+    const c = tlCfg();
+    if (c && c.applyEditsImmediately && c.enabled && c.itemEnabled !== false) applyClipsAt(ensureTransport().time);
   }
   function seek(t) {
     ensureTransport().seek(t);
