@@ -1048,13 +1048,17 @@
       tracks: [],
       markers: [],
       loop: { enabled: false, start: 0, end: 0 },
-      snap: 'bar', // off | bar | beat | half | quarter | frame
+      snap: 'bar', // off | bar | beat | half | quarter | 1s | 0.5s | frame
       fps: 60, // yalnızca kare yakalaması için
       /* Görünüm durumu: yakınlaştırma saniye başına piksel. */
       zoom: 60,
       scroll: 0,
       ruler: 'both', // time | bars | both
       followPlayhead: true,
+      /* Dururken/duraklatılmışken düzenlemeyi kafadaki klip değerlendirmesine
+         yaz. Varsayılan kapalı: durmuş çizelge Sahne/Şablon/MilkDrop seçimini
+         ezmesin (#idle-drive). Açıkken oynatma kafası kıpırdamadan uygular. */
+      applyEditsImmediately: false,
       // Şerit yüksekliği, piksel (28..120); tam pencerede yer açmak için büyütülür
       laneHeight: 40,
     },

@@ -163,13 +163,17 @@
   // ==========================================================================
   // Yakalama (snap)
   // ==========================================================================
-  const SNAP_MODES = ['off', 'bar', 'beat', 'half', 'quarter', 'frame'];
+  const SNAP_MODES = ['off', 'bar', 'beat', 'half', 'quarter', '1s', '0.5s', 'frame'];
 
   /* Bir saniye değerini en yakın ızgara çizgisine oturt. `frame` kipi kare
      süresine yuvarlar; diğerleri tempo haritasını kullanır. */
   function snapSeconds(map, sec, mode, fps) {
     sec = num(sec, 0);
     if (!mode || mode === 'off') return sec;
+    /* Sabit saniye adımları tempodan bağımsız: ölçü varsayılanı 2 sn
+       (120 BPM 4/4) olduğu için 1 sn / 0,5 sn burada ayrıca sunulur. */
+    if (mode === '1s') return Math.max(0, Math.round(sec));
+    if (mode === '0.5s') return Math.max(0, Math.round(sec * 2) / 2);
     if (mode === 'frame') {
       const f = Math.max(1, num(fps, 60));
       return Math.round(sec * f) / f;
@@ -256,7 +260,7 @@
   // ==========================================================================
   // Klip ve parça
   // ==========================================================================
-  const CLIP_TYPES = ['scene', 'preset', 'palette', 'video', 'image', 'shader', 'action'];
+  const CLIP_TYPES = ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'];
 
   function makeClip(spec) {
     const s = spec || {};

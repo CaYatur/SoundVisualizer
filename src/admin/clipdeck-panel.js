@@ -150,6 +150,17 @@
       P().apply();
       return true;
     }
+    if (type === 'visualizer') {
+      /* Otomatik VJ ile aynı yol: yığında görselleştirici katmanı varsa
+         ilkinin türünü yaz; yoksa klasik cfg.visualizer.type. */
+      const cur = P().cfg();
+      const layers = Array.isArray(cur.layers) ? cur.layers.filter((l) => l && l.kind === 'visualizer' && !l.locked) : [];
+      if (layers.length) layers[0].type = ref;
+      else if (cur.visualizer) cur.visualizer.type = ref;
+      else return false;
+      P().apply();
+      return true;
+    }
     return false;
   }
 
@@ -426,11 +437,17 @@
     if (slot.ref) {
       if (slot.type === 'scene') {
         const sc = (P().cfg().scenes || []).find((x) => x && x.id === slot.ref);
-        if (sc) return sc.name || sc.id;
+        if (sc) return tt(sc.name || sc.id);
       }
       if (slot.type === 'preset' && window.SVTemplates) {
         const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === slot.ref);
         if (tp) return tt(tp.name);
+      }
+      if (slot.type === 'palette') return tt(slot.ref);
+      if (slot.type === 'visualizer') {
+        const MC = window.SVModeCatalog;
+        const hit = MC && MC.VISUALIZERS && MC.VISUALIZERS.find((m) => m.id === slot.ref);
+        return hit ? tt(hit.label || hit.id) : slot.ref;
       }
       if (slot.type === 'shader' && window.SVPresets) {
         const sp = window.SVPresets.get(slot.ref);

@@ -514,6 +514,32 @@
     'Yalnızca Süre': 'Time Only',
     'Yalnızca Ölçü': 'Bars Only',
     'Yarım Vuruş': 'Half Beat',
+    '1 saniye': '1 second',
+    '0,5 saniye': '0.5 seconds',
+    'Anında Uygula': 'Apply Immediately',
+    'Açık: dururken veya duraklatılmışken yaptığınız düzenlemeler oynatma kafasının olduğu kliğe hemen yazılır. Kapatmak için basın.':
+      'On: edits you make while stopped or paused write immediately to the clip under the playhead. Press to turn off.',
+    'Kapalı (varsayılan): durmuş çizelge Sahne/Şablon/MilkDrop seçiminizi ezmez. Açınca düzenlemeler kafayı kıpırdatmadan uygulanır.':
+      'Off (default): a stopped timeline will not overwrite your Scene/Template/MilkDrop selection. When on, edits apply without moving the playhead.',
+    'Yakalama ızgarası (ölçü/vuruş veya 1 sn / 0,5 sn). Sürüklerken Alt yakalamayı askıya alır; Kapalı serbest yerleştirir. Cetvel biriminden bağımsızdır.':
+      'Snap grid (bar/beat or 1 s / 0.5 s). Hold Alt while dragging to suspend snap; Off places freely. Independent of the ruler unit.',
+    'Görselleştirici listesi yüklenemedi.': 'Visualizer list could not be loaded.',
+
+    'Bu klip sahneye başvurur; katmanlar ve efektler Sahne sayfasında düzenlenir.':
+      'This clip references a scene; layers and effects are edited on the Scene page.',
+    'Bu klip şablona başvurur; şablon içeriği Şablonlar rafında düzenlenir.':
+      'This clip references a template; template contents are edited on the Templates shelf.',
+    'Bu klip renk şablonuna başvurur; özel renkler Renkler bölümünde tutulur.':
+      'This clip references a color preset; custom colours live in the Colours section.',
+    'Bu klip görselleştirici kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.':
+      'This clip references a visualizer mode; mode settings are edited on Scene layers.',
+    'Sahneyi aç': 'Open scene',
+    'Sahne sayfasına geç ve bu sahneyi uygula': 'Go to the Scene page and apply this scene',
+    'Kaynak düzeni': 'Edit source',
+    'Kayıtlı sahne': 'Saved scene',
+    'Sahne bulunamadı': 'Scene not found',
+
+
     'Çeyrek Vuruş': 'Quarter Beat',
     'Döngü Bölgesi': 'Loop Region',
     'Döngü Başı / Sonu': 'Loop Start / End',
@@ -1518,7 +1544,6 @@
     'Studio arkaplanı': 'Studio background',
     'Katmanın preseti': 'Layer preset',
     'Logo değişim listesi': 'Logo swap list',
-    'Kayıtlı sahne': 'Saved scene',
     'Canlı sahne': 'Live scene',
     'Dosya diskte var ama okunamıyor: içeriği bozuk ya da geçerli JSON değil.': 'The file is on disk but cannot be read: its content is damaged or not valid JSON.',
     'Preset bu bilgisayarda yok: silinmiş ya da başka bir bilgisayardan gelen sahnede kalmış.': 'The preset is not on this computer: it was deleted, or the scene came from another computer.',
@@ -2038,6 +2063,27 @@
     'Alt parçaya taşı': 'Move to track below',
     'Geçişi sahneye bırak': 'Use scene transition',
     'Buraya işaret': 'Marker here',
+    'Buraya klip ekle': 'Add clip here',
+    'Kafada klip ekle': 'Add clip at playhead',
+    'Buraya nokta ekle': 'Add point here',
+    'Çift tık': 'Double-click',
+    'Parçayı yukarı': 'Move track up',
+    'Parçayı aşağı': 'Move track down',
+    'Parçayı sil…': 'Delete track…',
+    'İşarete git': 'Go to marker',
+    'Döngüyü aç': 'Enable loop',
+    'Döngüyü kapat': 'Disable loop',
+    'Rengi parçadan al': 'Use track colour',
+    'Noktayı sil': 'Delete point',
+    'Noktaları temizle': 'Clear points',
+    'Kısayollar': 'Shortcuts',
+    'Sesi aç (M kapalı)': 'Unmute',
+    'Soloyu kaldır': 'Unsolo',
+    'Geçiş süresi…': 'Transition duration…',
+    'Geçiş türü:': 'Transition type:',
+    'Geçiş eğrisi:': 'Transition ease:',
+    'Eğri:': 'Curve:',
+    'sahne varsayılanı': 'scene default',
     'Döngü başı burası': 'Loop start here',
     'Döngü sonu burası': 'Loop end here',
     'Kafayı buraya al': 'Move playhead here',

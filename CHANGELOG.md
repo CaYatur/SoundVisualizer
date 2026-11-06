@@ -7,6 +7,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **Timeline right-click menus are fully English again.** Empty-track, clip, marker and automation menus still used Turkish for several lines and for the “Double-click” badge; those strings now go through the i18n table, and `tests/timeline-context-i18n.test.js` checks them. Composed “Transition type/ease: …” rows translate each part.
+- **Timeline auto clip titles match the UI language.** Shelf “Scene 1” / “Forest” while the clip still showed “Sahne 1” / “Orman” — `clipLabel` and the source picker now use the same i18n resolution as the shelf (stable source ids, no rewrite of user-named clips). Covers scenes, colour presets, visualizers and the clip deck.
+- **Colour-preset playback no longer sticks on a future clip.** With Forest from 0 and Night from 2 s, seeking or playing back before Night’s start re-applies Forest; selection alone does not drive output. `tests/timeline-palette-order.test.js`.
+- **Snap grid offers 1 s and 0.5 s steps** beside bars/beats/frames, plus Off for free placement. Ruler unit stays independent of snap. Alt+drag still suspends snap; Start/Duration keep fractional values. `tests/timeline-snap-seconds.test.js`.
+- **Apply edits immediately** is an opt-in toolbar toggle (default off) so a stopped timeline still will not overwrite Scene / Template / MilkDrop picks unless you turn it on.
+- **Visualizer is a real timeline clip type** (Type list, source list, apply path) alongside scene / preset / palette / media.
+- **Timeline scene clips link to the full Scene editor.** A clip is still a reference (timing/transition stay on the clip); “Open scene” jumps to the Scene page so layers and effects are not mistaken for missing inspector fields.
+- **Layer Groups A/B crossfader no longer wraps in a narrow inspector.** The A / value / B row and the A / Mid / B buttons stay on two clean grid rows at ~340 px.
+- **MilkDrop Previous / Next / Random / Lock no longer jump the inspector scroll.** The scene inspector keeps its scroll across in-place refreshes (double rAF, focus parked without scrolling) and resets only when you select a different layer or the scene.
+- **Preset shelf card-size slider works.** The template grid now follows the same `--sv-card` size as MilkDrop / Image / Ground; `ui-cardsize` covers the Preset tab too.
+
 - **A new panel** (#905). The picture sits in the centre, with tools around it on floating surfaces.
   The top bar has the page tabs (Scene, Live, Time, Studio, Output), the screen picker, search,
   undo and redo, and a Simple switch that hides what you rarely use. Everything else moves to Setup

@@ -288,6 +288,8 @@
   function gridStep(tempo, mode, fps, at) {
     const T = TL();
     if (mode === 'frame') return 1 / Math.max(1, num(fps, 60));
+    if (mode === '1s') return 1;
+    if (mode === '0.5s') return 0.5;
     if (mode === 'off' || !T) return 0.1;
     const beat = { beat: 1, half: 0.5, quarter: 0.25 }[mode];
     const t = Math.max(0, num(at, 0));

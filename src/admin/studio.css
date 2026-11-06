@@ -1028,12 +1028,27 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .grp-count { margin-left: auto; font-size: 11px; color: var(--muted2); }
 .btn.tiny.on.mute { background: var(--danger); color: var(--on-solid); border-color: transparent; }
 
-.xf-box { background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px; }
-.xf-tag { font-weight: 700; font-size: 13px; }
+.xf-box {
+  background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow: hidden; box-sizing: border-box;
+}
+/* .ctrl .row flex/space-between'i ezer: özgüllük .ctrl.xf-box > .row */
+.ctrl.xf-box > .row, .xf-box > .row {
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
+  gap: 8px; justify-content: stretch; min-width: 0; flex-wrap: nowrap;
+}
+.ctrl.xf-box > .row.xf-btns, .xf-box > .row.xf-btns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ctrl.xf-box > .row > .btn, .xf-box > .row > .btn {
+  width: 100%; min-width: 0; max-width: 100%; justify-content: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex: none;
+}
+.xf-tag { font-weight: 700; font-size: 13px; flex: none; }
 /* Boş taraf: saydamlık 2.9:1'e indiriyordu; ikincil yazı rengi okunur kalır (#770) */
 .xf-tag.dim { color: var(--muted2); font-weight: 400; }
-.xf-val { margin: 0 auto; font-variant-numeric: tabular-nums; font-size: 12px; }
-.xf-slider { width: 100%; margin: 6px 0; }
+.xf-val { justify-self: center; text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; min-width: 0; }
+.xf-slider { width: 100%; min-width: 0; margin: 0; box-sizing: border-box; }
 
 /* Oyun kumandası: analog ayrıntı satırı ve canlı eksen göstergesi */
 .map-row.gp-opts { flex-wrap: wrap; gap: 6px 10px; margin-top: -2px; padding-left: 12px; font-size: 12px; color: var(--muted); }
