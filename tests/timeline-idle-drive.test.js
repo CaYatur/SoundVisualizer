@@ -25,12 +25,13 @@ test('önizleme otomasyonu yalnız playing çıpasında uygulanır', () => {
   assert.match(PREV, /SVTimeline\.applyAutomation/);
 });
 
-test('panel döngüsü dururken applyClipsAt çağırmaz', () => {
+test('panel döngüsü canlı yapılandırmaya klip yazmaz', () => {
   const at = TL.indexOf('function loopBody()');
   assert.ok(at > 0);
   const body = TL.slice(at, at + 1200);
-  assert.match(body, /if \(tr\.playing && tlOn && !held\) applyClipsAt\(tr\.time\)/);
-  assert.doesNotMatch(body, /if \(tlOn && !held\) applyClipsAt/);
+  // Yalıtılmış mod: döngü canlı yapılandırmaya klip YAZMAZ; yalnız eylem kenarı
+  assert.match(body, /if \(outOn && !held\) fireActionsAt\(tr\.time\)/);
+  assert.doesNotMatch(body, /applyClipsAt\(/);
 });
 
 test('sekme yeniden adlandırma satır içi (prompt yok)', () => {

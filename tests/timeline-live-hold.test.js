@@ -21,16 +21,6 @@ test('çizelge noteLiveEdit ve liveHoldHead API sunar', () => {
   assert.match(TL, /_liveHoldHead:\s*\(\)\s*=>\s*liveHoldHead/);
 });
 
-test('aynı klipte tutuş varken applyClipsAt sahneyi yeniden ateşlemez', () => {
-  const at = TL.indexOf('function applyClipsAt(t)');
-  assert.ok(at > 0, 'applyClipsAt bulunamadı');
-  const body = TL.slice(at, TL.indexOf('function fireClip', at));
-  assert.match(body, /if \(liveHoldHead != null\)/);
-  assert.match(body, /if \(head === liveHoldHead\)/);
-  assert.match(body, /liveHoldHead = null/);
-  assert.match(body, /!scenes\.length[\s\S]*liveHoldHead = null/);
-});
-
 test('elle sahne (light değil) ve applyAll çizelgeye noteLiveEdit yazar', () => {
   assert.match(ADMIN, /function noteTimelineLiveEdit\(/);
   const sceneAt = ADMIN.indexOf('actions.applyScene = (id, opts) => {');

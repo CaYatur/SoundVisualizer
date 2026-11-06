@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* A/B fader kutusu ve Timeline "Anında Uygula" düğmesi için gerçek yerleşim denetimi.
+/* A/B fader kutusu ve Timeline "Timeline kullan" düğmesi için gerçek yerleşim denetimi.
    Ölçüm getBoundingClientRect ile yapılır: etiket satırı, sürgü ve A/Orta/B satırı
    ayrı satırlarda, kutu içinde ve birbirine değmeden durmalı. Sürgü uçları ve Orta
    düğmesi değeri gerçekten değiştirmeli. Ekran görüntüsü görünür alan dışındaysa HATA.
@@ -133,14 +133,14 @@ if (OUT) fs.mkdirSync(OUT, { recursive: true });
     }
     await q(`(() => { document.getElementById('__w').textContent = ''; window.SVUiThemes.apply(document, '${THEMES[0]}'); return 1; })()`);
 
-    // Timeline araç çubuğu: "Anında Uygula" düğmesi yazısı içinde kalmalı, komşuya binmemeli
+    // Timeline araç çubuğu: "Timeline kullan" düğmesi yazısı içinde kalmalı, komşuya binmemeli
     await q("window.SVPanel.setCategory('time'); 1");
     await sleep(1200);
     for (const vw of [900, 1100, 1400]) {
       await a.call('Emulation.setDeviceMetricsOverride', { width: vw, height: VH, deviceScaleFactor: 1, mobile: false });
       await sleep(400);
       const t = JSON.parse(await q(`JSON.stringify((() => {
-        const b = document.querySelector('.tl-toolbar .tl-liveedit');
+        const b = document.querySelector('.tl-toolbar .tl-use');
         if (!b) return { missing: true };
         const R = (n) => { const r = n.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, r: r.right, b: r.bottom }; };
         const rg = document.createRange(); rg.selectNodeContents(b); const tr = rg.getBoundingClientRect();
@@ -148,7 +148,7 @@ if (OUT) fs.mkdirSync(OUT, { recursive: true });
         return { btn: R(b), text: { x: tr.x, y: tr.y, w: tr.width, h: tr.height, r: tr.right, b: tr.bottom }, ctrls, label: b.textContent.trim(), pressed: b.getAttribute('aria-pressed'), on: b.classList.contains('on'), tb: R(document.querySelector('.tl-toolbar')) };
       })())`));
       const id = `${tag}/timeline/${vw}`;
-      if (t.missing) { fails.push(id + ': Anında Uygula düğmesi yok'); continue; }
+      if (t.missing) { fails.push(id + ': Timeline kullan anahtarı yok'); continue; }
       const f = [];
       if (!inside(t.text, t.btn)) f.push(`yazı düğme dışında (yazı ${t.text.w.toFixed(0)} / düğme ${t.btn.w.toFixed(0)})`);
       const hit = t.ctrls.filter((c) => ov(t.btn, c) || ov(t.text, c));
@@ -156,7 +156,7 @@ if (OUT) fs.mkdirSync(OUT, { recursive: true });
       if (t.on) f.push('varsayılan açık');
       rows.push({ id, label: t.label, btnW: +t.btn.w.toFixed(1), textW: +t.text.w.toFixed(1), neighbors: t.ctrls.length, overlaps: hit.length, ok: !f.length });
       if (f.length) fails.push(id + ': ' + f.join('; '));
-      if (vw === 1400 || vw === 900) await shot(`tl-liveedit-${tag}-${vw}`, { x: Math.max(t.btn.x - 220, t.tb.x), y: t.btn.y - 6, w: Math.min(520, t.tb.r - Math.max(t.btn.x - 220, t.tb.x)), h: t.btn.h + 12 });
+      if (vw === 1400 || vw === 900) await shot(`tl-use-${tag}-${vw}`, { x: Math.max(t.btn.x - 220, t.tb.x), y: t.btn.y - 6, w: Math.min(520, t.tb.r - Math.max(t.btn.x - 220, t.tb.x)), h: t.btn.h + 12 });
     }
   } catch (e) { fails.push(String(e && e.stack || e)); }
   await s.stop();

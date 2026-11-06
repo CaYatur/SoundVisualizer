@@ -252,7 +252,7 @@ test('panel: işaret sürüklenince taşınıyor, tıklanınca kafa ona gidiyor'
   assert.strictEqual(cfg.timeline.markers[0].t, 4.5, 'tıklama işareti oynatmadı');
 });
 
-test('panel: sol üst tutamaç geçişi ayarlıyor; ateşleme geçişi kullanıyor', async () => {
+test('panel: sol üst tutamaç geçişi ayarlıyor; sarma canlı yapılandırmayı ezmiyor', async () => {
   const cfg = cfgOf();
   const { cv } = await mount(cfg);
   const top = RULER + 4;
@@ -270,7 +270,8 @@ test('panel: sol üst tutamaç geçişi ayarlıyor; ateşleme geçişi kullanıy
   fire(cv, 'mousedown', { clientX: X(1.5), clientY: 16, detail: 1 });
   winFire('mouseup', {});
   // #957: geçiş penceresine atlanınca önce giden sahne kesmeyle (deterministik geçiş)
-  assert.deepStrictEqual(fired, [['faded', 'scene', 'sA', 0], ['faded', 'scene', 'sB', 0.75], ['ref', 'scene', 'sA']]);
+  // Yalıtılmış bileşim: cetvel sarması canlı yapılandırmaya sahne YAZMAZ
+  assert.deepStrictEqual(fired, []);
 });
 
 test('panel: F tam pencereyi açıyor, Esc kapatıyor; Esc tam pencere dışında yutulmuyor', async () => {
@@ -322,7 +323,7 @@ test('model: klibin hedefi kayıttan sağ çıkıyor, 120 karakterle sınırlı'
   assert.strictEqual(TL.makeClip({ target: 'x'.repeat(300) }).target.length, 120);
 });
 
-test('panel: medya klibi kendi hedefiyle ateşleniyor; denetçide Hedef satırı', async () => {
+test('panel: medya klibi ezmiyor; denetçide Hedef satırı', async () => {
   const cfg = cfgOf();
   cfg.timeline.tracks[0].clips[0] = { id: 'cA', type: 'shader', ref: 'pb', target: 'layer:lb', start: 1, dur: 2 };
   cfg.timeline.tracks[0].clips[1] = { id: 'cB', type: 'image', ref: 'data:image/png;base64,QUFB', start: 5, dur: 2, fade: 0.5 };
@@ -333,7 +334,8 @@ test('panel: medya klibi kendi hedefiyle ateşleniyor; denetçide Hedef satırı
   winFire('mouseup', {});
   fire(cv, 'mousedown', { clientX: X(5.5), clientY: 16, detail: 1 });
   winFire('mouseup', {});
-  assert.deepStrictEqual(fired, [['ref', 'shader', 'pb', 'layer:lb'], ['faded', 'image', 'data:image/png;base64,QUFB', 0.5]]);
+  // Medya klibi mevcut katmanın üzerine yazılmaz; kendi geçici katmanı bileşimde
+  assert.deepStrictEqual(fired, []);
   // Denetçi: seçici ve hedef; eski "uygulanmaz" notu yok
   fire(cv, 'mousedown', { clientX: X(1.5), clientY: laneY(0), detail: 1 });
   winFire('mouseup', {});

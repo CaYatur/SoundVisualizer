@@ -76,59 +76,33 @@ async function mount(cfg) {
   return TP;
 }
 
-test('palet giriş/çıkışı uzun eylem klibini yeniden ateşlemez', async () => {
+window.SVTimelineCompose = require('../src/shared/timeline-compose.js');
+
+test('Timeline kullan: palet/medya canlı yapılandırmaya yazılmaz; eylem yalnız ileri oynatmada bir kez', async () => {
   const cfg = SV.defaultConfig();
   Object.assign(cfg.timeline, {
-    enabled: true, applyEditsImmediately: false, snap: 'off', zoom: 60, scroll: 0, followPlayhead: false,
+    useTimeline: true, enabled: true, snap: 'off', zoom: 60, scroll: 0, followPlayhead: false,
     tracks: [
       { id: 'trAct', kind: 'clip', name: 'A', clips: [
-        { id: 'cAct', type: 'action', ref: 'nextScene', name: '', start: 0, dur: 10 },
+        { id: 'cAct', type: 'action', ref: 'nextScene', name: '', start: 0.5, dur: 10 },
       ] },
       { id: 'trPal', kind: 'clip', name: 'P', clips: [
         { id: 'cPal', type: 'palette', ref: 'Gece', name: '', start: 2, dur: 2 },
       ] },
-    ],
-  });
-  await mount(cfg);
-  fired.length = 0;
-  TP._applyAt(0.5);
-  assert.deepStrictEqual(fired, [['action', 'nextScene']], 'eylem bir kez');
-  fired.length = 0;
-  TP._applyAt(2.5);
-  assert.deepStrictEqual(fired, [['palette', 'Gece']], 'yalnız palet; eylem yok');
-  fired.length = 0;
-  TP._applyAt(5.0);
-  assert.deepStrictEqual(fired, [], 'palet çıkışı eylem yeniden yok');
-  fired.length = 0;
-  TP._applyAt(0.5);
-  assert.deepStrictEqual(fired, [], 'aynı eylem klibinde kalınca kenar yok');
-});
-
-test('palet çıkınca Orman yeniden; medya aynı parçada değilse yeniden başlamaz', async () => {
-  const cfg = SV.defaultConfig();
-  Object.assign(cfg.timeline, {
-    enabled: true, snap: 'off', zoom: 60, scroll: 0, followPlayhead: false,
-    tracks: [
       { id: 'trVid', kind: 'clip', name: 'V', clips: [
         { id: 'cVid', type: 'video', ref: '/x.mp4', name: '', start: 0, dur: 10, target: 'media' },
       ] },
-      { id: 'trF', kind: 'clip', name: 'F', clips: [
-        { id: 'cF', type: 'palette', ref: 'Orman', name: '', start: 0, dur: 4 },
-      ] },
-      { id: 'trN', kind: 'clip', name: 'N', clips: [
-        { id: 'cN', type: 'palette', ref: 'Gece', name: '', start: 2, dur: 4 },
-      ] },
     ],
   });
   await mount(cfg);
+  TP.play();
+  TP._applyAt(0.4);
+  TP._applyAt(0.55);
+  assert.deepStrictEqual(fired, [['action', 'nextScene']], 'eylem bir kez; palet/video yazılmadı');
   fired.length = 0;
-  TP._applyAt(0.5);
-  assert.ok(fired.some((f) => f[0] === 'video' && f[1] === '/x.mp4'));
-  assert.ok(fired.some((f) => f[0] === 'palette' && f[1] === 'Orman'));
-  fired.length = 0;
-  TP._applyAt(2.5);
-  assert.deepStrictEqual(fired, [['palette', 'Gece']], 'video yeniden yok');
-  fired.length = 0;
-  TP._applyAt(0.5);
-  assert.deepStrictEqual(fired, [['palette', 'Orman']], 'Orman geri; video yok');
+  TP._applyAt(0.6); TP._applyAt(0.7);
+  assert.deepStrictEqual(fired, [], 'aynı eylem klibinde kenar yok');
+  TP.stop();
+  TP._applyAt(0.6);
+  assert.deepStrictEqual(fired, [], 'sarma eylemi yeniden çalıştırmaz');
 });
