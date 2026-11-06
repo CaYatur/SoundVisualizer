@@ -502,10 +502,13 @@
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
     stack.composeTo(compCtx, audio, mcfg, t, dt, drawLogo);
 
-    if (postfx) {
+    /* Zincir boşsa tuvali BASMA. Timeline birleşimi efektleri alt yığına
+       bırakır ve düz postfx listesini temizler. Kurulum elle sahneden
+       zincir açmışsa nesne durur; render() false döner ve tuval boş kalır.
+       Onu 'copy' ile basmak, doğru çizilmiş kareyi siyaha çeviriyordu. */
+    if (postfx && postfx.render(comp, audio, t, dt)) {
       // Efekt zinciri GPU'da çalışır; sonucu geri okuyabilmek için
       // birleştirme yüzeyine yazarız.
-      postfx.render(comp, audio, t, dt);
       compCtx.setTransform(1, 0, 0, 1, 0, 0);
       compCtx.globalCompositeOperation = 'copy';
       compCtx.globalAlpha = 1;
