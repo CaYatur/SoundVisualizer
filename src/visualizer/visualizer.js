@@ -391,7 +391,10 @@
   // --------------------------------------------------------------------------
   // Sahne
   // --------------------------------------------------------------------------
+  /* Timeline kullan modu: yalıtılmış bileşimin yığın durumu. */
+  const tlLive = {};
   function applyScene() {
+    if (window.SVTimelineCompose) window.SVTimelineCompose.resetLive(tlLive);
     analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(cfg);
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
@@ -572,7 +575,24 @@
          (veya çıpa playing iken) otomasyon/sync yazar. Duraklatılmış
          kafanın bir klip üzerinde durması Sahne/Şablon seçimini ezmesin. */
       const tlDriving = !!(showAnchor && showAnchor.playing);
-      if (tlDriving && cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
+      const TC = window.SVTimelineCompose;
+      if (TC && (TC.modeOn(cfg) || tlLive.on) && window.SVShowClock) {
+        /* Timeline kullan: oynarken de duraklatılmışken de çıkış oynatma
+           kafasındaki bileşim. Elle ayar (cfg) değişmez; mod kapanınca
+           yığın elle ayara geri kurulur. */
+        showT = TC.modeOn(cfg) ? window.SVShowClock.resolve(showAnchor || window.SVShowClock.idle(), Date.now()) : -1;
+        const r = TC.live(cfg, showT, tlLive);
+        base = r.cfg;
+        if (r.rebuild) {
+          stack.setConfig(base);
+          if (Array.isArray(base.layers) && base.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(base);
+        }
+        if (r.fx) stack.setPostFX(base.postfx);
+        window.SVShowDebug.time = showT;
+        window.SVShowDebug.composed = r.restore ? null : (tlLive.active || []).slice();
+        window.SVShowDebug.black = !!tlLive.black;
+        if (r.restore) showT = -1;
+      } else if (tlDriving && cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
         showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;

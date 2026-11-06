@@ -82,10 +82,17 @@
     return out;
   }
 
+  /* Yerel kopya yalnız klibin ŞU ANKİ türüne/kaynağına aitse geçerli. */
+  function hasLocal(clip) {
+    if (!clip || !clip.local || !clip.local.data || typeof clip.local.data !== 'object') return false;
+    const f = clip.local.from;
+    return !f || (f.type === clip.type && f.ref === clip.ref);
+  }
+
   /* Klibin kaynak sahne verisi (SCENE_KEYS görünümü). Yerel kopya önce. */
   function sourceData(cfg, clip) {
     if (!clip) return null;
-    if (clip.local && clip.local.data && typeof clip.local.data === 'object') return materializeData(clip.local.data);
+    if (hasLocal(clip)) return materializeData(clip.local.data);
     if (clip.type === 'scene') {
       const sc = (Array.isArray(cfg.scenes) ? cfg.scenes : []).find((x) => x && x.id === clip.ref);
       return sc && sc.data ? materializeData(sc.data) : null;
@@ -202,7 +209,7 @@
     const ids = [];
     for (const e of entries) {
       const c = e.clip;
-      if (!c || !c.ref && !(c.local && c.local.data)) continue;
+      if (!c || (!c.ref && !hasLocal(c))) continue;
       if (c.type === 'palette') { palettes.push(c); continue; }
       if (!isVisual(c)) continue;
       const op = T.entryOpacity(tl, e.track, c, wt);
@@ -213,7 +220,7 @@
         scene.layers = scene.layers.concat(emitLayers(c, layersOf(data), op));
         ids.push(c.id);
       } else {
-        const ml = c.local && c.local.data ? layersOf(materializeData(c.local.data)) : [mediaLayer(c)];
+        const ml = hasLocal(c) ? layersOf(materializeData(c.local.data)) : [mediaLayer(c)];
         scene.layers = scene.layers.concat(emitLayers(c, ml.filter(Boolean), op));
         ids.push(c.id);
       }
@@ -290,7 +297,42 @@
     return T.activeClipsAt(tl, t).some((e) => e.clip.id === clipId);
   }
 
-  const api = { composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
+  /* Mod açık mı: "Timeline kullan". Varsayılan kapalı; eski kayıtlarda
+     yalnız `enabled` (Çıkışa Bağla) olması modu AÇMAZ. */
+  function modeOn(cfg) {
+    const t = cfg && cfg.timeline;
+    return !!(t && t.useTimeline === true && t.itemEnabled !== false);
+  }
+
+  function layerSig(c) {
+    const ls = c && Array.isArray(c.layers) ? c.layers : [];
+    return JSON.stringify(ls, (k, v) => (k === 'opacity' ? undefined : v));
+  }
+
+  /* Canlı çıkış / önizleme için kare başına bileşim. `state` tüketicinin
+     kendi nesnesi: katman listesi değişince yığın yeniden kurulsun, yalnız
+     opaklık değişince kurulmasın. Mod kapanınca elle ayar geri verilir.
+     Döner: { cfg, rebuild, fx, restore } */
+  function live(cfg, t, state) {
+    const st = state || {};
+    if (!modeOn(cfg) || !TL()) {
+      const restore = !!st.on;
+      st.on = false; st.sig = null; st.fx = null;
+      return { cfg, rebuild: restore, fx: restore, restore };
+    }
+    let tl = st.tlSrc === cfg.timeline && st.tl ? st.tl : null;
+    if (!tl) { tl = TL().makeTimeline(cfg.timeline); st.tl = tl; st.tlSrc = cfg.timeline; }
+    const r = composeAt(cfg, tl, t);
+    const sig = layerSig(r.cfg);
+    const fx = JSON.stringify(r.cfg.postfx || []);
+    const rebuild = !st.on || sig !== st.sig;
+    const fxCh = !st.on || fx !== st.fx;
+    st.on = true; st.sig = sig; st.fx = fx; st.active = r.active; st.black = r.black;
+    return { cfg: r.cfg, rebuild, fx: fxCh, restore: false };
+  }
+  function resetLive(state) { if (state) { state.sig = null; state.fx = null; state.tl = null; state.tlSrc = null; } }
+
+  const api = { modeOn, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVTimelineCompose = api;
 })();
