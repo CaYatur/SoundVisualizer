@@ -980,8 +980,7 @@
      bilerek o metin kalır (sözlük çakışması bilinçli istisna; raf da boş
      adlarda tt kullanır). Dosya yolları / özel sahne adları sözlükte yoksa
      olduğu gibi. Kaynak kimliği (ref) değişmez. */
-  function clipLabel(c) {
-    if (c.name) return c.name;
+  function clipSourceLabel(c) {
     if (c.ref) {
       if (c.type === 'scene') {
         const sc = (P().cfg().scenes || []).find((s) => s && s.id === c.ref);
@@ -1005,8 +1004,24 @@
       }
       return c.ref;
     }
-    return tt(TYPE_LABELS[c.type] || c.type) + ' · ' + tt('kaynak yok');
+    return '';
   }
+
+  /* Kaynak kimliği ile klibin yerel kopyası ayrı şeylerdir. Kopya kaynağın
+     yerine işlenir; bu etiket iki sahnenin birlikte çizildiğini söylemez. */
+  function clipContentLabel(c) {
+    const loc = c.local && c.local.data && (!c.local.from || (c.local.from.type === c.type && c.local.from.ref === c.ref)) ? c.local.data : null;
+    const localContent = loc && ((Array.isArray(loc.layers) && loc.layers.length > 0) || (c.type === 'palette' && loc.background && loc.background.gradient));
+    const source = clipSourceLabel(c);
+    const missing = c.ref && ((c.type === 'scene' && !(P().cfg().scenes || []).some((x) => x && x.id === c.ref)) ||
+      (c.type === 'preset' && window.SVTemplates && !(window.SVTemplates.TEMPLATES || []).some((x) => x.id === c.ref)));
+    if (source) {
+      const origin = source + (missing ? ' (' + tt('Kaynak bulunamadı') + ')' : '');
+      return origin + (loc ? ' · ' + tt('Klip kopyası') : '');
+    }
+    return tt(TYPE_LABELS[c.type] || c.type) + ' · ' + tt(localContent ? 'Klip içeriği' : 'Boş klip');
+  }
+  function clipLabel(c) { return c.name || clipContentLabel(c); }
 
   function drawClipTrack(trk, y, w, fg, live) {
     for (const c of trk.clips) {
@@ -2581,6 +2596,7 @@
     _multi: () => multi.slice(),
     _full: () => fullWin,
     _clipLabel: clipLabel,
+    _clipContentLabel: clipContentLabel,
     _refOptions: refOptions,
     _key: onEditorKey,
     _docKey: onDocKey,
@@ -3357,8 +3373,16 @@
     if (selection.kind === 'clip') {
       const c = selClip();
       if (!c) return box;
-      box.insertBefore(el('div', { class: 'tl-insp-head', icon: TYPE_ICONS[c.type], text: clipLabel(c) }), grid);
-      grid.appendChild(p.row('Klip Adı', textInput(c.name, (v) => { c.name = v; commit(); draw(); })));
+      const clipTitle = el('span', { class: 'tl-clip-title', text: clipLabel(c) });
+      box.insertBefore(el('div', { class: 'tl-insp-head', icon: TYPE_ICONS[c.type] }, [clipTitle]), grid);
+      const rename = (v) => {
+        c.name = v; commit(); draw(); clipTitle.textContent = clipLabel(c);
+        if (window.SVTimelineTarget) window.SVTimelineTarget.refresh();
+      };
+      const nameInput = textInput(c.name, rename);
+      // Yalnız etiketleri boya: yazı alanını yeniden kurma, odağı/imleci koru.
+      nameInput.addEventListener('input', () => rename(nameInput.value.trim()));
+      grid.appendChild(p.row('Klip Adı', nameInput));
       grid.appendChild(
         p.row('Tür', select(
           [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['visualizer', 'Görselleştirici'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
@@ -3384,6 +3408,7 @@
       /* Kaynak tam sahne/şablon verisine başvurur; klip yalnız zamanlama ve
          geçiş tutar. Boş klipten tür seçince de aynı ref yolu — raf ekleme
          ile eşdeğer. Katmanlar/efektler Sahne sayfasında; buradan açılır. */
+      grid.appendChild(p.row('İçerik', el('span', { class: 'tl-content-status', text: clipContentLabel(c), title: tt('Klip kopyası varsa kaynak yerine kullanılır.') })));
       if (c.type === 'scene' && c.ref) {
         const sc = (P().cfg().scenes || []).find((x) => x && x.id === c.ref);
         const layers = sc && sc.data && Array.isArray(sc.data.layers) ? sc.data.layers.length : 0;

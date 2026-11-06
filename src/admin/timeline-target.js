@@ -351,7 +351,10 @@
     name.textContent = clipName(i.clip);
     const meta = document.createElement('span');
     meta.className = 'tl-eb-meta';
-    meta.textContent = (i.track.name || '') + ' · ' + fmt(i.clip.start) + '–' + fmt(i.clip.start + i.clip.dur);
+    const tp = window.SVTimelinePanel;
+    const content = i.clip.name && tp && tp._clipContentLabel ? ' · ' + tp._clipContentLabel(i.clip) : '';
+    meta.textContent = (i.track.name || '') + ' · ' + fmt(i.clip.start) + '–' + fmt(i.clip.start + i.clip.dur) + content;
+    meta.title = t('Klip kopyası varsa kaynak yerine kullanılır.');
     const note = document.createElement('span');
     note.className = 'tl-eb-note';
     note.textContent = notice || t('Değişiklikler yalnız bu klibe uygulanır; asıl sahne değişmez.');

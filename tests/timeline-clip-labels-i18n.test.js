@@ -138,6 +138,23 @@ test('clipLabel: raf Scene 1 ile aynı — Sahne 1 → Scene 1; özel ad korunur
   assert.strictEqual(TP._clipLabel({ type: 'visualizer', ref: 'bars', name: '' }), 'Bars');
   // Kullanıcı klibe sözlükteki bir kelimeyi ad yazdıysa çevirme
   assert.strictEqual(TP._clipLabel({ type: 'palette', ref: 'Gece', name: 'Orman' }), 'Orman');
+  const empty = { type: 'scene', ref: '', local: { from: { type: 'scene', ref: '' }, data: { layers: [] } } };
+  assert.strictEqual(TP._clipLabel(empty), 'Scene · Empty clip');
+  empty.local.data.layers.push({ id: 'child' });
+  assert.strictEqual(TP._clipLabel(empty), 'Scene · Clip content');
+  empty.name = 'name1';
+  assert.strictEqual(TP._clipLabel(empty), 'name1');
+  assert.strictEqual(TP._clipContentLabel(empty), 'Scene · Clip content');
+  const copy = { type: 'scene', ref: 'sc1', local: { from: { type: 'scene', ref: 'sc1' }, data: { layers: [{ id: 'copy' }] } } };
+  assert.strictEqual(TP._clipContentLabel(copy), 'Scene 1 · Clip copy');
+  copy.ref = 'deleted'; copy.local.from.ref = 'deleted';
+  assert.strictEqual(TP._clipContentLabel(copy), 'deleted (Source missing) · Clip copy');
+  delete copy.local;
+  assert.strictEqual(TP._clipContentLabel(copy), 'deleted (Source missing)');
+  window.SVI18n.t = loadT('tr');
+  assert.strictEqual(TP._clipContentLabel(empty), 'Sahne · Klip içeriği');
+  assert.strictEqual(TP._clipLabel(empty), 'name1');
+
 });
 
 test('boş klipten sahne kaynağı: addClipAt + ref, addSceneAtHead ile aynı etiket', async () => {
