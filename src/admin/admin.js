@@ -3282,7 +3282,7 @@
           },
           {
             /* Zaman çizelgesini dışa aktarıma uygula: sahne klipleri + otomasyon.
-               Varsayılan açık. Döngü açıksa sarılır; kapalıysa sonda son durum. */
+               Varsayılan kapalı; canlı moddan bağımsız. Döngüsüz boşluk/bitiş siyahtır. */
             type: 'toggle', path: 'export.includeTimeline', label: 'Zaman çizelgesini dahil et',
           },
           {
@@ -6570,7 +6570,7 @@
       loop: !!(cfg.export && cfg.export.loop) && !(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind !== 'sequence'),
       loopCrossfade: cfg.export && cfg.export.loopCrossfade,
       analysis: !!(cfg.export && cfg.export.analysis),
-      includeTimeline: !(cfg.export && cfg.export.includeTimeline === false),
+      includeTimeline: !!(cfg.export && cfg.export.includeTimeline === true),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,

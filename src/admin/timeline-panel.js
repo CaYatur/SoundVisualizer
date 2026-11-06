@@ -2637,8 +2637,8 @@
     const host = el('div', { class: 'tl-panel' + (fullWin ? ' tl-full' : '') });
     hostEl = host;
 
-    /* Etkinleştirme anahtarı yok: çizelge açılır açılmaz düzenleniyor. İlk parça eklenince ya da Oynat'a
-       basılınca çıkışa bağlanıyor (`linkOutput`); araç çubuğundaki bağ düğmesi durumu gösterip ayırıyor. */
+    /* Sayfaya dönmek modu veya taşımayı değiştirmez; araç çubuğu mevcut
+       modelin durumunu yeni DOM düğümlerine yansıtır. */
 
     /* Otomatik VJ de sahne değiştiriyor; ikisi aynı anda açıkken sahneyi
        birbirlerinin elinden alırlar. */
@@ -2971,7 +2971,7 @@
     const barLabel = el('span', { class: 'tl-bars', text: '1.1' });
     const loopBtn = btn(['loop'], 'Döngü (L). Bölge yoksa seçili klibin aralığı ya da kafadan dört ölçü', () => { toggleLoop(); refreshToolbar(); });
     const followBtn = btn(['follow'], 'Oynatırken kafayı takip et', () => {
-      cfg.followPlayhead = cfg.followPlayhead === false;
+      tlCfg().followPlayhead = tlCfg().followPlayhead === false;
       p.push(true);
       refreshToolbar();
     });
@@ -2994,6 +2994,7 @@
       applyTempo(TE().setTempo(ensureTransport().tl.tempo, tempoAtHead(), { beatsPerBar: v }));
     }, 'tl-num-xs');
 
+    let snapSelect = null;
     const bar = el('div', { class: 'tl-toolbar' }, [
       group([
         btn(['prev'], 'Önceki işaret', () => {
@@ -3030,9 +3031,10 @@
           const s = select(
             [['off', 'Kapalı'], ['bar', 'Ölçü'], ['beat', 'Vuruş'], ['half', 'Yarım Vuruş'], ['quarter', 'Çeyrek Vuruş'], ['1s', '1 saniye'], ['0.5s', '0,5 saniye'], ['frame', 'Kare']],
             cfg.snap,
-            (v) => { cfg.snap = v; p.push(true); }
+            (v) => { tlCfg().snap = v; p.push(true); }
           );
           s.setAttribute('aria-label', 'Yakalama');
+          snapSelect = s;
           return s;
         })(),
       ]),
@@ -3048,7 +3050,7 @@
       group([undoBtn, redoBtn]),
     ]);
 
-    toolbarRefs = { playBtn, loopBtn, followBtn, linkBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn };
+    toolbarRefs = { playBtn, loopBtn, followBtn, linkBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn, snapSelect };
     refreshToolbar();
 
     /* Saat ve oynat düğmesi kendi zamanlayıcısından: çizim döngüsü yalnız
@@ -3058,30 +3060,36 @@
         clearInterval(tick);
         return;
       }
-      const tr = syncTransportFromAnchor();
-      timeLabel.textContent = fmtClock(tr.time);
-      const b = tr.bars();
-      barLabel.textContent = b.bar + '.' + b.beat;
-      showHeadTempo();
-      const want = tr.playing ? 'pause' : 'play';
-      if (playBtn._ico !== want) {
-        playBtn._ico = want;
-        if (window.SVIcons && playBtn.nodeType === 1) window.SVIcons.set(playBtn, want, '');
-        playBtn.classList.toggle('on', tr.playing);
-      }
+      refreshToolbar();
     }, 100);
     return bar;
   }
 
   function refreshToolbar() {
     const r = toolbarRefs;
-    if (!r || !r.playBtn.isConnected) return;
-    const tl = ensureTransport().tl;
+    // İlk çağrı toolbar() içinde, düğümler henüz DOM'a eklenmeden yapılır.
+    // Bağlılık filtresi burada başlangıç boyamasını atlayıp tıklı durumu kaybediyordu.
+    if (!r) return;
+    const tr = syncTransportFromAnchor();
+    const tl = tr.tl;
     const cfg = tlCfg();
-    const on = (b, v) => { if (b.classList) b.classList.toggle('on', !!v); };
+    const on = (b, v) => {
+      if (b.classList) b.classList.toggle('on', !!v);
+      b.setAttribute(b === r.linkBtn ? 'aria-checked' : 'aria-pressed', String(!!v));
+    };
+    on(r.playBtn, tr.playing);
+    const want = tr.playing ? 'pause' : 'play';
+    if (r.playBtn._ico !== want) {
+      r.playBtn._ico = want;
+      if (window.SVIcons && r.playBtn.nodeType === 1) window.SVIcons.set(r.playBtn, want, '');
+    }
+    r.timeLabel.textContent = fmtClock(tr.time);
+    const bars = tr.bars();
+    r.barLabel.textContent = bars.bar + '.' + bars.beat;
+    if (r.snapSelect && document.activeElement !== r.snapSelect && r.snapSelect.value !== cfg.snap) r.snapSelect.value = cfg.snap;
     on(r.loopBtn, tl.loop.enabled);
     on(r.followBtn, cfg.followPlayhead !== false);
-    if (r.linkBtn) { on(r.linkBtn, cfg.useTimeline === true); r.linkBtn.setAttribute('aria-checked', cfg.useTimeline === true ? 'true' : 'false'); }
+    if (r.linkBtn) on(r.linkBtn, cfg.useTimeline === true);
     on(r.fullBtn, fullWin);
     r.undoBtn.disabled = !history_().canUndo();
     r.redoBtn.disabled = !history_().canRedo();

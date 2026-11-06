@@ -8292,6 +8292,7 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    açılamaması için ikisi ayrı parametre. */
 // Son dışa aktarma işinin yapılandırması: sv-media o işin videolarını da sunar
 let exportMediaCfg = null;
+let exportMediaPaths = new Set();
 // Süren video dışa aktarımının yapılandırması: dış kaynakları da açılır
 let exportSourceCfg = null;
 /* Dışa aktarımda video katmanının ara kopyaları (#539, export-media.js):
@@ -8315,7 +8316,7 @@ function runFfmpegCapture(ff, args) {
    sv-media adresi }. Kopyalanamayan (yok, saydamlıklı, çevirme hatası)
    eşlemeye girmez, dışa aktarıcı özgün dosyayı kullanır. */
 async function prepareExportMedia(ff, cfg, maxSec, w, h) {
-  const files = exportMedia.mediaFiles(cfg);
+  const files = exportMedia.jobMediaFiles(cfg);
   const map = {};
   if (!files.length) return map;
   cleanupExportMedia();
@@ -8330,7 +8331,7 @@ async function prepareExportMedia(ff, cfg, maxSec, w, h) {
       catch { return map; }
     }
     const out = exportMedia.tempName(exportMediaTemp.dir, i++);
-    const res = await runFfmpegCapture(ff, exportMedia.transcodeArgs(raw, out, { maxSec, width: w, height: h }));
+    const res = await runFfmpegCapture(ff, exportMedia.transcodeArgs(raw, out, { maxSec: require('../shared/timeline-compose').exportEnabled(cfg) ? 0 : maxSec, width: w, height: h }));
     if (res.code === 0 && fs.existsSync(out) && fs.statSync(out).size > 0) {
       exportMediaTemp.paths.add(path.resolve(out));
       map[file] = mediaUrl.toMediaUrl(out);
@@ -8350,19 +8351,22 @@ function cleanupExportMedia() {
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
   opts = opts || {};
+  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
      (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
   let jobCfg = (extra && extra.cfg) || currentConfig;
-  /* Zaman çizelgesini dahil et: panel/MCP opts; yapılandırmada yoksa açık. */
+  /* İş kopyası: klip düzenleyicisinin geçici görünümü dışa aktarılmaz.
+     Çizelge yalnız açıkça seçilmiş true ile dahil edilir. */
+  jobCfg = require('../shared/timeline-compose').exportConfig(jobCfg);
   if (jobCfg && Object.prototype.hasOwnProperty.call(opts, 'includeTimeline')) {
     jobCfg = Object.assign({}, jobCfg, {
-      export: Object.assign({}, jobCfg.export || {}, { includeTimeline: opts.includeTimeline !== false }),
+      export: Object.assign({}, jobCfg.export || {}, { includeTimeline: opts.includeTimeline === true }),
     });
   }
   /* Kuyruktaki sahnenin videosu o anki ayarda olmayabilir (#539):
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
   exportMediaCfg = jobCfg;
-  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
+  exportMediaPaths = new Set(exportMedia.jobMediaFiles(jobCfg).map((f) => path.resolve(mediaUrl.fromMediaUrl(f))));
   const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
   /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve
@@ -8760,6 +8764,7 @@ async function startAnalysisJob(opts) {
     chapterListText: '', analysisOnly: true, analysisData: null, startedAt: 0, total: 0,
   };
   exportMediaCfg = null;
+  exportMediaPaths.clear();
   const job = exportState;
   const isMine = () => exportState === job;
   notifyAdmin('export-progress', { phase: 'start', encoder: '', encoderLabel: '', kind: 'analysis' });
@@ -8951,6 +8956,8 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   cleanupExportMedia();
+  exportMediaPaths.clear();
+  exportMediaCfg = null;
   const out = exportState.outputPath;
   const seqDir = exportState.seqDir;
   const workDir = exportState.workDir;
@@ -9187,7 +9194,7 @@ app.whenReady().then(async () => {
       const raw = mediaUrl.fromMediaUrl(request.url);
       const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
       const inExport = !!(raw && ((exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl))
-        || exportMediaTemp.paths.has(path.resolve(raw))));
+        || exportMediaPaths.has(path.resolve(raw)) || exportMediaTemp.paths.has(path.resolve(raw))));
       if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport)) {
         return new Response('forbidden', { status: 403 });
       }
