@@ -207,10 +207,25 @@
     const spec = data.transition || {};
     const own = c.fade > 0 || c.transType || c.transEase;
     const type = c.transType || (spec.enabled === false && !own ? 'cut' : spec.type) || 'crossfade';
-    const dur = c.fade > 0 ? c.fade : T.durationSeconds(data, (tl.tempo.filter((e) => e.t <= t).pop() || {}).bpm || 120);
-    if (type === 'cut' || !(dur > 0) || t >= c.start + dur) return null;
-    const raw = Math.max(0, Math.min(1, (t - c.start) / dur));
-    return { type, p: T.easeOf(c.transEase || spec.ease || 'smooth')(raw), params: clone(spec.params || {}) };
+    const dur = c.fadeIn > 0 ? c.fadeIn : c.fade > 0 ? c.fade : T.durationSeconds(data, (tl.tempo.filter((e) => e.t <= t).pop() || {}).bpm || 120);
+    if (type === 'cut') return null;
+    const ease = T.easeOf(c.transEase || spec.ease || 'smooth');
+    const exit = Math.min(c.dur, Math.max(0, c.fadeOut || 0));
+    const end = c.start + c.dur;
+    // Çıkış isteğe bağlıdır: mevcut fadeOut süresi seçili yerel geçişi ters
+    // yüzey sırasıyla kapatır. Giriş/çıkış çakışırsa giriş kalan aralığa sığar.
+    if (exit > 0 && t >= end - exit && t < end) {
+      return { type, out: true, p: ease(Math.max(0, Math.min(1, (t - (end - exit)) / exit))), params: clone(spec.params || {}) };
+    }
+    const enter = exit > 0 ? Math.min(dur, c.dur - exit) : dur;
+    if (!(enter > 0) || t >= c.start + enter) return null;
+    const raw = Math.max(0, Math.min(1, (t - c.start) / enter));
+    return { type, p: ease(raw), params: clone(spec.params || {}) };
+  }
+
+  /* Denetçinin önizlemesi ile gerçek bileşim aynı klip/kaynak ayarını okur. */
+  function transitionSettings(cfg, clip) {
+    return clone((sourceData(cfg, clip) || blackScene()).transition || {});
   }
 
   function sourceTime(c, t) {
@@ -241,18 +256,22 @@
       if (!c || (!c.ref && !hasLocal(c))) continue;
       if (c.type === 'palette') { palettes.push(c); continue; }
       if (!isVisual(c)) continue;
-      const op = T.entryOpacity(tl, e.track, c, wt);
+      let op = T.entryOpacity(tl, e.track, c, wt);
       if (c.type === 'scene' || c.type === 'preset') {
         const data = sourceData(cfg, c);
         if (!data) continue; // kaynak yok: katkı yok (siyah kalabilir)
         top = data;
-        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: data, layers: emitLayers(c, layersOf(data), 1), transition: transitionFor(c, data, tl, wt) });
+        const transition = transitionFor(c, data, tl, wt);
+        if (transition) op = T.entryOpacity(tl, e.track, Object.assign({}, c, { fadeIn: 0, fadeOut: 0 }), wt);
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: data, layers: emitLayers(c, layersOf(data), 1), transition });
         scene.layers = scene.layers.concat(emitLayers(c, layersOf(data), op));
         ids.push(c.id);
       } else {
         const ml = hasLocal(c) ? layersOf(materializeData(c.local.data)) : [mediaLayer(c)];
         const own = hasLocal(c) ? materializeData(c.local.data) : blackScene();
-        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: own, layers: emitLayers(c, ml.filter(Boolean), 1), transition: null });
+        const transition = transitionFor(c, own, tl, wt);
+        if (transition) op = T.entryOpacity(tl, e.track, Object.assign({}, c, { fadeIn: 0, fadeOut: 0 }), wt);
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: own, layers: emitLayers(c, ml.filter(Boolean), 1), transition });
         scene.layers = scene.layers.concat(emitLayers(c, ml.filter(Boolean), op));
         ids.push(c.id);
       }
@@ -403,7 +422,7 @@
   }
   function resetLive(state) { if (state) { state.sig = null; state.fx = null; state.tl = null; state.tlSrc = null; } }
 
-  const api = { modeOn, exportEnabled, exportConfig, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
+  const api = { modeOn, transitionSettings, exportEnabled, exportConfig, live, resetLive, composeAt, ensureLocal, cloneLocalFor, dropStaleLocal, clipActiveAt, blackScene, instId, isVisual };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVTimelineCompose = api;
 })();

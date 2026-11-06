@@ -149,7 +149,10 @@ test('mute/solo, opacity and fades follow existing semantics', () => {
   ]);
   const r = TC.composeAt(cfg, tl, 1);
   assert.deepStrictEqual(types(r), ['circle']);
-  assert.ok(Math.abs(r.cfg.layers[0].opacity - 0.25) < 1e-9);
+  const unit = r.cfg.timelineComposition.units[0];
+  assert.strictEqual(unit.opacity, 0.5, 'track opacity belongs to the processed group');
+  assert.strictEqual(unit.transition.p, 0.5, 'half entry reveal produces effective quarter opacity');
+  assert.strictEqual(unit.transition.type, 'crossfade');
 });
 
 test('selection is not output: future clip composition depends on time only', () => {
@@ -229,8 +232,11 @@ test('overlapping scenes preserve their own effects, groups, crossfade, geometry
 test('all supported transition styles preserve params, timing, easing and rewind identity', () => {
   const TR = require('../src/shared/transition.js');
   const cfg = baseCfg();
-  for (const type of TR.TRANSITION_IDS.filter((id) => id !== 'cut')) {
-    const tl = tlWith([{ id: 's', clips: [{ id: 'a', type: 'scene', ref: 'sc_a', start: 2, dur: 2, fade: 1, transType: type, transEase: 'linear' }] }]);
+  for (const kind of ['scene', 'preset', 'visualizer', 'video', 'image', 'shader']) for (const type of TR.TRANSITION_IDS.filter((id) => id !== 'cut')) {
+    const tl = tlWith([{ id: 's', clips: [{ id: 'a', type: kind, ref: 'sc_a', start: 2, dur: 2, fade: 1, transType: type, transEase: 'linear' }] }]);
+    const clip = tl.tracks[0].clips[0];
+    if (kind !== 'scene') clip.local = { from: { type: kind, ref: 'sc_a' }, data: SV.clone(cfg.scenes[0].data) };
+    if (clip.local) clip.local.data.transition = { type: 'cut', params: { direction: 'left', softness: 0.2 } };
     cfg.scenes[0].data.transition = { type: 'cut', params: { direction: 'left', softness: 0.2 } };
     assert.ok(TC.composeAt(cfg, tl, 1.99).black, type);
     const at = (t) => TC.composeAt(cfg, tl, t).cfg.timelineComposition.units[0];
@@ -240,6 +246,26 @@ test('all supported transition styles preserve params, timing, easing and rewind
     assert.strictEqual(at(3).transition, null);
     assert.deepStrictEqual(at(2.5), mid, 'rewind pure: ' + type);
     assert.ok(TC.composeAt(cfg, tl, 4).black, 'end does not retain outgoing scene');
+    clip.fadeIn = 0.4; clip.fadeOut = 0.5; clip.opacity = 0.6; clip.transEase = 'easeIn';
+    assert.ok(Math.abs(at(2.2).transition.p - 0.25) < 1e-10, 'native entry uses explicit fadeIn and easing');
+    assert.strictEqual(at(2.2).opacity, 0.6, 'native entry is not double-faded');
+    const exit = at(3.75);
+    assert.strictEqual(exit.transition.out, true, kind);
+    assert.strictEqual(exit.transition.type, type);
+    assert.strictEqual(exit.transition.p, 0.25, 'exit easing, not linear opacity');
+    assert.strictEqual(exit.opacity, 0.6, 'native exit is not double-faded');
+    assert.strictEqual(at(3.5).transition.p, 0);
+    assert.deepStrictEqual(at(3.75), exit, 'rewind exit is deterministic');
+    assert.ok(TC.composeAt(cfg, tl, 4).black);
+    cfg.timeline.tracks = tl.tracks; cfg.timeline.useTimeline = true;
+    const live = TC.live(cfg, 3.75, {}).cfg.timelineComposition.units[0];
+    const job = TC.exportConfig(cfg); job.export.includeTimeline = true; job.timeline.useTimeline = false;
+    const offline = TC.composeAt(job, TL.makeTimeline(job.timeline), 3.75).cfg.timelineComposition.units[0];
+    assert.deepStrictEqual(live.transition, offline.transition, 'shared live/export native exit');
+    assert.strictEqual(live.opacity, offline.opacity);
+    clip.fadeOut = 0;
+    assert.strictEqual(at(3.75).transition, null, 'exit disabled preserves entry-only behavior');
+
   }
 });
 

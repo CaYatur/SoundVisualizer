@@ -107,7 +107,11 @@
         fromCtx.clearRect(0, 0, w, h); fromCtx.drawImage(ctx.canvas, 0, 0, w, h);
         toCtx.clearRect(0, 0, w, h); toCtx.globalAlpha = 1; toCtx.drawImage(this.from, 0, 0, w, h);
         toCtx.globalAlpha = u.opacity; toCtx.drawImage(image, 0, 0, w, h); toCtx.globalAlpha = 1;
-        if (u.transition) this.compositor.compose(ctx, this.from, this.to, w, h, u.transition.type, u.transition.p, u.transition.params);
+        if (u.transition) {
+          // Çıkışta klipli bileşimden hâlâ etkin alt bileşime/siyaha dönülür.
+          const tr = u.transition;
+          this.compositor.compose(ctx, tr.out ? this.to : this.from, tr.out ? this.from : this.to, w, h, tr.type, tr.p, tr.params);
+        }
         else { ctx.clearRect(0, 0, w, h); ctx.drawImage(this.to, 0, 0, w, h); }
       }
       ctx.restore();
