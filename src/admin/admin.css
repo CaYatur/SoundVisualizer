@@ -1234,9 +1234,10 @@ input.num {
 }
 input.num:focus { border-color: var(--accent); }
 .tl-editor { border: 1px solid var(--line); border-radius: 10px; outline: none; background: var(--bg2); }
-/* Odak halkası yok (#957): tıklayınca kartın çevresinde renkli çizgi
-   kalıyordu. Klavye odağı seçili öğenin vurgusuyla belli. */
-.tl-editor:focus, .tl-editor:focus-visible, .tl-editor:focus-within { outline: none; box-shadow: none; }
+/* Tıklayınca halka yok (#957). Klavye odağında halka kalır: :focus-visible
+   bu satırdan sonra gelmeli. :focus-within da kendisini kapsar ve halkayı silerdi. */
+.tl-editor:focus, .tl-editor:focus-within { outline: none; box-shadow: none; }
+.tl-editor:focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
 .tl-ctx button, .tl-target-menu button { display: flex; justify-content: space-between; gap: 18px; }
 .tl-ctx kbd { opacity: .6; font: 500 11px ui-monospace, monospace; }
 .tl-ctx .sv-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }

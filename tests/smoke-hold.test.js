@@ -32,7 +32,8 @@ test('bekletmeyi yalnız öz test ve dışa aktarma ölçümü açar, sprite öl
   const inBench = SRC.indexOf('smokeHoldStart();', bench);
   const fnEnd = /\r?\n\}\r?\n/.exec(SRC.slice(bench)); // CRLF ile çekilen kopyada da
   assert.ok(bench > 0 && fnEnd && inBench > bench && inBench < bench + fnEnd.index, 'ikincisi runExportBench içinde');
-  assert.match(SRC, /smokeHoldStart\(\);\n  let spr;\n  try \{ spr = await spriteProbe\(\); \} finally \{ smokeHoldEnd\(\); \}/);
-  const at = SRC.indexOf('smokeHoldStart();\n  let spr;');
+  assert.match(SRC, /smokeHoldStart\(\);\n  let loss;\n  let surf;\n  let spr;\n  try \{\n  loss = await lossProbe\(\);/);
+  assert.match(SRC, /spr = await spriteProbe\(\);\n  \} finally \{ smokeHoldEnd\(\); \}/);
+  const at = SRC.indexOf('smokeHoldStart();\n  let loss;');
   assert.ok(at > SRC.indexOf('async function runSmoke()'), 'runSmoke içinde');
 });

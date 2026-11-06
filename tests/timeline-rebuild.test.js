@@ -69,6 +69,16 @@ test('klip geçişi klibe özgü: tür/eğri korunuyor, sahne geçişi geri yük
     const c = tl.tracks[0].clips[0];
     assert.strictEqual(c.transType, 'wipe'); assert.strictEqual(c.transEase, 'snap');
   }
-  const a = read('src/admin/admin.js');
+  const a = read('src/admin/admin.js').replace(/\r\n/g, '\n');
   assert.ok(/keepTransition/.test(a) && /restoreTransition\(\)/.test(a));
+  const sceneAt = a.indexOf('actions.applyScene = (id, opts) => {');
+  const next = a.indexOf('\n  actions.', sceneAt + 10);
+  const body = a.slice(sceneAt, next > 0 ? next : sceneAt + 9000);
+  const keepAt = body.indexOf('keepTransition = window.SV.clone(cfg.transition)');
+  const keysAt = body.indexOf('SCENE_KEYS.forEach');
+  const cutAt = body.indexOf("ot.type === 'cut'");
+  const pushAt = body.indexOf('push(true)');
+  const restoreAt = body.indexOf('restoreTransition();');
+  assert.ok(keepAt > 0 && keysAt > keepAt, 'geçiş görüntüsü sahne anahtarlarından önce');
+  assert.ok(cutAt > keysAt && pushAt > cutAt && restoreAt > pushAt, 'kesme gönderilir, sonra kullanıcı geçişi döner');
 });

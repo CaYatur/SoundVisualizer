@@ -24,6 +24,17 @@ test('ayar satırlarının etiketi denetime bağlanıyor', () => {
   assert.doesNotMatch(block, /requestAnimationFrame\(/);
   const css = read('src/admin/admin.css');
   assert.match(css, /\.ctrl label\.lbl > \.lbl-t \{/);
+  // Liste kutusu aria-label alır; labelledby Chromium'da adı boş bırakabiliyor
+  assert.match(a, /x\.tagName === 'SELECT'/);
+  assert.match(a, /x\.removeAttribute\('aria-labelledby'\)/);
+  assert.match(a, /x\.setAttribute\('aria-label', name\)/);
+  assert.match(read('src/admin/shell.css'), /\.topsearch \.ts-kbd \{ font: 500 11px\/1 /);
+  assert.match(css, /\.tl-editor:focus, \.tl-editor:focus-within \{ outline: none; box-shadow: none; \}/);
+  assert.match(css, /\.tl-editor:focus-visible \{ outline: 2px solid var\(--accent2\); outline-offset: 1px; \}/);
+  assert.doesNotMatch(css, /\.tl-editor:focus-visible, \.tl-editor:focus-within/);
+  assert.match(read('src/admin/control.js'), /'aria-label': T\('Hedef'\)/);
+  assert.match(read('src/admin/extras-panel.js'), /'aria-label': T\('Biçim'\)/);
+  assert.match(read('src/admin/scene-panels.js'), /'aria-label': tr\(label\)/);
 });
 
 test('klavye odağı görünüyor: kaydırıcı, liste, ışık seçimi', () => {

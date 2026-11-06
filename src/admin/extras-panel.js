@@ -72,7 +72,7 @@
     const list = el('div', { class: 'map-list' });
     if (!L.providers.length) list.appendChild(el('div', { class: 'studio-empty', text: T('Sağlayıcı yok: hiçbir ağ isteği yapılmaz.') }));
     L.providers.forEach((pr, i) => {
-      const kind = el('select', { class: 'p-in', onchange: (e) => { pr.format = e.target.value; p.push(true); p.rerender(); } });
+      const kind = el('select', { class: 'p-in', 'aria-label': T('Biçim'), onchange: (e) => { pr.format = e.target.value; p.push(true); p.rerender(); } });
       [['json', 'JSON'], ['lrc', T('Ham LRC')]].forEach(([v, t]) => {
         const o = el('option', { value: v, text: t });
         if ((pr.format || 'json') === v) o.selected = true;

@@ -185,6 +185,7 @@
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
     const sel = el('select', {
       class: 'p-in',
+      'aria-label': tr(label),
       onchange: (e) => { set(e.target.value); P().push(true); if (onAfter) onAfter(); },
     });
     for (const [v, t] of options) {
@@ -2683,7 +2684,7 @@
                 }
               }
             });
-            const sel = el('select', { class: 'p-in' });
+            const sel = el('select', { class: 'p-in', 'aria-label': tr('Ekle') });
             sel.appendChild(el('option', { value: '', text: '— efekt ekle —' }));
             if (FX) FX.EFFECT_IDS.forEach((id) => sel.appendChild(el('option', { value: id, text: FX.EFFECTS[id].label })));
             sel.onchange = (ev) => {
@@ -2921,6 +2922,7 @@
 
     const addSel = el('select', {
       class: 'p-in',
+      'aria-label': tr('Yeni Efekt'),
       onchange: (e) => {
         if (!e.target.value) return;
         list.push(FX.defaultChainEntry(e.target.value));

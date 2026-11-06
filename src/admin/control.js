@@ -793,6 +793,7 @@
 
       const targetSel = el('select', {
         class: 'p-in',
+        'aria-label': T('Hedef'),
         onchange: (e) => { m.target = e.target.value; m.min = null; m.max = null; P().push(true); P().rerender(); },
       });
       allTargets().forEach((tt) => {

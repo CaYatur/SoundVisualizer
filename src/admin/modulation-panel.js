@@ -300,6 +300,7 @@
         },
       });
       const trTgt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+      tgtSel.setAttribute('aria-label', trTgt('Hedef'));
       tgtSel.appendChild(P().el('option', { value: '', text: '— hedef seçin —' }));
       let tGroup = null;
       let optGroup = null;
@@ -323,6 +324,7 @@
         (() => {
           const sel = P().el('select', {
             class: 'p-in',
+            'aria-label': trTgt('Kaynak'),
             onchange: (e) => { r.source = e.target.value; rerender(); },
           });
           let g = null;
