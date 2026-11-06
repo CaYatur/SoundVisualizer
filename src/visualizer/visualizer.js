@@ -584,6 +584,7 @@
         const r = TC.live(cfg, showT, tlLive);
         base = r.cfg;
         if (r.rebuild) {
+          analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(base);
           stack.setConfig(base);
           if (Array.isArray(base.layers) && base.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(base);
         }

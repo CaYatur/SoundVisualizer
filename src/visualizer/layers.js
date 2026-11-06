@@ -2424,6 +2424,7 @@
 
     // Dynamic Lighting arkaplan rengi ister: en alttaki arkaplan katmanı bildirir
     palette(cfg) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('palette') || [];
       // Örneklenen arkaplan örtülse de çizilmeye devam etsin (_covered)
       this._paletteAt = performance.now();
       for (const e of this.entries) {
@@ -2446,6 +2447,7 @@
        kazanıyor: birden fazla varsa hangisinin izlendiği belirsiz kalırdı,
        ve pratikte yığında bir tane oluyor. */
     milkdropMonitor() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropMonitor');
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.monitorValue === 'function') {
           const v = e.mode.monitorValue();
@@ -2461,6 +2463,7 @@
        desen ve aynı ~30 Hz mesaja biniyor. null = yığında MilkDrop yok;
        `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
     milkdropPreset() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropPreset');
       // Seçimi yapan katman: listede önde duran ama çizilmeyen katman eski seçimi söylerdi
       if (this._sharedLead) return this._sharedLead.livePreset();
       for (const e of this.entries) {
@@ -2476,6 +2479,7 @@
     /* Kendi otomatik geçişi olan katmanların o anki seçimi (#905): katman kimliğine göre.
        Ayara yazılmıyor, panel ve öteki ekranlar buradan öğreniyor. Yoksa null: mesaj büyümesin. */
     milkdropLayers() {
+      if (this.timelineRenderer) return this.timelineRenderer.layerReadouts();
       let out = null;
       for (const e of this.entries) {
         if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
@@ -2501,6 +2505,7 @@
        Işıklar bunları arkaplan paleti yerine alıyor. Yığında MilkDrop yoksa
        boş dizi: çağıran arkaplanın renklerine düşüyor. */
     milkdropColors(n) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropColors', n) || [];
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.sampleColors === 'function') return e.mode.sampleColors(n);
       }

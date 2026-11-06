@@ -819,6 +819,7 @@
   const READING_SOURCE = /"(an[A-Z]\w*|chroma\d+|kickTrig|snareTrig|hatTrig)"/;
   function neededBy(cfg) {
     const c = cfg || {};
+    if (c.timelineComposition && c.timelineComposition.units.some((u) => neededBy(u.cfg))) return true;
     if (c.oscOut && c.oscOut.enabled === true && c.oscOut.analysis !== false) return true;
     if (c.visualizer && READING_MODES.has(c.visualizer.type)) return true;
     if (Array.isArray(c.layers) && c.layers.some((l) => l && READING_MODES.has(l.type))) return true;

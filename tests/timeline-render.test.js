@@ -59,5 +59,18 @@ test('offline preparation creates current media players before seeking with clip
   const times = []; h.stacks[0]._mediaPool = new Map([['file', { seekTo(t) { times.push(t); return true; } }]]);
   a.localTime = 3.75;
   assert.equal(await h.r.seekMedia({ units: [a] }), true); assert.deepEqual(times, [3.75]);
+  h.stacks[0]._mediaPool.set('file', { seekTo() { return false; } });
+  assert.equal(await h.r.seekMedia({ units: [a] }), false, 'missing/unreadable media is reported, not a stale frame');
   h.r.dispose(); assert.equal(h.stacks[0].disposed, true);
+});
+
+test('scene readouts are forwarded from active child stacks; hidden/expired clips do not own monitors', () => {
+  const h = harness(), a = unit('a', 1, []), b = unit('b', 2, []);
+  h.r.prepare({ units: [a, b] });
+  h.stacks[0].milkdropMonitor = () => 10; h.stacks[1].milkdropMonitor = () => 20;
+  h.stacks[0].milkdropLayers = () => ({ 'tl~a~md': 'one' }); h.stacks[1].milkdropLayers = () => ({ 'tl~b~md': 'two' });
+  assert.equal(h.r.read('milkdropMonitor'), 20);
+  b.opacity = 0; assert.equal(h.r.read('milkdropMonitor'), 10);
+  assert.deepEqual(h.r.layerReadouts(), { 'tl~a~md': 'one', 'tl~b~md': 'two' });
+  h.r.prepare({ units: [a] }); assert.equal(h.r.read('milkdropMonitor'), 10);
 });

@@ -31,7 +31,7 @@
       for (const u of units) {
         let c = this.children.get(u.id);
         if (!c) { c = { stack: this.env.stack(), sig: null, modulator: typeof window !== 'undefined' && window.SVModulation ? new window.SVModulation.Modulator() : null }; this.children.set(u.id, c); }
-        const s = c.stack;
+        const s = c.stack; c.unit = u;
         // Ana ayar değil yalnız sahne alanları: aygıt/kitaplık değişimi motoru yeniden kurmaz
         const keys = (typeof window !== 'undefined' && window.SVSchema && window.SVSchema.SCENE_KEYS) || Object.keys(u.cfg);
         const sig = JSON.stringify(keys.map((k) => u.cfg[k]));
@@ -111,6 +111,20 @@
         else { ctx.clearRect(0, 0, w, h); ctx.drawImage(this.to, 0, 0, w, h); }
       }
       ctx.restore();
+    }
+    read(method, ...args) {
+      for (const c of Array.from(this.children.values()).reverse()) {
+        if (c.unit && c.unit.opacity <= 0) continue;
+        if (typeof c.stack[method] !== 'function') continue;
+        const value = method === 'palette' ? c.stack.palette(c.unit.cfg) : c.stack[method](...args);
+        if (value != null && (!Array.isArray(value) || value.length)) return value;
+      }
+      return null;
+    }
+    layerReadouts() {
+      const out = {};
+      for (const c of this.children.values()) if (c.stack.milkdropLayers) Object.assign(out, c.stack.milkdropLayers() || {});
+      return Object.keys(out).length ? out : null;
     }
     assetModes() { return Array.from(this.children.values()).flatMap((c) => c.stack._assetModes()); }
     dispose() { for (const c of this.children.values()) c.stack.dispose(); this.children.clear(); }
