@@ -178,6 +178,26 @@
      kimlikle dönüyor. Sağ parçanın kırpma başı ilerliyor: bir video klibi
      bölününce ikinci yarı kaldığı yerden sürmeli, baştan başlamamalı.
      Parçalardan biri en kısa süreden kısa kalacaksa bölünmüyor (null). */
+  /* Klip yerel kopyası (Timeline kullan, klip düzenleme) kopyalanan klipte
+     DERİN kopyalanır ve katman kimlikleri yenilenir: iki örnek aynı nesneyi
+     paylaşırsa birini düzenlemek ötekini de değiştirirdi. */
+  let isoSeq = 0;
+  function isolateLocal(copy) {
+    if (!copy || !copy.local || !copy.local.data) return copy;
+    copy.local = JSON.parse(JSON.stringify(copy.local));
+    const layers = Array.isArray(copy.local.data.layers) ? copy.local.data.layers : [];
+    const map = {};
+    for (const l of layers) {
+      if (!l) continue;
+      isoSeq = (isoSeq + 1) % 0x7fffffff;
+      const nid = 'ly_' + Date.now().toString(36) + '_' + isoSeq.toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
+      if (l.id) map[l.id] = nid;
+      l.id = nid;
+    }
+    for (const l of layers) if (l && l.mask && map[l.mask.from]) l.mask.from = map[l.mask.from];
+    return copy;
+  }
+
   function splitClip(clip, t) {
     if (!clip) return null;
     t = num(t, NaN);
@@ -191,6 +211,7 @@
       inPoint: num(clip.inPoint, 0) + leftDur * (num(clip.speed, 1) || 1),
     }));
     if (clip.color) right.color = clip.color;
+    isolateLocal(right);
     clip.dur = leftDur;
     return right;
   }
@@ -201,14 +222,14 @@
   function duplicateClip(clip) {
     const copy = TL().makeClip(Object.assign({}, clip, { id: undefined, start: clip.start + clip.dur }));
     if (clip.color) copy.color = clip.color;
-    return copy;
+    return isolateLocal(copy);
   }
 
   // Panodan yapıştırma: verilen başlangıçta, yeni kimlikle
   function pasteClip(clip, at) {
     const copy = TL().makeClip(Object.assign({}, clip, { id: undefined, start: Math.max(0, num(at, 0)) }));
     if (clip.color) copy.color = clip.color;
-    return copy;
+    return isolateLocal(copy);
   }
 
   function sortClips(track) {

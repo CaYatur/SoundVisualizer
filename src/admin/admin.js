@@ -86,6 +86,9 @@
   /* render() işaretleri zaten yeni çizdi: aynı anda gelen push ikinci kez taramasın. */
   let marksFresh = false;
   function push(immediate) {
+    /* Timeline klip düzenleme oturumu: panellerin değişikliği klibin yerel
+       kopyasına yazılır (kaynak sahne ve elle ayar ayrı kalır). */
+    if (window.SVTimelineTarget) window.SVTimelineTarget.sync(cfg);
     if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(cfg);
     if (isBlackedOut()) {
       cfg.isBlackout = true;
@@ -6604,6 +6607,8 @@
     try { window.api.setUiLanguage(window.SVI18n.locale); } catch { /* i18n yok */ }
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
+    // Yarım kalmış Timeline klip düzenleme oturumu: elle ayarı geri koy
+    if (window.SVTimelineTarget) window.SVTimelineTarget.recover(cfg);
     window.SVLayers.ensureStack(cfg);
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
