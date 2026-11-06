@@ -17,7 +17,7 @@ function harness() {
     const ctx = { canvas: c, save() {}, restore() {}, setTransform() {}, clearRect() {}, fillRect() {}, drawImage(image) { calls.push(['image', image.id, this.globalAlpha]); } };
     c.getContext = () => ctx; return c;
   }
-  const r = new Renderer({ canvas, compositor: () => ({ compose(ctx, from, to, w, h, type, p, params) { transitions.push({ type, p, params }); } }), stack() {
+  const r = new Renderer({ canvas, compositor: () => ({ compose(ctx, from, to, w, h, type, p, params) { transitions.push({ type, p, params, from: from.id, to: to.id }); } }), stack() {
     const s = { id: stacks.length, width: 0, height: 0,
       setConfig(cfg) { this.cfg = cfg; this.configs = (this.configs || 0) + 1; },
       setPostFX(fx) { this.fx = fx; this.postfx = { hasWork: () => !!fx.length, resize() {}, canvas: canvas(), render() { calls.push(['fx', fx.map((f) => f.type)]); } }; },
@@ -52,6 +52,13 @@ test('nonfade style/easing progress and params reach actual compositor, independ
   }
   assert.deepEqual(h.transitions.map((r) => r.p), [0, 0.5, 1, 0.25]);
   assert.ok(h.transitions.every((r) => r.type === 'wipe' && r.params.direction === 'left'));
+  a.transition = { type: 'wipe', out: true, p: 0.75, params: { direction: 'left' } };
+  h.r.draw(h.ctx, { units: [a], time: 0.75 }, {}, 100, 0.016, 64, 32);
+  const exit = h.transitions[h.transitions.length - 1];
+  assert.equal(exit.from, h.r.to.id, 'exit starts from the clip composite');
+  assert.equal(exit.to, h.r.from.id, 'exit reveals only the active underlay');
+  assert.equal(exit.type, 'wipe'); assert.equal(exit.p, 0.75);
+
 });
 test('offline preparation creates current media players before seeking with clip-local time', async () => {
   const h = harness(), a = unit('a', 2, []);

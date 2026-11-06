@@ -187,9 +187,22 @@ test('boş klipten sahne kaynağı: addClipAt + ref, addSceneAtHead ile aynı et
   assert.strictEqual(cfg.scenes[0].data.layers.length, 2);
 });
 
-test('panel kaynak seçicide tt kullanılıyor', () => {
+test('panel kaynak seçicide tt kullanılıyor', async () => {
   const src = read('src/admin/timeline-panel.js');
   assert.match(src, /text: tt\(label\)/);
   assert.match(src, /return tt\(sc\.name \|\| sc\.id\)/);
   assert.match(src, /Sahneyi aç/);
+  const cfg = SV.defaultConfig();
+  const TP = await mount(cfg, loadT('en'));
+  const walk = (n) => [n].concat((n.kids || []).flatMap(walk));
+  for (const type of ['scene','preset','visualizer','video','image','shader','action','palette']) {
+    cfg.timeline.tracks = [{ id: 'visual', kind: 'clip', clips: [TL.makeClip({ id: 'clip', type })] }];
+    TP.invalidate(); TP._select({ kind: 'clip', trackId: 'visual', clipId: 'clip' });
+    const nodes = walk(TP.panel());
+    const visual = !['action', 'palette'].includes(type);
+    for (const label of ['Geçiş Türü', 'Geçiş Eğrisi', 'Opaklık (0..1)', 'Giriş Solması (sn)', 'Çıkış Solması (sn)']) {
+      assert.strictEqual(nodes.some((n) => n.text === label), visual, type + ': ' + label);
+    }
+  }
+
 });

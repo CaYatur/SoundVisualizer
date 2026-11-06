@@ -29,6 +29,7 @@
   const P = () => window.SVPanel;
   const TL = () => window.SVTimeline;
   const TE = () => window.SVTimelineEdit;
+  const visualClip = (c) => window.SVTimelineCompose ? window.SVTimelineCompose.isVisual(c) : !!c && ['scene', 'preset', 'visualizer', 'video', 'image', 'shader'].includes(c.type);
   const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   // Ölçüler
@@ -1478,7 +1479,7 @@
       add('Çoğalt', 'Ctrl+D', () => duplicateSelection(), lk);
       add('Kafada böl', 'S', () => splitAtPlayhead(), lk);
       sep();
-      if (c.type === 'scene') {
+      if (visualClip(c)) {
         add(['Geçiş türü: ', c.transType ? transLabel(c) : 'sahne varsayılanı', ' …'], '', () => {
           subMenu(transTypePairs(), c.transType || '', (v) => { c.transType = v; commit(); rr(); }, cx, cy);
         }, lk);
@@ -3236,11 +3237,13 @@
   function clipTransSpec(c) {
     const cfg = P().cfg() || {};
     const sc = (Array.isArray(cfg.scenes) ? cfg.scenes : []).find((x) => x && x.id === c.ref);
-    const base = Object.assign({}, (window.SV && window.SV.defaultConfig ? window.SV.defaultConfig().transition : {}),
-      cfg.transition || {}, (sc && sc.data && sc.data.transition) || {});
+    const C = window.SVTimelineCompose;
+    const base = C && C.transitionSettings ? C.transitionSettings(cfg, c) : Object.assign({},
+      (window.SV && window.SV.defaultConfig ? window.SV.defaultConfig().transition : {}), cfg.transition || {}, (sc && sc.data && sc.data.transition) || {});
+    if (c.fade > 0 || c.transType || c.transEase) base.enabled = true;
     if (c.transType === 'cut') base.type = 'cut';
     else if (c.transType) base.type = c.transType;
-    if (c.fade > 0) { base.duration = c.fade; base.unit = 'seconds'; }
+    if (c.fadeIn > 0 || c.fade > 0) { base.duration = c.fadeIn > 0 ? c.fadeIn : c.fade; base.unit = 'seconds'; }
     if (c.transEase) base.ease = c.transEase;
     return base;
   }
@@ -3431,21 +3434,22 @@
       }
       grid.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; TE().sortClips(trk); commit(); draw(); })));
       grid.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); draw(); })));
-      // 0 = Geçiş kartındaki genel ayar; klibin sol üst köşesinden de sürüklenir
-      grid.appendChild(p.row('Geçiş (sn, 0 = genel)', numInput(c.fade, 0, 30, 0.05, (v) => { c.fade = v; commit(); draw(); })));
-      if (c.type === 'scene') {
+      // Ortak görsel özellikler: renk değiştiricisi/eylem görsel sahne değildir.
+      if (visualClip(c)) {
+        // 0 = klibin yerel/kaynak geçiş ayarı; sol üstten de sürüklenir
+        grid.appendChild(p.row('Geçiş (sn, 0 = genel)', numInput(c.fade, 0, 30, 0.05, (v) => { c.fade = v; commit(); draw(); })));
         // Klibin kendi geçişi: yalnız bu klipte, sahnenin geçişi değişmiyor
         grid.appendChild(p.row('Geçiş Türü', select(transTypePairs(), c.transType || '', (v) => { c.transType = v; commit(); draw(); })));
         grid.appendChild(p.row('Geçiş Eğrisi', select(transEasePairs(), c.transEase || '', (v) => { c.transEase = v; commit(); draw(); })));
         // Klibin geçişini paneldeki küçük önizlemede göster (çıkışa gitmez)
         if (window.SVTransitionPreview) grid.appendChild(p.row('Önizleme', window.SVTransitionPreview.create(() => clipTransSpec(c))));
+        const reapply = () => { commit(); applyClipsAt(ensureTransport().time); draw(); };
+        grid.appendChild(p.row('Opaklık (0..1)', numInput(c.opacity == null ? 1 : c.opacity, 0, 1, 0.01, (v) => { c.opacity = v; reapply(); })));
+        grid.appendChild(p.row('Giriş Solması (sn)', numInput(c.fadeIn || 0, 0, 1e4, 0.05, (v) => { c.fadeIn = v; reapply(); })));
+        grid.appendChild(p.row('Çıkış Solması (sn)', numInput(c.fadeOut || 0, 0, 1e4, 0.05, (v) => { c.fadeOut = v; reapply(); })));
+        grid.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
+        grid.appendChild(p.row('Hız', numInput(c.speed, 0.05, 20, 0.01, (v) => { c.speed = v; commit(); })));
       }
-      const reapply = () => { commit(); applyClipsAt(ensureTransport().time); draw(); };
-      grid.appendChild(p.row('Opaklık (0..1)', numInput(c.opacity == null ? 1 : c.opacity, 0, 1, 0.01, (v) => { c.opacity = v; reapply(); })));
-      grid.appendChild(p.row('Giriş Solması (sn)', numInput(c.fadeIn || 0, 0, 1e4, 0.05, (v) => { c.fadeIn = v; reapply(); })));
-      grid.appendChild(p.row('Çıkış Solması (sn)', numInput(c.fadeOut || 0, 0, 1e4, 0.05, (v) => { c.fadeOut = v; reapply(); })));
-      grid.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
-      grid.appendChild(p.row('Hız', numInput(c.speed, 0.05, 20, 0.01, (v) => { c.speed = v; commit(); })));
       const col = el('input', { class: 'tl-swatch big', type: 'color', value: TE().clipColor(c, trk) });
       col.addEventListener('change', () => { c.color = col.value; commit(); draw(); });
       const colReset = act(['reset'], 'Rengi parçadan / türden al', () => { c.color = ''; commit(); refreshInspector(); draw(); });
