@@ -108,10 +108,19 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
   /* `milkdropControl` sahne anahtarı değil; dışa aktarıcı yalnız sahneyi
      alsaydı 'on' motora hiç varmaz, belgelerdeki söz boşa çıkardı. */
   assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: jobCfg \|\| \{\},/);
-  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), job\.cfg \|\| \{\}\);/);
+  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), window\.SVTimelineCompose\.exportConfig\(job\.cfg \|\| \{\}\)\);/);
   require('../src/visualizer/layers.js');
-  const cfg = SV.defaultConfig();
-  cfg.milkdropControl.reduceMotion = 'on';
+  const jobCfg = SV.defaultConfig();
+  jobCfg.milkdropControl.reduceMotion = 'on';
+  // Klip düzenleyicisinin sahne kökleri temizlenir; gösteri genelindeki
+  // erişilebilirlik tercihi iş kopyasında aynen motora ulaşmalı.
+  jobCfg.timeline.manualBaseline = { layers: [], layerStack: { enabled: true } };
+  jobCfg.timeline.editTarget = { trackId: 't', clipId: 'c' };
+  const before = JSON.stringify(jobCfg);
+  const cfg = SV.deepMerge(SV.defaultConfig(), require('../src/shared/timeline-compose').exportConfig(jobCfg));
+  assert.strictEqual(cfg.milkdropControl.reduceMotion, 'on');
+  assert.strictEqual(cfg.timeline.editTarget, undefined);
+  assert.strictEqual(JSON.stringify(jobCfg), before, 'iş temizliği özgün yapılandırmayı değiştirmez');
   for (const settings of [{}, { visualizer: { sensitivity: 2 } }]) {
     const lc = window.SVLayers.layerConfig(cfg, { kind: 'visualizer', type: 'milkdrop', settings });
     assert.strictEqual(lc.milkdropControl.reduceMotion, 'on', 'katman ayarı ' + JSON.stringify(settings));
