@@ -221,8 +221,10 @@
       b.id = 'tlEditBanner';
       b.className = 'tl-edit-banner';
       b.setAttribute('role', 'status');
-      const host = document.querySelector('.work') || document.body;
-      host.insertBefore(b, host.firstChild);
+      // Üst bantlarla aynı yerde (çalışma alanının hemen üstünde): her sayfada görünür
+      const ws = document.querySelector('.workspace');
+      if (ws && ws.parentNode) ws.parentNode.insertBefore(b, ws);
+      else document.body.insertBefore(b, document.body.firstChild);
     }
     b.hidden = false;
     if (document.body.classList) document.body.classList.add('tl-editing');

@@ -168,3 +168,38 @@ test('type/source change drops stale local copy', () => {
   assert.ok(TC.dropStaleLocal(c));
   assert.ok(!c.local);
 });
+
+test('live output path (visualizer/preview) equals export composeAt; rebuild only on layer-set change; OFF restores', () => {
+  const cfg = baseCfg();
+  cfg.timeline = { useTimeline: true, tracks: [
+    { id: 'v', clips: [{ id: 'v1', type: 'visualizer', ref: 'spectrum', start: 1, dur: 1, fadeIn: 0.5 }] },
+    { id: 's', clips: [{ id: 's1', type: 'scene', ref: 'sc_a', start: 0, dur: 4 }] },
+  ] };
+  const st = {};
+  for (const t of [0, 0.5, 1, 1.25, 1.5, 2, 3.9, 4.5]) {
+    const a = TC.live(cfg, t, st).cfg;
+    const b = TC.composeAt(cfg, TL.makeTimeline(cfg.timeline), t).cfg;
+    assert.deepStrictEqual(a.layers, b.layers, 'same frame at ' + t);
+    assert.deepStrictEqual(a.postfx, b.postfx);
+  }
+  const s2 = {};
+  assert.ok(TC.live(cfg, 0.2, s2).rebuild);
+  assert.ok(!TC.live(cfg, 0.3, s2).rebuild);
+  assert.ok(TC.live(cfg, 1.1, s2).rebuild);
+  assert.ok(!TC.live(cfg, 1.2, s2).rebuild, 'fade opacity alone does not rebuild');
+  cfg.timeline.useTimeline = false;
+  const off = TC.live(cfg, 1.2, s2);
+  assert.ok(off.restore && off.rebuild);
+  assert.strictEqual(off.cfg, cfg, 'OFF draws manual cfg object itself');
+});
+
+test('consumers wire the same composition', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const rd = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  assert.match(rd('src/visualizer/visualizer.js'), /TC\.live\(cfg, showT, tlLive\)/);
+  assert.match(rd('src/admin/preview.js'), /TC\.live\(cfg,/);
+  assert.match(rd('src/exporter/exporter.js'), /SVTimelineCompose\.composeAt\(cfg, exportTl, t\)/);
+  for (const f of ['src/admin/index.html', 'src/visualizer/index.html', 'src/exporter/index.html', 'src/web/overlay.html'])
+    assert.match(rd(f), /timeline-compose\.js/, f);
+});
