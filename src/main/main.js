@@ -6514,6 +6514,7 @@ function syncAppSuspension() {
    aynı evren seçilirse açılmaz (kendi yayınımızı okuyup döngüye girerdi). */
 let artnetInRx = null;
 let artnetInKey = '';
+let artnetInGeneration = 0;
 let artnetInState = { listening: false, error: '', packets: 0 };
 function artnetInStatus() {
   return artnetInRx ? artnetInRx.status() : Object.assign({}, artnetInState);
@@ -6522,6 +6523,7 @@ function syncArtnetIn() {
   const c = (currentConfig && currentConfig.control && currentConfig.control.artnet) || {};
   const out = (currentConfig && currentConfig.artnet) || {};
   const stopRx = () => {
+    artnetInGeneration++;
     const rx = artnetInRx;
     artnetInRx = null;
     artnetInKey = '';
@@ -6540,7 +6542,11 @@ function syncArtnetIn() {
   const port = Math.max(1, Math.min(65535, c.port | 0 || artnet.ART_PORT));
   const key = bind + ':' + port + '/' + universe;
   if (artnetInRx && key === artnetInKey) return Promise.resolve(artnetInStatus());
-  return stopRx().then(() => {
+  const stopped = stopRx();
+  const generation = artnetInGeneration;
+  return stopped.then(() => {
+    // Beklenen kapanışın ardından daha yeni kapatma/ayar isteği gelmiş olabilir.
+    if (generation !== artnetInGeneration) return artnetInStatus();
     artnetInRx = artnetIn.createReceiver({
       bind, port, universe,
       onChanges: (msg) => notifyAdmin('artnet-in', msg),

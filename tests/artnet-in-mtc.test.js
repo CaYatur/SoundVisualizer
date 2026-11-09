@@ -209,3 +209,54 @@ test('MCP: control.artnet ve control.mtc tanınır ve doğrulanır', async () =>
   assert.strictEqual((await patch(c, 'control.mtc.offsetSec', 3600)).ok, true);
   assert.strictEqual((await patch(c, 'control.nope', {})).ok, false);
 });
+
+
+test('Art-Net receiver: immediate stop settles an in-flight bind without leaving a listener', async () => {
+  const rx = AIN.createReceiver({ port: 0, bind: '127.0.0.1' });
+  const timer = setTimeout(() => {}, 1000);
+  try {
+    await Promise.race([Promise.all([rx.start(), rx.stop()]), new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('pending receiver bind did not settle')), 500).unref();
+    })]);
+    assert.strictEqual(rx.status().listening, false);
+  } finally { clearTimeout(timer); await rx.stop(); }
+});
+
+test('MTC: Web MIDI requests SysEx only when MTC is enabled and binds full-frame input', async () => {
+  const vm = require('node:vm');
+  const cfg = { control: { midi: { enabled: false, deviceId: 'all' }, mtc: { enabled: false, deviceId: 'all' } } };
+  const input = { id: 'fixture' };
+  const options = [];
+  const win = { SVPanel: { cfg: () => cfg, rerender() {} } };
+  const context = vm.createContext({ window: win, document: {}, performance: { now: () => 100 },
+    navigator: { requestMIDIAccess: async (o) => { options.push(o); return { inputs: new Map([['fixture', input]]) }; } },
+    require: require('node:module').createRequire(require.resolve('../src/admin/control.js')) });
+  const source = fs.readFileSync(require.resolve('../src/admin/control.js'), 'utf8').replace('  window.SVControl = {',
+    '  window._mtcTest = { initMidi, getDecoder: () => mtcDecoder };\n  window.SVControl = {');
+  vm.runInContext(source, context);
+  await win._mtcTest.initMidi();
+  assert.strictEqual(options[0].sysex, false);
+  cfg.control.mtc.enabled = true;
+  await win._mtcTest.initMidi();
+  assert.strictEqual(options[1].sysex, true);
+  assert.strictEqual(typeof input.onmidimessage, 'function');
+  input.onmidimessage({ data: [0xf0, 0x7f, 0x7f, 0x01, 0x01, 0x20, 0, 3, 0, 0xf7] });
+  assert.strictEqual(win._mtcTest.getDecoder().time(), 3);
+});
+
+
+test('Art-Net main sync: a newer disable cancels a pending enable', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(require.resolve('../src/main/main.js'), 'utf8');
+  const code = source.slice(source.indexOf('let artnetInRx = null;'), source.indexOf('function syncArtnet()'));
+  let created = 0;
+  const context = vm.createContext({ currentConfig: { control: { artnet: { enabled: true } } }, HW_OFF: false,
+    artnet: { ART_PORT: 6454 }, notifyAdmin() {}, artnetIn: { safeBind: AIN.safeBind, createReceiver: () => {
+      created++; return { start: async () => ({ listening: true }), stop: async () => {}, status: () => ({ listening: true }) };
+    } } });
+  vm.runInContext(code, context);
+  const enabling = context.syncArtnetIn();
+  context.currentConfig.control.artnet.enabled = false;
+  await Promise.all([enabling, context.syncArtnetIn()]);
+  assert.strictEqual(created, 0);
+});

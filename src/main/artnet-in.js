@@ -71,16 +71,19 @@ function createReceiver(opts) {
       return new Promise((resolve) => {
         const s = dgram.createSocket({ type: 'udp4', reuseAddr: true });
         sock = s;
+        s.once('close', () => resolve(this.status()));
         s.on('error', (e) => {
-          st.listening = false;
-          st.error = (e && e.code) || 'error';
+          if (sock === s) { st.listening = false; st.error = (e && e.code) || 'error'; }
           try { s.close(); } catch { /* */ }
           if (sock === s) sock = null;
           resolve(this.status());
         });
         s.on('message', onMessage);
         try {
-          s.bind(o.port, o.bind, () => { st.listening = true; st.error = ''; resolve(this.status()); });
+          s.bind(o.port, o.bind, () => {
+            if (sock === s) { st.listening = true; st.error = ''; }
+            resolve(this.status());
+          });
         } catch (e) {
           st.error = (e && e.code) || 'error';
           sock = null;
@@ -96,7 +99,11 @@ function createReceiver(opts) {
       if (!sock) return Promise.resolve();
       const s = sock;
       sock = null;
-      return new Promise((resolve) => { try { s.close(() => resolve()); } catch { resolve(); } setTimeout(resolve, 200); });
+      return new Promise((resolve) => {
+        const timeout = setTimeout(resolve, 200);
+        if (timeout.unref) timeout.unref();
+        try { s.close(() => { clearTimeout(timeout); resolve(); }); } catch { clearTimeout(timeout); resolve(); }
+      });
     },
     // Kanal değerlerini unut: bir sonraki karede hepsi yeniden iletilir
     resync() { prev.fill(-1); },

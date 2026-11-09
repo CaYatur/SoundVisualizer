@@ -586,7 +586,9 @@
       return;
     }
     try {
-      midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      // Tam kare MTC, SysEx izni ister; MTC kapalıyken eski MIDI izni değişmez.
+      const cfg = P().cfg();
+      midiAccess = await navigator.requestMIDIAccess({ sysex: !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
       midiAccess.onstatechange = () => { bindMidiInputs(); P().rerender(); };
       bindMidiInputs();
     } catch (e) {
@@ -730,7 +732,7 @@
       toggle: async (next) => {
         m.enabled = next;
         P().push(true);
-        if (next && !midiAccess) await initMidi();
+        if (next) await initMidi();
         bindMidiInputs();
         syncMtc();
         P().rerender();
@@ -1407,6 +1409,7 @@
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
     else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
+    else if (cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) initMidi();
     if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
     syncGamepad();
     if (window.api.tempoSyncStatus) {
