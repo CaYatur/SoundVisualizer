@@ -1,0 +1,13 @@
+{
+  "name": "cayadev-soundvisualizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bitfocus Companion module for CaYaDev SoundVisualizer (OSC).",
+  "main": "src/main.js",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/CaYatur/SoundVisualizer.git" },
+  "scripts": { "package": "companion-module-build" },
+  "engines": { "node": ">=18.12" },
+  "dependencies": { "@companion-module/base": "~1.15.1" },
+  "devDependencies": { "@companion-module/tools": "^2.9.1" }
+}

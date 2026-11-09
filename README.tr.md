@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4255%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4274%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1055,6 +1055,16 @@ ekranın solundaki renkleri alıyor.
 
 ---
 
+### MQTT / Home Assistant
+
+**Kontrol → MQTT / Home Assistant** (varsayılan kapalı) yazdığınız MQTT aracısına bağlanır (düz ya
+da TLS, isteğe bağlı kullanıcı adı ve parola). Uygulama karartma, Auto VJ, tempo, çalan parça, sahne,
+görselleştirici kipi ve ana opaklığı saklanan (retain) `<kök>/state/…` konularına, çevrimiçi/dışı
+durumunu `<kök>/status` konusuna yayınlar. Home Assistant keşfiyle aygıt kendiliğinden görünür.
+**Komutları kabul et** açıkken (varsayılan kapalı) `<kök>/set/blackout`, `autovj`, `scene`,
+`visualizer` ve `opacity` OSC girişiyle aynı yoldan uygulanır; saklanan komutlar yok sayılır. Aracı
+parolası MCP'de ve web istemcilerinde gizlidir, MCP `mqtt.*` yazamaz ve ayar yedeğe aktarılmaz.
+
 ### MCP — bir yapay zekâ ajanıyla kontrol
 
 Bir ajan, çalışan uygulamayı **Model Context Protocol** üzerinden sürer. Anahtar **Kontrol**
@@ -1109,6 +1119,18 @@ bir araca dışarıda gönderilen alanlar için "patch içine koyun" ipucu veril
 **Kısa araç listesi.** MCP kartındaki "Kısa araç listesi" açıkken `tools/list` yalnız temel okuma
 ve sık düzenleme araçlarını tek cümlelik açıklamalarla döner; küçük bağlamlı yerel modeller için.
 Her araç adıyla çağrılabilir. Varsayılan tam listedir.
+
+**HTTP API (OpenAPI).** MCP kartındaki "HTTP API (REST, OpenAPI)" (varsayılan kapalı) aynı
+araçları MCP portunda düz HTTP ile açar, yalnız 127.0.0.1: `GET /api/v1/openapi.json` (OpenAPI 3.0,
+jeton istemez), `GET /api/v1/tools` ve gövdesi aracın JSON argümanları olan
+`POST /api/v1/tools/<ad>`. Çağrılar `Authorization: Bearer <jeton>` ister (MCP jetonu, karttan
+kopyalanır, MCP her açıldığında değişir) ve MCP ile aynı kipte çalışır. `Origin` başlığı taşıyan ya
+da loopback dışı `Host` ile gelen istekler reddedilir. Reddedilen araç çağrısı `ok:false` ile 400 döner.
+
+**Bitfocus Companion.** `integrations/companion/` sabit OSC ağacına yazan bir Companion modülüdür:
+karartma, Auto VJ, sahneler, kipler, opaklık, crossfader, palet, katmanlar, klip destesi, zaman
+çizelgesi ve her kaydırıcı yolu. OSC çıkışı Companion'a yöneltilirse karartma, Auto VJ, çalan parça,
+BPM ve opaklık değişken ve düğme geri bildirimi olarak görünür. Uygulama paketine girmez.
 
 Beş kip birikir. Anahtar **Okuma** kipinde açılır. Üst kip altındakileri de kapsar. Ajan kendi
 iznini yükseltemez: `sv_patch_config` her `mcp.*` yolunu reddeder. Engellenen çağrı gereken kipin
@@ -1938,7 +1960,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4255 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4274 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

@@ -43,6 +43,8 @@ const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
 const uiScale = require('../shared/ui-scale');
 const mcpServer = require('./mcp-server');
+const mqttLite = require('./mqtt-lite');
+const mqttBridge = require('./mqtt-bridge');
 const faultGuardLib = require('./fault-guard');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
@@ -2471,6 +2473,7 @@ function closeVisualizer(displayId) {
    bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
+  stopMqtt().catch(() => {});
   /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner.
      Kaynaklardan ÖNCE: iş biterken kaynaklar yeniden eşitleniyor, sonra
@@ -3559,6 +3562,89 @@ function syncMcp() {
 }
 
 ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: false, running: false, host: '127.0.0.1', port: 0, shell: '', script: '' }));
+
+/* MQTT / Home Assistant (mqtt-lite.js, mqtt-bridge.js). Varsayılan kapalı;
+   aracı adresi kullanıcıdan. Ayar anahtarı değişmedikçe bağlantı yeniden
+   kurulmaz. Durum yarım saniyede bir okunur, yalnız değişen konu gider.
+   Komutlar (allowControl) OSC girişinin yolundan uygulanır: panel aynı
+   osc-tree planını çalıştırır, ayrı bir yazma yolu yok. Öz test ve ekran
+   görüntüsünde (HW_OFF) ağa bağlanılmaz. */
+const mqttRun = { client: null, key: '', prev: null, timer: null, cfg: null, error: '', generation: 0 };
+function mqttStatus() {
+  const c = mqttRun.client ? mqttRun.client.status() : { connected: false, error: '' };
+  return { connected: c.connected, error: c.error || mqttRun.error || '' };
+}
+function stopMqtt() {
+  mqttRun.generation++;
+  clearInterval(mqttRun.timer);
+  mqttRun.timer = null;
+  const cl = mqttRun.client;
+  const base = mqttRun.cfg ? mqttRun.cfg.baseTopic : '';
+  mqttRun.client = null;
+  mqttRun.key = '';
+  mqttRun.prev = null;
+  mqttRun.cfg = null;
+  if (!cl) return Promise.resolve();
+  return cl.stop(base ? [{ topic: base + '/status', payload: 'offline', retain: true }] : []);
+}
+function mqttTick() {
+  const cl = mqttRun.client;
+  if (!cl || !cl.status().connected) return;
+  let next;
+  try { next = mqttBridge.stateOf(oscOutContext()); } catch (e) { return; }
+  for (const m of mqttBridge.stateMessages(mqttRun.prev, next, mqttRun.cfg)) cl.publish(m.topic, m.payload, m.retain);
+  mqttRun.prev = next;
+}
+function syncMqtt() {
+  const c = mqttBridge.normalize(currentConfig && currentConfig.mqtt);
+  if (!c.enabled || !c.host || HW_OFF) {
+    mqttRun.error = '';
+    const was = !!mqttRun.client;
+    return stopMqtt().then(() => { if (was) notifyAdmin('mqtt-status', mqttStatus()); });
+  }
+  const key = JSON.stringify(c);
+  if (mqttRun.client && key === mqttRun.key) return Promise.resolve();
+  const stopped = stopMqtt();
+  const generation = mqttRun.generation;
+  return stopped.then(() => {
+    // Daha yeni kapatma/ayar isteği varsa eski bağlantı yeniden doğmasın.
+    if (generation !== mqttRun.generation) return;
+    const node = mqttBridge.nodeIdOf(require('os').hostname());
+    const cl = mqttLite.createClient({
+      host: c.host, port: c.port, tls: c.tls, username: c.username, password: c.password,
+      clientId: 'soundvisualizer-' + node + '-' + process.pid,
+      will: { topic: c.baseTopic + '/status', payload: 'offline', retain: true },
+    });
+    mqttRun.client = cl;
+    mqttRun.key = key;
+    mqttRun.cfg = c;
+    mqttRun.error = '';
+    cl.on('connect', () => {
+      if (mqttRun.client !== cl) return;
+      cl.publish(c.baseTopic + '/status', 'online', true);
+      for (const m of mqttBridge.discoveryMessages(c, { nodeId: node, version: app.getVersion() })) cl.publish(m.topic, m.payload, m.retain);
+      cl.subscribe(mqttBridge.commandTopics(c));
+      mqttRun.prev = null;
+      mqttTick();
+      notifyAdmin('mqtt-status', mqttStatus());
+    });
+    cl.on('close', () => { if (mqttRun.client === cl) notifyAdmin('mqtt-status', mqttStatus()); });
+    cl.on('error', (msg) => {
+      if (mqttRun.client !== cl) return;
+      mqttRun.error = String(msg || '');
+      notifyAdmin('mqtt-status', mqttStatus());
+    });
+    cl.on('message', (topic, payload, retained) => {
+      // Aracının sakladığı eski komut bağlanınca bir daha uygulanmaz
+      if (retained || mqttRun.client !== cl) return;
+      const messages = mqttBridge.commandToOsc(topic, payload, c, oscTree.prefixOf(currentConfig));
+      if (messages.length) notifyAdmin('osc-message', { messages, source: 'mqtt' });
+    });
+    cl.start();
+    mqttRun.timer = setInterval(mqttTick, 500);
+  });
+}
+ipcMain.handle('mqtt:status', () => mqttStatus());
 ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
 
 /* Öz testin bir ölçümü sürerken panelin ayar gönderimleri bekletilir.
@@ -3801,6 +3887,7 @@ function applyIncomingConfig(config, opts) {
     syncTextureShare();
     syncLayerSources();
     syncRemotePeers();
+    syncMqtt();
   }
   syncTempoSync();
   syncRecovery();
@@ -9409,6 +9496,7 @@ app.whenReady().then(async () => {
   syncArtnetIn().catch(() => {});
   syncTextureShare().catch(() => {});
   syncLayerSources();
+  syncMqtt();
   }
 
   // Ekran değişikliklerini admin'e bildir

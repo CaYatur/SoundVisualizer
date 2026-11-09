@@ -4005,6 +4005,21 @@
     'Dinlemeyi Başlat': 'Start Listening',
     'Dinlemeyi Durdur': 'Stop Listening',
     'Göndermeyi Başlat': 'Start Sending',
+    // MQTT / Home Assistant
+    'MQTT / Home Assistant': 'MQTT / Home Assistant',
+    'Gösteri durumunu bir MQTT aracısına yayınlayın; Home Assistant aygıtı kendiliğinden bulur. İsterseniz karartma, sahne ve opaklık komutlarını da alın.':
+      'Publish the show state to an MQTT broker; Home Assistant finds the device on its own. Optionally accept blackout, scene and opacity commands too.',
+    'Aracı adresi yok': 'No broker address',
+    'Aracı Adresi': 'Broker Address',
+    'TLS (şifreli bağlantı)': 'TLS (encrypted connection)',
+    'Kullanıcı Adı': 'Username',
+    'Parola': 'Password',
+    'Konu Kökü': 'Base Topic',
+    'Home Assistant keşfi': 'Home Assistant discovery',
+    'Keşif Öneki': 'Discovery Prefix',
+    'Komutları kabul et': 'Accept commands',
+    'Durum (karartma, Auto VJ, tempo, çalan parça, sahne, kip, opaklık) <kök>/state/… konularına yayınlanır. "Komutları kabul et" açıkken <kök>/set/blackout, autovj, scene, visualizer ve opacity dinlenir ve OSC girişiyle aynı yoldan uygulanır. Aracıdaki herkes sahneyi değiştirebileceği için yalnız güvendiğiniz bir aracıda açın.':
+      'The state (blackout, Auto VJ, tempo, now playing, scene, mode, opacity) is published to <base>/state/… topics. With "Accept commands" on, <base>/set/blackout, autovj, scene, visualizer and opacity are read and applied the same way as OSC input. Anyone on the broker can then change the show, so turn it on only on a broker you trust.',
     'Göndermeyi Durdur': 'Stop Sending',
     'Işığı Başlat': 'Start Lighting',
     'Işığı Durdur': 'Stop Lighting',
@@ -4973,6 +4988,22 @@
   "mcp.profile.hint": {
     "tr": "Yalnız temel okuma ve sık düzenleme araçlarını kısa açıklamalarla listeler. Diğer araçlar adıyla çağrılabilir.",
     "en": "Lists only core read and common edit tools with short descriptions. Other tools can still be called by name."
+  },
+  "mcp.http.toggle": {
+    "tr": "HTTP API (REST, OpenAPI)",
+    "en": "HTTP API (REST, OpenAPI)"
+  },
+  "mcp.http.hint": {
+    "tr": "Aynı araçları /api/v1 altında düz HTTP ile açar. Yalnız bu bilgisayardan (127.0.0.1) erişilir, MCP jetonu ve seçili izin kipi geçerlidir. Jeton MCP her açıldığında değişir.",
+    "en": "Exposes the same tools as plain HTTP under /api/v1. Reachable only from this computer (127.0.0.1); the MCP token and the selected permission mode apply. The token changes each time MCP starts."
+  },
+  "mcp.http.copyUrl": {
+    "tr": "OpenAPI adresini kopyala",
+    "en": "Copy OpenAPI URL"
+  },
+  "mcp.http.copyToken": {
+    "tr": "Jetonu kopyala",
+    "en": "Copy token"
   },
   "mcp.card.setup": {
     "tr": "Kurulum",

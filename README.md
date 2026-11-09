@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4255%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4274%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1052,6 +1052,16 @@ the fixtures on the left take the colours on the left of the screen.
 
 ---
 
+### MQTT / Home Assistant
+
+**Control → MQTT / Home Assistant** (off by default) connects to an MQTT broker you name (plain or
+TLS, optional username and password). The app publishes blackout, Auto VJ, tempo, now playing,
+scene, visualizer mode and master opacity to retained `<base>/state/…` topics, with `<base>/status`
+as online/offline. Home Assistant discovery makes the device appear on its own. With **Accept
+commands** on (off by default), `<base>/set/blackout`, `autovj`, `scene`, `visualizer` and `opacity`
+are applied the same way as OSC input; retained commands are ignored. The broker password is hidden
+from MCP and from web clients, MCP cannot change `mqtt.*`, and the settings do not replicate to a backup.
+
 ### MCP — control from an AI agent
 
 An agent drives the running application over the **Model Context Protocol**. The switch is on the
@@ -1105,6 +1115,18 @@ accepted ones; fields sent next to a tool's `patch` argument get the hint to put
 **Compact tool list.** "Compact tool list" on the MCP card makes `tools/list` return only the core
 read and common edit tools with one-sentence descriptions, for small-context local models. Every
 tool stays callable by name. The default is the full list.
+
+**HTTP API (OpenAPI).** "HTTP API (REST, OpenAPI)" on the MCP card (off by default) serves the same
+tools as plain HTTP on the MCP port, 127.0.0.1 only: `GET /api/v1/openapi.json` (OpenAPI 3.0, no
+token), `GET /api/v1/tools`, and `POST /api/v1/tools/<name>` with the tool arguments as the JSON body.
+Calls need `Authorization: Bearer <token>` (the MCP token, copyable from the card; it changes each
+time MCP starts) and run under the same mode as MCP. Requests that carry an `Origin` header or a
+non-loopback `Host` are refused. A refused tool call returns 400 with `ok:false`.
+
+**Bitfocus Companion.** `integrations/companion/` is a Companion module that sends OSC to the
+fixed OSC tree: blackout, Auto VJ, scenes, modes, opacity, crossfader, palette, layers, clip deck,
+timeline and any slider path. With the OSC output pointed at Companion it also shows blackout, Auto
+VJ, now playing, BPM and opacity as variables and button feedback. It is not part of the app build.
 
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
@@ -1928,7 +1950,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4255 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4274 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

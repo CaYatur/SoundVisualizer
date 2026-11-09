@@ -320,6 +320,9 @@ contextBridge.exposeInMainWorld('api', {
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
   mcpStatus: () => ipcRenderer.invoke('mcp:status'),
+  // MQTT / Home Assistant
+  mqttStatus: () => ipcRenderer.invoke('mqtt:status'),
+  onMqttStatus: (cb) => ipcRenderer.on('mqtt-status', (e, d) => cb(d)),
   mcpReportLive: (data) => ipcRenderer.send('mcp:live', data),
   onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
