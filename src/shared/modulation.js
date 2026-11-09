@@ -146,6 +146,56 @@
     };
   }
 
+  /* Adım sıralayıcı (step sequencer): tempoya kilitli 4/8/16 adımlı değer
+     dizisi. Her adım 0..1 bir değer taşır; konum LFO'nun tempo kilidiyle
+     aynı yoldan, çizim döngüsünün `t`'sinden hesaplanır. Duvar saati ya da
+     kare sayısı okunmadığı için dışa aktarımda kare kare tekrarlanabilir.
+     Yeni kaynak yalnızca bir yönlendirmeye bağlanınca etkili olur; eski
+     sahneler hiçbir şey fark etmez. */
+  const SEQUENCERS = 2;
+  const SEQ_MAX_STEPS = 16;
+  const SEQ_LENGTHS = [4, 8, 16];
+  const SEQ_DEFAULT = { length: 8, division: '1/4', glide: 0, values: [] };
+
+  // Bir sıralayıcının etkin ayarı: bozuk alanlar varsayılana düşer
+  function sequencer(m, i) {
+    const s = (Array.isArray(m && m.sequencers) && m.sequencers[i]) || {};
+    const length = SEQ_LENGTHS.indexOf(s.length) >= 0 ? s.length : SEQ_DEFAULT.length;
+    const division = DIVISIONS.some((d) => d.id === s.division) ? s.division : SEQ_DEFAULT.division;
+    const glide = typeof s.glide === 'number' && isFinite(s.glide) ? clamp01(s.glide) : 0;
+    const values = [];
+    for (let k = 0; k < SEQ_MAX_STEPS; k++) {
+      const v = Array.isArray(s.values) ? s.values[k] : 0;
+      values.push(typeof v === 'number' && isFinite(v) ? clamp01(v) : 0);
+    }
+    return { length, division, glide, values };
+  }
+
+  /* t anındaki sıralayıcı çıktısı. Adım = floor(vuruş / bölüm) mod uzunluk.
+     glide > 0 ise adımın son `glide` kesrinde bir sonraki değere yumuşakça
+     kayar (S eğrisi); 0 ise keskin basamak. */
+  function sequencerValue(seq, t, bpm) {
+    const beats = (Math.max(0, t) * (bpm > 0 ? bpm : 120)) / 60;
+    const pos = beats / Math.max(1e-6, divisionBeats(seq.division));
+    const n = Math.floor(pos);
+    const idx = ((n % seq.length) + seq.length) % seq.length;
+    const cur = seq.values[idx];
+    if (!(seq.glide > 0)) return cur;
+    const frac = pos - n;
+    const start = 1 - seq.glide;
+    if (frac <= start) return cur;
+    const next = seq.values[(idx + 1) % seq.length];
+    const k = (frac - start) / seq.glide;
+    return cur + (next - cur) * (k * k * (3 - 2 * k));
+  }
+
+  // Sıralayıcının o anki adım numarası (panel göstergesi için)
+  function sequencerStep(seq, t, bpm) {
+    const beats = (Math.max(0, t) * (bpm > 0 ? bpm : 120)) / 60;
+    const n = Math.floor(beats / Math.max(1e-6, divisionBeats(seq.division)));
+    return ((n % seq.length) + seq.length) % seq.length;
+  }
+
   // ==========================================================================
   // Kaynak kataloğu — panelin listelediği şey
   // ==========================================================================
@@ -173,13 +223,16 @@
     for (let i = 0; i < FREE_BANDS; i++) {
       out.push({ id: 'fband' + (i + 1), label: 'Serbest Bant ' + (i + 1), group: 'Serbest Bant' });
     }
+    for (let i = 0; i < SEQUENCERS; i++) {
+      out.push({ id: 'seq' + (i + 1), label: 'Sıralayıcı ' + (i + 1), group: 'Sıralayıcı' });
+    }
     for (let i = 0; i < 8; i++) {
       const mc = (m.macros || [])[i];
       out.push({ id: 'macro' + (i + 1), label: (mc && mc.name) || ('Makro ' + (i + 1)), group: 'Makro' });
     }
     // Derin çözümleme kaynakları
     const AN = [
-      ['anLoudness', 'Gürlük'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
+      ['anLoudness', 'Gürlük'], ['anLufs', 'Gürlük (LUFS)'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
       ['anCentroid', 'Tayf Merkezi'], ['anRolloff', 'Yuvarlanma'],
       ['anFlatness', 'Tayf Düzlüğü'], ['anCrest', 'Tepe Faktörü'],
       ['anFlux', 'Tayf Akısı'], ['anSpread', 'Tayf Yayılımı'],
@@ -290,6 +343,10 @@
        clock: { bpm, beatPhase, barPhase } — verilmezse tempo serbest koşar. */
     update(cfg, audio, t, dt, clock) {
       const m = (cfg && cfg.modulation) || {};
+      // Yalnız etkin LUFS yönlendirmesi ölçümü ister; diğer analizler istemez.
+      if (m.enabled !== false && Array.isArray(m.routes) &&
+          m.routes.some((r) => r && r.enabled !== false && r.source === 'anLufs') &&
+          audio && audio.analysis && audio.analysis.requestLoudness) audio.analysis.requestLoudness(audio.sampleRate);
       const v = this.values;
       const step = clamp(dt || 0.016, 1 / 1000, 0.25);
       this.frame++;
@@ -369,6 +426,11 @@
         const raw = SHAPES[shape](phase, l.width, (i + 1) * 7919);
         // Çift kutuplu istenmiyorsa 0..1'e taşı
         v['lfo' + (i + 1)] = l.bipolar ? raw : raw * 0.5 + 0.5;
+      }
+
+      // --- adım sıralayıcılar ---
+      for (let i = 0; i < SEQUENCERS; i++) {
+        v['seq' + (i + 1)] = sequencerValue(sequencer(m, i), t || 0, bpm);
       }
 
       // --- zarf takipçileri ---
@@ -505,6 +567,7 @@
     Modulator, catalog, CURVES, CURVE_IDS, SHAPES, SHAPE_IDS,
     DIVISIONS, divisionBeats, getIn, setIn, routedPath, alphaFor, hashUnit,
     FREE_BANDS, FREE_BAND_DEFAULTS, FREE_HZ_MIN, FREE_HZ_MAX, FREE_DB_MIN, FREE_DB_MAX, freeBand,
+    SEQUENCERS, SEQ_MAX_STEPS, SEQ_LENGTHS, sequencer, sequencerValue, sequencerStep,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVModulation = api;
