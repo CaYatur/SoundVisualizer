@@ -77,6 +77,7 @@
     anKeyTonic: 'Live key tonic as pitch class / 11 (C = 0, B = 1)',
     anCorrelation: 'Stereo correlation mapped from -1..1 to 0..1',
     anPitch: 'Fundamental frequency, log2(Hz / 55) / 5, 0 when none',
+    anLufs: 'Momentary loudness (ITU-R BS.1770, 400 ms), -60..0 LUFS mapped to 0..1',
   };
   function fieldNote(id) {
     if (FIELD_NOTES[id]) return FIELD_NOTES[id];

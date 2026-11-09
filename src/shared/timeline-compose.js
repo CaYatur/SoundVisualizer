@@ -413,6 +413,11 @@
     if (selected.itemEnabled === false) fail('EXPORT_TIMELINE_PASSIVE', 'Seçilen çizelge pasif; dışa aktarmadan önce etkinleştirin.');
     out.timeline = Object.assign({}, out.timeline, selected, { bank: [], order: [selected.id] });
     out.export.timelineId = selected.id;
+    /* Canlı karartma (panik düğmesi) çevrimdışı çizelge işini etkilemez.
+       Aşağıdaki içerik denetimi karartmayı zaten yok sayıyordu; bayrak işe
+       taşınınca composeAt hiç klip almıyor, denetim geçip bütün video siyah
+       çıkıyordu. Karartma kalkınca panel bayrağı zaten false gönderir. */
+    out.isBlackout = false;
     const tl = T.makeTimeline(out.timeline);
     const hasContent = tl.tracks.some((track) => (track.clips || []).some((clip) =>
       composeAt(Object.assign({}, out, { isBlackout: false }), tl, clip.start).cfg.timelineComposition.units.some((u) => u.layers.length > 0)));

@@ -53,7 +53,7 @@
     'blur', 'radialblur', 'motionblur', 'tiltshift', 'dof', 'sharpen', 'emboss',
     'dither', 'halftone', 'ascii', 'hatch', 'paint', 'vhs', 'datamosh', 'slitscan',
     'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize', 'flash', 'strobe',
-    'godrays', 'badtv', 'starfilter',
+    'godrays', 'badtv', 'starfilter', 'tonemap', 'lut3d',
   ];
   const LAYER_DEFAULTS = {
     id: null, name: '', enabled: true, kind: 'visualizer', type: 'bars', presetId: null,

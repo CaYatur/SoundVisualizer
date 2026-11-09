@@ -559,6 +559,8 @@ void main(){
 
     setChain(list) {
       this.chain = (Array.isArray(list) ? list : []).filter((e) => e && EFFECTS[e.type] && e.enabled !== false);
+      // Zincirden çıkan ya da kapatılan efektin ek dokuları hemen bırakılsın.
+      if (this.gl) for (const k in EFFECTS) if (EFFECTS[k].sync) EFFECTS[k].sync(this.gl, this, this.chain);
     }
 
     hasWork() {
@@ -656,6 +658,8 @@ void main(){
           if (mod) v = v + (p.max - p.min) * mod * band;
           gl.uniform1f(this._u(entry, alias), Math.max(p.min, Math.min(p.max, v)));
         }
+        // Ek dokusu olan efektler (3B LUT) kendi bağlamasını yapar
+        if (def.bind) def.bind(gl, this, fx, (name) => this._u(entry, name));
 
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -784,6 +788,7 @@ void main(){
       const gl = this.gl;
       if (!gl) return;
       this._release();
+      for (const k in EFFECTS) if (EFFECTS[k].dispose) EFFECTS[k].dispose(gl, this);
       for (const k in this.programs) gl.deleteProgram(this.programs[k].prog);
       this.programs = {};
       for (const k in this._jobs) window.SVGlLink.drop(gl, this._jobs[k]);
