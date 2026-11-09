@@ -3,6 +3,8 @@
 ; https://github.com/CaYatur/SoundVisualizer
 ; SPDX-License-Identifier: MIT
 
+!include "${PROJECT_DIR}\scripts\windows-shortcuts.nsh"
+
 !macro customInstall
   DetailPrint "Registering CAYADEV Visualizer Dynamic Lighting identity..."
   nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\identity\install-identity.ps1" -ExternalLocation "$INSTDIR" -CertificateStore LocalMachine'
@@ -14,12 +16,11 @@
   ; (gri zeminli) ikonu kalmasın diye simge önbelleği tazelenir.
   nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
   Pop $0
-  ; Ses köprüsü kipi (#813): Başlat menüsünde --bridge ile açan ayrı kısayol
-  CreateShortCut "$SMPROGRAMS\CAYADEV Visualizer Audio Bridge.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--bridge" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0
+  !insertmacro svInstallWindowsShortcuts
 !macroend
 
 !macro customUnInstall
-  Delete "$SMPROGRAMS\CAYADEV Visualizer Audio Bridge.lnk"
+  !insertmacro svRemoveWindowsShortcuts
   DetailPrint "Removing CAYADEV Visualizer Dynamic Lighting identity..."
   nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\identity\uninstall-identity.ps1"'
   Pop $0

@@ -154,7 +154,7 @@
       "perMachine": true,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "CAYADEV Visualizer",
+      "shortcutName": "CaYaDev SoundVisualizer",
       "include": "scripts/installer.nsh",
       "artifactName": "CAYADEV-Visualizer-${version}-windows-setup.exe"
     },
@@ -188,7 +188,8 @@
       "hardenedRuntime": false,
       "identity": null,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source."
+        "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source.",
+        "CFBundleDisplayName": "CaYaDev SoundVisualizer"
       },
       "artifactName": "CAYADEV-Visualizer-${version}-macos-${arch}.${ext}"
     },
@@ -214,7 +215,13 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Multi-monitor audio visualizer",
-      "description": "Music visualizer and VJ software that reacts to system audio in real time."
+      "description": "Music visualizer and VJ software that reacts to system audio in real time.",
+      "desktop": {
+        "entry": {
+          "Name": "CaYaDev SoundVisualizer",
+          "Keywords": "Visualizer;SoundVisualizer;CaYaDev;"
+        }
+      }
     },
     "deb": {
       "depends": [
