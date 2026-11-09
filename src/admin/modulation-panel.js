@@ -266,6 +266,50 @@
       return kids;
     }));
 
+    // ------------------------------------------------- adım sıralayıcılar
+    nodes.push(SP().foldable('Adım Sıralayıcı (2)', () => {
+      const MOD = window.SVModulation;
+      const seqs = Array.isArray(m.sequencers) ? m.sequencers : (m.sequencers = []);
+      const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+      const kids = [el('div', { class: 'studio-note dim-hint', text: 'Tempoya kilitli adım dizisi. Her adımın yüksekliği o adımdaki değerdir (0..1). Yönlendirmelerde "Sıralayıcı" grubundan seçilir.' })];
+      for (let i = 0; i < MOD.SEQUENCERS; i++) {
+        const sq = seqs[i] || (seqs[i] = {});
+        if (!Array.isArray(sq.values)) sq.values = [];
+        const eff = MOD.sequencer(m, i);
+        const meter = el('span', { class: 'mod-meter' }, [el('i')]);
+        meters.push({ el: meter.firstChild, source: 'seq' + (i + 1) });
+        // Adım kaydırıcıları: dikey, uzunluk kadar gösterilir
+        const grid = el('div', { class: 'mod-steps', role: 'group', 'aria-label': tr('Adımlar') });
+        for (let k = 0; k < eff.length; k++) {
+          const inp = el('input', {
+            type: 'range', min: 0, max: 1, step: 0.01, value: eff.values[k],
+            'aria-label': tr('Adım') + ' ' + (k + 1),
+            oninput: (e) => {
+              for (let j = sq.values.length; j < MOD.SEQ_MAX_STEPS; j++) sq.values.push(0);
+              sq.values[k] = parseFloat(e.target.value);
+              P().push(false);
+            },
+          });
+          grid.appendChild(inp);
+        }
+        kids.push(el('div', { class: 'mod-gen' }, [
+          el('div', { class: 'item-head' }, [el('span', { class: 'item-title', text: tr('Sıralayıcı') + ' ' + (i + 1) })]),
+          P().row('Anlık', meter),
+          SP().miniSelect('Adım Sayısı', MOD.SEQ_LENGTHS.map((n) => [n, String(n)]), () => eff.length, (v) => { sq.length = parseInt(v, 10); }, rerender),
+          SP().miniSelect('Bölüm', MOD.DIVISIONS.map((d) => [d.id, d.id]), () => eff.division, (v) => { sq.division = v; }),
+          SP().miniSlider('Kayarak Geçiş', () => MOD.sequencer(m, i).glide, (v) => { sq.glide = v; }, { min: 0, max: 1, step: 0.01, percent: true }),
+          grid,
+          el('div', { class: 'row sv-btn-row' }, [
+            el('button', {
+              class: 'btn ghost small', type: 'button', text: 'Adımları Sıfırla',
+              onclick: () => { sq.values = []; rerender(); },
+            }),
+          ]),
+        ]));
+      }
+      startMeters();
+      return kids;
+    }));
     // -------------------------------------------------------- yönlendirmeler
     const routes = Array.isArray(m.routes) ? m.routes : (m.routes = []);
     const cat = targetCatalog(cfg);
