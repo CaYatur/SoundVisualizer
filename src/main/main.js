@@ -22,6 +22,7 @@ const sacn = require('./sacn');
 const ddp = require('./ddp');
 const wledSync = require('./wled-audiosync');
 const oscOut = require('./osc-out');
+const artnetIn = require('./artnet-in');
 const oscQuery = require('./osc-query');
 const oscTree = require('../shared/osc-tree');
 const openrgb = require('./openrgb');
@@ -3796,6 +3797,7 @@ function applyIncomingConfig(config, opts) {
     syncLedNet();
     syncOscOut();
     syncOpenRgb();
+    syncArtnetIn();
     syncTextureShare();
     syncLayerSources();
     syncRemotePeers();
@@ -6519,6 +6521,53 @@ function syncAppSuspension() {
   }
 }
 
+/* Art-Net GİRİŞİ: masadan gelen DMX kanalları paneldeki eşlemelere gider.
+   Varsayılan kapalı ve yalnız 127.0.0.1'i dinler. Kendi Art-Net çıkışımızla
+   aynı evren seçilirse açılmaz (kendi yayınımızı okuyup döngüye girerdi). */
+let artnetInRx = null;
+let artnetInKey = '';
+let artnetInGeneration = 0;
+let artnetInState = { listening: false, error: '', packets: 0 };
+function artnetInStatus() {
+  return artnetInRx ? artnetInRx.status() : Object.assign({}, artnetInState);
+}
+function syncArtnetIn() {
+  const c = (currentConfig && currentConfig.control && currentConfig.control.artnet) || {};
+  const out = (currentConfig && currentConfig.artnet) || {};
+  const stopRx = () => {
+    artnetInGeneration++;
+    const rx = artnetInRx;
+    artnetInRx = null;
+    artnetInKey = '';
+    return rx ? rx.stop() : Promise.resolve();
+  };
+  if (!c.enabled || HW_OFF) {
+    artnetInState = { listening: false, error: '', packets: 0 };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const universe = Math.max(0, Math.min(32767, c.universe | 0));
+  if (out.enabled && (out.universe | 0) === universe) {
+    artnetInState = { listening: false, error: 'same-universe', packets: 0, universe };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const bind = artnetIn.safeBind(c.bind);
+  const port = Math.max(1, Math.min(65535, c.port | 0 || artnet.ART_PORT));
+  const key = bind + ':' + port + '/' + universe;
+  if (artnetInRx && key === artnetInKey) return Promise.resolve(artnetInStatus());
+  const stopped = stopRx();
+  const generation = artnetInGeneration;
+  return stopped.then(() => {
+    // Beklenen kapanışın ardından daha yeni kapatma/ayar isteği gelmiş olabilir.
+    if (generation !== artnetInGeneration) return artnetInStatus();
+    artnetInRx = artnetIn.createReceiver({
+      bind, port, universe,
+      onChanges: (msg) => notifyAdmin('artnet-in', msg),
+    });
+    artnetInKey = key;
+    return artnetInRx.start();
+  }).then((st) => { notifyAdmin('artnetin-status', st); return st; });
+}
+
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
   // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
@@ -6970,6 +7019,9 @@ ipcMain.handle('wled:discover', () => (HW_OFF ? { ok: false, error: 'disabled', 
 ipcMain.handle('wled:info', (e, host) => (HW_OFF ? { ok: false, error: 'disabled' } : ddp.fetchInfo(String(host || '').slice(0, 260), 2500)));
 ipcMain.handle('oscout:status', () => oscOut.status());
 ipcMain.handle('oscout:sync', () => syncOscOut());
+ipcMain.handle('artnetin:status', () => artnetInStatus());
+ipcMain.handle('artnetin:sync', () => syncArtnetIn());
+ipcMain.handle('artnetin:resync', () => { if (artnetInRx) artnetInRx.resync(); return true; });
 /* Tempo motorunun vuruşu panelden geliyor (autovj.js). Yalnız panel
    penceresinden kabul edilir: vuruş başka bir sayfadan uydurulamasın. */
 function noteOscLive(info) {
@@ -9354,6 +9406,7 @@ app.whenReady().then(async () => {
   syncLedNet().catch(() => {});
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
+  syncArtnetIn().catch(() => {});
   syncTextureShare().catch(() => {});
   syncLayerSources();
   }
@@ -12279,6 +12332,7 @@ function shutdownCleanup() {
   oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
+  if (artnetInRx) artnetInRx.stop().catch(() => {});
   textureShare.stop().catch(() => {});
   if (layerSources) layerSources.shutdown(); // web katmanının görünmez sayfaları
   mediaSession.stop();

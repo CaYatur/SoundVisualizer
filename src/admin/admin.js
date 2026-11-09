@@ -3050,6 +3050,24 @@
         controls: [{ type: 'controlpanel', surface: 'tempo' }],
       },
       {
+        id: 'artnetIn',
+        category: 'control',
+        icon: 'sliders',
+        wide: true,
+        title: 'Art-Net Girişi',
+        desc: 'Işık masasından gelen DMX kanallarıyla sahneleri, faderları ve karartmayı sürün.',
+        controls: [{ type: 'controlpanel', surface: 'artnetin' }],
+      },
+      {
+        id: 'mtc',
+        category: 'control',
+        icon: 'timeline',
+        wide: true,
+        title: 'MIDI Zaman Kodu (MTC)',
+        desc: 'Zaman Çizelgesini bir DAW ya da şov denetleyicisinin MIDI zaman koduna kilitleyin.',
+        controls: [{ type: 'controlpanel', surface: 'mtc' }],
+      },
+      {
         id: 'remotePeers',
         category: 'control',
         icon: 'share',
@@ -3786,6 +3804,8 @@
       if (id === 'osc') return !!(c.osc && c.osc.enabled);
       if (id === 'oscOut') return !!(c.oscOut && c.oscOut.enabled);
       if (id === 'gamepad') return !!(c.gamepad && c.gamepad.enabled);
+      if (id === 'artnetIn') return !!(c.artnet && c.artnet.enabled);
+      if (id === 'mtc') return !!(c.mtc && c.mtc.enabled);
       if (id === 'mcp') return !!(cfg.mcp && cfg.mcp.enabled);
       return false;
     };

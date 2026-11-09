@@ -260,6 +260,11 @@ contextBridge.exposeInMainWorld('api', {
   oscOutStatus: () => ipcRenderer.invoke('oscout:status'),
   oscOutSync: () => ipcRenderer.invoke('oscout:sync'),
   onOscOutStatus: (cb) => ipcRenderer.on('oscout-status', (e, d) => cb(d)),
+  artnetInStatus: () => ipcRenderer.invoke('artnetin:status'),
+  artnetInSync: () => ipcRenderer.invoke('artnetin:sync'),
+  artnetInResync: () => ipcRenderer.invoke('artnetin:resync'),
+  onArtnetIn: (cb) => ipcRenderer.on('artnet-in', (e, d) => cb(d)),
+  onArtnetInStatus: (cb) => ipcRenderer.on('artnetin-status', (e, d) => cb(d)),
   reportTempoBeat: (info) => ipcRenderer.send('tempo:beat', info),
   reportTempoClock: (info) => ipcRenderer.send('tempo:clock', info),
 
