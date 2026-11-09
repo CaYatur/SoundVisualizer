@@ -303,6 +303,11 @@ function publicConfig(cfg) {
   if (rd && typeof rd === 'object' && rd.secret) {
     out = Object.assign({}, out, { redundancy: Object.assign({}, rd, { secret: '' }) });
   }
+  // MQTT aracı parolası web istemcisine gitmez
+  const mq = cfg.mqtt;
+  if (mq && typeof mq === 'object' && mq.password) {
+    out = Object.assign({}, out, { mqtt: Object.assign({}, mq, { password: '' }) });
+  }
   const md = cfg.milkdrop;
   if (md && typeof md.textureDir === 'string' && md.textureDir) {
     const tag = 'textures:' + crypto.createHash('sha256').update(md.textureDir).digest('hex').slice(0, 12);

@@ -67,7 +67,7 @@ test('oyun kumandası: fark olayları, öğrenme ve eşleme', () => {
 
 test('mcp: control.gamepad geçerli bir yüzey', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'mcp.js'), 'utf8');
-  assert.match(src, /surfaces = \['midi', 'osc', 'gamepad'\]/);
+  assert.match(src, /surfaces = \['midi', 'osc', 'gamepad'(, 'artnet', 'mtc')?\]/);
   assert.ok(mcp);
 });
 

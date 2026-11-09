@@ -36,8 +36,8 @@
 
   /* Paneldeki taşımadan çıpa üret. `nowMs` çağıranın saat okuması —
      test edilebilirlik için dışarıdan alınır. */
-  function anchorFrom(transport, nowMs, loop) {
-    return {
+  function anchorFrom(transport, nowMs, loop, holdAt) {
+    const a = {
       playing: !!(transport && transport.playing),
       time: Math.max(0, num(transport && transport.time, 0)),
       epoch: num(nowMs, 0),
@@ -47,6 +47,12 @@
           ? { enabled: true, start: num(loop.start, 0), end: num(loop.end, 0) }
           : null,
     };
+    /* Cue bekleme noktası: oynarken kafa burada durur, her pencere aynı
+       yerde. Döngü bu noktaya varmadan sarıyorsa (nokta döngü sonunda ya
+       da ötesinde) bekleme yok sayılır. Yalnız ileri oynatmada. */
+    const h = num(holdAt, NaN);
+    if (a.playing && a.rate > 0 && isFinite(h) && h > a.time && (!a.loop || h < a.loop.end)) a.hold = h;
+    return a;
   }
 
   /* Döngü sarması. `advance()` ile AYNI modülo mantığı: tek bir adımda döngü
@@ -67,7 +73,10 @@
     if (!anchor) return 0;
     if (!anchor.playing) return Math.max(0, num(anchor.time, 0));
     const elapsed = Math.max(0, (num(nowMs, 0) - num(anchor.epoch, 0)) / 1000);
-    return wrap(num(anchor.time, 0) + elapsed * (num(anchor.rate, 1) || 1), anchor.loop);
+    const t = num(anchor.time, 0) + elapsed * (num(anchor.rate, 1) || 1);
+    // Cue bekleme: noktaya varınca orada kal (sarmadan önce)
+    if (anchor.hold != null && isFinite(anchor.hold) && t >= anchor.hold) return anchor.hold;
+    return wrap(t, anchor.loop);
   }
 
   const api = { idle, anchorFrom, resolve, wrap };

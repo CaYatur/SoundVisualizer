@@ -1159,6 +1159,46 @@
     },
 
     // ------------------------------------------------------------------
+    // Ağ LED çıkışları. Hepsi varsayılan KAPALI; açılınca yalnız gönderir,
+    // hiçbir porta dinlemek için bağlanmaz.
+    // sACN (E1.31): Art-Net ile aynı kanal üreticisi; boş host = evrenin
+    // multicast adresi (239.255.H.L).
+    // ------------------------------------------------------------------
+    sacn: {
+      enabled: false,
+      host: '', // boş = multicast; tek düğüm için onun IP'si (unicast)
+      port: 5568,
+      universe: 1, // sACN evrenleri 1'den başlar
+      priority: 100, // 0..200, E1.31 varsayılanı 100
+      sourceName: 'SoundVisualizer',
+      startChannel: 1,
+      fixtures: 8,
+      channelsPerFixture: 3,
+      mode: 'palette', // 'palette' | 'bands' | 'spectrum' | 'single'
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED doğrudan sürme (DDP, UDP 4048). Host boşsa hiçbir şey gönderilmez.
+    wled: {
+      enabled: false,
+      host: '',
+      port: 4048,
+      ledCount: 60,
+      mode: 'palette',
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED ses senkronu (Audio Sync v2) yayını
+    wledSync: {
+      enabled: false,
+      host: '239.0.0.1', // WLED'in varsayılan multicast adresi
+      port: 11988,
+      fps: 40,
+    },
+
+    // ------------------------------------------------------------------
     // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
     // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
     // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
@@ -1187,6 +1227,12 @@
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
       // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
       gamepad: { enabled: false, mappings: [] },
+      // Art-Net (DMX) girişi: masadan gelen kanallar ayarlara/eylemlere.
+      // Varsayılan kapalı ve yalnız bu bilgisayar (127.0.0.1) dinlenir.
+      // Eşleme: { id, channel (1..512), target, min, max }
+      artnet: { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] },
+      // MIDI Time Code girişi: Zaman Çizelgesi dış zaman koduna kilitlenir
+      mtc: { enabled: false, deviceId: 'all', offsetSec: 0 },
     },
 
     // ------------------------------------------------------------------
@@ -1300,6 +1346,7 @@
       enabled: false,
       mode: 'read',
       port: 38471,
+      httpApi: false, // belgeli HTTP API (/api/v1, OpenAPI); MCP ile aynı jeton ve izin
     },
 
     /* Yedeklilik (#540). Kurulum ayarı: makineye özgü, aktarılmaz.
@@ -1323,6 +1370,23 @@
       artnetWitness: true, // ağda aynı evrene başka kaynak gönderiyor mu (iki yönetici ipucu)
       alarmSound: false, // devralma ve iki yönetici alarmında ses (#815); varsayılan yalnız görsel
       phaseLock: true, // izleyen yedek birincilin tempo ızgarasını kullanır (#815)
+    },
+
+    /* MQTT / Home Assistant. Varsayılan kapalı; aracı adresi kullanıcıdan.
+       Durum <baseTopic>/state/... konularına gider. allowControl açık
+       değilse hiçbir komut dinlenmez. Parola MCP'de ve web istemcilerinde
+       gizlidir. Yedeklilikte aktarılmaz (show-keys izin listesinde yok). */
+    mqtt: {
+      enabled: false,
+      host: '',
+      port: 1883,
+      tls: false,
+      username: '',
+      password: '',
+      baseTopic: 'soundvisualizer',
+      discovery: true,
+      discoveryPrefix: 'homeassistant',
+      allowControl: false,
     },
 
     /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.

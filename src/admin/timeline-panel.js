@@ -162,7 +162,9 @@
   /* Taşıma durumu değiştiğinde çıpayı YENİLE ve yolla. */
   function reanchor() {
     const tr = ensureTransport();
-    if (window.SVShowClock) clockAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop);
+    // Sıradaki cue bekleme noktası çıpaya girer: her pencere aynı yerde durur
+    const hold = TL().holdAfter ? TL().holdAfter(tr.tl.markers, tr.time) : null;
+    if (window.SVShowClock) clockAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop, hold ? hold.t : null);
     pushAnchor(true);
   }
 
@@ -174,7 +176,7 @@
     if (!clockAnchor) clockAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop);
     const anchor = clockAnchor;
     const key = anchor.playing + '|' + anchor.time.toFixed(4) + '|' + anchor.rate +
-      '|' + (anchor.loop ? anchor.loop.start + ',' + anchor.loop.end : '-');
+      '|' + (anchor.loop ? anchor.loop.start + ',' + anchor.loop.end : '-') + '|' + (anchor.hold != null ? anchor.hold : '-');
     if (!force && key === lastAnchorKey) return;
     lastAnchorKey = key;
     window.api.sendShowClock(anchor);
@@ -254,6 +256,18 @@
     return !!(C && C.modeOn(P().cfg()));
   }
   function afterTimelineEdit() {
+    /* Cue taşındı/silindi/geri alındıysa çıpada eski zaman kalmasın.
+       Bekleme işareti olmayan eski çizelgede çıpaya hiç dokunulmaz. */
+    if (clockAnchor && clockAnchor.playing && window.SVShowClock && TL().holdAfter) {
+      const tr = syncTransportFromAnchor();
+      const markers = tr.tl.markers || [];
+      const stillHeld = markers.some((m) => m.hold === true && m.t === clockAnchor.hold);
+      if (!(stillHeld && holdAtCue(tr))) {
+        const hold = TL().holdAfter(markers, tr.time);
+        const next = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop, hold ? hold.t : null);
+        if (clockAnchor.hold !== next.hold) { clockAnchor = next; pushAnchor(true); }
+      }
+    }
     /* Mod açıkken bileşim çıkışta her karede yeniden hesaplanıyor; burada
        canlı yapılandırmaya yazılacak bir şey yok. Kapalıyken çizelge elle
        ayara hiç dokunmaz. Yalnız eylem kenar durumu sıfırlanır. */
@@ -346,6 +360,7 @@
       reanchor();
     }
     tr = syncTransportFromAnchor();
+    holdAtCue(tr); // cue bekleme noktasında dur (GO sürdürür)
     /* Yetki yedekteyse (#814) birincil karar vermez: taşıma akar, klipler
        ve deste uygulanmaz; yetki geri gelince kaldığı yerden. */
     const held = !!(window.SVRedundancyPanel && window.SVRedundancyPanel.steppedBack && window.SVRedundancyPanel.steppedBack());
@@ -791,7 +806,8 @@
       ctx.moveTo(Math.round(x) + 0.5, RULER_H);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
-      const label = m.name || '';
+      // Bekleme (cue) işareti etikette ‖ ile ayrılır
+      const label = (m.hold === true ? '‖ ' : '') + (m.name || '');
       const lw = label ? ctx.measureText(label).width + 12 : 8;
       markerW.set(m.id, lw);
       const msel = selection && selection.kind === 'marker' && selection.markerId === m.id;
@@ -1996,6 +2012,67 @@
     refreshToolbar();
   }
 
+  /* Cue bekleme: kafa çıpadaki bekleme noktasına vardıysa panel de
+     duraklar (pencereler zaten o noktada duruyor). GO sürdürür. */
+  function holdAtCue(tr) {
+    if (!tr.playing || !clockAnchor || clockAnchor.hold == null || tr.time < clockAnchor.hold - 1e-9) return false;
+    tr.time = clockAnchor.hold;
+    tr.pause();
+    reanchor();
+    refreshToolbar();
+    return true;
+  }
+
+  /* GO (cue listesi): duruyorsa (bir cue'da bekliyorsa) oynatmayı sürdürür
+     ve kafa sıradaki bekleme işaretine kadar akar. Oynarken basılırsa
+     sıradaki işarete atlar ve oynamaya devam eder. Çizelge tasarımına
+     dokunmaz: yalnız taşımayı sürer, klipler her zamanki gibi uygulanır. */
+  function go() {
+    const tr = syncTransportFromAnchor();
+    if (!tr.playing) {
+      tr.rate = 1;
+      play();
+    } else {
+      const m = TL().markerStep(tr.tl.markers, tr.time, 1);
+      if (m) {
+        tr.seek(m.t);
+        applyClipsAt(tr.time);
+        reanchor();
+      }
+    }
+    refreshToolbar();
+    draw();
+    return true;
+  }
+
+  /* İşaretin "Bekle" kutusu: açıkken canlı oynatma bu işarette durur ve
+     GO bekler. Dışa aktarım beklemeleri yok sayar (çizelge doğrusal). */
+  function holdBox(mk) {
+    const box = P().el('input', { type: 'checkbox' });
+    box.checked = mk.hold === true;
+    box.setAttribute('aria-label', tt('Cue: burada bekle'));
+    box.title = tt('Canlı oynatma bu işarette durur; GO ile devam eder. Dışa aktarım beklemeleri yok sayar.');
+    box.addEventListener('change', () => {
+      if (box.checked) mk.hold = true; else delete mk.hold;
+      commit();
+      // Oynarken bekleme noktası değişti: çıpa yenilensin
+      syncTransportFromAnchor();
+      reanchor();
+      draw();
+      refreshToolbar();
+      refreshMore();
+    });
+    return box;
+  }
+
+  // Sıradaki cue (GO'nun götüreceği bekleme ya da işaret) — araç çubuğu etiketi
+  function nextCue() {
+    const tr = ensureTransport();
+    const list = tr.tl.markers || [];
+    if (!list.some((m) => m.hold === true)) return null;
+    return TL().holdAfter(list, tr.time - (tr.playing ? 0 : 1e-6)) || null;
+  }
+
   /* Sürükleme isteği bekletiliyor; sonraki karede en son konum uygulanır. */
   let scrubWant = null;
   let scrubRaf = 0;
@@ -2418,6 +2495,7 @@
      Bağlam menülerindeki ipuçları da bu tablodan. */
   const SHORTCUTS = [
     ['Boşluk', 'Oynat / duraklat'],
+    ['Enter', 'GO: bekleyen cue\'dan devam (bir işarette "Cue: burada bekle" açıksa)'],
     ['J / K / L', 'Geri oynat / dur / ileri oynat (tekrar: 2×, 4×)'],
     ['Home / End', 'Başa / sona'],
     ['← →', 'Seçili klibi ya da kafayı bir ızgara adımı kaydır (Shift: bir ölçü, Alt: bir kare)'],
@@ -2479,6 +2557,7 @@
     const low = typeof k === 'string' && k.length === 1 ? k.toLowerCase() : k;
     let done = true;
     if (k === ' ' || k === 'Spacebar') togglePlay();
+    else if (k === 'Enter' && !mod && (ensureTransport().tl.markers || []).some((m) => m.hold === true)) go();
     else if (!mod && low === 'j') shuttle(-1);
     else if (!mod && low === 'k') shuttle(0);
     else if (!mod && low === 'l' && !e.shiftKey) shuttle(1);
@@ -2589,6 +2668,7 @@
     pause,
     stop,
     seek,
+    go,
     followAnchor,
     transport: () => syncTransportFromAnchor(),
     anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
@@ -3159,6 +3239,9 @@
     const group = (kids, cls) => el('div', { class: 'tl-group' + (cls ? ' ' + cls : '') }, kids);
 
     const playBtn = btn(['play'], 'Oynat / duraklat (Boşluk)', () => togglePlay(), 'tl-play');
+    /* Cue listesi: işaretlerden biri "Bekle" ise GO düğmesi görünür */
+    const goBtn = btn('GO', 'GO: bekleyen cue\'dan devam et; oynarken sıradaki işarete atla (Enter)', () => go(), 'tl-go');
+    const cueLabel = el('span', { class: 'tl-lbl tl-cue', text: '' });
     const timeLabel = el('span', { class: 'tl-time', text: fmtClock(0) });
     const barLabel = el('span', { class: 'tl-bars', text: '1.1' });
     const loopBtn = btn(['loop'], 'Döngü (L). Bölge yoksa seçili klibin aralığı ya da kafadan dört ölçü', () => { toggleLoop(); refreshToolbar(); });
@@ -3204,6 +3287,7 @@
           draw();
         }),
       ]),
+      group([goBtn, cueLabel], 'tl-cues'),
       el('div', { class: 'tl-clock', title: 'Süre · ölçü.vuruş' }, [timeLabel, barLabel]),
       linkBtn,
       /* Oynatma kafasındaki tempo. Önce hep ilk girişi düzenliyor ve bütün
@@ -3242,7 +3326,7 @@
       group([undoBtn, redoBtn]),
     ]);
 
-    toolbarRefs = { playBtn, loopBtn, followBtn, linkBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn, snapSelect };
+    toolbarRefs = { playBtn, goBtn, cueLabel, loopBtn, followBtn, linkBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn, snapSelect };
     refreshToolbar();
 
     /* Saat ve oynat düğmesi kendi zamanlayıcısından: çizim döngüsü yalnız
@@ -3276,6 +3360,17 @@
       if (window.SVIcons && r.playBtn.nodeType === 1) window.SVIcons.set(r.playBtn, want, '');
     }
     r.timeLabel.textContent = fmtClock(tr.time);
+    if (r.goBtn) {
+      // GO ve sıradaki cue yalnız en az bir bekleme işareti varsa
+      const hasCues = (tl.markers || []).some((m) => m.hold === true);
+      const grp = r.goBtn.parentNode;
+      if (grp && grp.style) grp.style.display = hasCues ? '' : 'none';
+      if (hasCues) {
+        const nc = nextCue();
+        const txt = nc ? tt('Sıradaki') + ': ' + (nc.name || fmtClock(nc.t)) : tt('Son cue');
+        if (r.cueLabel.textContent !== txt) r.cueLabel.textContent = txt;
+      }
+    }
     const bars = tr.bars();
     r.barLabel.textContent = bars.bar + '.' + bars.beat;
     if (r.snapSelect && document.activeElement !== r.snapSelect && r.snapSelect.value !== cfg.snap) r.snapSelect.value = cfg.snap;
@@ -3512,6 +3607,7 @@
       nm.addEventListener('change', () => { mk.name = nm.value.slice(0, 60); commit(); draw(); refreshMore(); });
       mg.appendChild(p.row('Ad', nm));
       mg.appendChild(p.row('Zaman (sn)', numInput(mk.t, 0, 1e6, 0.01, (v) => { mk.t = v; ensureTransport().tl.markers.sort((a, b) => a.t - b.t); commit(); draw(); })));
+      mg.appendChild(p.row('Cue: burada bekle', holdBox(mk)));
       const mb = (ico, txt, title, fn, cls) => { const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', icon: ico, text: txt, title }); b.addEventListener('click', fn); return b; };
       box.appendChild(el('div', { class: 'tl-actions' }, [
         mb('play', 'Git', 'Oynatma kafasını işarete al', () => { seek(mk.t); applyClipsAt(ensureTransport().time); draw(); }),
@@ -3945,6 +4041,7 @@
             p.rerender();
           }),
           name,
+          holdBox(m),
           go,
           del,
         ])

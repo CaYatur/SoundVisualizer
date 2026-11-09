@@ -1650,6 +1650,22 @@
     'Kopya Aralığı (sn)': 'Snapshot Interval (s)',
     'Kumanda bulunamadı (bir düğmeye basın)': 'No gamepad found (press a button)',
     'Modülasyon saatinin temposunu Ableton Link ağından ya da bir MIDI saatinden alın.': 'Take the modulation clock tempo from an Ableton Link session or a MIDI clock.',
+    // Art-Net (DMX) girişi ve MIDI zaman kodu (MTC)
+    'Art-Net Girişi': 'Art-Net Input',
+    'Işık masasından gelen DMX kanallarıyla sahneleri, faderları ve karartmayı sürün.': 'Drive scenes, faders and blackout with DMX channels from a lighting console.',
+    'Art-Net çıkışıyla aynı evren: kapalı': 'Same universe as the Art-Net output: off',
+    'Dinleme Adresi': 'Listen Address',
+    'Yalnız bu bilgisayar (127.0.0.1)': 'This computer only (127.0.0.1)',
+    'Tüm ağ arayüzleri (0.0.0.0)': 'All network interfaces (0.0.0.0)',
+    'Son kanal': 'Last channel',
+    'DMX kanalı': 'DMX channel',
+    'Işık masasının gönderdiği DMX kanallarını ayarlara ve eylemlere bağlar (0–255 → hedef aralığı; eylemler yarının üstüne çıkınca tetiklenir). Varsayılan yalnız bu bilgisayarı dinler; ağdaki bir masa için Tüm ağ arayüzleri seçin. Art-Net çıkışıyla aynı evren seçilemez.': 'Binds DMX channels sent by a lighting console to settings and actions (0–255 → the target range; actions fire when the value rises above half). By default only this computer is listened to; choose All network interfaces for a console on the network. The Art-Net output\'s universe cannot be used.',
+    'MIDI Zaman Kodu (MTC)': 'MIDI Time Code (MTC)',
+    'Zaman Çizelgesini bir DAW ya da şov denetleyicisinin MIDI zaman koduna kilitleyin.': 'Lock the Timeline to MIDI time code from a DAW or show controller.',
+    'Başlangıç Ofseti (sn)': 'Start Offset (s)',
+    'Zaman Kodu': 'Time Code',
+    'durdu': 'stopped',
+    'DAW ya da şov denetleyicisi MTC gönderirken Zaman Çizelgesi aynı konumda oynar, durunca durur, atlayınca atlar. Çizelge zamanı = zaman kodu − ofset (ör. 01:00:00:00 başlayan bir şov için 3600). 24, 25, 29.97 drop-frame ve 30 fps desteklenir.': 'While a DAW or show controller sends MTC, the Timeline plays at the same position, stops when it stops and jumps when it jumps. Timeline time = time code − offset (e.g. 3600 for a show starting at 01:00:00:00). 24, 25, 29.97 drop-frame and 30 fps are supported.',
     'Otomatik Kurtarma Kopyası': 'Automatic Recovery Snapshot',
     'Otomatik Söz Bulma': 'Automatic Lyrics Lookup',
     'Oyun Kumandası': 'Gamepad',
@@ -1972,6 +1988,28 @@
     'Sahne Paleti': 'Scene Palette', 'Frekans Bantları': 'Frequency Bands',
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
 
+    // ---- Ağ LED çıkışları: sACN, WLED (DDP), WLED ses senkronu ----
+    'sACN (E1.31) Çıkışı': 'sACN (E1.31) Output',
+    'Sahne renklerini sACN (E1.31) ile ışık konsollarına ve DMX düğümlerine yollar.': 'Sends scene colors to lighting consoles and DMX nodes over sACN (E1.31).',
+    'Sahne renklerini sACN (E1.31) ile ışık konsollarına, DMX düğümlerine ve WLED gibi aygıtlara yollar. Art-Net ile birlikte ya da onun yerine kullanılabilir.': 'Sends scene colors over sACN (E1.31) to lighting consoles, DMX nodes and devices such as WLED. Use it alongside Art-Net or instead of it.',
+    'Adres boşsa paket evrenin multicast adresine (239.255.x.x) gider; tek bir düğüm için IP adresini yazın. Kanal düzeni Art-Net ile aynıdır.': 'With no address, packets go to the universe\'s multicast address (239.255.x.x); enter an IP address for a single node. The channel layout is the same as Art-Net.',
+    'Boş = multicast': 'Empty = multicast',
+    'Öncelik': 'Priority',
+    'Adres yok': 'No address',
+    'WLED (DDP) Çıkışı': 'WLED (DDP) Output',
+    'WLED LED şeritlerini ağ üzerinden DDP ile doğrudan sürer; aygıtı ağda bulabilir.': 'Drives WLED LED strips directly over the network with DDP; can find the device on the network.',
+    'WLED Adresi': 'WLED Address',
+    'Ağda WLED Bul': 'Find WLED on Network',
+    'Ağda WLED bulunamadı.': 'No WLED found on the network.',
+    'LED Sayısını Al': 'Get LED Count',
+    'WLED bilgisi alınamadı.': 'Could not read WLED info.',
+    'LED Sayısı': 'LED Count',
+    'Kullan': 'Use',
+    'WLED piksellerini DDP (UDP 4048) ile doğrudan sürer; Art-Net evren ayarı gerekmez. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır.': 'Drives WLED pixels directly with DDP (UDP 4048); no Art-Net universe setup needed. The network is only scanned when you press "Find WLED on Network" or "Get LED Count".',
+    'WLED Ses Senkronu': 'WLED Audio Sync',
+    'Ses analizini WLED Audio Sync paketi olarak ağdaki ses tepkili WLED aygıtlarına yayınlar.': 'Broadcasts the audio analysis as WLED Audio Sync packets to sound-reactive WLED devices on the network.',
+    'Ses seviyesini, 16 frekans bandını ve vuruşları WLED Audio Sync (v2) paketi olarak yayınlar. Ses tepkili WLED aygıtında Audio Sync kipini "Receive" yapın; aygıt kendi mikrofonu yerine bu analizi kullanır.': 'Broadcasts the level, 16 frequency bands and beats as WLED Audio Sync (v2) packets. Set Audio Sync to "Receive" on the sound-reactive WLED device; it then uses this analysis instead of its own microphone.',
+
     // ---- Renk şablonu kitaplığı (58 şablon, 7 grup) ----
     'Klasikler': 'Classics', 'Sıcak': 'Warm', 'Soğuk': 'Cool',
     'Neon ve Siber': 'Neon & Cyber', 'Karanlık': 'Dark', 'Aydınlık': 'Light',
@@ -2073,6 +2111,13 @@
     'Hedef Seç': 'Pick Target',
     'Kaydet (öğren): oynarken ayarın elle değişimini noktalara yazar': 'Record (learn): writes manual changes during playback as points',
     'İşaret Adı': 'Marker Name',
+    // Cue listesi (GO)
+    'GO: bekleyen cue\'dan devam et; oynarken sıradaki işarete atla (Enter)': 'GO: continue from the held cue; while playing, jump to the next marker (Enter)',
+    'GO: bekleyen cue\'dan devam (bir işarette "Cue: burada bekle" açıksa)': 'GO: continue from the held cue (when a marker has "Cue: hold here" on)',
+    'Sıradaki': 'Next',
+    'Son cue': 'Last cue',
+    'Cue: burada bekle': 'Cue: hold here',
+    'Canlı oynatma bu işarette durur; GO ile devam eder. Dışa aktarım beklemeleri yok sayar.': 'Live playback stops at this marker and continues on GO. Export ignores holds.',
     'Otomasyonun süreceği ayarı ara ve seç': 'Search and pick the setting the automation drives',
     'Kes': 'Cut',
     'Kafada böl': 'Split at playhead',
@@ -3948,6 +3993,21 @@
     'Dinlemeyi Başlat': 'Start Listening',
     'Dinlemeyi Durdur': 'Stop Listening',
     'Göndermeyi Başlat': 'Start Sending',
+    // MQTT / Home Assistant
+    'MQTT / Home Assistant': 'MQTT / Home Assistant',
+    'Gösteri durumunu bir MQTT aracısına yayınlayın; Home Assistant aygıtı kendiliğinden bulur. İsterseniz karartma, sahne ve opaklık komutlarını da alın.':
+      'Publish the show state to an MQTT broker; Home Assistant finds the device on its own. Optionally accept blackout, scene and opacity commands too.',
+    'Aracı adresi yok': 'No broker address',
+    'Aracı Adresi': 'Broker Address',
+    'TLS (şifreli bağlantı)': 'TLS (encrypted connection)',
+    'Kullanıcı Adı': 'Username',
+    'Parola': 'Password',
+    'Konu Kökü': 'Base Topic',
+    'Home Assistant keşfi': 'Home Assistant discovery',
+    'Keşif Öneki': 'Discovery Prefix',
+    'Komutları kabul et': 'Accept commands',
+    'Durum (karartma, Auto VJ, tempo, çalan parça, sahne, kip, opaklık) <kök>/state/… konularına yayınlanır. "Komutları kabul et" açıkken <kök>/set/blackout, autovj, scene, visualizer ve opacity dinlenir ve OSC girişiyle aynı yoldan uygulanır. Aracıdaki herkes sahneyi değiştirebileceği için yalnız güvendiğiniz bir aracıda açın.':
+      'The state (blackout, Auto VJ, tempo, now playing, scene, mode, opacity) is published to <base>/state/… topics. With "Accept commands" on, <base>/set/blackout, autovj, scene, visualizer and opacity are read and applied the same way as OSC input. Anyone on the broker can then change the show, so turn it on only on a broker you trust.',
     'Göndermeyi Durdur': 'Stop Sending',
     'Işığı Başlat': 'Start Lighting',
     'Işığı Durdur': 'Stop Lighting',
@@ -4916,6 +4976,22 @@
   "mcp.profile.hint": {
     "tr": "Yalnız temel okuma ve sık düzenleme araçlarını kısa açıklamalarla listeler. Diğer araçlar adıyla çağrılabilir.",
     "en": "Lists only core read and common edit tools with short descriptions. Other tools can still be called by name."
+  },
+  "mcp.http.toggle": {
+    "tr": "HTTP API (REST, OpenAPI)",
+    "en": "HTTP API (REST, OpenAPI)"
+  },
+  "mcp.http.hint": {
+    "tr": "Aynı araçları /api/v1 altında düz HTTP ile açar. Yalnız bu bilgisayardan (127.0.0.1) erişilir, MCP jetonu ve seçili izin kipi geçerlidir. Jeton MCP her açıldığında değişir.",
+    "en": "Exposes the same tools as plain HTTP under /api/v1. Reachable only from this computer (127.0.0.1); the MCP token and the selected permission mode apply. The token changes each time MCP starts."
+  },
+  "mcp.http.copyUrl": {
+    "tr": "OpenAPI adresini kopyala",
+    "en": "Copy OpenAPI URL"
+  },
+  "mcp.http.copyToken": {
+    "tr": "Jetonu kopyala",
+    "en": "Copy token"
   },
   "mcp.card.setup": {
     "tr": "Kurulum",

@@ -21,7 +21,7 @@
   let midiInputs = [];
   let midiError = '';
   let learning = null; // { surface, id }
-  let lastSignal = { midi: '', osc: '', gamepad: '' };
+  let lastSignal = { midi: '', osc: '', gamepad: '', artnet: '' };
   let oscState = { running: false, port: 0, error: null, lastAddress: '' };
   let oscOutState = { running: false, host: '', port: 0, packets: 0, error: null };
   let started = false;
@@ -350,11 +350,14 @@
     const want = cfg.control.midi.deviceId || 'all';
     const ts = cfg.tempoSync || {};
     const clockWant = ts.source === 'midi' ? ts.midiDevice || 'all' : null;
+    const mt = cfg.control.mtc || {};
+    const mtcWant = mt.enabled ? mt.deviceId || 'all' : null;
     for (const input of midiInputs) {
       const map = !!cfg.control.midi.enabled && (want === 'all' || want === input.id);
       const clk = clockWant != null && (clockWant === 'all' || clockWant === input.id);
-      input.onmidimessage = map || clk
-        ? (ev) => { if (clk) onMidiClock(ev); if (map || learning) onMidi(ev); }
+      const tc = mtcWant != null && (mtcWant === 'all' || mtcWant === input.id);
+      input.onmidimessage = map || clk || tc
+        ? (ev) => { if (tc) onMtc(ev); if (clk) onMidiClock(ev); if (map || learning) onMidi(ev); }
         : null;
     }
   }
@@ -583,12 +586,178 @@
       return;
     }
     try {
-      midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      // Tam kare MTC, SysEx izni ister; MTC kapalıyken eski MIDI izni değişmez.
+      const cfg = P().cfg();
+      midiAccess = await navigator.requestMIDIAccess({ sysex: !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
       midiAccess.onstatechange = () => { bindMidiInputs(); P().rerender(); };
       bindMidiInputs();
     } catch (e) {
       midiError = 'MIDI erişimi reddedildi: ' + (e && e.message ? e.message : e);
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // MIDI Time Code girişi: Zaman Çizelgesi dış zaman kodunu kovalar
+  // --------------------------------------------------------------------------
+  const MTCM = () => window.SVMtc || require('../shared/mtc.js');
+  let mtcDecoder = null;
+  let mtcTimer = null;
+  function onMtc(ev) {
+    const d = ev.data;
+    if (!d || !d.length || (d[0] !== 0xf1 && d[0] !== 0xf0)) return;
+    if (!mtcDecoder) mtcDecoder = MTCM().createDecoder();
+    mtcDecoder.feed(d, performance.now());
+  }
+  function mtcTick() {
+    const cfg = P() && P().cfg();
+    const m = cfg && cfg.control && cfg.control.mtc;
+    const chip = document.getElementById('mtcSignal');
+    if (chip && mtcDecoder) chip.textContent = mtcDecoder.label() + (mtcDecoder.running(performance.now()) ? '' : ' · ' + T('durdu'));
+    if (!m || !m.enabled || !mtcDecoder || mtcDecoder.time() == null) return;
+    const tp = window.SVTimelinePanel;
+    if (!tp || !tp.transport) return;
+    const tr = tp.transport();
+    const step = MTCM().chaseStep(
+      { time: mtcDecoder.time(), running: mtcDecoder.running(performance.now()) },
+      { time: tr.time, playing: !!tr.playing },
+      { offset: Number(m.offsetSec) || 0 }
+    );
+    if (step.pause) tp.pause();
+    if (step.seek != null) tp.seek(step.seek);
+    if (step.play) tp.play();
+  }
+  function syncMtc() {
+    const cfg = P() && P().cfg();
+    const on = !!(cfg && cfg.control && cfg.control.mtc && cfg.control.mtc.enabled);
+    if (on && !mtcTimer) mtcTimer = setInterval(mtcTick, 40);
+    else if (!on && mtcTimer) { clearInterval(mtcTimer); mtcTimer = null; if (mtcDecoder) mtcDecoder.reset(); }
+  }
+
+  // --------------------------------------------------------------------------
+  // Art-Net (DMX) girişi: ana süreç yalnız değişen kanalları iletir
+  // --------------------------------------------------------------------------
+  let artnetInState = { listening: false, error: '', packets: 0 };
+  function onArtnetIn(msg) {
+    const cfg = P() && P().cfg();
+    const a = cfg && cfg.control && cfg.control.artnet;
+    if (!a || !msg || !Array.isArray(msg.changes) || !msg.changes.length) return;
+    const lastCh = msg.changes[msg.changes.length - 1];
+    lastSignal.artnet = 'DMX ' + lastCh[0] + ' → ' + lastCh[1];
+    const chip = document.getElementById('artnetInSignal');
+    if (chip) chip.textContent = lastSignal.artnet;
+    if (learning && learning.surface === 'artnet') {
+      // Öğrenme: en çok oynayan kanal (aynı anda birkaç kanal değişebilir)
+      const m = (a.mappings || []).find((x) => x.id === learning.id);
+      const pick = msg.changes.slice().sort((x, y) => y[1] - x[1])[0];
+      if (m && pick) {
+        m.channel = pick[0];
+        learning = null;
+        P().push(true);
+        P().rerender();
+      }
+      return;
+    }
+    if (!a.enabled) return;
+    for (const [ch, v] of msg.changes) {
+      for (const m of a.mappings || []) {
+        if ((m.channel | 0) !== ch) continue;
+        const value01 = Math.max(0, Math.min(1, v / 255));
+        if (value01 < 0.5) m._armed = true; // eylem yeniden tetiklenebilir
+        applyMapping(m, value01);
+      }
+    }
+  }
+
+  function artnetInNodes(cfg) {
+    const el = P().el;
+    const a = cfg.control.artnet || (cfg.control.artnet = { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] });
+    const sync = async () => {
+      P().push(true);
+      if (window.api.artnetInSync) artnetInState = (await window.api.artnetInSync()) || artnetInState;
+      P().rerender();
+    };
+    const st = artnetInState;
+    const status = el('div', { class: 'studio-status ' + (st.listening ? 'ok' : st.error ? 'err' : '') });
+    if (st.listening) {
+      status.appendChild(el('span', { text: 'Dinliyor' }));
+      status.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
+      status.appendChild(el('span', { class: 'st-num', text: String(st.packets || 0) + ' ' }));
+      status.appendChild(el('span', { text: 'paket' }));
+    } else if (st.error === 'same-universe') {
+      status.appendChild(el('span', { text: 'Art-Net çıkışıyla aynı evren: kapalı' }));
+    } else if (st.error) {
+      status.appendChild(el('span', { text: st.error }));
+    } else {
+      status.appendChild(el('span', { text: 'Kapalı' }));
+    }
+    const nodes = [P().moduleHead({
+      id: 'artnetIn', title: 'Art-Net Girişi', on: !!a.enabled, error: !!st.error, status,
+      start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+      toggle: async (next) => { a.enabled = next; await sync(); },
+    })];
+    const bindSel = el('select', {
+      'aria-label': T('Dinleme Adresi'),
+      onchange: async (e) => { a.bind = e.target.value; await sync(); },
+    });
+    [['127.0.0.1', 'Yalnız bu bilgisayar (127.0.0.1)'], ['0.0.0.0', 'Tüm ağ arayüzleri (0.0.0.0)']].forEach(([v, t]) => {
+      const o = el('option', { value: v, text: T(t) });
+      if ((a.bind || '127.0.0.1') === v) o.selected = true;
+      bindSel.appendChild(o);
+    });
+    nodes.push(P().row('Dinleme Adresi', bindSel));
+    nodes.push(P().row('Evren (Universe)', el('input', {
+      class: 'p-in p-num', type: 'number', min: '0', max: '32767', value: a.universe | 0,
+      onchange: async (e) => {
+        const n = Math.max(0, Math.min(32767, parseInt(e.target.value, 10) || 0));
+        a.universe = n;
+        await sync();
+      },
+    })));
+    nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+      el('label', { class: 'lbl', text: 'Son kanal' }),
+      el('span', { id: 'artnetInSignal', class: 'map-signal', text: lastSignal.artnet || T('sinyal bekleniyor…') }),
+    ])]));
+    nodes.push(mappingRows('artnet'));
+    nodes.push(el('div', { class: 'note', text: 'Işık masasının gönderdiği DMX kanallarını ayarlara ve eylemlere bağlar (0–255 → hedef aralığı; eylemler yarının üstüne çıkınca tetiklenir). Varsayılan yalnız bu bilgisayarı dinler; ağdaki bir masa için Tüm ağ arayüzleri seçin. Art-Net çıkışıyla aynı evren seçilemez.' }));
+    return nodes;
+  }
+
+  function mtcNodes(cfg) {
+    const el = P().el;
+    const m = cfg.control.mtc || (cfg.control.mtc = { enabled: false, deviceId: 'all', offsetSec: 0 });
+    const nodes = [P().moduleHead({
+      id: 'mtc', title: 'MIDI Zaman Kodu (MTC)', on: !!m.enabled,
+      status: el('div', { class: 'studio-status', text: m.enabled ? 'Dinliyor' : 'Kapalı' }),
+      start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+      toggle: async (next) => {
+        m.enabled = next;
+        P().push(true);
+        if (next) await initMidi();
+        bindMidiInputs();
+        syncMtc();
+        P().rerender();
+      },
+    })];
+    const sel = el('select', { 'aria-label': T('Aygıt'), onchange: (e) => { m.deviceId = e.target.value; P().push(true); bindMidiInputs(); } });
+    const optAll = el('option', { value: 'all', text: 'Tüm MIDI aygıtları' });
+    if ((m.deviceId || 'all') === 'all') optAll.selected = true;
+    sel.appendChild(optAll);
+    midiInputs.forEach((inp) => {
+      const o = el('option', { value: inp.id, text: inp.name || 'MIDI' });
+      if (m.deviceId === inp.id) o.selected = true;
+      sel.appendChild(o);
+    });
+    nodes.push(P().row('Aygıt', sel));
+    nodes.push(P().row('Başlangıç Ofseti (sn)', el('input', {
+      class: 'p-in p-num', type: 'number', step: '0.01', min: '0', max: '86400', value: Number(m.offsetSec) || 0,
+      onchange: (e) => { const n = parseFloat(e.target.value); m.offsetSec = Number.isFinite(n) ? Math.max(0, Math.min(86400, n)) : 0; P().push(true); },
+    })));
+    nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+      el('label', { class: 'lbl', text: 'Zaman Kodu' }),
+      el('span', { id: 'mtcSignal', class: 'map-signal', text: mtcDecoder ? mtcDecoder.label() : '--:--:--:--' }),
+    ])]));
+    nodes.push(el('div', { class: 'note', text: 'DAW ya da şov denetleyicisi MTC gönderirken Zaman Çizelgesi aynı konumda oynar, durunca durur, atlayınca atlar. Çizelge zamanı = zaman kodu − ofset (ör. 01:00:00:00 başlayan bir şov için 3600). 24, 25, 29.97 drop-frame ve 30 fps desteklenir.' }));
+    return nodes;
   }
 
   // --------------------------------------------------------------------------
@@ -685,12 +854,16 @@
     const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
     const last = messages[messages.length - 1] || {};
     const args = Array.isArray(last.args) ? last.args : [];
-    lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
-    const chip = document.getElementById('oscSignal');
-    if (chip) chip.textContent = lastSignal.osc;
+    // MQTT komutları (mqtt-bridge.js) OSC ağacı mesajı olarak gelir
+    const fromMqtt = !!(msg && msg.source === 'mqtt');
+    if (!fromMqtt) {
+      lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
+      const chip = document.getElementById('oscSignal');
+      if (chip) chip.textContent = lastSignal.osc;
+    }
 
     const cfg = P().cfg();
-    if (learning && learning.surface === 'osc') {
+    if (learning && learning.surface === 'osc' && !fromMqtt) {
       const m = (cfg.control.osc.mappings || []).find((x) => x.id === learning.id);
       const heard = messages.find((one) => one && one.address);
       if (m && heard) {
@@ -702,7 +875,7 @@
       return;
     }
 
-    if (!cfg.control.osc.enabled) return;
+    if (!cfg.control.osc.enabled && !fromMqtt) return;
     const tree = window.SVOscTree;
     const planned = tree && tree.plan ? tree.plan(messages, cfg) : { steps: [], consumed: [] };
     const consumed = new Set(planned.consumed || []);
@@ -764,7 +937,8 @@
       const t = targetFor(m.target);
       const isLearning = learning && learning.surface === surface && learning.id === m.id;
 
-      const sourceLabel = surface === 'gamepad' ? GPM().label(m, !!(window.SVI18n && window.SVI18n.locale === 'en')) :
+      const sourceLabel = surface === 'artnet' ? (m.channel > 0 ? 'DMX ' + m.channel : '—') :
+        surface === 'gamepad' ? GPM().label(m, !!(window.SVI18n && window.SVI18n.locale === 'en')) :
         surface === 'midi'
           ? m.cc >= 0
             ? (m.kind === 'note' ? 'Nota ' : 'CC ') + m.cc + (m.channel ? ' · k' + m.channel : '')
@@ -784,7 +958,13 @@
         },
       });
 
-      const srcNode = surface === 'osc'
+      const srcNode = surface === 'artnet'
+        ? el('input', {
+            class: 'p-in p-num', type: 'number', min: '1', max: '512', value: m.channel > 0 ? m.channel : '', placeholder: 'DMX',
+            'aria-label': T('DMX kanalı'),
+            onchange: (e) => { const n = parseInt(e.target.value, 10); m.channel = n >= 1 && n <= 512 ? n : 0; P().push(true); },
+          })
+        : surface === 'osc'
         ? el('input', {
             class: 'p-in', type: 'text', value: m.address, placeholder: '/adres/yolu',
             oninput: (e) => { m.address = e.target.value.slice(0, 120); P().push(true); },
@@ -951,6 +1131,10 @@
       }
       nodes.push(el('div', { class: 'note', text: T('Xbox, PlayStation ve genel USB/Bluetooth kumandalar çalışır (Windows, macOS, Linux). Kumanda yalnızca uygulama pencerelerinden biri öndeyken okunur; bu Chromium sınırıdır.') }));
       nodes.push(mappingRows('gamepad'));
+    } else if (surface === 'artnetin') {
+      artnetInNodes(cfg).forEach((n) => nodes.push(n));
+    } else if (surface === 'mtc') {
+      mtcNodes(cfg).forEach((n) => nodes.push(n));
     } else if (surface === 'oscout') {
       oscOutNodes(cfg).forEach((n) => nodes.push(n));
     } else {
@@ -1229,6 +1413,7 @@
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
     else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
+    else if (cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) initMidi();
     if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
     syncGamepad();
     if (window.api.tempoSyncStatus) {
@@ -1242,6 +1427,14 @@
       });
     }
     window.api.onOscMessage(onOsc);
+    if (window.api.onArtnetIn) window.api.onArtnetIn(onArtnetIn);
+    if (window.api.onArtnetInStatus) window.api.onArtnetInStatus((s) => { if (s) artnetInState = s; });
+    if (window.api.artnetInStatus) window.api.artnetInStatus().then((s) => { if (s) artnetInState = s; }).catch(() => {});
+    if (cfg.control.mtc && cfg.control.mtc.enabled) {
+      const already = (cfg.control.midi && cfg.control.midi.enabled) || (cfg.tempoSync && cfg.tempoSync.source === 'midi');
+      if (!already) initMidi();
+      syncMtc();
+    }
     window.api.onOscStatus((s) => {
       oscState = s || oscState;
       const live = P().cfg();
