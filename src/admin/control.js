@@ -320,6 +320,8 @@
     if (chip) chip.textContent = lastSignal.midi;
 
     const cfg = P().cfg();
+    // Geri bildirim: denetleyicinin az önce yolladığı değer ona geri yankılanmasın
+    if (fb) fb.noteIncoming(isCC ? 'cc' : 'note', channel, num, raw);
     if (learning && learning.surface === 'midi') {
       const m = (cfg.control.midi.mappings || []).find((x) => x.id === learning.id);
       if (m) {
@@ -577,6 +579,63 @@
     else if (!on && padTimer) { clearInterval(padTimer); padTimer = null; }
   }
 
+  // --------------------------------------------------------------------------
+  // MIDI çıkışı: denetleyici LED / motorlu fader geri bildirimi
+  // --------------------------------------------------------------------------
+  const MFB = () => window.SVMidiFeedback || require('../shared/midi-feedback.js');
+  const CMAPS = () => window.SVControllerMaps || require('../shared/controller-maps.js');
+  let fb = null;
+  let fbTimer = null;
+  let fbOutKey = '';
+
+  function feedbackCfg(cfg) {
+    const m = cfg && cfg.control && cfg.control.midi;
+    return (m && m.feedback) || { enabled: false, outputId: 'auto' };
+  }
+
+  // Hedefin güncel değeri (0..1). Eylemlerde yalnız aç/kapa durumu olanlar yanar.
+  function feedbackValue(cfg, map) {
+    const t = targetFor(map.target);
+    if (!t) return 0;
+    if (t.action) {
+      if (t.action === 'blackout') return P().isBlackedOut && P().isBlackedOut() ? 1 : 0;
+      if (t.action === 'mdLock') return cfg.milkdropControl && cfg.milkdropControl.locked === true ? 1 : 0;
+      return 0;
+    }
+    const L = window.SVLayers;
+    const eff = L && L.effectivePath ? L.effectivePath(cfg, t.path) : t.path;
+    let v = P().get(eff);
+    if (v == null) v = P().get(t.path);
+    return MFB().normalize(t, map, v);
+  }
+
+  function feedbackTick() {
+    const cfg = P() && P().cfg();
+    if (!cfg || !midiAccess || !cfg.control || !cfg.control.midi) return;
+    const f = feedbackCfg(cfg);
+    if (!cfg.control.midi.enabled || !f.enabled) { fbOutKey = ''; return; }
+    const outs = MFB().pickOutputs(midiAccess.outputs ? midiAccess.outputs.values() : [], midiInputs, f.outputId, cfg.control.midi.deviceId);
+    const key = outs.map((o) => o.id).join('|');
+    if (!fb || key !== fbOutKey) {
+      // Çıkış değişti: her değer yeniden yollansın
+      fb = MFB().create({
+        onVelocity: f.onVelocity, offVelocity: f.offVelocity,
+        send: (bytes) => { for (const o of outs) o.send(bytes); },
+      });
+      fbOutKey = key;
+    }
+    if (!outs.length) return;
+    const items = (cfg.control.midi.mappings || [])
+      .filter((m) => m.cc >= 0)
+      .map((m) => ({ map: m, value01: feedbackValue(cfg, m) }));
+    fb.update(items);
+  }
+
+  function syncFeedback() {
+    // 10 Hz yeter: LED ve fader insan gözüyle izleniyor; yalnız değişen değer gider
+    if (midiAccess && !fbTimer) fbTimer = setInterval(feedbackTick, 100);
+  }
+
   async function initMidi() {
     if (!navigator.requestMIDIAccess) {
       midiError = 'Bu ortamda Web MIDI kullanılamıyor.';
@@ -586,6 +645,7 @@
       midiAccess = await navigator.requestMIDIAccess({ sysex: false });
       midiAccess.onstatechange = () => { bindMidiInputs(); P().rerender(); };
       bindMidiInputs();
+      syncFeedback();
     } catch (e) {
       midiError = 'MIDI erişimi reddedildi: ' + (e && e.message ? e.message : e);
     }
@@ -882,6 +942,60 @@
     return el('div', { class: 'map-row gp-opts' }, kids);
   }
 
+  /* MIDI kartının ek bölümleri: LED geri bildirimi (MIDI çıkışı) ve hazır
+     denetleyici haritaları. Harita yalnız kullanıcı "Uygula" deyince eklenir. */
+  function midiExtraNodes(cfg) {
+    const el = P().el;
+    const midi = cfg.control.midi;
+    if (!midi.feedback) midi.feedback = { enabled: false, outputId: 'auto', onVelocity: 127, offVelocity: 0 };
+    const out = [];
+    out.push(el('div', { class: 'lighting-subtitle', text: 'LED Geri Bildirimi (MIDI Çıkışı)' }));
+    out.push(P().toggle('Değerleri Denetleyiciye Geri Yolla', 'control.midi.feedback.enabled'));
+    const outs = midiAccess && midiAccess.outputs ? Array.from(midiAccess.outputs.values()) : [];
+    const osel = el('select', {
+      'aria-label': T('MIDI Çıkışı'),
+      onchange: (e) => { midi.feedback.outputId = e.target.value; P().push(true); },
+    });
+    const autoOpt = el('option', { value: 'auto', text: T('Girişle aynı adlı aygıt') });
+    if ((midi.feedback.outputId || 'auto') === 'auto') autoOpt.selected = true;
+    osel.appendChild(autoOpt);
+    outs.forEach((o) => {
+      const op = el('option', { value: o.id, text: o.name || 'MIDI' });
+      if (midi.feedback.outputId === o.id) op.selected = true;
+      osel.appendChild(op);
+    });
+    out.push(P().row('MIDI Çıkışı', osel));
+    out.push(el('div', { class: 'note', text: 'Eşlenen faderlar ve düğümler için güncel değer CC olarak, düğmeler için açık/kapalı nota olarak denetleyiciye gider (LED halkası, düğme ışığı, motorlu fader). Yalnız değişen değer yollanır.' }));
+
+    out.push(el('div', { class: 'lighting-subtitle', text: 'Hazır Denetleyici Haritası' }));
+    const C = CMAPS();
+    const names = midiInputs.filter((i) => (midi.deviceId || 'all') === 'all' || i.id === midi.deviceId).map((i) => i.name);
+    const detected = names.map((n) => C.matchDevice(n)).find(Boolean) || null;
+    let chosen = detected ? detected.id : C.TEMPLATES[0].id;
+    const tsel = el('select', { 'aria-label': T('Hazır Denetleyici Haritası'), onchange: (e) => { chosen = e.target.value; } });
+    C.TEMPLATES.forEach((t) => {
+      const op = el('option', { value: t.id, text: t.name });
+      if (t.id === chosen) op.selected = true;
+      tsel.appendChild(op);
+    });
+    const applyBtn = el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'plus', text: 'Haritayı Uygula',
+      onclick: () => {
+        const tpl = C.byId(chosen);
+        if (!tpl) return;
+        const list = midi.mappings || (midi.mappings = []);
+        const r = C.apply(list, tpl, { known: (k) => !!targetFor(k) });
+        P().push(true);
+        P().rerender();
+        P().toast(r.added + ' ' + T('eşleme eklendi') + (r.skipped ? ' · ' + r.skipped + ' ' + T('zaten vardı') : ''), r.added ? 'ok' : 'info');
+      },
+    });
+    out.push(P().row('Hazır Denetleyici Haritası', el('div', { class: 'map-row', style: 'gap:8px;align-items:center' }, [tsel, applyBtn])));
+    if (detected) out.push(el('div', { class: 'note', text: T('Tanınan aygıt') + ': ' + detected.name }));
+    out.push(el('div', { class: 'note', text: 'Harita mevcut eşlemelerin yanına eklenir; aynı düğmeye bağlı eşleme varsa dokunulmaz. Launchpad Programmer, Push 2 User kipinde olmalı; nanoKONTROL2 LED geri bildirimi için Korg Kontrol Editor\'da LED Mode = External seçin.' }));
+    return out;
+  }
+
   function panel(surface) {
     const el = P().el;
     const cfg = P().cfg();
@@ -910,6 +1024,7 @@
           sel.appendChild(o);
         });
         nodes.push(P().row('Aygıt', sel));
+        midiExtraNodes(cfg).forEach((n) => nodes.push(n));
         const foundBox = el('label', { class: 'lbl' });
         if (midiInputs.length) {
           foundBox.appendChild(el('span', { class: 'st-num', text: midiInputs.length + ' ' }));

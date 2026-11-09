@@ -1725,6 +1725,18 @@
     'Bu ortamda Web MIDI kullanılamıyor.': 'Web MIDI is unavailable in this environment.',
     'sinyal bekleniyor…': 'waiting for a signal…', 'mesaj bekleniyor…': 'waiting for a message…',
     'UDP Portu': 'UDP Port',
+    // MIDI çıkışı / LED geri bildirimi ve hazır denetleyici haritaları
+    'LED Geri Bildirimi (MIDI Çıkışı)': 'LED Feedback (MIDI Output)',
+    'Değerleri Denetleyiciye Geri Yolla': 'Send Values Back to the Controller',
+    'MIDI Çıkışı': 'MIDI Output',
+    'Girişle aynı adlı aygıt': 'Device with the same name as the input',
+    'Eşlenen faderlar ve düğümler için güncel değer CC olarak, düğmeler için açık/kapalı nota olarak denetleyiciye gider (LED halkası, düğme ışığı, motorlu fader). Yalnız değişen değer yollanır.': 'Mapped faders and knobs send their current value to the controller as CC, buttons as an on/off note (LED ring, button light, motorized fader). Only changed values are sent.',
+    'Hazır Denetleyici Haritası': 'Built-in Controller Map',
+    'Haritayı Uygula': 'Apply Map',
+    'eşleme eklendi': 'mappings added',
+    'zaten vardı': 'already existed',
+    'Tanınan aygıt': 'Recognized device',
+    'Harita mevcut eşlemelerin yanına eklenir; aynı düğmeye bağlı eşleme varsa dokunulmaz. Launchpad Programmer, Push 2 User kipinde olmalı; nanoKONTROL2 LED geri bildirimi için Korg Kontrol Editor\'da LED Mode = External seçin.': 'The map is added next to your existing mappings; a control that is already mapped is left alone. Launchpad must be in Programmer mode and Push 2 in User mode; for nanoKONTROL2 LED feedback set LED Mode = External in Korg Kontrol Editor.',
     // OSC çıkışı (#437)
     'OSC Çıkışı': 'OSC Output', 'OSC Çıkışı Etkin': 'OSC Output Enabled',
     'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.':

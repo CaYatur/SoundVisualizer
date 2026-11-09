@@ -1177,7 +1177,8 @@
     // Eşleme: { id, source:'midi'|'osc', channel, cc, address, path, min, max, mode }
     // ------------------------------------------------------------------
     control: {
-      midi: { enabled: false, deviceId: 'all', mappings: [] },
+      // feedback: MIDI çıkışı ile denetleyici LED / motorlu fader geri bildirimi (varsayılan kapalı)
+      midi: { enabled: false, deviceId: 'all', mappings: [], feedback: { enabled: false, outputId: 'auto', onVelocity: 127, offVelocity: 0 } },
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
       // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
       gamepad: { enabled: false, mappings: [] },
