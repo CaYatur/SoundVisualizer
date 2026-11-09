@@ -505,3 +505,29 @@ test('cues: moving and deleting a live hold marker refreshes every output anchor
   assert.strictEqual(TP.anchor().hold, undefined);
   TP.pause();
 });
+
+
+test('cue işaretleri ortak SVG yollarıyla çiziliyor; adlar ve tıklama alanı korunuyor', async () => {
+  const cfg = cfgOf();
+  cfg.timeline.markers = [
+    { id: 'hold', t: 1, name: 'Cue 1', hold: true },
+    { id: 'plain', t: 4, name: 'Plain' },
+  ];
+  const calls = [];
+  const previous = window.SVIcons;
+  window.SVIcons = { draw: (ctx, name, x, y, size) => calls.push({ name, x, y, size }) };
+  try {
+    const { host, cv } = await mount(cfg);
+    assert.ok(calls.some((c) => c.name === 'pause' && c.x === X(1) + 4 && c.size === 14));
+    assert.ok(!calls.some((c) => c.name === 'pause' && c.x === X(4) + 4), 'normal işarette duraklat simgesi yok');
+    const go = find(host, (n) => /(?:^| )tl-go(?: |$)/.test(n.className));
+    assert.strictEqual(go.props.icon, 'play');
+    assert.strictEqual(go.props.text, 'GO');
+    assert.ok(go.props.title, 'GO açıklaması korunur');
+    // Etiketin yeni simge payı da aynı işareti seçer.
+    fire(cv, 'mousedown', { clientX: X(1) + 58, clientY: RULER - 8, detail: 1 });
+    winFire('mouseup', {});
+    assert.strictEqual(TP._selection().markerId, 'hold');
+    assert.strictEqual(cfg.timeline.markers[0].name, 'Cue 1');
+  } finally { window.SVIcons = previous; }
+});
