@@ -21,7 +21,7 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const I = require('../src/shared/icons.js');
 
-const PICTO = /[\p{Extended_Pictographic}\u{1F100}-\u{1F1FF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{27BF}\u{27F0}-\u{27FF}\u{2800}-\u{28FF}\u{2900}-\u{29FF}\u{2B00}-\u{2BFF}\u{3030}\u{FF0B}\u{FE0F}\u{2139}]/u;
+const PICTO = /[\p{Extended_Pictographic}\u{1F100}-\u{1F1FF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{27BF}\u{27F0}-\u{27FF}\u{2800}-\u{28FF}\u{2900}-\u{29FF}\u{2B00}-\u{2BFF}\u{3030}\u{FF0B}\u{FE0F}\u{2139}\u{2016}\u{23F8}]/u;
 const KEEP = /[→←↑↓♩▮×]/gu;
 
 function uiFiles() {
@@ -56,6 +56,10 @@ function codeLines(src) {
   });
   return out;
 }
+
+test('ikon süzgeci metin duraklatma ve oynatma işaretlerini de yakalıyor', () => {
+  for (const glyph of ['‖', '⏸', '▶', '●', '⏹']) assert.ok(PICTO.test(glyph));
+});
 
 test('arayüz kodunda emoji ya da resim karakteri yok', () => {
   const bad = [];

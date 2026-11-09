@@ -806,9 +806,11 @@
       ctx.moveTo(Math.round(x) + 0.5, RULER_H);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
-      // Bekleme (cue) işareti etikette ‖ ile ayrılır
-      const label = (m.hold === true ? '‖ ' : '') + (m.name || '');
-      const lw = label ? ctx.measureText(label).width + 12 : 8;
+      // Tuvalde de düğmelerle aynı SVG yolları; yazı tipi/emoji yedeği yok.
+      const label = m.name || '';
+      const held = m.hold === true;
+      const iconW = held ? 16 : 0;
+      const lw = label || held ? ctx.measureText(label).width + 12 + iconW : 8;
       markerW.set(m.id, lw);
       const msel = selection && selection.kind === 'marker' && selection.markerId === m.id;
       const mhov = !msel && hoverMarkerId === m.id;
@@ -830,10 +832,9 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
-      if (label) {
-        ctx.fillStyle = msel ? css('--on-accent') || strong : fg;
-        ctx.fillText(label, x + 6, RULER_H - 5.5);
-      }
+      ctx.fillStyle = msel ? css('--on-accent') || strong : fg;
+      if (held && window.SVIcons) window.SVIcons.draw(ctx, 'pause', x + 4, RULER_H - 16, 14);
+      if (label) ctx.fillText(label, x + 6 + iconW, RULER_H - 5.5);
     }
 
     /* --- Tempo değişimleri: cetvelin alt bandında camgöbeği ♩ etiketi. İlk
@@ -3240,7 +3241,7 @@
 
     const playBtn = btn(['play'], 'Oynat / duraklat (Boşluk)', () => togglePlay(), 'tl-play');
     /* Cue listesi: işaretlerden biri "Bekle" ise GO düğmesi görünür */
-    const goBtn = btn('GO', 'GO: bekleyen cue\'dan devam et; oynarken sıradaki işarete atla (Enter)', () => go(), 'tl-go');
+    const goBtn = btn(['play', 'GO'], 'GO: bekleyen cue\'dan devam et; oynarken sıradaki işarete atla (Enter)', () => go(), 'tl-go');
     const cueLabel = el('span', { class: 'tl-lbl tl-cue', text: '' });
     const timeLabel = el('span', { class: 'tl-time', text: fmtClock(0) });
     const barLabel = el('span', { class: 'tl-bars', text: '1.1' });
@@ -4020,7 +4021,7 @@
         commit();
         draw();
       });
-      const go = el('button', { class: 'btn small', type: 'button', text: '→', title: 'Bu işarete git' });
+      const go = el('button', { class: 'btn small', type: 'button', icon: 'next', title: tt('Bu işarete git'), 'aria-label': tt('Bu işarete git') });
       go.addEventListener('click', () => {
         seek(m.t);
         applyClipsAt(transport.time);
