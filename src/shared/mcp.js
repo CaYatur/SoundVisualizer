@@ -31,7 +31,7 @@
     controlBindings: 'control',
   };
   const DEFAULT_PORT = 38471;
-  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT, toolProfile: 'full' };
+  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT, toolProfile: 'full', httpApi: false };
   /* Tool list profiles (#768). "full" (default) lists every tool with its
      full description. "compact" lists only core read + common edit tools
      with one-sentence descriptions, for small-context local models. It only
@@ -77,7 +77,7 @@
   function normalizeMcp(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
     const mode = MODES.indexOf(src.mode) >= 0 ? src.mode : 'read';
-    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port), toolProfile: TOOL_PROFILES.indexOf(src.toolProfile) >= 0 ? src.toolProfile : 'full' };
+    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port), toolProfile: TOOL_PROFILES.indexOf(src.toolProfile) >= 0 ? src.toolProfile : 'full', httpApi: src.httpApi === true };
   }
   function mcpI18n() {
     if (mcpI18n.cached !== undefined) return mcpI18n.cached;
@@ -3187,6 +3187,7 @@
       mode: mcp.mode,
       port: mcp.port,
       toolProfile: mcp.toolProfile,
+      httpApi: mcp.httpApi,
       profiles: TOOL_PROFILES.slice(),
       setupVisible: mcp.enabled === true,
       modes: MODES.slice(),

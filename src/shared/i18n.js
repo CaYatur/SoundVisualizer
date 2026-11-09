@@ -4881,6 +4881,22 @@
     "tr": "Yalnız temel okuma ve sık düzenleme araçlarını kısa açıklamalarla listeler. Diğer araçlar adıyla çağrılabilir.",
     "en": "Lists only core read and common edit tools with short descriptions. Other tools can still be called by name."
   },
+  "mcp.http.toggle": {
+    "tr": "HTTP API (REST, OpenAPI)",
+    "en": "HTTP API (REST, OpenAPI)"
+  },
+  "mcp.http.hint": {
+    "tr": "Aynı araçları /api/v1 altında düz HTTP ile açar. Yalnız bu bilgisayardan (127.0.0.1) erişilir, MCP jetonu ve seçili izin kipi geçerlidir. Jeton MCP her açıldığında değişir.",
+    "en": "Exposes the same tools as plain HTTP under /api/v1. Reachable only from this computer (127.0.0.1); the MCP token and the selected permission mode apply. The token changes each time MCP starts."
+  },
+  "mcp.http.copyUrl": {
+    "tr": "OpenAPI adresini kopyala",
+    "en": "Copy OpenAPI URL"
+  },
+  "mcp.http.copyToken": {
+    "tr": "Jetonu kopyala",
+    "en": "Copy token"
+  },
   "mcp.card.setup": {
     "tr": "Kurulum",
     "en": "Setup"
