@@ -874,6 +874,11 @@
         return window.SVScenePanels ? window.SVScenePanels.geometryPanel() : null;
       case 'artnetpanel':
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
+      case 'lednetpanel': {
+        const L = window.SVLedNetPanel;
+        if (!L) return null;
+        return def.kind === 'wled' ? L.wledPanel() : def.kind === 'wledSync' ? L.wledSyncPanel() : L.sacnPanel();
+      }
       case 'openrgbpanel':
         return window.SVOpenRGBPanel ? window.SVOpenRGBPanel.panel() : null;
       case 'texturepanel':
@@ -2956,6 +2961,33 @@
         controls: [{ type: 'artnetpanel' }],
       },
       {
+        id: 'sacn',
+        category: 'lighting',
+        icon: 'sliders',
+        title: 'sACN (E1.31) Çıkışı',
+        desc: 'Sahne renklerini sACN (E1.31) ile ışık konsollarına ve DMX düğümlerine yollar.',
+        roots: ['sacn'],
+        controls: [{ type: 'lednetpanel', kind: 'sacn' }],
+      },
+      {
+        id: 'wled',
+        category: 'lighting',
+        icon: 'rainbow',
+        title: 'WLED (DDP) Çıkışı',
+        desc: 'WLED LED şeritlerini ağ üzerinden DDP ile doğrudan sürer; aygıtı ağda bulabilir.',
+        roots: ['wled'],
+        controls: [{ type: 'lednetpanel', kind: 'wled' }],
+      },
+      {
+        id: 'wledSync',
+        category: 'lighting',
+        icon: 'share',
+        title: 'WLED Ses Senkronu',
+        desc: 'Ses analizini WLED Audio Sync paketi olarak ağdaki ses tepkili WLED aygıtlarına yayınlar.',
+        roots: ['wledSync'],
+        controls: [{ type: 'lednetpanel', kind: 'wledSync' }],
+      },
+      {
         /* Ortak görünüm: WDL kapalı veya OpenRGB tek başına açıkken de
            erişilsin diye kategorinin EN ALTINDA, belirgin başlıkla. */
         id: 'lightingGeneral',
@@ -3747,6 +3779,9 @@
       if (id === 'lighting') return !!(cfg.lighting && cfg.lighting.enabled);
       if (id === 'openrgb') return !!(cfg.openrgb && cfg.openrgb.enabled);
       if (id === 'artnet') return !!(cfg.artnet && cfg.artnet.enabled);
+      if (id === 'sacn') return !!(cfg.sacn && cfg.sacn.enabled);
+      if (id === 'wled') return !!(cfg.wled && cfg.wled.enabled);
+      if (id === 'wledSync') return !!(cfg.wledSync && cfg.wledSync.enabled);
       if (id === 'midi') return !!(c.midi && c.midi.enabled);
       if (id === 'osc') return !!(c.osc && c.osc.enabled);
       if (id === 'oscOut') return !!(c.oscOut && c.oscOut.enabled);

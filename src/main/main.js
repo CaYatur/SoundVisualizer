@@ -18,6 +18,9 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
+const sacn = require('./sacn');
+const ddp = require('./ddp');
+const wledSync = require('./wled-audiosync');
 const oscOut = require('./osc-out');
 const oscQuery = require('./osc-query');
 const oscTree = require('../shared/osc-tree');
@@ -3790,6 +3793,7 @@ function applyIncomingConfig(config, opts) {
     syncStreamServer();
     syncOscServer();
     syncArtnet();
+    syncLedNet();
     syncOscOut();
     syncOpenRgb();
     syncTextureShare();
@@ -4083,6 +4087,14 @@ ipcMain.on('audio-meter', (e, data) => {
   if (g.lighting) dynamicLighting.onAudioFrame(data, currentConfig);
   if (g.artnet && currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
+  }
+  /* sACN, WLED (DDP) ve WLED ses senkronu: ağ ışık çıkışları Art-Net ile
+     aynı yetki kapısından geçer; yedek makine aynı ışıklara ikinci kez
+     yollamaz. Kapalıyken send() hiçbir şey yapmaz. */
+  if (g.artnet && currentConfig) {
+    if (currentConfig.sacn && currentConfig.sacn.enabled) sacn.send(currentConfig.sacn, data);
+    if (currentConfig.wled && currentConfig.wled.enabled) ddp.send(currentConfig.wled, data);
+    if (currentConfig.wledSync && currentConfig.wledSync.enabled) wledSync.send(currentConfig.wledSync, data);
   }
   if (g.oscOut && currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
     oscOut.send(currentConfig.oscOut, data, oscOutContext());
@@ -6518,6 +6530,27 @@ function syncArtnet() {
   });
 }
 
+/* Ağ LED çıkışları: sACN, WLED (DDP) ve WLED ses senkronu. Hepsi varsayılan
+   kapalı; Art-Net gibi otomasyonda (HW_OFF) ağa paket gitmez. */
+function ledNetStatus() {
+  return { sacn: sacn.status(), wled: ddp.status(), wledSync: wledSync.status() };
+}
+function syncLedNet() {
+  const c = currentConfig || {};
+  const pick = (k) => (HW_OFF ? { enabled: false } : (c[k] || { enabled: false }));
+  // sACN kapanırken "akış bitti" paketi yollar; ayar kapalıysa son ayarla
+  const s = pick('sacn');
+  return Promise.all([
+    s.enabled ? sacn.start(s) : sacn.stop(c.sacn),
+    ddp.start(pick('wled')),
+    wledSync.start(pick('wledSync')),
+  ]).then((list) => {
+    const st = { sacn: list[0] || sacn.status(), wled: list[1] || ddp.status(), wledSync: list[2] || wledSync.status() };
+    notifyAdmin('lednet-status', st);
+    return st;
+  }).catch(() => ledNetStatus());
+}
+
 /* OSC çıkışı (#437). OSC girişinin ayarı da veriliyor: hedef bu
    bilgisayarın OSC girişiyse osc-out.js göndermiyor (geri besleme). Art-Net
    gibi otomasyonda (HW_OFF) ağa paket gitmiyor. */
@@ -6930,6 +6963,11 @@ ipcMain.handle('recovery:status', () => {
 ipcMain.handle('remote-peers:status', () => peerRelay.status());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
+ipcMain.handle('lednet:status', () => ledNetStatus());
+ipcMain.handle('lednet:sync', () => syncLedNet());
+// WLED keşfi ve bilgisi yalnız kullanıcı düğmeye basınca; otomasyonda ağa çıkılmaz
+ipcMain.handle('wled:discover', () => (HW_OFF ? { ok: false, error: 'disabled', devices: [] } : ddp.discover({ ms: 2000 })));
+ipcMain.handle('wled:info', (e, host) => (HW_OFF ? { ok: false, error: 'disabled' } : ddp.fetchInfo(String(host || '').slice(0, 260), 2500)));
 ipcMain.handle('oscout:status', () => oscOut.status());
 ipcMain.handle('oscout:sync', () => syncOscOut());
 /* Tempo motorunun vuruşu panelden geliyor (autovj.js). Yalnız panel
@@ -9313,6 +9351,7 @@ app.whenReady().then(async () => {
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
+  syncLedNet().catch(() => {});
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
   syncTextureShare().catch(() => {});
@@ -12234,6 +12273,9 @@ function shutdownCleanup() {
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});
+  sacn.stop(currentConfig && currentConfig.sacn && currentConfig.sacn.enabled ? currentConfig.sacn : null).catch(() => {});
+  ddp.stop().catch(() => {});
+  wledSync.stop().catch(() => {});
   oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});

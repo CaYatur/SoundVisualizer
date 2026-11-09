@@ -1153,6 +1153,46 @@
     },
 
     // ------------------------------------------------------------------
+    // Ağ LED çıkışları. Hepsi varsayılan KAPALI; açılınca yalnız gönderir,
+    // hiçbir porta dinlemek için bağlanmaz.
+    // sACN (E1.31): Art-Net ile aynı kanal üreticisi; boş host = evrenin
+    // multicast adresi (239.255.H.L).
+    // ------------------------------------------------------------------
+    sacn: {
+      enabled: false,
+      host: '', // boş = multicast; tek düğüm için onun IP'si (unicast)
+      port: 5568,
+      universe: 1, // sACN evrenleri 1'den başlar
+      priority: 100, // 0..200, E1.31 varsayılanı 100
+      sourceName: 'SoundVisualizer',
+      startChannel: 1,
+      fixtures: 8,
+      channelsPerFixture: 3,
+      mode: 'palette', // 'palette' | 'bands' | 'spectrum' | 'single'
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED doğrudan sürme (DDP, UDP 4048). Host boşsa hiçbir şey gönderilmez.
+    wled: {
+      enabled: false,
+      host: '',
+      port: 4048,
+      ledCount: 60,
+      mode: 'palette',
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED ses senkronu (Audio Sync v2) yayını
+    wledSync: {
+      enabled: false,
+      host: '239.0.0.1', // WLED'in varsayılan multicast adresi
+      port: 11988,
+      fps: 40,
+    },
+
+    // ------------------------------------------------------------------
     // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
     // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
     // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
