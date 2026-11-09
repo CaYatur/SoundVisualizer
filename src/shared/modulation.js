@@ -179,7 +179,7 @@
     }
     // Derin çözümleme kaynakları
     const AN = [
-      ['anLoudness', 'Gürlük'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
+      ['anLoudness', 'Gürlük'], ['anLufs', 'Gürlük (LUFS)'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
       ['anCentroid', 'Tayf Merkezi'], ['anRolloff', 'Yuvarlanma'],
       ['anFlatness', 'Tayf Düzlüğü'], ['anCrest', 'Tepe Faktörü'],
       ['anFlux', 'Tayf Akısı'], ['anSpread', 'Tayf Yayılımı'],
