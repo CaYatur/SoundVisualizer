@@ -40,7 +40,7 @@ test('old search name is stored in existing main shortcut comments, never as a d
     const at = install.indexOf('CreateShortCut "' + link + '"');
     assert.ok(at > 0);
     assert.ok(install.slice(0, at).includes('${If} ${FileExists} "' + link + '"'));
-    assert.ok(install.slice(at).split('\n')[0].endsWith('"${SV_MAIN_SHORTCUT_DESCRIPTION}"'));
+    assert.ok(install.slice(at).split(/\r?\n/)[0].endsWith('"${SV_MAIN_SHORTCUT_DESCRIPTION}"'));
   }
   assert.doesNotMatch(install, /CreateShortCut "\$SMPROGRAMS\\CAYADEV Visualizer\.lnk"/);
 });
