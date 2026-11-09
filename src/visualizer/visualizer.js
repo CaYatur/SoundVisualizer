@@ -247,7 +247,10 @@
   /* 16 logaritmik bant, görsel bar motorunun balistiği olmadan. Masa
      sesi görür, çizimin yumuşatmasını değil. */
   function oscSpectrum(audio) {
-    if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.analysis === false) return null;
+    // WLED ses senkronu da aynı 16 bandı kullanır
+    const forOsc = !!cfg.oscOut && cfg.oscOut.enabled === true && cfg.oscOut.analysis !== false;
+    const forWled = !!cfg.wledSync && cfg.wledSync.enabled === true;
+    if (!forOsc && !forWled) return null;
     const spec = audio.rawSpectrum ? audio.rawSpectrum() : null;
     if (!spec || !spec.length || !audio.binHz) return null;
     const n = 16;
@@ -659,7 +662,8 @@
          ya da Art-Net — onun için. Yığında MilkDrop yoksa arkaplana
          düşülüyor, ışık sönmesin. */
       const lightSrc = cfg.lighting?.paletteSource;
-      const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled;
+      const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled
+        || !!cfg.sacn?.enabled || !!cfg.wled?.enabled;
       let backgroundColors = [];
       if (lightSrc === 'milkdrop' && lightsOut) {
         backgroundColors = stack.milkdropColors(8);

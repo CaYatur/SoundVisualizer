@@ -1972,6 +1972,28 @@
     'Sahne Paleti': 'Scene Palette', 'Frekans Bantları': 'Frequency Bands',
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
 
+    // ---- Ağ LED çıkışları: sACN, WLED (DDP), WLED ses senkronu ----
+    'sACN (E1.31) Çıkışı': 'sACN (E1.31) Output',
+    'Sahne renklerini sACN (E1.31) ile ışık konsollarına ve DMX düğümlerine yollar.': 'Sends scene colors to lighting consoles and DMX nodes over sACN (E1.31).',
+    'Sahne renklerini sACN (E1.31) ile ışık konsollarına, DMX düğümlerine ve WLED gibi aygıtlara yollar. Art-Net ile birlikte ya da onun yerine kullanılabilir.': 'Sends scene colors over sACN (E1.31) to lighting consoles, DMX nodes and devices such as WLED. Use it alongside Art-Net or instead of it.',
+    'Adres boşsa paket evrenin multicast adresine (239.255.x.x) gider; tek bir düğüm için IP adresini yazın. Kanal düzeni Art-Net ile aynıdır.': 'With no address, packets go to the universe\'s multicast address (239.255.x.x); enter an IP address for a single node. The channel layout is the same as Art-Net.',
+    'Boş = multicast': 'Empty = multicast',
+    'Öncelik': 'Priority',
+    'Adres yok': 'No address',
+    'WLED (DDP) Çıkışı': 'WLED (DDP) Output',
+    'WLED LED şeritlerini ağ üzerinden DDP ile doğrudan sürer; aygıtı ağda bulabilir.': 'Drives WLED LED strips directly over the network with DDP; can find the device on the network.',
+    'WLED Adresi': 'WLED Address',
+    'Ağda WLED Bul': 'Find WLED on Network',
+    'Ağda WLED bulunamadı.': 'No WLED found on the network.',
+    'LED Sayısını Al': 'Get LED Count',
+    'WLED bilgisi alınamadı.': 'Could not read WLED info.',
+    'LED Sayısı': 'LED Count',
+    'Kullan': 'Use',
+    'WLED piksellerini DDP (UDP 4048) ile doğrudan sürer; Art-Net evren ayarı gerekmez. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır.': 'Drives WLED pixels directly with DDP (UDP 4048); no Art-Net universe setup needed. The network is only scanned when you press "Find WLED on Network" or "Get LED Count".',
+    'WLED Ses Senkronu': 'WLED Audio Sync',
+    'Ses analizini WLED Audio Sync paketi olarak ağdaki ses tepkili WLED aygıtlarına yayınlar.': 'Broadcasts the audio analysis as WLED Audio Sync packets to sound-reactive WLED devices on the network.',
+    'Ses seviyesini, 16 frekans bandını ve vuruşları WLED Audio Sync (v2) paketi olarak yayınlar. Ses tepkili WLED aygıtında Audio Sync kipini "Receive" yapın; aygıt kendi mikrofonu yerine bu analizi kullanır.': 'Broadcasts the level, 16 frequency bands and beats as WLED Audio Sync (v2) packets. Set Audio Sync to "Receive" on the sound-reactive WLED device; it then uses this analysis instead of its own microphone.',
+
     // ---- Renk şablonu kitaplığı (58 şablon, 7 grup) ----
     'Klasikler': 'Classics', 'Sıcak': 'Warm', 'Soğuk': 'Cool',
     'Neon ve Siber': 'Neon & Cyber', 'Karanlık': 'Dark', 'Aydınlık': 'Light',

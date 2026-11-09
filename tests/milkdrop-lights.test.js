@@ -130,7 +130,8 @@ test('yığın ilk MilkDrop katmanına soruyor, yoksa boş', () => {
 
 test('ölçer karesi: kaynak milkdrop ise palet MilkDrop\'tan, her ışık çıkışı için', () => {
   const V = bare(read('src/visualizer/visualizer.js'));
-  assert.match(V, /const lightsOut = !!cfg\.lighting\?\.enabled \|\| !!cfg\.openrgb\?\.enabled \|\| !!cfg\.artnet\?\.enabled;/);
+  // Ağ LED çıkışları (sACN, WLED DDP) da aynı paleti kullanır
+  assert.match(V, /const lightsOut = !!cfg\.lighting\?\.enabled \|\| !!cfg\.openrgb\?\.enabled \|\| !!cfg\.artnet\?\.enabled\s*\|\| !!cfg\.sacn\?\.enabled \|\| !!cfg\.wled\?\.enabled;/);
   assert.match(V, /if \(lightSrc === 'milkdrop' && lightsOut\) \{\s*backgroundColors = stack\.milkdropColors\(8\);\s*if \(!backgroundColors\.length\) backgroundColors = stack\.palette\(cfg\);/);
   // Arkaplan kaynağı eskisi gibi yalnız Dynamic Lighting istediğinde okunuyor
   assert.match(V, /\} else if \(!!cfg\.lighting\?\.enabled && lightSrc === 'background'\) \{\s*backgroundColors = stack\.palette\(cfg\);/);

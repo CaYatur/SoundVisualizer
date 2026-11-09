@@ -39,39 +39,12 @@ function buildChannels(cfg, frame) {
   const total = Math.min(512, start - 1 + fixtures * perFixture);
   const data = Buffer.alloc(total < 2 ? 2 : total % 2 ? total + 1 : total);
 
-  const level = frame && frame.level ? frame.level : 0;
-  const bass = frame && frame.bass ? frame.bass : 0;
-  const mid = frame && frame.mid ? frame.mid : 0;
-  const treble = frame && frame.treble ? frame.treble : 0;
-  const colors = (frame && frame.backgroundColors) || [];
-
   for (let i = 0; i < fixtures; i++) {
-    let r = 0;
-    let g = 0;
-    let b = 0;
     const f = fixtures > 1 ? i / (fixtures - 1) : 0;
-
-    if (a.mode === 'bands') {
-      // Aygıtlar bas → orta → tiz boyunca dağılır
-      const band = f < 0.34 ? bass : f < 0.67 ? mid : treble;
-      const hue = f * 300;
-      const rgb = hsvToRgb(hue, 0.9, Math.min(1, band * 1.4));
-      r = rgb[0]; g = rgb[1]; b = rgb[2];
-    } else if (a.mode === 'single') {
-      const rgb = hexToRgb(a.color || '#ff2020');
-      const k = Math.min(1, level * 1.6);
-      r = rgb[0] * k; g = rgb[1] * k; b = rgb[2] * k;
-    } else if (a.mode === 'spectrum') {
-      const hue = (f * 360 + (frame && frame.time ? frame.time * 30 : 0)) % 360;
-      const rgb = hsvToRgb(hue, 0.95, Math.min(1, 0.25 + level * 1.5));
-      r = rgb[0]; g = rgb[1]; b = rgb[2];
-    } else {
-      // 'palette': görselleştiricinin o anki arkaplan renkleri
-      const hex = colors.length ? colors[Math.floor(f * (colors.length - 1))] : '#3aa6ff';
-      const rgb = hexToRgb(hex);
-      const k = Math.min(1, 0.2 + level * 1.5);
-      r = rgb[0] * k; g = rgb[1] * k; b = rgb[2] * k;
-    }
+    const rgb = fixtureColor(a, frame, f);
+    const r = rgb[0];
+    const g = rgb[1];
+    const b = rgb[2];
 
     const base = start - 1 + i * perFixture;
     if (base + perFixture > data.length) break;
@@ -84,6 +57,36 @@ function buildChannels(cfg, frame) {
     }
   }
   return data;
+}
+
+/* Tek bir aygıtın rengi (0..1 RGB). `f`: aygıtın dizideki yeri (0..1).
+   Art-Net, sACN ve DDP (WLED) aynı renk mantığını paylaşır. */
+function fixtureColor(cfg, frame, f) {
+  const a = cfg || {};
+  const level = frame && frame.level ? frame.level : 0;
+  const bass = frame && frame.bass ? frame.bass : 0;
+  const mid = frame && frame.mid ? frame.mid : 0;
+  const treble = frame && frame.treble ? frame.treble : 0;
+  const colors = (frame && frame.backgroundColors) || [];
+  if (a.mode === 'bands') {
+    // Aygıtlar bas → orta → tiz boyunca dağılır
+    const band = f < 0.34 ? bass : f < 0.67 ? mid : treble;
+    return hsvToRgb(f * 300, 0.9, Math.min(1, band * 1.4));
+  }
+  if (a.mode === 'single') {
+    const rgb = hexToRgb(a.color || '#ff2020');
+    const k = Math.min(1, level * 1.6);
+    return [rgb[0] * k, rgb[1] * k, rgb[2] * k];
+  }
+  if (a.mode === 'spectrum') {
+    const hue = (f * 360 + (frame && frame.time ? frame.time * 30 : 0)) % 360;
+    return hsvToRgb(hue, 0.95, Math.min(1, 0.25 + level * 1.5));
+  }
+  // 'palette': görselleştiricinin o anki arkaplan renkleri
+  const hex = colors.length ? colors[Math.floor(f * (colors.length - 1))] : '#3aa6ff';
+  const rgb = hexToRgb(hex);
+  const k = Math.min(1, 0.2 + level * 1.5);
+  return [rgb[0] * k, rgb[1] * k, rgb[2] * k];
 }
 
 function clamp255(v) {
@@ -268,4 +271,4 @@ function createWitness(opts) {
   };
 }
 
-module.exports = { start, stop, send, sendZero, status, buildChannels, buildPacket, parseDmx, createWitness, ART_PORT };
+module.exports = { start, stop, send, sendZero, status, buildChannels, fixtureColor, clamp255, buildPacket, parseDmx, createWitness, ART_PORT };

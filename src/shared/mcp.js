@@ -189,7 +189,7 @@
     master: 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
-    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', sacn: 'output', wled: 'output', wledSync: 'output', oscOut: 'output',
     // Panelin arayüz teması (#770): uygulama ayarı, power ile aynı izin
     ui: 'output',
     'audio.sources': 'output',
