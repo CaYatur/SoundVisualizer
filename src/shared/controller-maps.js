@@ -60,7 +60,7 @@
     {
       id: 'apc40mk2',
       name: 'Akai APC40 mkII',
-      match: /apc\s*40/i,
+      match: /apc\s*40\s*mk\s*(?:ii|2)\b/i,
       mappings: [].concat(
         range(8, (i) => ({ kind: 'cc', channel: i + 1, cc: 7, target: FADERS[i] })),
         range(8, (i) => ({ kind: 'cc', channel: 1, cc: 16 + i, target: KNOBS[i] })),
@@ -80,7 +80,7 @@
     {
       id: 'launchpad',
       name: 'Novation Launchpad (Programmer)',
-      match: /launchpad/i,
+      match: /launchpad\s*(?:x\b|mini\s*mk\s*3\b|pro\s*mk\s*3\b)/i,
       mappings: [].concat(
         range(8, (i) => ({ kind: 'note', channel: 1, cc: 11 + i, target: BUTTONS[i] })), // alt sıra
         [

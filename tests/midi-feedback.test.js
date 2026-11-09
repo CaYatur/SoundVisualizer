@@ -98,6 +98,9 @@ test('haritalar: aygıt adı eşleşmesi', () => {
   assert.strictEqual(CM.matchDevice('Launchpad Mini MK3 LPMiniMK3 MIDI').id, 'launchpad');
   assert.strictEqual(CM.matchDevice('Ableton Push 2 Live Port').id, 'push2');
   assert.strictEqual(CM.matchDevice('Arturia KeyStep'), null);
+  assert.strictEqual(CM.matchDevice('APC40'), null, 'ilk nesil yanlış haritayı almaz');
+  assert.strictEqual(CM.matchDevice('Launchpad Mini'), null, 'eski Launchpad yanlış haritayı almaz');
+  assert.strictEqual(CM.matchDevice('Launchpad X').id, 'launchpad');
   assert.strictEqual(CM.matchDevice(''), null);
 });
 
