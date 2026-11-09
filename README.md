@@ -1116,6 +1116,18 @@ accepted ones; fields sent next to a tool's `patch` argument get the hint to put
 read and common edit tools with one-sentence descriptions, for small-context local models. Every
 tool stays callable by name. The default is the full list.
 
+**HTTP API (OpenAPI).** "HTTP API (REST, OpenAPI)" on the MCP card (off by default) serves the same
+tools as plain HTTP on the MCP port, 127.0.0.1 only: `GET /api/v1/openapi.json` (OpenAPI 3.0, no
+token), `GET /api/v1/tools`, and `POST /api/v1/tools/<name>` with the tool arguments as the JSON body.
+Calls need `Authorization: Bearer <token>` (the MCP token, copyable from the card; it changes each
+time MCP starts) and run under the same mode as MCP. Requests that carry an `Origin` header or a
+non-loopback `Host` are refused. A refused tool call returns 400 with `ok:false`.
+
+**Bitfocus Companion.** `integrations/companion/` is a Companion module that sends OSC to the
+fixed OSC tree: blackout, Auto VJ, scenes, modes, opacity, crossfader, palette, layers, clip deck,
+timeline and any slider path. With the OSC output pointed at Companion it also shows blackout, Auto
+VJ, now playing, BPM and opacity as variables and button feedback. It is not part of the app build.
+
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
 the mode it needs and tells the agent to leave the mode alone and leave the panel unclicked.

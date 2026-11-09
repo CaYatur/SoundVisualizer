@@ -1120,6 +1120,18 @@ bir araca dışarıda gönderilen alanlar için "patch içine koyun" ipucu veril
 ve sık düzenleme araçlarını tek cümlelik açıklamalarla döner; küçük bağlamlı yerel modeller için.
 Her araç adıyla çağrılabilir. Varsayılan tam listedir.
 
+**HTTP API (OpenAPI).** MCP kartındaki "HTTP API (REST, OpenAPI)" (varsayılan kapalı) aynı
+araçları MCP portunda düz HTTP ile açar, yalnız 127.0.0.1: `GET /api/v1/openapi.json` (OpenAPI 3.0,
+jeton istemez), `GET /api/v1/tools` ve gövdesi aracın JSON argümanları olan
+`POST /api/v1/tools/<ad>`. Çağrılar `Authorization: Bearer <jeton>` ister (MCP jetonu, karttan
+kopyalanır, MCP her açıldığında değişir) ve MCP ile aynı kipte çalışır. `Origin` başlığı taşıyan ya
+da loopback dışı `Host` ile gelen istekler reddedilir. Reddedilen araç çağrısı `ok:false` ile 400 döner.
+
+**Bitfocus Companion.** `integrations/companion/` sabit OSC ağacına yazan bir Companion modülüdür:
+karartma, Auto VJ, sahneler, kipler, opaklık, crossfader, palet, katmanlar, klip destesi, zaman
+çizelgesi ve her kaydırıcı yolu. OSC çıkışı Companion'a yöneltilirse karartma, Auto VJ, çalan parça,
+BPM ve opaklık değişken ve düğme geri bildirimi olarak görünür. Uygulama paketine girmez.
+
 Beş kip birikir. Anahtar **Okuma** kipinde açılır. Üst kip altındakileri de kapsar. Ajan kendi
 iznini yükseltemez: `sv_patch_config` her `mcp.*` yolunu reddeder. Engellenen çağrı gereken kipin
 adını söyler ve ajana kipi değiştirmemesini, panele tıklamamasını bildirir.
