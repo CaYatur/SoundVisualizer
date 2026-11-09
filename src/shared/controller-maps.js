@@ -100,7 +100,7 @@
       name: 'Ableton Push 2 (User)',
       match: /push\s*2/i,
       mappings: [].concat(
-        range(8, (i) => ({ kind: 'cc', channel: 1, cc: 71 + i, target: FADERS[i] })),
+        range(8, (i) => ({ kind: 'cc', channel: 1, cc: 71 + i, target: FADERS[i], relative: 'twos-complement' })),
         range(8, (i) => ({ kind: 'note', channel: 1, cc: 36 + i, target: BUTTONS[i] })), // alt ped sırası
         [
           { kind: 'cc', channel: 1, cc: 85, target: A('tlPlay') },
@@ -128,6 +128,7 @@
     return (tpl ? tpl.mappings : []).map((m, i) => ({
       id: gen(i), kind: m.kind, channel: m.channel | 0, cc: m.cc | 0,
       address: '/cayadev/1', index: -1, pad: -1, target: m.target, min: null, max: null, preset: tpl.id,
+      ...(m.relative ? { relative: m.relative } : {}),
     }));
   }
 

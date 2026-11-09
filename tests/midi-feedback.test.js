@@ -180,3 +180,22 @@ test('panel: feedback timer is absent when disabled and released after turning M
   t.feedbackTick();
   assert.strictEqual(timers.size, 0);
 });
+
+
+test('Push 2: relative encoder packets increment and decrement without absolute-value jumps', () => {
+  const vm = require('node:vm');
+  const map = { kind: 'cc', channel: 1, cc: 71, target: 'visualizer.glow', relative: 'twos-complement' };
+  const cfg = { control: { midi: { enabled: true, mappings: [map] } }, visualizer: { glow: 0.5 } };
+  const P = { cfg: () => cfg, get: () => cfg.visualizer.glow, set: (path, v) => { cfg.visualizer.glow = v; }, push() {} };
+  const window = { SVPanel: P, SVMidiFeedback: FB };
+  const context = vm.createContext({ window, document: { getElementById: () => null, querySelectorAll: () => [] }, console,
+    require: require('node:module').createRequire(require.resolve('../src/admin/control.js')) });
+  vm.runInContext(read('src/admin/control.js').replace('  window.SVControl = {', '  window._onMidiTest = onMidi;\n  window.SVControl = {'), context);
+  window._onMidiTest({ data: [0xb0, 71, 1] });
+  assert.ok(cfg.visualizer.glow > 0.5 && cfg.visualizer.glow < 0.6);
+  window._onMidiTest({ data: [0xb0, 71, 127] });
+  assert.ok(Math.abs(cfg.visualizer.glow - 0.5) < 1e-9);
+  const maps = CM.toMappings(CM.byId('push2'));
+  assert.strictEqual(maps.find((m) => m.cc === 71).relative, 'twos-complement');
+  assert.ok(!CM.toMappings(CM.byId('nanokontrol2')).some((m) => m.relative));
+});

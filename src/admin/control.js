@@ -340,6 +340,13 @@
       if (m.cc !== num) continue;
       if (m.channel && m.channel !== channel) continue;
       if ((m.kind === 'note') !== isNote) continue;
+      // Push 2 kodlayıcıları mutlak değer değil, 7 bit ikinin tümleyeni adım yollar.
+      // https://github.com/Ableton/push-interface/blob/main/doc/AbletonPush2MIDIDisplayInterface.asc
+      if (isCC && m.relative === 'twos-complement') {
+        const delta = raw < 64 ? raw : raw - 128;
+        if (delta) applyMapping(m, Math.max(0, Math.min(1, feedbackValue(cfg, m) + delta / 127)));
+        continue;
+      }
       if (value01 < 0.5) m._armed = true; // eylem yeniden tetiklenebilir hale gelsin
       applyMapping(m, value01);
     }
@@ -626,7 +633,7 @@
     }
     if (!outs.length) return;
     const items = (cfg.control.midi.mappings || [])
-      .filter((m) => m.cc >= 0)
+      .filter((m) => m.cc >= 0 && !m.relative)
       .map((m) => ({ map: m, value01: feedbackValue(cfg, m) }));
     fb.update(items);
   }
