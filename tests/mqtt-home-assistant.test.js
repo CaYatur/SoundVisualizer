@@ -235,3 +235,27 @@ test('MQTT: ana süreç bağlantısı kapalıyken hiçbir şey açmaz ve HW_OFF 
   const ctl = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'control.js'), 'utf8');
   assert.ok(ctl.includes("if (!cfg.control.osc.enabled && !fromMqtt) return;"));
 });
+
+
+test('MQTT main sync: overlapping enables create one client and disable cancels pending startup', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(require.resolve('../src/main/main.js'), 'utf8');
+  const code = source.slice(source.indexOf('const mqttRun = {'), source.indexOf("ipcMain.handle('mqtt:status'"));
+  let created = 0;
+  const timers = new Set();
+  const context = vm.createContext({ currentConfig: { mqtt: { enabled: true, host: '127.0.0.1' } }, HW_OFF: false,
+    mqttBridge: B, require, process: { pid: 1 }, app: { getVersion: () => 'test' }, notifyAdmin() {}, oscOutContext: () => ({}),
+    setInterval: (fn) => { timers.add(fn); return fn; }, clearInterval: (fn) => timers.delete(fn),
+    mqttLite: { createClient: () => { created++; return { on() {}, start() {}, stop: async () => {}, status: () => ({ connected: false }) }; } } });
+  vm.runInContext(code, context);
+  const first = context.syncMqtt();
+  context.currentConfig.mqtt.enabled = false;
+  await Promise.all([first, context.syncMqtt()]);
+  assert.strictEqual(created, 0);
+  context.currentConfig.mqtt.enabled = true;
+  await Promise.all([context.syncMqtt(), context.syncMqtt()]);
+  assert.strictEqual(created, 1);
+  assert.strictEqual(timers.size, 1);
+  await context.stopMqtt();
+  assert.strictEqual(timers.size, 0);
+});

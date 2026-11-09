@@ -3565,12 +3565,13 @@ ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: 
    Komutlar (allowControl) OSC girişinin yolundan uygulanır: panel aynı
    osc-tree planını çalıştırır, ayrı bir yazma yolu yok. Öz test ve ekran
    görüntüsünde (HW_OFF) ağa bağlanılmaz. */
-const mqttRun = { client: null, key: '', prev: null, timer: null, cfg: null, error: '' };
+const mqttRun = { client: null, key: '', prev: null, timer: null, cfg: null, error: '', generation: 0 };
 function mqttStatus() {
   const c = mqttRun.client ? mqttRun.client.status() : { connected: false, error: '' };
   return { connected: c.connected, error: c.error || mqttRun.error || '' };
 }
 function stopMqtt() {
+  mqttRun.generation++;
   clearInterval(mqttRun.timer);
   mqttRun.timer = null;
   const cl = mqttRun.client;
@@ -3599,7 +3600,11 @@ function syncMqtt() {
   }
   const key = JSON.stringify(c);
   if (mqttRun.client && key === mqttRun.key) return Promise.resolve();
-  return stopMqtt().then(() => {
+  const stopped = stopMqtt();
+  const generation = mqttRun.generation;
+  return stopped.then(() => {
+    // Daha yeni kapatma/ayar isteği varsa eski bağlantı yeniden doğmasın.
+    if (generation !== mqttRun.generation) return;
     const node = mqttBridge.nodeIdOf(require('os').hostname());
     const cl = mqttLite.createClient({
       host: c.host, port: c.port, tls: c.tls, username: c.username, password: c.password,
