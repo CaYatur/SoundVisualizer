@@ -436,3 +436,79 @@ test('reset() durumu temizler', () => {
   assert.strictEqual(mod.frame, 0);
   assert.deepStrictEqual(mod.values, {});
 });
+
+// ---------------------------------------------------------------------------
+// Adım sıralayıcı — tempoya kilitli, t'den hesaplanan, tekrarlanabilir
+// ---------------------------------------------------------------------------
+test('sequencer: steps advance on the beat division and wrap at length', () => {
+  const m = { sequencers: [{ length: 4, division: '1/4', glide: 0, values: [0.1, 0.4, 0.7, 1] }] };
+  const seq = M.sequencer(m, 0);
+  // 120 BPM -> vuruş 0.5 s; her adım bir vuruş
+  const at = (t) => M.sequencerValue(seq, t, 120);
+  close(at(0), 0.1, 'step 0');
+  close(at(0.49), 0.1, 'still step 0');
+  close(at(0.5), 0.4, 'step 1');
+  close(at(1.2), 0.7, 'step 2');
+  close(at(1.7), 1, 'step 3');
+  close(at(2.0), 0.1, 'wraps to step 0');
+  assert.strictEqual(M.sequencerStep(seq, 1.7, 120), 3);
+  assert.strictEqual(M.sequencerStep(seq, 2.1, 120), 0);
+});
+
+test('sequencer: division and tempo scale the step rate', () => {
+  const m = { sequencers: [{ length: 8, division: '1/16', values: [0, 1, 0, 1, 0, 1, 0, 1] }] };
+  const seq = M.sequencer(m, 0);
+  // 1/16 = çeyrek vuruş; 60 BPM'de adım 0.25 s
+  close(M.sequencerValue(seq, 0.26, 60), 1, '1/16 @ 60 bpm step 1');
+  close(M.sequencerValue(seq, 0.26, 120), 0, '1/16 @ 120 bpm step 2');
+});
+
+test('sequencer: glide eases into the next step only at the end of a step', () => {
+  const m = { sequencers: [{ length: 4, division: '1/4', glide: 0.5, values: [0, 1, 0, 0] }] };
+  const seq = M.sequencer(m, 0);
+  close(M.sequencerValue(seq, 0.1, 120), 0, 'first half holds');
+  const mid = M.sequencerValue(seq, 0.375, 120); // adımın %75'i -> kaymanın ortası
+  close(mid, 0.5, 'glide midpoint', 1e-6);
+  close(M.sequencerValue(seq, 0.5, 120), 1, 'lands on next step');
+});
+
+test('sequencer: bad or missing settings fall back safely', () => {
+  const seq = M.sequencer({ sequencers: [{ length: 7, division: 'nope', glide: 'x', values: [2, -1, NaN] }] }, 0);
+  assert.strictEqual(seq.length, 8);
+  assert.strictEqual(seq.division, '1/4');
+  assert.strictEqual(seq.glide, 0);
+  assert.deepStrictEqual(seq.values.slice(0, 4), [1, 0, 0, 0]);
+  assert.strictEqual(seq.values.length, M.SEQ_MAX_STEPS);
+  const empty = M.sequencer({}, 1);
+  assert.strictEqual(M.sequencerValue(empty, 3.3, 120), 0);
+});
+
+test('sequencer: modulator exposes seq sources, routes them and stays deterministic', () => {
+  const cfg = baseCfg();
+  cfg.modulation.sequencers = [{ length: 4, division: '1/4', values: [0, 0.5, 1, 0.25] }];
+  cfg.modulation.routes = [{ id: 'r1', source: 'seq1', target: 'visualizer.glow', min: 0, max: 1 }];
+  const ids = M.catalog(cfg).map((s) => s.id);
+  assert.ok(ids.includes('seq1') && ids.includes('seq2'));
+  const run = () => {
+    const mod = new M.Modulator();
+    const out = [];
+    for (let f = 0; f < 120; f++) {
+      const t = f / 60;
+      mod.update(cfg, stubAudio(), t, 1 / 60, { bpm: 120, beatPhase: 0 });
+      out.push(mod.apply(cfg, 1 / 60).visualizer.glow);
+    }
+    return out;
+  };
+  const a = run();
+  assert.deepStrictEqual(a, run());
+  close(a[0], 0, 'frame 0 -> step 0');
+  close(a[31], 0.5, 'frame 31 (0.517 s) -> step 1');
+  close(a[61], 1, 'frame 61 -> step 2');
+  // Saklanan yapılandırma değişmez
+  assert.strictEqual(cfg.visualizer.glow, 0.3);
+  // Varsayılan sahnede sıralayıcı bağlı değil: çıktı aynı nesne
+  const d = baseCfg();
+  const mod = new M.Modulator();
+  mod.update(d, stubAudio(), 1, 1 / 60);
+  assert.strictEqual(mod.apply(d, 1 / 60), d);
+});

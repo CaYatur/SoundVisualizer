@@ -1,0 +1,16 @@
+{
+  "id": "cayadev-soundvisualizer",
+  "name": "cayadev-soundvisualizer",
+  "shortname": "SoundVisualizer",
+  "description": "Control CaYaDev SoundVisualizer over OSC: blackout, scenes, modes, layers, clip deck and timeline.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": "git+https://github.com/CaYatur/SoundVisualizer.git",
+  "bugs": "https://github.com/CaYatur/SoundVisualizer/issues",
+  "maintainers": [{ "name": "Çağan Turgut", "email": "cayatur@gmail.com" }],
+  "legacyIds": [],
+  "runtime": { "type": "node22", "api": "nodejs-ipc", "apiVersion": "0.0.0", "entrypoint": "../src/main.js" },
+  "manufacturer": "CaYaDev",
+  "products": ["SoundVisualizer"],
+  "keywords": ["visualizer", "vj", "osc", "music"]
+}

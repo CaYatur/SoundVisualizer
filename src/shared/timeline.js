@@ -350,11 +350,27 @@
 
   function makeMarker(spec) {
     const s = spec || {};
-    return {
+    const m = {
       id: typeof s.id === 'string' && s.id ? s.id : newId('mk'),
       t: Math.max(0, num(s.t, 0)),
       name: typeof s.name === 'string' ? s.name : '',
     };
+    /* Cue (bekleme) işareti: canlı oynatma burada durur, GO ile sürer.
+       Alan yalnız açıkken yazılır; eski işaretler ve kayıtlar aynen kalır. */
+    if (s.hold === true) m.hold = true;
+    return m;
+  }
+
+  /* Cue listesi: t'den SONRAKİ ilk bekleme işareti. Tam cue üzerindeyken
+     (GO ile sürerken) aynı cue yeniden yakalanmasın diye kesin büyük. */
+  function holdAfter(markers, t) {
+    if (!Array.isArray(markers)) return null;
+    let best = null;
+    for (const m of markers) {
+      if (!m || m.hold !== true || !(m.t > t + 1e-6)) continue;
+      if (!best || m.t < best.t) best = m;
+    }
+    return best;
   }
 
   // ==========================================================================
@@ -1154,6 +1170,7 @@
     clipBefore,
     markerHit,
     markerStep,
+    holdAfter,
     sceneStack,
     isSceneClip,
     automationAt,

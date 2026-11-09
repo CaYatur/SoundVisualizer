@@ -18,7 +18,11 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
+const sacn = require('./sacn');
+const ddp = require('./ddp');
+const wledSync = require('./wled-audiosync');
 const oscOut = require('./osc-out');
+const artnetIn = require('./artnet-in');
 const oscQuery = require('./osc-query');
 const oscTree = require('../shared/osc-tree');
 const openrgb = require('./openrgb');
@@ -3876,8 +3880,10 @@ function applyIncomingConfig(config, opts) {
     syncStreamServer();
     syncOscServer();
     syncArtnet();
+    syncLedNet();
     syncOscOut();
     syncOpenRgb();
+    syncArtnetIn();
     syncTextureShare();
     syncLayerSources();
     syncRemotePeers();
@@ -4170,6 +4176,14 @@ ipcMain.on('audio-meter', (e, data) => {
   if (g.lighting) dynamicLighting.onAudioFrame(data, currentConfig);
   if (g.artnet && currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
+  }
+  /* sACN, WLED (DDP) ve WLED ses senkronu: ağ ışık çıkışları Art-Net ile
+     aynı yetki kapısından geçer; yedek makine aynı ışıklara ikinci kez
+     yollamaz. Kapalıyken send() hiçbir şey yapmaz. */
+  if (g.artnet && currentConfig) {
+    if (currentConfig.sacn && currentConfig.sacn.enabled) sacn.send(currentConfig.sacn, data);
+    if (currentConfig.wled && currentConfig.wled.enabled) ddp.send(currentConfig.wled, data);
+    if (currentConfig.wledSync && currentConfig.wledSync.enabled) wledSync.send(currentConfig.wledSync, data);
   }
   if (g.oscOut && currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
     oscOut.send(currentConfig.oscOut, data, oscOutContext());
@@ -6594,6 +6608,53 @@ function syncAppSuspension() {
   }
 }
 
+/* Art-Net GİRİŞİ: masadan gelen DMX kanalları paneldeki eşlemelere gider.
+   Varsayılan kapalı ve yalnız 127.0.0.1'i dinler. Kendi Art-Net çıkışımızla
+   aynı evren seçilirse açılmaz (kendi yayınımızı okuyup döngüye girerdi). */
+let artnetInRx = null;
+let artnetInKey = '';
+let artnetInGeneration = 0;
+let artnetInState = { listening: false, error: '', packets: 0 };
+function artnetInStatus() {
+  return artnetInRx ? artnetInRx.status() : Object.assign({}, artnetInState);
+}
+function syncArtnetIn() {
+  const c = (currentConfig && currentConfig.control && currentConfig.control.artnet) || {};
+  const out = (currentConfig && currentConfig.artnet) || {};
+  const stopRx = () => {
+    artnetInGeneration++;
+    const rx = artnetInRx;
+    artnetInRx = null;
+    artnetInKey = '';
+    return rx ? rx.stop() : Promise.resolve();
+  };
+  if (!c.enabled || HW_OFF) {
+    artnetInState = { listening: false, error: '', packets: 0 };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const universe = Math.max(0, Math.min(32767, c.universe | 0));
+  if (out.enabled && (out.universe | 0) === universe) {
+    artnetInState = { listening: false, error: 'same-universe', packets: 0, universe };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const bind = artnetIn.safeBind(c.bind);
+  const port = Math.max(1, Math.min(65535, c.port | 0 || artnet.ART_PORT));
+  const key = bind + ':' + port + '/' + universe;
+  if (artnetInRx && key === artnetInKey) return Promise.resolve(artnetInStatus());
+  const stopped = stopRx();
+  const generation = artnetInGeneration;
+  return stopped.then(() => {
+    // Beklenen kapanışın ardından daha yeni kapatma/ayar isteği gelmiş olabilir.
+    if (generation !== artnetInGeneration) return artnetInStatus();
+    artnetInRx = artnetIn.createReceiver({
+      bind, port, universe,
+      onChanges: (msg) => notifyAdmin('artnet-in', msg),
+    });
+    artnetInKey = key;
+    return artnetInRx.start();
+  }).then((st) => { notifyAdmin('artnetin-status', st); return st; });
+}
+
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
   // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
@@ -6603,6 +6664,27 @@ function syncArtnet() {
     syncWitness();
     return st;
   });
+}
+
+/* Ağ LED çıkışları: sACN, WLED (DDP) ve WLED ses senkronu. Hepsi varsayılan
+   kapalı; Art-Net gibi otomasyonda (HW_OFF) ağa paket gitmez. */
+function ledNetStatus() {
+  return { sacn: sacn.status(), wled: ddp.status(), wledSync: wledSync.status() };
+}
+function syncLedNet() {
+  const c = currentConfig || {};
+  const pick = (k) => (HW_OFF ? { enabled: false } : (c[k] || { enabled: false }));
+  // sACN kapanırken "akış bitti" paketi yollar; ayar kapalıysa son ayarla
+  const s = pick('sacn');
+  return Promise.all([
+    s.enabled ? sacn.start(s) : sacn.stop(c.sacn),
+    ddp.start(pick('wled')),
+    wledSync.start(pick('wledSync')),
+  ]).then((list) => {
+    const st = { sacn: list[0] || sacn.status(), wled: list[1] || ddp.status(), wledSync: list[2] || wledSync.status() };
+    notifyAdmin('lednet-status', st);
+    return st;
+  }).catch(() => ledNetStatus());
 }
 
 /* OSC çıkışı (#437). OSC girişinin ayarı da veriliyor: hedef bu
@@ -7017,8 +7099,16 @@ ipcMain.handle('recovery:status', () => {
 ipcMain.handle('remote-peers:status', () => peerRelay.status());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
+ipcMain.handle('lednet:status', () => ledNetStatus());
+ipcMain.handle('lednet:sync', () => syncLedNet());
+// WLED keşfi ve bilgisi yalnız kullanıcı düğmeye basınca; otomasyonda ağa çıkılmaz
+ipcMain.handle('wled:discover', () => (HW_OFF ? { ok: false, error: 'disabled', devices: [] } : ddp.discover({ ms: 2000 })));
+ipcMain.handle('wled:info', (e, host) => (HW_OFF ? { ok: false, error: 'disabled' } : ddp.fetchInfo(String(host || '').slice(0, 260), 2500)));
 ipcMain.handle('oscout:status', () => oscOut.status());
 ipcMain.handle('oscout:sync', () => syncOscOut());
+ipcMain.handle('artnetin:status', () => artnetInStatus());
+ipcMain.handle('artnetin:sync', () => syncArtnetIn());
+ipcMain.handle('artnetin:resync', () => { if (artnetInRx) artnetInRx.resync(); return true; });
 /* Tempo motorunun vuruşu panelden geliyor (autovj.js). Yalnız panel
    penceresinden kabul edilir: vuruş başka bir sayfadan uydurulamasın. */
 function noteOscLive(info) {
@@ -9400,8 +9490,10 @@ app.whenReady().then(async () => {
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
+  syncLedNet().catch(() => {});
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
+  syncArtnetIn().catch(() => {});
   syncTextureShare().catch(() => {});
   syncLayerSources();
   syncMqtt();
@@ -12322,9 +12414,13 @@ function shutdownCleanup() {
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});
+  sacn.stop(currentConfig && currentConfig.sacn && currentConfig.sacn.enabled ? currentConfig.sacn : null).catch(() => {});
+  ddp.stop().catch(() => {});
+  wledSync.stop().catch(() => {});
   oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
+  if (artnetInRx) artnetInRx.stop().catch(() => {});
   textureShare.stop().catch(() => {});
   if (layerSources) layerSources.shutdown(); // web katmanının görünmez sayfaları
   mediaSession.stop();

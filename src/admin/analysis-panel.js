@@ -49,6 +49,14 @@
     const el = P().el;
     live.length = 0;
 
+    // LUFS ölçeri: sessizlikte de açık (entegre değer korunur)
+    const meter = () => {
+      const prev = window.SVPreview;
+      const eng = prev && prev.audioEngine && prev.audioEngine();
+      const a = eng && eng.analysis;
+      return a && a.requestLoudness ? a.requestLoudness(eng.sampleRate) : null;
+    };
+    const fmtLufs = (v) => (typeof v === 'number' && isFinite(v) ? v.toFixed(1) + ' LUFS' : '—');
     const an = () => {
       const prev = window.SVPreview;
       if (!prev || !prev.isLive()) return null;
@@ -166,6 +174,25 @@
             if (!a || a.silent) return tr('sessiz');
             return tr('sinyal var');
           }, String),
+        ]),
+        /* LUFS (BS.1770): sessizlikte de okunur, çünkü entegre değer
+           parçanın tamamını anlatır ve sessiz bir arada kaybolmamalı. */
+        el('div', { class: 'an-col' }, [
+          el('h4', { text: tr('Yaklaşık LUFS'), title: tr('Önizleme sesinden yaklaşık ölçüm; yayın/mastering ölçeri yerine geçmez.') }),
+          readout('Anlık (M)', () => { const m = meter(); return m ? m.momentary : null; }, fmtLufs),
+          readout('Kısa Süreli (S)', () => { const m = meter(); return m ? m.shortTerm : null; }, fmtLufs),
+          readout('Entegre (I)', () => { const m = meter(); return m ? m.integrated : null; }, fmtLufs),
+          bar('Anlık Gürlük', () => { const m = meter(); return m && isFinite(m.momentary) ? Math.max(0, Math.min(1, (m.momentary + 60) / 60)) : 0; }),
+          el('div', { class: 'row sv-btn-row' }, [
+            el('button', {
+              class: 'btn ghost small', type: 'button', text: tr('Entegreyi Sıfırla'),
+              onclick: () => {
+                const prev = window.SVPreview;
+                const eng = prev && prev.audioEngine && prev.audioEngine();
+                if (eng && eng.analysis && eng.analysis.resetLoudness) eng.analysis.resetLoudness();
+              },
+            }),
+          ]),
         ]),
         el('div', { class: 'an-col' }, [
           el('h4', { text: tr('Tını') }),
