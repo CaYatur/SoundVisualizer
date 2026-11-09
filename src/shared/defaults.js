@@ -1019,6 +1019,12 @@
         { lo: 1500, hi: 4000, floor: -60, ceil: -28, attack: 0.01, release: 0.15 },
         { lo: 6000, hi: 14000, floor: -70, ceil: -36, attack: 0.005, release: 0.1 },
       ],
+      /* Adım sıralayıcılar (seq1..2): tempoya kilitli değer dizileri. Tüm
+         adımlar 0 başlar; bir yönlendirmeye bağlanmadıkça etkisizdir. */
+      sequencers: [
+        { length: 8, division: '1/4', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { length: 16, division: '1/16', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      ],
       /* Adlar boş başlar. Bir ad yapılandırmada saklanan DEĞERdir, arayüz
          metni değil; içine Türkçe yazmak İngilizce arayüzde çevrilemeyen bir
          dize bırakırdı. Panel boş adı çevrilmiş bir yer tutucuyla gösterir. */
@@ -1153,6 +1159,46 @@
     },
 
     // ------------------------------------------------------------------
+    // Ağ LED çıkışları. Hepsi varsayılan KAPALI; açılınca yalnız gönderir,
+    // hiçbir porta dinlemek için bağlanmaz.
+    // sACN (E1.31): Art-Net ile aynı kanal üreticisi; boş host = evrenin
+    // multicast adresi (239.255.H.L).
+    // ------------------------------------------------------------------
+    sacn: {
+      enabled: false,
+      host: '', // boş = multicast; tek düğüm için onun IP'si (unicast)
+      port: 5568,
+      universe: 1, // sACN evrenleri 1'den başlar
+      priority: 100, // 0..200, E1.31 varsayılanı 100
+      sourceName: 'SoundVisualizer',
+      startChannel: 1,
+      fixtures: 8,
+      channelsPerFixture: 3,
+      mode: 'palette', // 'palette' | 'bands' | 'spectrum' | 'single'
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED doğrudan sürme (DDP, UDP 4048). Host boşsa hiçbir şey gönderilmez.
+    wled: {
+      enabled: false,
+      host: '',
+      port: 4048,
+      ledCount: 60,
+      mode: 'palette',
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED ses senkronu (Audio Sync v2) yayını
+    wledSync: {
+      enabled: false,
+      host: '239.0.0.1', // WLED'in varsayılan multicast adresi
+      port: 11988,
+      fps: 40,
+    },
+
+    // ------------------------------------------------------------------
     // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
     // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
     // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
@@ -1182,6 +1228,12 @@
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
       // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
       gamepad: { enabled: false, mappings: [] },
+      // Art-Net (DMX) girişi: masadan gelen kanallar ayarlara/eylemlere.
+      // Varsayılan kapalı ve yalnız bu bilgisayar (127.0.0.1) dinlenir.
+      // Eşleme: { id, channel (1..512), target, min, max }
+      artnet: { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] },
+      // MIDI Time Code girişi: Zaman Çizelgesi dış zaman koduna kilitlenir
+      mtc: { enabled: false, deviceId: 'all', offsetSec: 0 },
     },
 
     // ------------------------------------------------------------------

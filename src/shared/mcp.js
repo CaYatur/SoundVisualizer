@@ -53,7 +53,7 @@
     'blur', 'radialblur', 'motionblur', 'tiltshift', 'dof', 'sharpen', 'emboss',
     'dither', 'halftone', 'ascii', 'hatch', 'paint', 'vhs', 'datamosh', 'slitscan',
     'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize', 'flash', 'strobe',
-    'godrays', 'badtv', 'starfilter',
+    'godrays', 'badtv', 'starfilter', 'tonemap', 'lut3d',
   ];
   const LAYER_DEFAULTS = {
     id: null, name: '', enabled: true, kind: 'visualizer', type: 'bars', presetId: null,
@@ -189,7 +189,7 @@
     master: 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
-    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', sacn: 'output', wled: 'output', wledSync: 'output', oscOut: 'output',
     // Panelin arayüz teması (#770): uygulama ayarı, power ile aynı izin
     ui: 'output',
     'audio.sources': 'output',
@@ -616,9 +616,9 @@
      changed are checked, so legacy values already on disk still load. */
   function controlError(next, prev, platform) {
     prev = prev && typeof prev === 'object' ? prev : {};
-    const surfaces = ['midi', 'osc', 'gamepad'];
+    const surfaces = ['midi', 'osc', 'gamepad', 'artnet', 'mtc'];
     for (const k of Object.keys(next)) {
-      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc, gamepad.';
+      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: ' + surfaces.join(', ') + '.';
     }
     for (const s of surfaces) {
       const n = next[s];
@@ -636,6 +636,22 @@
       }
       if (s === 'midi' && changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) {
         return 'control.midi.deviceId must be a non-empty string ("all" listens to every input).';
+      }
+      // Art-Net girişi: dinleme adresi yalnız 127.0.0.1, 0.0.0.0 ya da tek bir IPv4
+      if (s === 'artnet') {
+        if (changed('bind') && (typeof n.bind !== 'string' || !/^(\d{1,3})(\.\d{1,3}){3}$/.test(n.bind) || n.bind.split('.').some((x) => Number(x) > 255))) {
+          return 'control.artnet.bind must be 127.0.0.1, 0.0.0.0 or one IPv4 address.';
+        }
+        if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad.replace('control.osc.port', 'control.artnet.port'); }
+        if (changed('universe') && (!Number.isInteger(n.universe) || n.universe < 0 || n.universe > 32767)) {
+          return 'control.artnet.universe must be an integer between 0 and 32767.';
+        }
+      }
+      if (s === 'mtc') {
+        if (changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) return 'control.mtc.deviceId must be a non-empty string ("all" listens to every input).';
+        if (changed('offsetSec') && (typeof n.offsetSec !== 'number' || !(n.offsetSec >= 0 && n.offsetSec <= 86400))) {
+          return 'control.mtc.offsetSec must be a number of seconds between 0 and 86400.';
+        }
       }
       if (s === 'osc') {
         if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad; }
@@ -1115,6 +1131,7 @@
     sv_timeline_edit_marker: { props: {
       action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove'] }),
       markerId: sp('string', 'Marker id (update, remove).'), t: sp('number', 'Time, seconds.', { minimum: 0 }), name: sp('string', 'Marker name.'),
+      hold: sp('boolean', 'Cue hold: live playback stops at this marker until GO (add, update). Export ignores holds.'),
     }, required: ['action'] },
     sv_timeline_set_options: { props: {
       bpm: sp('number', 'Tempo at the start.', { minimum: 1, maximum: 999 }), beatsPerBar: sp('integer', 'Beats per bar at the start.', { minimum: 1, maximum: 16 }),
@@ -1934,7 +1951,7 @@
       if (action === 'add') {
         if (!Number.isFinite(Number(args.t)) || Number(args.t) < 0) return fail('t (seconds, 0 or more) is required.');
         TL.uniqueIds(TL.makeTimeline(doc));
-        const m = TL.makeMarker({ t: Number(args.t), name: args.name });
+        const m = TL.makeMarker({ t: Number(args.t), name: args.name, hold: args.hold === true });
         doc.markers.push(m);
         doc.markers.sort(function (a, b) { return a.t - b.t; });
         return { markerId: m.id, marker: m };
@@ -1948,6 +1965,7 @@
         patch.t = Number(args.t);
       }
       if (args.name != null) patch.name = String(args.name);
+      if (args.hold != null) patch.hold = args.hold === true;
       const m = TL.makeMarker(Object.assign({}, doc.markers[i], patch));
       doc.markers[i] = m;
       doc.markers.sort(function (a, b) { return a.t - b.t; });

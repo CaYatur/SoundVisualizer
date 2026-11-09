@@ -2736,6 +2736,7 @@
                     min: p.min, max: p.max, step: p.step, def: p.default,
                   }));
                 }
+                if (def.lutFile) out.push(lutFileRow(f, rerender));
               }
             });
             const sel = el('select', { class: 'p-in', 'aria-label': tr('Ekle') });
@@ -2922,6 +2923,61 @@
   // ==========================================================================
   // EFEKT ZİNCİRİ
   // ==========================================================================
+  /* 3B LUT efektinin dosya satırı: .cube seç, adı göster, kaldır. Dosya
+     tarayıcıda okunur (FileReader); ana sürece ya da diske yazılmaz. Tablo
+     src/shared/lut.js ile paketlenip efekt girdisinin `lut` alanına konur,
+     böylece sahneyle birlikte kaydedilir ve dışa aktarımda da aynı çıkar. */
+  const LUT_ERRORS = {
+    empty: 'Dosya boş.',
+    tooLarge: 'Dosya çok büyük.',
+    noSize: 'LUT_3D_SIZE satırı bulunamadı.',
+    badSize: 'LUT boyutu desteklenmiyor.',
+    lut1d: '1B LUT desteklenmiyor; 3B .cube dosyası seçin.',
+    badRow: 'Veri satırı okunamadı.',
+    tooManyRows: 'Dosyada beklenenden fazla satır var.',
+    tooFewRows: 'Dosyada beklenenden az satır var.',
+    badDomain: 'DOMAIN_MIN/MAX satırı okunamadı.',
+    domain: 'Yalnız 0..1 giriş aralıklı LUT desteklenir.',
+  };
+  function lutFileRow(fx, rerender) {
+    const el = P().el;
+    const L = window.SVLut;
+    const name = fx.lut && L && L.validPacked(fx.lut)
+      ? (fx.lut.name || 'LUT') + ' · ' + fx.lut.size + '³'
+      : tr('LUT yüklenmedi: görüntü değişmez');
+    const input = el('input', {
+      type: 'file', accept: '.cube', style: 'display:none',
+      onchange: (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f || !L) return;
+        if (f.size > L.MAX_TEXT) {
+          if (P().toast) P().toast(tr('LUT okunamadı') + ': ' + tr(LUT_ERRORS.tooLarge));
+          return;
+        }
+        const rd = new FileReader();
+        rd.onload = () => {
+          const r = L.parseCube(String(rd.result || ''));
+          if (!r.ok) {
+            if (P().toast) P().toast(tr('LUT okunamadı') + ': ' + tr(LUT_ERRORS[r.error] || r.error));
+            return;
+          }
+          fx.lut = L.pack(r, f.name.replace(/\.cube$/i, ''));
+          rerender();
+        };
+        rd.readAsText(f);
+      },
+    });
+    return el('div', { class: 'ctrl' }, [
+      el('label', { class: 'lbl', text: tr('LUT Dosyası') }),
+      el('div', { class: 'row sv-btn-row' }, [
+        el('span', { class: 'val', text: name }),
+        input,
+        el('button', { class: 'btn small', type: 'button', text: tr('.cube Yükle'), onclick: () => input.click() }),
+        fx.lut ? el('button', { class: 'btn ghost small', type: 'button', text: tr('Kaldır'), onclick: () => { delete fx.lut; rerender(); } }) : null,
+      ].filter(Boolean)),
+    ]);
+  }
+
   function effectsPanel() {
     const el = P().el;
     const cfg = P().cfg();
@@ -2958,6 +3014,8 @@
           })
         );
       }
+
+      if (def.lutFile) kids.push(lutFileRow(fx, rerender));
 
       if (def.audio && def.audio.length) {
         kids.push(
