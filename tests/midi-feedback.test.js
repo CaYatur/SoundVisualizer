@@ -145,9 +145,38 @@ test('haritalar: şablon eşlemeye dönüşür; uygulama mevcut eşlemeyi ezmez'
 test('panel: gelen MIDI yankı süzgecine yazılır; geri bildirim kapalıyken yollanmaz; betikler yükleniyor', () => {
   const c = read('src/admin/control.js');
   assert.match(c, /if \(fb\) fb\.noteIncoming\(isCC \? 'cc' : 'note', channel, num, raw\);/);
-  assert.match(c, /if \(!cfg\.control\.midi\.enabled \|\| !f\.enabled\) \{ fbOutKey = ''; return; \}/);
+  assert.match(c, /if \(!cfg\.control\.midi\.enabled \|\| !f\.enabled\) \{ syncFeedback\(\); return; \}/);
   assert.match(c, /C\.apply\(list, tpl, \{ known: \(k\) => !!targetFor\(k\) \}\)/);
   const html = read('src/admin/index.html');
   assert.ok(html.indexOf('../shared/midi-feedback.js') > 0 && html.indexOf('../shared/midi-feedback.js') < html.indexOf('src="control.js"'));
   assert.ok(html.indexOf('../shared/controller-maps.js') > 0 && html.indexOf('../shared/controller-maps.js') < html.indexOf('src="control.js"'));
+});
+
+
+test('panel: feedback timer is absent when disabled and released after turning MIDI off', () => {
+  const vm = require('node:vm');
+  const cfg = { control: { midi: { enabled: true, feedback: { enabled: false } } } };
+  const timers = new Map();
+  const window = { SVPanel: { cfg: () => cfg } };
+  let next = 1;
+  const context = vm.createContext({
+    window, document: {}, navigator: {}, console,
+    require: require('node:module').createRequire(require.resolve('../src/admin/control.js')),
+    setInterval: (fn) => { const id = next++; timers.set(id, fn); return id; },
+    clearInterval: (id) => timers.delete(id),
+  });
+  const source = read('src/admin/control.js').replace('  window.SVControl = {',
+    '  window._feedbackTest = { syncFeedback, feedbackTick, setAccess: (v) => { midiAccess = v; } };\n  window.SVControl = {');
+  vm.runInContext(source, context);
+  const t = window._feedbackTest;
+  t.setAccess({ outputs: new Map() });
+  t.syncFeedback();
+  assert.strictEqual(timers.size, 0);
+  cfg.control.midi.feedback.enabled = true;
+  t.syncFeedback();
+  t.syncFeedback();
+  assert.strictEqual(timers.size, 1);
+  cfg.control.midi.enabled = false;
+  t.feedbackTick();
+  assert.strictEqual(timers.size, 0);
 });

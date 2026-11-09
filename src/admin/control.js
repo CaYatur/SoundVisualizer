@@ -613,7 +613,7 @@
     const cfg = P() && P().cfg();
     if (!cfg || !midiAccess || !cfg.control || !cfg.control.midi) return;
     const f = feedbackCfg(cfg);
-    if (!cfg.control.midi.enabled || !f.enabled) { fbOutKey = ''; return; }
+    if (!cfg.control.midi.enabled || !f.enabled) { syncFeedback(); return; }
     const outs = MFB().pickOutputs(midiAccess.outputs ? midiAccess.outputs.values() : [], midiInputs, f.outputId, cfg.control.midi.deviceId);
     const key = outs.map((o) => o.id).join('|');
     if (!fb || key !== fbOutKey) {
@@ -633,7 +633,15 @@
 
   function syncFeedback() {
     // 10 Hz yeter: LED ve fader insan gözüyle izleniyor; yalnız değişen değer gider
-    if (midiAccess && !fbTimer) fbTimer = setInterval(feedbackTick, 100);
+    const cfg = P() && P().cfg();
+    const on = !!(midiAccess && cfg && cfg.control && cfg.control.midi && cfg.control.midi.enabled && feedbackCfg(cfg).enabled);
+    if (on && !fbTimer) fbTimer = setInterval(feedbackTick, 100);
+    else if (!on) {
+      if (fbTimer) clearInterval(fbTimer);
+      fbTimer = null;
+      fbOutKey = '';
+      fb = null;
+    }
   }
 
   async function initMidi() {
@@ -950,7 +958,7 @@
     if (!midi.feedback) midi.feedback = { enabled: false, outputId: 'auto', onVelocity: 127, offVelocity: 0 };
     const out = [];
     out.push(el('div', { class: 'lighting-subtitle', text: 'LED Geri Bildirimi (MIDI Çıkışı)' }));
-    out.push(P().toggle('Değerleri Denetleyiciye Geri Yolla', 'control.midi.feedback.enabled'));
+    out.push(P().toggle('Değerleri Denetleyiciye Geri Yolla', 'control.midi.feedback.enabled', { rebuild: true }));
     const outs = midiAccess && midiAccess.outputs ? Array.from(midiAccess.outputs.values()) : [];
     const osel = el('select', {
       'aria-label': T('MIDI Çıkışı'),
@@ -997,6 +1005,7 @@
   }
 
   function panel(surface) {
+    syncFeedback();
     const el = P().el;
     const cfg = P().cfg();
     const nodes = [];
