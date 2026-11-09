@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4139%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4170%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -96,7 +96,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   and short-video guides. Reveal animations, logo swapping on the beat, broadcast text styles, and
   layouts saved as files. What you place is what the export renders, checked pixel by pixel.
   [→ Layout editor](#broadcast-layout-editor)
-- **AI-ready.** A local **MCP server** with 104 tools lets Claude, Codex, Cursor and other agents
+- **AI-ready.** A local **MCP server** with 106 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
   only. [→ MCP](#mcp--control-from-an-ai-agent)
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
@@ -199,7 +199,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
 | **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 56 CaYaDev presets of our own. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 104 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
+| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 106 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
 
 ---
 
@@ -1065,7 +1065,7 @@ a local model behind an MCP client and uses that same command.
 
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
-version. The server name is `soundvisualizer`. There are **104 tools**.
+version. The server name is `soundvisualizer`. There are **106 tools**.
 
 The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
 token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
@@ -1134,10 +1134,13 @@ The master switch is enough. These calls only read.
   background id, layer kind and blend mode; the mode and layer tools reject an id it does not list.
   `sv_list_effects` lists the global chain,
   each layer's chain, and the 40 built-in effect types. `sv_list_presets` lists library presets
-  and user colour palettes. `sv_list_displays` lists screens.
+  (the built-in MilkDrop presets too, marked `builtin`) and user colour palettes. `sv_list_displays` lists screens.
 - `sv_get_output_status` reads which visualizer windows are open, the stream switch, port and LAN
   flag, and the Spout/Syphon name. `sv_get_timeline`, `sv_get_clipdeck` and `sv_get_autovj` read
   those panels. `sv_get_config` reads the whole configuration or one dotted path.
+- `sv_lyrics_library` reads the lyrics library: `list`, `search` (name, artist, title) or `get`
+  (one item's text, capped by `maxChars`). Windows only, like the library itself; on macOS and
+  Linux it returns an error that says so. It never writes.
 - `sv_timeline_inspect` reads the whole timeline model with nothing cut off: every track, clip,
   automation key and marker, the tempo map, loop, snap and the timeline bank. With `at` (seconds)
   it also returns the clips playing and the automation values at that moment.
@@ -1162,7 +1165,11 @@ Uses what is already saved.
 - `sv_set_effect_enabled` and `sv_set_effect_param` change a global effect already on the chain.
   The layer pair does the same for one layer. `sv_set_modulation_enabled` turns the modulation
   matrix on or off. `sv_set_macro` sets one existing macro fader.
-- `sv_load_preset` copies an existing library preset into the live MilkDrop source.
+- `sv_load_preset` copies an existing library or built-in MilkDrop preset into the live MilkDrop
+  source. With `layerId` it targets one MilkDrop layer: an Independent layer gets its own preset,
+  a Shared one changes the shared pick. A layer of another kind, a locked layer or an unknown id
+  changes nothing and returns an error that says why. Without `layerId` the result lists the
+  layers that show the shared preset, with a warning when none does.
   `sv_apply_color_preset` paints an existing user or built-in palette onto the background gradient.
   `sv_set_milkdrop_cycle` sets how the library advances: auto next, order, source, tag, unit, bar
   count, track advance and hard cut.
@@ -1175,7 +1182,11 @@ Creates and edits.
   one, `sv_rename_scene` gives a scene found by id or current name the `newName`,
   `sv_delete_scene` removes.
 - Layers: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
-  `sv_remove_layer`, `sv_reorder_layers`. A layer carries kind, type, preset, opacity, blend,
+  `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `sv_add_layer` with type
+  `milkdrop` adds a ready MilkDrop layer with a preset (`presetId`, or a built-in MilkDrop 3
+  preset); when another layer already shows the shared preset the new one is Independent.
+  `sv_duplicate_layer` puts a copy with a new id right above the source, like the panel's
+  Duplicate; a locked layer can be copied and the copy stays locked. A layer carries kind, type, preset, opacity, blend,
   transform (x, y, scale, rotate, flip), audio response, mask, solo, mute, lock and group. Effects
   on a layer go through the effect tools. Adding or showing a layer turns the stack on.
 - `sv_set_text` edits the text overlay, including a lyrics or now-playing source. `sv_set_logo`,
@@ -1917,7 +1928,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4139 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4170 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
