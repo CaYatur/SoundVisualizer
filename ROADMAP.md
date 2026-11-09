@@ -89,7 +89,7 @@ decision, moves after that.
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux. v3.1.6 adds input: another application's sender becomes a layer. Spout input was measured on Windows; Syphon input has never received a picture on a Mac |
 | Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles. v3.1.5: a layer kind of its own, cover fit modes and music video cards |
 | Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
-| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default. v3.1.6: 97 tools |
+| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default. v3.1.6: 97 tools; v4: 104 (timeline editing) |
 | In-app updates | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: checks GitHub Releases and notifies by default; the Windows installer and the AppImage install in place only when the size and SHA-256 match. Off sends no request |
 | Web page layer | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.6 (#866): any web page as a layer, in its own sandboxed session that cannot reach the app, files, camera, microphone or the local network unless that address was typed; placed and resized in the layout editor |
 | Interface themes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **8** | **8** | Shipped in v3.1.6 (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon, contrast tested in every theme; Interface Size 90–150% and Reduce Motion |
@@ -153,7 +153,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **4104 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **4139 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667

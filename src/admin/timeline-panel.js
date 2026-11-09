@@ -393,7 +393,7 @@
     headEl.style.transform = 'translate3d(' + x + 'px,0,0)';
     headEl.style.visibility = x < HEAD_W - 6 || x > canvas.clientWidth + 6 ? 'hidden' : '';
   }
-  const perf = { draws: 0, heads: 0 };
+  const perf = { draws: 0, heads: 0, builds: 0, reuses: 0 };
 
   /* Döngü canlı mı? Örtülmüş bir pencerede bekleyen bir rAF geri çağrısı
      hiç ateşlenmeyebilir; "raf dolu" kontrolü tek başına yapılırsa döngü
@@ -2600,7 +2600,7 @@
     noteLiveEdit,
     _liveHoldHead: () => liveHoldHead,
     // Başarım denetimi: tuval çizimi ve kafa kaydırma sayıları
-    _perf: () => ({ draws: perf.draws, heads: perf.heads }),
+    _perf: () => ({ draws: perf.draws, heads: perf.heads, builds: perf.builds, reuses: perf.reuses }),
     // Düzenleme eylemleri (MIDI/OSC ve testler aynı yoldan)
     undo,
     redo,
@@ -2681,6 +2681,19 @@
     const tl = ensureTransport().tl;
     history_().sync(TE().snapshot(cfg));
     if (selection && !selTrack()) selection = null;
+    /* YERİNDE YENİLEME. Sayfa her çizildiğinde (seçim, klip düzenleme hedefi,
+       ekle, geri al, MCP) çizelge baştan kuruluyordu: yeni tuval bir an boş
+       kalıyor, başlıklar ve denetçi yeniden diziliyor, sürükleme eski tuvalde
+       sürüyordu. Kullanıcı bunu düzenlerken sürekli gidip gelme olarak
+       görüyordu. Yapı aynıysa (sekmeler, notlar, tam pencere, yerleşim) aynı
+       düğüm geri veriliyor; yalnız değişebilen parçalar yerinde yenileniyor. */
+    const sig = panelSig(cfg, tl);
+    if (canReuse(sig)) {
+      perf.reuses++;
+      return reusePanel(cfg, tl);
+    }
+    perf.builds++;
+    builtSig = sig;
     const host = el('div', { class: 'tl-panel' + (fullWin ? ' tl-full' : '') });
     hostEl = host;
 
@@ -2699,7 +2712,8 @@
       );
     }
 
-    host.appendChild(timelineTabs());
+    tabsEl = timelineTabs();
+    host.appendChild(tabsEl);
     const toolbarEl = toolbar();
     host.appendChild(toolbarEl);
 
@@ -2709,18 +2723,21 @@
     headEl = el('div', { class: 'tl-playhead', 'aria-hidden': 'true' });
     headX = NaN;
     const body = el('div', { class: 'tl-body' }, [headsBox, el('div', { class: 'tl-canvas-wrap' }, [cv, headEl])]);
+    bodyEl = body;
     // Zaman sayfasında boy sayfadan geliyor: kullanıcının boyu olarak saklanmıyor
     const pageFit = () => !!document.body && typeof document.body.getAttribute === 'function' && document.body.getAttribute('data-page') === 'time';
     /* Boy: kullanıcı tutamaktan ayarladıysa o; yoksa parçalara göre (en az
        üç şerit, en çok varsayılan) — iki parçalı bir çizelgenin altında boş
        bir alan kalmasın. */
-    const fit = RULER_H + Math.max(3, tl.tracks.length) * TRACK_H + 14;
-    body.style.height = Math.max(120, Math.min(1200, Number(cfg.editorHeight) || Math.min(BODY_H + 140, fit))) + 'px';
+    fitBody(body, cfg, tl);
     // Kullanıcının verdiği boy saklanıyor (tarayıcının boyut tutamağı)
+    if (bodyRO) { bodyRO.disconnect(); bodyRO = null; }
     if (typeof ResizeObserver === 'function') {
       let last = 0;
       const ro = new ResizeObserver(() => {
-        if (!body.isConnected) { ro.disconnect(); return; }
+        /* Yerinde yenilemede düğüm bir an belgeden çıkıp geri giriyor; gözlemci
+           kapatılmıyor, yalnız o an atlanıyor (yeni kurulumda eskisi kapanıyor). */
+        if (!body.isConnected) { last = 0; return; }
         // Tam pencerede boy pencereden geliyor; kullanıcının boyu olarak saklanmamalı
         if (fullWin || pageFit()) { last = 0; draw(); return; }
         const hh = Math.round(body.getBoundingClientRect().height);
@@ -2728,12 +2745,17 @@
         if (Math.abs(hh - last) > 2) { last = hh; cfg.editorHeight = hh; draw(); }
       });
       ro.observe(body);
+      bodyRO = ro;
     }
     const editor = el('div', { class: 'tl-editor', tabindex: '0', 'aria-label': 'Zaman çizelgesi düzenleyicisi' }, [body]);
+    editorEl = editor;
     editor.addEventListener('keydown', onEditorKey);
     editor.addEventListener('focus', () => { editorFocus = true; });
     // Yeniden çizimde sökülen düzenleyicinin kaybı odak kaybı sayılmıyor
-    editor.addEventListener('blur', () => setTimeout(() => { if (editor.isConnected) editorFocus = false; }, 0));
+    editor.addEventListener('blur', () => setTimeout(() => {
+      // Yerinde yenilemede düğüm çıkıp geri giriyor; odak geri verildiyse kayıp sayılmaz
+      if (editor.isConnected && document.activeElement !== editor) editorFocus = false;
+    }, 0));
     host.appendChild(editor);
     if (editorFocus) setTimeout(() => { if (editor.isConnected && editor.focus) editor.focus({ preventScroll: true }); }, 0);
     /* bindCanvas panel yerleştikten sonra: canvas henüz DOM'a girmediği
@@ -2816,16 +2838,131 @@
 
     // --- Seçili öğe ---
     inspectorBox = inspector();
-    const side = typeof document.getElementById === 'function' ? document.getElementById('svTimeSide') : null;
-    const inPage = side && document.body.getAttribute('data-page') === 'time' && !fullWin;
-    if (inPage) side.replaceChildren(el('div', { class: 'dock-head' }, [el('h3', { text: tt('Seçim') })]), inspectorBox);
+    const side = sideHost();
+    if (side) side.replaceChildren(el('div', { class: 'dock-head' }, [el('h3', { text: tt('Seçim') })]), inspectorBox);
     else host.appendChild(inspectorBox);
 
     // --- Seyrek değişen ayarlar ---
     moreBox = moreSettings();
-    if (inPage) side.appendChild(moreBox);
+    if (side) side.appendChild(moreBox);
     else host.appendChild(moreBox);
 
+    return host;
+  }
+
+  // Zaman sayfasında denetçi sağdaki yan rafta; tam pencerede ve öteki yerlerde panelin içinde
+  function sideHost() {
+    const side = typeof document.getElementById === 'function' ? document.getElementById('svTimeSide') : null;
+    return side && document.body.getAttribute('data-page') === 'time' && !fullWin ? side : null;
+  }
+
+  /* Boy: kullanıcı tutamaktan ayarladıysa o; yoksa parçalara göre (en az
+     üç şerit, en çok varsayılan) — iki parçalı bir çizelgenin altında boş
+     bir alan kalmasın. */
+  function fitBody(body, cfg, tl) {
+    const fit = RULER_H + Math.max(3, tl.tracks.length) * TRACK_H + 14;
+    const h = Math.max(120, Math.min(1200, Number(cfg.editorHeight) || Math.min(BODY_H + 140, fit))) + 'px';
+    if (body.style.height !== h) body.style.height = h;
+  }
+
+  /* Yeniden kurmayı gerektiren yapı: sekmeler, uyarı/boş notları, tam pencere,
+     denetçinin yeri ve dil. Klip, seçim, tempo ve döngü burada yok; onlar
+     yerinde yenileniyor. */
+  let builtSig = '';
+  let tabsEl = null;
+  let bodyEl = null;
+  let editorEl = null;
+  let bodyRO = null;
+  function panelSig(cfg, tl) {
+    const av = P().cfg().autovj;
+    const page = typeof document !== 'undefined' && document.body && typeof document.body.getAttribute === 'function'
+      ? document.body.getAttribute('data-page') : '';
+    const lang = window.SVI18n && window.SVI18n.locale ? String(typeof window.SVI18n.locale === 'function' ? window.SVI18n.locale() : window.SVI18n.locale) : '';
+    return JSON.stringify([
+      fullWin, page, lang, TRACK_H,
+      !!(av && av.enabled && (av.source === 'scenes' || av.source === 'all')),
+      !tl.tracks.length, tl.tracks.some((t) => t.kind === 'clip' && !t.clips.length),
+    ]);
+  }
+  function canReuse(sig) {
+    return !!(hostEl && canvas && editorEl && bodyEl && headsBox && inspectorBox && moreBox && tabsEl && toolbarRefs
+      && sig === builtSig && typeof hostEl.contains === 'function' && hostEl.contains(canvas) && hostEl.contains(headsBox));
+  }
+  function swap(oldNode, next) {
+    if (oldNode && oldNode.parentNode) oldNode.parentNode.replaceChild(next, oldNode);
+    return next;
+  }
+  /* Odak ve imleç: yenilenen denetçide aynı yerdeki alana geri veriliyor
+     (yazarken dışarıdan gelen bir çizim imleci kutudan düşürmesin). */
+  function focusPath(root, node) {
+    const path = [];
+    for (let n = node; n && n !== root; n = n.parentNode) {
+      const parent = n.parentNode;
+      if (!parent) return null;
+      path.unshift(Array.prototype.indexOf.call(parent.children, n));
+    }
+    return path;
+  }
+  function nodeAt(root, path) {
+    let n = root;
+    for (const i of path) { n = n && n.children ? n.children[i] : null; }
+    return n;
+  }
+  function reusePanel(cfg, tl) {
+    const p = P();
+    const el = p.el;
+    const host = hostEl;
+    const wantFocus = editorFocus;
+    host.classList.toggle('tl-full', fullWin);
+    // Sekmeler ucuz ve ad/sıra/pasiflik dışarıdan değişebilir: her seferinde yeni
+    tabsEl = swap(tabsEl, timelineTabs());
+    fitBody(bodyEl, cfg, tl);
+    headsBox = swap(headsBox, heads());
+    const side = sideHost();
+    const scrollBox = side || host;
+    const keepScroll = scrollBox.scrollTop;
+    const ae = typeof document !== 'undefined' ? document.activeElement : null;
+    let fPath = null;
+    let fSel = null;
+    for (const box of [inspectorBox, moreBox]) {
+      if (ae && box && box !== ae && box.contains(ae)) {
+        fPath = { which: box === inspectorBox ? 'insp' : 'more', path: focusPath(box, ae) };
+        if (typeof ae.selectionStart === 'number') fSel = [ae.selectionStart, ae.selectionEnd];
+      }
+    }
+    const nextInsp = inspector();
+    const nextMore = moreSettings();
+    if (side) {
+      if (inspectorBox.parentNode === side) swap(inspectorBox, nextInsp);
+      else side.replaceChildren(el('div', { class: 'dock-head' }, [el('h3', { text: tt('Seçim') })]), nextInsp);
+      if (moreBox.parentNode === side) swap(moreBox, nextMore);
+      else side.appendChild(nextMore);
+    } else {
+      if (inspectorBox.parentNode === host) swap(inspectorBox, nextInsp); else host.appendChild(nextInsp);
+      if (moreBox.parentNode === host) swap(moreBox, nextMore); else host.appendChild(nextMore);
+    }
+    inspectorBox = nextInsp;
+    moreBox = nextMore;
+    if (scrollBox.scrollTop !== keepScroll) scrollBox.scrollTop = keepScroll;
+    refreshToolbar();
+    /* Panel belgeye geri eklenince (render bitince) çiz: belgeden çıkmışken
+       tuvalin genişliği 0 okunur. Mikro görev boyamadan önce çalışıyor, ara
+       kare boş görünmüyor. */
+    const after = () => {
+      if (!host.isConnected) return;
+      draw();
+      if (fPath && fPath.path) {
+        const n = nodeAt(fPath.which === 'insp' ? inspectorBox : moreBox, fPath.path);
+        if (n && n.focus) {
+          try { n.focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ }
+          if (fSel && typeof n.setSelectionRange === 'function') { try { n.setSelectionRange(fSel[0], fSel[1]); } catch (e) { /* desteklemeyen alan */ } }
+        }
+      } else if (wantFocus && editorEl && editorEl.isConnected && editorEl.focus) {
+        editorFocus = true;
+        try { editorEl.focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ }
+      }
+    };
+    if (typeof queueMicrotask === 'function') queueMicrotask(after); else Promise.resolve().then(after);
     return host;
   }
 

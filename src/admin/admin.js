@@ -3141,7 +3141,7 @@
         icon: 'gear',
         title: 'Uygulama',
         desc: '',
-        roots: ['ui.theme', 'ui.scale', 'ui.reduceMotion', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        roots: ['ui.theme', 'ui.scale', 'ui.reduceMotion', 'ui.modeTargetAuto', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         keywords: ['erişilebilirlik', 'okunabilirlik', 'yazı boyutu', 'büyüt', 'yakınlaştır', 'karşıtlık', 'kontrast', 'tema',
           'accessibility', 'readability', 'text size', 'font size', 'zoom', 'contrast', 'theme'],
         controls: [
@@ -3165,6 +3165,15 @@
             group: 'Erişilebilirlik',
             keywords: ['animasyon', 'hareket', 'animation', 'motion'],
             hint: 'Paneldeki kayma, solma ve yanıp sönme efektlerini kapatır. İşletim sisteminde animasyonlar kapalıysa bunlar zaten kapalıdır. Görselleştirme etkilenmez.',
+          },
+          {
+            /* Kapalı (varsayılan): Görsel / Zemin / MilkDrop rafı yalnız seçili
+               katmana uygular, uymayan raf kilitli görünür. Açık: eski davranış,
+               mod uygun ilk katmana yönlenir (layers.js modeTarget). */
+            type: 'toggle', path: 'ui.modeTargetAuto', label: 'Modu Uygun Katmana Yönlendir', rebuild: true,
+            group: 'Sahne Düzenleme',
+            keywords: ['katman', 'mod', 'hedef', 'kilit', 'layer', 'mode', 'target', 'lock', 'redirect'],
+            hint: 'Kapalıyken bir mod yalnız seçili katmana uygulanır; seçili katman o türden değilse raf kilitli görünür ve hiçbir katman değişmez. Açıkken eski davranış geri gelir: mod, seçimden bağımsız olarak o türün en üstteki katmanına uygulanır. MCP araçları da bu ayara uyar.',
           },
           {
             type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',

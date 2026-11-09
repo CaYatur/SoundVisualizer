@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4104%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4139%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -44,7 +44,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 | **60** visualizer modes | **43** backgrounds | **42** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
-| **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
+| **10,347** MilkDrop presets tested | **104** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 | **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
@@ -96,7 +96,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   and short-video guides. Reveal animations, logo swapping on the beat, broadcast text styles, and
   layouts saved as files. What you place is what the export renders, checked pixel by pixel.
   [→ Layout editor](#broadcast-layout-editor)
-- **AI-ready.** A local **MCP server** with 97 tools lets Claude, Codex, Cursor and other agents
+- **AI-ready.** A local **MCP server** with 104 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
   only. [→ MCP](#mcp--control-from-an-ai-agent)
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
@@ -199,7 +199,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
 | **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 56 CaYaDev presets of our own. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
+| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 104 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
 
 ---
 
@@ -1065,7 +1065,7 @@ a local model behind an MCP client and uses that same command.
 
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
-version. The server name is `soundvisualizer`. There are **97 tools**.
+version. The server name is `soundvisualizer`. There are **104 tools**.
 
 The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
 token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
@@ -1138,6 +1138,9 @@ The master switch is enough. These calls only read.
 - `sv_get_output_status` reads which visualizer windows are open, the stream switch, port and LAN
   flag, and the Spout/Syphon name. `sv_get_timeline`, `sv_get_clipdeck` and `sv_get_autovj` read
   those panels. `sv_get_config` reads the whole configuration or one dotted path.
+- `sv_timeline_inspect` reads the whole timeline model with nothing cut off: every track, clip,
+  automation key and marker, the tempo map, loop, snap and the timeline bank. With `at` (seconds)
+  it also returns the clips playing and the automation values at that moment.
 
 #### Apply
 
@@ -1148,8 +1151,11 @@ Uses what is already saved.
   text, modulation, transition, Studio, MilkDrop and feedback. Window transparency and taskbar
   cover stay as they were.
 - `sv_apply_template` applies a built-in template by id or name. `sv_set_visualizer_type` and
-  `sv_set_background_type` switch to an existing mode id. A Studio shader is shown with type
-  `custom` and its `presetId`. `sv_set_layer_enabled` shows or hides a layer and turns the stack
+  `sv_set_background_type` switch a layer to an existing mode id. `layerId` names the layer; it is
+  required when there are several layers of that kind. A layer of the wrong kind, a locked layer
+  or an unknown id changes nothing and returns an error that says why. With **Redirect Modes to a
+  Matching Layer** on (Settings), the old rule applies and the mode goes to the first matching
+  layer. A Studio shader is shown with type `custom` and its `presetId`. `sv_set_layer_enabled` shows or hides a layer and turns the stack
   on. `sv_set_crossfade` sets the A/B fader from 0 to 1.
 - `sv_trigger_clip` fires one clip-deck slot by row and column. `sv_stop_clips` stops every playing
   slot. The grid stays as saved. Both need the admin window open.
@@ -1219,6 +1225,15 @@ Opens the live surfaces.
   mesh, colour and test pattern, and turns mapping on. It binds no new network port.
 - `sv_timeline_transport` plays, pauses, stops or seeks the timeline through the admin transport.
   The admin window has to be open.
+- Timeline editing (same permission as writing `timeline.*` with `sv_patch_config`):
+  `sv_timeline_edit_track` adds, updates, removes or moves a clip or automation track;
+  `sv_timeline_edit_clip` adds, updates, removes or splits a clip (a scene clip must point at an
+  existing scene); `sv_timeline_set_keys` replaces an automation track's keys;
+  `sv_timeline_edit_marker` adds, moves, renames or removes a marker; `sv_timeline_set_options`
+  sets tempo, loop, snap, fps, **Use Timeline** and the timeline switch; `sv_timeline_bank`
+  switches, adds, renames, removes, enables, disables or moves a timeline in the bank. Locked
+  tracks only accept unlocking. An automation target is either a numeric config path the current
+  mode may write, or a track/clip opacity (`tl.track.<id>.opacity`, `tl.clip.<id>.opacity`).
 - `sv_set_blackout` takes `on`, `off` or `toggle` and leaves the stored scene in place.
   `sv_set_blackout_transition` sets the blackout transition type and duration.
 
@@ -1902,7 +1917,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4104 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4139 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

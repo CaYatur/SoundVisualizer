@@ -611,8 +611,20 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .sv-frame .preview-badge, .sv-out-stage .preview-badge, .preview-stage .preview-badge { display: none; }
 .sv-hud { backdrop-filter: blur(12px) saturate(1.3); }
 .sv-hud .dock-head-actions, #previewTools { display: flex; align-items: center; gap: 1px; }
-.sv-hud .sv-hud-select { height: 26px; min-height: 26px; width: auto; padding: 0 4px; border: 0; border-radius: 7px; background-color: transparent; color: rgb(var(--on-media-rgb)); font-size: 12px; cursor: pointer; }
-.sv-hud .sv-hud-select:hover { background-color: rgb(var(--on-media-rgb) / .14); }
+/* En-boy seçici düğmelerle aynı hizada: genel `select` kuralının 7px üst boşluğu onu
+   aşağı itiyordu, yerel ok da simgelerden iri ve parlak duruyordu. Boşluk sıfır, yükseklik
+   ve renk simge düğmeleriyle aynı, ok küçük ve currentColor. */
+.sv-hud .sv-hud-select {
+  -webkit-appearance: none; appearance: none; margin: 0; align-self: center; box-sizing: border-box;
+  height: 26px; min-height: 26px; line-height: 26px; width: auto; padding: 0 18px 0 7px; border: 0; border-radius: 7px;
+  color: rgb(var(--on-media-rgb) / .8); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
+  background-color: transparent;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 10px) calc(50% + 1px), calc(100% - 6px) calc(50% + 1px);
+  background-size: 4px 4px; background-repeat: no-repeat;
+}
+.sv-hud .sv-hud-select:hover { background-color: rgb(var(--on-media-rgb) / .14); color: rgb(var(--on-media-rgb)); }
+.sv-hud .sv-hud-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-hud-select option { background: var(--card2); color: var(--text); }
 .sv-hud .icon-btn.on { background: rgb(var(--on-media-rgb) / .22); color: rgb(var(--on-media-rgb)); }
 .sv-hud .pill { height: 22px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; color: rgb(var(--on-media-rgb) / .85); background: rgb(var(--on-media-rgb) / .1); cursor: pointer; margin-right: 3px; }

@@ -819,7 +819,9 @@ video.logo-lib-thumb { pointer-events: none; }
 /* --- önizleme --- */
 .preview-stage {
   position: relative; width: 100%; aspect-ratio: 16 / 9;
-  border-radius: 11px; overflow: hidden; background: var(--media-bg);
+  /* clip: kırpar ama kaydırılamaz. hidden iken odak alan bir öğe (düzen editöründe
+     çerçeve dışındaki kutu) sahneyi kaydırıyor, görüntü kayık kalıyordu. */
+  border-radius: 11px; overflow: hidden; overflow: clip; background: var(--media-bg);
   border: 1px solid var(--line2); box-shadow: inset 0 0 40px rgb(var(--shadow-rgb) / .6);
 }
 #pvStage { position: absolute; inset: 0; isolation: isolate; }
@@ -1747,9 +1749,30 @@ input[type="number"]::-webkit-inner-spin-button {
 .lay-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
 .lay-stage-wrap {
   position: relative; min-width: 0; min-height: 0; display: grid; place-items: center;
-  background: var(--bg2); border-radius: 10px; overflow: hidden;
+  background: var(--bg2); border-radius: 10px; overflow: hidden; overflow: clip;
 }
-.preview-stage.lay-stage { aspect-ratio: auto; }
+/* Editörde sahne taşanı kırpmıyor: çerçeve dışına çekilen kutu çevrede görünür ve tutulur.
+   Tuvaller zaten inset:0, görüntü çerçevede kalıyor. */
+.preview-stage.lay-stage { aspect-ratio: auto; overflow: visible; }
+.preview-stage.lay-stage .sv-hud { display: none; }
+.preview-stage.lay-stage[data-view='wide'] { box-shadow: 0 0 0 1px var(--accent), 0 0 0 9999px rgb(var(--shadow-rgb) / .12); }
+.lay-box { z-index: 1; }
+/* Çizilmeyen öğe altta: görünen öğenin üstüne binip işaretçiyi çalmasın */
+.lay-box.is-hidden { border-style: dotted; opacity: .55; z-index: 0; }
+.lay-box.locked { cursor: not-allowed; }
+.lay-box.off:not(.sel) { opacity: .45; }
+.lay-off {
+  position: absolute; z-index: 6; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 4px;
+  max-width: 40%; height: 22px; padding: 0 7px 0 5px; border: 1px solid rgb(var(--warn-rgb) / .8); border-radius: 11px;
+  background: var(--media-scrim); color: rgb(var(--on-media-rgb)); font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.lay-off.sel { border-color: var(--accent); }
+.lay-off-arrow { flex: none; width: 0; height: 0; border-left: 6px solid var(--warn); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.lay-off-name { overflow: hidden; text-overflow: ellipsis; }
+.lay-list .btn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; height: auto; min-height: 26px; padding-top: 3px; padding-bottom: 3px; }
+.lay-list .btn.is-hidden > span:first-child { opacity: .7; }
+.lay-badge { font-size: 11px; line-height: 1.2; color: var(--warn-text); }
+.lay-frame-row { margin: 2px 0 4px; }
 .lay-overlay { position: absolute; inset: 0; z-index: 5; }
 .lay-safe { position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .55); }
 .lay-safe.title { border-style: dotted; }
