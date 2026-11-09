@@ -559,6 +559,8 @@ void main(){
 
     setChain(list) {
       this.chain = (Array.isArray(list) ? list : []).filter((e) => e && EFFECTS[e.type] && e.enabled !== false);
+      // Zincirden çıkan ya da kapatılan efektin ek dokuları hemen bırakılsın.
+      if (this.gl) for (const k in EFFECTS) if (EFFECTS[k].sync) EFFECTS[k].sync(this.gl, this, this.chain);
     }
 
     hasWork() {

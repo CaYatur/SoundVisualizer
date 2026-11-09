@@ -92,3 +92,29 @@ test('lut: malformed files are rejected with a code, never thrown', () => {
   assert.strictEqual(L.validPacked({ size: 4, data: 'AAAA' }), false);
   assert.strictEqual(L.validPacked(null), false);
 });
+
+
+test('lut: reject oversized declarations and malformed packed base64', () => {
+  assert.strictEqual(L.parseCube('LUT_3D_SIZE 256\n').error, 'badSize');
+  assert.strictEqual(L.validPacked({ size: 2, data: '!'.repeat(32) }), false);
+});
+
+test('lut: removed and disabled LUT textures are released on chain changes', () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const window = {};
+  const ctx = vm.createContext({ window, Set, Uint8Array, atob, console });
+  for (const file of ['postfx.js', 'postfx-extra.js']) {
+    vm.runInContext(fs.readFileSync(require.resolve('../src/visualizer/' + file), 'utf8'), ctx);
+  }
+  const P = window.SVPostFX;
+  const deleted = [];
+  const owner = Object.create(P.PostFX.prototype);
+  owner.gl = { deleteTexture: (t) => deleted.push(t) };
+  owner._lutTex = Object.assign(Object.create(null), { a: { tex: 'a' }, b: { tex: 'b' } });
+  owner.setChain([{ id: 'a', type: 'lut3d', lut: { size: 2 } }]);
+  assert.deepStrictEqual(deleted, ['b']);
+  owner.setChain([{ id: 'a', type: 'lut3d', enabled: false, lut: { size: 2 } }]);
+  assert.deepStrictEqual(deleted, ['b', 'a']);
+  assert.strictEqual(Object.keys(owner._lutTex).length, 0);
+});

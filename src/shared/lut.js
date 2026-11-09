@@ -60,7 +60,7 @@
         title = rest.replace(/^"|"$/g, '').slice(0, 120);
       } else if (key === 'LUT_3D_SIZE') {
         size = parseInt(rest, 10);
-        if (!(size >= MIN_SIZE && size <= 256)) return { ok: false, error: 'badSize' };
+        if (!(size >= MIN_SIZE && size <= 65)) return { ok: false, error: 'badSize' };
         table = new Float32Array(size * size * size * 3);
       } else if (key === 'LUT_1D_SIZE') {
         return { ok: false, error: 'lut1d' };
@@ -162,7 +162,7 @@
     const s = lut.size;
     if (!(Number.isInteger(s) && s >= MIN_SIZE && s <= MAX_SIZE)) return false;
     // base64 uzunluğu: 4 * ceil(bayt / 3)
-    return lut.data.length === 4 * Math.ceil((s * s * s * 3) / 3);
+    return lut.data.length === 4 * Math.ceil((s * s * s * 3) / 3) && /^[A-Za-z0-9+/]*$/.test(lut.data);
   }
 
   // Birim tablo (giriş = çıkış); test ve önizleme için
@@ -175,7 +175,7 @@
     return t;
   }
 
-  const api = { MAX_SIZE, parseCube, sampleTable, resample, pack, validPacked, identity, toBase64, fromBase64 };
+  const api = { MAX_SIZE, MAX_TEXT, parseCube, sampleTable, resample, pack, validPacked, identity, toBase64, fromBase64 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLut = api;
 })();

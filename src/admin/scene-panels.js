@@ -2950,6 +2950,10 @@
       onchange: (e) => {
         const f = e.target.files && e.target.files[0];
         if (!f || !L) return;
+        if (f.size > L.MAX_TEXT) {
+          if (P().toast) P().toast(tr('LUT okunamadı') + ': ' + tr(LUT_ERRORS.tooLarge));
+          return;
+        }
         const rd = new FileReader();
         rd.onload = () => {
           const r = L.parseCube(String(rd.result || ''));

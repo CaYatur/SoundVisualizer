@@ -654,10 +654,10 @@ void main(){
      3B doku girdi başına bir kez yüklenir; veri değişince yenilenir. */
   function lutTexture(gl, fx, owner) {
     const lut = fx.lut;
-    const store = owner._lutTex || (owner._lutTex = {});
+    const store = owner._lutTex || (owner._lutTex = Object.create(null));
     const key = fx.id || fx.type;
     const have = store[key];
-    if (!lut || typeof lut.data !== 'string' || !(lut.size >= 2 && lut.size <= 33)) {
+    if (!lut || typeof lut.data !== 'string' || !(Number.isInteger(lut.size) && lut.size >= 2 && lut.size <= 33)) {
       if (have) { gl.deleteTexture(have.tex); delete store[key]; }
       return null;
     }
@@ -759,10 +759,19 @@ void main(){
         gl.uniform1f(u('uLutSize'), rec ? rec.size : 2);
         gl.uniform1f(u('uLutOn'), rec ? 1 : 0);
       },
+      sync(gl, owner, chain) {
+        const store = owner._lutTex;
+        if (!store) return;
+        const live = new Set(chain.filter((fx) => fx.type === 'lut3d' && fx.lut).map((fx) => fx.id || fx.type));
+        for (const k of Object.keys(store)) if (!live.has(k)) {
+          gl.deleteTexture(store[k].tex);
+          delete store[k];
+        }
+      },
       dispose(gl, owner) {
         const store = owner._lutTex || {};
         for (const k in store) gl.deleteTexture(store[k].tex);
-        owner._lutTex = {};
+        owner._lutTex = Object.create(null);
       },
     },
   });
