@@ -1019,6 +1019,12 @@
         { lo: 1500, hi: 4000, floor: -60, ceil: -28, attack: 0.01, release: 0.15 },
         { lo: 6000, hi: 14000, floor: -70, ceil: -36, attack: 0.005, release: 0.1 },
       ],
+      /* Adım sıralayıcılar (seq1..2): tempoya kilitli değer dizileri. Tüm
+         adımlar 0 başlar; bir yönlendirmeye bağlanmadıkça etkisizdir. */
+      sequencers: [
+        { length: 8, division: '1/4', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { length: 16, division: '1/16', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      ],
       /* Adlar boş başlar. Bir ad yapılandırmada saklanan DEĞERdir, arayüz
          metni değil; içine Türkçe yazmak İngilizce arayüzde çevrilemeyen bir
          dize bırakırdı. Panel boş adı çevrilmiş bir yer tutucuyla gösterir. */
