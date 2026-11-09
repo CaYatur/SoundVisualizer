@@ -179,7 +179,7 @@
     }
     // Derin çözümleme kaynakları
     const AN = [
-      ['anLoudness', 'Gürlük'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
+      ['anLoudness', 'Gürlük'], ['anLufs', 'Gürlük (LUFS)'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
       ['anCentroid', 'Tayf Merkezi'], ['anRolloff', 'Yuvarlanma'],
       ['anFlatness', 'Tayf Düzlüğü'], ['anCrest', 'Tepe Faktörü'],
       ['anFlux', 'Tayf Akısı'], ['anSpread', 'Tayf Yayılımı'],
@@ -290,6 +290,10 @@
        clock: { bpm, beatPhase, barPhase } — verilmezse tempo serbest koşar. */
     update(cfg, audio, t, dt, clock) {
       const m = (cfg && cfg.modulation) || {};
+      // Yalnız etkin LUFS yönlendirmesi ölçümü ister; diğer analizler istemez.
+      if (m.enabled !== false && Array.isArray(m.routes) &&
+          m.routes.some((r) => r && r.enabled !== false && r.source === 'anLufs') &&
+          audio && audio.analysis && audio.analysis.requestLoudness) audio.analysis.requestLoudness(audio.sampleRate);
       const v = this.values;
       const step = clamp(dt || 0.016, 1 / 1000, 0.25);
       this.frame++;

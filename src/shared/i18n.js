@@ -3180,6 +3180,15 @@
     'Nota C': 'Note C', 'Nota C#': 'Note C#', 'Nota D': 'Note D', 'Nota D#': 'Note D#',
     'Nota E': 'Note E', 'Nota F': 'Note F', 'Nota F#': 'Note F#', 'Nota G': 'Note G',
     'Nota G#': 'Note G#', 'Nota A': 'Note A', 'Nota A#': 'Note A#', 'Nota B': 'Note B',
+    // LUFS ölçeri (BS.1770)
+    'Yaklaşık LUFS': 'Approximate LUFS',
+    'Önizleme sesinden yaklaşık ölçüm; yayın/mastering ölçeri yerine geçmez.': 'Approximate preview-audio measurement; not a substitute for a broadcast/mastering meter.',
+    'Gürlük (LUFS)': 'Loudness (LUFS)',
+    'Anlık (M)': 'Momentary (M)',
+    'Kısa Süreli (S)': 'Short-term (S)',
+    'Entegre (I)': 'Integrated (I)',
+    'Anlık Gürlük': 'Momentary Loudness',
+    'Entegreyi Sıfırla': 'Reset Integrated',
     'Akıllı Sessizlik Filtresi': 'Smart Silence Filter',
     '50/60 Hz donanım uğultusu ve boşta dip gürültüsünü filtreler': 'Filters 50/60 Hz hardware hum and idle noise floor',
     'Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.':
