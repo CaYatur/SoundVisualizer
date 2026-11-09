@@ -325,7 +325,8 @@
     // Genel mutlak CC'de aynı değeri geri yollama; şablon LED'leri ise
     // kullanıcı basınca kendiliğinden yanmaz, hedef durumu yine yollanmalı.
     const presetSource = (cfg.control.midi.mappings || []).some((m) => m.preset && m.cc === num && (m.kind === 'note') === isNote && (!m.channel || m.channel === channel));
-    if (input && !presetSource) for (const { output, sender } of fbSenders.values()) {
+    const actionSource = (cfg.control.midi.mappings || []).some((m) => m.cc === num && (m.kind === 'note') === isNote && (!m.channel || m.channel === channel) && String(m.target || '').startsWith('action:'));
+    if (input && isCC && !presetSource && !actionSource) for (const { output, sender } of fbSenders.values()) {
       if (feedbackPairsInput(output, input, cfg)) sender.noteIncoming(isCC ? 'cc' : 'note', channel, num, isNote ? (value01 ? raw : 0) : raw);
     }
     if (learning && learning.surface === 'midi') {

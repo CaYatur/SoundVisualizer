@@ -276,3 +276,13 @@ test('two controller models receive only their own template feedback', async () 
   const count = h.sent.length; h.t.feedbackTick();
   assert.equal(h.timers.size, 0); assert.equal(h.sent.length, count);
 });
+
+
+test('learned action buttons also receive host LED feedback instead of caching a physical press', async () => {
+  const h = harness(VENDORS[0]);
+  h.cfg.control.midi.mappings = [{ id: 'learned', kind: 'cc', channel: 1, cc: 39, target: 'action:blackout' }];
+  await h.t.initMidi(); h.t.feedbackTick();
+  h.press(['cc', 1, 39], 127); h.t.feedbackTick();
+  assert.equal(h.leds.get('cc:1:39'), 127);
+  assert.equal(h.turns(), 1);
+});
