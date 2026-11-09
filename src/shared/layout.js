@@ -380,6 +380,36 @@
     return KINDS[kind].fallbackBox(sectionOf(layer, cfg, false), aspect);
   }
 
+  /* ÇERÇEVE DIŞI (düzen editörü). Kaynak ve web katmanı bilerek kısmen dışarı taşabiliyor
+     (alan -0,5…1,5), ama tamamen dışarı çıkan öğe ne görülüyor ne tutulabiliyordu.
+     visibleFraction: kutunun çerçeve içindeki alan oranı (0–1).
+     reachClamp: kutuyu, her eksende en az `minW` / `minH` kadarı çerçevede kalacak
+     biçimde iter (kutu bundan küçükse kutunun tamamı). Konum alanının kendi sınırı
+     ayrıca setField / moveBy'da. */
+  function visibleFraction(box) {
+    if (!box || !(box.w > 0) || !(box.h > 0)) return 0;
+    const ix = Math.max(0, Math.min(1, box.x + box.w) - Math.max(0, box.x));
+    const iy = Math.max(0, Math.min(1, box.y + box.h) - Math.max(0, box.y));
+    return (ix * iy) / (box.w * box.h);
+  }
+  function reachClamp(box, minW, minH) {
+    if (!box) return box;
+    const mw = Math.min(box.w, Math.max(0, minW || 0));
+    const mh = Math.min(box.h, Math.max(0, minH || 0));
+    return {
+      x: clamp(box.x, mw - box.w, 1 - mw),
+      y: clamp(box.y, mh - box.h, 1 - mh),
+      w: box.w,
+      h: box.h,
+    };
+  }
+  // Kutuyu sığıyorsa tamamen çerçeveye alır, sığmıyorsa ortalar ("Çerçeveye Getir")
+  function intoFrame(box) {
+    if (!box) return box;
+    const fit = (p, s) => (s >= 1 ? (1 - s) / 2 : clamp(p, 0, 1 - s));
+    return { x: fit(box.x, box.w), y: fit(box.y, box.h), w: box.w, h: box.h };
+  }
+
   // Normalize kutu (piksel dikdörtgenden)
   function normBox(px, py, pw, ph, W, H) {
     if (!(W > 0) || !(H > 0) || !(pw > 0) || !(ph > 0)) return null;
@@ -572,7 +602,7 @@
 
   const api = {
     SAFE, PLATFORM_ZONES, platformZones, KINDS, canResize, resizeBy, frameGuides, elementGuides, mergeGuides, snapBox,
-    kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
+    kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox, visibleFraction, reachClamp, intoFrame,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
     revealOf, revealHolder,

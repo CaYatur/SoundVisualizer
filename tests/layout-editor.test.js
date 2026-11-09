@@ -32,7 +32,7 @@ test('yakalama Alt ile kapanıyor; ok tuşları ve sayısal alanlar sürüklemen
   assert.match(ED, /if \(st\.snap && !m\.altKey\)/);
   assert.match(ED, /LY\(\)\.snapBox\(box, d\.guides, SNAP_PX \/ d\.rect\.width, SNAP_PX \/ d\.rect\.height\)/);
   // Kendi kutusuna yakalanmasın
-  assert.match(ED, /elements\(\)\.filter\(\(x\) => x\.id !== id\)/);
+  assert.match(ED, /elements\(\)\.filter\(\(x\) => x\.id !== id && !x\.hidden && x\.drawn\)/);
   // Birikme hatası yok: her harekette başlangıçtan toplam kayma
   assert.match(ED, /Object\.keys\(startVals\)\.forEach\(\(k\) => LY\(\)\.setField/);
   assert.match(ED, /ArrowLeft: \[-1, 0\], ArrowRight: \[1, 0\], ArrowUp: \[0, -1\], ArrowDown: \[0, 1\]/);

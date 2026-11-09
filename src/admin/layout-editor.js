@@ -31,6 +31,12 @@
   const RESIZE_STEP = 0.02; // klavyeyle her + / − basışında ölçek değişimi (Shift: on kat)
   const MIN_RESIZE_PX = 24; // kutunun köşeden çekilince inebileceği en küçük kenar
   const ASPECTS = [['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1]];
+  /* Görünüm: 'fit' çerçeve alanı doldurur; 'wide' çerçeveyi küçültüp çevresini gösterir
+     (çerçeve dışındaki öğeler görülsün, tutulsun). Görünüm YALNIZ kullanıcı değiştirince,
+     pencere boyu ve oran değişince yeniden hesaplanır; sürükleme onu oynatmaz. */
+  const VIEW_SCALE = { fit: 1, wide: 0.62 };
+  const MIN_REACH_PX = 24; // sürüklenen öğenin çerçevede kalan en küçük parçası (her eksen)
+  const OFF_FRACTION = 0.2; // görünen alan bundan azsa öğe "çerçeve dışında" sayılır
   const KIND_NAMES = { bars: 'Barlar', nowplaying: 'Çalan Parça', text: 'Metin', logo: 'Logo', input: 'Spout/Syphon Girişi', web: 'Web Sayfası' };
 
   let st = null; // açık editörün durumu
@@ -42,20 +48,25 @@
     try { localStorage.setItem('sv-layout-' + key, String(v)); } catch (e) { /* özel pencere */ }
   }
 
-  // Düzenlenebilir öğeler: önizlemenin katmanları, yapılandırmadaki karşılığıyla
+  /* Düzenlenebilir öğeler YAPILANDIRMADAN (cfg.layers), çizicinin listesinden değil.
+     Eskiden yalnız önizleme yığınının o an çizdiği katmanlar geliyordu: gizli / sessiz
+     katman, solo yüzünden çizilmeyen katman ve zaman çizelgesi çalarken hepsi editörden
+     kayboluyordu. Şimdi hepsi listede; çizilmeyenin kutusu ayardan hesaplanıyor
+     (fallbackBox) ve soluk gösteriliyor. */
   function elements() {
     const cfg = P().cfg();
     const stack = window.SVPreview && window.SVPreview.stack && window.SVPreview.stack();
-    if (!stack || !Array.isArray(stack.entries)) return [];
+    const drawn = new Set();
+    if (stack && Array.isArray(stack.entries)) {
+      stack.entries.forEach((e) => { if (e && e.layer && e.layer.id) drawn.add(e.layer.id); });
+    }
     const out = [];
-    stack.entries.forEach((e) => {
-      const live = e && e.layer;
-      const kind = LY().kindOf(live);
-      if (!kind || live.enabled === false || live.muted) return;
-      // Yazılacak nesne yapılandırmadaki katman
-      const layer = (cfg.layers || []).find((l) => l && l.id === live.id);
-      if (!layer) return;
-      out.push({ id: live.id, kind, layer, name: tr(live.name || KIND_NAMES[kind]) });
+    (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((layer) => {
+      if (!layer || !layer.id) return;
+      const kind = LY().kindOf(layer);
+      if (!kind) return;
+      const hidden = layer.enabled === false || !!layer.muted;
+      out.push({ id: layer.id, kind, layer, name: tr(layer.name || KIND_NAMES[kind]), hidden, drawn: drawn.has(layer.id), locked: !!layer.locked });
     });
     return out;
   }
@@ -83,7 +94,9 @@
       safe: pref('safe', '1') === '1',
       platform: pref('platform', '1') === '1',
       snap: pref('snap', '1') === '1',
+      view: pref('view', 'fit') === 'wide' ? 'wide' : 'fit',
       sel: null,
+      marks: {},
       drag: null,
       raf: 0,
       boxes: {},
@@ -114,6 +127,12 @@
       'aria-pressed': k === st.aspectKey ? 'true' : 'false',
       onclick: () => { setAspect(k); aspectBtns.forEach((b) => { const on = b.textContent === k; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); },
     }));
+    const viewBtns = [['fit', 'Çerçeveye Sığdır', 'Çerçeve alanı doldurur'], ['wide', 'Çevreyi Göster', 'Çerçeveyi küçültür; dışarı taşan öğeler de görünür']].map(([k, label, hint]) => el('button', {
+      type: 'button', class: 'btn ghost small' + (k === st.view ? ' active' : ''), text: label, title: hint, 'data-view': k,
+      'aria-pressed': k === st.view ? 'true' : 'false',
+      onclick: () => { setView(k); viewBtns.forEach((b) => { const on = b.dataset.view === k; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); },
+    }));
+    st.viewBtns = viewBtns;
     const toggle = (label, on, set) => {
       const box = el('input', { type: 'checkbox' });
       box.checked = on;
@@ -123,6 +142,7 @@
     const head = el('div', { class: 'lay-head' }, [
       el('h3', { id: 'layTitle', text: 'Düzen Editörü' }),
       el('div', { class: 'lay-aspect', role: 'group', 'aria-label': 'Çıktı oranı' }, aspectBtns),
+      el('div', { class: 'lay-aspect lay-view', role: 'group', 'aria-label': 'Görünüm' }, viewBtns),
       toggle('Güvenli alanlar', st.safe, (v) => { st.safe = v; setPref('safe', v ? '1' : '0'); paintGuides(); }),
       toggle('Platform arayüzü', st.platform, (v) => { st.platform = v; setPref('platform', v ? '1' : '0'); paintGuides(); }),
       toggle('Yakalama', st.snap, (v) => { st.snap = v; setPref('snap', v ? '1' : '0'); }),
@@ -157,8 +177,8 @@
         const first = f[0];
         const last = f[f.length - 1];
         const a = document.activeElement;
-        if (e.shiftKey && (a === first || !st.panel.contains(a))) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && (a === last || !st.panel.contains(a))) { e.preventDefault(); first.focus(); }
+        if (e.shiftKey && (a === first || !st.panel.contains(a))) { e.preventDefault(); last.focus({ preventScroll: true }); }
+        else if (!e.shiftKey && (a === last || !st.panel.contains(a))) { e.preventDefault(); first.focus({ preventScroll: true }); }
       }
     };
     document.addEventListener('keydown', st.onKey, true);
@@ -166,7 +186,27 @@
     paintGuides();
     loop();
     const first = overlay.querySelector('.lay-box') || head.querySelector('button');
-    if (first) first.focus();
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  function setView(k) {
+    if (!st) return;
+    st.view = k === 'wide' ? 'wide' : 'fit';
+    setPref('view', st.view);
+    st.stage.dataset.view = st.view;
+    fit();
+  }
+
+  /* KAYMAYAN GÖRÜNÜM. Önizleme sahnesi ve kabı `overflow: hidden` idi; bu kutular
+     kaydırılabilir. Çerçeve dışına çekilmiş bir kutu odak alınca (Tab, listeden seçim)
+     tarayıcı onu göstermek için sahneyi kaydırıyordu: çerçeve kayıyor, ekranın öteki
+     yarısı görünmez oluyordu, editör kapanınca da önizleme kaymış kalıyordu. CSS artık
+     `overflow: clip` (kaydırılamaz); bu da her karede ve kapanışta ikinci emniyet. */
+  function pinScroll(s) {
+    const nodes = [s.stage, s.wrap, s.overlay, document.getElementById('pvStage')];
+    for (const n of nodes) {
+      if (n && (n.scrollTop || n.scrollLeft)) { n.scrollTop = 0; n.scrollLeft = 0; }
+    }
   }
 
   function setAspect(k) {
@@ -175,6 +215,7 @@
     st.aspect = a[1];
     setPref('aspect', a[0]);
     st.stage.dataset.aspect = a[0];
+    st.stage.dataset.view = st.view;
     fit();
     paintGuides();
   }
@@ -186,7 +227,8 @@
     const pad = 16;
     const W = Math.max(40, r.width - pad * 2);
     const H = Math.max(40, r.height - pad * 2);
-    const w = Math.min(W, H * st.aspect);
+    const k = VIEW_SCALE[st.view] || 1;
+    const w = Math.min(W, H * st.aspect) * k;
     st.stage.style.width = Math.round(w) + 'px';
     st.stage.style.height = Math.round(w / st.aspect) + 'px';
   }
@@ -197,8 +239,10 @@
     document.removeEventListener('keydown', st.onKey, true);
     const s = st;
     st = null;
+    pinScroll(s);
     s.overlay.remove();
     s.stage.classList.remove('lay-stage');
+    delete s.stage.dataset.view;
     s.stage.style.width = '';
     s.stage.style.height = '';
     delete s.stage.dataset.aspect;
@@ -234,6 +278,7 @@
   // Kutuları çizicinin bildirdiği yere taşır (her karede: ses ve içerik değişiyor)
   function loop() {
     if (!st) return;
+    pinScroll(st);
     const stack = window.SVPreview.stack();
     const bounds = stack && stack.layoutBounds ? stack.layoutBounds() : {};
     const els = elements();
@@ -262,6 +307,9 @@
         st.boxes[e.id] = b;
       }
       const box = boxOf(e, bounds);
+      const frac = box ? LY().visibleFraction(box) : 0;
+      const off = frac < OFF_FRACTION;
+      b.classList.toggle('partial', frac < 0.999);
       if (box) {
         b.style.left = (box.x * 100) + '%';
         b.style.top = (box.y * 100) + '%';
@@ -269,9 +317,59 @@
         b.style.height = (box.h * 100) + '%';
       }
       b.classList.toggle('sel', st.sel === e.id);
+      // Çizilmeyen (gizli, sessiz, solo dışı) öğe soluk; kilitli öğe taşınmaz
+      b.classList.toggle('is-hidden', e.hidden || !e.drawn);
+      b.classList.toggle('locked', e.locked);
+      b.classList.toggle('off', off);
+      paintMark(e, box, off);
     });
     Object.keys(st.boxes).forEach((id) => { if (!seen[id]) { st.boxes[id].remove(); delete st.boxes[id]; } });
+    Object.keys(st.marks).forEach((id) => { if (!seen[id]) { st.marks[id].remove(); delete st.marks[id]; } });
+    /* Liste rozetleri çizicinin kutusuna bağlı ve kutu bir kare gecikiyor: durum
+       değişince yan panel yenilensin (yazılan alan odaktayken beklesin). */
+    const sig = els.map((e) => e.id + (e.hidden || !e.drawn ? 'h' : '') + (st.boxes[e.id].classList.contains('off') ? 'o' : '') + (st.boxes[e.id].classList.contains('partial') ? 'p' : '') + (e.locked ? 'l' : '')).join('|');
+    if (sig !== st.sideSig) {
+      const a = document.activeElement;
+      const typing = a && st.side.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA');
+      if (!typing && !st.drag) renderSide();
+    }
     st.raf = requestAnimationFrame(loop);
+  }
+
+  function sideSigNow() {
+    return elements().map((e) => e.id + (e.hidden || !e.drawn ? 'h' : '') + (st.boxes[e.id] && st.boxes[e.id].classList.contains('off') ? 'o' : '') + (st.boxes[e.id] && st.boxes[e.id].classList.contains('partial') ? 'p' : '') + (e.locked ? 'l' : '')).join('|');
+  }
+
+  /* Çerçeve dışındaki öğenin işareti: kutu görünmese de çerçevenin kenarında adıyla
+     ve yönüyle duruyor; tıklayınca seçilir. */
+  function paintMark(e, box, off) {
+    let m = st.marks[e.id];
+    if (!off || !box) { if (m) m.hidden = true; return; }
+    if (!m) {
+      m = P().el('button', { type: 'button', class: 'lay-off', tabindex: '-1', title: tr('Çerçeve dışında') + ': ' + e.name }, [
+        P().el('span', { class: 'lay-off-arrow', 'aria-hidden': 'true' }),
+        P().el('span', { class: 'lay-off-name', text: e.name, 'data-user-text': '' }),
+      ]);
+      m.addEventListener('click', () => {
+        select(e.id);
+        const b = st.boxes[e.id];
+        if (b) b.focus({ preventScroll: true });
+      });
+      st.overlay.appendChild(m);
+      st.marks[e.id] = m;
+    }
+    m.hidden = false;
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const px = Math.max(0.04, Math.min(0.96, cx));
+    const py = Math.max(0.04, Math.min(0.96, cy));
+    m.style.left = (px * 100) + '%';
+    m.style.top = (py * 100) + '%';
+    // Ok kutunun olduğu yöne bakıyor
+    const ang = Math.atan2(cy - py, cx - px);
+    const arrow = m.firstChild;
+    if (arrow && arrow.style) arrow.style.transform = 'rotate(' + (Number.isFinite(ang) ? ang : 0) + 'rad)';
+    m.classList.toggle('sel', st.sel === e.id);
   }
 
   function select(id) {
@@ -290,6 +388,7 @@
     // preventDefault odağı da engelliyor: odak seçilen kutuya geçsin
     if (ev.currentTarget && ev.currentTarget.focus) ev.currentTarget.focus({ preventScroll: true });
     select(id);
+    if (e.locked) return;
     const stack = window.SVPreview.stack();
     const bounds = stack.layoutBounds();
     const startBox = boxOf(e, bounds);
@@ -299,7 +398,7 @@
     const startVals = {};
     fields.forEach((f) => { startVals[f.key] = LY().getField(e.layer, cfg, f.key); });
     // Diğer öğelerin kutuları sürükleme başında sabitlenir (kendine yakalanmasın)
-    const others = elements().filter((x) => x.id !== id).map((x) => boxOf(x, bounds)).filter(Boolean);
+    const others = elements().filter((x) => x.id !== id && !x.hidden && x.drawn).map((x) => boxOf(x, bounds)).filter(Boolean);
     const guides = LY().mergeGuides(LY().frameGuides(), LY().elementGuides(others));
     const rect = st.stage.getBoundingClientRect();
     st.drag = { id, e, startBox, startVals, guides, rect, x0: ev.clientX, y0: ev.clientY, moved: false };
@@ -317,6 +416,8 @@
         const s = LY().snapBox(box, d.guides, SNAP_PX / d.rect.width, SNAP_PX / d.rect.height);
         box = s.box; lx = s.x; lyl = s.y;
       }
+      // Öğe çerçeveden tamamen çıkamaz: en az bir parçası tutulabilir kalır
+      box = LY().reachClamp(box, MIN_REACH_PX / d.rect.width, MIN_REACH_PX / d.rect.height);
       applyMove(d.e, d.startVals, box.x - d.startBox.x, box.y - d.startBox.y);
       showGuide(lx, lyl);
       d.moved = true;
@@ -342,7 +443,7 @@
   function startResize(ev, id, boxEl) {
     if (ev.button !== 0) return;
     const e = find(id);
-    if (!e || !LY().canResize(e.layer)) return;
+    if (!e || e.locked || !LY().canResize(e.layer)) return;
     ev.preventDefault();
     if (boxEl && boxEl.focus) boxEl.focus({ preventScroll: true });
     select(id);
@@ -386,6 +487,7 @@
     const e = find(id);
     if (!e || !LY().canResize(e.layer)) return false;
     ev.preventDefault();
+    if (e.locked) return true;
     const stack = window.SVPreview.stack();
     const startBox = boxOf(e, stack.layoutBounds());
     if (!startBox) return true;
@@ -423,8 +525,20 @@
     const e = find(id);
     if (!e) return;
     ev.preventDefault();
+    if (e.locked) return;
     const step = ev.shiftKey ? NUDGE * 10 : NUDGE;
-    LY().moveBy(e.layer, P().cfg(), k[0] * step, k[1] * step);
+    let dx = k[0] * step;
+    let dy = k[1] * step;
+    // Klavyeyle de çerçeveden tamamen çıkılmaz (sürüklemeyle aynı kural)
+    const box = boxOf(e, window.SVPreview.stack().layoutBounds());
+    if (box) {
+      const r = st.stage.getBoundingClientRect();
+      const to = LY().reachClamp({ x: box.x + dx, y: box.y + dy, w: box.w, h: box.h }, MIN_REACH_PX / (r.width || 1), MIN_REACH_PX / (r.height || 1));
+      dx = to.x - box.x;
+      dy = to.y - box.y;
+      if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return;
+    }
+    LY().moveBy(e.layer, P().cfg(), dx, dy);
     P().push(false);
     renderSide();
   }
@@ -467,6 +581,7 @@
   // Seçili öğenin sayısal alanları ve öğe listesi
   function renderSide() {
     if (!st) return;
+    st.sideSig = sideSigNow();
     const el = P().el;
     const side = st.side;
     side.textContent = '';
@@ -480,12 +595,22 @@
       return;
     }
     side.appendChild(el('div', { class: 'group-label', text: 'Öğeler' }));
-    const list = el('div', { class: 'lay-list' }, els.map((e) => el('button', {
-      type: 'button', class: 'btn ghost small' + (st.sel === e.id ? ' active' : ''), text: e.name,
-      'data-user-text': '',
-      'aria-pressed': st.sel === e.id ? 'true' : 'false',
-      onclick: () => { select(e.id); const b = st.boxes[e.id]; if (b) b.focus(); },
-    })));
+    const bounds = window.SVPreview.stack().layoutBounds ? window.SVPreview.stack().layoutBounds() : {};
+    const list = el('div', { class: 'lay-list' }, els.map((e) => {
+      const box = boxOf(e, bounds);
+      const off = !box || LY().visibleFraction(box) < OFF_FRACTION;
+      const badges = [];
+      if (e.hidden) badges.push(tr('gizli'));
+      else if (!e.drawn) badges.push(tr('çizilmiyor'));
+      if (off) badges.push(tr('çerçeve dışında'));
+      if (e.locked) badges.push(tr('kilitli'));
+      return el('button', {
+        type: 'button', class: 'btn ghost small' + (st.sel === e.id ? ' active' : '') + (e.hidden || !e.drawn ? ' is-hidden' : '') + (off ? ' off' : ''),
+        'aria-pressed': st.sel === e.id ? 'true' : 'false',
+        title: badges.join(' · '),
+        onclick: () => { select(e.id); const b = st.boxes[e.id]; if (b) b.focus({ preventScroll: true }); },
+      }, [el('span', { text: e.name, 'data-user-text': '' })].concat(badges.length ? [el('span', { class: 'lay-badge', text: badges.join(' · ') })] : []));
+    }));
     side.appendChild(list);
     const cur = st.sel && els.find((e) => e.id === st.sel);
     if (!cur) {
@@ -494,9 +619,31 @@
     }
     const cfg = P().cfg();
     side.appendChild(el('div', { class: 'group-label', text: cur.name }));
+    if (cur.locked) {
+      side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Katman kilitli; konumu değişmez. Katmanlar listesinden kilidi açın.' }));
+    } else if (cur.hidden || !cur.drawn) {
+      side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Bu katman şu an çizilmiyor (gizli, sessiz ya da solo dışında); kutusu ayarlarından hesaplandı.' }));
+    }
+    const curBox = boxOf(cur, bounds);
+    if (!cur.locked && curBox && LY().visibleFraction(curBox) < 0.999) {
+      side.appendChild(el('div', { class: 'row lay-frame-row' }, [
+        el('button', {
+          type: 'button', class: 'btn small', icon: 'target', text: 'Çerçeveye Getir',
+          onclick: () => {
+            const now = boxOf(cur, window.SVPreview.stack().layoutBounds());
+            if (!now) return;
+            const to = LY().intoFrame(now);
+            LY().moveBy(cur.layer, P().cfg(), to.x - now.x, to.y - now.y);
+            P().push(true);
+            renderSide();
+          },
+        }),
+      ]));
+    }
     LY().KINDS[cur.kind].fields.forEach((f) => {
       const inp = el('input', { type: 'number', class: 'num', min: String(f.min), max: String(f.max), step: String(f.step) });
       inp.value = String(LY().getField(cur.layer, cfg, f.key));
+      if (cur.locked) inp.disabled = true;
       inp.addEventListener('change', () => {
         if (LY().setField(cur.layer, P().cfg(), f.key, inp.value)) P().push(true);
         inp.value = String(LY().getField(cur.layer, P().cfg(), f.key));
@@ -624,5 +771,5 @@
     renderSide();
   }
 
-  window.SVLayoutEditor = { open, close, isOpen: () => !!st };
+  window.SVLayoutEditor = { open, close, isOpen: () => !!st, setView, _elements: elements };
 })();
