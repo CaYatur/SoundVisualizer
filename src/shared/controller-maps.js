@@ -63,7 +63,8 @@
       match: /apc\s*40\s*mk\s*(?:ii|2)\b/i,
       mappings: [].concat(
         range(8, (i) => ({ kind: 'cc', channel: i + 1, cc: 7, target: FADERS[i] })),
-        range(8, (i) => ({ kind: 'cc', channel: 1, cc: 16 + i, target: KNOBS[i] })),
+        // Üst track düğümleri sabittir; device düğümlerinin kanalı seçili track ile değişir.
+        range(8, (i) => ({ kind: 'cc', channel: 1, cc: 48 + i, target: KNOBS[i] })),
         range(8, (i) => ({ kind: 'note', channel: 1, cc: 32 + i, target: BUTTONS[i] })), // ızgaranın alt sırası
         [
           { kind: 'cc', channel: 1, cc: 14, target: 'background.gradient.brightness' }, // ana fader

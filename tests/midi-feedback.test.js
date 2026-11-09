@@ -105,6 +105,9 @@ test('haritalar: aygıt adı eşleşmesi', () => {
 });
 
 test('haritalar: her hedef gerçek bir kaydırıcı ya da eylem; kaynaklar tekil; numaralar geçerli', () => {
+  // APC40 Mk2 Communications Protocol v1.2, s. 36: üst track düğümleri CC 0x30-0x37.
+  assert.deepStrictEqual(CM.byId('apc40mk2').mappings.slice(8, 16).map((m) => [m.channel, m.cc]),
+    Array.from({ length: 8 }, (_, i) => [1, 0x30 + i]));
   const sliders = new Set(Schema.SLIDERS.map((s) => s.path));
   const control = read('src/admin/control.js');
   for (const t of CM.TEMPLATES) {
