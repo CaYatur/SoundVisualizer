@@ -1181,6 +1181,12 @@
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
       // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
       gamepad: { enabled: false, mappings: [] },
+      // Art-Net (DMX) girişi: masadan gelen kanallar ayarlara/eylemlere.
+      // Varsayılan kapalı ve yalnız bu bilgisayar (127.0.0.1) dinlenir.
+      // Eşleme: { id, channel (1..512), target, min, max }
+      artnet: { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] },
+      // MIDI Time Code girişi: Zaman Çizelgesi dış zaman koduna kilitlenir
+      mtc: { enabled: false, deviceId: 'all', offsetSec: 0 },
     },
 
     // ------------------------------------------------------------------

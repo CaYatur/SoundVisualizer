@@ -616,9 +616,9 @@
      changed are checked, so legacy values already on disk still load. */
   function controlError(next, prev, platform) {
     prev = prev && typeof prev === 'object' ? prev : {};
-    const surfaces = ['midi', 'osc', 'gamepad'];
+    const surfaces = ['midi', 'osc', 'gamepad', 'artnet', 'mtc'];
     for (const k of Object.keys(next)) {
-      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc, gamepad.';
+      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: ' + surfaces.join(', ') + '.';
     }
     for (const s of surfaces) {
       const n = next[s];
@@ -636,6 +636,22 @@
       }
       if (s === 'midi' && changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) {
         return 'control.midi.deviceId must be a non-empty string ("all" listens to every input).';
+      }
+      // Art-Net girişi: dinleme adresi yalnız 127.0.0.1, 0.0.0.0 ya da tek bir IPv4
+      if (s === 'artnet') {
+        if (changed('bind') && (typeof n.bind !== 'string' || !/^(\d{1,3})(\.\d{1,3}){3}$/.test(n.bind) || n.bind.split('.').some((x) => Number(x) > 255))) {
+          return 'control.artnet.bind must be 127.0.0.1, 0.0.0.0 or one IPv4 address.';
+        }
+        if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad.replace('control.osc.port', 'control.artnet.port'); }
+        if (changed('universe') && (!Number.isInteger(n.universe) || n.universe < 0 || n.universe > 32767)) {
+          return 'control.artnet.universe must be an integer between 0 and 32767.';
+        }
+      }
+      if (s === 'mtc') {
+        if (changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) return 'control.mtc.deviceId must be a non-empty string ("all" listens to every input).';
+        if (changed('offsetSec') && (typeof n.offsetSec !== 'number' || !(n.offsetSec >= 0 && n.offsetSec <= 86400))) {
+          return 'control.mtc.offsetSec must be a number of seconds between 0 and 86400.';
+        }
       }
       if (s === 'osc') {
         if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad; }
