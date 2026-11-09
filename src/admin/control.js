@@ -302,9 +302,12 @@
   // --------------------------------------------------------------------------
   // MIDI
   // --------------------------------------------------------------------------
-  function onMidi(ev) {
+  function onMidi(ev, input) {
     const d = ev.data;
     if (!d || d.length < 3) return;
+    const cfg = P().cfg();
+    // Aynı çıkıştan geri dönen LED iletisi bir kullanıcı hareketi değildir.
+    if (input && isFeedbackEcho(d, input, cfg)) return;
     const status = d[0] & 0xf0;
     const channel = (d[0] & 0x0f) + 1;
     const isCC = status === 0xb0;
@@ -319,9 +322,12 @@
     const chip = document.getElementById('midiSignal');
     if (chip) chip.textContent = lastSignal.midi;
 
-    const cfg = P().cfg();
-    // Geri bildirim: denetleyicinin az önce yolladığı değer ona geri yankılanmasın
-    if (fb) fb.noteIncoming(isCC ? 'cc' : 'note', channel, num, raw);
+    // Genel mutlak CC'de aynı değeri geri yollama; şablon LED'leri ise
+    // kullanıcı basınca kendiliğinden yanmaz, hedef durumu yine yollanmalı.
+    const presetSource = (cfg.control.midi.mappings || []).some((m) => m.preset && m.cc === num && (m.kind === 'note') === isNote && (!m.channel || m.channel === channel));
+    if (input && !presetSource) for (const { output, sender } of fbSenders.values()) {
+      if (feedbackPairsInput(output, input, cfg)) sender.noteIncoming(isCC ? 'cc' : 'note', channel, num, isNote ? (value01 ? raw : 0) : raw);
+    }
     if (learning && learning.surface === 'midi') {
       const m = (cfg.control.midi.mappings || []).find((x) => x.id === learning.id);
       if (m) {
@@ -337,6 +343,7 @@
 
     if (!cfg.control.midi.enabled) return;
     for (const m of cfg.control.midi.mappings || []) {
+      if (input && ((m.deviceId && m.deviceId !== input.id) || (m.preset && !CMAPS().acceptsPort(m.preset, input.name)))) continue;
       if (m.cc !== num) continue;
       if (m.channel && m.channel !== channel) continue;
       if ((m.kind === 'note') !== isNote) continue;
@@ -366,7 +373,7 @@
       const clk = clockWant != null && (clockWant === 'all' || clockWant === input.id);
       const tc = mtcWant != null && (mtcWant === 'all' || mtcWant === input.id);
       input.onmidimessage = map || clk || tc
-        ? (ev) => { if (tc) onMtc(ev); if (clk) onMidiClock(ev); if (map || learning) onMidi(ev); }
+        ? (ev) => { if (tc) onMtc(ev); if (clk) onMidiClock(ev); if (map || learning) onMidi(ev, input); }
         : null;
     }
   }
@@ -594,9 +601,8 @@
   // --------------------------------------------------------------------------
   const MFB = () => window.SVMidiFeedback || require('../shared/midi-feedback.js');
   const CMAPS = () => window.SVControllerMaps || require('../shared/controller-maps.js');
-  let fb = null;
+  const fbSenders = new Map();
   let fbTimer = null;
-  let fbOutKey = '';
 
   function feedbackCfg(cfg) {
     const m = cfg && cfg.control && cfg.control.midi;
@@ -609,6 +615,7 @@
     if (!t) return 0;
     if (t.action) {
       if (t.action === 'blackout') return P().isBlackedOut && P().isBlackedOut() ? 1 : 0;
+      if (t.action === 'tlPlay') { const p = window.SVTimelinePanel; return p && p.transport && p.transport().playing ? 1 : 0; }
       if (t.action === 'mdLock') return cfg.milkdropControl && cfg.milkdropControl.locked === true ? 1 : 0;
       return 0;
     }
@@ -625,20 +632,65 @@
     const f = feedbackCfg(cfg);
     if (!cfg.control.midi.enabled || !f.enabled) { syncFeedback(); return; }
     const outs = MFB().pickOutputs(midiAccess.outputs ? midiAccess.outputs.values() : [], midiInputs, f.outputId, cfg.control.midi.deviceId);
-    const key = outs.map((o) => o.id).join('|');
-    if (!fb || key !== fbOutKey) {
-      // Çıkış değişti: her değer yeniden yollansın
-      fb = MFB().create({
-        onVelocity: f.onVelocity, offVelocity: f.offVelocity,
-        send: (bytes) => { for (const o of outs) o.send(bytes); },
-      });
-      fbOutKey = key;
+    const C = CMAPS();
+    const maps = cfg.control.midi.mappings || [];
+    const signature = JSON.stringify([f.onVelocity, f.offVelocity, cfg.control.midi.deviceId,
+      maps.map((m) => [m.kind, m.channel, m.cc, m.target, m.min, m.max, m.preset, m.relative, m.deviceId])]);
+    const ids = new Set(outs.map((o) => o.id));
+    for (const id of fbSenders.keys()) if (!ids.has(id)) fbSenders.delete(id);
+    for (const output of outs) {
+      let rec = fbSenders.get(output.id);
+      if (!rec || rec.output !== output || rec.signature !== signature) {
+        rec = { output, signature, sender: MFB().create({
+          onVelocity: f.onVelocity, offVelocity: f.offVelocity, send: (bytes) => output.send(bytes),
+        }) };
+        fbSenders.set(output.id, rec);
+      }
+      const pairedInputs = midiInputs.filter((i) => feedbackPairsInput(output, i, cfg));
+      const items = maps.filter((m) => m.cc >= 0 && (!m.preset || C.acceptsPort(m.preset, output.name))
+        && (!m.deviceId || pairedInputs.some((i) => i.id === m.deviceId)))
+        .map((map) => ({ map: C.feedbackMap(map), value01: feedbackValue(cfg, map) })).filter((it) => it.map);
+      rec.sender.update(items);
     }
-    if (!outs.length) return;
-    const items = (cfg.control.midi.mappings || [])
-      .filter((m) => m.cc >= 0 && !m.relative)
-      .map((m) => ({ map: m, value01: feedbackValue(cfg, m) }));
-    fb.update(items);
+  }
+
+  function feedbackPairsInput(output, input, cfg) {
+    const m = cfg.control.midi;
+    return (m.feedback && m.feedback.outputId === output.id && m.deviceId === input.id)
+      || MFB().pickOutputs([output], [input], 'auto', input.id).length > 0;
+  }
+
+  function isFeedbackEcho(bytes, input, cfg) {
+    for (const { output, sender } of fbSenders.values()) {
+      if (feedbackPairsInput(output, input, cfg) && sender.isEcho(bytes)) return true;
+    }
+    return false;
+  }
+
+  /* Hazırlama ayrı bir kullanıcı hareketidir. MIDI/geri bildirim açılması,
+     harita uygulama ya da aygıt takma hiçbir kip SysEx'i yollamaz. */
+  async function prepareController(preset, restore) {
+    const cfg = P().cfg(); const m = cfg.control.midi; const C = CMAPS();
+    const input = midiInputs.find((i) => i.id === m.deviceId);
+    if (!m.enabled || !input || !C.acceptsPort(preset, input.name)) {
+      P().toast(T('Önce tek bir uygun MIDI/User girişi seçin.'), 'warn'); return false;
+    }
+    if (preset === 'nanokontrol2') { P().toast(T('Korg CC sahnesini Kontrol Editor ile ayarlayın; sahneye yazılmaz.'), 'info'); return false; }
+    const outputs = MFB().pickOutputs(midiAccess.outputs.values(), midiInputs, feedbackCfg(cfg).outputId, m.deviceId)
+      .filter((o) => C.acceptsPort(preset, o.name));
+    if (outputs.length !== 1) { P().toast(T('Tek bir uygun MIDI/User çıkışı seçin.'), 'warn'); return false; }
+    const messages = C.modeMessages(preset, outputs[0].name, restore);
+    if (!messages.length) { P().toast(T('Korg CC sahnesini Kontrol Editor ile ayarlayın; sahneye yazılmaz.'), 'info'); return false; }
+    if (!midiAccess.sysexEnabled) await initMidi(true);
+    if (!midiAccess || !midiAccess.sysexEnabled) return false;
+    const output = midiAccess.outputs.get(outputs[0].id);
+    if (!output || output.state === 'disconnected') return false;
+    try {
+      for (const bytes of messages) output.send(bytes);
+      fbSenders.clear();
+      P().toast(T('Kip komutu yollandı; aygıt onayı veya gerçek donanım testi değildir.'), 'info');
+      return true;
+    } catch (e) { P().toast(T('MIDI çıkışına yazılamadı.'), 'warn'); return false; }
   }
 
   function syncFeedback() {
@@ -649,12 +701,11 @@
     else if (!on) {
       if (fbTimer) clearInterval(fbTimer);
       fbTimer = null;
-      fbOutKey = '';
-      fb = null;
+      fbSenders.clear();
     }
   }
 
-  async function initMidi() {
+  async function initMidi(wantSysex) {
     if (!navigator.requestMIDIAccess) {
       midiError = 'Bu ortamda Web MIDI kullanılamıyor.';
       return;
@@ -662,11 +713,12 @@
     try {
       // Tam kare MTC, SysEx izni ister; MTC kapalıyken eski MIDI izni değişmez.
       const cfg = P().cfg();
-      midiAccess = await navigator.requestMIDIAccess({ sysex: !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
-      midiAccess.onstatechange = () => { bindMidiInputs(); P().rerender(); };
+      midiAccess = await navigator.requestMIDIAccess({ sysex: wantSysex === true || !!(midiAccess && midiAccess.sysexEnabled) || !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
+      midiAccess.onstatechange = () => { fbSenders.clear(); bindMidiInputs(); syncFeedback(); P().rerender(); };
       bindMidiInputs();
       syncFeedback();
     } catch (e) {
+      if (wantSysex === true) P().toast(T('SysEx izni verilmedi; aygıt kipi değiştirilmedi.'), 'warn');
       midiError = 'MIDI erişimi reddedildi: ' + (e && e.message ? e.message : e);
     }
   }
@@ -1160,7 +1212,7 @@
       osel.appendChild(op);
     });
     out.push(P().row('MIDI Çıkışı', osel));
-    out.push(el('div', { class: 'note', text: 'Eşlenen faderlar ve düğümler için güncel değer CC olarak, düğmeler için açık/kapalı nota olarak denetleyiciye gider (LED halkası, düğme ışığı, motorlu fader). Yalnız değişen değer yollanır.' }));
+    out.push(el('div', { class: 'note', text: 'Genel eşlemeler CC/nota olarak geri yollanır. Hazır haritalar yalnız belgelenmiş LED ve halkaları sürer; renkler aygıtın paletine göredir. Yalnız değişen değer yollanır.' }));
 
     out.push(el('div', { class: 'lighting-subtitle', text: 'Hazır Denetleyici Haritası' }));
     const C = CMAPS();
@@ -1179,7 +1231,7 @@
         const tpl = C.byId(chosen);
         if (!tpl) return;
         const list = midi.mappings || (midi.mappings = []);
-        const r = C.apply(list, tpl, { known: (k) => !!targetFor(k) });
+        const r = C.apply(list, tpl, { known: (k) => !!targetFor(k), deviceId: midi.deviceId === 'all' ? null : midi.deviceId });
         P().push(true);
         P().rerender();
         P().toast(r.added + ' ' + T('eşleme eklendi') + (r.skipped ? ' · ' + r.skipped + ' ' + T('zaten vardı') : ''), r.added ? 'ok' : 'info');
@@ -1187,7 +1239,11 @@
     });
     out.push(P().row('Hazır Denetleyici Haritası', el('div', { class: 'map-row', style: 'gap:8px;align-items:center' }, [tsel, applyBtn])));
     if (detected) out.push(el('div', { class: 'note', text: T('Tanınan aygıt') + ': ' + detected.name }));
-    out.push(el('div', { class: 'note', text: 'Harita mevcut eşlemelerin yanına eklenir; aynı düğmeye bağlı eşleme varsa dokunulmaz. Launchpad Programmer, Push 2 User kipinde olmalı; nanoKONTROL2 LED geri bildirimi için Korg Kontrol Editor\'da LED Mode = External seçin.' }));
+    out.push(el('div', { class: 'note', text: 'Harita mevcut eşlemelere eklenir. Launchpad için MIDI, Push 2 için User portunu seçin. Hazırlama düğmesi Programmer/User kipine geçirir (APC: Alternate Ableton). Normal kipe dönüş ayrı düğmedir; otomatik kip değişmez. Korg CC sahnesi kanal 1, fader 0–7, düğüm 16–23, Solo 32–39, Play/Stop 41/42, Marker 61/62, Track 58/59 olmalı; düğmeler anlık 0/127, LED Mode = External. Bunlar fabrika ayarı varsayımı değildir.' }));
+    out.push(el('div', { class: 'map-row' }, [
+      el('button', { class: 'btn ghost small', type: 'button', icon: 'sliders', text: 'Denetleyiciyi Hazırla', title: T('Yalnız seçili aygıtın geçici kipini değiştirir; sahne veya kalıcı ayar yazmaz.'), onclick: () => prepareController(chosen, false) }),
+      el('button', { class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Normal Kipe Dön', title: T('Launchpad/Push: Live; APC: Generic. Önceki özel kip geri yüklenmez.'), onclick: () => prepareController(chosen, true) }),
+    ]));
     return out;
   }
 

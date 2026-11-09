@@ -34,6 +34,8 @@
     const o = opts || {};
     if (!map || !(map.cc >= 0 && map.cc <= 127)) return null;
     const ch = channelOf(map) - 1;
+    if (map.relative) return null;
+    if (map.feedback) return [(map.kind === 'note' ? 0x90 : 0xb0) | ch, map.cc | 0, clampByte(value01 >= 0.5 ? map.feedback.on : map.feedback.off)];
     const v = Math.max(0, Math.min(1, Number(value01) || 0));
     if (map.kind === 'note') {
       const on = v >= 0.5;
@@ -49,18 +51,25 @@
   /* Gönderici. `send(bytes)` çağıranın; durum burada tutulur. */
   function create(opts) {
     const o = opts || {};
+    const echoes = new Map();
+    const now = o.now || Date.now;
     const last = new Map(); // anahtar -> son gönderilen bayt değeri
     return {
       /* items: [{ map, value01 }]. Dönüş: yollanan ileti sayısı. */
       update(items) {
         let n = 0;
+        for (const [k, t] of echoes) if (now() - t >= 100) echoes.delete(k);
         for (const it of items || []) {
           const bytes = encode(it && it.map, it && it.value01, o);
           if (!bytes) continue;
           const k = keyOf(it.map.kind, channelOf(it.map), it.map.cc);
           if (last.get(k) === bytes[2]) continue;
           last.set(k, bytes[2]);
-          try { o.send(bytes); n++; } catch { /* çıkış kapandı; bir sonraki taramada yeniden denenir */ last.delete(k); }
+          try {
+            // Senkron geri döngü de bu kaydı görmeli. Yalnız yollanan TAM ileti yankıdır.
+            echoes.set(bytes.join(','), now());
+            o.send(bytes); n++;
+          } catch { /* çıkış kapandı; bir sonraki taramada yeniden denenir */ last.delete(k); echoes.delete(bytes.join(',')); }
         }
         return n;
       },
@@ -69,8 +78,15 @@
         const val = kind === 'note' ? (raw > 0 ? clampByte(o.onVelocity == null ? 127 : o.onVelocity) : clampByte(o.offVelocity || 0)) : clampByte(raw);
         last.set(keyOf(kind, channel, num), val);
       },
+      isEcho(bytes) {
+        const key = Array.from(bytes || []).join(',');
+        const t = echoes.get(key);
+        if (t == null || now() - t < 0 || now() - t >= 100) return false;
+        echoes.delete(key);
+        return true;
+      },
       // Çıkış değişince her şey yeniden yollansın
-      reset() { last.clear(); },
+      reset() { last.clear(); echoes.clear(); },
       size() { return last.size; },
     };
   }
@@ -96,10 +112,12 @@
      girişle eşleşen bütün çıkışlar. Belirli kimlik verilirse yalnız o. */
   function pickOutputs(outputs, inputs, outputId, inputId) {
     const outs = Array.from(outputs || []);
-    if (outputId && outputId !== 'auto') return outs.filter((x) => x.id === outputId);
+    if (outputId && outputId !== 'auto') return outs.filter((x) => x.id === outputId && x.state !== 'disconnected');
     const ins = Array.from(inputs || []).filter((x) => !inputId || inputId === 'all' || x.id === inputId);
     const names = new Set(ins.map((x) => String(x.name || '').trim().toLowerCase()).filter(Boolean));
-    return outs.filter((x) => names.has(String(x.name || '').trim().toLowerCase()));
+    const C = typeof window !== 'undefined' ? window.SVControllerMaps : require('./controller-maps.js');
+    return outs.filter((x) => x.state !== 'disconnected' && (names.has(String(x.name || '').trim().toLowerCase())
+      || (C && ins.some((i) => C.paired(i.name, x.name)))));
   }
 
   const api = { encode, create, normalize, pickOutputs, channelOf };

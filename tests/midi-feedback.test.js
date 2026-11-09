@@ -150,9 +150,10 @@ test('haritalar: şablon eşlemeye dönüşür; uygulama mevcut eşlemeyi ezmez'
 
 test('panel: gelen MIDI yankı süzgecine yazılır; geri bildirim kapalıyken yollanmaz; betikler yükleniyor', () => {
   const c = read('src/admin/control.js');
-  assert.match(c, /if \(fb\) fb\.noteIncoming\(isCC \? 'cc' : 'note', channel, num, raw\);/);
+  assert.match(c, /sender\.noteIncoming/);
+  assert.match(c, /if \(input && !presetSource\)/);
   assert.match(c, /if \(!cfg\.control\.midi\.enabled \|\| !f\.enabled\) \{ syncFeedback\(\); return; \}/);
-  assert.match(c, /C\.apply\(list, tpl, \{ known: \(k\) => !!targetFor\(k\) \}\)/);
+  assert.match(c, /C\.apply\(list, tpl, \{ known: \(k\) => !!targetFor\(k\), deviceId:/);
   const html = read('src/admin/index.html');
   assert.ok(html.indexOf('../shared/midi-feedback.js') > 0 && html.indexOf('../shared/midi-feedback.js') < html.indexOf('src="control.js"'));
   assert.ok(html.indexOf('../shared/controller-maps.js') > 0 && html.indexOf('../shared/controller-maps.js') < html.indexOf('src="control.js"'));
