@@ -467,6 +467,8 @@
 
   // Basit görünümde gizlenen sekmeler
   const ADV_TABS = { mask: 1, fx: 1, group: 1, spectrum: 1 };
+  // Bir sonraki katman çiziminde açılacak sekme (tek seferlik)
+  let pendingTab = '';
   /* Arama dizini (layerFields): sekmeler belgeye girmeden kurulup ayar adları okunuyor. */
   let harvest = null;
   function harvestTabs(tabs) {
@@ -1660,7 +1662,16 @@
       const src = txt.source || 'static';
 
       out.push(miniSelect('Metin Kaynağı', [['static', 'Sabit Metin'], ['now', 'Çalan Parça'], ['lyrics', 'Şarkı Sözü (LRC / SRT)']],
-        () => src, (v) => { txt.source = v; }, rerender));
+        () => src, (v) => {
+          /* Katmanı söze çevirmek, hazır "Şarkı Sözü" katmanıyla aynı sonucu versin:
+             Windows'ta çalan parçayı izle açık başlar, denetçi de Söz Kütüphanesi
+             sekmesine geçer (eskiden sekme şeridin sonunda kalıyor, fark edilmiyordu). */
+          if (v === 'lyrics' && src !== 'lyrics' && isWindowsPlatform()) {
+            if (!txt.lyricsSource && txt.lyricsFollow !== true) txt.lyricsFollow = true;
+            if (window.SVLyricsLibUi && window.SVLyricsLibUi.library) pendingTab = 'lyricslib';
+          }
+          txt.source = v;
+        }, rerender));
 
       if (src === 'static') {
         const area = el('textarea', {
@@ -2000,6 +2011,16 @@
       const factVis = def.visualizer || {};
       const fd = (k, fb) => (factVis[k] != null ? factVis[k] : fb);
       const setV = (k, val) => { vs[k] = val; };
+
+      /* GELİŞMİŞ MOTORLAR (3B Geometri, Geri Besleme). Renk kipi, renk ve parlama
+         bu motorlarda hiçbir şey yapmıyordu: geometri paletini kendi kartından ve
+         zeminden, geri besleme kendi gölgelendiricisinden alıyor. Ölü denetim yerine
+         yalnız hassasiyet ve motor kartına işaret. */
+      if (l.kind === 'visualizer' && MC().is('visualizer', l.type, 'engine')) {
+        out.push(miniSlider('Hassasiyet', () => getV('sensitivity', fd('sensitivity', 1)), (v) => setV('sensitivity', v), { path: 'visualizer.sensitivity', min: 0.2, max: 3, step: 0.05, def: fd('sensitivity', 1)}));
+        out.push(el('div', { class: 'studio-note dim-hint', 'data-engine-note': l.type, text: 'Renk ve biçim bu motorun kendi ayarlarından gelir (aşağıdaki motor kartı).' }));
+        return out;
+      }
 
       // Renk Modu: Sabit Renk · Renk Teması · Gökkuşağı
       const getColorMode = () => {
@@ -2740,6 +2761,11 @@
         audioTx.build = () => prevTx().concat(textAudioKids(txt, rerender));
       }
       if (only) tabs.unshift({ key: 'source', label: 'Kaynak', build: () => sourceKids });
+      // Tür / kaynak değişince açılması istenen sekme (ör. söze çevirince Söz Kütüphanesi)
+      if (pendingTab && tabs.some((t) => t.key === pendingTab)) {
+        foldStates[key + '_tab'] = pendingTab;
+        pendingTab = '';
+      }
       body.push.apply(body, layerTabs(key, tabs, !!only));
 
       // ---- Kopyala / çoğalt ----
