@@ -35,6 +35,8 @@
   let manualDepth = 0;
   let protectedManual = null;
   let notice = '';
+  // Kaynağı bulunamayan klip için uyarı tekrarlanmasın (her denetçi çiziminde follow çalışıyor)
+  let warnedSource = '';
   const EDITABLE = { scene: 1, preset: 1, visualizer: 1, video: 1, image: 1, shader: 1, palette: 1 };
 
   function tlOf(cfg) { return cfg && cfg.timeline; }
@@ -201,17 +203,27 @@
       const hit = findClip(cfg, cur);
       if (hit && !hit.trk.locked) { paintBanner(); return true; }
     }
-    if (cur) end({ silent: true });
+    const ended = cur ? end({ silent: true }) : false;
+    /* Hedef olamayan seçim (silinmiş, kilitli ya da düzenlenemeyen klip):
+       kapanan bir oturum yoksa yapılandırma değişmedi, yeniden çizmeye gerek yok.
+       Eskiden burada her seferinde bütün sayfa çiziliyordu; çizim çizelge
+       denetçisini, denetçi de follow → begin'i yeniden çağırıyordu. Seçili
+       klip silinince (geri al, sil) bu kare kare süren bir döngüye dönüyor,
+       çizelge düzenlerken sürekli gidip gelme olarak görünüyordu. */
+    const settle = () => { if (ended) { rerender(); p.push(true); } else paintBanner(); };
     const hit = findClip(cfg, { trackId, clipId });
-    if (!hit || hit.trk.locked || !EDITABLE[hit.clip.type]) { rerender(); p.push(true); return false; }
+    if (!hit || hit.trk.locked || !EDITABLE[hit.clip.type]) { settle(); return false; }
     C.dropStaleLocal(hit.clip);
     const loc = C.ensureLocal(cfg, hit.clip);
     if (!loc) {
-      // Kaynak sahne silinmiş / bulunamıyor: düzenlenecek bir şey yok
-      if (p.toast) p.toast(t('Klibin kaynağı bulunamadı; düzenlenemez.'), 'warn');
-      rerender(); p.push(true);
+      // Kaynak sahne silinmiş / bulunamıyor: düzenlenecek bir şey yok. Uyarı aynı klip için bir kez.
+      const key = trackId + ':' + clipId;
+      if (p.toast && warnedSource !== key) p.toast(t('Klibin kaynağı bulunamadı; düzenlenemez.'), 'warn');
+      warnedSource = key;
+      settle();
       return false;
     }
+    warnedSource = '';
     generation++;
     const tl = tlOf(cfg);
     tl.manualBaseline = protectedManual ? clone(protectedManual) : snapScene(cfg);
