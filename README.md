@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4252%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4261%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1052,6 +1052,16 @@ the fixtures on the left take the colours on the left of the screen.
 
 ---
 
+### MQTT / Home Assistant
+
+**Control → MQTT / Home Assistant** (off by default) connects to an MQTT broker you name (plain or
+TLS, optional username and password). The app publishes blackout, Auto VJ, tempo, now playing,
+scene, visualizer mode and master opacity to retained `<base>/state/…` topics, with `<base>/status`
+as online/offline. Home Assistant discovery makes the device appear on its own. With **Accept
+commands** on (off by default), `<base>/set/blackout`, `autovj`, `scene`, `visualizer` and `opacity`
+are applied the same way as OSC input; retained commands are ignored. The broker password is hidden
+from MCP and from web clients, MCP cannot change `mqtt.*`, and the settings do not replicate to a backup.
+
 ### MCP — control from an AI agent
 
 An agent drives the running application over the **Model Context Protocol**. The switch is on the
@@ -1940,7 +1950,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4252 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4261 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

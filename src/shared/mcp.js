@@ -124,7 +124,7 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['lyricsLookup', 'providers'], ['redundancy', 'secret'], ['bridge', 'secret']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['lyricsLookup', 'providers'], ['redundancy', 'secret'], ['bridge', 'secret'], ['mqtt', 'password']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];
@@ -173,6 +173,8 @@
     mcp: 'mcp', version: 'never', docVersion: 'never',
     // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
     redundancy: 'never',
+    // MQTT aracı adresi ve parolası: ajan yazamaz
+    mqtt: 'never',
     // Otomatik söz (#937): sağlayıcı adresi ağa çıkar; MCP yazamaz
     lyricsLookup: 'never',
     tempoSync: 'output',

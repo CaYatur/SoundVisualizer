@@ -1372,6 +1372,23 @@
       phaseLock: true, // izleyen yedek birincilin tempo ızgarasını kullanır (#815)
     },
 
+    /* MQTT / Home Assistant. Varsayılan kapalı; aracı adresi kullanıcıdan.
+       Durum <baseTopic>/state/... konularına gider. allowControl açık
+       değilse hiçbir komut dinlenmez. Parola MCP'de ve web istemcilerinde
+       gizlidir. Yedeklilikte aktarılmaz (show-keys izin listesinde yok). */
+    mqtt: {
+      enabled: false,
+      host: '',
+      port: 1883,
+      tls: false,
+      username: '',
+      password: '',
+      baseTopic: 'soundvisualizer',
+      discovery: true,
+      discoveryPrefix: 'homeassistant',
+      allowControl: false,
+    },
+
     /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.
        send: bu makinenin yakaladığı ses ağa verilir (olağan kipte de).
        only: açılışta yalnız köprü — görüntü çıkışı ve GPU yok (sonraki açılış).
