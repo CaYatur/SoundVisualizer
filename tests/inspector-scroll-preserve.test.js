@@ -25,5 +25,5 @@ test('MilkDrop Kilitle/Rastgele applyShelf yolundan geçiyor (tam panel yenileme
   const md = fs.readFileSync(path.join(ROOT, 'src/admin/milkdrop-panel.js'), 'utf8');
   assert.match(md, /const rerender = \(\) => applyShelf\(\)/);
   assert.match(md, /onclick: \(\) => \{ control\(cfg\)\.locked = !locked; rerender\(\); \}/);
-  assert.match(md, /onclick: \(\) => go\(cfg, randomPick\(cfg, md\)\)/);
+  assert.match(md, /onclick: \(\) => \{ if \(uiPickOk\(cfg\)\) go\(cfg, randomPick\(cfg, md\)\); \}/);
 });

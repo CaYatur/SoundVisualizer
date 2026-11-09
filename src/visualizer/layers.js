@@ -498,8 +498,13 @@
     const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
     return list.filter((l) => l && l.kind === 'visualizer' && !OVERLAY_VIS[l.type]);
   }
+  /* Kilitli katman denetleyiciden (MIDI / OSC "sonraki görsel"), gösteri adımından ve
+     MCP'den de değişmiyor: ilk kilitsiz katman alınıyor, hepsi kilitliyse hiçbir şey
+     yazılmadan null dönüyor. Eskiden kilit yalnız panelde geçerliydi. */
   function adoptVisualizer(cfg, spec) {
     if (!cfg) return null;
+    const live0 = liveVisualizerLayers(cfg);
+    if (live0.length && live0.every((l) => l.locked)) return null;
     const s = spec || {};
     const type = s.type ? String(s.type) : ((cfg.visualizer && cfg.visualizer.type) || 'bars');
     const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
@@ -510,7 +515,7 @@
       if (presetId) cfg.custom.visualizerId = presetId;
     }
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
-    let layer = liveVisualizerLayers(cfg)[0];
+    let layer = liveVisualizerLayers(cfg).find((l) => !l.locked);
     if (!layer) {
       layer = normalizeLayer({
         name: 'Görselleştirici',
@@ -625,6 +630,8 @@
      yalnız klasik alan yazılır, yığın açılmaz. */
   function adoptBackground(cfg, spec) {
     if (!cfg) return null;
+    const bgs = Array.isArray(cfg.layers) ? cfg.layers.filter((l) => l && l.kind === 'background') : [];
+    if (bgs.length && bgs.every((l) => l.locked)) return null;
     const s = spec || {};
     const type = s.type ? String(s.type) : ((cfg.background && cfg.background.type) || 'gradient');
     const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
@@ -637,6 +644,7 @@
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
     const i = firstLayerIndex(cfg, 'background');
     let layer = i >= 0 ? cfg.layers[i] : null;
+    if (layer && layer.locked) layer = cfg.layers.find((l) => l && l.kind === 'background' && !l.locked && l.enabled !== false && !l.muted) || cfg.layers.find((l) => l && l.kind === 'background' && !l.locked) || null;
     if (!layer) {
       layer = normalizeLayer({
         name: 'Arkaplan',
@@ -715,6 +723,67 @@
     if (s.reveal) {
       layer.enabled = true;
       layer.muted = false;
+    }
+    return layer;
+  }
+  /* MILKDROP HEDEFİ: bir MilkDrop preseti hangi katmana gider? modeTarget'ın
+     MilkDrop karşılığı; panel rafı, preset listesi ve MCP aynı kuralı kullanıyor.
+
+     Seçili katman (layerId) bir MilkDrop görselleştiricisiyse ona gider. Başka bir
+     katmansa katı kipte hiçbir şey yazılmaz, neden döner. Seçim yoksa ortak preseti
+     çizen MilkDrop katmanı; o da yoksa katı kipte yeni katman eklenir, eski kipte
+     (Ayarlar > Modu Uygun Katmana Yönlendir) ilk kilitsiz görselleştirici çevrilir.
+     Eskiden seçimsiz yükleme her zaman ilk görselleştiriciyi çeviriyordu: kullanıcının
+     kurduğu barlar katmanı tek tıkla kayboluyordu.
+
+     dönüş: { layer, convert? } | { create: true } | { error, layer?, layerId? } */
+  function isOwnMilkdrop(l) {
+    return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
+      && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
+  }
+  function milkdropTarget(cfg, opts) {
+    const o = opts || {};
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const legacy = o.legacy != null ? !!o.legacy : modeTargetAuto(cfg);
+    const id = o.layerId ? String(o.layerId) : '';
+    if (id) {
+      const l = list.find((x) => x && x.id === id) || null;
+      const md = !!(l && l.kind === 'visualizer' && l.type === 'milkdrop');
+      if (md && !l.locked) return { layer: l };
+      if (!legacy) {
+        if (!l) return { error: 'NOT_FOUND', layerId: id };
+        if (md || l.locked) return { error: 'LOCKED', layer: l, want: 'milkdrop' };
+        return { error: 'WRONG_KIND', layer: l, want: 'milkdrop', convertible: l.kind === 'visualizer' && !OVERLAY_VIS[l.type] };
+      }
+    }
+    const vis = list.filter((l) => l && l.kind === 'visualizer' && !OVERLAY_VIS[l.type] && !isOwnMilkdrop(l));
+    const shared = vis.find((l) => l.type === 'milkdrop');
+    if (shared) return { layer: shared };
+    if (legacy) {
+      const c = vis.find((l) => !l.locked);
+      if (c) return { layer: c, convert: true, redirected: !!id };
+    }
+    return { create: true };
+  }
+  /* Gömülü pakette MilkDrop 3 biçiminde, sakin başlayan bir preset: "MilkDrop" kartıyla
+     eklenen katman boş ekranla açılmasın. */
+  const MD_DEFAULT_PRESET = 'md_caya_twelve_moons';
+  /* Hazır MilkDrop katmanı (Katman Ekle > MilkDrop, MCP sv_add_layer). Ortak preseti çizen
+     başka MilkDrop katmanı varsa yeni katman bağımsız olur (kendi preseti): ikisi aynı
+     görüntüyü göstermesin. Yoksa ortak presete bağlanır; ortak seçim boşsa verilen preset
+     ortak seçim olur. `preset`: { id, name, source } (kaynak yoksa motor kimlikle ister). */
+  function makeMilkdropLayer(cfg, opts) {
+    const o = opts || {};
+    const p = o.preset && o.preset.id ? o.preset : null;
+    const layer = normalizeLayer({ kind: 'visualizer', type: 'milkdrop', name: o.name || 'MilkDrop', enabled: true, settings: {} });
+    if (!p || !cfg) return layer;
+    const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+    const sharedTaken = list.some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && !isOwnMilkdrop(l));
+    const src = typeof p.source === 'string' ? p.source : '';
+    if (sharedTaken) {
+      layer.settings.milkdrop = { independent: true, presetId: p.id, name: p.name || '', source: src };
+    } else if (!(cfg.milkdrop && cfg.milkdrop.presetId)) {
+      cfg.milkdrop = Object.assign({}, cfg.milkdrop, { presetId: p.id, name: p.name || '', source: src });
     }
     return layer;
   }
@@ -2640,6 +2709,10 @@
     adoptBackground,
     modeTarget,
     modeTargetAuto,
+    milkdropTarget,
+    isOwnMilkdrop,
+    makeMilkdropLayer,
+    MD_DEFAULT_PRESET,
     setLayerMode,
     syncStackState,
     layerConfig,

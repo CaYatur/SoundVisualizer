@@ -24,6 +24,9 @@ const withStack = (layers) => ({
   milkdrop: { presetId: '', name: '', source: '' },
 });
 
+// Ayarlar > Modu Uygun Katmana Yönlendir (eski davranış)
+const legacy = (cfg) => Object.assign(cfg, { ui: { modeTargetAuto: true } });
+
 const preset = { id: 'md_1', name: 'Test', source: 'shader_body { ret = 1; }' };
 
 test('panel: preset seçimi milkdrop yapılandırmasını yazıyor', () => {
@@ -34,12 +37,14 @@ test('panel: preset seçimi milkdrop yapılandırmasını yazıyor', () => {
   assert.strictEqual(cfg.visualizer.type, 'milkdrop');
 });
 
-test('panel: yığın açıkken görselleştirici katmanı MilkDrop\'a çevriliyor', () => {
-  const cfg = withStack([
+test('panel (eski kip): yığın açıkken görselleştirici katmanı MilkDrop\'a çevriliyor', () => {
+  /* Katı kipte (varsayılan) seçimsiz yükleme başka katmanı çevirmiyor, yeni katman ekliyor
+     (tests/milkdrop-guard.test.js). Çevirme Ayarlar > Modu Uygun Katmana Yönlendir ile. */
+  const cfg = legacy(withStack([
     { id: 'ly_bg', kind: 'background', type: 'gradient', enabled: true, settings: {} },
     { id: 'ly_vis', kind: 'visualizer', type: 'bars', enabled: true,
       settings: { visualizer: { type: 'bars' } } },
-  ]);
+  ]));
   MDP.load(cfg, preset);
   const vis = cfg.layers.find((l) => l.id === 'ly_vis');
   assert.strictEqual(vis.type, 'milkdrop');
@@ -62,12 +67,12 @@ test('panel: metin katmanı görselleştirici sanılıp ezilmiyor', () => {
   assert.ok(added, 'çevrilecek katman yoksa yeni bir tane eklenmeli');
 });
 
-test('panel: birden çok görselleştirici katmanından yalnız ilki çevriliyor', () => {
+test('panel (eski kip): birden çok görselleştirici katmanından yalnız ilki çevriliyor', () => {
   /* Hepsini çevirmek kullanıcının kurduğu kompozisyonu tek tıkla yok eder. */
-  const cfg = withStack([
+  const cfg = legacy(withStack([
     { id: 'a', kind: 'visualizer', type: 'bars', enabled: true, settings: {} },
     { id: 'b', kind: 'visualizer', type: 'tunnel', enabled: true, settings: {} },
-  ]);
+  ]));
   MDP.load(cfg, preset);
   assert.strictEqual(cfg.layers[0].type, 'milkdrop');
   assert.strictEqual(cfg.layers[1].type, 'tunnel');

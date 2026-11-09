@@ -3502,6 +3502,11 @@ function ensureMcp() {
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
     launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; const hit = C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return hit === false ? { ok:false, error:"No clip in that slot. Read sv_get_clipdeck for the filled slots." } : { ok:true }; })()'),
     locale: () => appLocale(),
+    // Söz kütüphanesi: MCP yalnız okur (sv_lyrics_library)
+    lyricsLibrary: {
+      list: () => lyricsLibrary.list(lyricsLibDir()),
+      read: (id) => lyricsLibrary.read(lyricsLibDir(), id),
+    },
     /* Panelin önizleme motorundaki canlı analiz (Ses › Ses Çözümlemesi). */
     analysis: () => mcpAdminCall('(() => { const P = window.SVPreview; const eng = P && P.isLive && P.isLive() && P.audioEngine ? P.audioEngine() : null; const a = eng && eng.analysis; if (!a || a.silent) return null; const pick = (o) => o ? JSON.parse(JSON.stringify(o)) : null; return { key: pick(a.key), chord: pick(a.chord), pitch: pick(a.pitch), loudness: a.loudness, peak: a.peak, dynamics: a.dynamics, crest: a.crest, centroid: a.centroid, spread: a.spread, flatness: a.flatness, rolloff: a.rolloff, flux: a.flux, harmonic: a.harmonic, percussive: a.percussive, width: a.width, correlation: a.correlation, bands: pick(a.bands), hits: pick(a.hits), chroma: Array.from(a.chromaSmooth || []), humDetected: !!a.humDetected }; })()'),
     diagnoseAudio: () => nativeAudio.diagnoseAudio(),

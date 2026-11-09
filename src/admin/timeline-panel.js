@@ -1733,7 +1733,7 @@
 
   function copySelection() {
     if (multi.length > 1) {
-      clipboard = { group: TE().copyGroup(pickedClips()) };
+      clipboard = { group: TE().copyGroup(pickedClips(), ensureTransport().tl) };
       return !!clipboard.group;
     }
     const c = selClip();
@@ -2103,7 +2103,7 @@
         const c = trk.clips[h.ci];
         if (!isPicked(c, trk)) multi = [];
         selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
-        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c };
+        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c, x0: x, y0: y };
       } else if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
         const c = trk.clips[h.ci];
         // Seçili bir gruba tıklamak grubu korur (grup taşıma); başka klibe tıklamak tek seçim
@@ -2115,7 +2115,7 @@
           ? pickedClips().filter((p) => !p.trk.locked).map((p) => ({ trackId: p.trk.id, clip: p.clip, start0: p.clip.start }))
           : null;
         // Kilitli parçada seçilebiliyor ama taşınamıyor
-        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c, t0: tOf(x), start0: c.start, dur0: c.dur, group };
+        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c, t0: tOf(x), start0: c.start, dur0: c.dur, group, x0: x, y0: y };
       } else if (h.kind === 'key') {
         selection = { kind: 'key', trackId: trk.id, keyIndex: h.ki };
         drag = trk.locked ? { kind: 'select' } : { kind: 'key', trackId: trk.id, key: trk.keys[h.ki], top: RULER_H + h.index * TRACK_H + 6, bot: RULER_H + (h.index + 1) * TRACK_H - 6 };
@@ -2195,6 +2195,13 @@
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
       const tl = transport.tl;
+      /* Klip sürüklemesi basışla başlıyor ama birkaç piksellik eşikten sonra: düz tıklama
+         (elin titremesi) yalnız seçsin, klibi yakalamaya oturtmasın. */
+      if (drag.clip && drag.x0 != null && !drag.armed) {
+        if (Math.abs(x - drag.x0) + Math.abs(y - drag.y0) < DRAG_SLOP) return;
+        drag.armed = true;
+      }
+      if (drag.clip) reattachDrag(drag);
       if (drag.kind === 'scrub') {
         /* Sürükleme kare başına bir kez işleniyor: fare olayı kareden sık
            geliyor ve her biri çıpayı IPC ile yolluyordu. Shift ya da Alt
@@ -2303,6 +2310,7 @@
       if (!drag) return;
       const d = drag;
       drag = null;
+      if (followAfterDrag) { followAfterDrag = false; queueTargetFollow(); }
       if (d.kind === 'scrub') { flushScrub(); return; }
       if (d.kind === 'select') {
         refreshInspector();
@@ -3448,12 +3456,43 @@
 
   /* Seçim → klip düzenleme hedefi. Ertelenir ve çalışırken EN SON seçimi
      okur: hızlı seçim değişiminde eski çağrı yanlış klibi hedef yapmasın. */
+  /* Basılı tutulan fare (sürükleme, kement) sürerken hedef izlenmiyor; bırakınca bir kez.
+     Hedefe geçmek klip düzenleme oturumunu açıp çizelge modelini yeniden kuruyordu: basıp
+     sürüklenen klibin nesnesi modelden düşüyor, sürükleme ilk harekette iptal oluyordu
+     (seçili olmayan klip tek harekette taşınamıyordu). Kementte her yeni klip bir oturum
+     aç/kapa demekti. */
   let followQueued = false;
+  let followAfterDrag = false;
+  const DRAG_SLOP = 4;
+  /* Model sürükleme sırasında yeniden kurulursa (dışarıdan gelen yapılandırma, geri al) eldeki
+     klip nesnesi düşer. Kimlikle yeniden bağlanıyor; bulunamazsa sürükleme iptal. */
+  function findClipById(id) {
+    for (const t of transport.tl.tracks) {
+      const c = t.clips && t.clips.find((x) => x.id === id);
+      if (c) return { trk: t, clip: c };
+    }
+    return null;
+  }
+  function reattachDrag(d) {
+    const trk = trackById(d.trackId);
+    if (trk && trk.clips && trk.clips.indexOf(d.clip) >= 0) return;
+    const hit = findClipById(d.clip.id);
+    if (!hit) return;
+    d.trackId = hit.trk.id;
+    d.clip = hit.clip;
+    if (d.group) {
+      for (const g of d.group) {
+        const gh = findClipById(g.clip.id);
+        if (gh) { g.clip = gh.clip; g.trackId = gh.trk.id; }
+      }
+    }
+  }
   function queueTargetFollow() {
     if (followQueued || !window.SVTimelineTarget) return;
     followQueued = true;
     setTimeout(() => {
       followQueued = false;
+      if (drag) { followAfterDrag = true; return; }
       if (window.SVTimelineTarget) window.SVTimelineTarget.follow(selection, multi.length);
     }, 0);
   }

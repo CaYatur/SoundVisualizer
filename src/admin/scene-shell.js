@@ -611,7 +611,12 @@
     if (!MP || !MP.isOwnLayer) return null;
     const own = MP.isOwnLayer(l);
     const md = own ? l.settings.milkdrop : (P().cfg().milkdrop || {});
-    const go = (dir) => { MP.pickFor(own ? l.id : ''); MP.act(dir); };
+    // Kilitli katmanın preseti kartın ◀ ▶ düğmesiyle de değişmiyor
+    const go = (dir) => {
+      if (l.locked) { if (P().toast) P().toast(tr(lockText('locked')), 'warn'); return; }
+      MP.pickFor(own ? l.id : '');
+      MP.act(dir);
+    };
     const th = thumbOf(l);
     const nav = (dir, icon, title) => el('button', { class: 'sv-ib sm', type: 'button', icon, title: tr(title), 'aria-label': tr(title), onclick: () => go(dir) });
     return el('div', { class: 'sv-pcard' }, [
@@ -726,7 +731,7 @@
       for (const it of items) {
         const th = el('span', { class: 'sv-th', icon: kind === 'bg' ? 'image' : 'bars' });
         const btn = el('button', {
-          class: 'sv-gi nothumb' + (l && l.kind === want && l.type === it.id ? ' cur' : ''), type: 'button',
+          class: 'sv-gi nothumb' + (l && l.kind === want && l.type === it.id ? ' cur' : ''), type: 'button', 'data-cur': it.id,
           onclick: () => applyMode(want, it.id, it.label),
         }, [th, el('b', { text: it.label })]);
         btn.dataset.thumb = kind + ':' + it.id;
@@ -827,7 +832,7 @@
     const l = selected();
     if (!l || autoTarget()) return null;
     if (shelfTab === 'milkdrop') {
-      if (l.kind === 'visualizer' && l.type === 'milkdrop') return null;
+      if (l.kind === 'visualizer' && l.type === 'milkdrop') return l.locked ? { why: 'locked', want: 'milkdrop', layer: l } : null;
       return { why: l.kind === 'visualizer' && !OVERLAY_VIS[l.type] && !l.locked ? 'convert' : 'kind', want: 'milkdrop', layer: l };
     }
     const want = shelfTab === 'bg' ? 'background' : 'visualizer';
@@ -926,17 +931,85 @@
     /* Hedef satırı ve kilit seçili katmana bağlı: seçim değişince raf da yenilensin */
     const lk = shelfLock();
     const lockSig = lk ? lk.why + ':' + lk.layer.id + ':' + (lk.layer.name || '') : '';
+    /* Seçili katman ve türü imzada değil: vurgu ve hedef satırı syncShelf ile yerinde
+       güncelleniyor (raf yeniden kurulmuyor, kaydırma kaybolmuyor). Kilit kartı yapıyı
+       değiştirdiği için imzada. */
     if (shelfTab === 'vis' || shelfTab === 'bg') {
-      const cur = selected();
-      return shelfTab + '|' + String(query || '') + '|' + (cur ? cur.id + ':' + (cur.name || '') : '') + '|' + lockSig + '|' + (autoTarget() ? 'a' : 's');
+      return shelfTab + '|' + String(query || '') + '|' + lockSig + '|' + (autoTarget() ? 'a' : 's');
     }
     if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
-    const l = layers().find((x) => x && x.id === sel);
-    const own = l && l.settings && l.settings.milkdrop;
-    const md = own || P().cfg().milkdrop || {};
-    return JSON.stringify([query, sel, l ? l.type : '', l ? l.name : '', md.id || md.name || '', md.presetId || '', lockSig]);
+    /* MilkDrop: etkin preset ve seçili katman da imzada değil (vurgu syncShelf ile).
+       Rafın düğmeleri yapılandırma nesnesini tutuyor; dışarıdan yeni yapılandırma
+       gelince (MCP, telefon) nesne değişiyor, o zaman raf yeniden kuruluyor. */
+    return JSON.stringify([query, lockSig, cfgSerial()]);
   }
   function invalidateShelf() { shelfStale = true; }
+  // Yapılandırma nesnesinin kimliği (sayaç): aynı nesne aynı sayı
+  const cfgIds = new WeakMap();
+  let cfgSeq = 0;
+  function cfgSerial() {
+    const c = P().cfg();
+    if (!c || typeof c !== 'object') return 0;
+    if (!cfgIds.has(c)) cfgIds.set(c, ++cfgSeq);
+    return cfgIds.get(c);
+  }
+
+  /* RAF VURGUSU. Her raf "şu an hangisi" sorusunu kendi durumundan cevaplıyor; kartlar
+     yalnız oluşturulurken işaretleniyordu. Katmanın türü listeden, denetçiden, MCP'den ya da
+     geri almayla değişince imza aynı kaldığı için raf yeniden kurulmuyor ve eski kart vurgulu
+     kalıyordu (Şarkı Sözü katmanı Kroma Çemberi'ydi, rafta Osiloskop seçili görünüyordu).
+     Artık her çizimden sonra tek bir yerden, yerinde eşitleniyor: sınıf değişiyor, düğüm ve
+     kaydırma yerinde kalıyor. Her raf: öğe seçicisi, anahtar özniteliği, sınıf ve geçerli
+     anahtarlar. */
+  const SHELF_CURRENT = {
+    vis: { sel: '.sv-gi[data-cur]', attr: 'data-cur', cls: 'cur', now: () => modeNow('visualizer') },
+    bg: { sel: '.sv-gi[data-cur]', attr: 'data-cur', cls: 'cur', now: () => modeNow('background') },
+    milkdrop: {
+      sel: '.md-cell[data-id], .md-item[data-id]', attr: 'data-id', cls: 'active',
+      now: () => {
+        const MP = window.SVMilkdropPanel;
+        const id = MP && MP.currentPick ? MP.currentPick(P().cfg()) : '';
+        return id ? [id] : [];
+      },
+    },
+    templates: {
+      sel: '.tpl-card[data-cur]', attr: 'data-cur', cls: 'active',
+      now: () => {
+        const T = window.SVTemplatePanel;
+        const id = T && T.current ? T.current() : '';
+        return id ? [id] : [];
+      },
+    },
+    scenes: {
+      sel: '.scene-item[data-scene-id]', attr: 'data-scene-id', cls: 'active',
+      now: () => {
+        const id = P().activeSceneId ? P().activeSceneId() : null;
+        return id ? [id] : [];
+      },
+    },
+  };
+  function modeNow(kind) {
+    const l = selected();
+    return l && l.kind === kind ? [l.type] : [];
+  }
+  function syncShelf(root) {
+    const host = root || (typeof document !== 'undefined' ? document.getElementById('svShelf') : null);
+    const spec = SHELF_CURRENT[shelfTab];
+    if (!host || !spec || !host.querySelectorAll) return 0;
+    const want = new Set(spec.now());
+    let changed = 0;
+    host.querySelectorAll(spec.sel).forEach((n) => {
+      const on = want.has(n.getAttribute(spec.attr));
+      if (n.classList.contains(spec.cls) !== on) { n.classList.toggle(spec.cls, on); changed++; }
+    });
+    // Hedef satırı da seçime bağlı ("Şuna uygulanır: …"); metin yerinde
+    const line = host.querySelector('.sv-target');
+    if (line) {
+      const text = targetLine();
+      if (text && line.textContent !== text) line.textContent = text;
+    }
+    return changed;
+  }
   /* Raf kartı boş kaldı mı? Sahne dışı bir sayfaya geçince render() #svShelf'i
      boşaltıyor, placeStage da sahne listesini yan rafa geri taşıyor. İmza
      aynı kaldığı için dönüşte raf yeniden çizilmiyor, kart boş görünüyordu
@@ -1151,6 +1224,7 @@
       shelfPainted = sig;
       shelfStale = false;
     }
+    syncShelf(c);
     if (keepInput !== null) {
       const inp = c.querySelector('.sv-shelf-search input');
       if (inp) { inp.focus(); inp.setSelectionRange(keepInput, keepInput); }
@@ -1165,5 +1239,5 @@
     });
   }
 
-  window.SVSceneShell = { shelfLock, applyMode, thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
+  window.SVSceneShell = { shelfLock, applyMode, syncShelf, thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

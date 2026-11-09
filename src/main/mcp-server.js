@@ -66,6 +66,8 @@ function create(deps) {
       timeline: deps.timeline,
       launchClip: deps.launchClip,
       locale: deps.locale,
+      // Söz kütüphanesi (sv_lyrics_library): yalnız okuma, list/read
+      lyricsLibrary: deps.lyricsLibrary,
       // OS the admin panel runs on; control.osc.port uses the same port floor
       platform: process.platform,
       /* Bu altısı eksikti: araçlar listede görünüyor ama uygulamada hep

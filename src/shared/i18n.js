@@ -4485,6 +4485,8 @@
     'Bu katman şu an çizilmiyor (gizli, sessiz ya da solo dışında); kutusu ayarlarından hesaplandı.': 'This layer isn\'t being drawn right now (hidden, muted or outside solo); its box is computed from its settings.',
     'Çerçeveye Getir': 'Bring Into Frame',
     'Çerçeveye Sığdır': 'Fit Frame',
+    // MilkDrop seçim koruması
+    'Seçili katman bulunamadı.': 'The selected layer was not found.',
   };
 
 
@@ -5140,8 +5142,8 @@
     "en": "Delete a scene. Authoring."
   },
   "mcp.tool.sv_add_layer": {
-    "tr": "Bir katman ekler ve katman yığınını açar. Yazarlık.",
-    "en": "Add a layer and turn the layer stack on. Authoring."
+    "tr": "Bir katman ekler ve katman yığınını açar. milkdrop türü presetiyle hazır bir MilkDrop katmanı ekler (presetId ya da yerleşik varsayılan). Yazarlık.",
+    "en": "Add a layer and turn the layer stack on. type milkdrop adds a ready MilkDrop layer with a preset (presetId or a built-in default). Authoring."
   },
   "mcp.tool.sv_update_layer": {
     "tr": "Katmanın adını, türünü, opaklığını, karışımını, dönüşümünü veya ayarlarını değiştirir. Efekt eklemez. Yazarlık.",
@@ -5158,6 +5160,14 @@
   "mcp.tool.sv_remove_layer": {
     "tr": "Bir katmanı kaldırır. Yazarlık.",
     "en": "Remove a layer. Authoring."
+  },
+  "mcp.tool.sv_duplicate_layer": {
+    "tr": "Bir katmanı yeni kimlikle hemen üstüne çoğaltır (paneldeki Çoğalt düğmesi gibi). Kilitli katman da kopyalanabilir; kopya kilidi korur. Yazarlık.",
+    "en": "Duplicate a layer right above it with a new id (like the panel Duplicate button). Locked layers can be copied; the copy keeps the lock. Authoring."
+  },
+  "mcp.tool.sv_lyrics_library": {
+    "tr": "Söz kütüphanesini okur (yalnız Windows): list, search (query ad, sanatçı ve başlıkta aranır) ya da get (id, metni döndürür). Yalnız okuma.",
+    "en": "Read the lyrics library (Windows only): action list, search (query matches name, artist, title) or get (id, returns the text). Read-only."
   },
   "mcp.tool.sv_reorder_layers": {
     "tr": "Katmanları kimlik listesine göre sıralar. Yazarlık.",
@@ -5228,8 +5238,8 @@
     "en": "Remove a modulation route. Authoring."
   },
   "mcp.tool.sv_load_preset": {
-    "tr": "Var olan bir kitaplık presetini MilkDrop içine yükler. Yeni bir preset dosyası yazmaz.",
-    "en": "Load an existing library preset into MilkDrop. Does not write a new preset file."
+    "tr": "Var olan bir MilkDrop kitaplık presetini yükler. layerId yoksa ortak MilkDrop seçimi olur; layerId tek bir MilkDrop katmanını hedefler, başka türden ya da kilitli katmanı reddeder. Yeni bir preset dosyası yazmaz.",
+    "en": "Load an existing MilkDrop library preset. Without layerId it becomes the shared MilkDrop pick; layerId targets one MilkDrop layer and refuses other or locked layers. Does not write a new preset file."
   },
   "mcp.tool.sv_apply_color_preset": {
     "tr": "Var olan bir kullanıcı veya yerleşik renk presetini uygular. Yenisini oluşturmaz.",

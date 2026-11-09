@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4139%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4170%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -98,7 +98,7 @@ kontrolü**.
   video kılavuzlarıyla. Açılış animasyonları, vuruşla logo değiştirme, yayın yazı biçemleri ve
   dosya olarak kaydedilen düzenler. Yerleştirdiğiniz neyse dışa aktarım onu çizer; piksel piksel
   denetlendi. [→ Düzen editörü](#yayın-düzeni-editörü)
-- **Yapay zekâya hazır.** 104 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
+- **Yapay zekâya hazır.** 106 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
@@ -200,7 +200,7 @@ npm start
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
 | **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 56 CaYaDev presetiyle gelen bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 104 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 106 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
 
 ---
 
@@ -1069,7 +1069,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **104 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **106 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -1138,11 +1138,14 @@ Ana anahtar yeter. Bu çağrılar yalnız okur.
   arkaplan kimliklerini, katman türlerini ve karışım kiplerini listeler; mod ve katman araçları
   listede olmayan kimliği reddeder. `sv_list_effects` genel zinciri, her
   katmanın zincirini ve 40 hazır efekt türünü listeler. `sv_list_presets` kütüphane presetlerini
-  ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
+  (yerleşik MilkDrop presetleri de, `builtin` işaretiyle) ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
 - `sv_get_output_status` hangi görselleştirici pencerelerin açık olduğunu, yayın anahtarını,
   portunu ve LAN bayrağını, Spout/Syphon adını okur. `sv_get_timeline`, `sv_get_clipdeck` ve
   `sv_get_autovj` o panelleri okur. `sv_get_config` bütün yapılandırmayı ya da tek bir noktalı
   yolu okur.
+- `sv_lyrics_library` şarkı sözü kitaplığını okur: `list`, `search` (ad, sanatçı, başlık) ya da
+  `get` (bir öğenin metni, `maxChars` ile sınırlı). Kitaplığın kendisi gibi yalnız Windows'ta;
+  macOS ve Linux'ta bunu söyleyen bir hata döner. Hiçbir şey yazmaz.
 - `sv_timeline_inspect` zaman çizelgesinin bütün modelini kırpmadan okur: her parça, klip,
   otomasyon anahtarı ve işaret, tempo haritası, döngü, yakalama ve çizelge bankası. `at` (saniye)
   verilirse o anda çalan klipleri ve otomasyon değerlerini de döndürür.
@@ -1168,7 +1171,11 @@ Kayıtlı olanı kullanır.
 - `sv_set_effect_enabled` ve `sv_set_effect_param` genel zincirde duran bir efekti değiştirir.
   Katman çifti aynı işi tek katmanda yapar. `sv_set_modulation_enabled` modülasyon matrisini açar
   ya da kapatır. `sv_set_macro` var olan bir makro sürgüsünü ayarlar.
-- `sv_load_preset` kütüphanedeki bir preseti canlı MilkDrop kaynağına kopyalar.
+- `sv_load_preset` kütüphanedeki ya da yerleşik bir MilkDrop presetini canlı MilkDrop kaynağına
+  kopyalar. `layerId` verilirse tek bir MilkDrop katmanını hedefler: Bağımsız katman kendi
+  presetini alır, Ortak katmanda ortak seçim değişir. Başka türden, kilitli ya da bilinmeyen
+  katmanda hiçbir şey değişmez, nedenini söyleyen bir hata döner. `layerId` yoksa sonuç ortak
+  preseti gösteren katmanları sayar; hiçbiri göstermiyorsa uyarır.
   `sv_apply_color_preset` var olan bir kullanıcı ya da hazır paleti arkaplan gradyanına boyar.
   `sv_set_milkdrop_cycle` kütüphanenin ilerleyişini ayarlar: otomatik sonraki, sıra, kaynak,
   etiket, birim, ölçü sayısı, parça ilerleyişi ve sert kesme.
@@ -1181,7 +1188,11 @@ Oluşturur ve düzenler.
   üstüne yazar, `sv_rename_scene` kimliği ya da şimdiki adıyla bulduğu sahneye `newName` adını verir,
   `sv_delete_scene` siler.
 - Katmanlar: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
-  `sv_remove_layer`, `sv_reorder_layers`. Bir katman tür, görselleştirici tipi, preset, opaklık,
+  `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `milkdrop` türüyle `sv_add_layer`
+  presetiyle hazır bir MilkDrop katmanı ekler (`presetId` ya da yerleşik bir MilkDrop 3 preseti);
+  ortak preseti gösteren başka bir katman varsa yenisi Bağımsız olur. `sv_duplicate_layer` paneldeki
+  Çoğalt gibi kaynağın hemen üstüne yeni kimlikli bir kopya koyar; kilitli katman kopyalanabilir,
+  kopya da kilitli kalır. Bir katman tür, görselleştirici tipi, preset, opaklık,
   harman, dönüşüm (x, y, ölçek, döndürme, çevirme), ses tepkisi, maske, solo, sessiz, kilit ve
   grup taşır. Katman efektleri efekt araçlarından gider. Katman eklemek ya da göstermek yığını
   açar.
@@ -1927,7 +1938,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4139 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4170 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

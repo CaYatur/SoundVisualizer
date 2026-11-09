@@ -1017,6 +1017,22 @@
     try { if (ctx.presets && ctx.presets.list) return ctx.presets.list() || []; } catch (e) { /* cold store */ }
     return [];
   }
+  /* Yerleşik MilkDrop presetleri (CaYaDev, gömülü paket dahil). Kullanıcı deposunda yoklar;
+     MCP onları ne listeleyebiliyor ne yükleyebiliyordu, panelde ise en üstte duruyorlar. */
+  let mdBuiltinCache = null;
+  function mdBuiltins() {
+    if (mdBuiltinCache) return mdBuiltinCache;
+    let list = (typeof window !== 'undefined' && window && window.SVMilkdropBuiltins) || null;
+    if (!list) { try { list = require('./presets-milkdrop.js'); } catch (e) { list = null; } }
+    mdBuiltinCache = Array.isArray(list) ? list : [];
+    return mdBuiltinCache;
+  }
+  function libraryPreset(ctx, id) {
+    let p = null;
+    try { p = ctx.presets && ctx.presets.get ? ctx.presets.get(id) : null; } catch (e) { p = null; }
+    if (p) return p;
+    return mdBuiltins().find(function (x) { return x && x.id === id; }) || null;
+  }
   /* Araç parametreleri (inputSchema). Eskiden her araç yalnız
      `{type:'object'}` bildiriyordu; istemci `id` mi `name` mi `patch` mi
      verileceğini tahmin ediyordu ve `engine` gibi alanlar yanlış yazılıyordu
@@ -1148,6 +1164,7 @@
         opacity: sp('number', 'Opacity.', { minimum: 0, maximum: 1 }),
         blend: sp('string', 'Blend mode (sv_list_modes blendModes).'),
         layer: sp('object', 'A whole layer object; the fields above override it.'),
+        presetId: sp('string', 'type milkdrop only: MilkDrop preset id (sv_list_presets). Default: a built-in MilkDrop 3 preset. If another layer already draws the shared preset, the new layer gets its own.'),
       },
     },
     sv_update_layer: {
@@ -1168,6 +1185,16 @@
     },
     sv_set_layer_settings: { props: Object.assign({}, LAYER_REF, { settings: sp('object', 'Settings to merge (layer type settings only; postfx is refused, use the LAYER effect tools).'), key: sp('string', 'One setting key, with value.'), value: ANY('Value for key.') }) },
     sv_remove_layer: { props: LAYER_REF },
+    sv_duplicate_layer: { props: Object.assign({}, LAYER_REF, { name: sp('string', 'Name for the copy. Default: source name + " (copy)".') }) },
+    sv_lyrics_library: {
+      props: {
+        action: sp('string', 'list (default), search or get.', { enum: ['list', 'search', 'get'] }),
+        query: sp('string', 'search: text matched against name, artist and title.'),
+        id: sp('string', 'get: item id from list or search.'),
+        limit: sp('number', 'list/search: at most this many items (default 100).', { minimum: 1, maximum: 500 }),
+        maxChars: sp('number', 'get: cut the text after this many characters (default 20000).', { minimum: 100, maximum: 200000 }),
+      },
+    },
     sv_reorder_layers: { props: { ids: sp('array', 'Layer ids in the new order; missing ones keep their order after these.', { items: { type: 'string' } }) }, required: ['ids'] },
     sv_set_text: { props: PATCH('the text overlay (sv_get_config path text)'), required: ['patch'] },
     sv_set_logo: { props: PATCH('the logo (sv_get_config path logo)'), required: ['patch'] },
@@ -1197,7 +1224,7 @@
       required: ['source', 'target'],
     },
     sv_remove_modulation_route: { props: { id: sp('string', 'Route id.'), index: sp('integer', 'Route index, used when id is not given.', { minimum: 0 }) } },
-    sv_load_preset: { props: { id: sp('string', 'Library preset id from sv_list_presets.') }, required: ['id'] },
+    sv_load_preset: { props: { id: sp('string', 'Library preset id from sv_list_presets.'), layerId: sp('string', 'Optional MilkDrop layer id. A layer with its own preset gets it; a shared MilkDrop layer changes the shared pick. Other layers are refused.') }, required: ['id'] },
     sv_apply_color_preset: { props: { id: sp('string', 'Color preset id.'), name: sp('string', 'Color preset name, used when id is not given.') } },
     sv_set_milkdrop_cycle: {
       props: {
@@ -1417,6 +1444,36 @@
     if (!found) return fail('Layer not found.');
     return { ok: true, layer: publicLayer(found.layer, found.index) };
   });
+  /* SÖZ KÜTÜPHANESİ (yalnız okuma). Panelde kütüphane yalnız Windows'ta (sistem medya
+     oturumu parçayı orada veriyor); MCP de aynı sınırda, başka sistemde açık bir hata döner. */
+  const LYRICS_TEXT_MAX = 20000;
+  tool('sv_lyrics_library', null, 'Read the lyrics library (Windows only): action list, search (query matches name, artist, title) or get (id, returns the text). Read-only.', function (args, ctx) {
+    const plat = ctx && ctx.platform ? String(ctx.platform) : (typeof process !== 'undefined' ? process.platform : '');
+    if (plat !== 'win32') return fail('The lyrics library is only available on Windows (it follows the Windows media session). This system is ' + (plat || 'unknown') + '.');
+    const lib = ctx && ctx.lyricsLibrary;
+    if (!lib || !lib.list) return fail('Lyrics library is not available.');
+    const action = args && args.action ? String(args.action) : 'list';
+    if (action === 'get') {
+      if (!args || !args.id) return fail('id is required for get.');
+      const one = lib.read ? lib.read(String(args.id)) : null;
+      if (!one) return fail('Lyrics item not found or unreadable: ' + args.id + '. Use action list.');
+      const max = Math.max(100, Math.min(200000, Number(args.maxChars) || LYRICS_TEXT_MAX));
+      const text = String(one.text || '');
+      return { ok: true, item: { id: one.id, name: one.name, artist: one.artist, title: one.title }, text: text.slice(0, max), truncated: text.length > max, length: text.length };
+    }
+    if (action !== 'list' && action !== 'search') return fail('action must be list, search or get.');
+    let items = [];
+    try { items = lib.list() || []; } catch (e) { return fail('Lyrics library could not be read.'); }
+    if (action === 'search') {
+      const q = String((args && args.query) || '').trim().toLocaleLowerCase();
+      if (!q) return fail('query is required for search.');
+      items = items.filter(function (it) {
+        return [it.name, it.artist, it.title].some(function (v) { return String(v || '').toLocaleLowerCase().indexOf(q) >= 0; });
+      });
+    }
+    const limit = Math.max(1, Math.min(500, Number(args && args.limit) || 100));
+    return { ok: true, total: items.length, items: items.slice(0, limit), truncated: items.length > limit };
+  });
   tool('sv_list_effects', null, 'List global and per-layer effects plus the built-in type catalog. Read-only.', function (args, ctx) {
     const cfg = configOf(ctx);
     return {
@@ -1452,7 +1509,8 @@
     const cfg = configOf(ctx);
     return {
       ok: true,
-      library: presetRecords(ctx).map(function (p) { return { id: p.id, name: p.name || '', kind: p.kind || '' }; }),
+      library: presetRecords(ctx).map(function (p) { return { id: p.id, name: p.name || '', kind: p.kind || '' }; })
+        .concat(mdBuiltins().map(function (p) { return { id: p.id, name: p.name || '', kind: 'milkdrop', builtin: true, md3: !!p.md3 }; })),
       colors: (cfg.userPresets || []).map(function (p) { return { id: p.id, name: p.name || '', colors: p.colors || [] }; }),
     };
   });
@@ -2111,7 +2169,7 @@
       return { deleted: found.scene.id };
     });
   });
-  tool('sv_add_layer', 'sceneEdit', 'Add a layer and turn the layer stack on. Authoring.', function (args, ctx) {
+  tool('sv_add_layer', 'sceneEdit', 'Add a layer and turn the layer stack on. type milkdrop adds a ready MilkDrop layer with a preset (presetId or a built-in default). Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const list = ensureLayers(cfg);
       const raw = Object.assign({}, (args && args.layer) || {});
@@ -2131,9 +2189,30 @@
         raw.transform = t.value;
       }
       if (raw.opacity !== undefined) raw.opacity = Math.max(0, Math.min(1, raw.opacity));
+      const L = layersApi();
+      const isMd = kind === 'visualizer' && raw.type === 'milkdrop';
+      let mdPreset = null;
+      if (args && args.presetId != null && args.presetId !== '' && !isMd) return fail('presetId is only used with type milkdrop.');
+      if (isMd && !(raw.settings && raw.settings.milkdrop)) {
+        const pid = args && args.presetId ? String(args.presetId) : (L && L.MD_DEFAULT_PRESET) || '';
+        mdPreset = pid ? libraryPreset(ctx, pid) : null;
+        if (args && args.presetId && !mdPreset) return fail('Preset not found: ' + args.presetId + '. Use sv_list_presets (kind milkdrop).');
+        if (mdPreset && mdPreset.kind && mdPreset.kind !== 'milkdrop') return fail('Preset "' + mdPreset.id + '" is not a MilkDrop preset.');
+      }
       const layer = normalizeLayer(layerStart(raw));
+      /* MilkDrop katmanı panelin "MilkDrop" kartıyla aynı: ortak preseti çizen başka katman
+         varsa kendi preseti olur, yoksa boş ortak seçim gömülü paketten bir presetle dolar. */
+      if (mdPreset && L && L.makeMilkdropLayer) {
+        const made = L.makeMilkdropLayer(cfg, { preset: mdPreset });
+        if (made.settings && made.settings.milkdrop) layer.settings = Object.assign({}, layer.settings, { milkdrop: made.settings.milkdrop });
+      }
       list.push(layer);
-      return { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
+      const out = { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
+      if (isMd) {
+        const own = !!(layer.settings && layer.settings.milkdrop && layer.settings.milkdrop.independent);
+        out.milkdrop = { presetId: own ? layer.settings.milkdrop.presetId : ((cfg.milkdrop && cfg.milkdrop.presetId) || ''), own: own };
+      }
+      return out;
     });
   });
   tool('sv_update_layer', 'sceneEdit', 'Change layer name, type, opacity, blend, transform, or settings. Does not add effects. Authoring.', function (args, ctx) {
@@ -2227,6 +2306,26 @@
       if (found.layer.locked) return fail(lockedError(found.layer));
       found.list.splice(found.index, 1);
       return { removed: found.layer.id, visual: visualState(cfg, ctx) };
+    });
+  });
+  /* ÇOĞALT: paneldeki "Çoğalt" düğmesiyle aynı. Kopya kaynağın hemen üstüne girer, yeni
+     kimlik alır, solo kapanır. Kaynak değişmediği için kilitli katman da çoğaltılabilir;
+     kopya kilidi korur (aynı korumayla başlar). Yazma izni sv_add_layer ile aynı. */
+  tool('sv_duplicate_layer', 'sceneEdit', 'Duplicate a layer right above it with a new id (like the panel Duplicate button). Locked layers can be copied; the copy keeps the lock. Authoring.', function (args, ctx) {
+    return withConfig(ctx, function (cfg) {
+      const found = findLayer(cfg, args);
+      if (!found) return fail('Layer not found. Use sv_list_layers to get layer ids.');
+      const L = layersApi();
+      const copy = clone(found.layer);
+      copy.id = null;
+      copy.solo = false;
+      const loc = ctx && ctx.locale ? String(ctx.locale() || '') : '';
+      copy.name = args && args.name ? String(args.name) : (found.layer.name || found.layer.kind || 'Layer') + (/^tr/i.test(loc) ? ' (kopya)' : ' (copy)');
+      const made = L && L.normalizeLayer ? L.normalizeLayer(copy) : copy;
+      if (!made.id) made.id = L && L.newLayerId ? L.newLayerId() : 'ly_' + Date.now().toString(36);
+      found.list.splice(found.index + 1, 0, made);
+      ensureLayers(cfg);
+      return { sourceId: found.layer.id, layer: publicLayer(made, found.index + 1), locked: !!made.locked };
     });
   });
   tool('sv_reorder_layers', 'sceneEdit', 'Reorder layers by id list. Authoring.', function (args, ctx) {
@@ -2443,18 +2542,48 @@
     });
   });
 
-  tool('sv_load_preset', 'presetApply', 'Load an existing library preset into MilkDrop. Does not write a new preset file.', function (args, ctx) {
+  tool('sv_load_preset', 'presetApply', 'Load an existing MilkDrop library preset. Without layerId it becomes the shared MilkDrop pick; layerId targets one MilkDrop layer and refuses other or locked layers. Does not write a new preset file.', function (args, ctx) {
     if (!args || !args.id) return fail('id is required.');
-    if (!ctx.presets || !ctx.presets.get) return fail('Preset store is not available.');
-    const preset = ctx.presets.get(args.id);
+    const preset = libraryPreset(ctx, args.id);
     if (!preset) return fail('Preset not found: ' + args.id);
+    if (preset.kind && preset.kind !== 'milkdrop') return fail('Preset "' + preset.id + '" is a ' + preset.kind + ' preset, not MilkDrop. Show it with sv_set_visualizer_type or sv_set_background_type (type custom, presetId).');
     return withConfig(ctx, function (cfg) {
+      /* MILKDROP HEDEFİ (layers.js milkdropTarget), paneldeki kuralla aynı. layerId bir
+         MilkDrop katmanı olmalı: bağımsızsa preset o katmana, değilse ortak seçime yazılır.
+         Başka türden, kilitli ya da bilinmeyen katmanda hiçbir şey yazılmaz. layerId yoksa
+         ortak seçim değişir; ekranda onu çizen katman yoksa sonuç bunu söyler. */
+      const L = layersApi();
+      const src = typeof preset.source === 'string' ? preset.source : null;
+      const id = args.layerId != null && args.layerId !== '' ? String(args.layerId) : '';
+      if (id && L && L.milkdropTarget) {
+        const r = L.milkdropTarget(cfg, { layerId: id, legacy: false });
+        if (r.error === 'NOT_FOUND') return fail('Layer "' + id + '" not found. Use sv_list_layers to get layer ids.');
+        if (r.error === 'LOCKED') return fail('Layer "' + id + '" is locked; nothing was changed. Unlock it first (sv_update_layer with locked:false).');
+        if (r.error) {
+          return fail('Layer "' + id + '" is a ' + (r.layer.kind === 'visualizer' ? r.layer.type + ' visualizer' : r.layer.kind) + ' layer, not MilkDrop, so nothing was changed.'
+            + (r.convertible ? ' Switch it first with sv_set_visualizer_type type milkdrop, or add one with sv_add_layer type milkdrop.' : ' Pass a MilkDrop layer id, or add one with sv_add_layer type milkdrop.'));
+        }
+        if (L.isOwnMilkdrop(r.layer)) {
+          r.layer.settings.milkdrop = Object.assign({}, r.layer.settings.milkdrop, {
+            presetId: preset.id, name: preset.name || '', source: src != null ? src : (r.layer.settings.milkdrop.source || ''),
+          });
+          return { presetId: preset.id, name: preset.name || '', kind: preset.kind || '', layerId: r.layer.id, target: 'layer' };
+        }
+      }
       cfg.milkdrop = Object.assign({}, cfg.milkdrop, {
         presetId: preset.id,
         name: preset.name || '',
-        source: typeof preset.source === 'string' ? preset.source : ((cfg.milkdrop && cfg.milkdrop.source) || ''),
+        source: src != null ? src : ((cfg.milkdrop && cfg.milkdrop.source) || ''),
       });
-      return { presetId: preset.id, name: preset.name || '', kind: preset.kind || '' };
+      const out = { presetId: preset.id, name: preset.name || '', kind: preset.kind || '', target: 'shared' };
+      const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+      const stackOn = !!(cfg.layerStack && cfg.layerStack.enabled !== false && list.length);
+      const drawn = list.filter(function (l) { return l && l.kind === 'visualizer' && l.type === 'milkdrop' && !(L && L.isOwnMilkdrop && L.isOwnMilkdrop(l)); });
+      if (stackOn) {
+        out.shownOn = drawn.map(function (l) { return l.id; });
+        if (!drawn.length) out.warning = 'No layer draws the shared MilkDrop preset, so nothing changes on screen. Add one with sv_add_layer (type milkdrop) or switch a visualizer layer with sv_set_visualizer_type.';
+      }
+      return out;
     });
   });
   tool('sv_apply_color_preset', 'presetApply', 'Apply an existing user or built-in color preset. Does not create one.', function (args, ctx) {

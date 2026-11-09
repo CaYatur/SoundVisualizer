@@ -202,8 +202,8 @@ test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
   assert.match(PANEL, /icon: 'chevron-left', text: 'Önceki', onclick: back \}/);
   assert.match(PANEL, /text: 'Sonraki', onclick: forward \}, \[el\('span', \{ class: 'svi-after', icon: 'chevron-right' \}\)\]/);
   // Düğmeler ve denetleyici eylemleri aynı işlevlerden geçiyor (#570)
-  assert.match(PANEL, /const back = \(\) => navBack\(cfg, md\);/);
-  assert.match(PANEL, /const forward = \(\) => navForward\(cfg, md\);/);
+  assert.match(PANEL, /const back = \(\) => \{ if \(uiPickOk\(cfg\)\) navBack\(cfg, md\); \};/);
+  assert.match(PANEL, /const forward = \(\) => \{ if \(uiPickOk\(cfg\)\) navForward\(cfg, md\); \};/);
   assert.match(PANEL, /function navBack\(cfg, md\) \{[\s\S]*?h\.back\(\)[\s\S]*?stepList\(cfg, md, -1\);/);
   assert.match(PANEL, /function navForward\(cfg, md, cut\) \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(cfg, md\)[\s\S]*?stepList\(cfg, md, 1, cut\);/);
   // Liste adımı ekrandakine göre, ayardaki elle seçime göre değil
@@ -211,7 +211,7 @@ test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
 });
 
 test('panel: 🎲 ve ▶ motorla AYNI kuralla seçiyor', () => {
-  assert.match(PANEL, /onclick: \(\) => go\(cfg, randomPick\(cfg, md\)\)/);
+  assert.match(PANEL, /onclick: \(\) => \{ if \(uiPickOk\(cfg\)\) go\(cfg, randomPick\(cfg, md\)\); \}/);
   assert.match(PANEL, /function randomPick\(cfg, md\) \{[\s\S]*?C\.pick\(presets, tl \? layerLiveId\(tl\) : liveId\(md\), 'random', Math\.random, w\)/);
   assert.match(PANEL, /md\.useRatings === false \? null : \(p\) => C\.ratingOf\(p, ratings\)/);
 });

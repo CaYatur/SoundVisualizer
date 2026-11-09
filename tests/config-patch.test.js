@@ -42,6 +42,7 @@ function panel(cfg) {
     const HEAVY_KEYS = { scenes: 1, milkdropLibrary: 1, userPresets: 1 };
     const FULL_AFTER_MS = 700;
     let sentSig = null; let fullTimer = null; let heavySent = null;
+    const sendStats = { full: 0, patch: 0, preview: 0 }; let lastOutSig = null; let pendingOutSig = null;
     const isBlackedOut = () => env.blacked;
     let cfg = env.cfg;
     ${src}
