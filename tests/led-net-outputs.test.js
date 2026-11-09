@@ -292,3 +292,43 @@ test('çeviri: panel metinlerinin İngilizcesi var', () => {
     assert.ok(i18n.includes("'" + k + "':"), k);
   }
 });
+
+
+test('UDP sender: stop during pending bind cannot reopen a disabled output', async () => {
+  const { createSender } = require('../src/main/udp-sender');
+  const sender = createSender('cancel-bind');
+  const opening = sender.start({ host: '127.0.0.1' });
+  const stopped = sender.stop();
+  await Promise.all([opening, stopped]);
+  assert.strictEqual(sender.running(), false);
+  assert.strictEqual(sender.status().running, false);
+  assert.strictEqual(sender.send(Buffer.from([0]), 9, '127.0.0.1'), false);
+  await sender.stop();
+});
+
+test('UDP sender: canceled bind cannot replace a subsequent enabled socket', async () => {
+  const { createSender } = require('../src/main/udp-sender');
+  const sender = createSender('restart-bind');
+  const first = sender.start({ host: '127.0.0.1' });
+  const stopped = sender.stop();
+  const second = sender.start({ host: '127.0.0.2' });
+  try {
+    await Promise.all([first, stopped, second]);
+    assert.strictEqual(sender.running(), true);
+    assert.strictEqual(sender.status().host, '127.0.0.2');
+  } finally { await sender.stop(); }
+  assert.strictEqual(sender.running(), false);
+});
+
+
+test('sACN: delayed termination cannot shut down a newly enabled stream', async () => {
+  const cfg = { enabled: true, host: '127.0.0.1', port: 5568, universe: 1 };
+  try {
+    await sacn.start(cfg);
+    const stopping = sacn.stop(cfg);
+    await sacn.start(cfg);
+    await stopping;
+    assert.strictEqual(sacn.status().running, true);
+  } finally { await sacn.stop(); }
+  assert.strictEqual(sacn.status().running, false);
+});

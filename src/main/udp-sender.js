@@ -19,43 +19,67 @@ function createSender(name) {
   let lastAt = 0;
   let st = { running: false, error: null, host: '', packets: 0, lastSend: 0 };
 
+  let generation = 0;
+  let pendingSocket = null;
+
   function start(opts) {
     const o = opts || {};
+    if (opening) return opening;
     if (socket) {
       st.host = o.host || st.host;
       return Promise.resolve(status());
     }
-    if (opening) return opening;
-    opening = new Promise((resolve) => {
-      const s = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    const gen = ++generation;
+    const s = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    pendingSocket = s;
+    // Bağlanma tamamlanmadan Durdur gelirse de start sözü çözülmeli.
+    const promise = new Promise((resolve) => {
+      s.once('close', () => resolve(status()));
       s.on('error', (err) => {
-        st.error = (err && (err.code || err.message)) || 'error';
-        st.running = false;
+        if (gen === generation) {
+          st.error = (err && (err.code || err.message)) || 'error';
+          st.running = false;
+          if (socket === s) socket = null;
+          if (pendingSocket === s) pendingSocket = null;
+          opening = null;
+        }
         try { s.close(); } catch { /* zaten kapalı */ }
-        if (socket === s) socket = null;
-        opening = null;
         resolve(status());
       });
       s.bind(0, () => {
+        if (gen !== generation) {
+          try { s.close(); } catch { /* durduruldu */ }
+          resolve(status());
+          return;
+        }
         try { s.setBroadcast(true); } catch { /* izin yoksa tek adrese gönderilir */ }
         if (o.multicastTtl) { try { s.setMulticastTTL(o.multicastTtl | 0); } catch { /* */ } }
         socket = s;
+        pendingSocket = null;
         opening = null;
+        lastAt = 0;
         st = { running: true, error: null, host: o.host || '', packets: 0, lastSend: 0 };
         resolve(status());
       });
     });
-    return opening;
+    opening = promise;
+    return promise;
   }
 
   function stop() {
+    generation++;
+    const s = socket || pendingSocket;
+    socket = null;
+    pendingSocket = null;
+    opening = null;
+    st.running = false;
+    if (!s) return Promise.resolve();
     return new Promise((resolve) => {
-      st.running = false;
-      if (!socket) { resolve(); return; }
-      const s = socket;
-      socket = null;
-      try { s.close(() => resolve()); } catch { resolve(); }
-      setTimeout(resolve, 200);
+      // Yeni başlatmanın durumu eski kapanış geri çağrısınca değişmez.
+      const timer = setTimeout(resolve, 200);
+      if (timer.unref) timer.unref();
+      s.once('close', () => { clearTimeout(timer); resolve(); });
+      try { s.close(); } catch { clearTimeout(timer); resolve(); }
     });
   }
 

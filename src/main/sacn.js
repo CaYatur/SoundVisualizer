@@ -26,6 +26,7 @@ const CID = crypto.randomBytes(16); // süreç başına sabit kaynak kimliği
 
 const sender = createSender('sacn');
 let sequence = 0;
+let lifecycle = 0;
 
 function clampUniverse(u) {
   const n = u | 0;
@@ -105,14 +106,19 @@ function parsePacket(buf) {
 function start(cfg) {
   const c = cfg || {};
   if (!c.enabled) return stop().then(() => status());
+  lifecycle++;
   return sender.start({ host: targetHost(c), multicastTtl: 4 }).then(() => status());
 }
 
 /* Kapanışta alıcılar beklemesin: üç kez "akış bitti" paketi (E1.31 6.2.6). */
 function stop(cfg) {
+  const gen = ++lifecycle;
   if (cfg && sender.running()) {
     const pkt = buildPacket(cfg, Buffer.alloc(0), { terminated: true });
-    return sender.flush([pkt, pkt, pkt], cfg.port | 0 || SACN_PORT, targetHost(cfg)).then(() => sender.stop());
+    return sender.flush([pkt, pkt, pkt], cfg.port | 0 || SACN_PORT, targetHost(cfg)).then(() => {
+      // Eski kapanış paketlerini beklerken çıkış yeniden açılmış olabilir.
+      if (gen === lifecycle) return sender.stop();
+    });
   }
   return sender.stop();
 }
