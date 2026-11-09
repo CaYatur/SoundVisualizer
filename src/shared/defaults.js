@@ -1346,6 +1346,7 @@
       enabled: false,
       mode: 'read',
       port: 38471,
+      httpApi: false, // belgeli HTTP API (/api/v1, OpenAPI); MCP ile aynı jeton ve izin
     },
 
     /* Yedeklilik (#540). Kurulum ayarı: makineye özgü, aktarılmaz.
