@@ -215,11 +215,12 @@ test('ortak seçim barları MilkDrop\'a çevirmiyor: ortak katman zaten varsa on
   assert.strictEqual(cfg.milkdrop.presetId, 'u_beta');
 });
 
-test('MilkDrop katmanı yokken tek görselleştirici çevriliyor, bağımsız katmana dokunulmuyor', async () => {
+test('MilkDrop katmanı yokken (eski kip) tek görselleştirici çevriliyor, bağımsız katmana dokunulmuyor', async () => {
   const bars = { id: 'v', name: 'Barlar', kind: 'visualizer', type: 'bars', enabled: true, settings: {} };
   const own = mdLayer('o', 'Kendi');
   own.settings.milkdrop = { independent: true, presetId: 'u_beta', name: 'Beta', source: 'x' };
   const { M, cfg } = await fresh([own, bars]);
+  cfg.ui = Object.assign({}, cfg.ui, { modeTargetAuto: true });
   M.pointStackAtMilkdrop(cfg);
   assert.strictEqual(bars.type, 'milkdrop');
   assert.strictEqual(own.settings.milkdrop.presetId, 'u_beta');

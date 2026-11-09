@@ -665,34 +665,66 @@
     if (m.autoOrder == null) m.autoOrder = md.autoOrder === 'random' ? 'random' : 'sequential';
   }
 
-  function pointStackAtMilkdrop(cfg) {
-    if (!Array.isArray(cfg.layers) || !cfg.layers.length) return;
-    const vis = cfg.layers.filter(
-      (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0 && !isOwnLayer(l));
-    /* Ortak seçimi çizen bir MilkDrop katmanı zaten varsa başka katmana
-       dokunulmuyor: [barlar, MilkDrop] kurulumunda barlar da MilkDrop'a dönüyordu. */
-    const already = vis.find((l) => l.type === 'milkdrop');
-    if (already) {
-      already.enabled = true;
-      already.muted = false;
-      return;
-    }
-    if (vis.length) {
-      /* Birden çok görselleştirici katmanı varsa yalnız ilki çevriliyor:
-         hepsini çevirmek kullanıcının kurduğu kompozisyonu tek tıkla yok
-         ederdi. */
-      vis[0].type = 'milkdrop';
-      if (vis[0].settings && vis[0].settings.visualizer) {
-        vis[0].settings.visualizer.type = 'milkdrop';
+  /* Ortak seçimin görüneceği katman (layers.js milkdropTarget). Seçimsiz yüklemede
+     ortak preseti çizen katman açılır; yoksa katı kipte yeni bir MilkDrop katmanı
+     eklenir, eski kipte (Modu Uygun Katmana Yönlendir) ilk kilitsiz görselleştirici
+     çevrilir. `opts.layerId` verilirse yalnız o katman: uymuyorsa neden döner, hiçbir
+     şey yazılmaz. Metin ve "şimdi çalan" katmanları hiçbir kipte çevrilmez. */
+  function pointStackAtMilkdrop(cfg, opts) {
+    if (!Array.isArray(cfg.layers) || !cfg.layers.length) return { classic: true };
+    const L = window.SVLayers;
+    if (!L || !L.milkdropTarget) return { classic: true };
+    const r = L.milkdropTarget(cfg, { layerId: opts && opts.layerId });
+    if (r.error) return r;
+    if (r.layer) {
+      if (r.convert) L.setLayerMode(cfg, r.layer, { type: 'milkdrop' });
+      if (!r.layer.locked) {
+        r.layer.enabled = true;
+        r.layer.muted = false;
       }
-      vis[0].enabled = true;
-      vis[0].muted = false;
-      return;
+      return r;
     }
-    cfg.layers.push({
-      id: 'ly_vis_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop',
-      enabled: true, settings: {},
-    });
+    const taken = new Set(cfg.layers.map((l) => l && l.id));
+    let id = 'ly_vis_md';
+    for (let n = 2; taken.has(id); n++) id = 'ly_vis_md_' + n;
+    const made = L.normalizeLayer({ id, name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} });
+    cfg.layers.push(made);
+    return { layer: made, created: true };
+  }
+
+  /* SEÇİM KORUMASI. Sahne sayfasında seçili katman MilkDrop değilse (ya da kilitliyse)
+     paneldeki liste, ◀ ▶, Rastgele ve Varsayılana Dön hiçbir şey yazmaz; neden uyarı olarak
+     görünür. Raf zaten kilit kartıyla örtülü, bu kodun kendi emniyeti (raf dışından gelen
+     tıklama, klavye). Bağımsız katmanın seçimi (pickTarget) o katmana gider, korumaya
+     takılmaz. MIDI / OSC / gösteri adımları seçime bağlı değil: sahnedeki seçim bir
+     düzenleme bağlamı, canlı denetleyiciyi kilitlememeli (pointStackAtMilkdrop yine
+     yalnız MilkDrop katmanına yazar). */
+  function pickBlocked(cfg) {
+    const L = window.SVLayers;
+    const S = window.SVSceneShell;
+    if (!L || !L.milkdropTarget || !S || !S.selected) return null;
+    if (pickTarget(cfg)) return null;
+    const sel = S.selected();
+    if (!sel) return null;
+    const r = L.milkdropTarget(cfg, { layerId: sel.id });
+    return r.error ? r : null;
+  }
+  function guardText(r) {
+    if (r.error === 'LOCKED') return 'Seçili katman kilitli; önce kilidini açın.';
+    if (r.error === 'NOT_FOUND') return 'Seçili katman bulunamadı.';
+    return 'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.';
+  }
+  // Rafta vurgulanacak preset: seçimin gittiği yer (bağımsız katman ya da ortak seçim)
+  function currentPick(cfg) {
+    const c = cfg || P().cfg();
+    const t = pickTarget(c);
+    return t ? (t.settings.milkdrop.presetId || '') : ((c.milkdrop && c.milkdrop.presetId) || '');
+  }
+  function uiPickOk(cfg) {
+    const r = pickBlocked(cfg);
+    if (!r) return true;
+    if (P() && P().toast) P().toast(tr(guardText(r)), 'warn');
+    return false;
   }
 
   function load(cfg, p) {
@@ -704,7 +736,7 @@
     control(cfg).cutTo = '';
     // Sahne MilkDrop motoruna geçsin, yoksa yükleme görünmez olur
     cfg.visualizer.type = 'milkdrop';
-    pointStackAtMilkdrop(cfg);
+    return pointStackAtMilkdrop(cfg);
   }
 
   const CY = () => window.SVMilkdropCycle;
@@ -1675,7 +1707,7 @@
       }),
       el('button', {
         class: 'btn ghost', type: 'button', text: 'Varsayılana Dön',
-        onclick: () => { load(cfg, null); rerender(); },
+        onclick: () => { if (!uiPickOk(cfg)) return; load(cfg, null); rerender(); },
       }),
     ]));
     // Paket (#576): favori, etiket ve puanlar presetlerle birlikte
@@ -1886,10 +1918,13 @@
       keepScroll(); keepView = true;
       list.querySelectorAll('.md-cell.active, .md-item.active').forEach((n) => n.classList.remove('active'));
       list.querySelectorAll('[data-id]').forEach((n) => { if (n.dataset.id === p.id && !n.classList.contains('md-thumb-box')) n.classList.add('active'); });
+      if (!uiPickOk(cfg)) return;
       loadWithText(cfg, p, () => rerender());
     };
     const makeItem = (p) => {
-      const active = (target ? target.settings.milkdrop.presetId : md.presetId) === p.id;
+      /* Etkin işaret o anki seçimden: raf preset değişince yeniden kurulmuyor, pencereli
+         listede kaydırmayla sonradan çizilen satır da güncel olsun (scene-shell syncShelf). */
+      const active = currentPick(cfg) === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
       const favBtn = LBn ? el('button', {
@@ -1976,8 +2011,8 @@
     // Gezinme ve otomatik geçiş
     if (presets.length > 1) {
       // Düğmeler ve denetleyici eylemleri aynı yoldan (bkz. `act`)
-      const back = () => navBack(cfg, md);
-      const forward = () => navForward(cfg, md);
+      const back = () => { if (uiPickOk(cfg)) navBack(cfg, md); };
+      const forward = () => { if (uiPickOk(cfg)) navForward(cfg, md); };
       /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
@@ -1987,7 +2022,7 @@
         el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki', onclick: forward }, [el('span', { class: 'svi-after', icon: 'chevron-right' })]),
         el('button', {
           class: 'btn ghost', type: 'button', icon: 'dice', text: 'Rastgele',
-          onclick: () => go(cfg, randomPick(cfg, md)),
+          onclick: () => { if (uiPickOk(cfg)) go(cfg, randomPick(cfg, md)); },
         }),
         el('button', {
           id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
@@ -2184,7 +2219,7 @@
      arıyor: geçmişteki bir karışım süzgeç değişse de geri getirilebilsin. */
   const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
-    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
+    panel, init, refresh, load, pointStackAtMilkdrop, pickBlocked, uiPickOk, currentPick, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
     isOwnLayer, setLayerOwn, setLayerAuto, setPart, thumbFor, pickFor: (id) => { pickFor = id || ''; },
   };

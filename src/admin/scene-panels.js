@@ -698,6 +698,39 @@
     },
   ];
 
+  /* HAZIR MILKDROP KATMANI. Eskiden MilkDrop için önce Görselleştirici eklenip türü
+     değiştiriliyor, sonra raftan preset seçiliyordu. Kart katmanı MilkDrop kipinde ve gömülü
+     paketten bir MilkDrop 3 presetiyle ekliyor (layers.js makeMilkdropLayer: ortak preseti
+     çizen başka katman varsa yeni katman kendi presetini alır), seçiyor ve MilkDrop rafını
+     açıyor. */
+  function milkdropPreset(id) {
+    const MP = window.SVMilkdropPanel;
+    const hit = MP && MP.presetById ? MP.presetById(id) : null;
+    if (hit && typeof hit.source === 'string') return hit;
+    const pack = (window.SVMilkdropBuiltins || window.SVMilkdropPack || []);
+    return pack.find((p) => p && p.id === id) || hit || null;
+  }
+  function addMilkdropLayer(cfg, list) {
+    const L = window.SVLayers;
+    const made = L.makeMilkdropLayer(cfg, { preset: milkdropPreset(L.MD_DEFAULT_PRESET), name: 'MilkDrop' });
+    seedFactoryVisualizer(made);
+    list.push(made);
+    return made;
+  }
+  function milkdropAddButton(cfg, list, openNew, rerender) {
+    return P().el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'plus', text: 'MilkDrop', 'data-add': 'milkdrop',
+      onclick: () => {
+        const made = addMilkdropLayer(cfg, list);
+        const MP = window.SVMilkdropPanel;
+        if (MP && MP.pickFor) MP.pickFor(made.settings && made.settings.milkdrop ? made.id : '');
+        openNew(made);
+        if (window.SVSceneShell && window.SVSceneShell.setShelf) window.SVSceneShell.setShelf('milkdrop');
+        rerender();
+      },
+    });
+  }
+
   const BLEND_LABELS = [
     ['normal', 'Normal'], ['add', 'Toplama'], ['screen', 'Ekran\u200B'], ['multiply', 'Çarpma'],
     ['overlay', 'Kaplama'], ['darken', 'Koyulaştır'], ['lighten', 'Açıklaştır'],
@@ -2830,6 +2863,7 @@
           },
         })
       );
+      if (kind === 'visualizer') addRow.appendChild(milkdropAddButton(cfg, list, openNew, rerender));
     });
     TEXT_ADD_PRESETS.forEach((preset) => {
       addRow.appendChild(
@@ -3147,6 +3181,6 @@
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
     isWindows: isWindowsPlatform, parseClock, formatClock,
-    sourceStatusText, layerSummary, layerFields, openLayerTab, LAYER_KIND_LABELS, typeOptionsFor,
+    sourceStatusText, layerSummary, layerFields, openLayerTab, LAYER_KIND_LABELS, typeOptionsFor, addMilkdropLayer,
   };
 })();
