@@ -256,6 +256,18 @@
     return !!(C && C.modeOn(P().cfg()));
   }
   function afterTimelineEdit() {
+    /* Cue taşındı/silindi/geri alındıysa çıpada eski zaman kalmasın.
+       Bekleme işareti olmayan eski çizelgede çıpaya hiç dokunulmaz. */
+    if (clockAnchor && clockAnchor.playing && window.SVShowClock && TL().holdAfter) {
+      const tr = syncTransportFromAnchor();
+      const markers = tr.tl.markers || [];
+      const stillHeld = markers.some((m) => m.hold === true && m.t === clockAnchor.hold);
+      if (!(stillHeld && holdAtCue(tr))) {
+        const hold = TL().holdAfter(markers, tr.time);
+        const next = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop, hold ? hold.t : null);
+        if (clockAnchor.hold !== next.hold) { clockAnchor = next; pushAnchor(true); }
+      }
+    }
     /* Mod açıkken bileşim çıkışta her karede yeniden hesaplanıyor; burada
        canlı yapılandırmaya yazılacak bir şey yok. Kapalıyken çizelge elle
        ayara hiç dokunmaz. Yalnız eylem kenar durumu sıfırlanır. */
