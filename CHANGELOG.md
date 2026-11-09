@@ -7,6 +7,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **Modes only change the layer you selected.** With a background layer selected, picking a visual mode used to switch the topmost visualizer layer instead (and the MilkDrop shelf converted the first visualizer). Shelves that don't fit the selected layer now stay visible behind a lock scrim with the reason and a way out (go to the matching shelf, clear the selection, or convert the layer to MilkDrop); with nothing selected a mode adds a new layer, as the shelf line already said. **Settings → Redirect Modes to a Matching Layer** (off by default) brings back the old behaviour. `tests/mode-target.test.js`.
+- **Converting a layer to lyrics opens the lyrics library.** Switching a text layer's source to lyrics on Windows now starts with "Follow the playing track" on (like the ready-made Lyrics layer) and jumps the inspector to the Lyrics Library tab instead of leaving it at the end of the tab strip. 3D Geometry and Feedback layers no longer show Color Mode / Color / Glow controls those engines never read. A table test walks every visualizer and background mode. `tests/layer-mode-sections.test.js`.
+- **Timeline editing is smooth.** Every page render rebuilt the whole timeline (canvas, toolbar, inspector), and a stale or non-editable selection (after undo or removing the selected clip) re-entered the clip target and asked for another full render: 46–52 rebuilds per 500 ms, the flicker and jumping. The panel is now reused when its structure is the same (only the heads and inspector refresh, scroll, caret and selection stay), and a selection that can't be a clip target no longer re-renders the page. `tests/timeline-panel-reuse.test.js`.
+- **Layout editor keeps its view.** The preview stage was `overflow: hidden`, which browsers can scroll: focusing a box dragged outside the frame (Tab, the element list) scrolled the stage, so half the picture disappeared and the preview stayed shifted after closing. The stage now clips without scrolling, the view only changes from **Fit Frame / Show Surroundings**, and boxes outside the frame stay visible and grabbable. Every placeable layer is listed, including hidden, muted, not-drawn and locked ones (marked), instead of only what the renderer drew at that moment; dragging and arrow keys keep a 24 px piece inside the frame, locked layers don't move, and **Bring Into Frame** pulls a stray element back. `tests/layout-editor-viewport.test.js`.
+- **The preview's aspect-ratio picker lines up with the icon buttons.** The global `select` margin pushed it 3.5 px down and the native arrow looked oversized; it now matches the buttons' height, colour and baseline.
+
 - **Timeline right-click menus are fully English again.** Empty-track, clip, marker and automation menus still used Turkish for several lines and for the “Double-click” badge; those strings now go through the i18n table, and `tests/timeline-context-i18n.test.js` checks them. Composed “Transition type/ease: …” rows translate each part.
 - **Timeline auto clip titles match the UI language.** Shelf “Scene 1” / “Forest” while the clip still showed “Sahne 1” / “Orman” — `clipLabel` and the source picker now use the same i18n resolution as the shelf (stable source ids, no rewrite of user-named clips). Covers scenes, colour presets, visualizers and the clip deck.
 - **Colour-preset playback no longer sticks on a future clip; unrelated action/media clips are not replayed when a palette on another track enters or leaves** (edge-trigger per track; palette winner restored declaratively). With Forest from 0 and Night from 2 s, seeking or playing back before Night’s start re-applies Forest; selection alone does not drive output. `tests/timeline-palette-order.test.js`.
@@ -64,6 +70,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   parameters and the Now Playing status line.
 - **Settings upgrade once and one way.** The first v4 start converts settings and saved scenes to layer
   lists and keeps a copy as `settings.v3-backup.json`. Settings saved by v4 do not open in 3.x.
+
+### MCP
+
+- **Timeline editing tools** (seven new, 104 in total): `sv_timeline_inspect` reads the whole model without the 40-item cut and can report what plays at a given time; `sv_timeline_edit_track`, `sv_timeline_edit_clip` (add / update / remove / split), `sv_timeline_set_keys`, `sv_timeline_edit_marker`, `sv_timeline_set_options` (tempo, loop, snap, fps, Use Timeline) and `sv_timeline_bank`. Editing uses the same permission as `timeline.*` in `sv_patch_config` (Full mode, off by default); locked tracks are respected. `tests/mcp-timeline-edit.test.js`.
+- **`sv_set_visualizer_type` / `sv_set_background_type` take `layerId`** and return a clear error for a wrong-kind, locked or unknown layer, or when several layers could be meant, instead of silently changing the first one.
 
 ### Performance
 

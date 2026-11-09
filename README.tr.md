@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4104%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4139%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -45,7 +45,7 @@ kontrolü**.
 | **60** görselleştirici modu | **43** arkaplan | **42** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
-| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
+| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **104** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
 | **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
@@ -98,7 +98,7 @@ kontrolü**.
   video kılavuzlarıyla. Açılış animasyonları, vuruşla logo değiştirme, yayın yazı biçemleri ve
   dosya olarak kaydedilen düzenler. Yerleştirdiğiniz neyse dışa aktarım onu çizer; piksel piksel
   denetlendi. [→ Düzen editörü](#yayın-düzeni-editörü)
-- **Yapay zekâya hazır.** 97 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
+- **Yapay zekâya hazır.** 104 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
@@ -200,7 +200,7 @@ npm start
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
 | **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 56 CaYaDev presetiyle gelen bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 104 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
 
 ---
 
@@ -1069,7 +1069,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **97 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **104 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -1143,6 +1143,9 @@ Ana anahtar yeter. Bu çağrılar yalnız okur.
   portunu ve LAN bayrağını, Spout/Syphon adını okur. `sv_get_timeline`, `sv_get_clipdeck` ve
   `sv_get_autovj` o panelleri okur. `sv_get_config` bütün yapılandırmayı ya da tek bir noktalı
   yolu okur.
+- `sv_timeline_inspect` zaman çizelgesinin bütün modelini kırpmadan okur: her parça, klip,
+  otomasyon anahtarı ve işaret, tempo haritası, döngü, yakalama ve çizelge bankası. `at` (saniye)
+  verilirse o anda çalan klipleri ve otomasyon değerlerini de döndürür.
 
 #### Uygula
 
@@ -1153,8 +1156,11 @@ Kayıtlı olanı kullanır.
   yazı, modülasyon, geçiş, Studio, MilkDrop ve geri beslemeyi kapsar. Pencere saydamlığı ve görev
   çubuğunu kaplama olduğu gibi kalır.
 - `sv_apply_template` hazır bir şablonu kimlik ya da adla uygular. `sv_set_visualizer_type` ve
-  `sv_set_background_type` var olan bir mod kimliğine geçer. Bir Studio shader'ı `custom` türü ve
-  `presetId` ile gösterilir. `sv_set_layer_enabled` bir katmanı gösterir ya da gizler ve yığını
+  `sv_set_background_type` bir katmanı var olan bir mod kimliğine geçirir. Katmanı `layerId`
+  seçer; o türden birden çok katman varsa gereklidir. Türü uymayan, kilitli ya da bilinmeyen
+  katmanda hiçbir şey değişmez, nedenini söyleyen bir hata döner. Ayarlar'da **Modu Uygun Katmana
+  Yönlendir** açıksa eski kural geçerlidir: mod uygun ilk katmana gider. Bir Studio shader'ı
+  `custom` türü ve `presetId` ile gösterilir. `sv_set_layer_enabled` bir katmanı gösterir ya da gizler ve yığını
   açar. `sv_set_crossfade` A/B sürgüsünü 0 ile 1 arasına alır.
 - `sv_trigger_clip` klip destesinde bir yuvayı satır ve sütunla ateşler. `sv_stop_clips` çalan her
   yuvayı durdurur. Izgara kayıtlı halinde kalır. İkisi de yönetici penceresinin açık olmasını
@@ -1228,6 +1234,16 @@ Canlı yüzeyleri açar.
   harmanlama, maskeler, ağ, renk ve test deseni; haritalamayı da açar. Yeni bir ağ portu açmaz.
 - `sv_timeline_transport` zaman çizelgesini yönetici taşıması üzerinden oynatır, duraklatır,
   durdurur ya da sarar. Yönetici penceresi açık olmalıdır.
+- Çizelge düzenleme (`sv_patch_config` ile `timeline.*` yazmakla aynı izin):
+  `sv_timeline_edit_track` klip ya da otomasyon parçası ekler, günceller, kaldırır veya taşır;
+  `sv_timeline_edit_clip` klip ekler, günceller, kaldırır veya böler (sahne klibi var olan bir
+  sahneye bağlanmalı); `sv_timeline_set_keys` otomasyon parçasının anahtarlarını değiştirir;
+  `sv_timeline_edit_marker` işaret ekler, taşır, yeniden adlandırır ya da kaldırır;
+  `sv_timeline_set_options` tempo, döngü, yakalama, kare hızı, **Timeline kullan** ve çizelge
+  anahtarını ayarlar; `sv_timeline_bank` bankadaki çizelgeye geçer, ekler, yeniden adlandırır,
+  kaldırır, açar, kapatır ya da taşır. Kilitli parçada yalnız kilit açılabilir. Otomasyon hedefi
+  ya geçerli kipin yazabildiği sayısal bir ayar yolu ya da parça/klip opaklığıdır
+  (`tl.track.<id>.opacity`, `tl.clip.<id>.opacity`).
 - `sv_set_blackout` `on`, `off` ya da `toggle` alır ve kayıtlı sahneyi yerinde bırakır.
   `sv_set_blackout_transition` karartma geçişinin türünü ve süresini ayarlar.
 
@@ -1911,7 +1927,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4104 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4139 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
