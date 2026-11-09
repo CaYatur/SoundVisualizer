@@ -874,6 +874,8 @@
         return window.SVScenePanels ? window.SVScenePanels.geometryPanel() : null;
       case 'artnetpanel':
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
+      case 'mqttpanel':
+        return window.SVMqttPanel ? window.SVMqttPanel.panel() : null;
       case 'openrgbpanel':
         return window.SVOpenRGBPanel ? window.SVOpenRGBPanel.panel() : null;
       case 'texturepanel':
@@ -2999,6 +3001,15 @@
         controls: [{ type: 'controlpanel', surface: 'oscout' }],
       },
       {
+        id: 'mqtt',
+        category: 'control',
+        icon: 'share',
+        title: 'MQTT / Home Assistant',
+        desc: 'Gösteri durumunu bir MQTT aracısına yayınlayın; Home Assistant aygıtı kendiliğinden bulur. İsterseniz karartma, sahne ve opaklık komutlarını da alın.',
+        roots: ['mqtt'],
+        controls: [{ type: 'mqttpanel' }],
+      },
+      {
         id: 'gamepad',
         category: 'control',
         icon: 'keys',
@@ -3752,6 +3763,7 @@
       if (id === 'oscOut') return !!(c.oscOut && c.oscOut.enabled);
       if (id === 'gamepad') return !!(c.gamepad && c.gamepad.enabled);
       if (id === 'mcp') return !!(cfg.mcp && cfg.mcp.enabled);
+      if (id === 'mqtt') return !!(cfg.mqtt && cfg.mqtt.enabled);
       return false;
     };
     // Kurulum ağacı yalnız o sayfada görünüyor; başka sayfada şemayı boşuna kurmuyor

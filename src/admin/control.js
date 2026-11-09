@@ -685,12 +685,16 @@
     const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
     const last = messages[messages.length - 1] || {};
     const args = Array.isArray(last.args) ? last.args : [];
-    lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
-    const chip = document.getElementById('oscSignal');
-    if (chip) chip.textContent = lastSignal.osc;
+    // MQTT komutları (mqtt-bridge.js) OSC ağacı mesajı olarak gelir
+    const fromMqtt = !!(msg && msg.source === 'mqtt');
+    if (!fromMqtt) {
+      lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
+      const chip = document.getElementById('oscSignal');
+      if (chip) chip.textContent = lastSignal.osc;
+    }
 
     const cfg = P().cfg();
-    if (learning && learning.surface === 'osc') {
+    if (learning && learning.surface === 'osc' && !fromMqtt) {
       const m = (cfg.control.osc.mappings || []).find((x) => x.id === learning.id);
       const heard = messages.find((one) => one && one.address);
       if (m && heard) {
@@ -702,7 +706,7 @@
       return;
     }
 
-    if (!cfg.control.osc.enabled) return;
+    if (!cfg.control.osc.enabled && !fromMqtt) return;
     const tree = window.SVOscTree;
     const planned = tree && tree.plan ? tree.plan(messages, cfg) : { steps: [], consumed: [] };
     const consumed = new Set(planned.consumed || []);
