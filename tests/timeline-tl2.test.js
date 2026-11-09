@@ -45,22 +45,27 @@ test('grup kayması: hiçbir klip sıfırın soluna geçmiyor, grubun biçimi ko
   assert.strictEqual(TE.groupDelta([], 3), 0);
 });
 
-test('kopyala/yapıştır: göreli şerit ve başlangıç korunuyor; uygun olmayan şerit tabana düşüyor', () => {
+test('kopyala/yapıştır: göreli şerit (klip parçası sırası) ve başlangıç korunuyor; taşan şerit sona eklenir', () => {
   const tl = model();
   const board = TE.copyGroup([
     { trackIndex: 0, clip: tl.tracks[0].clips[1] }, // b @5
     { trackIndex: 2, clip: tl.tracks[2].clips[0] }, // c @2
-  ]);
+  ], tl);
   assert.strictEqual(board.span, 5, '2..7');
+  // Otomasyon parçası (1) atlanıyor: 0 ve 2 komşu klip parçaları
+  assert.deepStrictEqual(board.items.map((it) => it.dTrack), [0, 1]);
   const placed = TE.pasteGroup(tl, board, 10, 0);
-  assert.deepStrictEqual(placed.map((p) => [p.trackIndex, p.clip.start]), [[0, 13], [2, 10]]);
+  assert.deepStrictEqual(placed.map((p) => [p.trackIndex, p.clip.start]).sort(), [[0, 13], [2, 10]]);
   assert.ok(placed.every((p) => p.clip.id !== 'b' && p.clip.id !== 'c'), 'yeni kimlik');
-  // Taban 1 (otomasyon) → göreli 1+2=3 yok: ikisi de tabana düşüyor (panel onları yok sayar)
+  // Taban 2 (son klip parçası): ikinci şerit yok → sona yeni klip parçası, sıra bozulmuyor
+  const n0 = tl.tracks.length;
   const odd = TE.pasteGroup(tl, board, 0, 2);
-  assert.deepStrictEqual(odd.map((p) => p.trackIndex), [2, 2], '2+2=4 yok → taban');
-  // Kilitli şerit de uygun değil
+  assert.strictEqual(tl.tracks.length, n0 + 1);
+  assert.strictEqual(tl.tracks[n0].kind, 'clip');
+  assert.deepStrictEqual(odd.map((p) => p.trackIndex).sort(), [2, n0]);
+  // Kilitli hedef: hiçbir şey yapıştırılmaz (yarım grup yok)
   tl.tracks[2].locked = true;
-  assert.deepStrictEqual(TE.pasteGroup(tl, board, 0, 0).map((p) => p.trackIndex), [0, 0]);
+  assert.deepStrictEqual(TE.pasteGroup(tl, board, 0, 0), []);
 });
 
 test('grubu çoğalt: kopyalar grubun hemen ardına, aynı şeritlere', () => {
@@ -414,4 +419,66 @@ test('panel: şerit yüksekliği ayarlanıyor ve sınırlı', async () => {
   for (let i = 0; i < 20; i++) fire(down, 'click');
   assert.strictEqual(cfg.timeline.laneHeight, 28, 'alt sınır');
   cfg.timeline.laneHeight = 40;
+});
+
+/* Tek hareketle sürükleme: seçili olmayan klibe basıp sürüklemek onu seçip
+   taşıyor; seçim takibi (klip düzenleme oturumu modeli yeniden kurar) sürükleme
+   bitene kadar bekliyor; birkaç piksellik kıpırtı yalnız seçim sayılıyor. */
+test('panel: seçili olmayan klip tek hareketle seçilip sürükleniyor', async () => {
+  const cfg = cfgOf();
+  const { cv } = await mount(cfg);
+  const follows = [];
+  window.SVTimelineTarget = {
+    follow: (s) => follows.push(s && s.clipId), sync() {}, clear() {}, modeChanged() {}, refresh() {},
+    reloadFromClip() {}, withManual: (f) => f(),
+  };
+  try {
+    fire(cv, 'mousedown', { clientX: X(6), clientY: laneY(0), detail: 1 });
+    await wait(5); // seçim takibi sürükleme sürerken çalışmıyor
+    assert.deepStrictEqual(follows, [], 'sürükleme sürerken düzenleme oturumu açılmıyor');
+    winFire('mousemove', { clientX: X(8), clientY: laneY(0) });
+    winFire('mouseup', {});
+    assert.strictEqual(clip(cfg, 'cB').start, 7, 'aynı hareketle taşındı');
+    assert.strictEqual(TP._selection().clipId, 'cB');
+    await wait(5);
+    assert.ok(follows.includes('cB'), 'bırakınca seçim takibi çalışıyor');
+  } finally { delete window.SVTimelineTarget; }
+});
+
+test('panel: model sürükleme sırasında yeniden kurulsa da sürükleme kopmuyor (kimlikle yeniden bağlanıyor)', async () => {
+  const cfg = cfgOf();
+  const { cv } = await mount(cfg);
+  fire(cv, 'mousedown', { clientX: X(2), clientY: laneY(0), detail: 1 });
+  // Düzenleme oturumunun yaptığı gibi: yapılandırma kopyalanıp model atılıyor
+  cfg.timeline.tracks = JSON.parse(JSON.stringify(cfg.timeline.tracks));
+  TP.invalidate();
+  winFire('mousemove', { clientX: X(3), clientY: laneY(0) });
+  winFire('mouseup', {});
+  assert.strictEqual(clip(cfg, 'cA').start, 2, 'yeni nesnedeki klip taşındı');
+});
+
+test('panel: eşik altındaki kıpırtı klibi taşımıyor (yalnız seçiyor)', async () => {
+  const cfg = cfgOf();
+  const { cv } = await mount(cfg);
+  fire(cv, 'mousedown', { clientX: X(2), clientY: laneY(0), detail: 1 });
+  winFire('mousemove', { clientX: X(2) + 2, clientY: laneY(0) + 1 });
+  winFire('mouseup', {});
+  assert.strictEqual(clip(cfg, 'cA').start, 1);
+  assert.strictEqual(TP._selection().clipId, 'cA');
+});
+
+test('panel: çoklu seçimde gruptan bir klibe basıp sürüklemek hepsini kendi şeridinde taşıyor', async () => {
+  const cfg = cfgOf();
+  const { cv } = await mount(cfg);
+  fire(cv, 'mousedown', { clientX: X(2), clientY: laneY(0), detail: 1 });
+  winFire('mouseup', {});
+  fire(cv, 'mousedown', { clientX: X(3), clientY: laneY(1), detail: 1, ctrlKey: true });
+  winFire('mouseup', {});
+  // Gruptan bir klibe basıp sağa sürükle: ikisi de kendi şeridinde 1 sn kayıyor
+  fire(cv, 'mousedown', { clientX: X(2), clientY: laneY(0), detail: 1 });
+  winFire('mousemove', { clientX: X(3), clientY: laneY(0) });
+  winFire('mouseup', {});
+  assert.deepStrictEqual([clip(cfg, 'cA').start, clip(cfg, 'cC').start], [2, 3]);
+  assert.ok(cfg.timeline.tracks[0].clips.some((c) => c.id === 'cA'));
+  assert.ok(cfg.timeline.tracks[1].clips.some((c) => c.id === 'cC'));
 });

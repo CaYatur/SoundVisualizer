@@ -85,6 +85,33 @@
   // --------------------------------------------------------------------------
   /* render() işaretleri zaten yeni çizdi: aynı anda gelen push ikinci kez taramasın. */
   let marksFresh = false;
+  /* Son tam gönderimin çıkış metni (push(true) karşılaştırması). Kaydırıcı yaması ya da
+     başka bir yoldan tam gönderim bilinmeyen duruma döndürür (null). */
+  let lastOutSig = null;
+  let pendingOutSig = null;
+  function outputSig() {
+    const o = outputConfig();
+    let s = '';
+    for (const k of Object.keys(o).sort()) s += k + '\u0001' + JSON.stringify(o[k]) + '\u0002';
+    return s;
+  }
+  /* Önizleme de aynı kuralla: yapılandırması değişmediyse yeniden kurulmuyor. setConfig
+     önizlemenin çizelge bileşimini sıfırlıyor ve modları yeniden kuruyordu; her sayfa
+     çiziminde (klip seçimi dahil) önizleme bir an siyaha düşüyordu. `force`: kaydırıcı
+     yaması gibi sık ve gerçekten değişen çağrılar, karşılaştırmanın maliyetine girmesin. */
+  let lastPreviewSig = null;
+  function previewConfig(force) {
+    if (!window.SVPreview) return;
+    if (force) {
+      lastPreviewSig = null;
+    } else {
+      const sig = outputSig();
+      if (sig === lastPreviewSig) return;
+      lastPreviewSig = sig;
+    }
+    sendStats.preview++;
+    window.SVPreview.setConfig(outputConfig());
+  }
   function push(immediate) {
     /* Timeline klip düzenleme oturumu: panellerin değişikliği klibin yerel
        kopyasına yazılır (kaynak sahne ve elle ayar ayrı kalır). */
@@ -104,10 +131,26 @@
     } else {
       cfg.isBlackout = false;
     }
+    /* ÇIKIŞ DEĞİŞMEDİYSE GÖNDERME. Çizelgede klip seçmek (tık, kement, sürüklemenin
+       başı) klip düzenleme oturumunu açıp kapatıyor ve push(true) çağırıyordu. Çıkışa
+       giden yapılandırma (outputConfig, oturumsuz hali) aynı kalsa da önizleme ve açık
+       çıkış pencereleri tam yapılandırmayı yeniden kuruyordu: canlı gösteride ekran bir
+       kare siyaha düşüyor, görselleştirici animasyonu baştan başlıyordu. Tam gönderimde
+       çıkış metni son gönderilenle aynıysa hiçbir şey gitmiyor; seçim yalnız arayüz durumu. */
+    if (immediate) {
+      const sig = outputSig();
+      if (sig === lastOutSig) {
+        if (!marksFresh) refreshModifiedMarks();
+        return;
+      }
+      pendingOutSig = sig;
+    } else {
+      lastOutSig = null;
+    }
     // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
-    if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+    previewConfig(!immediate);
     // "Varsayılandan farklı" noktaları ve sayaçları anında güncelle
     // (kategori değiştirip dönmeyi beklemeden)
     if (!marksFresh) refreshModifiedMarks();
@@ -171,7 +214,12 @@
     return out;
   }
 
+  // Gönderim sayaçları: canlı gösteri güvenliği denetimi (seçim çıkışa bir şey yollamamalı)
+  const sendStats = { full: 0, patch: 0, preview: 0 };
   function sendFullConfig() {
+    sendStats.full++;
+    lastOutSig = pendingOutSig;
+    pendingOutSig = null;
     if (window.SVUndoHistory && !(window.SVTimelineTarget && window.SVTimelineTarget.manualWriting())) window.SVUndoHistory.note();
     if (fullTimer) { clearTimeout(fullTimer); fullTimer = null; }
     window.api.updateConfig(fullPayload());
@@ -179,6 +227,7 @@
   }
 
   function sendConfigPatch() {
+    lastOutSig = null;
     if (!window.api.patchConfig || !sentSig || isBlackedOut()) { sendFullConfig(); return; }
     const sig = lightSig();
     for (const k of sentSig.keys()) {
@@ -191,7 +240,7 @@
       if (sentSig.get(k) !== v) { patch[k] = persisted[k]; n++; }
     }
     sentSig = sig;
-    if (n) window.api.patchConfig(patch);
+    if (n) { sendStats.patch++; window.api.patchConfig(patch); }
     if (fullTimer) clearTimeout(fullTimer);
     fullTimer = setTimeout(() => { fullTimer = null; sendFullConfig(); }, FULL_AFTER_MS);
   }
@@ -604,7 +653,9 @@
     saveScene: () => actions.saveScene(),
     sceneThumbShot: (id) => sceneThumbShot(id),
     sectionsOf: (cat) => sectionSchema().filter((x) => x.category === cat && (!x.show || x.show())).map((x) => x.id),
-    renderScenes: () => renderScenes(),
+    renderScenes: (o) => renderScenes(o),
+    _sendStats: () => Object.assign({}, sendStats),
+    activeSceneId: () => activeSceneId,
     /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
        gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
     sectionCard: (id, opts) => {
@@ -4122,7 +4173,7 @@
       render();
       /* Paneller çizerken cfg'yi tamamlayabiliyor (katman listesi gibi);
          önizleme son hâli görsün. */
-      if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+      previewConfig();
     });
   }
   function releasePointer() {
@@ -4182,7 +4233,7 @@
     if (page !== 'scene') for (const id of ['svLayers', 'svInspector', 'svShelf']) { if ($(id)) $(id).replaceChildren(); }
     if ((page === 'scene' || page === 'live') && $('sections')) $('sections').replaceChildren();
     if ((page === 'scene' || page === 'live') && window.SVSceneShell) {
-      if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(outputConfig());
+      if (!previewFromPush) previewConfig();
       renderNav();
       if (page === 'scene') window.SVSceneShell.paint();
       else if (window.SVLiveShell) window.SVLiveShell.paint();
@@ -4211,7 +4262,7 @@
     const themeFocus = aeTheme && aeTheme !== root && root.contains(aeTheme) && aeTheme.classList
       && aeTheme.classList.contains('ui-theme-opt') ? aeTheme.dataset.theme : null;
     holdSectionsFocus(root);
-    if (window.SVPreview && !previewFromPush) window.SVPreview.setConfig(outputConfig());
+    if (!previewFromPush) previewConfig();
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -6843,6 +6894,7 @@
       window.SVLayers.ensureStack(cfg);
       // Ana süreç yeni bir yapılandırmada; sonraki gönderim tam olsun
       sentSig = null;
+      lastOutSig = null;
       heavySent = null;
       /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
          değişkende duruyordu; render() cfg'yi çizse de menü eski kutuyu
@@ -6861,7 +6913,7 @@
       renderScenes();
       /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
          Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
-      if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+      previewConfig();
       /* Timeline-follow recording turned on/off by MCP or another client
          must take effect now, not only when the Output card renders. */
       if (window.SVRecordPanel && window.SVRecordPanel.ensureFollow) {

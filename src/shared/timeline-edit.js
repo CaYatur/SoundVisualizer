@@ -268,35 +268,67 @@
     return Math.max(num(delta, 0), -Math.min.apply(null, starts));
   }
 
-  /* Kopyalama: her klip grubun başına ve ilk şeridine göre konumuyla.
-     `picked`: [{ trackIndex, clip }]. */
-  function copyGroup(picked) {
+  /* ÇOK PARÇALI KOPYALA / YAPIŞTIR. Şerit farkı KLİP PARÇALARI arasında sayılıyor
+     (otomasyon parçaları atlanır): eskiden ham sıra farkı tutuluyordu, arada bir otomasyon
+     parçası varsa ya da yapıştırma tabanı farklı bir yerdeyse göreli şerit "uygun değil"
+     sayılıp klip taban şeride düşüyordu. Farklı parçalardaki klipler tek şeride yığılıyor,
+     sıraları ve aralıkları bozuluyordu.
+
+     Çapa: en üstteki klip parçası ve en erken başlangıç. Her klip çapaya göre şerit ve
+     zaman farkını korur. Hedef son klip parçasının ötesine taşarsa sona YENİ klip parçaları
+     eklenir (sıra hiç değişmez, sıkıştırılmaz). Hedeflerden biri kilitliyse yapıştırma
+     bütünüyle yapılmaz (boş liste): bir kısmını yapıştırıp kalanı kaydırmak grubun biçimini
+     bozardı.
+
+     `picked`: [{ trackIndex, clip }], `tl` verilirse şerit farkı klip parçası sırasıyla. */
+  function clipOrdinals(tl) {
+    const out = [];
+    ((tl && tl.tracks) || []).forEach((t, i) => { if (t && t.kind === 'clip') out.push(i); });
+    return out;
+  }
+  function copyGroup(picked, tl) {
     if (!picked || !picked.length) return null;
-    const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
+    const ords = tl ? clipOrdinals(tl) : null;
+    const lane = (i) => (ords && ords.indexOf(i) >= 0 ? ords.indexOf(i) : i);
+    const base = Math.min.apply(null, picked.map((p) => lane(p.trackIndex)));
     const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
     const t1 = Math.max.apply(null, picked.map((p) => p.clip.start + p.clip.dur));
-    return {
-      span: t1 - t0,
-      items: picked.map((p) => ({ dTrack: p.trackIndex - base, dStart: p.clip.start - t0, clip: JSON.parse(JSON.stringify(p.clip)) })),
-    };
+    const items = picked.map((p) => ({ dTrack: lane(p.trackIndex) - base, dStart: p.clip.start - t0, clip: JSON.parse(JSON.stringify(p.clip)) }));
+    // Belirli sıra: şerit, sonra başlangıç (seçim sırası sonucu değiştirmesin)
+    items.sort((a, b) => a.dTrack - b.dTrack || a.dStart - b.dStart);
+    return { span: t1 - t0, lanes: 'clip', items };
   }
 
-  /* Yapıştırma: grup `at` anına ve `baseIndex` şeridine. Göreli şerit bir
-     klip parçası değilse (ya da yoksa) klip taban şeride düşüyor; kaybolmuyor.
-     Dönen: [{ trackIndex, clip }] — yeni kimliklerle. */
+  /* Yapıştırma: grup `at` anına, `baseIndex` şeridinin klip sırasından başlayarak.
+     Dönen: [{ trackIndex, clip }] — yeni kimliklerle; gerekirse tl.tracks sonuna klip
+     parçası eklenmiş olur. Kilitli hedef: []. */
   function pasteGroup(tl, board, at, baseIndex) {
-    if (!board || !board.items) return [];
-    const tracks = (tl && tl.tracks) || [];
-    const okTrack = (i) => tracks[i] && tracks[i].kind === 'clip' && !tracks[i].locked;
-    return board.items.map((it) => {
-      const want = baseIndex + it.dTrack;
-      return { trackIndex: okTrack(want) ? want : baseIndex, clip: pasteClip(it.clip, Math.max(0, num(at, 0)) + it.dStart) };
-    });
+    if (!board || !board.items || !tl) return [];
+    if (!Array.isArray(tl.tracks)) tl.tracks = [];
+    const ords = clipOrdinals(tl);
+    let baseOrd = ords.indexOf(baseIndex);
+    if (baseOrd < 0) {
+      // Taban klip parçası değil: ondan sonraki ilk klip parçası, yoksa sona eklenecek olan
+      baseOrd = ords.filter((i) => i < baseIndex).length;
+    }
+    const need = baseOrd + Math.max.apply(null, board.items.map((it) => it.dTrack));
+    for (let k = 0; k <= need; k++) {
+      const i = ords[k];
+      if (i != null && tl.tracks[i].locked && board.items.some((it) => baseOrd + it.dTrack === k)) return [];
+    }
+    const T = TL();
+    while (ords.length <= need) {
+      const trk = T && T.makeTrack ? T.makeTrack({ kind: 'clip' }) : { id: 'trk_' + Date.now().toString(36) + ords.length, kind: 'clip', name: 'Parça', clips: [] };
+      tl.tracks.push(trk);
+      ords.push(tl.tracks.length - 1);
+    }
+    const t = Math.max(0, num(at, 0));
+    return board.items.map((it) => ({ trackIndex: ords[baseOrd + it.dTrack], clip: pasteClip(it.clip, t + it.dStart) }));
   }
 
   // Grubu çoğalt: kopyalar grubun hemen ardına, aynı şeritlere
   function duplicateGroup(tl, picked) {
-    const board = copyGroup(picked);
+    const board = copyGroup(picked, tl);
     if (!board) return [];
     const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
     const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
