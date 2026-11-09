@@ -284,8 +284,9 @@
       this.spread = 0;     // tayfsal yayılım
 
       this.loudness = 0;   // 0..1
-      // BS.1770 gürlük ölçeri (LUFS); zaman tamponunun yalnız yeni kısmıyla beslenir
-      this.loudnessMeter = new LoudnessMeter({ sampleRate: this.sampleRate });
+      // LUFS yalnız panel ya da etkin yönlendirme isteyince ayrılır ve işlenir.
+      this.loudnessMeter = null;
+      this._loudnessDemand = 0;
       this.peak = 0;
       this.dynamics = 0;   // tepe / RMS
       this.silent = true;
@@ -341,6 +342,7 @@
       this._ringPos = 0;
       this._ringFill = 0;
       this._cqNever = true;
+      if (this.loudnessMeter) this.loudnessMeter.reset();
       if (this._onsets) for (const k in this._onsets) this._onsets[k].reset();
     }
 
@@ -942,17 +944,32 @@
        taşır ve ardışık kareler örtüşür; aynı örneği iki kez saymamak için
        yalnız son dt × örnekleme hızı kadarı (yeni gelen kısım) işlenir. */
     _lufs(time, dt, stereo) {
+      if (!(this._loudnessDemand > 0)) return;
+      this._loudnessDemand = Math.max(0, this._loudnessDemand - dt);
       const L = stereo && stereo.left && stereo.left.length ? stereo.left : time;
       if (!L || !L.length) return;
       const R = stereo && stereo.right && stereo.right.length === L.length ? stereo.right : null;
-      const n = Math.min(L.length, Math.max(0, Math.round(dt * this.sampleRate)));
+      const n = Math.min(L.length, Math.max(0, Math.round(dt * this.loudnessMeter.sampleRate)));
       if (!n) return;
       this.loudnessMeter.push(L, R, L.length - n, L.length);
     }
 
+    /* Okuyucu talebini kısa süre canlı tut: panel 100 ms'de, modülasyon her
+       karede yeniler. Ayrılan panel ya da silinen yönlendirme zamanlayıcı
+       gerektirmeden en geç 250 ms sonra ölçümü durdurur. Çocuk çizelge
+       modülatörlerinden biri talep ettiğinde diğerleri bunu iptal etmez. */
+    requestLoudness(sampleRate) {
+      this._loudnessDemand = 0.25;
+      const rate = Number.isFinite(sampleRate) && sampleRate >= 8000 ? sampleRate : this.sampleRate;
+      if (!this.loudnessMeter || this.loudnessMeter.sampleRate !== rate) {
+        this.loudnessMeter = new LoudnessMeter({ sampleRate: rate });
+      }
+      return this.loudnessMeter;
+    }
+
     // Entegre ölçümü sıfırla (panelin Sıfırla düğmesi)
     resetLoudness() {
-      this.loudnessMeter.reset();
+      if (this.loudnessMeter) this.loudnessMeter.reset();
     }
 
     /* Modülasyon matrisine açılan kaynaklar. Hepsi 0..1 (korelasyon -1..1
@@ -966,7 +983,7 @@
         anFlux: this.flux,
         anSpread: this.spread,
         anLoudness: this.loudness,
-        anLufs: lufsUnit(this.loudnessMeter.momentary),
+        anLufs: this.loudnessMeter ? lufsUnit(this.loudnessMeter.momentary) : 0,
         anPeak: this.peak,
         anDynamics: this.dynamics,
         anHarmonic: this.harmonic,

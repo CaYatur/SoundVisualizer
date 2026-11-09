@@ -94,6 +94,7 @@ test('lufs: Analyser feeds only new samples from overlapping frames', () => {
   const step = 800; // 60 fps'de bir kare = 800 örnek
   for (let end = fft; end <= all.length; end += step) {
     const buf = all.subarray(end - fft, end);
+    an.requestLoudness();
     an.update(spec, buf, step / fs, { left: buf, right: buf });
   }
   const lm = an.loudnessMeter;
@@ -102,4 +103,60 @@ test('lufs: Analyser feeds only new samples from overlapping frames', () => {
   near(an.sources().anLufs, (lm.momentary + 60) / 60, 1e-9, 'anLufs source');
   an.resetLoudness();
   assert.strictEqual(an.loudnessMeter.integrated, -Infinity);
+});
+
+
+test('lufs: unused analysis allocates no meter and stops processing after demand ends', () => {
+  const an = new A.Analyser({ sampleRate: 48000, fftSize: 2048 });
+  const buf = sine(48000, 2048 / 48000, -23);
+  for (let i = 0; i < 30; i++) an._lufs(buf, 1 / 60);
+  assert.strictEqual(an.loudnessMeter, null);
+  assert.strictEqual(an.sources().anLufs, 0);
+  an.resetLoudness();
+  const meter = an.requestLoudness();
+  let pushed = 0;
+  const push = meter.push.bind(meter);
+  meter.push = (...args) => { pushed++; return push(...args); };
+  for (let i = 0; i < 60; i++) an._lufs(buf, 1 / 60);
+  assert.ok(pushed > 0 && pushed <= 16, String(pushed));
+  const stopped = pushed;
+  for (let i = 0; i < 60; i++) an._lufs(buf, 1 / 60);
+  assert.strictEqual(pushed, stopped);
+  an.requestLoudness();
+  an._lufs(buf, 1 / 60);
+  assert.strictEqual(pushed, stopped + 1);
+  an.reset();
+  assert.strictEqual(meter.momentary, -Infinity, 'demo/source reset cannot contaminate live LUFS');
+});
+
+test('lufs: only active anLufs routes request the meter, not other analysis sources', () => {
+  const M = require('../src/shared/modulation.js');
+  const an = new A.Analyser();
+  const audio = { analysis: an };
+  const mod = new M.Modulator();
+  const cfg = { modulation: { enabled: true, routes: [{ source: 'anPeak' }] } };
+  mod.update(cfg, audio, 0, 1 / 60);
+  assert.strictEqual(an.loudnessMeter, null);
+  cfg.modulation.routes = [{ source: 'anLufs', enabled: false }];
+  mod.update(cfg, audio, 0, 1 / 60);
+  assert.strictEqual(an.loudnessMeter, null);
+  cfg.modulation.routes[0].enabled = true;
+  cfg.modulation.enabled = false;
+  mod.update(cfg, audio, 0, 1 / 60);
+  assert.strictEqual(an.loudnessMeter, null);
+  cfg.modulation.enabled = true;
+  mod.update(cfg, audio, 0, 1 / 60);
+  assert.ok(an.loudnessMeter);
+});
+
+
+test('lufs: demand follows the real input sample rate without altering existing analysis', () => {
+  const an = new A.Analyser({ sampleRate: 48000 });
+  const meter = an.requestLoudness(44100);
+  assert.strictEqual(meter.sampleRate, 44100);
+  assert.strictEqual(an.sampleRate, 48000);
+  const frame = sine(44100, 2048 / 44100, -23);
+  an._lufs(frame, 0.01, { left: frame, right: frame });
+  assert.strictEqual(meter._n, 441);
+  assert.notStrictEqual(an.requestLoudness(48000), meter);
 });

@@ -3181,6 +3181,8 @@
     'Nota E': 'Note E', 'Nota F': 'Note F', 'Nota F#': 'Note F#', 'Nota G': 'Note G',
     'Nota G#': 'Note G#', 'Nota A': 'Note A', 'Nota A#': 'Note A#', 'Nota B': 'Note B',
     // LUFS ölçeri (BS.1770)
+    'Yaklaşık LUFS': 'Approximate LUFS',
+    'Önizleme sesinden yaklaşık ölçüm; yayın/mastering ölçeri yerine geçmez.': 'Approximate preview-audio measurement; not a substitute for a broadcast/mastering meter.',
     'Gürlük (LUFS)': 'Loudness (LUFS)',
     'Anlık (M)': 'Momentary (M)',
     'Kısa Süreli (S)': 'Short-term (S)',

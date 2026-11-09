@@ -53,7 +53,8 @@
     const meter = () => {
       const prev = window.SVPreview;
       const eng = prev && prev.audioEngine && prev.audioEngine();
-      return (eng && eng.analysis && eng.analysis.loudnessMeter) || null;
+      const a = eng && eng.analysis;
+      return a && a.requestLoudness ? a.requestLoudness(eng.sampleRate) : null;
     };
     const fmtLufs = (v) => (typeof v === 'number' && isFinite(v) ? v.toFixed(1) + ' LUFS' : '—');
     const an = () => {
@@ -177,7 +178,7 @@
         /* LUFS (BS.1770): sessizlikte de okunur, çünkü entegre değer
            parçanın tamamını anlatır ve sessiz bir arada kaybolmamalı. */
         el('div', { class: 'an-col' }, [
-          el('h4', { text: 'LUFS' }),
+          el('h4', { text: tr('Yaklaşık LUFS'), title: tr('Önizleme sesinden yaklaşık ölçüm; yayın/mastering ölçeri yerine geçmez.') }),
           readout('Anlık (M)', () => { const m = meter(); return m ? m.momentary : null; }, fmtLufs),
           readout('Kısa Süreli (S)', () => { const m = meter(); return m ? m.shortTerm : null; }, fmtLufs),
           readout('Entegre (I)', () => { const m = meter(); return m ? m.integrated : null; }, fmtLufs),
