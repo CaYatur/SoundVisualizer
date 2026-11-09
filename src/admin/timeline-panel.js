@@ -794,8 +794,8 @@
       ctx.moveTo(Math.round(x) + 0.5, RULER_H);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
-      // Bekleme (cue) işareti etikette ⏸ ile ayrılır
-      const label = (m.hold === true ? '⏸ ' : '') + (m.name || '');
+      // Bekleme (cue) işareti etikette ‖ ile ayrılır
+      const label = (m.hold === true ? '‖ ' : '') + (m.name || '');
       const lw = label ? ctx.measureText(label).width + 12 : 8;
       markerW.set(m.id, lw);
       const msel = selection && selection.kind === 'marker' && selection.markerId === m.id;
