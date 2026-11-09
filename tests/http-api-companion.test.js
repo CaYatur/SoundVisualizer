@@ -274,3 +274,23 @@ test('Companion: manifest geçerli ve giriş dosyası var', () => {
   const root = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   assert.ok(!root.build.files.some((f) => /integrations/.test(f)));
 });
+
+
+test('HTTP API: disabling the API or rotating the token cancels a request still receiving its body', async () => {
+  const { EventEmitter } = require('node:events');
+  for (const mode of ['disable', 'rotate']) {
+    let enabled = true, token = 'fixture', called = 0, status = 0;
+    const req = new EventEmitter();
+    Object.assign(req, { url: '/api/v1/tools/sv_set_crossfade', method: 'POST', headers: { host: '127.0.0.1:5000', authorization: 'Bearer fixture' } });
+    const res = { writeHead: (code) => { status = code; }, end() {} };
+    restApi.handle(req, res, { enabled: () => enabled, token: () => token, port: () => 5000,
+      mcp: { callTool: () => { called++; return { ok: true }; } }, ctx: () => ({}) });
+    req.emit('data', Buffer.from('{"value":'));
+    if (mode === 'disable') enabled = false; else token = 'new-fixture';
+    req.emit('data', Buffer.from('0.5}'));
+    req.emit('end');
+    await Promise.resolve();
+    assert.strictEqual(status, mode === 'disable' ? 404 : 401);
+    assert.strictEqual(called, 0);
+  }
+});

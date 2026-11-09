@@ -130,6 +130,9 @@ function handle(req, res, deps) {
     chunks.push(c);
   });
   req.on('end', function () {
+    // Yavaş gelen gövde sırasında kullanıcı API'yi kapatmış olabilir.
+    if (!deps.enabled()) { sendJson(res, 404, { ok: false, error: 'API disabled' }); return; }
+    if (!deps.token() || String(hdr.authorization || '') !== 'Bearer ' + deps.token()) { sendJson(res, 401, { ok: false, error: 'unauthorized' }); return; }
     if (tooBig) { sendJson(res, 413, { ok: false, error: 'body too large' }); return; }
     let args = {};
     const raw = Buffer.concat(chunks).toString('utf8').trim();
