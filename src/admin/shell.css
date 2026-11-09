@@ -378,6 +378,18 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: 296px 
 .sv-insp .layer-panel > .ctrl { margin: 0 10px; padding-left: 12px; }
 .sv-fill { overflow: hidden; display: flex; flex-direction: column; }
 .sv-fill > .sv-target { flex: none; }
+.sv-fill > .sv-shelf-locked { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.sv-fill > .sv-shelf-locked > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0 2px; padding: 0; }
+.sv-fill > .sv-shelf-locked > .card > .group { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border: 0; padding: 0; margin: 0; }
+/* Raf kilidi: seçili katmana uymayan raf görünür ama etkisiz; üstünde neden ve çıkış yolu */
+.sv-shelf-lock { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 12px 8px; padding: 9px 12px; border-radius: 10px; background: rgb(var(--warn-rgb) / .12); border: 1px solid rgb(var(--warn-rgb) / .35); color: var(--warn-text); font-size: 12.5px; }
+.sv-shelf-lock > [icon], .sv-shelf-lock > .svi { flex: none; color: var(--warn); }
+.sv-shelf-lock-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sv-shelf-lock-text strong { color: var(--text-strong); font-weight: 600; overflow-wrap: anywhere; }
+.sv-shelf-lock-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.sv-shelf-locked { position: relative; pointer-events: none; user-select: none; }
+.sv-shelf-locked > * { opacity: .38; filter: grayscale(.7); }
+.sv-shelf-locked::after { content: ''; position: absolute; inset: 0; border-radius: 10px; background: repeating-linear-gradient(135deg, rgb(var(--fg-rgb) / .035) 0 10px, transparent 10px 20px); }
 .sv-fill > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0 2px; padding: 0; }
 .sv-fill > .card > .group, .sv-fill .md-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border: 0; padding: 0; margin: 0; }
 .sv-fill > .card > .group > .ctrl { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0; }

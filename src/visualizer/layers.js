@@ -663,6 +663,61 @@
     }
     return layer;
   }
+  /* MOD HEDEFİ: bir görsel / zemin modu hangi katmana gider?
+
+     Eskiden seçili katman o türden değilse (ör. arkaplan seçiliyken Görsel
+     rafından bir mod) mod sessizce en üstteki görselleştirici katmanına
+     uygulanıyor, o katman da seçiliyordu. Kullanıcı seçtiği katmanın
+     değiştiğini sanıyordu; değişen başka bir katmandı.
+
+     Varsayılan artık katı kural: hedef yalnız seçili katman. Türü uymuyorsa
+     ya da kilitliyse hiçbir şey yazılmaz, neden döner (panel kartta, MCP
+     hata olarak gösterir). Eski davranış Ayarlar'daki `ui.modeTargetAuto`
+     ile geri açılır. Hiç katman seçili değilse yeni katman eklenir (rafın
+     "Yeni katman olarak eklenir" satırı bunu söylüyor).
+
+     opts: { kind: 'visualizer' | 'background', layerId, legacy }
+     dönüş: { layer } | { create: true } | { error: 'NOT_FOUND' | 'WRONG_KIND' | 'LOCKED', layer } */
+  function modeTargetAuto(cfg) {
+    return !!(cfg && cfg.ui && cfg.ui.modeTargetAuto === true);
+  }
+  function modeTarget(cfg, opts) {
+    const o = opts || {};
+    const want = o.kind === 'background' ? 'background' : 'visualizer';
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const legacy = o.legacy != null ? !!o.legacy : modeTargetAuto(cfg);
+    const id = o.layerId ? String(o.layerId) : '';
+    if (id) {
+      const l = list.find((x) => x && x.id === id) || null;
+      if (l && l.kind === want && !l.locked) return { layer: l };
+      if (!legacy) {
+        if (!l) return { error: 'NOT_FOUND', layerId: id };
+        return { error: l.kind !== want ? 'WRONG_KIND' : 'LOCKED', layer: l, want };
+      }
+    }
+    if (legacy) {
+      // Eski kural: listede en üstteki (önde görünen) uygun katman
+      const near = list.slice().reverse().find((x) => x && x.kind === want && !x.locked) || null;
+      return near ? { layer: near, redirected: !!id } : { create: true };
+    }
+    return { create: true };
+  }
+  /* Seçilen modu belirli bir katmana yazar (panel rafı ve MCP aynı yoldan).
+     Tür değişmez; çağıran modeTarget ile katmanın türünü doğrulamış olmalı. */
+  function setLayerMode(cfg, layer, spec) {
+    if (!layer) return null;
+    const s = spec || {};
+    const type = String(s.type || layer.type || '');
+    const sect = layer.kind === 'background' ? 'background' : 'visualizer';
+    layer.type = type;
+    if (Object.prototype.hasOwnProperty.call(s, 'presetId')) layer.presetId = s.presetId || null;
+    if (layer.settings && layer.settings[sect]) layer.settings[sect].type = type;
+    if (s.reveal) {
+      layer.enabled = true;
+      layer.muted = false;
+    }
+    return layer;
+  }
   function syncStackState(cfg) {
     if (!cfg || !cfg.layerStack || !cfg.layerStack.enabled) return;
     const curVis = cfg.visualizer && cfg.visualizer.type;
@@ -2583,6 +2638,9 @@
     currentType,
     firstLayerIndex,
     adoptBackground,
+    modeTarget,
+    modeTargetAuto,
+    setLayerMode,
     syncStackState,
     layerConfig,
     sceneSignature,

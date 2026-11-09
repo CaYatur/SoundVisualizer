@@ -4458,6 +4458,33 @@
     'WebGL2 yok': 'WebGL2 is not available',
     'WebGL desteklenmiyor': 'WebGL is not supported',
     'motor yok': 'engine not available',
+    // Mod hedefi ve raf kilidi
+    'Seçili katman bu rafa uymuyor': 'The selected layer doesn\'t fit this shelf',
+    'Uygun rafa geç': 'Go to the matching shelf',
+    'Seçimi kaldır': 'Clear selection',
+    'Katmanı MilkDrop\'a çevir': 'Convert layer to MilkDrop',
+    'Seçili katman kilitli; önce kilidini açın.': 'The selected layer is locked; unlock it first.',
+    'Zemin modları yalnız arkaplan katmanına uygulanır.': 'Background modes only apply to a background layer.',
+    'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.': 'MilkDrop presets only apply to a MilkDrop layer.',
+    'Görsel modları yalnız görselleştirici katmanına uygulanır.': 'Visual modes only apply to a visualizer layer.',
+    'Modu Uygun Katmana Yönlendir': 'Redirect Modes to a Matching Layer',
+    'Sahne Düzenleme': 'Scene Editing',
+    'Kapalıyken bir mod yalnız seçili katmana uygulanır; seçili katman o türden değilse raf kilitli görünür ve hiçbir katman değişmez. Açıkken eski davranış geri gelir: mod, seçimden bağımsız olarak o türün en üstteki katmanına uygulanır. MCP araçları da bu ayara uyar.': 'When off, a mode is only applied to the selected layer; if the selected layer is a different kind, the shelf shows as locked and no layer changes. When on, the old behavior returns: the mode goes to the topmost layer of that kind, whatever is selected. MCP tools follow this setting too.',
+    // Gelişmiş motor katmanı
+    'Renk ve biçim bu motorun kendi ayarlarından gelir (aşağıdaki motor kartı).': 'Color and shape come from this engine\'s own settings (engine card below).',
+    // Düzen editörü: görünüm, çerçeve dışı, gizli öğeler
+    'Çevreyi Göster': 'Show Surroundings',
+    'Çerçeve alanı doldurur': 'The frame fills the area',
+    'Çerçeveyi küçültür; dışarı taşan öğeler de görünür': 'Shrinks the frame so elements outside it are visible too',
+    'Çerçeve dışında': 'Outside the frame',
+    'çerçeve dışında': 'outside the frame',
+    'gizli': 'hidden',
+    'çizilmiyor': 'not drawn',
+    'kilitli': 'locked',
+    'Katman kilitli; konumu değişmez. Katmanlar listesinden kilidi açın.': 'The layer is locked; its position won\'t change. Unlock it from the layer list.',
+    'Bu katman şu an çizilmiyor (gizli, sessiz ya da solo dışında); kutusu ayarlarından hesaplandı.': 'This layer isn\'t being drawn right now (hidden, muted or outside solo); its box is computed from its settings.',
+    'Çerçeveye Getir': 'Bring Into Frame',
+    'Çerçeveye Sığdır': 'Fit Frame',
   };
 
 
@@ -5033,12 +5060,12 @@
     "en": "Switch to an existing scene by id or name. Does not create or edit scene contents."
   },
   "mcp.tool.sv_set_visualizer_type": {
-    "tr": "Klasik görselleştiriciyi var olan bir kip kimliğine alır.",
-    "en": "Switch the classic visualizer to an existing mode id."
+    "tr": "Bir görselleştirici katmanını var olan bir kip kimliğine alır. Katmanı layerId seçer; birden çok görselleştirici katmanı varken layerId gerekir. Türü uymayan ya da kilitli katmanda hiçbir şey değişmez, açık bir hata döner.",
+    "en": "Switch a visualizer layer to an existing mode id. layerId picks the layer and is required when there are several visualizer layers. A layer of the wrong kind or a locked layer is left unchanged and a clear error is returned."
   },
   "mcp.tool.sv_set_background_type": {
-    "tr": "Arkaplanı var olan bir kip kimliğine alır.",
-    "en": "Switch the background to an existing mode id."
+    "tr": "Bir arkaplan katmanını var olan bir kip kimliğine alır. Katmanı layerId seçer; birden çok arkaplan katmanı varken layerId gerekir. Türü uymayan ya da kilitli katmanda hiçbir şey değişmez, açık bir hata döner.",
+    "en": "Switch a background layer to an existing mode id. layerId picks the layer and is required when there are several background layers. A layer of the wrong kind or a locked layer is left unchanged and a clear error is returned."
   },
   "mcp.tool.sv_set_layer_enabled": {
     "tr": "Var olan bir katmanı gösterir veya gizler ve katman yığınını açar. Katman içeriğini değiştirmez.",
@@ -5051,6 +5078,34 @@
   "mcp.tool.sv_apply_template": {
     "tr": "Var olan yerleşik bir şablonu kimliğiyle uygular.",
     "en": "Apply an existing built-in template by id."
+  },
+  "mcp.tool.sv_timeline_inspect": {
+    "tr": "Zaman çizelgesinin tüm modelini okur: her parça, klip, otomasyon anahtarı ve işaret (kırpılmadan), tempo, döngü, yakalama ve çizelge bankası. \"at\" (saniye) verilirse o anda çalan klipleri ve otomasyon değerlerini de bildirir. Salt okunur.",
+    "en": "Read the whole timeline model: every track, clip, automation key and marker (no truncation), tempo, loop, snap and the timeline bank. With \"at\" (seconds) also reports the clips playing and the automation values at that time. Read-only."
+  },
+  "mcp.tool.sv_timeline_edit_track": {
+    "tr": "Zaman çizelgesine parça ekler, parçayı günceller, kaldırır ya da taşır. Klip parçaları klip taşır; otomasyon parçaları tek bir sayısal hedefi anahtarlarla sürer (sv_timeline_set_keys). Kilitli parçada yalnız kilit açılabilir.",
+    "en": "Add, update, remove or move a timeline track. Clip tracks hold clips; automation tracks drive one numeric target with keys (sv_timeline_set_keys). Locked tracks only accept unlocking."
+  },
+  "mcp.tool.sv_timeline_edit_clip": {
+    "tr": "Bir klip parçasına klip ekler, klibi günceller, kaldırır ya da böler. Süreler saniye. Sahne klibi var olan bir sahne kimliğine bağlanmalı. Kilitli parça değişmez.",
+    "en": "Add, update, remove or split a clip on a timeline clip track. Times are seconds. Scene clips must reference an existing scene id. Locked tracks are not changed."
+  },
+  "mcp.tool.sv_timeline_set_keys": {
+    "tr": "Bir otomasyon parçasının anahtarlarını değiştirir. Her anahtar {t: saniye, v: parça aralığının 0..1'i, curve}. Temizlemek için boş liste verin.",
+    "en": "Replace the keys of an automation track. Each key is {t: seconds, v: 0..1 of the track range, curve}. Pass an empty list to clear."
+  },
+  "mcp.tool.sv_timeline_edit_marker": {
+    "tr": "Zaman çizelgesine işaret ekler, işareti günceller ya da kaldırır. İşaretler dışa aktarımda bölüm olur.",
+    "en": "Add, update or remove a timeline marker (cue). Markers also become export chapters."
+  },
+  "mcp.tool.sv_timeline_set_options": {
+    "tr": "Çizelge seçeneklerini ayarlar: tempo (baştaki BPM ve ölçü vuruşu ya da tam tempo haritası), döngü aralığı, yakalama, kare hızı, \"Timeline kullan\" (çıkış çizelgeyi izler) ve çizelgenin açık/kapalı anahtarı. Yalnız verilen alanlar değişir.",
+    "en": "Set timeline options: tempo (bpm and beats per bar at the start, or a full tempo map), loop range, snap, fps, \"Use Timeline\" (the output follows the timeline) and the timeline on/off switch. Only the given fields change."
+  },
+  "mcp.tool.sv_timeline_bank": {
+    "tr": "Çizelge bankasını (çizelgenin üstündeki sekmeler) yönetir: çizelgeye geçer, ekler, yeniden adlandırır, kaldırır, açar/kapatır ya da taşır.",
+    "en": "Manage the timeline bank (the tabs above the timeline): switch to, add, rename, remove, enable/disable or move a timeline."
   },
   "mcp.tool.sv_timeline_transport": {
     "tr": "Var olan zaman çizelgesini yönetici taşımasıyla oynatır, duraklatır, durdurur veya sarar.",

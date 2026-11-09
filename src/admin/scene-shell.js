@@ -790,21 +790,92 @@
     }, { timeout: 1500 });
   }
 
-  /* Seçili katman bu türdense onun modu değişiyor; değilse o türün ilk katmanı. Hiç yoksa yeni
-     katman: kullanıcı "şunu göster" dedi, bir şey olmadan kalmasın. */
+  /* MOD HEDEFİ. Eskiden seçili katman bu türden değilse (ör. arkaplan seçiliyken Görsel rafı) mod
+     sessizce en üstteki görselleştirici katmanına gidiyordu; kullanıcı seçtiği katmanın değiştiğini
+     sanıyordu. Artık kural layers.js `modeTarget`: yalnız seçili katman. Türü uymuyorsa ya da
+     kilitliyse hiçbir şey yazılmaz (raf zaten kilitli görünür, bu ikinci emniyet). Hiç katman seçili
+     değilse yeni katman eklenir. Eski davranış Ayarlar > `ui.modeTargetAuto`. */
+  function autoTarget() {
+    return window.SVLayers.modeTargetAuto(P().cfg());
+  }
   function applyMode(want, id, label) {
     const list = layers();
-    let l = selected();
-    if (!l || l.kind !== want || l.locked) l = list.slice().reverse().find((x) => x && x.kind === want && !x.locked);
+    const cur = selected();
+    const r = window.SVLayers.modeTarget(P().cfg(), { kind: want, layerId: cur ? cur.id : '' });
+    if (r.error) {
+      if (P().toast) P().toast(tr(lockText(r.error === 'LOCKED' ? 'locked' : 'kind', want)), 'warn');
+      paint();
+      return false;
+    }
+    let l = r.layer;
     if (!l) {
       l = window.SVLayers.normalizeLayer({ kind: want, type: id, name: label });
       if (want === 'background') list.unshift(l); else list.push(l);
     }
-    l.type = id;
-    if (l.settings && l.settings[want]) l.settings[want].type = id;
+    window.SVLayers.setLayerMode(P().cfg(), l, { type: id });
     sel = l.id;
     write(STORE.sel, sel);
     P().apply();
+    return true;
+  }
+
+  /* RAF KİLİDİ. Seçili katmana uymayan raf görünür kalıyor (ne olduğu görülsün) ama içerik
+     etkisiz (`inert`), üstünde neden ve çıkış yolu yazıyor. Eski davranış ayarı açıksa kilit yok. */
+  const OVERLAY_VIS = { text: 1, nowplaying: 1 };
+  function shelfLock() {
+    if (shelfTab !== 'vis' && shelfTab !== 'bg' && shelfTab !== 'milkdrop') return null;
+    const l = selected();
+    if (!l || autoTarget()) return null;
+    if (shelfTab === 'milkdrop') {
+      if (l.kind === 'visualizer' && l.type === 'milkdrop') return null;
+      return { why: l.kind === 'visualizer' && !OVERLAY_VIS[l.type] && !l.locked ? 'convert' : 'kind', want: 'milkdrop', layer: l };
+    }
+    const want = shelfTab === 'bg' ? 'background' : 'visualizer';
+    if (l.kind !== want) return { why: 'kind', want, layer: l };
+    if (l.locked) return { why: 'locked', want, layer: l };
+    return null;
+  }
+  function lockText(why, want) {
+    if (why === 'locked') return 'Seçili katman kilitli; önce kilidini açın.';
+    if (want === 'background') return 'Zemin modları yalnız arkaplan katmanına uygulanır.';
+    if (want === 'milkdrop') return 'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.';
+    return 'Görsel modları yalnız görselleştirici katmanına uygulanır.';
+  }
+  // Seçili katmanın kendi rafı (kilitli rafta "Uygun rafa geç")
+  function shelfFor(l) {
+    if (!l) return '';
+    if (l.kind === 'background') return 'bg';
+    if (l.kind === 'visualizer') return l.type === 'milkdrop' ? 'milkdrop' : 'vis';
+    return '';
+  }
+  function lockOverlay(lock) {
+    const el = P().el;
+    const l = lock.layer;
+    const go = shelfFor(l);
+    const btns = [];
+    if (lock.why === 'convert') {
+      btns.push(el('button', {
+        class: 'btn primary small', type: 'button', text: tr("Katmanı MilkDrop'a çevir"),
+        onclick: () => {
+          const x = byId(l.id);
+          if (!x || x.locked) return;
+          window.SVLayers.setLayerMode(P().cfg(), x, { type: 'milkdrop' });
+          P().apply();
+        },
+      }));
+    }
+    if (go && go !== shelfTab && lock.why !== 'locked') {
+      btns.push(el('button', { class: 'btn small', type: 'button', text: tr('Uygun rafa geç'), onclick: () => setShelf(go) }));
+    }
+    btns.push(el('button', { class: 'btn small', type: 'button', text: tr('Seçimi kaldır'), onclick: () => select('') }));
+    return el('div', { class: 'sv-shelf-lock', role: 'note', 'data-shelf-lock': lock.why }, [
+      el('span', { icon: 'lock' }),
+      el('div', { class: 'sv-shelf-lock-text' }, [
+        el('strong', { text: tr('Seçili katman bu rafa uymuyor') + ': ' + tr(l.name || l.kind) }),
+        el('span', { text: tr(lockText(lock.why === 'locked' ? 'locked' : 'kind', lock.want)) }),
+      ]),
+      el('div', { class: 'sv-shelf-lock-actions' }, btns),
+    ]);
   }
 
   /* Sahne rafı: yan raftaki listenin kendisi. Kaydetme, yeniden adlandırma, sıralama, silme ve
@@ -823,12 +894,20 @@
   }
 
   function targetLine() {
+    // Kilitli rafta hedef yok; nedeni kilit kartı söylüyor
+    if (shelfLock()) return '';
     const l = selected();
     if (shelfTab === 'milkdrop') {
       const own = l && l.kind === 'visualizer' && l.type === 'milkdrop';
       return own && window.SVMilkdropPanel.isOwnLayer(l) ? tr('Şuna uygulanır:') + ' ' + tr(l.name || 'MilkDrop') : tr('Ortak MilkDrop presetine uygulanır');
     }
     if (shelfTab === 'vis' || shelfTab === 'bg') {
+      if (l && autoTarget()) {
+        // Eski davranış: uymayan seçimde mod en üstteki uygun katmana gider
+        const r = window.SVLayers.modeTarget(P().cfg(), { kind: shelfTab === 'bg' ? 'background' : 'visualizer', layerId: l.id });
+        if (r.layer) return tr('Şuna uygulanır:') + ' ' + tr(r.layer.name || r.layer.kind);
+        return tr('Yeni katman olarak eklenir');
+      }
       return l ? tr('Şuna uygulanır:') + ' ' + tr(l.name || l.kind) : tr('Yeni katman olarak eklenir');
     }
     return '';
@@ -844,11 +923,18 @@
        kaydırması sahne uygulanınca başa sıçrıyordu. Sekme/sorgu imzası
        aynıysa raf yerinde kalsın; MilkDrop'ta preset değişince yenilensin. */
     if (!shelfOpen) return 'closed:' + shelfTab;
+    /* Hedef satırı ve kilit seçili katmana bağlı: seçim değişince raf da yenilensin */
+    const lk = shelfLock();
+    const lockSig = lk ? lk.why + ':' + lk.layer.id + ':' + (lk.layer.name || '') : '';
+    if (shelfTab === 'vis' || shelfTab === 'bg') {
+      const cur = selected();
+      return shelfTab + '|' + String(query || '') + '|' + (cur ? cur.id + ':' + (cur.name || '') : '') + '|' + lockSig + '|' + (autoTarget() ? 'a' : 's');
+    }
     if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
     const l = layers().find((x) => x && x.id === sel);
     const own = l && l.settings && l.settings.milkdrop;
     const md = own || P().cfg().milkdrop || {};
-    return JSON.stringify([query, sel, l ? l.type : '', l ? l.name : '', md.id || md.name || '', md.presetId || '']);
+    return JSON.stringify([query, sel, l ? l.type : '', l ? l.name : '', md.id || md.name || '', md.presetId || '', lockSig]);
   }
   function invalidateShelf() { shelfStale = true; }
   /* Raf kartı boş kaldı mı? Sahne dışı bir sayfaya geçince render() #svShelf'i
@@ -926,6 +1012,15 @@
       kids.push(modeGallery(tab.id));
     } else if (tab.id === 'scenes') {
       kids.push(sceneShelf());
+    }
+    const lock = shelfLock();
+    if (lock && kids.length > (line ? 1 : 0)) {
+      // Hedef satırı dışındaki içerik kilit kabına; üstüne neden ve çıkış yolu
+      const content = kids.splice(line ? 1 : 0);
+      const wrap = el('div', { class: 'sv-shelf-locked', 'aria-disabled': 'true' }, content);
+      wrap.inert = true;
+      if (typeof wrap.setAttribute === 'function') wrap.setAttribute('inert', '');
+      kids.push(lockOverlay(lock), wrap);
     }
     body.replaceChildren(...kids);
     body.scrollTop = scrollOf.shelf;
@@ -1070,5 +1165,5 @@
     });
   }
 
-  window.SVSceneShell = { thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
+  window.SVSceneShell = { shelfLock, applyMode, thumbReady, paint, placeStage, select, setShelf, selected, closeMenus, placeMenu, openLayerMenu, startRename, layerAct: act, reveal, invalidateShelf, sceneThumb, thumbOf, titleOf };
 })();

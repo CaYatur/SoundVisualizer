@@ -354,6 +354,10 @@
       reduceMotion: false,
       // Sahne listesinin düzeni: 'list' (tek sütun, sıralı) | 'grid' (satır satır ızgara)
       sceneView: 'list',
+      /* Mod hedefi: false (varsayılan) = Görsel/Zemin/MilkDrop modu yalnız
+         seçili katmana gider, uymayan raf kilitlenir; MCP de katman kimliği
+         ister. true = eski davranış, mod o türün ilk katmanına yönlenir. */
+      modeTargetAuto: false,
     },
 
     power: {
