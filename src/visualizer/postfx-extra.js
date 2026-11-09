@@ -642,4 +642,137 @@ void main(){
 }`,
     },
   });
+  /* ---------------------------------------------------------------------
+     Renk yönetimi: ton eşleme ve 3B LUT (.cube).
+
+     Ton eşleme 8 bit sahneyi doğrusala açar, pozlamayı uygular, seçilen
+     eğriyle (ACES, AgX, Reinhard) sıkıştırıp sRGB'ye geri kapatır. Parlak
+     alanlar beyaza patlamadan yumuşakça doyar; "film" görünümü.
+
+     LUT tablosu efekt girdisinin `lut` alanında durur ({ name, size, data };
+     src/shared/lut.js paketler). Tablo yoksa efekt görüntüyü değiştirmez.
+     3B doku girdi başına bir kez yüklenir; veri değişince yenilenir. */
+  function lutTexture(gl, fx, owner) {
+    const lut = fx.lut;
+    const store = owner._lutTex || (owner._lutTex = Object.create(null));
+    const key = fx.id || fx.type;
+    const have = store[key];
+    if (!lut || typeof lut.data !== 'string' || !(Number.isInteger(lut.size) && lut.size >= 2 && lut.size <= 33)) {
+      if (have) { gl.deleteTexture(have.tex); delete store[key]; }
+      return null;
+    }
+    if (have && have.data === lut.data && have.size === lut.size) return have;
+    let bytes;
+    try {
+      const bin = atob(lut.data);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } catch (e) { return null; }
+    if (bytes.length !== lut.size * lut.size * lut.size * 3) return null;
+    const tex = have ? have.tex : gl.createTexture();
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_3D, tex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB8, lut.size, lut.size, lut.size, 0, gl.RGB, gl.UNSIGNED_BYTE, bytes);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.activeTexture(gl.TEXTURE0);
+    const rec = { tex, data: lut.data, size: lut.size };
+    store[key] = rec;
+    return rec;
+  }
+
+  P.register({
+    tonemap: {
+      label: 'Ton Eşleme (ACES / AgX)',
+      params: [
+        p('exposure', 'Pozlama (EV)', -3, 3, 0.05, 0.5),
+        p('curve', 'Eğri (0 ACES · 1 AgX · 2 Reinhard)', 0, 2, 1, 0),
+        p('amount', 'Karışım', 0, 1, 0.01, 1),
+      ],
+      audio: ['exposure'],
+      frag: `uniform float exposure, curve, amount;
+vec3 aces(vec3 x){
+  // Narkowicz ACES film eğrisi yaklaşımı
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+vec3 agxContrast(vec3 x){
+  vec3 x2 = x * x; vec3 x4 = x2 * x2;
+  return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+vec3 agx(vec3 v){
+  const mat3 inM = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051,
+    0.0784335999999992, 0.878468636469772, 0.0784336,
+    0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+  const mat3 outM = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438,
+    -0.0980208811401368, 1.15190312990417, -0.0980434501171241,
+    -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+  const float lo = -12.47393;
+  const float hi = 4.026069;
+  v = inM * v;
+  v = clamp(log2(max(v, vec3(1e-10))), lo, hi);
+  v = (v - lo) / (hi - lo);
+  v = agxContrast(v);
+  v = outM * v;
+  return pow(max(v, vec3(0.0)), vec3(2.2));
+}
+void main(){
+  vec3 src = texture(uTex, vUV).rgb;
+  // sRGB -> doğrusal, pozlama
+  vec3 lin = pow(max(src, vec3(0.0)), vec3(2.2)) * exp2(exposure);
+  int m = int(curve + 0.5);
+  vec3 mapped = m == 0 ? aces(lin) : (m == 1 ? agx(lin) : lin / (1.0 + lin));
+  vec3 outc = pow(clamp(mapped, 0.0, 1.0), vec3(1.0 / 2.2));
+  outColor = vec4(mix(src, outc, amount), 1.0);
+}`,
+    },
+
+    lut3d: {
+      label: '3B LUT (.cube)',
+      lutFile: true,
+      params: [p('amount', 'Karışım', 0, 1, 0.01, 1)],
+      audio: ['amount'],
+      frag: `uniform float amount;
+uniform highp sampler3D uLut;
+uniform float uLutSize, uLutOn;
+void main(){
+  vec3 src = clamp(texture(uTex, vUV).rgb, 0.0, 1.0);
+  vec3 outc = src;
+  if (uLutOn > 0.5) {
+    // Hücre merkezlerine hizalı örnek: 0 ve 1 tablonun uç noktalarına düşer
+    vec3 uvw = src * ((uLutSize - 1.0) / uLutSize) + 0.5 / uLutSize;
+    outc = mix(src, texture(uLut, uvw).rgb, amount);
+  }
+  outColor = vec4(outc, 1.0);
+}`,
+      // Çizimden hemen önce: 3B dokuyu 2. birime bağla
+      bind(gl, owner, fx, u) {
+        const rec = lutTexture(gl, fx, owner);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_3D, rec ? rec.tex : null);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.uniform1i(u('uLut'), 2);
+        gl.uniform1f(u('uLutSize'), rec ? rec.size : 2);
+        gl.uniform1f(u('uLutOn'), rec ? 1 : 0);
+      },
+      sync(gl, owner, chain) {
+        const store = owner._lutTex;
+        if (!store) return;
+        const live = new Set(chain.filter((fx) => fx.type === 'lut3d' && fx.lut).map((fx) => fx.id || fx.type));
+        for (const k of Object.keys(store)) if (!live.has(k)) {
+          gl.deleteTexture(store[k].tex);
+          delete store[k];
+        }
+      },
+      dispose(gl, owner) {
+        const store = owner._lutTex || {};
+        for (const k in store) gl.deleteTexture(store[k].tex);
+        owner._lutTex = Object.create(null);
+      },
+    },
+  });
 })();

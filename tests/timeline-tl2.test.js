@@ -482,3 +482,26 @@ test('panel: çoklu seçimde gruptan bir klibe basıp sürüklemek hepsini kendi
   assert.ok(cfg.timeline.tracks[0].clips.some((c) => c.id === 'cA'));
   assert.ok(cfg.timeline.tracks[1].clips.some((c) => c.id === 'cC'));
 });
+
+
+test('cues: moving and deleting a live hold marker refreshes every output anchor', async () => {
+  window.SVShowClock = require('../src/shared/showclock.js');
+  window.api = Object.assign({}, window.api, { sendShowClock() {} });
+  const cfg = cfgOf();
+  cfg.timeline.markers[0].hold = true;
+  const { cv } = await mount(cfg);
+  TP.seek(0);
+  TP.play();
+  assert.strictEqual(TP.anchor().hold, 3);
+  const flagY = RULER - 6;
+  fire(cv, 'mousedown', { clientX: X(3) + 2, clientY: flagY, detail: 1 });
+  winFire('mousemove', { clientX: X(4.5) + 2, clientY: flagY });
+  winFire('mouseup', {});
+  assert.strictEqual(cfg.timeline.markers[0].t, 4.5);
+  assert.strictEqual(TP.anchor().hold, 4.5);
+  TP._select({ kind: 'marker', markerId: 'm1' });
+  TP._key({ key: 'Delete', target: {}, preventDefault() {}, stopPropagation() {} });
+  assert.strictEqual(cfg.timeline.markers.length, 0);
+  assert.strictEqual(TP.anchor().hold, undefined);
+  TP.pause();
+});

@@ -53,7 +53,7 @@
     'blur', 'radialblur', 'motionblur', 'tiltshift', 'dof', 'sharpen', 'emboss',
     'dither', 'halftone', 'ascii', 'hatch', 'paint', 'vhs', 'datamosh', 'slitscan',
     'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize', 'flash', 'strobe',
-    'godrays', 'badtv', 'starfilter',
+    'godrays', 'badtv', 'starfilter', 'tonemap', 'lut3d',
   ];
   const LAYER_DEFAULTS = {
     id: null, name: '', enabled: true, kind: 'visualizer', type: 'bars', presetId: null,
@@ -189,7 +189,7 @@
     master: 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
-    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', sacn: 'output', wled: 'output', wledSync: 'output', oscOut: 'output',
     // Panelin arayüz teması (#770): uygulama ayarı, power ile aynı izin
     ui: 'output',
     'audio.sources': 'output',
@@ -1131,6 +1131,7 @@
     sv_timeline_edit_marker: { props: {
       action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove'] }),
       markerId: sp('string', 'Marker id (update, remove).'), t: sp('number', 'Time, seconds.', { minimum: 0 }), name: sp('string', 'Marker name.'),
+      hold: sp('boolean', 'Cue hold: live playback stops at this marker until GO (add, update). Export ignores holds.'),
     }, required: ['action'] },
     sv_timeline_set_options: { props: {
       bpm: sp('number', 'Tempo at the start.', { minimum: 1, maximum: 999 }), beatsPerBar: sp('integer', 'Beats per bar at the start.', { minimum: 1, maximum: 16 }),
@@ -1950,7 +1951,7 @@
       if (action === 'add') {
         if (!Number.isFinite(Number(args.t)) || Number(args.t) < 0) return fail('t (seconds, 0 or more) is required.');
         TL.uniqueIds(TL.makeTimeline(doc));
-        const m = TL.makeMarker({ t: Number(args.t), name: args.name });
+        const m = TL.makeMarker({ t: Number(args.t), name: args.name, hold: args.hold === true });
         doc.markers.push(m);
         doc.markers.sort(function (a, b) { return a.t - b.t; });
         return { markerId: m.id, marker: m };
@@ -1964,6 +1965,7 @@
         patch.t = Number(args.t);
       }
       if (args.name != null) patch.name = String(args.name);
+      if (args.hold != null) patch.hold = args.hold === true;
       const m = TL.makeMarker(Object.assign({}, doc.markers[i], patch));
       doc.markers[i] = m;
       doc.markers.sort(function (a, b) { return a.t - b.t; });
