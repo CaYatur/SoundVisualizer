@@ -410,6 +410,59 @@
     return { x: fit(box.x, box.w), y: fit(box.y, box.h), w: box.w, h: box.h };
   }
 
+  /* HİZALAMA VE DAĞITMA (düzen editörü). Kutular { id, x, y, w, h }; dönen: id → { dx, dy }.
+     Tek kutu çerçeveye, birden çok kutu seçimin sınır kutusuna hizalanır. Dağıtmada uçtaki
+     iki kutu yerinde kalır, aradakilerin boşlukları eşitlenir (en az üç kutu). Kayma öğenin
+     kendi konum alanına moveBy ile yazılır; alanın sınırı orada uygulanır. */
+  function boundsOf(boxes) {
+    const list = (boxes || []).filter((b) => b && b.w > 0 && b.h > 0);
+    if (!list.length) return null;
+    let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+    for (const b of list) {
+      x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+      x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  const ALIGN_MODES = ['left', 'hcenter', 'right', 'top', 'vcenter', 'bottom'];
+  function alignDeltas(boxes, mode) {
+    const out = {};
+    const list = (boxes || []).filter((b) => b && b.id != null && b.w > 0 && b.h > 0);
+    if (!list.length || ALIGN_MODES.indexOf(mode) < 0) return out;
+    const ref = list.length === 1 ? { x: 0, y: 0, w: 1, h: 1 } : boundsOf(list);
+    for (const b of list) {
+      let dx = 0;
+      let dy = 0;
+      if (mode === 'left') dx = ref.x - b.x;
+      else if (mode === 'hcenter') dx = ref.x + ref.w / 2 - (b.x + b.w / 2);
+      else if (mode === 'right') dx = ref.x + ref.w - (b.x + b.w);
+      else if (mode === 'top') dy = ref.y - b.y;
+      else if (mode === 'vcenter') dy = ref.y + ref.h / 2 - (b.y + b.h / 2);
+      else dy = ref.y + ref.h - (b.y + b.h);
+      out[b.id] = { dx: round(dx) || 0, dy: round(dy) || 0 };
+    }
+    return out;
+  }
+  function distributeDeltas(boxes, axis) {
+    const out = {};
+    const list = (boxes || []).filter((b) => b && b.id != null && b.w > 0 && b.h > 0);
+    if (list.length < 3) return out;
+    const p = axis === 'y' ? 'y' : 'x';
+    const s = axis === 'y' ? 'h' : 'w';
+    const sorted = list.slice().sort((a, b) => (a[p] + a[s] / 2) - (b[p] + b[s] / 2));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const total = sorted.reduce((sum, b) => sum + b[s], 0);
+    const gap = ((last[p] + last[s]) - first[p] - total) / (sorted.length - 1);
+    let at = first[p];
+    for (const b of sorted) {
+      const d = round(at - b[p]) || 0;
+      out[b.id] = p === 'y' ? { dx: 0, dy: d } : { dx: d, dy: 0 };
+      at += b[s] + gap;
+    }
+    return out;
+  }
+
   // Normalize kutu (piksel dikdörtgenden)
   function normBox(px, py, pw, ph, W, H) {
     if (!(W > 0) || !(H > 0) || !(pw > 0) || !(ph > 0)) return null;
@@ -603,6 +656,7 @@
   const api = {
     SAFE, PLATFORM_ZONES, platformZones, KINDS, canResize, resizeBy, frameGuides, elementGuides, mergeGuides, snapBox,
     kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox, visibleFraction, reachClamp, intoFrame,
+    boundsOf, ALIGN_MODES, alignDeltas, distributeDeltas,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
     revealOf, revealHolder,

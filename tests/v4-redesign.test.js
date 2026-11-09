@@ -94,7 +94,7 @@ test('satır kuralının özgüllüğü düşük: denetçideki yerleşim kuralla
 test('sayfa stili tek kenar değeri kullanıyor, bölümler sayfa başına tek', () => {
   assert.match(pages, /--sv-inset: 12px;/);
   const heads = pages.match(/-{20,} \d+\. [^*]+\*\//g) || [];
-  assert.strictEqual(heads.length, 14);
+  assert.strictEqual(heads.length, 15);
   const names = heads.map((h) => h.replace(/-+ /, '').trim());
   assert.strictEqual(new Set(names).size, names.length);
 });

@@ -133,3 +133,27 @@ test('panel galeriye resmi boşta istiyor, ana süreç protokol ve IPC ile veriy
   assert.match(main, /async function renderModeThumb\(meta\) \{\r?\n  await thumbTurn\(\);/);
   assert.match(pre, /modeThumbs: \(items\) => ipcRenderer\.invoke\('modes:thumbs'/);
 });
+
+test('çeviri sözlüğü anahtara girmiyor: arayüz metni eklemek resimleri eskitmiyor', () => {
+  // Sayfa sözlüğü yüklüyor (modlar hata ve varsayılan metni çeviriyor) ama resim ona bağlı değil
+  assert.ok(M.pageFiles(ROOT).includes('src/shared/i18n.js'));
+  assert.deepStrictEqual(Array.from(M.KEY_SKIP), ['src/shared/i18n.js']);
+  const os = require('os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-thumbkey-'));
+  try {
+    for (const rel of M.pageFiles(ROOT)) {
+      const to = path.join(tmp, rel);
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(path.join(ROOT, rel), to);
+    }
+    const before = M.keyOf(M.context(tmp), 'vis', 'wave');
+    assert.strictEqual(before, M.keyOf(M.context(ROOT), 'vis', 'wave'), 'kopya depo aynı anahtarı veriyor');
+    fs.appendFileSync(path.join(tmp, 'src/shared/i18n.js'), '\n// yeni arayüz metni\n');
+    assert.strictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before, 'sözlük değişti, anahtar aynı');
+    // Motor dosyası değişince anahtar değişmeye devam ediyor
+    fs.appendFileSync(path.join(tmp, 'src/visualizer/layers.js'), '\n// motor değişti\n');
+    assert.notStrictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

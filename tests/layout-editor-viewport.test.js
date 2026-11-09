@@ -14,6 +14,7 @@ const root = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n');
 const ED = read('src/admin/layout-editor.js');
 const CSS = read('src/admin/admin.css');
+const PAGES = read('src/admin/pages.css');
 
 test('visibleFraction: içeride 1, yarısı dışarıda 0.5, tamamen dışarıda 0', () => {
   assert.ok(Math.abs(LY.visibleFraction({ x: 0.2, y: 0.2, w: 0.4, h: 0.4 }) - 1) < 1e-9);
@@ -77,8 +78,8 @@ test('elements(): gizli, sessiz ve çizilmeyen katmanlar da listede, bayrakları
 
 test('görünüm kaymıyor: sahne ve kap kaydırılamaz, odak preventScroll ile', () => {
   assert.match(CSS, /\.preview-stage \{[^}]*overflow: hidden; overflow: clip;/);
-  assert.match(CSS, /\.lay-stage-wrap \{[^}]*overflow: hidden; overflow: clip;/);
-  assert.match(CSS, /\.preview-stage\.lay-stage \{ aspect-ratio: auto; overflow: visible; \}/);
+  assert.match(PAGES, /\.lay-stage-wrap \{[^}]*overflow: hidden; overflow: clip;/);
+  assert.match(PAGES, /\.preview-stage\.lay-stage \{ aspect-ratio: auto; overflow: visible; \}/);
   assert.match(ED, /function pinScroll\(s\)/);
   assert.match(ED, /pinScroll\(st\);/);
   // Editörün içindeki her odak çağrısı kaydırmasız (açanın odağı editör dışında)
@@ -92,11 +93,12 @@ test('görünüm kaymıyor: sahne ve kap kaydırılamaz, odak preventScroll ile'
 
 test('sürükleme ve ok tuşu çerçeveden tamamen çıkarmıyor; kilitli öğe taşınmıyor', () => {
   assert.match(ED, /box = LY\(\)\.reachClamp\(box, MIN_REACH_PX \/ d\.rect\.width, MIN_REACH_PX \/ d\.rect\.height\);/);
-  const nudge = ED.slice(ED.indexOf('function nudge'), ED.indexOf('function effectiveLayers'));
+  const nudge = ED.slice(ED.indexOf('function nudge'), ED.indexOf('function arrange'));
   assert.match(nudge, /LY\(\)\.reachClamp\(/);
-  assert.match(nudge, /if \(e\.locked\) return;/);
-  assert.match(ED, /select\(id\);\n    if \(e\.locked\) return;/);
-  assert.match(ED, /text: 'Çerçeveye Getir'/);
+  assert.match(nudge, /const group = pickedEls\(\)\.filter\(\(e\) => !e\.locked\);/);
+  // Kilitli öğe seçilir ama sürüklenmez
+  assert.match(ED, /if \(e\.locked\) return;\n    const bounds = liveBounds\(\);/);
+  assert.match(ED, /tool\('fit', 'Çerçeveye Getir', \(\) => bringIn\(\)\)/);
 });
 
 test('önizleme araç çubuğu: en-boy seçici düğmelerle aynı hizada', () => {
@@ -107,5 +109,5 @@ test('önizleme araç çubuğu: en-boy seçici düğmelerle aynı hizada', () =>
   assert.match(rule, /align-self: center;/);
   assert.match(rule, /height: 26px;/);
   assert.match(rule, /appearance: none;/);
-  assert.match(CSS, /\.preview-stage\.lay-stage \.sv-hud \{ display: none; \}/, 'editörde önizleme araçları gizli');
+  assert.match(PAGES, /\.preview-stage\.lay-stage \.sv-hud \{ display: none; \}/, 'editörde önizleme araçları gizli');
 });

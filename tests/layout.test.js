@@ -380,10 +380,10 @@ test('platform arayüz bölgeleri: 9:16 ve 1:1, kareye göre, çıktıya girmiyo
   L.platformZones('9:16')[0].h = 0.9;
   assert.ok(close(L.platformZones('9:16')[0].h, 0.12));
   const ed = fs.readFileSync(path.join(root, 'src', 'admin', 'layout-editor.js'), 'utf-8');
-  assert.match(ed, /toggle\('Platform arayüzü', st\.platform,/);
+  assert.match(ed, /chip\('Platform arayüzü', 'phone', st\.platform,/);
   assert.match(ed, /L\.platformZones\(st\.aspectKey\)/);
   assert.match(ed, /fit\(\);\s+paintGuides\(\);/, 'oran değişince bölgeler yeniden çiziliyor');
-  const css = fs.readFileSync(path.join(root, 'src', 'admin', 'admin.css'), 'utf-8');
+  const css = fs.readFileSync(path.join(root, 'src', 'admin', 'pages.css'), 'utf-8');
   assert.match(css, /\.lay-platform \{[^}]*pointer-events: none/);
   const i18n = fs.readFileSync(path.join(root, 'src', 'shared', 'i18n.js'), 'utf-8');
   assert.ok(i18n.includes("'Platform arayüzü': 'Platform interface'"));
@@ -424,4 +424,41 @@ test('boyutlandırma: sınırlara kırpılır ve gerçek çarpanı döndürür; 
   L.resizeBy(logo, cfg2, { x: 0.85, y: 0.05, w: 0.1, h: 0.1 }, { x: 0.9, y: 0.1, scale: 0.1 }, 2);
   assert.ok(close(cfg2.logo.scale, 0.2, 1e-6), 'scale ' + cfg2.logo.scale);
   assert.strictEqual(cfg2.logo.size, undefined, 'logoda size yazılmaz');
+});
+
+// ---- Hizalama ve dağıtma (düzen editörü)
+test('alignDeltas: tek kutu çerçeveye, birden çok kutu seçimin sınırlarına', () => {
+  const one = L.alignDeltas([{ id: 'a', x: 0.1, y: 0.2, w: 0.2, h: 0.1 }], 'hcenter');
+  assert.ok(close(one.a.dx, 0.3) && one.a.dy === 0, 'tek kutu karenin ortasına');
+  assert.ok(close(L.alignDeltas([{ id: 'a', x: 0.1, y: 0.2, w: 0.2, h: 0.1 }], 'bottom').a.dy, 0.7));
+  const two = [{ id: 'a', x: 0.1, y: 0.1, w: 0.2, h: 0.1 }, { id: 'b', x: 0.5, y: 0.4, w: 0.3, h: 0.2 }];
+  const right = L.alignDeltas(two, 'right');
+  assert.ok(close(right.a.dx, 0.5) && right.b.dx === 0, 'sağ kenar en sağdaki kutunun kenarı');
+  const top = L.alignDeltas(two, 'top');
+  assert.ok(top.a.dy === 0 && close(top.b.dy, -0.3));
+  const mid = L.alignDeltas(two, 'vcenter');
+  assert.ok(close(mid.a.dy, 0.2) && close(mid.b.dy, -0.15), 'seçimin dikey ortası 0,35');
+  assert.deepStrictEqual(L.alignDeltas(two, 'yok'), {}, 'bilinmeyen kip hiçbir şey yapmaz');
+  assert.deepStrictEqual(L.alignDeltas([], 'left'), {});
+  // Sıfır kayma eksi sıfır yazılmaz (ayar dosyasına -0 girmesin)
+  assert.ok(Object.is(right.b.dx, 0) && Object.is(top.a.dy, 0));
+});
+
+test('distributeDeltas: uçlar yerinde, aradaki boşluklar eşit; üçten az kutuda iş yok', () => {
+  const boxes = [
+    { id: 'c', x: 0.9, y: 0, w: 0.1, h: 0.1 },
+    { id: 'a', x: 0, y: 0, w: 0.1, h: 0.1 },
+    { id: 'b', x: 0.2, y: 0, w: 0.1, h: 0.1 },
+  ];
+  const d = L.distributeDeltas(boxes, 'x');
+  assert.ok(d.a.dx === 0 && d.c.dx === 0, 'uçtaki kutular kıpırdamaz');
+  assert.ok(close(d.b.dx, 0.25), 'ortadaki 0,45e gider: iki yanda 0,35 boşluk');
+  const v = L.distributeDeltas([
+    { id: 'a', x: 0, y: 0, w: 0.1, h: 0.2 }, { id: 'b', x: 0, y: 0.25, w: 0.1, h: 0.1 }, { id: 'c', x: 0, y: 0.8, w: 0.1, h: 0.2 },
+  ], 'y');
+  assert.ok(close(v.b.dy, 0.2) && v.b.dx === 0, 'dikeyde: 0,2 + 0,25 boşluk = 0,45');
+  assert.deepStrictEqual(L.distributeDeltas(boxes.slice(0, 2), 'x'), {});
+  const b = L.boundsOf(boxes);
+  assert.ok(close(b.x, 0) && close(b.w, 1) && close(b.h, 0.1));
+  assert.strictEqual(L.boundsOf([]), null);
 });
