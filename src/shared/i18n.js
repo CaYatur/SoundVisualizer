@@ -2073,6 +2073,13 @@
     'Hedef Seç': 'Pick Target',
     'Kaydet (öğren): oynarken ayarın elle değişimini noktalara yazar': 'Record (learn): writes manual changes during playback as points',
     'İşaret Adı': 'Marker Name',
+    // Cue listesi (GO)
+    'GO: bekleyen cue\'dan devam et; oynarken sıradaki işarete atla (Enter)': 'GO: continue from the held cue; while playing, jump to the next marker (Enter)',
+    'GO: bekleyen cue\'dan devam (bir işarette "Cue: burada bekle" açıksa)': 'GO: continue from the held cue (when a marker has "Cue: hold here" on)',
+    'Sıradaki': 'Next',
+    'Son cue': 'Last cue',
+    'Cue: burada bekle': 'Cue: hold here',
+    'Canlı oynatma bu işarette durur; GO ile devam eder. Dışa aktarım beklemeleri yok sayar.': 'Live playback stops at this marker and continues on GO. Export ignores holds.',
     'Otomasyonun süreceği ayarı ara ve seç': 'Search and pick the setting the automation drives',
     'Kes': 'Cut',
     'Kafada böl': 'Split at playhead',
