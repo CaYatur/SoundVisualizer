@@ -43,6 +43,7 @@ const LIVE_ONLY = {
   'src/shared/clipdeck.js': 'Clip Deck canlı tetikleme; dışa aktarımda tetik yok',
   'src/shared/milkdrop-sprites.js': 'MilkDrop sprite\'ları elle (K + numara) canlı başlatılıyor',
   'src/shared/low-power.js': 'düşük güç kipi yalnız canlı çizim; video aynı kalıyor',
+  'src/shared/adaptive-scale.js': 'uyarlanır çözünürlük yalnız canlı çıkış penceresi; video hep tam çözünürlükte',
 };
 
 test('canlı sayfada çizime giren her betik dışa aktarıcıda ve yayın katmanında da var', () => {

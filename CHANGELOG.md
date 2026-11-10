@@ -5,6 +5,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Performance
+
+- **Adaptive resolution** (#453, on by default). When the output window cannot keep up with the display, the drawing resolution drops one step (0.1) at a time, to half at most, and rises again after the scene has been calm for ten seconds. A step that does not hold doubles the wait before the next try, so a scene on the edge does not blur and sharpen every few seconds. It multiplies the Background Resolution setting, can be turned off under Performance, and never applies to video export, the OBS overlay or the measuring tools. Measured on an eight-layer scene at 2560×1600 on a 75 Hz output: 57 fps before, 72.5 fps with it on (30 s average, including the seconds it takes to settle).
+
 ### Visuals
 
 - **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.

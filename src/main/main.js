@@ -1104,6 +1104,10 @@ function resolveDisplayIds(input) {
 
 /* Paketli sürümde betikler tek dosyada (scripts/bundle-pages.js). Geliştirmede bayat paket
    yüklenmesin diye yalnız SV_BUNDLED ile; öz test ve kare kapısı paketi böyle denetler. */
+/* Uyarlanır çözünürlük (#453) yalnız uygulamanın kendi çıkış pencerelerinde: sayfa adresindeki
+   işaretle açılır. Öz test, ekran görüntüsü üretici ve ölçüm araçları (bench, golden, parity)
+   sayfayı işaretsiz yükler; orada çözünürlük ölçüm sırasında değişmemeli. */
+const ADAPTIVE_QUERY = SMOKE || SHOTS ? undefined : { query: { svAdaptive: '1' } };
 function visualizerPage() {
   const gen = path.join(__dirname, '..', 'visualizer', 'index.gen.html');
   const use = (app.isPackaged || process.env.SV_BUNDLED) && fs.existsSync(gen);
@@ -1157,7 +1161,7 @@ function createVisualizerWindow(display) {
   outputOpenedAt.set(win, Date.now()); // gösteri öncesi denetim: açılış payı
   notifyVisualizerStatus();
 
-  win.loadFile(visualizerPage());
+  win.loadFile(visualizerPage(), ADAPTIVE_QUERY);
   attachSmoke(win, 'VIS');
 
   /* Beyaz parlama: show:false + show() Electron hatası.
@@ -3156,7 +3160,7 @@ function createFloatingWindow() {
   floatingWin = win;
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true);
-  win.loadFile(visualizerPage());
+  win.loadFile(visualizerPage(), ADAPTIVE_QUERY);
   attachSmoke(win, 'FLOAT');
   applyFloatingPrefs();
   applyGeometryLockAll();

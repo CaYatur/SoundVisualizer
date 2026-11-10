@@ -3224,6 +3224,11 @@
             show: () => refreshRates().length > 0,
           },
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', step: 0.05, percent: true },
+          { type: 'toggle', path: 'power.adaptiveScale', label: 'Uyarlanır Çözünürlük' },
+          {
+            type: 'note',
+            text: 'Uyarlanır Çözünürlük açıkken sahne ekranın yenileme hızına yetişemezse çizim çözünürlüğü basamak basamak düşer (en az yarıya), sahne hafifleyince geri yükselir. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.',
+          },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
         ],
