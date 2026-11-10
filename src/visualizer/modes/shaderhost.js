@@ -315,10 +315,11 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     resize(w, h) {
       const W = Math.max(2, w | 0);
       const H = Math.max(2, h | 0);
+      /* Kalıcı tamponlar burada bırakılmıyor: _ensureFbos yeni boyutu kurarken eski içeriği
+         taşıyor (#453, uyarlanır çözünürlük basamağında geri besleme sıfırlanmasın). */
       if (this.canvas.width !== W || this.canvas.height !== H) {
         this.canvas.width = W;
         this.canvas.height = H;
-        this._releaseFbos();
       }
     }
 
@@ -337,6 +338,8 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     _ensureFbos(W, H) {
       const gl = this.gl;
       if (this._fbo[0] && this._fboSize[0] === W && this._fboSize[1] === H) return;
+      const old = this._fbo[0] ? { fbo: this._fbo.slice(), tex: this._fboTex.slice(), w: this._fboSize[0], h: this._fboSize[1] } : null;
+      if (old) { this._fbo = [null, null]; this._fboTex = [null, null]; }
       this._releaseFbos();
       for (let i = 0; i < 2; i++) {
         const tex = gl.createTexture();
@@ -353,6 +356,20 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
         gl.clear(gl.COLOR_BUFFER_BIT);
         this._fbo[i] = fb;
         this._fboTex[i] = tex;
+      }
+      if (old) {
+        // Önceki içerik yeni boyuta: Studio geri beslemesi boyut değişiminde baştan başlamasın
+        for (let i = 0; i < 2; i++) {
+          try {
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, old.fbo[i]);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this._fbo[i]);
+            gl.blitFramebuffer(0, 0, old.w, old.h, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+          } catch (e) { /* olmazsa boş başlar */ }
+          gl.deleteFramebuffer(old.fbo[i]);
+          gl.deleteTexture(old.tex[i]);
+        }
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this._fboSize = [W, H];

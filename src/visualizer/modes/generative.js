@@ -155,6 +155,38 @@
     }
   }
 
+  /* İz tamponu: yoksa kurulur, boyut değişince eski izler yeni boyuta ölçeklenerek taşınır.
+     Uyarlanır çözünürlük (#453) çıkışın boyutunu basamak basamak değiştiriyor; taşınmazsa
+     her basamakta biriken izler bir anda silinirdi. */
+  function sizeTrail(self, W, H) {
+    const old = self.trail;
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const tc = c.getContext('2d');
+    if (old && old.width > 1 && old.height > 1) {
+      tc.imageSmoothingEnabled = true;
+      tc.drawImage(old, 0, 0, W, H);
+    }
+    self.trail = c;
+    self.tctx = tc;
+  }
+
+  /* Piksel koordinatlı durum, tuval boyutu değişince orantılı taşınır (#453). Eskiden
+     resize() parçacıkları yeniden tohumluyor, ipleri baştan kuruyordu: uyarlanır çözünürlüğün
+     her basamağında sahne bir anda başka bir yere atlıyordu. İlk çağrı yalnız boyutu kaydeder. */
+  function rescale(self, W, H, xs, ys) {
+    const lw = self._lw;
+    const lh = self._lh;
+    self._lw = W;
+    self._lh = H;
+    if (!lw || !lh || (lw === W && lh === H)) return;
+    const kx = W / lw;
+    const ky = H / lh;
+    for (const a of xs) for (let i = 0; i < a.length; i++) a[i] *= kx;
+    for (const a of ys) for (let i = 0; i < a.length; i++) a[i] *= ky;
+  }
+
   // Ortak vuruş algılayıcı sarmalayıcısı (bkz. src/shared/onset.js)
   function onset(refractory) {
     return new window.SVOnset.Onset({ refractory: refractory == null ? 0.11 : refractory });
@@ -178,7 +210,7 @@
       this.trail = null;
       this.tctx = null;
     }
-    resize() { this.init = false; this.trail = null; }
+    resize() {}
     _seed(W, H) {
       for (let i = 0; i < this.N; i++) {
         this.px[i] = this.rand() * W;
@@ -195,14 +227,11 @@
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       if (!this.init) this._seed(W, H);
+      rescale(this, W, H, [this.px], [this.py]);
 
       // İz tamponu: parçacıkların geçtiği yol solarak kalır
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.035 + (1 - v.thickness) * 0.06, this);
       tc.globalCompositeOperation = 'lighter';
@@ -267,7 +296,7 @@
       this.vy = new Float32Array(this.N);
       this.init = false;
     }
-    resize() { this.init = false; }
+    resize() {}
     _seed(W, H) {
       for (let i = 0; i < this.N; i++) {
         this.x[i] = this.rand() * W;
@@ -285,6 +314,7 @@
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       if (!this.init) this._seed(W, H);
+      rescale(this, W, H, [this.x, this.vx], [this.y, this.vy]);
       ctx.clearRect(0, 0, W, H);
 
       const sens = v.sensitivity || 1;
@@ -454,7 +484,7 @@
       this.cols = 0;
       this.rows = 0;
     }
-    resize() { this.flip = null; }
+    resize() {}
     draw(audio, cfg, t, dt) {
       const ctx = this.ctx;
       const W = this.canvas.width;
@@ -659,7 +689,7 @@
       this.onset = onset(0.1);
       this.ropes = null;
     }
-    resize() { this.ropes = null; }
+    resize() {}
     _build(W, H, count, seg) {
       this.ropes = [];
       for (let r = 0; r < count; r++) {
@@ -684,6 +714,15 @@
       const seg = clamp(Math.round((v.barCount | 0) * 0.3), 24, 90);
       if (!this.ropes || this.ropes.length !== count || this.ropes[0].length !== seg) {
         this._build(W, H, count, seg);
+        this._lw = W;
+        this._lh = H;
+      } else if (this._lw !== W || this._lh !== H) {
+        // Boyut değişti: ipler orantılı taşınır, fizik kaldığı yerden sürer
+        const kx = W / this._lw;
+        const ky = H / this._lh;
+        for (const pts of this.ropes) for (const p of pts) { p.x *= kx; p.px *= kx; p.y *= ky; p.py *= ky; }
+        this._lw = W;
+        this._lh = H;
       }
 
       const sens = v.sensitivity || 1;
@@ -991,18 +1030,13 @@
       this.ctx = canvas.getContext('2d');
       this.trail = null;
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t) {
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       // Fosfor sönümü: kalınlık ayarı kalıcılığı belirler
       fadeTrail(tc, W, H, 0.06 + (1 - v.thickness) * 0.22, this);
@@ -1043,18 +1077,13 @@
       this.ctx = canvas.getContext('2d');
       this.trail = null;
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t) {
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.12, this);
       tc.globalCompositeOperation = 'lighter';
@@ -1221,7 +1250,7 @@
       this.idx = 0;
       this.onset = onset(0.6);
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t, dt) {
       const ctx = this.ctx;
       const W = this.canvas.width;
@@ -1236,12 +1265,7 @@
         this.keys = Object.keys(A).filter((k) => A[k].discrete);
         if (!this.keys.length) this.keys = Object.keys(A);
       }
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.04 + (1 - v.thickness) * 0.1, this);
       tc.globalCompositeOperation = 'lighter';
@@ -1291,7 +1315,7 @@
   // ==========================================================================
   /* Ortak yardımcılar: generative2.js ve sonraki üretken modlar aynı renk,
      gürültü ve vuruş kurallarını kullansın. */
-  window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail };
+  window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail, sizeTrail, rescale };
 
   window.SVModes = window.SVModes || {};
   Object.assign(window.SVModes, {

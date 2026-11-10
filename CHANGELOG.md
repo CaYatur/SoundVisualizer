@@ -7,6 +7,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Performance
 
+- **A resolution step no longer restarts the picture.** Measured after #997: when adaptive resolution changed size, MilkDrop rebuilt its feedback buffers and the frame went nearly black (mean brightness 13 → 7) before the preset built up again; Flow Field re-seeded its particles and dropped its trails; Confetti, Flock and Ropes reset. MilkDrop and the shader host now copy their feedback buffers to the new size, trail buffers are scaled across, and particle and rope positions are scaled instead of re-seeded. Checked by capturing output frames on both sides of a forced step: the step frame now differs from its neighbour no more than two ordinary frames do.
 - **Adaptive resolution** (#453, on by default). When the output window cannot keep up with the display, the drawing resolution drops one step (0.1) at a time, to half at most, and rises again after the scene has been calm for ten seconds. A step that does not hold doubles the wait before the next try, so a scene on the edge does not blur and sharpen every few seconds. It multiplies the Background Resolution setting, can be turned off under Performance, and never applies to video export, the OBS overlay or the measuring tools. Measured on an eight-layer scene at 2560×1600 on a 75 Hz output: 57 fps before, 72.5 fps with it on (30 s average, including the seconds it takes to settle).
 
 ### Visuals

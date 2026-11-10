@@ -503,7 +503,7 @@
       this.drizzle = 0;
       this.cols = [];
     }
-    resize() { this.life.fill(0); }
+    resize() {}
     // Boş yuvaları halka biçiminde tarar; havuz doluysa en eskinin üstüne yazar
     _spawn(count, ox, oy, dirA, spread, speed) {
       const N = CONFETTI_MAX;
@@ -534,6 +534,7 @@
       const bass = clamp(audio.bass * sens, 0, 1.5);
       const lvl = clamp(audio.level * sens, 0, 1.5);
       const minDim = Math.min(W, H);
+      G.rescale(this, W, H, [this.x, this.vx], [this.y, this.vy]);
 
       // Vuruşta sırayla sol ve sağ köşeden top atışı
       if (this.onset.push(audio.bass * sens, step) > 0) {
@@ -914,7 +915,7 @@
       this.n = 0;
       this.cols = [];
     }
-    resize() { this.n = 0; }
+    resize() {}
     _init(n) {
       this.n = n;
       this.by = new Float32Array(n); // topun yüksekliği (0..1, zeminden)
@@ -1031,7 +1032,7 @@
       this.trail = null;
       this.tctx = null;
     }
-    resize() { this.trail = null; }
+    resize() {}
     _bands(nb) {
       this.nb = nb;
       this.pan = new Float32Array(nb);
@@ -1063,12 +1064,7 @@
       const sens = v.sensitivity || 1;
       const nb = clamp(Math.round((v.barCount | 0) / 16), 4, 10);
       if (this.nb !== nb) this._bands(nb);
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) G.sizeTrail(this, W, H);
 
       // Bant başına konum ve dağınıklık
       const sb = this.sb;
