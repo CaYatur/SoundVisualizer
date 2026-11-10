@@ -142,8 +142,7 @@ comp_47=`    col = lerp(col, s2, e2);
 comp_48=`  }
 comp_49=`  col += ca * exp(-abs(p.y - y1) * 38.0) * 0.16 * (1.0 + pd * 2.0);
 comp_50=`  col += cb * exp(-abs(p.y - y2) * 38.0) * 0.16 * (1.0 + pd * 2.0);
-comp_51=`  col += tex2D(sampler_main, uv).xyz * 0.0;
-comp_52=`  float2 v = uv - 0.5;
-comp_53=`  col *= 1.0 - dot(v, v) * 0.8;
-comp_54=`  ret = 1.0 - exp(-col * 1.7);
-comp_55=`}
+comp_51=`  float2 v = uv - 0.5;
+comp_52=`  col *= 1.0 - dot(v, v) * 0.8;
+comp_53=`  ret = 1.0 - exp(-col * 1.7);
+comp_54=`}

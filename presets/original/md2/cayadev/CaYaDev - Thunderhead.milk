@@ -133,6 +133,5 @@ comp_33=`  float rain = tex2D(sampler_noise_lq, rp * float2(1.0, 0.05)).x;
 comp_34=`  col += float3(0.5, 0.55, 0.7) * smoothstep(0.78, 0.98, rain) * (0.04 + 0.1 * q5) * (0.5 + fl);
 comp_35=`  float ground = smoothstep(0.93, 0.96, uv.y + cloud(float2(uv.x * 0.08, 0.2)) * 0.05);
 comp_36=`  col = lerp(col, float3(0.004, 0.006, 0.01) + float3(0.1, 0.11, 0.16) * fl * 0.2, ground);
-comp_37=`  col += tex2D(sampler_main, uv).xyz * 0.0;
-comp_38=`  ret = 1.0 - exp(-col * 1.8);
-comp_39=`}
+comp_37=`  ret = 1.0 - exp(-col * 1.8);
+comp_38=`}

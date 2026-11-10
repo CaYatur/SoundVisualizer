@@ -139,7 +139,6 @@ comp_41=`  col += holo * cone * 0.07 * (0.7 + 0.3 * sin(q7 * 9.0 + q.y * 40.0));
 comp_42=`  col += holo * exp(-dot(e * float2(1.0, 5.0), e * float2(1.0, 5.0)) * 60.0) * 0.8;
 comp_43=`  float scan = 0.82 + 0.18 * sin(q.y * texsize.y * 1.2 + q7 * 6.0) * (0.5 + 0.5 * saturate(q6));
 comp_44=`  col *= scan;
-comp_45=`  col += GetBlur2(uv) * 0.0;
-comp_46=`  col += holo * 0.02 * frac(sin(dot(q + q7, float2(12.9898, 78.233))) * 43758.5453);
-comp_47=`  ret = 1.0 - exp(-col * 1.6);
-comp_48=`}
+comp_45=`  col += holo * 0.02 * frac(sin(dot(q + q7, float2(12.9898, 78.233))) * 43758.5453);
+comp_46=`  ret = 1.0 - exp(-col * 1.6);
+comp_47=`}
