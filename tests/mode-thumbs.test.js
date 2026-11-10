@@ -137,7 +137,7 @@ test('panel galeriye resmi boşta istiyor, ana süreç protokol ve IPC ile veriy
 test('çeviri sözlüğü anahtara girmiyor: arayüz metni eklemek resimleri eskitmiyor', () => {
   // Sayfa sözlüğü yüklüyor (modlar hata ve varsayılan metni çeviriyor) ama resim ona bağlı değil
   assert.ok(M.pageFiles(ROOT).includes('src/shared/i18n.js'));
-  assert.deepStrictEqual(Array.from(M.KEY_SKIP), ['src/shared/i18n.js']);
+  assert.deepStrictEqual(Array.from(M.KEY_SKIP), ['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js']);
   const os = require('os');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-thumbkey-'));
   try {
