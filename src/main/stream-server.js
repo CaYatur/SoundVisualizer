@@ -38,6 +38,8 @@ const ROOT = path.join(__dirname, '..'); // src/
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_MESSAGE = 256 * 1024; // istemciden gelen tek mesaj üst sınırı
 
+const PROTOCOL = 1; // docs/REMOTE-PROTOCOL.md "Stability"
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -900,6 +902,9 @@ function handleUpgrade(req, socket) {
   sendJson(client, {
     type: 'hello',
     app: 'CAYADEV Visualizer',
+    /* Kumanda protokolünün sürümü (docs/REMOTE-PROTOCOL.md). Uyumsuz bir değişiklikte artar;
+       dış istemciler (telefon uygulaması, gösteri paneli) bununla uyumluluğu denetler. */
+    protocol: PROTOCOL,
     kind: client.kind,
     platform: process.platform,
     serverNow: Date.now(),
@@ -1106,6 +1111,7 @@ function newToken() {
 }
 
 module.exports = {
+  PROTOCOL,
   parseFallbacks,
   start,
   stop,

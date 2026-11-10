@@ -33,3 +33,11 @@ test('belge: sabit ağaçtaki adresler yazılı, ağacın bilmediği adres yazı
   }
   assert.ok(read('README.md').includes('docs/REMOTE-PROTOCOL.md'));
 });
+
+test('belge: protokol sürümü hello iletisinde ve belgede aynı', () => {
+  const src = read('src/main/stream-server.js');
+  const m = /const PROTOCOL = (\d+);/.exec(src);
+  assert.ok(m, 'PROTOCOL sabiti');
+  assert.match(src, /type: 'hello',[\s\S]{0,300}protocol: PROTOCOL,/);
+  assert.ok(DOC.includes("`protocol` (this page's version, now `" + m[1] + '`)'), 'belgedeki sürüm');
+});

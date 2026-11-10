@@ -41,7 +41,7 @@ app's clock).
 
 | `type` | When | Fields |
 |---|---|---|
-| `hello` | First message | `app`, `kind`, `platform` (`win32`, `darwin`, `linux`), `version`, `serverNow` |
+| `hello` | First message | `app`, `protocol` (this page's version, now `1`), `kind`, `platform` (`win32`, `darwin`, `linux`), `version` (the app), `serverNow` |
 | `config` | After `hello`, then on every full change | `config`: the whole configuration, tokens and passwords removed |
 | `config-patch` | While a slider is dragged in the panel | `patch`: only the changed top-level keys; apply on top of the last `config` |
 | `presets` | After `config` | `presets`: user presets (MilkDrop entries carry no source) |
@@ -154,6 +154,8 @@ Redundancy takeover, deck slots and MilkDrop sprites are deliberately not on the
 
 ## Stability
 
-Commands, message types and field names on this page are kept compatible within a major version.
-New fields and new `osc` addresses can appear at any time; ignore what you do not know. The
+`hello.protocol` is the version of this page. It goes up only for a change that breaks existing
+clients (a removed command, a renamed field); a client should refuse a value newer than the one it
+was written for and say so. New fields and new `osc` addresses can appear without a version change;
+ignore what you do not know. The
 checks live in `src/main/remote-commands.js` and are covered by `tests/remote-v2.test.js`.
