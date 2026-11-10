@@ -380,6 +380,7 @@
          çözünürlük ve efektler çizilen kopyada kısılıyor (low-power.js). */
       lowPower: 'off',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
+      adaptiveScale: true, // kare kaçıyorsa çözünürlüğü kendiliğinden düşür (#453)
       pauseOnSilence: false,
       hideCursor: true,
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.

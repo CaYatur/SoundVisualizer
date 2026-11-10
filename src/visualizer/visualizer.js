@@ -188,6 +188,13 @@
   let lastDraw = 0;
   let lastRaf = 0;
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
+  /* Uyarlanır çözünürlük (#453, shared/adaptive-scale.js): kare kaçıyorsa çizim çözünürlüğü
+     basamak basamak düşer, sahne hafifleyince geri yükselir. Kullanıcının ölçeğiyle çarpılır.
+     Yalnız uygulamanın açtığı çıkış penceresinde (adresteki işaret); ölçüm araçlarında ve yayın
+     katmanında kapalı. */
+  const adaptiveHere = typeof location !== 'undefined' && /(?:\?|&)svAdaptive=1(?:&|$)/.test(location.search);
+  const adaptive = adaptiveHere && window.SVAdaptiveScale ? window.SVAdaptiveScale.create() : null;
+  let autoScale = 1;
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
   /* Çizilen kare sayısı (#545, gösteri öncesi denetim): çıkış hedef kare
@@ -286,7 +293,7 @@
     const w = window.innerWidth;
     const h = window.innerHeight;
     // Arkaplan çözünürlük ölçeği katman yığınının tamamına uygulanır
-    const rs = clamp(cfg.power.renderScale, 0.4, 1);
+    const rs = clamp(clamp(cfg.power.renderScale, 0.4, 1) * autoScale, 0.4, 1);
     const fw = Math.round(w * dpr * rs);
     const fh = Math.round(h * dpr * rs);
 
@@ -532,6 +539,14 @@
     const cap = cfg.power.fpsCap;
     const rafDt = lastRaf ? now - lastRaf : 16.7;
     lastRaf = now;
+    if (adaptive) {
+      if (cfg.power.adaptiveScale === false) {
+        if (autoScale !== 1) { adaptive.reset(); autoScale = 1; resize(); }
+      } else {
+        const next = adaptive.tick(rafDt);
+        if (next != null) { autoScale = next; resize(); }
+      }
+    }
     if (cap > 0) {
       const interval = 1000 / cap;
       frameAcc += Math.min(rafDt, interval * 2); // sekme sonrası sıçramayı sınırla
@@ -1022,7 +1037,7 @@
      `SVPreview.stack()` ile aynı desen. Öz test (#572) WebGL bağlamını
      buradan bulduğu katmanda bilerek kaybettirip karelerin geri geldiğini
      ölçüyor; başka türlü çizen motora ulaşmanın yolu yok. */
-  window.SVStage = { stack: () => stack };
+  window.SVStage = { stack: () => stack, autoScale: () => autoScale };
 
   init().catch((e) => showError('Başlatılamadı: ' + (e && e.message ? e.message : e)));
 })();
