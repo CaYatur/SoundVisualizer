@@ -4547,6 +4547,9 @@ ipcMain.handle('presets:import-text', async () => {
 // Yayın sunucusu (OBS tarayıcı kaynağı + mobil kumanda)
 // ----------------------------------------------------------------------------
 
+// Kumandanın sabit ağaç ve adlı eylem komutları: doğrulama remote-commands.js'te
+const remoteCommands = require('./remote-commands');
+
 // Uzaktan kumandanın değiştirmesine izin verilen ayar yolları.
 // Liste kasıtlı olarak dar: yayın sunucusu ayarları, kontrol yüzeyleri ve dosya
 // yolları telefondan değiştirilemez. Gelen mesajlar VERİDİR, komut değil.
@@ -4580,9 +4583,6 @@ function remoteNumber(p, v) {
   if (p === 'power.fpsCap' && x > 0 && x < 10) x = 10;
   return x;
 }
-
-// Kumandanın sabit ağaç ve adlı eylem komutları: doğrulama remote-commands.js'te
-const remoteCommands = require('./remote-commands');
 
 function remotePathAllowed(p) {
   if (typeof p !== 'string' || p.length > 120) return false;
