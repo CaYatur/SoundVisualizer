@@ -982,8 +982,12 @@
     const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
     const last = messages[messages.length - 1] || {};
     const args = Array.isArray(last.args) ? last.args : [];
-    // MQTT komutları (mqtt-bridge.js) OSC ağacı mesajı olarak gelir
-    const fromMqtt = !!(msg && msg.source === 'mqtt');
+    /* MQTT (mqtt-bridge.js) ve telefon kumandası (main.js remoteOscMessage) komutları OSC ağacı
+       mesajı olarak gelir. İkisi de kendi izniyle: OSC girişi kapalıyken de uygulanır, OSC
+       göstergesine ve öğrenme moduna karışmaz. Kumandanınki yalnız sabit ağaçtır; öğrenilmiş
+       eşlemeleri sürmez. */
+    const fromRemote = !!(msg && msg.source === 'remote');
+    const fromMqtt = fromRemote || !!(msg && msg.source === 'mqtt');
     if (!fromMqtt) {
       lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
       const chip = document.getElementById('oscSignal');
@@ -1020,7 +1024,7 @@
       if (step && step.op === 'scene') holdScene = true;
     }
     for (let i = 0; i < messages.length; i++) {
-      if (consumed.has(i) || !messages[i]) continue;
+      if (consumed.has(i) || !messages[i] || fromRemote) continue;
       applyLearned(cfg, messages[i]);
     }
     if (steps.length) {

@@ -46,6 +46,8 @@ const MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
@@ -640,6 +642,7 @@ function handleRequest(req, res) {
 
   if (p === '/media-file') { serveMedia(req, res, url); return; }
   if (p === '/logo-file') { serveLogoFile(res, url.searchParams.get('id') || ''); return; }
+  if (p === '/mode-thumb') { serveModeThumb(res, url.searchParams.get('kind') || '', url.searchParams.get('type') || ''); return; }
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
   if (p === '/milkdrop/sprite') { serveSprite(res, url.searchParams.get('key') || ''); return; }
@@ -666,6 +669,22 @@ function serveTextureNames(res) {
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(JSON.stringify({ names: Array.isArray(names) ? names : [] }));
+}
+
+/* MOD KÜÇÜK RESMİ (kumanda). İstemci tür adı yollar; dosyayı ana süreç bulur (kanca).
+   Jetonun arkasında; resim içerik anahtarlı olduğu için bir gün önbellekte kalabilir. */
+function serveModeThumb(res, kind, type) {
+  const file = typeof hooks.modeThumbFile === 'function' ? hooks.modeThumbFile(kind, type) : null;
+  if (!file) { res.writeHead(404).end('not found'); return; }
+  let st;
+  try { st = fs.statSync(file); } catch { res.writeHead(404).end('not found'); return; }
+  res.writeHead(200, {
+    'Content-Type': 'image/webp',
+    'Content-Length': st.size,
+    'Cache-Control': 'private, max-age=86400',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
 }
 
 function serveLogoFile(res, id) {
@@ -1114,6 +1133,11 @@ module.exports = {
   setPeerSecret,
   sendJson,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
+  remoteCount: () => {
+    let n = 0;
+    for (const c of clients) if (c.kind === 'remote') n++;
+    return n;
+  },
   overlayCount: () => {
     let n = 0;
     for (const c of clients) if (c.kind === 'overlay') n++;

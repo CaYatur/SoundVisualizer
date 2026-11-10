@@ -418,7 +418,11 @@
     }
     /* Faz ölçer hızında değil, tempo motorunun kendi karesinde gider.
        50 ms, vuruşlar arasında bir süpürme için yeter ve paneli meşgul etmez. */
-    if (cfg.oscOut && cfg.oscOut.enabled && window.api && window.api.reportTempoClock && now - lastOscClock >= 0.05) {
+    /* OSC çıkışı kapalıyken de, MQTT ya da telefon kumandası dinliyorsa durum seyrek gider
+       (saniyede dört): karartma, tempo ve çizelge onlarda da güncel kalsın. */
+    const oscOn = !!(cfg.oscOut && cfg.oscOut.enabled);
+    const liveWanted = oscOn || !!(cfg.mqtt && cfg.mqtt.enabled) || !!(cfg.stream && cfg.stream.enabled && cfg.stream.remote !== false);
+    if (liveWanted && window.api && window.api.reportTempoClock && now - lastOscClock >= (oscOn ? 0.05 : 0.25)) {
       lastOscClock = now;
       window.api.reportTempoClock(oscClockPayload(tempo, audio, cfg));
     }

@@ -7182,7 +7182,13 @@
     // Telefondan gelen eylemler paneldeki gerçek uygulamayı çağırır
     if (window.api.onRemoteAction) {
       window.api.onRemoteAction((action) => {
-        if (action === 'blackout') toggleBlackout();
+        if (action === 'blackout') { toggleBlackout(); return; }
+        /* Adlı eylemler (ana süreç izinli listeden geçirdi): kısayol ve MIDI ile aynı uygulama.
+           true dönen eylem sahneyi kendisi uygulayıp gönderdi. */
+        const C = window.SVControl;
+        if (C && typeof C.runAction === 'function' && typeof action === 'string') {
+          if (C.runAction(action, cfg) !== true) applyAll();
+        }
       });
     }
     /* Kaza koruması geri bildirimi. ESC engellendiğinde kullanıcı tuşa

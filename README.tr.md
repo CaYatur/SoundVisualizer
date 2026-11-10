@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4321%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4329%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -886,9 +886,14 @@ aynı sayılardır.
 
 </div>
 
-**Telefon kumandası.** Sahneler, renk paletleri, Studio presetleri, görselleştirici ve arkaplan
-modları, ses hassasiyeti, karartma ve çalan parça kartı için telefon boyutunda bir sayfa; OBS
-katmanıyla aynı sunucudan. Telefondan gelen değerler uygulanmadan önce aralık denetiminden geçiyor.
+**Telefon kumandası.** Panelin kendi tasarımında ve temasında, OBS katmanıyla aynı sunucudan
+gelen bir sayfa; telefon, tablet ya da başka bir bilgisayar için. Beş sayfa: **Canlı** (çıkışı aç
+ve kapat, karartma, ana opaklık, Otomatik VJ, sahne adımı, A/B geçişi, zaman çizelgesi, MilkDrop
+önceki / sonraki / rastgele), **Sahneler** (aranabilir kartlar), **Katmanlar** (katman başına
+göster/gizle ve opaklık), **Görünüm** (küçük resimli görselleştirici ve arkaplan modları, renk
+şablonları, Studio presetleri) ve **Ses**. Üstte çalan parça, tempo ve üç bantlı seviye görünür.
+Komutlar OSC ve MQTT ile aynı sabit denetim ağacından geçer ve uygulanmadan önce ana süreçte
+denetlenir.
 
 **Karartma** <kbd>Space</kbd> ile ya da herhangi bir denetleyiciden; kendi geçişiyle, kayıtlı sahneye
 dokunmadan.
@@ -1962,7 +1967,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4321 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4329 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
