@@ -35,11 +35,20 @@
       env.changed();
     }
     function step(from, to) {
-      if (!from.length) return;
       if (timer) { clearTimeout(timer); timer = 0; }
+      /* Henüz not edilmemiş değişiklik KENDİ adımı olur. Eskiden son not edilen adımla
+         birleşiyordu: bekleme süresi dolmadan basılan Ctrl+Z iki adım birden geri alıyordu
+         (düzen editöründe ok tuşuyla kaydırıp hemen geri alınca önceki sürükleme de gidiyordu). */
       const cur = snap();
-      // Henüz not edilmemiş değişiklik varsa o da geri alınabilsin
-      to.push(now === null || cur !== now ? cur : now);
+      if (now === null) now = cur;
+      else if (cur !== now) {
+        past.push(now);
+        if (past.length > MAX) past.shift();
+        next.length = 0;
+        now = cur;
+      }
+      if (!from.length) { env.changed(); return; }
+      to.push(now);
       now = from.pop();
       const o = JSON.parse(now);
       for (const k of env.keys) env.set(k, o[k]);

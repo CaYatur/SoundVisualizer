@@ -150,6 +150,29 @@ async function walk(s, locale) {
     await q('(() => { const c = window.SVPanel.cfg(); c.layers.pop(); window.SVSceneShell.select(""); window.SVPanel.apply(); return 1; })()');
     await sleep(200);
   }
+  // Düzen editörü: kipli pencere sayfaların dışında; her öğe türü seçiliyken ve kısayol listesi açıkken
+  if (await q('!!(window.SVLayoutEditor && document.getElementById("layoutEditBtn"))')) {
+    const before = await q(`(() => {
+      const c = window.SVPanel.cfg(); const L = window.SVLayers; const n = c.layers.length;
+      [{ kind: 'visualizer', type: 'text' }, { kind: 'nowplaying' }, { kind: 'logo', type: 'logo' }, { kind: 'visualizer', type: 'bars' }]
+        .forEach((spec) => c.layers.push(L.normalizeLayer(spec)));
+      window.SVPanel.apply();
+      return n;
+    })()`);
+    await sleep(500);
+    await q('window.SVLayoutEditor.open(document.getElementById("layoutEditBtn")); 1');
+    await sleep(600);
+    await q('document.querySelector(".lay-keys").hidden = false; 1');
+    await scan('düzen:açık');
+    const boxes = await q('document.querySelectorAll(".lay-box").length');
+    for (let i = 0; i < boxes; i++) {
+      await q(`(() => { const b = document.querySelectorAll('.lay-box')[${i}]; if (b) b.focus({ preventScroll: true }); return 1; })()`);
+      await sleep(200);
+      await scan('düzen:öğe:' + i);
+    }
+    await q(`(() => { window.SVLayoutEditor.close(); const c = window.SVPanel.cfg(); c.layers.length = ${before}; window.SVPanel.apply(); return 1; })()`);
+    await sleep(300);
+  }
   // Aracın kendi sınaması: bu iki öğe bulunmazsa "0 hata" bir şey demek değil
   await q(`(() => { const d = document.createElement('div'); d.id = 'svAuditProbe'; d.style.cssText = 'position:fixed;left:0;top:0;z-index:99999'; d.innerHTML = '<span>Sınama şimdi</span><button style="width:20px;overflow:hidden;white-space:nowrap">Uzun bir sınama düğmesi</button>'; document.body.appendChild(d); return 1; })()`);
   const probe = JSON.parse(await q(SCAN));

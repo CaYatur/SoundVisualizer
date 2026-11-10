@@ -159,7 +159,8 @@ function createClient(opts) {
     pingTimer = null;
     connected = false;
     buf = Buffer.alloc(0);
-    if (sock) { sock.removeAllListeners(); try { sock.destroy(); } catch (e) { /* kapalı */ } }
+    // Dinleyiciler kalkınca gelen geç bir 'error' olayı süreci düşürmesin: boş dinleyici kalır
+    if (sock) { sock.removeAllListeners(); sock.on('error', () => {}); try { sock.destroy(); } catch (e) { /* kapalı */ } }
     sock = null;
   }
 

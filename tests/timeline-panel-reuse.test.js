@@ -188,3 +188,27 @@ test('hedef olamayan seçim (kaynak yok, düzenlenemez tür) yeniden çizim iste
   for (let i = 0; i < 3; i++) T.follow({ kind: 'clip', trackId: 't1', clipId: 'nope' }, 0);
   assert.strictEqual(rerenders, 0, 'silinmiş klip: çizim yok');
 });
+
+test('yerinde yenilenen panelde "Yeni Şerit" menüsü güncel modele yazıyor (dışarıdan değişen parça listesi)', async () => {
+  /* Öz testte yakalandı: panel aynı yapıyla yerinde yenilenince menü yeniden kurulmuyor. Menü
+     çizim anındaki model nesnesini tutuyordu; parça listesi dışarıdan değişince (geri al, sahne,
+     MCP) eklenen parça eski nesnede kalıyor, kayıt yeni nesneden yapılıyor ve parça kayboluyordu. */
+  const clipTrack = (id) => ({ id, kind: 'clip', name: 'P', clips: [{ id: 'c' + id, type: 'scene', ref: 'sA', start: 0, dur: 2 }] });
+  const cfg = cfgWith([clipTrack('t1')]);
+  await mount(cfg);
+  let menu = null;
+  window.SVSceneShell = { placeMenu: (m) => { menu = m; } };
+  const find = (n, cls) => { let hit = null; const walk = (x) => { if (hit || !x) return; if (String(x.className).split(/\s+/).includes(cls)) hit = x; (x.children || []).forEach(walk); }; walk(n); return hit; };
+  const builds = TP._perf().builds;
+  // Aynı yapı, yeni dizi: imza değişmiyor, panel yerinde yenileniyor
+  cfg.timeline.tracks = [clipTrack('t9')];
+  render();
+  assert.strictEqual(TP._perf().builds, builds, 'panel yeniden kurulmadı');
+  const add = find(sections, 'tl-add');
+  assert.ok(add, 'Yeni Şerit düğmesi');
+  add.props.onclick({ currentTarget: add });
+  const item = menu.children.find((b) => b.props.text === 'Otomasyon Parçası');
+  item.props.onclick();
+  assert.deepStrictEqual(cfg.timeline.tracks.map((t) => t.kind), ['clip', 'automation'], 'parça yapılandırmaya yazıldı');
+  assert.strictEqual(cfg.timeline.tracks[0].id, 't9', 'dışarıdan gelen liste korundu');
+});

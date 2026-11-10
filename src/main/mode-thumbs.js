@@ -45,6 +45,13 @@ const PAGE = 'src/thumbs/modes.html';
 const SHIPPED_DIR = 'assets/mode-thumbs';
 const MODE_DIR = 'src/visualizer/modes/';
 const KINDS = Object.freeze(['vis', 'bg']);
+/* ANAHTARA GİRMEYEN DOSYALAR. Çeviri sözlüğü sayfada yükleniyor ama resmi değiştirmiyor;
+   buna karşılık arayüze eklenen her metinle değişiyor. Anahtara girdiği sürece her arayüz
+   değişikliği yüzü aşkın resmin hepsini eskitiyor, her seferinde yeniden üretilip depoya
+   yazılıyordu (ölçüldü: art arda sekiz birleştirmede ~550 KB'lık klasör baştan yazıldı).
+   Bedeli: bir modun tuvale çizdiği varsayılan metnin çevirisi değişirse (metin, çalan parça)
+   o resim eski kalır; `node scripts/gen-mode-thumbs.js --force` yeniler. */
+const KEY_SKIP = Object.freeze(['src/shared/i18n.js']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 /* Sayfanın yüklediği dosyalar, sırasıyla — HTML'den okunuyor; liste iki
@@ -76,6 +83,7 @@ function context(root) {
   const modeTexts = new Map();
   const modeHash = new Map();
   for (const rel of files) {
+    if (KEY_SKIP.indexOf(rel) >= 0) continue;
     // Satır sonu normalize: Windows'ta CRLF ile alınan depo aynı anahtarları versin
     const buf = Buffer.from(fs.readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n'), 'utf8');
     if (rel.startsWith(MODE_DIR)) {
@@ -162,6 +170,6 @@ class ModeThumbs {
   }
 }
 
-module.exports = {
+module.exports = { KEY_SKIP,
   RECIPE, PAGE, SHIPPED_DIR, KINDS, KEY_RE: md.KEY_RE, pageFiles, ownerOf, context, keyOf, fileForModeUrl, urlOf, ModeThumbs,
 };

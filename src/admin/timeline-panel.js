@@ -2885,7 +2885,12 @@
     };
     /* Parça ve klip eklemek tek düğmede: araç çubuğu kalabalıklaşmıyor. */
     const addMenu = [
+      /* Model TIKLAMA ANINDA alınır. Panel yerinde yenilenince (reusePanel) bu menü yeniden
+         kurulmuyor; çizim anındaki model nesnesi ise her çizimde atılıyor. Kapanıştaki eski
+         nesneye eklenen parça, commit() taze nesneyi yazdığı için sessizce kayboluyordu
+         (öz test: "add-track buttons did not persist tracks"). */
       ['clapper', 'Klip Parçası', 'Sahne, şablon ya da renk klipleri için bir parça', () => {
+        const tl = ensureTransport().tl;
         const t = TL().makeTrack({ kind: 'clip', name: tt('Parça') + ' ' + (tl.tracks.length + 1) });
         tl.tracks.push(t);
         selection = { kind: 'track', trackId: t.id };
@@ -2894,6 +2899,7 @@
         p.rerender();
       }],
       ['wave', 'Otomasyon Parçası', 'Bir ayarı zamana yayan eğri', () => {
+        const tl = ensureTransport().tl;
         const t = TL().makeTrack({ kind: 'automation', name: tt('Otomasyon') + ' ' + (tl.tracks.length + 1) });
         tl.tracks.push(t);
         selection = { kind: 'track', trackId: t.id };

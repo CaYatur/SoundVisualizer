@@ -1176,6 +1176,10 @@
     previewTools();
     const stage = stageNode || (stageNode = document.getElementById('previewStage'));
     if (!stage) return;
+    /* Düzen editörü açıkken sahne ONUN penceresinde. Sayfa arkada yeniden çizilince (geri al,
+       dışarıdan gelen ayar) sahne buraya geri çekiliyordu: editör simsiyah kalıyor, kapanınca
+       da sahne yanlış yere dönüyordu. Editör kapanırken sayfayı kendisi yeniden çizdirir. */
+    if (window.SVLayoutEditor && window.SVLayoutEditor.isOpen()) return;
     const scene = page === 'scene';
     const pgm = page === 'live' ? document.getElementById('svPgmFrame') : null;
     const out = (page === 'output' && !document.body.hasAttribute('data-wide')) || (page === 'studio' && document.body.hasAttribute('data-gen')) ? document.getElementById('svOutFrame') : null;

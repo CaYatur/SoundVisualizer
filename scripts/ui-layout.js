@@ -104,7 +104,7 @@ const PROBE = `JSON.stringify((() => {
     if (keys.length > 1 && keys[keys.length - 1] - keys[0] > 1) out.hiza.add(keys.map((k) => k + ':' + lefts.get(k)).join(' / ').slice(0, 120));
   }
   // Düğmeler: içerik kendi kenarına dayanmasın, komşular birbirine yapışmasın
-  const BAND = '.segment, .seg, .sv-tabs, .sv-pages, .layer-tabs, .sv-grid, .md-grid, .md-list, .sv-scenes, .sv-gal, .tl-heads, .sv-tree, .sv-secnav, .nav-rail, .sv-menu';
+  const BAND = '.segment, .seg, .sv-pills, .sv-tabs, .sv-pages, .layer-tabs, .sv-grid, .md-grid, .md-list, .sv-scenes, .sv-gal, .tl-heads, .sv-tree, .sv-secnav, .nav-rail, .sv-menu';
   const rows = new Map();
   for (const e of document.querySelectorAll('button, a.btn')) {
     if (!vis(e) || e.closest('.sv-hud, .preview-stage, .code-editor') || e.closest(BAND)) continue;
@@ -153,8 +153,10 @@ const PROBE = `JSON.stringify((() => {
       if (!vis(k)) continue;
       const s = getComputedStyle(k);
       const first = [...k.querySelectorAll('*')].find((x) => vis(x) && x.children.length === 0 && (x.textContent || '').trim()) || k;
+      // Yazının kendisi ölçülür: etiketin başındaki değişiklik noktası (::before) kutuya dahil, yazıya değil
       const g = document.createRange(); g.selectNodeContents(first);
-      const L = (first === k ? k.getBoundingClientRect().left + parseFloat(s.paddingLeft) : first.getBoundingClientRect().left) - pl;
+      const gr = g.getBoundingClientRect();
+      const L = (first === k ? k.getBoundingClientRect().left + parseFloat(s.paddingLeft) : (gr.width ? gr.left : first.getBoundingClientRect().left)) - pl;
       lefts.push([Math.round(L), k]);
     }
     if (lefts.length < 3) continue;

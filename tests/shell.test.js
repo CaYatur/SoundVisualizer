@@ -160,15 +160,34 @@ test('sonradan eklenen alan geri alınınca siliniyor', () => {
   assert.strictEqual('c' in state, false);
 });
 
-test('not edilmemiş değişiklik de geri alınıyor, yinelenebiliyor', () => {
+test('not edilmemiş değişiklik kendi adımı: önceki adımla birleşmiyor, yinelenebiliyor', () => {
   const { h, state } = history();
   state.a = 2;
   h.settleNow();
   state.a = 3; // henüz not edilmedi
   h.undo();
+  assert.strictEqual(state.a, 2, 'yalnız not edilmemiş değişiklik geri alındı');
+  h.undo();
   assert.strictEqual(state.a, 1);
   h.redo();
+  h.redo();
   assert.strictEqual(state.a, 3);
+  assert.strictEqual(h.canRedo(), false);
+});
+
+test('geçmiş boşken not edilmemiş değişiklik geri alınabiliyor; yeni değişiklik yinelemeyi siliyor', () => {
+  const { h, state } = history();
+  state.a = 7; // hiç not edilmedi
+  assert.strictEqual(h.canUndo(), false);
+  h.undo();
+  assert.strictEqual(state.a, 1);
+  h.redo();
+  assert.strictEqual(state.a, 7);
+  h.undo();
+  state.a = 8; // not edilmemiş yeni değişiklik: yineleme artık geçersiz
+  h.redo();
+  assert.strictEqual(state.a, 8);
+  assert.strictEqual(h.canRedo(), false);
 });
 
 test('değişmeyen durum adım eklemiyor, geçmiş sınırlı', () => {
