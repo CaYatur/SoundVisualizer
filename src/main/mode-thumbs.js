@@ -51,7 +51,8 @@ const KINDS = Object.freeze(['vis', 'bg']);
    yazılıyordu (ölçüldü: art arda sekiz birleştirmede ~550 KB'lık klasör baştan yazıldı).
    Bedeli: bir modun tuvale çizdiği varsayılan metnin çevirisi değişirse (metin, çalan parça)
    o resim eski kalır; `node scripts/gen-mode-thumbs.js --force` yeniler. */
-const KEY_SKIP = Object.freeze(['src/shared/i18n.js']);
+/* Gömülü MilkDrop paketi de öyle: her preset eklemesi bütün mod resimlerini eskitiyordu. */
+const KEY_SKIP = Object.freeze(['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 /* Sayfanın yüklediği dosyalar, sırasıyla — HTML'den okunuyor; liste iki
