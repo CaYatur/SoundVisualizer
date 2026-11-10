@@ -44,6 +44,9 @@
     V('blocks', 'Segment', 'Temel', { bands: true, gap: true }),
     V('dots', 'Nokta Matris', 'Temel', { bands: true, gap: true }),
     V('skyline', 'Şehir Silüeti', 'Temel', { bands: true, gap: true }),
+    V('capsules', 'Kapsül Dalga', 'Temel', { bands: true, gap: true }),
+    V('stagebars', 'Sahne Ekolayzeri', 'Temel', { bands: true, gap: true }),
+    V('hexspectrum', 'Altıgen Tayf', 'Temel', { bands: true, gap: true }),
 
     V('wave', 'Dalga', 'Dalga Formu', { wave: true, thick: true, color2: true }),
     V('ribbon', 'Şerit', 'Dalga Formu', { wave: true, thick: true, color2: true }),
@@ -53,6 +56,8 @@
     V('terrain', 'Arazi', 'Dalga Formu', { bands: true, wave: true, color2: true }),
     V('ridges', 'Sırt Çizgileri', 'Dalga Formu', { bands: true, wave: true, thick: true, color2: true }),
     V('djwave', 'DJ Dalga Formu', 'Dalga Formu', { thick: true, color2: true }),
+    V('liquidspectrum', 'Sıvı Tayf', 'Dalga Formu', { bands: true, wave: true, thick: true, color2: true }),
+    V('dotwave', 'Nokta Dalgası', 'Dalga Formu', { bands: true, thick: true, color2: true }),
 
     V('circular', 'Çember', 'Dairesel', { bands: true, gap: true }),
     V('radialWave', 'Dairesel Dalga', 'Dairesel', { wave: true, thick: true, color2: true }),
@@ -66,6 +71,9 @@
     V('tunnel', 'Tünel', 'Dairesel', { bands: true, color2: true }),
     V('orb', 'Küre', 'Dairesel', { bands: true, wave: true, color2: true }),
     V('radar', 'Radar Grafiği', 'Dairesel', { bands: true, wave: true, thick: true, color2: true }),
+    V('neonrings', 'Neon Halkalar', 'Dairesel', { bands: true, thick: true, color2: true }),
+    V('corona', 'Güneş Tacı', 'Dairesel', { bands: true, thick: true, color2: true }),
+    V('spiralspectrum', 'Sarmal Tayf', 'Dairesel', { bands: true, thick: true, color2: true }),
 
     V('particles', 'Parçacık', 'Parçacık ve Olay'),
     V('fireworks', 'Havai Fişek', 'Parçacık ve Olay', { wave: true }),
@@ -78,6 +86,8 @@
     V('beatpads', 'Vuruş Pedleri', 'Parçacık ve Olay', { bands: true, gap: true, color2: true }),
     V('bounce', 'Zıplayan Toplar', 'Parçacık ve Olay', { bands: true, gap: true, color2: true }),
     V('stereotrails', 'Stereo İzler', 'Parçacık ve Olay', { bands: true, wave: true, thick: true, color2: true }),
+    V('warpstars', 'Yıldız Sıçraması', 'Parçacık ve Olay', { thick: true, color2: true }),
+    V('orbitals', 'Yörüngeler', 'Parçacık ve Olay', { bands: true, thick: true, color2: true }),
 
     V('flowfield', 'Akış Alanı', 'Üretken Sistemler'),
     V('flock', 'Sürü', 'Üretken Sistemler'),
@@ -160,6 +170,20 @@
       ['depth', 'Derinlik', 0, 1, 0.02, true],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
+    V('colorcloud', 'Renk Bulutu', 'Akışkan', { settings: [
+      ['blobs', 'Leke Sayısı', 2, 8, 1],
+      ['size', 'Leke Boyutu', 0.4, 2.5, 0.05],
+      ['drift', 'Sürüklenme', 0, 3, 0.05],
+      ['contrast', 'Karşıtlık', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('silk', 'İpek', 'Akışkan', { settings: [
+      ['folds', 'Kıvrım Sayısı', 3, 14, 1],
+      ['amplitude', 'Dalgalanma', 0.2, 3, 0.05],
+      ['flow', 'Akış Hızı', 0, 3, 0.05],
+      ['sheen', 'Parlaklık Vurgusu', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
     V('grid', 'Retro Izgara', 'Geometrik', { settings: [
       ['horizon', 'Ufuk Yüksekliği', 0.15, 0.85, 0.01, true],
       ['rows', 'Yatay Çizgi Sayısı', 4, 60, 1],
@@ -238,6 +262,27 @@
       ['pop', 'Kabarma', 0, 2, 0.05],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
+    V('papercut', 'Kağıt Katmanları', 'Geometrik', { settings: [
+      ['layers', 'Katman Sayısı', 3, 10, 1],
+      ['relief', 'Kabartı', 0.2, 3, 0.05],
+      ['sway', 'Salınım', 0, 3, 0.05],
+      ['shadow', 'Gölge', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('stripes', 'Çapraz Şeritler', 'Geometrik', { settings: [
+      ['count', 'Şerit Sayısı', 2, 24, 1],
+      ['angle', 'Açı', 0, 1, 0.01, true],
+      ['speed', 'Kayma Hızı', -3, 3, 0.05],
+      ['softness', 'Kenar Yumuşaklığı', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('dotgrid', 'Nokta Deseni', 'Geometrik', { settings: [
+      ['cells', 'Sütun Sayısı', 8, 60, 1],
+      ['size', 'Nokta Boyutu', 0.1, 1, 0.02, true],
+      ['wave', 'Dalga Sıklığı', 0, 3, 0.05],
+      ['speed', 'Dalga Hızı', -3, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
     V('starfield', 'Yıldız Alanı', 'Atmosfer', { settings: [
       ['count', 'Yıldız Sayısı', 40, 1200, 10],
       ['size', 'Yıldız Boyutu', 0.3, 3, 0.05],
@@ -304,6 +349,27 @@
       ['cover', 'Bulut Örtüsü', 0, 1, 0.02, true],
       ['rain', 'Yağmur', 0, 2, 0.05],
       ['flash', 'Şimşek Parlaklığı', 0, 2, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('sunset', 'Neon Gün Batımı', 'Atmosfer', { settings: [
+      ['sun', 'Güneş Boyutu', 0.4, 2, 0.05],
+      ['stripes', 'Dilim Sayısı', 0, 12, 1],
+      ['mountains', 'Dağ Yüksekliği', 0, 2.5, 0.05],
+      ['haze', 'Pus', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('dunes', 'Kum Tepeleri', 'Atmosfer', { settings: [
+      ['layers', 'Katman Sayısı', 3, 10, 1],
+      ['height', 'Tepe Yüksekliği', 0.2, 3, 0.05],
+      ['drift', 'Sürüklenme', -3, 3, 0.05],
+      ['haze', 'Pus', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('nightsky', 'Gece Göğü', 'Atmosfer', { settings: [
+      ['stars', 'Yıldız Sayısı', 40, 420, 10],
+      ['twinkle', 'Göz Kırpma', 0, 3, 0.05],
+      ['milky', 'Samanyolu', 0, 1, 0.02, true],
+      ['shooting', 'Kayan Yıldız', 0, 3, 0.05],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
     V('liquid', 'Sıvı Metal', 'Üretken Zeminler', { settings: [
@@ -381,6 +447,7 @@
       ['swirl', 'Girdap', 0, 3, 0.05],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
+
     V('solid', 'Düz Renk', 'Diğer'),
     V('custom', 'Studio', 'Diğer', { cycle: false }),
   ];
