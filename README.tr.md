@@ -8,7 +8,7 @@
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
 da on ekranda sese tepki veren görsellere dönüştürür. **55 kendi presetiyle** gerçek bir
-**MilkDrop** motoru, **60 görselleştirici modu**, katmanlar ve **42 GPU efekti**, bir **OBS
+**MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **42 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
 **yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4329%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4333%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -42,7 +42,7 @@ kontrolü**.
 
 <div align="center">
 
-| **60** görselleştirici modu | **43** arkaplan | **42** GPU efekti | **18** sahne geçişi |
+| **70** görselleştirici modu | **51** arkaplan | **42** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **104** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
@@ -310,11 +310,11 @@ paylaştığı bir BPM kilidiyle.
 
 <div align="center">
 
-**60 görselleştirici modunun hepsi**
+**70 görselleştirici modunun hepsi**
 
 ![Tüm görselleştirici modları](docs/screenshots/modes-visualizer.jpg)
 
-**43 arkaplanın hepsi**
+**51 arkaplanın hepsi**
 
 ![Tüm arkaplanlar](docs/screenshots/modes-background.jpg)
 
@@ -325,19 +325,23 @@ Bu iki pafta doğrudan mod kataloğundan üretiliyor; yeni bir mod, ekran görü
 Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birinden istediğiniz kadar
 üst üste koyabilirsiniz.
 
-**Görselleştirici modları — 60**
+**Görselleştirici modları — 70**
 
 - **Temel** — Barlar · Merkez · Segment (LED ekolayzer) · Nokta Matris · Şehir Silüeti (pencereleri
-  yanan binalar)
+  yanan binalar) · Kapsül Dalga (ortadan açılan yuvarlak uçlu çubuklar; konuşma ve podcast için) ·
+  Sahne Ekolayzeri (perspektifli zeminde barlar ve yansımaları) · Altıgen Tayf (bant başına yanan petek)
 - **Dalga formu** — Dalga (osiloskop) · Şerit (dalga geçmişi) · 3B Dalga (perspektifte yığılmış geçmiş)
   · Lissajous (XY osiloskop) · Teller (her tel kendi bandıyla titrer) · Arazi (perspektif tel kafes
-  manzara) · Sırt Çizgileri · DJ Dalga Formu
+  manzara) · Sırt Çizgileri · DJ Dalga Formu · Sıvı Tayf (dolgulu, yumuşak eğri ve yansıması) · Nokta
+  Dalgası (tayf geçmişini taşıyan perspektifli nokta örtüsü)
 - **Dairesel** — Çember · Dairesel Dalga · Işın · Yaylar (bant başına bir yay) · Fırıldak · Mandala
-  (kutupsal gül eğrisi) · Kaleydoskop · Girdap · Helis · Tünel · Küre · Radar Grafiği
+  (kutupsal gül eğrisi) · Kaleydoskop · Girdap · Helis · Tünel · Küre · Radar Grafiği · Neon Halkalar (bant başına
+  bir halka) · Güneş Tacı (saydam çekirdeğin çevresinde aynalı yapraklar) · Sarmal Tayf
 - **Parçacık ve olay** — Parçacık · Havai Fişek (vuruşta patlamalar) · Şimşek (basta dallanan
   yıldırımlar) · Baloncuk · Sıvı Damla (metatoplar) · Dalgalı Izgara (vuruşta yayılan halkalar) ·
   Spektrogram · Konfeti · Vuruş Pedleri · Zıplayan Toplar · Stereo İzler (her bant stereo görüntüdeki
-  yerinden fırlar)
+  yerinden fırlar) · Yıldız Sıçraması (basla hızlanan, merkezden çıkan izler) · Yörüngeler (bant başına
+  bir yörünge)
 - **Üretken sistemler** — Akış Alanı (gürültü alanının yönlendirdiği parçacıklar) · Sürü (tayfın sürdüğü
   boid'ler) · Voronoi · Truchet · Moiré · Dalga Girişimi · İpler (vuruşlarla itilen verlet fiziği) ·
   Galaksi · DNA Sarmalı · İzometrik Şehir · Çekici Alanı (formül kitaplığından iki parametresi sese
@@ -354,18 +358,20 @@ paletinden, özel bir renk çiftinden ya da **gökkuşağından** geliyor. Alt k
 bir taban çizgisinde duran barlar aşağı doğru sönen bir **zemin yansıması** bırakabiliyor (güç ve
 boy).
 
-**Arkaplanlar — 43**
+**Arkaplanlar — 51**
 
 - **Akışkan** — Akışkan Gradyan (akış, dolanma, yörünge, girdap, bükülme, gren ve ses tonu kaymasıyla
   sese tepki veren bir ağ degradesi) · Mürekkep (aktıkça dönen sıvı lekeler) · Bulutsu (yumuşak gaz
   bulutları) · Dalga Katmanları (sesle kabaran dalga tepeleri) · Kutup Işıkları (dalgalanan perdeler)
-  · Lav Lambası · Su Altı
+  · Lav Lambası · Su Altı · Renk Bulutu (yavaş, büyük renk lekeleri: yazı için sakin bir zemin) · İpek
 - **Geometrik** — Retro Izgara (ufka uzanan perspektif ızgara) · Petek Izgara (merkezden yayılan bir
   dalga ve tayfla yanan hücreler) · Mozaik (frekans bandı başına bir hücre) · Koridor (size doğru
   gelen halkalar ya da çokgenler) · Sarmal · Nabız Halkaları (bas vuruşlarında ek halkalar) · Ağ
-  (sürüklenen bağlı düğümler) · Alçak Poligon · Yarım Ton · İzometrik Küpler
+  (sürüklenen bağlı düğümler) · Alçak Poligon · Yarım Ton · İzometrik Küpler · Kağıt Katmanları
+  (yumuşak gölgeli kesik kağıtlar) · Çapraz Şeritler · Nokta Deseni
 - **Atmosfer** — Yıldız Alanı · Kar / Kor · Işık Parçacıkları (bokeh) · Dijital Yağmur · Şehir
-  (pencereleri müzikle yanan paralaks silüet) · Bulutlar · Sahne Işıkları · Ateş Böcekleri · Fırtına
+  (pencereleri müzikle yanan paralaks silüet) · Bulutlar · Sahne Işıkları · Ateş Böcekleri · Fırtına ·
+  Neon Gün Batımı (suyun üstünde dilimli güneş) · Kum Tepeleri · Gece Göğü (güçlü basta kayan yıldız)
 - **Üretken zeminler** — Sıvı Metal · Plazma · Su Yüzeyi · Şeritler · Eşyükselti · Dalga Alanı ·
   Kıvılcım · Kum · Vitray · Devre Kartı · Prizma · Küre Ağı · Tel Tüneli · Petek Nabzı · Ayna Deseni
 - **Diğer** — Düz Renk · Studio (kendi yazdığınız GLSL shader)
@@ -1967,7 +1973,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4329 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4333 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

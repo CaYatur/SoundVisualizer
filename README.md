@@ -8,7 +8,7 @@
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
 audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **56 presets of our
-own**, **60 visualizer modes**, layers and **42 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+own**, **70 visualizer modes**, layers and **42 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4329%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4333%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -41,7 +41,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 <div align="center">
 
-| **60** visualizer modes | **43** backgrounds | **42** GPU effects | **18** scene transitions |
+| **70** visualizer modes | **51** backgrounds | **42** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **104** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
@@ -308,11 +308,11 @@ and 174 BPM signals), with tap tempo and a BPM lock shared by Auto VJ, the clip 
 
 <div align="center">
 
-**All 60 visualizer modes**
+**All 70 visualizer modes**
 
 ![Every visualizer mode](docs/screenshots/modes-visualizer.jpg)
 
-**All 43 backgrounds**
+**All 51 backgrounds**
 
 ![Every background](docs/screenshots/modes-background.jpg)
 
@@ -322,19 +322,24 @@ These two sheets are generated from the mode catalogue itself, so a new mode app
 next time the screenshots are rendered. Any visualizer can sit on any background, and with layers
 you can stack as many of each as you like.
 
-**Visualizer modes — 60**
+**Visualizer modes — 70**
 
 - **Basic** — Bars · Center · Blocks (LED equaliser) · Dot Matrix · City Skyline (buildings with lit
-  windows)
+  windows) · Capsule Wave (rounded bars opening from the centre, for speech and podcasts) · Stage
+  Equalizer (bars on a perspective floor with their reflection) · Hex Spectrum (a honeycomb lit
+  per band)
 - **Waveform** — Wave (oscilloscope) · Ribbon (waveform history) · 3D Wave (history stacked in
   perspective) · Lissajous (XY oscilloscope) · Strings (each string vibrates with its band) · Terrain
-  (perspective wireframe landscape) · Ridgelines · DJ Waveform
+  (perspective wireframe landscape) · Ridgelines · DJ Waveform · Liquid Spectrum (a filled, smoothed curve with a
+  reflection) · Dot Wave (a perspective sheet of dots carrying the spectrum history)
 - **Radial** — Circle · Radial Wave · Starburst · Arcs (one arc per band) · Pinwheel · Mandala (polar
-  rose curve) · Kaleidoscope · Vortex · Helix · Tunnel · Orb · Radar Chart
+  rose curve) · Kaleidoscope · Vortex · Helix · Tunnel · Orb · Radar Chart · Neon Rings (one ring per band) · Corona
+  (mirrored petals around a clear core) · Spiral Spectrum
 - **Particles and events** — Particle · Fireworks (bursts on the beat) · Lightning (branching bolts
   on bass) · Bubbles · Liquid Drop (metaballs) · Ripple Grid (rings spreading on the beat) ·
   Spectrogram · Confetti · Beat Pads · Bouncing Balls · Stereo Trails (each band launched from its
-  place in the stereo image)
+  place in the stereo image) · Star Warp (streaks from the centre that jump with the bass) · Orbitals
+  (one orbit per band)
 - **Generative systems** — Flow Field (particles steered by a noise field) · Flock (boids driven by
   the spectrum) · Voronoi · Truchet · Moiré · Wave Interference · Ropes (verlet physics kicked by
   onsets) · Galaxy · DNA Helix · Isometric City · Attractor Field (discrete maps from the formula
@@ -351,19 +356,21 @@ Colour comes from the scene palette, a custom colour pair, or **rainbow**. Bars 
 stand on a baseline above the bottom edge can cast a **floor reflection** that fades downward
 (strength and length).
 
-**Backgrounds — 43**
+**Backgrounds — 51**
 
 - **Fluid** — Fluid Gradient (an audio-reactive mesh gradient with flow, wander, orbit, swirl, warp,
   grain and audio hue shift) · Ink (liquid blobs that swirl as they flow) · Nebula (soft gas clouds)
   · Wave Layers (crests that swell with the audio) · Northern Lights (undulating curtains) · Lava
-  Lamp · Underwater
+  Lamp · Underwater · Colour Cloud (large, slow colour blobs: a calm ground for text) · Silk
 - **Geometric** — Retro Grid (a perspective grid to the horizon) · Honeycomb Grid (cells lit by a
   wave from the centre and by the spectrum) · Mosaic (a cell per frequency band) · Corridor (rings
   or polygons coming toward you) · Spiral · Pulse Rings (extra rings on bass hits) · Network
-  (drifting linked nodes) · Low Poly · Halftone · Isometric Cubes
+  (drifting linked nodes) · Low Poly · Halftone · Isometric Cubes · Paper Layers (cut paper with
+  soft shadows) · Diagonal Stripes · Dot Pattern
 - **Atmosphere** — Starfield · Snow / Embers · Light Particles (bokeh) · Digital Rain · City (a
   parallax skyline whose windows light up with the music) · Clouds · Stage Lights · Fireflies ·
-  Storm
+  Storm · Neon Sunset (a sliced sun over water) · Dunes · Night Sky (a shooting star on a strong
+  bass hit)
 - **Generative grounds** — Liquid Metal · Plasma · Caustics · Ribbons · Contours · Wave Field ·
   Embers · Sand · Stained Glass · Circuit Board · Prism · Globe Mesh · Wire Tunnel · Hex Pulse ·
   Mirror Pattern
@@ -1956,7 +1963,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4329 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4333 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

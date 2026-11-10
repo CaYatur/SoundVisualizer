@@ -5,6 +5,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Visuals
+
+- **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.
+- **Eight new backgrounds**: Colour Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
+- Measured with `npm run bench` at 1920×1080 on the development machine: all eighteen held the display rate with no frame over 33 ms. That is one machine with a discrete GPU; nothing slower was measured.
+
 ### Interface
 
 - **A new phone remote** (#443). The remote page was rebuilt in the panel's design and follows the panel's interface theme. Five pages: Live (output, blackout on every page, master opacity, Auto VJ, scene step, A/B crossfade, timeline transport, MilkDrop previous / next / random), Scenes (searchable cards in the scene's colours), Layers (show/hide and opacity for each layer), Appearance (visual and background modes with their thumbnails, colour presets, Studio presets) and Audio. Now playing shows cover art, tempo and a three-band level. On a tablet or desktop the navigation moves to the side and the Live page uses two columns. Sliders send at most one message per frame and are not pulled back by the echo while a finger is on them.
