@@ -7,7 +7,7 @@
 ### Free, open-source music visualizer and VJ software for every screen you own
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
-audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **56 presets of our
+audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **60 presets of our
 own**, **70 visualizer modes**, layers and **42 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
@@ -45,7 +45,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **104** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
-| **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
+| **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
 
@@ -63,7 +63,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
   against a reference MilkDrop 2 renderer. Import whole libraries, browse them as thumbnails, edit presets live,
-  or generate new ones. **56 CaYaDev presets** of our own are built in, free for any MilkDrop player
+  or generate new ones. **60 CaYaDev presets** of our own are built in, free for any MilkDrop player
   under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
   crossfader, 42 GPU effects per layer or on the whole frame, and a modulation matrix that routes
@@ -408,7 +408,7 @@ shaders are translated to GLSL and run on the GPU.
 - **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
   Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
-- **CaYaDev MilkDrop Presets: 55 shader presets of our own, built in.** Each one has warp and comp shaders, and
+- **CaYaDev MilkDrop Presets: 60 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
   [`presets`](presets/README.md) (with a picture of each) or as the zip on each release. MilkDrop 2 originals are in

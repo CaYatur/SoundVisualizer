@@ -7,7 +7,7 @@
 ### Sahip olduğunuz her ekran için ücretsiz, açık kaynak müzik görselleştirici ve VJ yazılımı
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
-da on ekranda sese tepki veren görsellere dönüştürür. **55 kendi presetiyle** gerçek bir
+da on ekranda sese tepki veren görsellere dönüştürür. **60 kendi presetiyle** gerçek bir
 **MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **42 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
@@ -46,7 +46,7 @@ kontrolü**.
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **104** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
-| **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
+| **12** video dışa aktarma biçimi | **60** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
 
@@ -64,7 +64,7 @@ kontrolü**.
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
   çizicisiyle ölçüldü. Bütün kütüphaneleri içe aktarın, küçük resimlerle gezin, presetleri canlı
-  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **56 CaYaDev preseti** yerleşik geliyor;
+  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **60 CaYaDev preseti** yerleşik geliyor;
   CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
   geçiş sürgüsü, katman başına ya da tüm kareye 42 GPU efekti, ve LFO'ları, zarfları ve canlı ses
@@ -409,7 +409,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
   *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
-- **CaYaDev MilkDrop Presetleri: 55 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
+- **CaYaDev MilkDrop Presetleri: 60 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
   ücretsiz kullanılabilirler: [`presets`](presets/README.md) klasöründen (her birinin görseliyle) ya da

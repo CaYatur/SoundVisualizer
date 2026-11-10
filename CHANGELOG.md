@@ -11,6 +11,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visuals
 
+- **Four new CaYaDev MilkDrop presets** (60 in the pack): Stained Glass, Thunderhead, Hologram Globe and Double Helix. Each compiles in MilkDrop 2 (checked with the SDK compiler), was run for 90 seconds without fading out, blowing out or freezing, and was compared frame by frame with MilkDrop 2 itself; they draw in 6.5–7 ms a frame at 1080p on the development machine.
 - **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.
 - **Eight new backgrounds**: Colour Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
 - Measured with `npm run bench` at 1920×1080 on the development machine: all eighteen held the display rate with no frame over 33 ms. That is one machine with a discrete GPU; nothing slower was measured.
