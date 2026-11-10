@@ -1,0 +1,10 @@
+{
+  "name": "CAYADEV Visualizer Remote",
+  "short_name": "Visualizer",
+  "start_url": "/remote",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0910",
+  "theme_color": "#0b0910"
+}

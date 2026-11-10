@@ -29,7 +29,7 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], live: [],
   };
   let lyricsLibItems = [];
   let lyricsLibSeen = false;
@@ -290,6 +290,9 @@
         if (typeof window.SVCamFrame === 'function') window.SVCamFrame(String(msg.key || ''), String(msg.data || ''));
       } else if (msg.type === 'cam-status') {
         if (typeof window.SVCamStatus === 'function') window.SVCamStatus(String(msg.key || ''), msg.error || '', !!msg.ready);
+      } else if (msg.type === 'live') {
+        // Kumandanın canlı özeti: seviye, tempo, çizelge, karartma
+        handlers.live.forEach((h) => h(msg.state || {}));
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -422,6 +425,7 @@
     onPresets: (cb) => handlers.presetsList.push(cb),
     onStatus: (cb) => handlers.status.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
+    onLive: (cb) => handlers.live.push(cb),
     ready: configReady,
     presetsReady,
     raw: () => firstConfig,

@@ -4581,6 +4581,9 @@ function remoteNumber(p, v) {
   return x;
 }
 
+// Kumandanın sabit ağaç ve adlı eylem komutları: doğrulama remote-commands.js'te
+const remoteCommands = require('./remote-commands');
+
 function remotePathAllowed(p) {
   if (typeof p !== 'string' || p.length > 120) return false;
   if (p.includes('__proto__') || p.includes('prototype') || p.includes('constructor')) return false;
@@ -4637,6 +4640,16 @@ function applyRemoteCommand(msg, client) {
     return;
   }
 
+  if (msg.action === 'osc') {
+    const m = remoteCommands.oscMessage(msg, currentConfig, oscTree);
+    if (m) notifyAdmin('osc-message', { messages: [m], source: 'remote' });
+    return;
+  }
+  if (msg.action === 'run') {
+    if (remoteCommands.actionAllowed(msg.id)) notifyAdmin('remote-action', msg.id);
+    return;
+  }
+
   if (msg.action === 'scene') {
     const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
     if (!scene || !scene.data) return;
@@ -4684,6 +4697,32 @@ function applyRemoteCommand(msg, client) {
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
   lightingSet(currentConfig.lighting).catch(() => {});
+}
+
+/* KUMANDANIN CANLI ÖZETİ: seviye, tempo, çizelge ve karartma. Yapılandırmada olmayan,
+   saniyede birkaç kez değişen şeyler. Yalnız kumanda bağlıyken ve değişince gider. */
+let remoteLiveSent = '';
+const remoteLiveTimer = setInterval(() => {
+  if (!currentConfig || !streamServer.remoteCount || streamServer.remoteCount() < 1) { remoteLiveSent = ''; return; }
+  let state;
+  try { state = remoteCommands.liveState(oscOutContext(), mcpLive, Date.now()); } catch { return; }
+  const key = JSON.stringify(state);
+  if (key === remoteLiveSent) return;
+  remoteLiveSent = key;
+  streamServer.broadcast({ type: 'live', state }, 'remote');
+}, 200);
+if (remoteLiveTimer.unref) remoteLiveTimer.unref();
+
+/* Kumandadaki mod karosunun resmi: uygulamayla gelen ya da çalışma anında çizilmiş dosya.
+   İstemci yalnız tür adı yollar; anahtar burada hesaplanır, yol yanıtta yoktur. */
+let remoteThumbCtx = null;
+function remoteModeThumb(kind, type) {
+  if (modeThumbsLib.KINDS.indexOf(kind) < 0 || typeof type !== 'string' || !/^[A-Za-z0-9_-]{1,48}$/.test(type)) return null;
+  try {
+    if (!remoteThumbCtx) remoteThumbCtx = modeThumbsLib.context(path.join(__dirname, '..', '..'));
+    const key = modeThumbsLib.keyOf(remoteThumbCtx, kind, type);
+    return key ? modeThumbsLib.fileForModeUrl(modeThumbShippedDir(), modeThumbDir(), modeThumbsLib.urlOf(key)) : null;
+  } catch { return null; }
 }
 
 let streamSyncing = false;
@@ -4738,6 +4777,7 @@ function syncStreamServer() {
         return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
       },
       logoFile: (id) => logoInfoForShow(id),
+      modeThumbFile: (kind, type) => remoteModeThumb(kind, type),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onPeerOpen: (client) => onPeerOpen(client),
       onPeerMessage: (msg, client) => onPeerMessage(msg, client),
@@ -7136,11 +7176,14 @@ ipcMain.on('tempo:beat', (e, info) => {
   oscOut.beat(currentConfig.oscOut, info);
 });
 /* Faz, çalma ve gösteri durumu. Vuruş kenarı tempo:beat'te kalır. */
+/* Durum OSC çıkışı kapalıyken de not edilir: MQTT ve telefon kumandası karartmayı, tempoyu
+   ve çizelgeyi buradan okuyor. Eskiden yalnız OSC çıkışı açıkken güncelleniyordu; MQTT tek
+   başına açıkken Home Assistant'taki karartma ve tempo eski değerde kalıyordu. */
 ipcMain.on('tempo:clock', (e, info) => {
   if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  noteOscLive(info);
   if (!redAuth.gates.oscOut) return;
   if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
-  noteOscLive(info);
   const track = oscTrackTitle(shownNowPlaying());
   const show = Object.assign({}, info && info.show, { track });
   oscOut.clock(currentConfig.oscOut, Object.assign({}, info, { show }));
