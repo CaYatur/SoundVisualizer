@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4342%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4344%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -892,7 +892,8 @@ previous / next / random), **Scenes** (searchable cards), **Layers** (show/hide 
 layer), **Appearance** (visual and background modes with thumbnails, colour presets, Studio
 presets) and **Audio**. The header shows the playing track, tempo and a three-band level.
 Commands go through the same fixed control tree as OSC and MQTT and are checked in the main
-process before they are applied.
+process before they are applied. The messages are documented in
+[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) for anyone writing their own controller.
 
 **Blackout** on <kbd>Space</kbd> or from any controller, with its own transition, leaving the stored
 scene untouched.
@@ -1963,7 +1964,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4342 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4344 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
