@@ -122,7 +122,7 @@ input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.14); }
 .sv-form .group-label { padding: 6px var(--sv-inset) 4px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-strong); }
 .sv-insp .group-label { padding-left: var(--sv-inset); }
 /* Katman bölmesinde başlık, denetimlerin iç kenarına hizalı (#957) */
-.sv-insp .layer-pane > .group-label { padding-left: calc(var(--sv-inset) * 2); }
+.sv-insp .layer-pane > .group-label { padding-left: var(--sv-inset); }
 .sv-form .group > :where(:not(.ctrl):not(.group-label)) .group-label, .sv-insp .group > :where(:not(.ctrl):not(.group-label)) .group-label { padding-inline: 0; }
 button.group-label, .group-label.static {
   height: 36px; margin: 0; padding: 0 8px 0 var(--sv-inset); border: 0; border-radius: 12px; background: none; cursor: pointer; text-align: left;
@@ -591,7 +591,8 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .sv-pinfo small { font-size: 11.5px; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sv-pnav { display: flex; justify-content: flex-end; gap: 2px; margin-top: 2px; }
 /* MilkDrop rafı: arama ve süzgeçler tek satır, ızgara öne çıksın */
-.md-lib-bar { gap: 6px; }
+/* Arama ve süzgeçler kartın ortak iç kenarında: kutu kenara dayanmasın */
+.md-lib-bar { gap: 6px; padding-inline: var(--sv-inset); }
 .md-lib-bar label.lbl { display: none; }
 .md-lib-bar > .ctrl:has(input[type='search']) { flex: 1 1 200px; }
 .md-lib-bar > .ctrl:has(input[type='search']) .row > input.p-in[type='search'] { width: 100%; max-width: none; flex: 1 1 auto; }
@@ -820,14 +821,15 @@ body[data-page='live'] #svStageTools { display: none; }
 .ctrl > .row > .val { flex: none; }
 .ctrl label.lbl > .lbl-t { display: block; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctrl label.lbl > .lbl-t:has(> :not(.svi)) { display: inline-flex; }
-.ctrl > .row > label.lbl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex: none; background: transparent; }
+/* Değişiklik noktası kenar boşluğunda asılı durur, kendi sütununu ayırmaz: etiket, not, düğme ve
+   bölüm başlığı tek sol kenarda başlar. Eskiden nokta 11 px'lik bir sütun tutuyor, etiketler aynı
+   bölmedeki notlardan ve düğmelerden içeride başlıyordu. */
+.ctrl > .row > label.lbl::before { content: ''; position: absolute; left: -9px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: transparent; }
 .ctrl-reset.ctrl-reset { position: static; margin: 0 0 0 2px; display: inline-flex; visibility: hidden; flex: none; }
 .ctrl.modified .ctrl-reset.ctrl-reset { visibility: visible; }
 /* Katman bölmesindeki kitaplık da ortak iç kenarda (#957) */
 .sv-insp .layer-pane > .logo-lib, .sv-insp .layer-body > .logo-lib, .sv-insp .card > .logo-lib, .sv-insp .group > .logo-lib { margin-inline: var(--sv-inset); }
 .sv-insp .logo-lib .studio-note { margin-inline: 0; }
-/* Satırsız başlık da değişiklik noktası sütununa hizalı (#957): 5px nokta + 6px boşluk */
-.sv-insp .layer-pane > .ctrl > label.lbl { margin-left: 11px; }
 /* Stüdyo yan sütununda başlıkla aynı kenar: nokta sütunu yok, sıfırlama ikonu değişikliği gösteriyor */
 .studio-side-col .ctrl > .row > label.lbl::before { display: none; }
 
@@ -928,7 +930,8 @@ body[data-page='live'] #svStageTools { display: none; }
 .lay-note, .lay-empty { padding: 0 4px; font-size: 11.5px; line-height: 1.5; color: var(--muted2); }
 .lay-empty { padding: 10px 6px; }
 .lay-acts, .lay-files { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 4px; }
-.lay-files { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+/* Düzen dosyası düğmeleri kaydırılan panelin altında sabit: uzun notların arkasında kalmasın */
+.lay-files { position: sticky; bottom: -8px; z-index: 1; margin: auto -8px -8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--popover); }
 
 /* Sahne. Editörde sahne taşanı kırpmıyor: çerçeve dışına çekilen kutu çevrede görünür ve tutulur.
    Tuvaller zaten inset:0, görüntü çerçevede kalıyor. */
