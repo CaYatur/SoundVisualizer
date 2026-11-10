@@ -1324,7 +1324,17 @@ void main(){
       }
 
       const gl = this.gl;
+      /* BOYUT DEĞİŞİNCE GERİ BESLEME TAŞINIR (#453). Uyarlanır çözünürlük çıkışın boyutunu
+         basamak basamak değiştiriyor; hedefler yeniden kurulunca preset sıfırdan, simsiyah bir
+         kareden başlıyordu (ölçüldü: basamak karesinde ortalama parlaklık 13'ten 7'ye). Eski iki
+         hedef yeni boyuta doğrusal süzgeçle kopyalanıyor; bulanık kademeler her kare zaten
+         yeniden üretiliyor. */
+      let carry = null;
       if (this.gl2.width !== W || this.gl2.height !== H) {
+        if (this.targets && this.gl2.width > 1) {
+          carry = { targets: this.targets, cur: this.cur };
+          this.targets = null;
+        }
         this.gl2.width = W;
         this.gl2.height = H;
         this._disposeTargets();
@@ -1335,6 +1345,11 @@ void main(){
       if (!this.targets) {
         this.targets = [this._makeTarget(W, H), this._makeTarget(W, H)];
         this.cur = 0;
+        if (carry) {
+          for (let i = 0; i < 2; i++) this._carryTarget(carry.targets[i], this.targets[i]);
+          this.cur = carry.cur;
+          carry = null;
+        }
         /* Blur kademeleri giderek küçülüyor: MilkDrop'ta da öyle. Küçültmek
            hem ucuz hem de tek geçişle daha geniş bir bulanıklık veriyor.
 
@@ -1907,6 +1922,20 @@ void main(){
       return this.flash;
     }
 
+    // Eski hedefin içeriği yeni boyuttakine, doğrusal süzgeçle; eski hedef silinir
+    _carryTarget(src, dst) {
+      const gl = this.gl;
+      if (!src) return;
+      try {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, src.fb);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dst.fb);
+        gl.blitFramebuffer(0, 0, src.w, src.h, 0, 0, dst.w, dst.h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      } catch (e) { /* biçim uymazsa hedef boş başlar: eski davranış */ }
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.deleteTexture(src.tex);
+      gl.deleteFramebuffer(src.fb);
+    }
     _disposeTargets() {
       const gl = this.gl;
       if (!gl) return;
