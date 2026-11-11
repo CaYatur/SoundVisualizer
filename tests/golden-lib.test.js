@@ -19,3 +19,15 @@ test('iki koşu: aynı, değişen ve eşsiz ayrı ayrı', () => {
   assert.deepStrictEqual(r.changed, [{ name: 'x', frames: 2, diff: 1, first: 1 }]);
   assert.deepStrictEqual(r.missing.map((m) => m.name + '/' + m.in).sort(), ['n/yalnız yeni', 'z/yalnız önceki']);
 });
+
+test('--repeat: aynı durumun iki dışa aktarımı karşılaştırılıyor (#467)', () => {
+  const G2 = require('../scripts/golden-lib.js');
+  assert.deepStrictEqual(G2.repeatCheck(['a', 'b', 'c'], ['a', 'b', 'c']), { same: true, diff: 0, frames: 3 });
+  assert.deepStrictEqual(G2.repeatCheck(['a', 'b', 'c'], ['a', 'x', 'c']), { same: false, diff: 1, frames: 3 });
+  assert.strictEqual(G2.repeatCheck(['a', 'b'], ['a']).same, false, 'eksik kare de fark');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'scripts', 'golden.js'), 'utf8');
+  assert.match(src, /const REPEAT = argv\.includes\('--repeat'\);/);
+  assert.match(src, /run\.cases\[key\]\.repeat = r;/);
+  assert.match(src, /if \(unstable\.length\) process\.exitCode = 1;/);
+  assert.match(src, /KABUL ETME: koşu `<klasör>\/golden\.json` yazar\./, 'bilerek yapılan farkın nasıl kabul edildiği yazılı (#461)');
+});

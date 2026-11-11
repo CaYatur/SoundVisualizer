@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4411%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4421%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -38,6 +38,22 @@ kontrolü**.
 
 ---
 
+<div align="center">
+
+### Sahne sayfası
+
+<img src="docs/screenshots/showcase-scene.webp" alt="Demo bir sahneyle Sahne sayfası: solda katman listesi (Track Info, Spectrum, MilkDrop, Night Sky), ortada Hologram Globe MilkDrop preseti, gökkuşağı tayf barları ve Çalan Parça kartıyla canlı önizleme, sağda MilkDrop katmanının ayarları, altta MilkDrop preset küçük resimleri" width="900" />
+
+Solda katmanlar, ortada canlı önizleme, sağda seçili katmanın ayarları;<br />
+altta presetler, görseller, arkaplanlar, şablonlar ve kayıtlı sahneler tek tık uzakta.
+[→ Yönetici paneli](#yönetici-paneli)
+
+<sub>v4 arayüzü; yayınlanana dek [kaynaktan](#kaynaktan-çalıştırma) çalışıyor, kurulum dosyaları v3.1.7.</sub>
+
+</div>
+
+---
+
 ## Bir bakışta
 
 <div align="center">
@@ -47,6 +63,66 @@ kontrolü**.
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **43** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **106** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
 | **12** video dışa aktarma biçimi | **60** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
+
+</div>
+
+---
+
+## Galeri
+
+<div align="center">
+
+| | |
+|:---:|:---:|
+| ![MilkDrop preseti Kutup Işığı](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
+| ![3B Lorenz çekicisi](docs/screenshots/scene-lorenz.png) | ![Plazma](docs/screenshots/scene-plasma.png) |
+| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein şişesi](docs/screenshots/scene-klein.png) |
+| ![Müzik videosu düzeni: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Albüm kapaklı Çalan Parça](docs/screenshots/scene-nowplaying.png) |
+
+| Hyper Tunnel | 3B çekici |
+|:---:|:---:|
+| ![Tünel](docs/screenshots/demo-tunnel.gif) | ![Geometri](docs/screenshots/demo-geometry.gif) |
+| **Drum & Bass** | **MilkDrop geri beslemesi** |
+| ![Drum and bass şablonu](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
+
+</div>
+
+### Klasik görünüşler
+
+Uygulamanın ilk günden beri sunduğu tayf barları, dalgalar ve halkalar — müzikle akan degrade
+arkaplanlar üzerinde, hâlâ tek tıkla.
+
+<div align="center">
+
+| Katmanlı sahne | Frekans barları | Çember |
+|:---:|:---:|:---:|
+| ![Camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar](docs/screenshots/demo-visualizer.gif) | ![Yumuşak degrade üzerinde gökkuşağı frekans barları](docs/screenshots/demo-bars.gif) | ![Logolu dairesel tayf](docs/screenshots/demo-circular.gif) |
+| **Aynalı barlar** | **Dalga** | **Gün batımı dalgası** |
+| ![Okyanus degradesi üzerinde aynalı barlar](docs/screenshots/demo-mirror.gif) | ![Gece degradesi üzerinde gökkuşağı dalga formu](docs/screenshots/demo-wave.gif) | ![Gün batımı degradesi üzerinde sıcak aynalı dalga](docs/screenshots/demo-sunset.gif) |
+
+</div>
+
+> Bu sayfadaki her görüntü ve klip uygulamanın kendisi tarafından `npm start -- --shots` ile, 120
+> BPM'lik sentetik bir sinyalle çiziliyor. Gerçek seste görseller müziği izler.
+
+---
+
+## Uygulamanın içi
+
+<div align="center">
+
+<img src="docs/screenshots/panel-live.png" alt="Canlı sayfası: F1–F8'de sekiz örnek sahne, MilkDrop Flow canlıda, Aurora sırada, T-bar karışımın yarısında" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Telefon kumandası: telefonda Canlı sayfası; karartma, sahneler ve tempo" height="330" />
+
+**Canlı** — F tuşlarında sahneler, Sırada ve Canlı ekranları, T-bar · **Telefon kumandası** — aynı gösteri Wi-Fi üzerinden
+
+| **Zaman çizelgesi** — ölçüye oturan sahneler, paletler ve otomasyon | **Klip destesi** — vuruşa hizalı ateşleme |
+|:---:|:---:|
+| [![Sahne, yayın ve palet izleri, otomasyon şeridi ve işaretlerle zaman çizelgesi](docs/screenshots/panel-timeline.png)](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc) | [![Canlı sayfasında adlı satır ve sütunlarıyla klip destesi](docs/screenshots/panel-clipdeck.png)](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc) |
+| **Studio** — kendi GLSL shader'ınızı yazın | **MilkDrop editörü** — preset çalışırken değiştirin |
+| [![Studio: shader kodu, parametreler ve canlı önizleme](docs/screenshots/panel-studio.png)](#studio--kendi-shaderınızı-yazın) | [![Kare denklemleri ve canlı önizlemeyle MilkDrop preset editörü](docs/screenshots/panel-mdedit.png)](#milkdrop) |
+| **Düzen Editörü** — yayın karesini elle kurun | **Kayıt ve dışa aktarma** — 12 biçim, tek tıkla profiller |
+| [![Düzen Editörü: güvenli alanlarıyla 16:9 çerçevede önizleme ve öğe listesi](docs/screenshots/panel-layout.png)](#yayın-düzeni-editörü) | [![YouTube, Shorts ve Spotify Canvas profilleriyle kayıt ve dışa aktarma](docs/screenshots/panel-record.png)](#kayıt-ve-video-dışa-aktarma) |
 
 </div>
 
@@ -88,11 +164,6 @@ kontrolü**.
   önizleme var.
 - **İlk açılışta hazır.** Boş Canlı sayfasındaki tek düğme sekiz örnek sahne kuruyor (F1–F8); siz
   daha hiçbir şey kaydetmeden sahne ızgarası, AL, T-bar ve Otomatik VJ çalışıyor.
-
-<div align="center">
-<img src="docs/screenshots/panel-live.png" alt="Canlı sayfası: F1–F8'de sekiz örnek sahne, MilkDrop Flow canlıda, Aurora sırada, T-bar karışımın yarısında" height="330" />
-<img src="docs/screenshots/panel-remote.png" alt="Telefon kumandası: telefonda Canlı sayfası; karartma, sahneler ve tempo" height="330" />
-</div>
 
 ---
 
@@ -148,45 +219,6 @@ kontrolü**.
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
   tek çağrı GitHub'ın son sürüm denetimi; onu da kapatabilirsiniz.
   [→ Gizlilik](#gizlilik-ve-güvenlik)
-
----
-
-## Galeri
-
-<div align="center">
-
-| | |
-|:---:|:---:|
-| ![MilkDrop preseti Kutup Işığı](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
-| ![3B Lorenz çekicisi](docs/screenshots/scene-lorenz.png) | ![Plazma](docs/screenshots/scene-plasma.png) |
-| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein şişesi](docs/screenshots/scene-klein.png) |
-| ![Müzik videosu düzeni: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Albüm kapaklı Çalan Parça](docs/screenshots/scene-nowplaying.png) |
-
-| Hyper Tunnel | 3B çekici |
-|:---:|:---:|
-| ![Tünel](docs/screenshots/demo-tunnel.gif) | ![Geometri](docs/screenshots/demo-geometry.gif) |
-| **Drum & Bass** | **MilkDrop geri beslemesi** |
-| ![Drum and bass şablonu](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
-
-</div>
-
-### Klasik görünüşler
-
-Uygulamanın ilk günden beri sunduğu tayf barları, dalgalar ve halkalar — müzikle akan degrade
-arkaplanlar üzerinde, hâlâ tek tıkla.
-
-<div align="center">
-
-| Katmanlı sahne | Frekans barları | Çember |
-|:---:|:---:|:---:|
-| ![Camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar](docs/screenshots/demo-visualizer.gif) | ![Yumuşak degrade üzerinde gökkuşağı frekans barları](docs/screenshots/demo-bars.gif) | ![Logolu dairesel tayf](docs/screenshots/demo-circular.gif) |
-| **Aynalı barlar** | **Dalga** | **Gün batımı dalgası** |
-| ![Okyanus degradesi üzerinde aynalı barlar](docs/screenshots/demo-mirror.gif) | ![Gece degradesi üzerinde gökkuşağı dalga formu](docs/screenshots/demo-wave.gif) | ![Gün batımı degradesi üzerinde sıcak aynalı dalga](docs/screenshots/demo-sunset.gif) |
-
-</div>
-
-> Bu sayfadaki her görüntü ve klip uygulamanın kendisi tarafından `npm start -- --shots` ile, 120
-> BPM'lik sentetik bir sinyalle çiziliyor. Gerçek seste görseller müziği izler.
 
 ---
 
@@ -851,7 +883,7 @@ gösteriyi oynatıyor.
 
 - Sahne, şablon, palet, video, görsel, shader ve eylem için klip parçaları; herhangi bir ayar için
   eğrili **otomasyon şeritleri**; işaretler ve döngü.
-- **Tam bir düzenleyici**, Ableton'ın Arrangement View'ı örnek alınarak: aktarım,
+- **Tam bir düzenleyici**: aktarım,
   saat (zaman ve ölçü.vuruş), tempo, yakalama, döngü, izleme ve yakınlaştırmalı bir araç çubuğu; renk,
   sessiz, solo ve kilitli parça başlıkları; oynatma kafasında bölme, çoğaltma, kopyala-yapıştır, dürtme,
   100 adımlık geri alma; kutuyla çoklu seçim; sürüklenebilir döngü ayracı ve işaret bayrakları; klip
@@ -2036,7 +2068,8 @@ Bu sayfadaki her paneli, sahneyi, klibi ve mod paftasını sentetik bir sinyalde
 o an ne çalıyorsa onun yerine elle yazılmış parça bilgisi kullanıyor. `--only=<ad>` eşleşen dosyalarla
 sınırlıyor (panel sayfaları için `--only=panel-`). Panel sayfaları bir demo şov gösteriyor: sekiz örnek
 sahne, zaman çizelgesi, klip destesi, efekt zinciri ve adlı makrolar; telefon kumandası uygulamanın kendi
-yayın sunucusundan çekiliyor. Panel PNG'leri dither'lı paletle küçültülüyor (boyutun yaklaşık dörtte biri,
+yayın sunucusundan çekiliyor. En üstteki Sahne sayfası klibinin (`showcase-scene.webp`) kendi demo
+sahnesi var; raftaki preset küçük resimleri çizilince panelin boyama akışından kaydediliyor. Panel PNG'leri dither'lı paletle küçültülüyor (boyutun yaklaşık dörtte biri,
 ortalama fark 3 seviyenin altında).
 
 ---
@@ -2051,7 +2084,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4411 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4421 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2156,8 +2189,10 @@ basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle M
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
 müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
 düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
-donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. Sırada ne olduğunu da yazıyor; neyin
-*yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
+donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. **v4.0.0** şu an `main` dalında
+4.0.0-beta olarak duruyor; derlendi ve sınandı ama henüz yayınlanmadı: [v4'te yeni](#v4te-yeni) altındaki
+her şey. Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
+de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
 ---
@@ -2175,6 +2210,6 @@ MIT — bkz. [LICENSE](LICENSE). Telif hakkı (c) 2026 Çağan Turgut ([CaYatur]
 
 **[cayadev.com](https://cayadev.com)**
 
-<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · projectM alternatifi · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
+<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · MilkDrop presetleri · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
 
 </div>

@@ -32,7 +32,7 @@ const INSPECT = PORT + 1;
 const FRAMES = +arg('frames', 12);
 const W = +arg('width', 640);
 const H = +arg('height', 360);
-const ONLY = (arg('only', '') || '').toLocaleLowerCase();
+const ONLY = (arg('only', '') || '').toLowerCase();
 const CONTROL = flag('control');
 /* Geçme ölçütü, her kare için. En çok ±4: parıltı ve kenar yuvarlaması, gözle seçilmiyor.
    Üstü yalnız pikselin binde birinden azında olabilir: piksel efekti gibi eşikli işler ±1'i
@@ -213,7 +213,7 @@ async function main() {
   const res = { when: new Date().toISOString(), software: !flag('gpu'), control: CONTROL, frames: FRAMES, size: [W, H], boot: JSON.parse(booted), cases: {} };
   const all = JSON.parse(await a.ev(`JSON.stringify(window.SVTemplates.TEMPLATES.map((t) => ({ kind: 'template', id: t.id, name: t.name }))
     .concat((window.SVPanel.cfg().scenes || []).map((s) => ({ kind: 'scene', id: s.id, name: s.name }))))`));
-  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLocaleLowerCase().includes(ONLY));
+  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLowerCase().includes(ONLY));
   console.log(cases.length + ' durum');
   let same = 0;
   let skipped = 0;

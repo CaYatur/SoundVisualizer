@@ -4297,7 +4297,8 @@
     'Tarayıcı Kaynağı Çözünürlük Ölçeği': 'Browser Source Resolution Scale',
     'Kumanda': 'Remote',
     'Uyarlanır Çözünürlük': 'Adaptive Resolution',
-    'Uyarlanır Çözünürlük açıkken sahne ekranın yenileme hızına yetişemezse çizim çözünürlüğü basamak basamak düşer (en az yarıya), sahne hafifleyince geri yükselir. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.': 'With Adaptive Resolution on, when the scene cannot keep up with the display the drawing resolution drops one step at a time (to half at most) and rises again when the scene gets lighter. You see a slight softening instead of stutter. Video export is not affected.',
+    'Uyarlanır Çözünürlük açıkken sahne hedef kare hızına yetişemezse çizim çözünürlüğü basamak basamak düşer, en çok En Düşük Çözünürlük kadar; sahne hafifleyince geri yükselir. Hedef, Kare Hızı (FPS) ayarı bir sınırsa o, Ekranla Eşitle\'de ekranın yenileme hızıdır. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.': 'With Adaptive Resolution on, when the scene cannot keep up with the target frame rate the drawing resolution drops one step at a time, down to the Lowest Resolution at most, and rises again when the scene gets lighter. The target is the Frame Rate (FPS) limit if one is set, and the display refresh rate under Match Display. You see a slight softening instead of stutter. Video export is not affected.',
+    'En Düşük Çözünürlük': 'Lowest Resolution',
     // Yeni görselleştirici modları ve arkaplanlar (#905)
     'Kapsül Dalga': 'Capsule Wave',
     'Sahne Ekolayzeri': 'Stage Equalizer',

@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4411%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4421%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -37,6 +37,22 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 ---
 
+<div align="center">
+
+### The Scene page
+
+<img src="docs/screenshots/showcase-scene.webp" alt="The Scene page with a demo scene: the layer list on the left (Track Info, Spectrum, MilkDrop, Night Sky), the live preview in the middle with the Hologram Globe MilkDrop preset, rainbow spectrum bars and a Now Playing card, the MilkDrop layer's settings on the right and MilkDrop preset thumbnails below" width="900" />
+
+Layers on the left, the live preview in the middle, the selected layer's settings on the right,<br />
+and presets, images, backgrounds, templates and saved scenes one click away below.
+[→ The control panel](#the-control-panel)
+
+<sub>The v4 interface, which runs [from source](#run-from-source) until its release; the installers are v3.1.7.</sub>
+
+</div>
+
+---
+
 ## At a glance
 
 <div align="center">
@@ -46,6 +62,67 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 | **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
+
+</div>
+
+---
+
+## Gallery
+
+<div align="center">
+
+| | |
+|:---:|:---:|
+| ![MilkDrop preset Aurora](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
+| ![Lorenz attractor in 3D](docs/screenshots/scene-lorenz.png) | ![Plasma](docs/screenshots/scene-plasma.png) |
+| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein bottle](docs/screenshots/scene-klein.png) |
+| ![Music video layout: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Now Playing with album art](docs/screenshots/scene-nowplaying.png) |
+
+| Hyper Tunnel | 3D attractor |
+|:---:|:---:|
+| ![Tunnel](docs/screenshots/demo-tunnel.gif) | ![Geometry](docs/screenshots/demo-geometry.gif) |
+| **Drum & Bass** | **MilkDrop feedback** |
+| ![Drum and bass template](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
+
+</div>
+
+### Classic looks
+
+The spectrum bars, waves and rings the application started with — still one click away, on
+fluid gradient backgrounds that move with the music.
+
+<div align="center">
+
+| Layered scene | Frequency bars | Circular |
+|:---:|:---:|:---:|
+| ![Rainbow centre bars around a logo on a cyan and violet gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
+| **Mirrored bars** | **Wave** | **Sunset wave** |
+| ![Mirrored bars on an ocean gradient](docs/screenshots/demo-mirror.gif) | ![Rainbow waveform on a night gradient](docs/screenshots/demo-wave.gif) | ![Warm mirrored waveform on a sunset gradient](docs/screenshots/demo-sunset.gif) |
+
+</div>
+
+> Every scene image and clip on this page is rendered by the application itself with
+> `npm start -- --shots`, driven by a synthetic 120 BPM signal. With real audio the visuals follow
+> the music instead.
+
+---
+
+## Inside the app
+
+<div align="center">
+
+<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
+
+**Live** — scenes on the F keys, Next and Live monitors and a T-bar · **Phone remote** — the same show over Wi-Fi
+
+| **Timeline** — scenes, palettes and automation on the bar | **Clip deck** — beat-quantised launching |
+|:---:|:---:|
+| [![Timeline editor with scene, broadcast and palette tracks, an automation lane and markers](docs/screenshots/panel-timeline.png)](#show-control-timeline-clip-deck-auto-vj-midi-and-osc) | [![Clip deck with named rows and columns on the Live page](docs/screenshots/panel-clipdeck.png)](#show-control-timeline-clip-deck-auto-vj-midi-and-osc) |
+| **Studio** — write your own GLSL shader | **MilkDrop editor** — change a preset while it runs |
+| [![Studio: shader code, parameters and a live preview](docs/screenshots/panel-studio.png)](#studio--write-your-own-shader) | [![MilkDrop preset editor with per-frame equations and the live preview](docs/screenshots/panel-mdedit.png)](#milkdrop) |
+| **Layout Editor** — place the broadcast frame by hand | **Recording and export** — 12 formats, one-click profiles |
+| [![Layout Editor: the preview framed as 16:9 with safe areas and the element list](docs/screenshots/panel-layout.png)](#broadcast-layout-editor) | [![Recording and export with YouTube, Shorts and Spotify Canvas profiles](docs/screenshots/panel-record.png)](#recording-and-video-export) |
 
 </div>
 
@@ -88,11 +165,6 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
   so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
 
-<div align="center">
-<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
-<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
-</div>
-
 ---
 
 ## Why CAYADEV Visualizer
@@ -121,7 +193,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Ready for the stage.** Projection mapping with corner pin, mesh warp and soft-edge blending
   for multi-projector rigs, plus **aspect correction** for LED walls whose pixels are not square.
   [→ Stage](#stage-projection-mapping-and-aspect-correction)
-- **A show that keeps running.** A **Pre-Show Check** before the doors open, and a second machine
+- **A show that keeps running.** A **Pre-show Check** before the doors open, and a second machine
   as a **hot standby** that draws the same picture and takes over 0.4–0.5 s after the primary
   crashes, with only one machine driving the lights. An **audio bridge** feeds both from one capture.
   [→ Show safety](#show-safety-pre-show-check-redundancy-and-the-audio-bridge)
@@ -146,46 +218,6 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
   makes on its own is GitHub's latest-release check, and you can switch it off.
   [→ Privacy](#privacy-and-security)
-
----
-
-## Gallery
-
-<div align="center">
-
-| | |
-|:---:|:---:|
-| ![MilkDrop preset Aurora](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
-| ![Lorenz attractor in 3D](docs/screenshots/scene-lorenz.png) | ![Plasma](docs/screenshots/scene-plasma.png) |
-| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein bottle](docs/screenshots/scene-klein.png) |
-| ![Music video layout: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Now Playing with album art](docs/screenshots/scene-nowplaying.png) |
-
-| Hyper Tunnel | 3D attractor |
-|:---:|:---:|
-| ![Tunnel](docs/screenshots/demo-tunnel.gif) | ![Geometry](docs/screenshots/demo-geometry.gif) |
-| **Drum & Bass** | **MilkDrop feedback** |
-| ![Drum and bass template](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
-
-</div>
-
-### Classic looks
-
-The spectrum bars, waves and rings the application started with — still one click away, on
-fluid gradient backgrounds that move with the music.
-
-<div align="center">
-
-| Layered scene | Frequency bars | Circular |
-|:---:|:---:|:---:|
-| ![Rainbow centre bars around a logo on a cyan and violet gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
-| **Mirrored bars** | **Wave** | **Sunset wave** |
-| ![Mirrored bars on an ocean gradient](docs/screenshots/demo-mirror.gif) | ![Rainbow waveform on a night gradient](docs/screenshots/demo-wave.gif) | ![Warm mirrored waveform on a sunset gradient](docs/screenshots/demo-sunset.gif) |
-
-</div>
-
-> Every scene image and clip on this page is rendered by the application itself with
-> `npm start -- --shots`, driven by a synthetic 120 BPM signal. With real audio the visuals follow
-> the music instead.
 
 ---
 
@@ -846,7 +878,7 @@ one playhead drives every screen together, and offline export plays the same sho
 
 - Clip tracks for scenes, templates, palettes, video, images, shaders and actions; **automation
   lanes** for any setting, with curves; markers and a loop.
-- **A full editor**, modelled on Ableton's Arrangement View: a toolbar with
+- **A full editor**: a toolbar with
   transport, clock (time and bar.beat), tempo, snap, loop, follow and zoom; track headers with
   colour, mute, solo and lock; split at the playhead, duplicate, copy and paste, nudge, 100-step
   undo; multi-select with box selection; a draggable loop brace and marker flags; per-clip
@@ -1441,7 +1473,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 
 ### Show safety: pre-show check, redundancy and the audio bridge
 
-- **Pre-Show Check** (Show category) — displays, audio, each output's frame rate
+- **Pre-show Check** (Show category) — displays, audio, each output's frame rate
   against its refresh rate, the files the scene uses (with where they are used and a fix), the
   backup, authority and disk space, refreshed every 3 seconds.
 - **Hot standby with two machines** — the backup draws the same picture all the
@@ -2026,7 +2058,9 @@ from a synthetic signal. It never captures real audio, never opens the camera, n
 settings, and uses typed-in track details rather than whatever is playing. `--only=<name>` limits it
 to matching files (`--only=panel-` for the panel pages). The panel pages show a demo show: the eight
 example scenes, a timeline, a clip deck, an effect chain and named macros; the phone remote is
-captured from the app's own streaming server. Panel PNGs are palette-quantized with dithering
+captured from the app's own streaming server. The Scene page clip at the top (`showcase-scene.webp`)
+has a demo scene of its own and is recorded from the panel's paint stream once the preset thumbnails
+on the shelf are drawn. Panel PNGs are palette-quantized with dithering
 (about a quarter of the size, mean difference under 3 levels).
 
 ---
@@ -2041,7 +2075,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4411 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4421 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
@@ -2145,8 +2179,9 @@ the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, a
 and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a far broader and much
 faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
 and the CaYaDev presets, and in v3.1.7 half the memory, no more garbage collection freezes, low-power
-mode and a preset per MilkDrop layer. It also says what comes next and keeps an honest list of
-what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
+mode and a preset per MilkDrop layer. **v4.0.0** is on `main` now as 4.0.0-beta, built and tested but not
+released yet: everything under [New in v4](#new-in-v4). After it comes the music video studio. The
+roadmap also keeps an honest list of what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 
 ---
@@ -2164,6 +2199,6 @@ MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Çağan Turgut ([CaYatur](htt
 
 **[cayadev.com](https://cayadev.com)**
 
-<sub>Keywords: music visualizer · audio visualizer · sound visualizer · VJ software · MilkDrop · projectM alternative · OBS overlay · Spotify visualizer · desktop visualizer · multi-monitor · projection mapping · Spout · Syphon · WebGL · Electron · MCP</sub>
+<sub>Keywords: music visualizer · audio visualizer · sound visualizer · VJ software · MilkDrop · MilkDrop presets · OBS overlay · Spotify visualizer · desktop visualizer · multi-monitor · projection mapping · Spout · Syphon · WebGL · Electron · MCP</sub>
 
 </div>

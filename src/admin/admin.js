@@ -3232,8 +3232,12 @@
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', step: 0.05, percent: true },
           { type: 'toggle', path: 'power.adaptiveScale', label: 'Uyarlanır Çözünürlük' },
           {
+            type: 'slider', path: 'power.adaptiveFloor', label: 'En Düşük Çözünürlük', step: 0.05, percent: true,
+            show: () => cfg.power.adaptiveScale !== false,
+          },
+          {
             type: 'note',
-            text: 'Uyarlanır Çözünürlük açıkken sahne ekranın yenileme hızına yetişemezse çizim çözünürlüğü basamak basamak düşer (en az yarıya), sahne hafifleyince geri yükselir. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.',
+            text: 'Uyarlanır Çözünürlük açıkken sahne hedef kare hızına yetişemezse çizim çözünürlüğü basamak basamak düşer, en çok En Düşük Çözünürlük kadar; sahne hafifleyince geri yükselir. Hedef, Kare Hızı (FPS) ayarı bir sınırsa o, Ekranla Eşitle\'de ekranın yenileme hızıdır. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.',
           },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },

@@ -6,6 +6,11 @@ covered by a test or by the GPU self-test.
 
 **Current release: v3.1.7** (2026-11-03) · **Next release: v4.0.0**
 
+**Where things stand (11 November 2026):** v4.0.0 is on `main` as 4.0.0-beta: built and tested,
+but not released, so the installers on the Releases page are still v3.1.7. What v4
+adds is in the [v4.0.0 section](#v400--new-core-and-interface--in-testing-not-released) and in the
+README's "New in v4".
+
 v3.1.6 carried three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
 owner shipped them with video export rather than hold them back.
@@ -37,6 +42,9 @@ decision, moves after that.
 ---
 
 ## Status table
+
+Each column is a released version. What v4 adds on `main` is not in this table until it ships; see the
+v4.0.0 section.
 
 | Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | v3.1.5 | v3.1.6 | **v3.1.7** | Note |
 | --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | --- |
@@ -153,7 +161,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **4411 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **4421 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
@@ -738,11 +746,10 @@ refinements this work turned up are planned for v3.1.5 rather than rushed in.
     the whole engine assumes it — a half-float target let additively drawn
     shapes accumulate without bound, measured reaching 65504 within forty
     frames. Ten bits a channel keeps four times MilkDrop's precision while
-    restoring its clamping, which is what projectM #895 asks for.
+    restoring its clamping.
   - *The `monitor` variable is finally read.* It is the preset author's own
     debug probe, written by 43.4% of the corpus and never surfaced anywhere, so
-    those lines were dead. It now shows live in the MilkDrop panel; projectM
-    has the same request open as #664.
+    those lines were dead. It now shows live in the MilkDrop panel.
   - *A decay of exactly zero is honoured* rather than read as "not set" and
     replaced with 0.98. 225 presets (2.17%) end up asking for no trail at all
     and were getting a heavy one, while exactly one preset in the corpus omits
@@ -750,7 +757,7 @@ refinements this work turned up are planned for v3.1.5 rather than rushed in.
   - *Flash limiting* caps how far the picture's mean luminance may move between
     frames, at WCAG 2.3.1's general-flash value. Measured, 90% of presets never
     reach it and pass through untouched, while a synthetic strobe drops from
-    0.996 to 0.098. projectM has this open as #947 and #742.
+    0.996 to 0.098.
   - *Every shader stage in the corpus compiles.* Each of the last 134 that did
     not was traced from the compiler's own line number back to a cause, which
     is not the same as grouping them by error text: one message ("wrong operand
@@ -790,8 +797,7 @@ refinements this work turned up are planned for v3.1.5 rather than rushed in.
     9,140 to 23,444.
   - *Lines are anti-aliased ribbons* rather than one-texel GL lines fattened by
     offset redraws — a deliberate divergence from MilkDrop, and the one place
-    we set out to be better than it rather than equal to it; projectM has the
-    same request open as #682. The default conserves the light the old path
+    we set out to be better than it rather than equal to it. The default conserves the light the old path
     deposited so no preset changes brightness, measured within about 12% per
     frame with the feedback loop removed, and a setting offers the physically
     true width instead, or MilkDrop's own fattening. One setting drives all
@@ -938,8 +944,7 @@ MilkDrop (#560):
   values with a switch that matches only texture sizes 256, 512, 1024 and
   2048, while its own default makes that texture the window's width, so at
   any real size no case matches and the mode its source calls "constant and
-  faint" draws fully opaque. The switch is widened to ranges here, which is
-  what projectM does with the same code.
+  faint" draws fully opaque. The switch is widened to ranges here.
 - **A custom wave's points start from MilkDrop's own seeds** · done on `main`.
   Found while reading the per-point loop for the item above
   (milkdropfs.cpp:2470-2478): MilkDrop seeds every point with `x` = 0.5 plus
@@ -2996,7 +3001,7 @@ expects.
     cover the row name, a deck with no row-name map, and an empty deck list.
     All 8 fail on the old code.
 - **The timeline editor (#636, TL-1)** · done on `main`. It follows the
-  research table on #636, with Ableton's Arrangement View as the model.
+  research table on #636.
   - **Layout.**
     - A one-row toolbar holds the transport, a clock (time and bar.beat),
       tempo, snap, loop, follow, zoom (out / in / fit) and undo/redo.
@@ -3084,7 +3089,7 @@ expects.
     - confirmed in the app with real mouse and key events.
   - **Next:** tempo changes on the ruler and lane height — done below ("Tempo changes on the ruler"). Clip fade-out is left out on purpose: our clips change state (a scene, a template, a palette) rather than layer media with an opacity, so a fade-out has no defined target. The transition into the next clip is that clip's own fade, and fading to black at the end is an Action clip (Blackout).
 - **The clip deck as a performance grid (#637, CD-1)** · done on `main`.
-  The model is Resolume's clip grid and Ableton's Session View (research
+  It follows the clip-grid layout performers already know (research
   table on #637).
   - **Header bar.**
     - Bar.beat, with one dot per beat. The downbeat dot is a different
@@ -3092,7 +3097,7 @@ expects.
     - The tempo, and a **global quantise**.
     - A slot set to "Global" (new slots are) fires on the deck's grid.
       Changing the global setting moves every such slot at once, without
-      editing them, as Resolume's composition setting does.
+      editing them.
     - Stop All, and the performance view.
   - **Grid.**
     - Columns are named inline, falling back to A, B, C…, each with its own
@@ -3616,7 +3621,7 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
     | `×0.9` decay, floor (warp shader) | 4 | 1 | 4 |
     | `×0.9` decay, floor (no warp shader) | 4 | 1 | 4 |
 
-    MilkDrop's buffer is 8-bit and rounds every write to the nearest 1/255. Presets were written against that: a small increment either always moves a level or never does, and a decay stops at a floor. butterchurn (`RGBA`/`UNSIGNED_BYTE`) and projectM (#895 is open for more depth) are 8-bit too. The engine's 10-bit buffer (RGB10_A2, 43ed486) ran all of these differently. "Dead CellWerx" adds 0.004 a frame and flooded with red.
+    MilkDrop's buffer is 8-bit and rounds every write to the nearest 1/255. Presets were written against that: a small increment either always moves a level or never does, and a decay stops at a floor. Other MilkDrop engines are 8-bit too. The engine's 10-bit buffer (RGB10_A2, 43ed486) ran all of these differently. "Dead CellWerx" adds 0.004 a frame and flooded with red.
   - **Only the warp's output is rounded.** The preset warp shader and the shader-less warp both round to 1/255 in accurate mode. The buffer stays 10-bit. Waves, shapes and lines drawn after the warp keep their soft edges on screen. The comp pass isn't fed back and isn't rounded.
   - **A plain 8-bit buffer was measured and rejected.** It rounds those soft edges away in the feedback, so line presets darkened:
     - "vector exp 1" at frame 30: 24.4 → 26.3;
@@ -3840,7 +3845,8 @@ identical to v3.1.6, frame by frame, with a control run of the same build also a
 
 ## v4.0.0 — New core and interface · in testing, not released
 
-Tracked in #905. Work happened on a separate `dev/v4` branch.
+Tracked in #905. Developed on `dev/v4`; since 11 November 2026 it is on `main` as 4.0.0-beta (built and
+tested, not released).
 
 ### Where it stands
 
@@ -3919,14 +3925,15 @@ frames from the live output). See "Not done, and why".
 
 ### Stages
 
-1. **Document and schema.** One model (scene, layer, source), where simple view is only a view of it. One
+1. **Document and schema** · done, with one gap. One model (scene, layer, source), where simple view is only a view of it. One
    settings schema that generates the panel, MCP, OSC and timeline targets. Behaviour tests come first.
-2. **Engine.** Engines owned by layers, one GL compositor in a worker, one analysis, a preset index. This
+   The schema sets the slider limits; the panel, MCP and OSC still declare their own controls.
+2. **Engine** · done without the worker compositor (see above). Engines owned by layers, one GL compositor in a worker, one analysis, a preset index. This
    is also where automatic preset changes per layer become possible across windows.
-3. **Interface.** The approved design: floating surfaces around the stage, a mode switch and screen picker
+3. **Interface** · done. The approved design: floating surfaces around the stage, a mode switch and screen picker
    in the top bar, every colour theme, conditional rows instead of long cards.
-4. **Outputs.** Windows, recording, Spout and Syphon, web output and redundancy on the new core.
-5. **Cross-platform check.** Windows, macOS and Linux, each on real hardware where available.
+4. **Outputs** · done on Windows. Windows, recording, Spout and Syphon, web output and redundancy on the new core.
+5. **Cross-platform check** · partly: Windows on real hardware, the Linux packages in WSL, macOS not run. Windows, macOS and Linux, each on real hardware where available.
 
 Afterwards comes the native output decision, then other requests from users.
 
