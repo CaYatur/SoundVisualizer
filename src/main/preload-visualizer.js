@@ -104,6 +104,8 @@ contextBridge.exposeInMainWorld('api', {
   floatingSnap: (where) => ipcRenderer.send('floating:snap', where),
   floatingSize: (kind) => ipcRenderer.send('floating:size', kind),
   onWindowChrome: (cb) => ipcRenderer.on('window-chrome', (e, st) => cb(st)),
+  // Panelle aynı ekranda açılan tam ekranda kısa "ESC ile dön" notu
+  onExitHint: (cb) => ipcRenderer.on('exit-hint', (e, m) => cb(m)),
   setGeometryLock: (locked) => ipcRenderer.send('visualizer:geometry-lock', !!locked),
   getGeometryLock: () => ipcRenderer.invoke('visualizer:geometry-lock-get'),
   // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir

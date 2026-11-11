@@ -952,6 +952,25 @@
     if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
     if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
+    /* Panelle aynı ekranda açılan tam ekran paneli tamamen örtüyor; "ESC ile çıkış" notu da
+       panelin altında kalıyordu. Ana süreç yalnız bu durumda (ve ESC kilitli değilken) kısa bir
+       not yollar. Not sayfa katmanında: tuvale çizilmez, Spout'a, yayına ve dışa aktarıma girmez. */
+    if (window.api.onExitHint) window.api.onExitHint((m) => {
+      const text = m && typeof m.text === 'string' ? m.text : '';
+      if (!text) return;
+      let n = document.getElementById('svExitHint');
+      if (!n) {
+        n = document.createElement('div');
+        n.id = 'svExitHint';
+        n.setAttribute('role', 'status');
+        document.body.appendChild(n);
+      }
+      n.textContent = text;
+      n.classList.remove('out');
+      clearTimeout(n._t1); clearTimeout(n._t2);
+      n._t1 = setTimeout(() => n.classList.add('out'), Math.max(1000, Number(m.ms) || 3500));
+      n._t2 = setTimeout(() => { if (n.parentNode) n.parentNode.removeChild(n); }, Math.max(1000, Number(m.ms) || 3500) + 700);
+    });
     if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
     /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki
        pencerenin `t`si kendi açılışları kadar, 53 ms ayrıktı): istenir. */

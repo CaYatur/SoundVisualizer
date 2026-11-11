@@ -111,7 +111,7 @@
     'ile çıkış • Ayarlar otomatik kaydedilir': 'to exit • Settings are saved automatically',
     'Görselleştirme ekranında ESC ile çıkış • Ayarlar otomatik kaydedilir': 'Press ESC in the visualizer to exit • Settings are saved automatically',
     'Kendi Şablonlarım': 'My Presets',
-    'Henüz şablon yok. Aşağıdaki renkleri ayarlayıp “Mevcut Renkleri Kaydet”e basın.': 'No presets yet. Adjust the colors below and press “Save Current Colors”.',
+    'Henüz şablon yok. Sahne sayfasında arkaplanın renklerini ayarlayın, sonra burada “Mevcut Renkleri Kaydet”e basın.': 'No presets yet. Set the background colors on the Scene page, then press “Save Current Colors” here.',
     'Şablon': 'Preset', 'Uygula': 'Apply', 'Güncelle': 'Update', 'Mevcut renklerle güncelle': 'Update with current colors',
     'Mevcut Renkleri Kaydet': 'Save Current Colors', 'Dışa Aktar': 'Export',
     'Arkaplanı Dışa Aktar': 'Export Background', 'Arkaplanı İçe Aktar': 'Import Background',
@@ -1137,7 +1137,7 @@
     // ---- Sahneler ----
     'Arkaplan + görselleştirici + logo + görsel nesneleri tek isim altında saklayın.': 'Store background + visualizer + logo + visual objects under a single name.',
     'Mevcut görünümü yeni sahne olarak kaydet': 'Save the current look as a new scene',
-    'Henüz sahne yok. Beğendiğiniz görünümü ayarlayıp “Mevcut Görünümü Kaydet”e basın; daha sonra tek tıkla geri dönersiniz.': 'No scenes yet. Set up a look you like and press “Save Current Look”; you can return to it with one click later.',
+    'Henüz sahne yok. Beğendiğiniz görünümü ayarlayıp “Mevcut Görünümü Kaydet”e basın; daha sonra tek tıkla geri dönersiniz.': 'No scenes yet. Set up a look you like and press “Save Current View”; you can return to it with one click later.',
     'Kaydet': 'Save',
     'Sahne adı:': 'Scene name:',
     'Bu sahne silinsin mi?': 'Delete this scene?',
@@ -4146,6 +4146,9 @@
     'Katman Grupları ve A/B': 'Layer Groups and A/B',
     'Medya Katmanı': 'Media Layer',
     'Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.': 'No saved scenes. Save the current view with "Save".',
+    'Örnek sahneleri ekle': 'Add example scenes',
+    'Hazır şablonlardan sekiz sahne kurar; canlı görüntü değişmez.': 'Builds eight scenes from the ready-made templates; the live picture does not change.',
+    '{n} örnek sahne eklendi. Canlı sayfasında F1–F8 ile seçip AL ya da T-bar ile geçin.': '{n} example scenes added. On the Live page pick one with F1–F8, then switch with TAKE or the T-bar.',
     'Sahne': 'Scene',
     'Sahne adı': 'Scene name',
     'Sahneyi taşı': 'Move scene',
@@ -4385,8 +4388,8 @@
     'Şablon Kaynağı': 'Preset Source',
     'Hangi Katmanlar': 'Which Layers',
     'Otomatik VJ kapalı.': 'Auto VJ is off.',
-    'Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.':
-      'No saved scenes. Save one under Library › Scenes first, or pick a different source.',
+    'Kayıtlı sahne yok. Canlı sayfasında “Örnek sahneleri ekle”ye basın, “Kaydet” ile kendi sahnenizi saklayın ya da başka bir kaynak seçin.':
+      'No saved scenes. Press “Add example scenes” on the Live page, save your own with “Save”, or pick a different source.',
     'Seçilen kaynakta renk şablonu yok.': 'The selected source has no color presets.',
     'Bu kaynakta değiştirilecek bir şey yok.': 'There is nothing to switch in this source.',
     'Son değişim': 'Last change',

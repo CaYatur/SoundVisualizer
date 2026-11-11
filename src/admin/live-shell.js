@@ -245,7 +245,13 @@
     const all = scenes();
     const from = bank * PER_BANK;
     const grid = el('div', { class: 'sv-scenes' }, all.slice(from, from + PER_BANK).map((s, i) => cell(s, from + i)));
-    if (!all.length) grid.appendChild(el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') }));
+    if (!all.length) {
+      // İlk açılış: ızgara, AL, T-bar ve Otomatik VJ sahnesiz çalışmıyor; tek tıkla örnek sahneler
+      grid.appendChild(el('div', { class: 'scene-empty' }, [
+        el('div', { text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') }),
+        P().starterButton ? P().starterButton() : null,
+      ].filter(Boolean)));
+    }
     return grid;
   }
 
