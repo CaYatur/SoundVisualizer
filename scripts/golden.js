@@ -47,7 +47,7 @@ const arg = (k, d) => { const a = argv.find((x) => x.startsWith('--' + k + '='))
 const REPO = path.join(__dirname, '..');
 const OUT = arg('out');
 if (!OUT) { console.error('--out=<klasör> gerekli'); process.exit(2); }
-const ONLY = (arg('only', '') || '').toLocaleLowerCase();
+const ONLY = (arg('only', '') || '').toLowerCase();
 const REPEAT = argv.includes('--repeat');
 const PORT = +arg('port', 9721);
 const SOFTWARE = argv.includes('--software');
@@ -160,7 +160,7 @@ async function main() {
   })()`);
   const all = JSON.parse(await a.ev(`JSON.stringify(window.SVTemplates.TEMPLATES.map((t) => ({ kind: 'template', id: t.id, name: t.name }))
     .concat((window.SVPanel.cfg().scenes || []).map((s) => ({ kind: 'scene', id: s.id, name: s.name }))))`));
-  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLocaleLowerCase().includes(ONLY));
+  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLowerCase().includes(ONLY));
   const run = { when: new Date().toISOString(), version: require('../package.json').version, software: SOFTWARE, cases: {} };
   console.log(cases.length + ' durum' + (REPEAT ? ', her biri iki kez' : ''));
   let n = 0;
