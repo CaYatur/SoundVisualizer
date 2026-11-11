@@ -32,6 +32,13 @@ For scripting from the same computer there is also the HTTP API (MCP tools over 
 The two tokens are different on purpose: someone who has the overlay link cannot control the show.
 Tokens are never sent to clients inside the configuration.
 
+**Embedding the remote page.** With Token protection off, the `/remote` page is sent with
+`X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`. Without that, any
+website you visit could load the remote in a hidden frame and trick you into pressing Blackout or a
+scene. To show the remote inside a dashboard (for example a Home Assistant webpage card), turn
+Token protection on and embed the address with its `?token=`. The overlay page has no controls and
+can always be embedded.
+
 The connection is plain `ws://`. Do not expose the port to the internet.
 
 ## Messages from the app

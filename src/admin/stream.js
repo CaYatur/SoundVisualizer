@@ -295,7 +295,7 @@
 
     nodes.push(
       el('div', { class: 'studio-note' }, [
-        el('span', { text: 'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.' }),
+        el('span', { text: 'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. OBS için tarayıcı kaynağı eklenti kurmadan çalışır; GPU dokusu paylaşmak için Spout / Syphon Çıkışı ayrı bölümde. NDI çıkışı bu sürümde yok.' }),
       ])
     );
 

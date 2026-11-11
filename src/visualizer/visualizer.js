@@ -952,6 +952,32 @@
     if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
     if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
+    /* Panelle aynı ekranda açılan tam ekran paneli tamamen örtüyor; "ESC ile çıkış" notu da
+       panelin altında kalıyordu. Ana süreç yalnız bu durumda (ve ESC kilitli değilken) kısa bir
+       not yollar. Not sayfa katmanında: tuvale çizilmez, Spout'a, yayına ve dışa aktarıma girmez. */
+    if (window.api.onExitHint) window.api.onExitHint((m) => {
+      const text = m && typeof m.text === 'string' ? m.text : '';
+      if (!text) return;
+      /* En çok üç kez. Projektöre AYNALANMIŞ bir dizüstü Electron için tek ekran: ana süreç notu
+         "panelle aynı ekran" sanıp yollar ve seyirci de görürdü. Yeni kullanıcı notu görür,
+         düzenli çalan kullanıcı bir süre sonra görmez. Depo yoksa (gizli kip) not yine çıkar. */
+      let seen = 0;
+      try { seen = Number(localStorage.getItem('sv-exit-hint-count')) || 0; } catch (e) { seen = 0; }
+      if (seen >= 3) return;
+      try { localStorage.setItem('sv-exit-hint-count', String(seen + 1)); } catch (e) { /* depo kapalı */ }
+      let n = document.getElementById('svExitHint');
+      if (!n) {
+        n = document.createElement('div');
+        n.id = 'svExitHint';
+        n.setAttribute('role', 'status');
+        document.body.appendChild(n);
+      }
+      n.textContent = text;
+      n.classList.remove('out');
+      clearTimeout(n._t1); clearTimeout(n._t2);
+      n._t1 = setTimeout(() => n.classList.add('out'), Math.max(1000, Number(m.ms) || 3500));
+      n._t2 = setTimeout(() => { if (n.parentNode) n.parentNode.removeChild(n); }, Math.max(1000, Number(m.ms) || 3500) + 700);
+    });
     if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
     /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki
        pencerenin `t`si kendi açılışları kadar, 53 ms ayrıktı): istenir. */

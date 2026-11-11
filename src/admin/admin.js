@@ -651,6 +651,8 @@
     sceneGradient: (s) => sceneGradient(s),
     sceneSummary: (s) => sceneSummary(s),
     saveScene: () => actions.saveScene(),
+    addStarterScenes: () => actions.addStarterScenes(),
+    starterButton: () => starterButton(),
     sceneThumbShot: (id) => sceneThumbShot(id),
     sectionsOf: (cat) => sectionSchema().filter((x) => x.category === cat && (!x.show || x.show())).map((x) => x.id),
     renderScenes: (o) => renderScenes(o),
@@ -1225,7 +1227,7 @@
 
     const list = el('div', { class: 'user-presets' });
     if (!cfg.userPresets.length) {
-      list.appendChild(el('div', { class: 'up-empty', text: 'Henüz şablon yok. Aşağıdaki renkleri ayarlayıp “Mevcut Renkleri Kaydet”e basın.' }));
+      list.appendChild(el('div', { class: 'up-empty', text: 'Henüz şablon yok. Sahne sayfasında arkaplanın renklerini ayarlayın, sonra burada “Mevcut Renkleri Kaydet”e basın.' }));
     }
     cfg.userPresets.forEach((p) => {
       const swatch = el('div', { class: 'up-swatch' });
@@ -1540,6 +1542,8 @@
     sortableList(list, ensureScenes, '.up-item', () => { push(true); render(); renderScenes(); });
 
     const toolbar = el('div', { class: 'up-toolbar' }, [
+      // Kitaplık da boşken örnek sahneleri önersin (Canlı ızgarası ve Zaman listesiyle aynı düğme)
+      cfg.scenes.length ? null : starterButton(),
       el('button', { class: 'btn small', icon: 'save', text: 'Mevcut Görünümü Kaydet', onclick: () => actions.saveScene() }),
       el('button', { class: 'btn ghost small', icon: 'export', text: 'Dışa Aktar', onclick: () => actions.exportScenes() }),
       el('button', { class: 'btn ghost small', icon: 'import', text: 'İçe Aktar', onclick: () => actions.importScenes() }),
@@ -6241,6 +6245,53 @@
     });
   };
 
+  /* İLK AÇILIŞTA ÖRNEK SAHNELER. Yeni kullanıcının hiç kayıtlı sahnesi yok: Canlı sayfasının
+     ızgarası, F tuşları, AL, T-bar ve Otomatik VJ (sahne kaynağı) kullanıcı kendisi sahne
+     kaydedene dek boş kalıyordu. Boş durumdaki düğme hazır şablonlardan sekiz sahne kurar;
+     her biri, kullanıcının şablonu Kitaplık'ta uygulayıp "Kaydet"e basmasıyla AYNI yoldan
+     (SVTemplates.apply + syncStackState) üretilir, ama canlı görüntüye dokunulmaz. Birbirine
+     benzemeyen sekiz şablon: ilk bank (F1–F8) dolar. Logo ve şeffaflık kullanıcının kendi
+     ayarı olarak korunur (apply bunu zaten yapıyor). */
+  const STARTER_SCENES = ['club-milkdrop', 'club-tunnel', 'amb-aurora', 'mus-galaxy', 'club-fireworks', 'gen-synthwave', 'scr-stained', 'geo-lorenz'];
+  actions.addStarterScenes = () => {
+    const T = window.SVTemplates;
+    if (!T || !Array.isArray(T.TEMPLATES)) return 0;
+    const arr = ensureScenes();
+    const env = { defaultConfig: window.SV.defaultConfig, deepMerge: window.SV.deepMerge, clone: window.SV.clone };
+    const have = new Set(arr.map((s) => s && s.starter).filter(Boolean));
+    const now = Date.now();
+    let n = 0;
+    for (const id of STARTER_SCENES) {
+      if (have.has(id)) continue;
+      const tpl = T.TEMPLATES.find((x) => x.id === id);
+      if (!tpl) continue;
+      const next = T.apply(cfg, tpl, env);
+      if (next.layerStack && next.layerStack.enabled && window.SVLayers && window.SVLayers.syncStackState) {
+        window.SVLayers.syncStackState(next);
+      }
+      const data = {};
+      SCENE_KEYS.forEach((k) => { if (next[k] !== undefined) data[k] = window.SV.clone(next[k]); });
+      if (Array.isArray(data.layers)) data.layers = data.layers.filter((l) => !(l && l.tlUnder));
+      arr.push({ id: uid('sc_'), name: tpl.name, createdAt: now + n, starter: id, data });
+      n++;
+    }
+    if (!n) return 0;
+    push(true);
+    render();
+    renderScenes();
+    svToast(tr('{n} örnek sahne eklendi. Canlı sayfasında F1–F8 ile seçip AL ya da T-bar ile geçin.').replace('{n}', String(n)), 'ok');
+    return n;
+  };
+  // Boş sahne listelerinin ortak düğmesi (Canlı ızgarası, Zaman ve Kitaplık listesi)
+  function starterButton() {
+    return el('button', {
+      class: 'btn small primary sv-starter', type: 'button', icon: 'sparkles',
+      text: tr('Örnek sahneleri ekle'),
+      title: tr('Hazır şablonlardan sekiz sahne kurar; canlı görüntü değişmez.'),
+      onclick: () => actions.addStarterScenes(),
+    });
+  }
+
   /* Sahnenin küçük resmi: sahne uygulanınca ya da kaydedilince önizlemeden. Makineye özgü kolaylık,
      ayar dosyasına girmiyor: tarayıcı deposunda, sahne başına ~10 KB. */
   const SCENE_THUMB = 'sv-scene-thumb:';
@@ -6594,7 +6645,10 @@
     }
     if (!arr.length) {
       host.appendChild(
-        el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') })
+        el('div', { class: 'scene-empty' }, [
+          el('div', { text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') }),
+          starterButton(),
+        ])
       );
       return;
     }

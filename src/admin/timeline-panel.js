@@ -1171,7 +1171,8 @@
     let tag;
     if (!trk.target) tag = tt('Hedef seçilmedi — başlıktaki arama düğmesi ya da sağ tık › Hedef Seç');
     else if (info.missing) tag = '! ' + tt('Hedef bulunamadı') + ': ' + trk.target;
-    else tag = (info.group ? info.group + ' · ' : '') + info.label + '  [' + fmtNum(trk.min) + '…' + fmtNum(trk.max) + ']' + (dupTargets.has(trk.id) ? '  ! ' + tt('başka şerit de bu hedefi sürüyor') : '');
+    // Grup ve ad ayrı çevrilir: birleşik "Ses · Duyarlılık" sözlükte yok, İngilizcede Türkçe kalıyordu
+    else tag = (info.group ? tt(info.group) + ' · ' : '') + tt(info.label) + '  [' + fmtNum(trk.min) + '…' + fmtNum(trk.max) + ']' + (dupTargets.has(trk.id) ? '  ! ' + tt('başka şerit de bu hedefi sürüyor') : '');
     ctx.fillText(tag, 8, y + 15);
     if (trk.target && !keys.length) {
       ctx.fillStyle = tint('--fg-rgb', 0.3);
@@ -1455,7 +1456,7 @@
       const rows = [];
       let lastHead = '';
       for (const it of hits) {
-        const head = it.group + (it.sub ? ' › ' + it.sub : '');
+        const head = tt(it.group) + (it.sub ? ' › ' + tt(it.sub) : '');
         if (head !== lastHead) { rows.push(el('div', { class: 'tl-target-head', text: head })); lastHead = head; }
         const b = el('button', {
           type: 'button', class: 'tl-target-row' + (it.path === trk.target ? ' on' : ''), title: it.path + ' [' + fmtNum(it.min) + '…' + fmtNum(it.max) + ']',
@@ -3810,7 +3811,7 @@
       // Hedef: aranabilir seçici; elle yol yazmak "Gelişmiş" altında
       const meta = targetMeta(trk);
       const pick = el('button', { class: 'btn small tl-target-pick', type: 'button', icon: 'search',
-        text: trk.target ? (meta.missing ? '! ' + trk.target : meta.group + ' · ' + meta.label) : tt('Hedef seç…'),
+        text: trk.target ? (meta.missing ? '! ' + trk.target : tt(meta.group) + ' · ' + tt(meta.label)) : tt('Hedef seç…'),
         title: tt('Otomasyonun süreceği ayarı ara ve seç') });
       pick.addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); openTargetPicker(trk, r.left, r.bottom + 4); });
       // Hedef çipinde × ile kaldırma (#957)

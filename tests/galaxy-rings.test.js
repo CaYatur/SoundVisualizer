@@ -66,8 +66,12 @@ test('kare başına renk ayarı halka sayısıyla sınırlı, her yıldız yine 
 
 test('Sırada: sahne canlıya hiç çıkmadıysa çizilmiş mod resmi, ikinci motor yok', () => {
   const ls = read('src/admin/live-shell.js');
-  assert.match(ls, /function topModeOf\(sc\) \{/);
-  assert.match(ls, /window\.api\.modeThumbs\(\[top\]\)\.then/);
+  // Zemin + görselleştirici mod resimleri (fillModes); ızgara kartları da aynı yoldan
+  assert.match(ls, /function sceneModes\(sc\) \{/);
+  assert.match(ls, /return \[pick\('background'\), pick\('visualizer'\)\]\.filter\(Boolean\);/);
+  assert.match(ls, /window\.api\.modeThumbs\(missing\)\.then/);
+  assert.match(ls, /fillModes\(pvwFrame, cued, 'sv-pvw-img'/);
+  assert.match(ls, /fillModes\(th, sc, 'sv-mode-img'\)/);
   assert.match(ls, /if \(shot \|\| \(md && md\.url\)\) pvwFrame\.appendChild/);
   assert.doesNotMatch(ls, /new window\.SVLayers\.LayerStack/, 'Sırada için ayrı çizim yığını kurulmuyor');
 });

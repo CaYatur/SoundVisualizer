@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4388%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4407%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -86,6 +86,13 @@ kontrolü**.
 - **Başlamak için daha çok şey.** 70 görselleştirici modu ve 51 arkaplan (18'i yeni), 60 CaYaDev
   MilkDrop preseti (4'ü yeni), 43 yerleşik GLSL shader; her mod seçicide gerçekten çizilmiş bir
   önizleme var.
+- **İlk açılışta hazır.** Boş Canlı sayfasındaki tek düğme sekiz örnek sahne kuruyor (F1–F8); siz
+  daha hiçbir şey kaydetmeden sahne ızgarası, AL, T-bar ve Otomatik VJ çalışıyor.
+
+<div align="center">
+<img src="docs/screenshots/panel-live.png" alt="Canlı sayfası: F1–F8'de sekiz örnek sahne, MilkDrop Flow canlıda, Aurora sırada, T-bar karışımın yarısında" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Telefon kumandası: telefonda Canlı sayfası; karartma, sahneler ve tempo" height="330" />
+</div>
 
 ---
 
@@ -787,6 +794,8 @@ haber bandı · karaoke vurgusu.
 
 ### Yayın düzeni editörü
 
+![Düzen Editörü: güvenli alanlarıyla 16:9 çerçevede canlı önizleme, Çalan Parça kartı ve öğe listesi](docs/screenshots/panel-layout.png)
+
 Canlı önizlemenin üstündeki ızgara düğmesi **Düzen Editörünü** açar: aynı önizleme, büyük ve
 **16:9, 9:16 ya da 1:1** çerçeveli. İkinci bir çizici değildir; yerleştirdiğiniz neyse ekranlar,
 OBS katmanı ve video dışa aktarımı onu çizer.
@@ -832,7 +841,9 @@ gösteriyor; hiç canlıya çıkmamış bir sahnede MilkDrop presetinin resmi ya
 alıyor; yanındaki **T-bar** sıradaki sahneyi elle karıştırıyor: karışım çubuğu izliyor, yarıda
 bırakınca iki sahnenin karışımı kalıyor, öbür uç sahneyi canlıya alıyor, başa döndürmek hiçbir şeyi
 baştan başlatmadan değişikliği geri alıyor. Her çıkış, OBS kaplaması ve panel önizlemesi çubuğu
-izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor.
+izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor. Yeni
+kurulumda boş ızgara **Örnek sahneleri ekle** düğmesini gösteriyor: hazır şablonlardan sekiz sahne,
+ekrandaki görüntüye dokunmadan.
 
 **Zaman çizelgesi.** Sahneleri ve ayar değişimlerini ölçüye ya da saniyeye hizalı biçimde zamana
 yayın; tek bir oynatma kafası bütün ekranları birlikte sürüyor, çevrimdışı dışa aktarma da aynı
@@ -2023,7 +2034,10 @@ npm start -- --shots
 Bu sayfadaki her paneli, sahneyi, klibi ve mod paftasını sentetik bir sinyalden, İngilizce arayüzle
 `docs/screenshots/` altına çiziyor. Gerçek ses yakalamıyor, kamerayı açmıyor, ayarlarınıza yazmıyor, ve
 o an ne çalıyorsa onun yerine elle yazılmış parça bilgisi kullanıyor. `--only=<ad>` eşleşen dosyalarla
-sınırlıyor.
+sınırlıyor (panel sayfaları için `--only=panel-`). Panel sayfaları bir demo şov gösteriyor: sekiz örnek
+sahne, zaman çizelgesi, klip destesi, efekt zinciri ve adlı makrolar; telefon kumandası uygulamanın kendi
+yayın sunucusundan çekiliyor. Panel PNG'leri dither'lı paletle küçültülüyor (boyutun yaklaşık dörtte biri,
+ortalama fark 3 seviyenin altında).
 
 ---
 
@@ -2037,7 +2051,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4388 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4407 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

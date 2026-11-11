@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4388%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4407%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -85,6 +85,13 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   [→ Layout editor](#broadcast-layout-editor)
 - **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
   presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
+- **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
+  so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
+
+<div align="center">
+<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
+</div>
 
 ---
 
@@ -400,7 +407,7 @@ stand on a baseline above the bottom edge can cast a **floor reflection** that f
 - **Fluid** — Fluid Gradient (an audio-reactive mesh gradient with flow, wander, orbit, swirl, warp,
   grain and audio hue shift) · Ink (liquid blobs that swirl as they flow) · Nebula (soft gas clouds)
   · Wave Layers (crests that swell with the audio) · Northern Lights (undulating curtains) · Lava
-  Lamp · Underwater · Colour Cloud (large, slow colour blobs: a calm ground for text) · Silk
+  Lamp · Underwater · Color Cloud (large, slow colour blobs: a calm ground for text) · Silk
 - **Geometric** — Retro Grid (a perspective grid to the horizon) · Honeycomb Grid (cells lit by a
   wave from the centre and by the spectrum) · Mosaic (a cell per frequency band) · Corridor (rings
   or polygons coming toward you) · Spiral · Pulse Rings (extra rings on bass hits) · Network
@@ -784,6 +791,8 @@ ticker · karaoke highlighting.
 
 ### Broadcast layout editor
 
+![Layout Editor: the live preview framed as 16:9 with safe areas, the Now Playing card and the element list](docs/screenshots/panel-layout.png)
+
 The grid button above the live preview opens the **Layout Editor**: the same preview, large, framed
 as **16:9, 9:16 or 1:1**. It is not a second renderer, so what you place is what the screens, the
 OBS overlay and video export draw.
@@ -829,7 +838,8 @@ transition; the **T-bar** next to it mixes the cued scene in by hand: the mix fo
 releasing it halfway holds a blend of both scenes, the far end puts the scene live and pulling it
 back to the start undoes the change without restarting anything. Every output, the OBS overlay and
 the panel preview follow the bar, and `show/tbar` lets a hardware fader drive it over OSC or
-Companion.
+Companion. On a fresh install the empty grid offers **Add example scenes**: eight scenes built from
+the ready-made templates, without changing what is on screen.
 
 **Timeline.** Lay scenes and setting changes out along time, aligned to the bar or to the second;
 one playhead drives every screen together, and offline export plays the same show.
@@ -2014,7 +2024,10 @@ npm start -- --shots
 Renders every panel, scene, clip and mode sheet on this page into `docs/screenshots/`, in English,
 from a synthetic signal. It never captures real audio, never opens the camera, never writes your
 settings, and uses typed-in track details rather than whatever is playing. `--only=<name>` limits it
-to matching files.
+to matching files (`--only=panel-` for the panel pages). The panel pages show a demo show: the eight
+example scenes, a timeline, a clip deck, an effect chain and named macros; the phone remote is
+captured from the app's own streaming server. Panel PNGs are palette-quantized with dithering
+(about a quarter of the size, mean difference under 3 levels).
 
 ---
 
@@ -2028,7 +2041,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4388 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4407 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

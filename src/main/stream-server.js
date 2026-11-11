@@ -32,7 +32,7 @@ const net = require('net');
 const os = require('os');
 const mediaUrl = require('../shared/media-url');
 const { leanPreset } = require('../shared/preset-lean');
-const { isConfiguredMedia } = require('./media-file');
+const { isConfiguredMedia, parseRange } = require('./media-file');
 
 const ROOT = path.join(__dirname, '..'); // src/
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -563,18 +563,23 @@ function serveMedia(req, res, url) {
   const range = req.headers.range;
   /* Katman videoyu aynı kökenden ister; başka sitelere açılmaz. */
   const common = { 'Content-Type': type, 'Accept-Ranges': 'bytes' };
-  if (range) {
-    const m = /bytes=(\d*)-(\d*)/.exec(range);
-    const start = m && m[1] ? parseInt(m[1], 10) : 0;
-    const end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
+  // Aralık kuralı uygulamanın kendi protokolüyle ortak (media-file.js parseRange)
+  const r = parseRange(range, stat.size);
+  if (r && r.status === 416) {
+    res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` }).end();
+    return;
+  }
+  if (r) {
+    const { start, end } = r;
     res.writeHead(206, Object.assign({}, common, {
       'Content-Range': `bytes ${start}-${end}/${stat.size}`,
       'Content-Length': end - start + 1,
     }));
-    fs.createReadStream(local, { start, end }).pipe(res);
+    // Okuma hatası (dosya silindi, kilitli) yakalanmamış istisna olup panelde uyarı açmasın
+    fs.createReadStream(local, { start, end }).on('error', () => res.destroy()).pipe(res);
   } else {
     res.writeHead(200, Object.assign({}, common, { 'Content-Length': stat.size }));
-    fs.createReadStream(local).pipe(res);
+    fs.createReadStream(local).on('error', () => res.destroy()).pipe(res);
   }
 }
 
@@ -599,9 +604,24 @@ function handleRequest(req, res) {
   // Token zorunluluğu kapalıysa doğrulama atlanır; açıksa URL veya başlıktan token beklenir.
   const urlToken = url.searchParams.get('token') || hdrs['x-sv-token'] || '';
 
+  /* Sayfanın kendi çerezi de jeton sayılır. Kumanda "Ana ekrana ekle" ile
+     kurulunca bildirimdeki `start_url` (/remote) jetonsuz açılıyor; yer imi de
+     çoğu zaman öyle. Yalnız URL'ye bakılınca Token Koruması açıkken ana
+     ekrandaki kumanda hep 401 veriyordu. Çerez SameSite=Strict: başka bir
+     sitenin çerçevesinde ya da bağlantısında gönderilmez, yani yabancı site
+     yine jetonu bilmeden sayfayı açamaz. */
+  /* Ama SameSite SİTE bazında, kapı bazında değil: 127.0.0.1 ya da LAN adresinde aynı makinedeki
+     başka bir sunucu (geliştirme sunucusu, başka bir uygulamanın web arayüzü) "aynı site" sayılıyor
+     ve çerez ona da gidiyor. O sayfa kumandayı çerçeveleyip çerezle açabilirdi. Çerçeve, gömme ve
+     nesne yüklemelerinde (Sec-Fetch-Dest) yalnız URL'deki jeton geçer; başlığı yollamayan eski
+     tarayıcı ve OBS çerezle açılmaya devam eder. Çerez ayrıca HttpOnly (sendPage). */
+  const framed = /^(iframe|frame|embed|object)$/i.test(String(hdrs['sec-fetch-dest'] || ''));
+  const pageTokenOk = (expected, cookieName) => !!expected && (safeCompare(urlToken, expected)
+    || (!framed && safeCompare(extractCookieToken(hdrs['cookie'], cookieName), expected)));
+
   if (p === '/' || p === '/overlay' || p === '/overlay.html') {
     const expected = state.token;
-    if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
+    if (state.requireToken && !pageTokenOk(expected, 'sv_token')) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(tokenErrorText(hooks, true));
       return;
@@ -614,12 +634,19 @@ function handleRequest(req, res) {
     const cfg = hooks.getConfig();
     if (cfg && cfg.stream && cfg.stream.remote === false) { res.writeHead(404).end('remote disabled'); return; }
     const expected = state.remoteToken || state.token;
-    if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
+    if (state.requireToken && !pageTokenOk(expected, 'sv_remote_token')) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(tokenErrorText(hooks, true));
       return;
     }
-    sendPage(res, path.join(ROOT, 'web', 'remote.html'), state.requireToken ? 'sv_remote_token' : null, state.requireToken ? expected : null);
+    /* Token Koruması kapalıyken kumanda sayfası jetonsuz açılıyor. O hâlde
+       kullanıcının ziyaret ettiği herhangi bir site sayfayı görünmez bir
+       çerçevede açıp tıklatabilirdi (Karartma, sahne; clickjacking). Çerçeve
+       yalnız bu durumda yasak: koruma açıkken yabancı site jetonu bilmiyor
+       (401), Home Assistant panosu gibi jetonlu gömmeler çalışmaya devam ediyor.
+       Yayın sayfasında düğme yok, o çerçevelenebilir kalıyor. */
+    sendPage(res, path.join(ROOT, 'web', 'remote.html'), state.requireToken ? 'sv_remote_token' : null, state.requireToken ? expected : null,
+      state.requireToken ? null : NO_FRAME);
     return;
   }
 
@@ -756,7 +783,9 @@ function tokenErrorText(hooks, withHint) {
   return 'Gecersiz veya eksik jeton.' + (withHint ? ' URL sonuna ?token=... ekleyin.' : '');
 }
 
-function sendPage(res, file, cookieName, tokenVal) {
+const NO_FRAME = Object.freeze({ 'Content-Security-Policy': "frame-ancestors 'none'", 'X-Frame-Options': 'DENY' });
+
+function sendPage(res, file, cookieName, tokenVal, extraHeaders) {
   fs.readFile(file, 'utf-8', (err, html) => {
     if (err) { res.writeHead(500).end('page missing'); return; }
     const locale = hooks.getLocale() === 'tr' ? 'tr' : 'en';
@@ -772,8 +801,12 @@ function sendPage(res, file, cookieName, tokenVal) {
       'X-Content-Type-Options': 'nosniff',
     };
     if (cookieName && tokenVal) {
-      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; SameSite=Strict`;
+      /* 30 gün: oturum çerezi telefon tarayıcısı kapanınca siliniyor, ana
+         ekrandaki kumanda ertesi gün yine jetonsuz kalıyordu. Jeton yenilenince
+         eski çerez kendiliğinden geçersiz. */
+      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Strict`;
     }
+    if (extraHeaders) Object.assign(respHeaders, extraHeaders);
     res.writeHead(200, respHeaders);
     res.end(injected);
   });

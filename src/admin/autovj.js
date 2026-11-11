@@ -288,7 +288,7 @@
     const d = R().diagnose(cfg0(), ctx);
     if (!d.ok) {
       statusWarn = true;
-      if (a.source === 'scenes') return T('Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.');
+      if (a.source === 'scenes') return T('Kayıtlı sahne yok. Canlı sayfasında “Örnek sahneleri ekle”ye basın, “Kaydet” ile kendi sahnenizi saklayın ya da başka bir kaynak seçin.');
       if (a.source === 'palettes') return T('Seçilen kaynakta renk şablonu yok.');
       return T('Bu kaynakta değiştirilecek bir şey yok.');
     }

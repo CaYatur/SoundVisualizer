@@ -1114,6 +1114,25 @@ function visualizerPage() {
   return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
 }
 
+/* "Panele dönmek için ESC": panelle aynı ekranda açılan tam ekranda kısa not.
+   Kural ve gerekçe src/main/exit-hint.js'te. */
+const exitHint = require('./exit-hint').create();
+function maybeExitHint(win) {
+  if (!win || win.isDestroyed() || !adminWin || adminWin.isDestroyed()) return;
+  let outId = null;
+  let panelId = null;
+  try {
+    outId = screen.getDisplayMatching(win.getBounds()).id;
+    panelId = screen.getDisplayMatching(adminWin.getBounds()).id;
+  } catch { return; }
+  if (!exitHint.wanted(outId, panelId, Date.now(), { automation: AUTOMATION_RUN, escLocked: escapeLocked() })) return;
+  // Sayfa ilk kareyi çizsin: not boş siyah ekranda değil görüntünün üstünde belirsin
+  setTimeout(() => {
+    if (win.isDestroyed()) return;
+    win.webContents.send('exit-hint', { text: trUi('Panele dönmek için ESC', 'Press ESC to return to the panel'), ms: 3500 });
+  }, 600);
+}
+
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = visualizerRect(display);
@@ -1211,6 +1230,7 @@ function createVisualizerWindow(display) {
        bir guncelliyor; beklersek yeni acilan ekran o kadar sure bos kalirdi. */
     if (shownNowPlaying().has) win.webContents.send('now-playing', shownNowPlaying());
     win.webContents.send('lyrics-lib', lyricsSnapshot());
+    maybeExitHint(win);
   });
 
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
@@ -12561,7 +12581,15 @@ async function runShots() {
     const leak = realDevices.find((n) => text.includes(n));
     if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
     const img = await win.webContents.capturePage();
-    fs.writeFileSync(path.join(shotsDir, name), img.toPNG());
+    let png = img.toPNG();
+    /* Panel görüntüleri paletle (libimagequant, dither'lı). Canlı önizlemeden beslenen ortam ışığı
+       PNG'de kötü sıkışıyor: 20 görüntü 22 MB'tı, böyle ~6 MB. Ölçüldü: ortalama kanal farkı
+       0,7–2,3 seviye, yazılar ve arayüz aynı. Sahne çizimlerine (renk geçişleri) uygulanmıyor. */
+    if (/^panel-.*\.png$/.test(name)) {
+      try { png = await require('sharp')(png).png({ palette: true, quality: 92, effort: 10, dither: 1.0, compressionLevel: 9 }).toBuffer(); }
+      catch (e) { /* sharp yok: özgün PNG */ }
+    }
+    fs.writeFileSync(path.join(shotsDir, name), png);
     console.log('[SHOTS] saved ' + name);
   };
 
@@ -12680,6 +12708,25 @@ async function runShots() {
       { id: 'ly_show_np', name: 'Track Info', kind: 'nowplaying', type: 'nowplaying', enabled: true, settings: {} },
     ],
     visualizer: { type: 'milkdrop' },
+    /* Efekt zinciri boş olunca README'nin efekt görseli "Add effect…" diyen boş bir kart gösteriyordu. */
+    postfx: [
+      { id: 'fx_show_bloom', type: 'bloom', enabled: true, opacity: 1, params: { threshold: 0.4, intensity: 1.3, radius: 3 } },
+      { id: 'fx_show_chroma', type: 'chroma', enabled: true, opacity: 1, params: { amount: 0.004 } },
+      { id: 'fx_show_vignette', type: 'vignette', enabled: true, opacity: 1, params: { amount: 0.35 } },
+    ],
+    /* Modülasyon görseli: adlı makrolar ve sesten gelen birkaç bağlantı. Boşken sekiz adsız %0 makro
+       görünüyordu. Hedefler şovun kendi ayarları (efekt zinciri, katman saydamlığı). */
+    modulation: Object.assign({}, realCfg.modulation || {}, {
+      enabled: true,
+      macros: [['Energy', 0.72], ['Glow', 0.55], ['Motion', 0.4], ['Color Drift', 0.3], ['Strobe', 0], ['Warp', 0.2], ['', 0], ['', 0]]
+        .map(([name, value]) => ({ name, value })),
+      routes: [
+        { id: 'show_r1', enabled: true, source: 'anKick', target: 'postfx.0.params.intensity', min: 0.8, max: 2.4, mode: 'set', curve: 'exp', amount: 1 },
+        { id: 'show_r2', enabled: true, source: 'bass', target: 'postfx.1.params.amount', min: 0, max: 0.012, mode: 'set', curve: 'linear', amount: 1 },
+        { id: 'show_r3', enabled: true, source: 'lfo1', target: 'postfx.2.params.amount', min: 0.2, max: 0.5, mode: 'set', curve: 'linear', amount: 1 },
+        { id: 'show_r4', enabled: true, source: 'macro2', target: 'postfx.0.params.radius', min: 1, max: 5, mode: 'set', curve: 'linear', amount: 1 },
+      ],
+    }),
     milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
     timeline: {
       enabled: true,
@@ -12740,22 +12787,50 @@ async function runShots() {
     ['scene', 'panel-templates.png', '.card[data-card="templates"]', `${SHELL}.setShelf('templates')`],
     ['scene', 'panel-transition.png', '.card[data-card="transition"]', `${SHELL}.select('')`],
     ['scene', 'panel-geometry.png', '.card[data-card="geometry"]', `${SHELL}.select('ly_show_geo')`],
+    // Düzen editörü (#994): aynı önizleme büyük çerçevede, öğeler ve güvenli alanlar
+    ['scene', 'panel-layout.png', '#layTitle', `${SHELL}.select('ly_show_np');window.SVLayoutEditor.open()`, 'close-layout'],
     ['live', 'panel-clipdeck.png', '.card[data-card="clipdeck"]', "window.SVLiveShell.setLower('deck')"],
     ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
     ['studio', 'panel-studio.png', '.card[data-card="studio"]', "window.SVPanel.setSection('studio')"],
     ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "window.SVPanel.setSection('mdedit');document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
-    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]'],
+    // Kurulum sayfaları ilk bölümleriyle açılıyor (Ses Kaynakları, MIDI): bölüm açıkça seçilir
+    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]', "window.SVPanel.setSection('deepanalysis')"],
     ['output', 'panel-mapping.png', '.card[data-card="mapping"]', "window.SVPanel.setSection('mapping')"],
     ['output', 'panel-record.png', '.card[data-card="record"]', "window.SVPanel.setSection('record')"],
     ['output', 'panel-output.png', '.card[data-card="stream"]', "window.SVPanel.setSection('stream')"],
-    ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
+    ['control', 'panel-control.png', '.card[data-card="oscOut"]', "window.SVPanel.setSection('oscOut')"],
+    /* Canlı sayfası EN SONDA: örnek sahneler kuruluyor ve biri canlıya alınıyor, yani panelin
+       katmanları şovdan sahneye dönüyor. Sekiz örnek sahne (ilk açılıştaki düğmenin kurduğu),
+       MilkDrop Flow canlıda, Aurora sırada ve T-bar yarıda: iki sahnenin karışımı. Çubuk dış
+       denetimde önce kendi ucunda "yakalanmalı" (live-shell tbarTo), o yüzden adım adım. */
+    ['live', 'panel-live.png', '#svLive .sv-tlever', [
+      "var P=window.SVPanel;window.SVLiveShell.setLower('scenes');if(!P.scenes().length)P.addStarterScenes();",
+      'var s=P.scenes();P.applyScene(s[0].id);',
+      "setTimeout(function(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'F3',bubbles:true}));},2600);",
+      'setTimeout(function(){var L=window.SVLiveShell;[0.01,0.1,0.2,0.3,0.4,0.45].forEach(function(v,i){setTimeout(function(){L.tbarTo(v);},i*120);});},4200);',
+    ].join(''), 'wait:7000'],
   ];
   const missing = [];
-  if (adminWin && !adminWin.isDestroyed() && PANELS.some((p) => want(p[1]))) {
+  if (adminWin && !adminWin.isDestroyed() && (PANELS.some((p) => want(p[1])) || want('panel-remote.png'))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
+    /* Panel görüntüleri boyunca da sentetik ses: üreticide gerçek yakalama kapalı, önizleme demo
+       sinyalinde kalıyor ve Ses Çözümlemesi (yalnız gerçek karede ölçüyor) bütün değerleri "—" ve
+       "silent" gösteriyordu. Sahnelerin pompasıyla aynı kare. */
+    const pt0 = Date.now();
+    const panelPump = setInterval(() => {
+      if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('native-audio', makeFrame((Date.now() - pt0) / 1000));
+    }, 25);
     await wait(1500);
-    for (const [page, name, need, prep] of PANELS) {
+    /* Şovda sahneler de olsun: ilk açılıştaki "Örnek sahneleri ekle" düğmesinin kurduğu sekiz sahne.
+       Zaman sayfasının Sahneler listesi ve raftaki Sahne sekmesi boş görünmesin. Düğmenin bildirimi
+       ilk görüntüye girmesin diye gizlenir. */
+    await awc.executeJavaScript(
+      "(function(){var P=window.SVPanel;if(P&&P.addStarterScenes&&!P.scenes().length)P.addStarterScenes();" +
+        "setTimeout(function(){document.querySelectorAll('.toast').forEach(function(t){t.classList.add('hidden');});},300);})()"
+    ).catch(() => {});
+    await wait(1200);
+    for (const [page, name, need, prep, after] of PANELS) {
       if (!want(name)) continue;
       try {
         await awc.executeJavaScript(`window.SVPanel.setCategory(${JSON.stringify(page)})`);
@@ -12764,6 +12839,8 @@ async function runShots() {
           await awc.executeJavaScript(`(function(){${prep}})()`);
           await wait(1200);
         }
+        // Hazırlığı zamanlayıcılarla süren görüntüler (Canlı: sahne, sıra, T-bar) kendi süresini bekler
+        if (after && /^wait:\d+$/.test(after)) await wait(Number(after.slice(5)));
         const found = await awc.executeJavaScript(
           `(function(){var c=document.querySelector(${JSON.stringify(need)});if(!c||!c.getClientRects().length)return false;` +
             "c.style.scrollMarginTop='96px';c.scrollIntoView({block:'start'});return true})()"
@@ -12771,10 +12848,45 @@ async function runShots() {
         if (!found) { missing.push(name + ' (' + need + ')'); continue; }
         await wait(1200);
         await save(adminWin, name);
+        if (after === 'close-layout') await awc.executeJavaScript('window.SVLayoutEditor && window.SVLayoutEditor.close()').catch(() => {});
       } catch (e) {
         missing.push(name + ': ' + (e && e.message));
       }
     }
+    /* TELEFON KUMANDASI (#995): uygulamanın kendi yayın sunucusundan, telefon boyutunda, şov
+       hâlâ panelde açıkken (sahneler ve canlı sahne kumandada da görünsün). Sunucu yalnız bu
+       görüntü için, yalnız bu makineye (127.0.0.1) ve boş bir kapıda açılıp kapanır. */
+    if (want('panel-remote.png')) {
+      const prevStream = currentConfig && currentConfig.stream;
+      let rw = null;
+      try {
+        const port = await new Promise((resolve, reject) => {
+          const s = require('net').createServer();
+          s.on('error', reject);
+          s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+        });
+        currentConfig.stream = Object.assign({}, prevStream, { enabled: true, port, lan: false, requireToken: false, remote: true });
+        const st = await syncStreamServer();
+        if (!st || !st.running) throw new Error('yayın sunucusu açılmadı');
+        rw = new BrowserWindow({ width: 430, height: 932, show: true, frame: false, backgroundColor: '#0b0910', webPreferences: { backgroundThrottling: false } });
+        await rw.loadURL('http://127.0.0.1:' + port + '/remote');
+        let ok = false;
+        for (let k = 0; k < 40 && !ok; k++) {
+          await wait(250);
+          ok = await rw.webContents.executeJavaScript("/Bağlı|Connected/.test((document.getElementById('statusText')||{}).textContent||'')").catch(() => false);
+        }
+        if (!ok) throw new Error('kumanda bağlanmadı');
+        await wait(2500);
+        await save(rw, 'panel-remote.png');
+      } catch (e) {
+        missing.push('panel-remote.png: ' + (e && e.message));
+      } finally {
+        if (rw && !rw.isDestroyed()) rw.destroy();
+        if (currentConfig) currentConfig.stream = prevStream;
+        await syncStreamServer().catch(() => {});
+      }
+    }
+    clearInterval(panelPump);
     awc.send('external-config', realCfg);
     await wait(600);
   }

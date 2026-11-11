@@ -246,6 +246,15 @@
     return { pid: Number(best.pid), name, matched: active.length ? 'audible' : 'name' };
   }
 
+  /* Görünen ad. Yardımcı bazı süreçlerde (ör. cmd.exe) ad yerine tam yolu
+     veriyor; listede "C:\Windows\System32\cmd.exe" yazıyordu. Yol görünen
+     adın kendisiyse yalnız dosya adı gösterilir; eşleşme anahtarı (match)
+     değişmez. */
+  const niceLabel = (label, name) => {
+    const s = String(label || name || '').trim();
+    return /^(?:[A-Za-z]:)?[\\/]/.test(s) ? s.split(/[\\/]/).pop() || s : s;
+  };
+
   /* Arayüzde gösterilecek aday listesi. Ses oturumu olan süreçler önce,
      sonra ada göre; aynı uygulamanın onlarca alt süreci tek satıra iner. */
   function candidates(processes) {
@@ -258,7 +267,7 @@
       if (!prev) {
         byName.set(key, {
           match: p.name,
-          label: p.label || p.name,
+          label: niceLabel(p.label, p.name),
           pid: Number(p.pid) || 0,
           audible: !!p.audible,
           count: 1,
@@ -270,7 +279,7 @@
       if (p.audible && !prev.audible) {
         prev.audible = true;
         prev.pid = Number(p.pid) || prev.pid;
-        if (p.label) prev.label = p.label;
+        if (p.label) prev.label = niceLabel(p.label, p.name);
       }
     }
     return Array.from(byName.values()).sort((a, b) => {
