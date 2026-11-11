@@ -1291,6 +1291,29 @@
           }));
         }
         out.push(miniToggle('Döngüde Oynat', () => m.loop !== false, (v) => { m.loop = v; }));
+        /* VİDEO TAŞIMA (#905): hız, bölge, vuruşa kilitli döngü ve konum. Ayarlar katmanda
+           kalıcı; konum kaydırıcısı anlık (çıkışlara ve önizlemeye gidiyor, kaydedilmiyor). */
+        const sec = (v) => (Math.round(v * 10) / 10).toFixed(1) + ' ' + tr('sn');
+        const tRange = (key) => window.SVSchema.rangeFor('media.' + key);
+        const tSlider = (label, key, d, o) => {
+          const r = tRange(key);
+          return miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ min: r.min, max: r.max, def: d, path: 'media.' + key }, o));
+        };
+        out.push(tSlider('Hız', 'speed', 1, { step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }));
+        out.push(tSlider('Giriş Noktası', 'inPoint', 0, { step: 0.1, fmt: sec }));
+        out.push(tSlider('Çıkış Noktası', 'outPoint', 0, { step: 0.1, fmt: (v) => (v > 0 ? sec(v) : tr('sona kadar')) }));
+        out.push(miniSelect('Vuruşa Kilitli Döngü', [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']],
+          () => String(m.loopBeats || 0), (v) => { m.loopBeats = Number(v) || 0; }, null, '0'));
+        let scrubAt = 0;
+        const scrub = miniSlider('Konum', () => scrubAt, (v) => {
+          scrubAt = v;
+          if (window.api && window.api.sendMediaScrub) window.api.sendMediaScrub({ layerId: l.id || '', frac: v });
+          const st = window.SVPreview && window.SVPreview.stack && window.SVPreview.stack();
+          if (st && st.scrubMedia) st.scrubMedia(l.id || '', v);
+        }, { min: 0, max: 1, step: 0.001, percent: true });
+        if (scrub && scrub.classList) scrub.classList.add('sv-media-scrub');
+        out.push(scrub);
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Vuruşa kilitli döngü, bölümü uygulamanın temposuna göre her N vuruşta baştan başlatır; konum kaydırıcısı videoyu canlıda sarar, kaydedilmez.' }));
       }
       out.push(miniSelect('Sığdırma', [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']],
         () => m.fit || 'cover', (v) => { m.fit = v; }));

@@ -81,7 +81,8 @@ test('dışa aktarıcı medya katmanını kurar ve her kareden önce kare saatin
   assert.ok(seekAt > 0 && seekAt < ex.indexOf('const data = renderFrame(i);'));
   const media = read('src/visualizer/modes/media.js');
   assert.match(media, /async seekTo\(sec\) \{/);
-  assert.match(media, /const target = v\.loop \? s % d : Math\.min\(s, Math\.max\(0, d - 0\.001\)\);/);
+  // Taşıma formülü (#905): varsayılanlarla eski `s % d` / son kare (tests/video-transport.test.js)
+  assert.match(media, /const target = transportTime\(sec, d, Object\.assign\(\{\}, this\._m, \{ loop: v\.loop \}\), this\._bpm \|\| 0\);/);
   // Kuyruktaki sahnenin videosu da sunulur
   const main = read('src/main/main.js');
   assert.match(main, /exportMediaCfg = jobCfg;/);
