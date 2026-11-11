@@ -23,6 +23,12 @@
 (function () {
   const TAU = Math.PI * 2;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  // Dalga Girişimi'nin sinüs çizelgesi: bir tam tur 4096 adım, ara değer için bir fazla
+  const SIN_N = 4096;
+  const SIN_MASK = SIN_N - 1;
+  const SIN_SCALE = SIN_N / TAU;
+  const SIN_LUT = new Float32Array(SIN_N + 1);
+  for (let i = 0; i <= SIN_N; i++) SIN_LUT[i] = Math.sin((i / SIN_N) * TAU);
 
   // ==========================================================================
   // Ortak yardımcılar
@@ -440,10 +446,35 @@
       /* Hücreler piksel piksel değil, kaba bir ızgarada hesaplanır: her
          hücre için en yakın tohum bulunur ve blok o renge boyanır. Tam bir
          Voronoi kenarına göre biraz kaba ama 60 fps'te CPU'da çalışır ve
-         blok boyutu kalınlık ayarına bağlıdır. */
+         blok boyutu kalınlık ayarına bağlıdır.
+
+         Izgaranın her hücresi küçük bir görüntünün bir pikseli: hepsi bir kez
+         yazılıp keskin büyütmeyle tek seferde çiziliyor. Eskiden 1080p'de
+         ~14.000 hücrenin her biri için renk hesaplanıp ayrı bir dikdörtgen
+         çiziliyordu; bir piksel taşan komşu dikdörtgenler üst üste binip
+         ızgara çizgisi gibi görünen ince izler de bırakıyordu. Hücrenin rengi
+         yalnız en yakın tohuma bağlı, o yüzden tohum başına bir kez hesaplanır. */
       const cell = Math.max(4, Math.round(14 - v.thickness * 8) * (Math.min(W, H) / 900));
       const cols = Math.ceil(W / cell);
       const rows = Math.ceil(H / cell);
+      if (!this.img || this.img.width !== cols || this.img.height !== rows) {
+        this.img = document.createElement('canvas');
+        this.img.width = cols;
+        this.img.height = rows;
+        this.ictx = this.img.getContext('2d');
+        this.data = this.ictx.createImageData(cols, rows);
+      }
+      const cr = this._cr && this._cr.length === this.N * 3 ? this._cr : (this._cr = new Uint8Array(this.N * 3));
+      const ce = this._ce && this._ce.length === this.N ? this._ce : (this._ce = new Float32Array(this.N));
+      for (let i = 0; i < this.N; i++) {
+        const e = clamp(bars[i] * sens, 0, 1);
+        const col = tone(v, cfg, (i / this.N + e * 0.25) % 1, t);
+        cr[i * 3] = col[0];
+        cr[i * 3 + 1] = col[1];
+        cr[i * 3 + 2] = col[2];
+        ce[i] = 0.12 + e * 0.75;
+      }
+      const d = this.data.data;
       for (let r = 0; r < rows; r++) {
         const y = r * cell + cell * 0.5;
         for (let c = 0; c < cols; c++) {
@@ -454,20 +485,26 @@
           for (let i = 0; i < this.N; i++) {
             const dx = x - sx[i];
             const dy = y - sy[i];
-            const d = dx * dx + dy * dy;
-            if (d < bd) { bd2 = bd; bd = d; best = i; }
-            else if (d < bd2) bd2 = d;
+            const dd = dx * dx + dy * dy;
+            if (dd < bd) { bd2 = bd; bd = dd; best = i; }
+            else if (dd < bd2) bd2 = dd;
           }
-          const e = clamp(bars[best] * sens, 0, 1);
           // Kenara yakınlık: en yakın iki tohum arasındaki fark
           const edge = clamp((Math.sqrt(bd2) - Math.sqrt(bd)) / (cell * 3), 0, 1);
-          const col = tone(v, cfg, (best / this.N + e * 0.25) % 1, t);
-          ctx.fillStyle = rgba(col, (0.12 + e * 0.75) * (0.25 + edge * 0.75));
-          ctx.fillRect(c * cell, r * cell, cell + 1, cell + 1);
+          const o = (r * cols + c) * 4;
+          d[o] = cr[best * 3];
+          d[o + 1] = cr[best * 3 + 1];
+          d[o + 2] = cr[best * 3 + 2];
+          d[o + 3] = Math.round(ce[best] * (0.25 + edge * 0.75) * 255);
         }
       }
+      this.ictx.putImageData(this.data, 0, 0);
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.img, 0, 0, cols * cell, rows * cell);
+      ctx.restore();
     }
-    dispose() {}
+    dispose() { this.img = null; this.data = null; }
   }
 
   // ==========================================================================
@@ -650,14 +687,33 @@
       const d = this.data.data;
       const cols = [];
       for (let i = 0; i < 8; i++) cols.push(tone(v, cfg, i / 8, t));
+      /* Sinüs çizelgeden okunuyor (4096 adım, doğrusal ara değer; en büyük hata 3·10⁻⁷).
+         Karede piksel × kaynak başına bir Math.sin (1080p'de ~400.000) alanın asıl maliyetiydi.
+         Kaynağın evresi kare başına bir kez 2π'ye indirgenip açıya ekleniyor:
+         sin(r·k − p) = sin(r·k + 2π − (p mod 2π)), böylece açı hep pozitif ve çizelge sırası
+         tam sayıya kesmeyle bulunuyor. Çizelge boyuttan ve kalınlıktan bağımsız: boyut
+         değişince ya da kalınlık sürüklenirken yeniden kurulacak bir şey yok. Sessiz kaynak
+         (genlik 0) dolaşılmıyor: katkısı zaten sıfır. */
+      const ph = this._ph && this._ph.length === this.N ? this._ph : (this._ph = new Float64Array(this.N));
+      const live = this._live && this._live.length === this.N ? this._live : (this._live = new Int32Array(this.N));
+      let nLive = 0;
+      for (let i = 0; i < this.N; i++) {
+        if (amp[i] === 0) continue;
+        const p = t * (2 + i * 0.7);
+        ph[nLive] = TAU - (p - Math.floor(p / TAU) * TAU);
+        live[nLive++] = i;
+      }
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           let s = 0;
-          for (let i = 0; i < this.N; i++) {
+          for (let j = 0; j < nLive; j++) {
+            const i = live[j];
             const dx = x - px[i];
             const dy = y - py[i];
-            const r = Math.sqrt(dx * dx + dy * dy);
-            s += Math.sin(r * k[i] - t * (2 + i * 0.7)) * amp[i];
+            const u = (Math.sqrt(dx * dx + dy * dy) * k[i] + ph[j]) * SIN_SCALE;
+            const ui = u | 0;
+            const q = ui & SIN_MASK;
+            s += (SIN_LUT[q] + (SIN_LUT[q + 1] - SIN_LUT[q]) * (u - ui)) * amp[i];
           }
           const norm = clamp(s / this.N * 0.5 + 0.5, 0, 1);
           const c = cols[Math.min(7, (norm * 8) | 0)];

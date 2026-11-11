@@ -68,7 +68,7 @@ v4.0.0 section.
 | Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
 | Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
 | Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅ | Baseline in v3.1.2 (#559). Phase 2 and the fidelity work in v3.1.4 (#560): 16,346 of 16,346 shader stages compile and ~98% of presets render a live image. v3.1.5 adds `.milk2` double presets, a library with thumbnails and ZIP import, a live editor, a generator and show control (#583). v3.1.6: 55 CaYaDev presets under CC BY 4.0, ten in the extended format, and the engine fixes they surfaced |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅ | Baseline in v3.1.2 (#559). Phase 2 and the fidelity work in v3.1.4 (#560): 16,346 of 16,346 shader stages compile and ~98% of presets render a live image. v3.1.5 adds MilkDrop 3 `.milk2`, a library with thumbnails and ZIP import, a live editor, a generator and show control (#583). v3.1.6: 55 CaYaDev presets under CC BY 4.0, ten of them for MilkDrop 3, and the engine fixes found while making them |
 | Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
 | Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
 | Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
@@ -161,7 +161,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **4418 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **4437 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
@@ -275,7 +275,7 @@ Written down rather than quietly dropped:
 ## v3.1.1 — Cross-platform builds, OpenRGB, Spout and Syphon · shipped
 
 Live video output to other applications on the same machine, straight over
-the GPU. The visualizer feeds OBS or any Spout/Syphon receiver
+the GPU. The visualizer feeds Resolume, OBS or any Spout/Syphon receiver
 without window capture and without a plugin install.
 
 The release grew beyond that, and not by accident: **Syphon needs a macOS
@@ -396,7 +396,7 @@ macOS, with prebuilt N-API binaries for `win32-x64-msvc`, `darwin-x64` and
 `darwin-arm64`.
 
 It also ships a **receiver**, which the roadmap had not previously accounted
-for: any Spout/Syphon sender can be read *into* the
+for: Resolume or any other Spout/Syphon sender can be read *into* the
 visualizer as an input layer. That arrives free with the same dependency and
 is worth a layer source of its own.
 
@@ -442,7 +442,7 @@ and verifying that it still does is part of the work.
   - Translated MilkDrop HLSL warp and composite pixel shaders into WebGL2 GLSL with multi-pass type inference. **91.7% of all shader stages compile** across 10,347 official and community presets; **85.0% of presets have completely clean shader pipelines**.
   - Fixed warp texture wrapping: MilkDrop defaults to `REPEAT`, whereas the engine previously clamped edges, causing effects to collapse and empty (e.g. Agitator brightness dropping from 16.7 to 0.7).
   - Restored 8-bit saturation clamping on feedback buffers, preventing runaway white/yellow blowouts on float buffers.
-  - Implemented all 8 MilkDrop waveform modes, custom shapes, and custom wave geometries matching the MilkDrop 2 reference implementation.
+  - Implemented all 8 MilkDrop waveform modes, custom shapes, and custom wave geometries matching BeatDrop / MilkDrop reference implementations.
   - Aligned audio scale and decay mappings (`bass/mid/treb` normalized to long-term average, `fDecay` header mapped to per-frame decay).
   - *Deferred to Phase 2 (quality pass)*: User sprite textures (`img.ini`), motion vectors, preset crossfade blending, and mouse interaction.
 - **Now Playing overlay**:
@@ -1121,8 +1121,8 @@ MilkDrop (#560):
   three times because the vertex struct was not at hand. It is plain floats in
   RGBA order (support.h:71-75), so that fork does draw the two swapped — but
   the fork is a D3D11 port, and the D3D9 code it was ported from sets the
-  colour in one call, `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` (D3D9
-  source, milkdropfs.cpp:3225), a line the fork still carries as a comment in
+  colour in one call, `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` (mvsoft74/BeatDrop
+  53d83ee, milkdropfs.cpp:3225), a line the fork still carries as a comment in
   every wave mode. The swap came in with the port. The engine already draws in
   order; a test now pins it in all eight modes.
 - **Layers hidden under MilkDrop are no longer drawn** · done on `main`. The
@@ -1563,7 +1563,7 @@ OSC, modes and Auto VJ:
   - #745: the privacy section lists what each switch opens; CONTRIBUTING.md
     and issue and pull request templates.
 
-## v3.1.5 — MilkDrop show control, library and the extended preset format · shipped
+## v3.1.5 — MilkDrop show control, library and MilkDrop 3 compatibility · shipped
 
 Tracked in #583. Order: show control, then robustness, then the library; the
 rest after.
@@ -1585,7 +1585,7 @@ rest after.
   is scheduled. 23 corpus presets read it and 10 of those fade out on
   `above(progress, 0.99)`, which the sawtooth triggered every ten seconds.
   24 tests, including the same demo audio cutting on the same frames twice.
-  The extended format's hard-cut modes follow once the format setting exists (#567).
+  MilkDrop 3's hard-cut modes follow once the compatibility mode exists (#567).
 - **Ratings, rating-weighted random order and a back/forward history (#569)** ·
   done. MilkDrop reads each preset's rating from its own file — `fRating`, 3
   when missing, clamped to 0..5 (plugin.cpp:5795-5796) — and with ratings on,
@@ -2016,7 +2016,7 @@ rest after.
     (#576) unless it is a generic name (presets, milkdrop …); it can be
     turned off.
   - **Search.** Known install folders (Winamp's `Plugins\Milkdrop2`,
-    foobar2000's `milkdrop2`, other players' preset folders) and the user
+    foobar2000's `milkdrop2`, projectM's preset folders) and the user
     folders where portable installs get unpacked, in the order Downloads,
     Desktop, Music, Documents, as the system reports them (OneDrive can move
     them on Windows; the names are localized on Linux). Every subfolder and
@@ -2423,11 +2423,11 @@ rest after.
     the part before `shader_body` are mapped by similarity and can be
     missed; a wave's or shape's parameters (colour, sides, point count)
     are edited as text in the *Text* tab rather than with controls.
-- **Extended preset format: Automatic / MilkDrop 2 / Extended (#567)** ·
+- **MilkDrop 3 compatibility: Automatic / MilkDrop 2 / MilkDrop 3 (#567)** ·
   the parts that can be pinned down are done on `main`; the rest is below
   with the reason.
-  - **Where the rules come from.** The public source of the player that
-    introduced the format still carries MilkDrop 2.2-level source (`NUM_Q_VAR 32`, four wave and shape
+  - **Where the rules come from.** MilkDrop 3's public repository still
+    carries MilkDrop 2.2-level source (`NUM_Q_VAR 32`, four wave and shape
     slots), its example presets ship only inside a 92 MB installer, and the
     only description of the extensions is its README: 16 custom shapes and
     waves, q1–q64, eight new simple waveforms (16 in all), `get_fft(pos)`
@@ -2436,27 +2436,27 @@ rest after.
     installer was not run or unpacked: an untrusted binary.
   - **A Preset Format setting**, next to MilkDrop Fidelity and separate from
     it: fidelity picks MilkDrop's values, the format picks whose file rules.
-    *Extended* reads 16 wave and shape slots and carries q1–q64 from the
+    *MilkDrop 3* reads 16 wave and shape slots and carries q1–q64 from the
     frame equations to the pixel equations, the waves and the shapes;
     *MilkDrop 2* reads four slots and q1–q32 (q33 and up are then ordinary
     variables that do not cross between the equation blocks, as in
     MilkDrop 2). Switching it rebuilds the running preset only when that
     preset's rules change. The panel names the extensions the selected
     preset uses.
-  - **Automatic** reads a preset in the extended format when it enables or
+  - **Automatic** reads a preset with MilkDrop 3 rules when it enables or
     has code in slots 6–16, uses q33–q64 in its equations, or calls
     `get_fft`/`get_fft_hz` or reads `mouse.` in a shader. Two other signs
     are deliberately not counted: over the 10,347-preset corpus, 7 files
     enable or code the fifth slot (162 carry its keys) and 5 write a wave
     mode of 8 or more — all MilkDrop 2-era files whose authors saw
     MilkDrop 2 ignore the slot and take the mode modulo 8. With that rule
-    Automatic reads no corpus preset as extended, and old and new engine
+    Automatic reads no corpus preset as MilkDrop 3, and old and new engine
     agree to the bit on every output of every corpus preset, fidelity on
     and off — except those 7 files with fidelity off, where the old reader
-    drew the fifth slot MilkDrop 2 never reads. A genuine extended-format preset
+    drew the fifth slot MilkDrop 2 never reads. A genuine MilkDrop 3 preset
     that uses only a fifth slot is read as MilkDrop 2 in Automatic; the
-    Extended setting reads it fully.
-  - **Hard cuts 1–6 of the extended format**, offered in Automatic and Extended
+    MilkDrop 3 setting reads it fully.
+  - **Hard cuts 1–6 of MilkDrop 3**, offered in Automatic and MilkDrop 3
     and hidden in MilkDrop 2 (a selected one falls back to MilkDrop 2's
     there): bass above 1.5 (1 and 6) or treble above 2.9 (2–5), each
     against its long average, once at least 0.2 / 0.5 / 1 / 3 / 5 s have
@@ -2465,7 +2465,7 @@ rest after.
     none: mode 6 waits 0.2 s like mode 1, and mode 4's "at once" still
     waits 0.2 s, or treble staying above 8 would change the preset every
     frame.
-  - **The editor follows the format**: in the extended format its wave and
+  - **The editor follows the format**: with MilkDrop 3 rules its wave and
     shape pickers offer 16 slots; with MilkDrop 2 rules four, and lines of
     the other slots are kept untouched when the file is written.
   - **Tests.** 10: the detection signs and the Automatic rule, 16 against 4
@@ -2483,20 +2483,20 @@ rest after.
     new transitions, known by name only; hard cut 6 loading a particular
     preset on very loud bass, and hard cut 7's effect; 500-point shapes.
     Any of these can follow once a description or sample files are
-    available — reading the format's own example presets needs them outside
-    the installer.
+    available — reading MilkDrop 3's own presets needs them outside the
+    installer.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
   MilkDrop's defaults, the hue colour, the values that stay in the file,
   MilkDrop's way of reading a file, its expression compiler's rules and
   the scope of expression variables are done; the other audits are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
-    passes, the D3D9 code the D3D11 fork was ported from. Both agree on
-    everything below. Expressions are the
-    exception: the D3D11 fork evaluates them with another library's
+    passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
+    53d83ee). Both agree on everything below. Expressions are the
+    exception: the D3D11 fork evaluates them with projectM's
     re-implementation by default, which differs from MilkDrop in places
     (its `%` keeps the sign, its memory index adds 0.0001), so there the
-    reference is Nullsoft's compiler, ns-eel2.
+    reference is Nullsoft's compiler, ns-eel2, as BeatDrop carries it.
   - **Which stage draws.** MilkDrop picks a preset's warp and composite
     shaders by version, not by whether shader text exists. A file with no
     `MILKDROP_PRESET_VERSION`, or one below 200, is a MilkDrop 1 preset and
@@ -2767,8 +2767,8 @@ rest after.
     fresh page it differs by 61% and is not blown (brightness 0.62), so
     its class in the sample also depends on the order of the run.
   - **Equations are read and computed the way MilkDrop 2 does, checked
-    against MilkDrop's own compiler.** Nullsoft's ns-eel2 (the copy the
-    rest of this work follows) was built from source into a small
+    against MilkDrop's own compiler.** Nullsoft's ns-eel2 (the BeatDrop
+    copy the rest of this work follows) was built from source into a small
     command-line tool outside the repository, and the same expressions
     were run in it and in the engine. It showed that several things this
     roadmap had written down were wrong, and what the rules actually are:
@@ -3214,13 +3214,13 @@ expects.
   - `scripts/appimage-update-info.sh` writes `gh-releases-zsync|CaYatur|SoundVisualizer|latest|CAYADEV-Visualizer-*-linux-x86_64.AppImage.zsync` into the AppImage runtime's `.upd_info` section (1024 bytes) and reads it back. It then runs `zsyncmake` beside the file. There is no repack and no extra binary.
   - `build.yml` runs it on the Linux job and collects the `.zsync`, and `release-assets.js` expects the `.zsync` among the release files.
   - Checked with a `workflow_dispatch` build of the branch, which made no release: the runtime's own `--appimage-updateinformation` prints the string. AppImageUpdate and AppImageLauncher can update in place with delta downloads from the next release on.
-- **Double presets (.milk2, #567)** · done on `main`.
+- **MilkDrop 3 double presets (.milk2, #567)** · done on `main`.
   - `.milk2` files import as presets. They used to be skipped as unsupported.
   - The engine loads them in two steps. Preset 1 loads with a hard cut. Preset 2 then starts a normal transition, which is frozen at the file's `blending_progress`. The two presets' per-vertex mix (MD2's transition patterns) uses the file's pattern: `side` is a wipe, `plasma` is plasma, and radial, circle or zoom are radial. `random_1..5` and `blending_direction` seed that pattern.
-  - Checked against three real `.milk2` files, kept outside the repository: each reaches the frozen mix on frame 3 and holds it.
-  - **Not yet:** sprite sections, which point at another player's own image files. The exact meaning of the random values is our reading of the files, because the format's source is not public.
+  - Checked against three real MilkDrop 3.x files, kept outside the repository: each reaches the frozen mix on frame 3 and holds it.
+  - **Not yet:** MD3 sprite sections, which point at MD3's own image files. The exact meaning of the random values is our reading of the files, because MilkDrop 3's source is not public.
 - **Reference renderer and internal buffers in MilkDrop's orientation (#580)** · done on `main`.
-  - **The reference renderer.** A small offline host built from MilkDrop 2's D3D9 source (BSD-3) and Microsoft's D3DX NuGet package. It takes a preset, fixed 576+576-sample audio per frame and a fixed 30 fps step, and writes chosen frames as raw pixels. A matching script renders the same preset, audio and frames through our engine and compares them. The tool lives outside the repository (the project notes record its sources); nothing of it ships.
+  - **The reference renderer.** A small offline host built from BeatDrop's D3D9 sources (mvsoft74/BeatDrop 53d83ee, BSD-3) and Microsoft's D3DX NuGet package. It takes a preset, fixed 576+576-sample audio per frame and a fixed 30 fps step, and writes chosen frames as raw pixels. A matching script renders the same preset, audio and frames through our engine and compares them. The tool lives outside the repository (the project notes record its sources); nothing of it ships.
   - **What it measured.** MilkDrop 2 draws in Direct3D, where texture row 0 is the top of the picture. The engine kept its buffers GL-style and used MilkDrop's 2D formulas unchanged:
     - per-pixel `x`, `y`, `dx`, `dy` matched;
     - shapes and custom waves were vertically mirrored (a shape at `y = 0.75` drew near the bottom, while MilkDrop and its own documentation put it near the top);
@@ -3248,7 +3248,7 @@ expects.
     - hue colours and the fixed composite's corners — fixed in the next entry;
     - presets with user textures, `rand()` or `rand_frame` can't be compared frame for frame yet.
 - **Hue corner colours as in MilkDrop (#580)** · done on `main`.
-  - **Phase.** The four hue colours (`hue_shader` in composite shaders, and the corner colours of the fixed composite) used `rand_preset` as their phase. MilkDrop's formula adds `m_fRandStart`, but nothing ever assigns it: the primary source has no `Randomize()`, and the D3D9 version defines one but never calls it. The phase is therefore 0, and the colours depend on the session clock alone. The old phase also only moved the colours within one radian of the cycle.
+  - **Phase.** The four hue colours (`hue_shader` in composite shaders, and the corner colours of the fixed composite) used `rand_preset` as their phase. MilkDrop's formula adds `m_fRandStart`, but nothing ever assigns it: the primary source has no `Randomize()`, and BeatDrop defines one but never calls it. The phase is therefore 0, and the colours depend on the session clock alone. The old phase also only moved the colours within one radian of the cycle.
   - **Fixed composite corners.** MilkDrop draws the fixed composite as a two-triangle quad. Its first two vertices have clip `y = +1` but texture `tv = 1`, the bottom row of the picture (milkdropfs.cpp:4154-4155), so after the sprite transform they are the **bottom** corners on screen. The engine put corner 0 at the top left. Corner 0 is now bottom left, and the shared edge of the two triangles runs from bottom right to top left.
   - **Measured** on the reference renderer with two synthetic presets, mean difference on a 16-pixel grid (0..255):
     - `hue_shader` in a composite shader: 13.75 → 0.49;
@@ -3316,7 +3316,7 @@ change, by area, is in [CHANGELOG.md](CHANGELOG.md).
 ### CaYaDev MilkDrop presets (#825) · done
 
 60 presets of our own, built into the app and also attached to the release as a zip with a picture
-of each, under CC BY 4.0 with the attribution "CaYaDev". Ten of them use the extended format. Each one
+of each, under CC BY 4.0 with the attribution "CaYaDev". Ten of them are for MilkDrop 3. Each one
 was compared with MilkDrop 2 itself through the reference renderer, run for 90 s without fading,
 blowing out or freezing, checked at 60 and 144 Hz, and held 60 fps at 1080p on an entry-level
 integrated GPU ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)). Making them found three engine faults,
@@ -3553,7 +3553,7 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
     - #751 changed the stub to this direction, but its comments, test and changelog line described the axes the other way round. They are corrected.
   - **MilkDrop's own field is mirrored.** `ReversePropagatePoint(fx, fy)` reads the mesh row at the mirrored height, so stock MilkDrop shows the motion at the mirrored height and pointing the mirrored way.
     - #750's test presets show it plainly. "Motion Vectors Test - Align" asks for diagonal motion at the top left and gets it at the bottom left. In "Y slide" the band sits at the top instead of `y` 0.55–1.0 at t = 5 s.
-    - The engine draws what the preset asks for, which is also what the reference build draws with the #750 patch. That patched build is the reference for motion vectors from here on.
+    - The engine draws what the preset asks for, which is also what BeatDrop draws with the #750 patch. That patched build is the reference for motion vectors from here on.
   - **Draw order.** MilkDrop draws the vectors into VS0, the warp's source, before the warp (milkdropfs.cpp:950-965). It rebuilds the mesh only afterwards (`ComputeGridAlphaValues`, :1006), so the vectors read the previous frame's mesh. The engine drew them on top of the finished frame.
     - In accurate mode it now matches. A `decay = 0` preset showed 4136 lit pixels where MilkDrop shows none.
   - **The half-texel offset.** MilkDrop adds half a texel to the mesh's `tu`/`tv` for Direct3D 9's pixel centres (milkdropfs.cpp:1838-1839).
@@ -3564,11 +3564,11 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
     - `smooth` draws MilkDrop's footprint with soft edges and leaves its light. The footprint is one texel, or two for the four-pass block of thick lines (milkdropfs.cpp:2371, 2654, 3259). Above 1024 wide the footprint grows with the buffer and the light per pixel stays the same. The picture is then MilkDrop's picture at 1024 wide, scaled up, so a 4K screen keeps the line weight the preset was written for. The option is renamed "Anti-aliased (scales with resolution)".
     - `thin` ("true width") draws MilkDrop's footprint at every size. Before, it used a 512-wide reference with gain 1, which was about 2× MilkDrop's light at 960 wide.
     - `milkdrop` stays the raw offset-redraw style. Its vectors are plain one-texel lines.
-    - Motion vectors follow the same rules. MilkDrop draws them as one line list into a window-sized buffer: `nTexSize` defaults to -1 in the D3D9 version (plugin.cpp:949) and MilkDrop 2.25 (plugin.cpp:498).
+    - Motion vectors follow the same rules. MilkDrop draws them as one line list into a window-sized buffer: `nTexSize` defaults to -1 in BeatDrop (plugin.cpp:949) and MilkDrop 2.25 (plugin.cpp:498).
     - The soft-edged path also draws a one-texel still stub: a 16×12 field lights 418 pixels against MilkDrop's 365, where a plain `gl.LINES` lit 166.
   - **Measuring at the right size.** MilkDrop rounds its buffer up to a multiple of 16 (plugin.cpp:1886) and crops it on display. At 1440×900 every row sat 5 px off. All comparisons here use sizes that are multiples of 16.
   - **Measuring only what can be compared.** A preset using `rand()`, `rand_frame`, `rand_preset` or user textures can't be compared frame by frame. The harness had only looked for `rand(`. Three apparent regressions turned out to be warp shaders sampling noise at `rand_frame`.
-  - **Measured.** Reference: the MilkDrop 2 reference build with the #750 patch. Mean difference on a 16-pixel grid (0..255), median over the presets that can be compared, v3.1.5 → now.
+  - **Measured.** Reference: BeatDrop 53d83ee with the #750 patch. Mean difference on a 16-pixel grid (0..255), median over the presets that can be compared, v3.1.5 → now.
 
     | set | `smooth` (default) | `thin` | `milkdrop` |
     |---|---|---|---|
@@ -3606,7 +3606,7 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
 
     - Over all 150 wrap presets, the frame-59 median fell from 21.1 to 15.5. 41 are better by more than 2 and 9 worse.
     - Large single wins: "liquid firesticks" at frame 2 (26.7 → 2.3), "Tricolors" at frame 30 (71.0 → 8.8), "Furry Synthesis" at frame 59 (40.7 → 24.2), "Accelerator" at frame 59 (26.4 → 14.7). "fed - DSC-011 LSD Edit 4" was black in the engine and now shows MilkDrop's coloured fields. Its number got worse (65.8 → 98.3) because the fields sit at a different place.
-    - **Presets that sample noise can't be compared across MilkDrop runs.** The reference build seeds its noise textures from `std::random_device` and the performance counter (plugin.cpp:645-646, 2863). The same preset rendered twice gives different frames, up to 17.6 apart at frame 59 on "liquid firesticks". Noise-free presets come out byte-identical. Every main → branch comparison here uses one copy of MilkDrop's frames for both sides, so the deltas are the engine's own. Across separate MilkDrop runs, only noise-free presets count.
+    - **Presets that sample noise can't be compared across MilkDrop runs.** BeatDrop seeds its noise textures from `std::random_device` and the performance counter (plugin.cpp:645-646, 2863). The same preset rendered twice gives different frames, up to 17.6 apart at frame 59 on "liquid firesticks". Noise-free presets come out byte-identical. Every main → branch comparison here uses one copy of MilkDrop's frames for both sides, so the deltas are the engine's own. Across separate MilkDrop runs, only noise-free presets count.
     - **Looked at frame by frame.**
       - "out of the paradigm" (noise) at frame 30: 67.3 → 72.7. Its brightness is now closer to MilkDrop (0.49 against MilkDrop's 0.43; the old engine had 0.32). No artifact.
       - "various artists - 1200773722134" at frame 59: 4.2 → 8.5, a few percent darker. The blur chain alone causes it, and the chain now reads what MilkDrop reads (VS0 before the flip, milkdropfs.cpp:1239, 1332-1334).
@@ -4009,7 +4009,7 @@ scope.
 ## Later — NDI output
 
 The same picture across a network: one machine runs the visualizer, another
-running VJ software or a video mixer receives it over IP. This is the standard
+running Resolume or a mixing console receives it over IP. This is the standard
 in professional live and stage setups.
 
 NDI inverts the difficulty of Spout and Syphon. It is **technically easier** —

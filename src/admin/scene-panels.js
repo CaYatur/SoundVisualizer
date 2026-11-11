@@ -700,7 +700,7 @@
 
   /* HAZIR MILKDROP KATMANI. Eskiden MilkDrop için önce Görselleştirici eklenip türü
      değiştiriliyor, sonra raftan preset seçiliyordu. Kart katmanı MilkDrop kipinde ve gömülü
-     paketten genişletilmiş biçimde bir presetle ekliyor (layers.js makeMilkdropLayer: ortak preseti
+     paketten bir MilkDrop 3 presetiyle ekliyor (layers.js makeMilkdropLayer: ortak preseti
      çizen başka katman varsa yeni katman kendi presetini alır), seçiyor ve MilkDrop rafını
      açıyor. */
   function milkdropPreset(id) {
@@ -1332,6 +1332,22 @@
       out.push(mediaSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, { step: 0.02, percent: true }));
       out.push(mediaSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 20, { step: 1, fmt: (v) => Math.round(v) + ' ' + tr('sn') }));
       out.push(mediaSlider('Vuruşta Nabız', 'beatPulse', 0, { step: 0.02, percent: true }));
+      out.push(miniSelect('Renk Anahtarı', [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']],
+        () => m.keyMode || 'off', (v) => { m.keyMode = v; }, rerender));
+      if ((m.keyMode || 'off') === 'chroma') {
+        out.push(miniColor('Anahtar Rengi', () => m.keyColor || '#00ff00', (v) => { m.keyColor = v; }, '#00ff00'));
+      }
+      if ((m.keyMode || 'off') === 'luma') {
+        out.push(miniSelect('Saydam Kalan', [['dark', 'Karanlık'], ['bright', 'Aydınlık']],
+          () => (m.keyInvert ? 'bright' : 'dark'), (v) => { m.keyInvert = v === 'bright'; }));
+      }
+      if ((m.keyMode || 'off') !== 'off') {
+        out.push(miniSlider('Anahtar Eşiği', () => (m.keyAmount == null ? 0.3 : m.keyAmount), (v) => { m.keyAmount = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.3 }));
+        out.push(miniSlider('Anahtar Yumuşaklığı', () => (m.keySoft == null ? 0.08 : m.keySoft), (v) => { m.keySoft = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.08 }));
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.' }));
+      }
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
       }
@@ -1396,7 +1412,7 @@
         out.push(miniToggle('Kesilince Son Kareyi Tut', () => s.hold, (v) => { s.hold = v; l.settings.input = s; }, null, { def: true }));
         out.push(el('div', {
           class: 'studio-note dim-hint',
-          text: 'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (VJ ve video yazılımları, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.',
+          text: 'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (TouchDesigner, Resolume, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.',
         }));
         return out;
       }
@@ -3168,11 +3184,25 @@
   // ==========================================================================
   // ART-NET / DMX
   // ==========================================================================
+  // Matris ölçüleri şemada yok: boş değer yakına kare demektir (artnet.matrixGrid).
+  function matrixDimSliders(obj, count) {
+    const n = Math.max(1, count | 0 || 1);
+    const whole = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 0);
+    const colsNow = () => whole(obj.matrixCols) || Math.ceil(Math.sqrt(n));
+    const rowsNow = () => whole(obj.matrixRows) || Math.ceil(n / colsNow());
+    const opt = { min: 1, max: Math.max(n, 64), step: 1, fmt: (v) => String(Math.round(v)) };
+    return [
+      miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
+      miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+    ];
+  }
+
   const ARTNET_MODES = [
     ['palette', 'Sahne Paleti'],
     ['bands', 'Frekans Bantları'],
     ['spectrum', 'Kayan Spektrum'],
     ['single', 'Tek Renk'],
+    ['matrix', 'Matris'],
   ];
 
   let artnetState = { running: false, error: null, packets: 0 };
@@ -3242,6 +3272,10 @@
       );
       nodes.push(miniSelect('Renk Kaynağı', ARTNET_MODES, () => a.mode, (v) => { a.mode = v; }, () => P().rerender()));
       if (a.mode === 'single') nodes.push(P().color('Renk', 'artnet.color'));
+      if (a.mode === 'matrix') {
+        const n = Math.max(1, Math.min(170, a.fixtures | 0 || 8));
+        matrixDimSliders(a, n).forEach((node) => nodes.push(node));
+      }
       nodes.push(P().slider('Parlaklık', 'artnet.brightness', { step: 0.02, percent: true }));
       nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
       nodes.push(
@@ -3261,6 +3295,7 @@
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
+    matrixDimSliders,
     isWindows: isWindowsPlatform, parseClock, formatClock,
     sourceStatusText, layerSummary, layerFields, openLayerTab, LAYER_KIND_LABELS, typeOptionsFor, addMilkdropLayer,
   };

@@ -329,6 +329,7 @@ const JS_CONTENT = {
     '#ffd23f': [2, 'şarkı sözü vurgu varsayılanı'], '#c8c8d0': [1, 'Now Playing ikincil yazı varsayılanı'],
     '#3aa6ff': [2, 'görselleştirici rengi varsayılanı'], '#ff2d3a': [1, 'görselleştirici rengi varsayılanı'],
     '#0a0a12': [3, 'düz arkaplan varsayılanı'],
+    '#00ff00': [2, 'medya renk anahtarının varsayılan yeşili'],
   },
   'studio.js': { '#3aa6ff': [2, 'Studio renk parametresinin varsayılanı'], '#ffffff': [1, 'Studio renk parametresi'] },
   'template-panel.js': { '#333': [1, 'paleti olmayan şablonun şeridi'], '#777': [1, 'paleti olmayan şablonun şeridi'] },

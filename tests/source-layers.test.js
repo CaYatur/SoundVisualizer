@@ -150,9 +150,9 @@ test('düzen editörü: giriş ve web katmanı sürüklenip boyutlanabiliyor, ka
 });
 
 test('kendi çıkışı gönderici listesinden ayrılıyor (Spout\'un _1 ekli adı dahil)', () => {
-  const r = SL.splitSenders([{ name: 'CAYADEV Visualizer' }, { name: 'CAYADEV Visualizer_1' }, { name: 'CAYADEV Visualizer_x' }, { name: 'TD', appName: 'VJ App' }, null, { name: '' }], ['CAYADEV Visualizer']);
+  const r = SL.splitSenders([{ name: 'CAYADEV Visualizer' }, { name: 'CAYADEV Visualizer_1' }, { name: 'CAYADEV Visualizer_x' }, { name: 'TD', appName: 'TouchDesigner' }, null, { name: '' }], ['CAYADEV Visualizer']);
   assert.deepStrictEqual(r.mine.map((x) => x.name), ['CAYADEV Visualizer', 'CAYADEV Visualizer_1']);
-  assert.deepStrictEqual(r.others.map((x) => [x.name, x.app]), [['CAYADEV Visualizer_x', ''], ['TD', 'VJ App']]);
+  assert.deepStrictEqual(r.others.map((x) => [x.name, x.app]), [['CAYADEV Visualizer_x', ''], ['TD', 'TouchDesigner']]);
 });
 
 // ------------------------------------------------------------------- bekçi
@@ -493,12 +493,12 @@ test('dağıtıcı: kuyruktaki sahnenin kaynakları dışa aktarım boyunca aç�
   const br = fakeBridge();
   const h = hub(gpu, br);
   const live = inputCfg({ id: 'A', settings: { input: { sender: 'TD' } } });
-  const job = inputCfg({ id: 'B', settings: { input: { sender: 'StudioOut' } }, muted: true });
+  const job = inputCfg({ id: 'B', settings: { input: { sender: 'Resolume' } }, muted: true });
   job.layers.push({ id: 'C', kind: 'input', settings: { input: { sender: 'TD' } } });
   h.sync([live, job]);
   const keys = Object.keys(h.status()).sort();
-  assert.deepStrictEqual(keys, ['in:|StudioOut', 'in:|TD'], 'iki sahnenin kaynakları, aynısı bir kez');
-  assert.strictEqual(h.status()['in:|StudioOut'].active, false, 'işte sessiz katman sessiz kalır');
+  assert.deepStrictEqual(keys, ['in:|Resolume', 'in:|TD'], 'iki sahnenin kaynakları, aynısı bir kez');
+  assert.strictEqual(h.status()['in:|Resolume'].active, false, 'işte sessiz katman sessiz kalır');
   // İş bitti: yalnız canlı sahne; işin kaynağı geçiş süresinden sonra kapanır
   h.sync(live);
   t.mock.timers.tick(LS.GRACE_MS + 10);

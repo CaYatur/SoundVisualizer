@@ -9,7 +9,7 @@
 
    Sahne renklerini profesyonel ışık dünyasının standart protokolüyle yayar:
    herhangi bir Art-Net düğümü, DMX arayüzü ya da yazılım konsolu (QLC+,
-   VJ yazılımları, ışık masaları) bu paketleri doğrudan alır.
+   Resolume, grandMA) bu paketleri doğrudan alır.
 
    Windows Dynamic Lighting'in tamamlayıcısıdır, yerine geçmez: o klavye/fare
    gibi tüketici aygıtlarını, bu sahne ışıklarını sürer.
@@ -40,8 +40,7 @@ function buildChannels(cfg, frame) {
   const data = Buffer.alloc(total < 2 ? 2 : total % 2 ? total + 1 : total);
 
   for (let i = 0; i < fixtures; i++) {
-    const f = fixtures > 1 ? i / (fixtures - 1) : 0;
-    const rgb = fixtureColor(a, frame, f);
+    const rgb = colorAt(a, frame, i, fixtures);
     const r = rgb[0];
     const g = rgb[1];
     const b = rgb[2];
@@ -59,8 +58,9 @@ function buildChannels(cfg, frame) {
   return data;
 }
 
-/* Tek bir aygıtın rengi (0..1 RGB). `f`: aygıtın dizideki yeri (0..1).
-   Art-Net, sACN ve DDP (WLED) aynı renk mantığını paylaşır. */
+/* Tek bir aygıtın rengi (0..1 RGB). `f`: aygıtın şeritteki yeri (0..1).
+   Matris kipi buraya girmez; ızgara rengi colorAt içindedir. Şerit
+   kiplerinde üç ağ çıkışı da bu işlevi paylaşır. */
 function fixtureColor(cfg, frame, f) {
   const a = cfg || {};
   const level = frame && frame.level ? frame.level : 0;
@@ -87,6 +87,56 @@ function fixtureColor(cfg, frame, f) {
   const rgb = hexToRgb(hex);
   const k = Math.min(1, 0.2 + level * 1.5);
   return [rgb[0] * k, rgb[1] * k, rgb[2] * k];
+}
+
+/* 1 ve üzeri tam sayıysa o değer, değilse 0 (ölçü ayarı yok sayılır). */
+function wholeCount(v) {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 0;
+}
+
+/* Izgara ölçüleri. Sütun ve satır ayarı tam sayı ve en az 1 ise onlar
+   geçerlidir; değilse aygıt sayısından yakına kare seçilir
+   (sütun = ceil(sqrt(n)), satır = ceil(n / sütun)). */
+function matrixGrid(count, cfg) {
+  const n = Math.max(1, count | 0);
+  const a = cfg || {};
+  const cols = wholeCount(a.matrixCols) || Math.ceil(Math.sqrt(n));
+  const rows = wholeCount(a.matrixRows) || Math.ceil(n / cols);
+  return { cols, rows };
+}
+
+/* Satır öncelikli hücre. index 0 sol üst; satır aşağı doğru artar. */
+function matrixCell(index, cols) {
+  const width = (cols | 0) >= 1 ? cols | 0 : 1;
+  const c = index % width;
+  return { c, r: (index - c) / width };
+}
+
+/* Hücre rengi: ton sütundan (0..cols-1), parlaklık ses seviyesinden.
+   Alt satır seviye kadar parlaktır; üst satırlar orantılı solar.
+   index, aygıt sayısının dışındaysa okunmaz. */
+function matrixColor(cfg, frame, index, count) {
+  const n = count | 0;
+  const i = index | 0;
+  if (i < 0 || i >= n) return [0, 0, 0];
+  const grid = matrixGrid(n, cfg);
+  const cell = matrixCell(i, grid.cols);
+  const row = cell.r >= grid.rows ? grid.rows - 1 : cell.r;
+  let level = frame && typeof frame.level === 'number' ? frame.level : 0;
+  if (!isFinite(level) || level < 0) level = 0;
+  else if (level > 1) level = 1;
+  const hue = (cell.c / grid.cols) * 360;
+  const v = level * ((row + 1) / grid.rows);
+  return hsvToRgb(hue, 1, v);
+}
+
+/* Ağ çıkışlarının ortak rengi. Matris değilse şerit yolu (fixtureColor)
+   birebir aynıdır; parlaklık ve RGBW bu işlevin dışında uygulanır. */
+function colorAt(cfg, frame, index, count) {
+  const n = count | 0;
+  if (cfg && cfg.mode === 'matrix') return matrixColor(cfg, frame, index, n);
+  const f = n > 1 ? index / (n - 1) : 0;
+  return fixtureColor(cfg, frame, f);
 }
 
 function clamp255(v) {
@@ -271,4 +321,4 @@ function createWitness(opts) {
   };
 }
 
-module.exports = { start, stop, send, sendZero, status, buildChannels, fixtureColor, clamp255, buildPacket, parseDmx, createWitness, ART_PORT };
+module.exports = { start, stop, send, sendZero, status, buildChannels, fixtureColor, colorAt, matrixGrid, matrixCell, clamp255, buildPacket, parseDmx, createWitness, ART_PORT };

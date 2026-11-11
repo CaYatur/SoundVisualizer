@@ -13,7 +13,7 @@ compilers. They are not part of the app's built-in pack. The originals are never
 The app uses the originals.
 
 MilkDrop 2 originals: [`presets/original/md2/cayadev`](../../../original/md2/cayadev).
-Extended-format originals: [`presets/original/md3/cayadev`](../../../original/md3/cayadev).
+MilkDrop 3 originals: [`presets/original/md3/cayadev`](../../../original/md3/cayadev).
 Gallery and previews: [`presets/README.md`](../../../README.md).
 
 Licensed CC BY 4.0, same as the originals.
