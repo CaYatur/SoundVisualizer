@@ -507,9 +507,7 @@
     const cfg = P().cfg();
     const ts = cfg.tempoSync || {};
     const outs = MCK().pickOut(midiAccess.outputs, ts.clockOutDevice || 'auto', clockExclude(cfg));
-    for (const output of outs) {
-      try { output.send(bytes); } catch { /* çıkış koptu */ }
-    }
+    for (let i = 0; i < outs.length; i++) MCK().sendRealtime(outs[i], bytes);
   }
   function clockOutTick() {
     const cfg = P() && P().cfg();

@@ -44,6 +44,25 @@ test('MIDI saati çıkışı: 120 BPM 24 darbe, durunca bir kez durdur', () => {
   assert.ok(burst.length > 0 && burst.length <= 4, 'yığılma: ' + burst.length);
 });
 
+test('MIDI saati çıkışı: başlat ve darbe ayrı mesaj gider', () => {
+  const sent = [];
+  const output = {
+    send(data) {
+      if (!data || data.length !== 1) throw new TypeError('Invalid MIDI data');
+      sent.push(data[0]);
+    },
+  };
+  const bytes = MC.createOut().pull(0, 120, true);
+  assert.deepStrictEqual(bytes, [0xfa, 0xf8]);
+  assert.strictEqual(MC.sendRealtime(output, bytes), 2);
+  assert.deepStrictEqual(sent, [0xfa, 0xf8]);
+  assert.deepStrictEqual(MC.realtimeMessages([0xf8, 0xf8]), [[0xf8], [0xf8]]);
+  const src = fs.readFileSync(path.join(__dirname, '../src/admin/control.js'), 'utf8');
+  const fn = src.slice(src.indexOf('function sendClock'), src.indexOf('function clockOutTick'));
+  assert.match(fn, /sendRealtime\(outs\[i\], bytes\)/);
+  assert.doesNotMatch(fn, /output\.send\(bytes\)/);
+});
+
 test('MIDI saati çıkışı: otomatik seçim dinlenen adı atlar, kimlik seçilirse onu yollar', () => {
   const outs = [
     { id: 'a', name: 'Launchpad', state: 'connected' },

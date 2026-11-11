@@ -135,7 +135,27 @@
     return out;
   }
 
-  const api = { create, createOut, pickOut, shouldApply, switchSource, PPQN };
+  /* Web MIDI tek mesaj kabul eder. 0xF8, 0xFA ve 0xFC kendi başına bir
+     mesajdır; aynı dizide yollanırsa tarayıcı paketi reddeder ve başlat
+     baytı da düşer. Her bayt ayrı bir tek elemanlı mesaj olur. */
+  function realtimeMessages(bytes) {
+    const out = [];
+    if (!bytes || !bytes.length) return out;
+    for (let i = 0; i < bytes.length; i++) out.push([bytes[i] & 0xff]);
+    return out;
+  }
+
+  function sendRealtime(output, bytes) {
+    if (!output || typeof output.send !== 'function') return 0;
+    const msgs = realtimeMessages(bytes);
+    let n = 0;
+    for (let i = 0; i < msgs.length; i++) {
+      try { output.send(msgs[i]); n++; } catch { /* bu bayt gitmedi */ }
+    }
+    return n;
+  }
+
+  const api = { create, createOut, pickOut, shouldApply, switchSource, realtimeMessages, sendRealtime, PPQN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMidiClock = api;
 })();
