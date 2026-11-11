@@ -503,11 +503,28 @@ void main(){
       const W = Math.max(2, w | 0);
       const H = Math.max(2, h | 0);
       if (W === this.width && H === this.height && this.fbo[0]) return;
+      /* İz ve yarık tarama önceki kareyi okuyor (`prevTex`). Boyut değişince yeni hedef boş
+         kuruluyordu: uyarlanır çözünürlüğün her basamağında iz bir anda siliniyordu (#905,
+         MilkDrop'taki #453 düzeltmesinin aynısı). Eski kare yeni boyuta kopyalanıyor. */
+      const gl = this.gl;
+      const old = gl && this.prevFbo && this.fbo[0] ? { fb: this.prevFbo, tex: this.prevTex, w: this.width, h: this.height } : null;
+      if (old) { this.prevFbo = null; this.prevTex = null; }
       this.width = W;
       this.height = H;
       this.canvas.width = W;
       this.canvas.height = H;
       this._allocate();
+      if (old) {
+        try {
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, old.fb);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.prevFbo);
+          gl.blitFramebuffer(0, 0, old.w, old.h, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+        } catch (e) { /* kopyalanamazsa iz boş başlar: eski davranış */ }
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        gl.deleteFramebuffer(old.fb);
+        gl.deleteTexture(old.tex);
+      }
     }
 
     _makeTarget(W, H) {

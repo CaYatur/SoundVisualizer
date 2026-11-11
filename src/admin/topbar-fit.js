@@ -28,6 +28,21 @@
     return m;
   }
 
+  /* Saf: ŞİMDİKİ düzeyden başlayarak sığan en düşük düzey (#905). Sıkıştırma tekdüze (üst düzey
+     hep daha dar), sonuç fitLevel ile aynı; ama fitLevel sıfırdan başlayıp her düzeyde bir zorunlu
+     yerleşim yapıyordu (düzey 4'teki bir çubukta her ölçümde beş). Düzey çoğu ölçümde değişmiyor:
+     şimdiki ve bir altı, iki deneme. */
+  function fitFrom(measure, cur, max) {
+    const m = max == null ? MAX : max;
+    let lv = Math.max(0, Math.min(m, cur | 0));
+    if (measure(lv)) {
+      while (lv < m) { lv++; if (!measure(lv)) return lv; }
+      return m;
+    }
+    while (lv > 0 && !measure(lv - 1)) lv--;
+    return lv;
+  }
+
   function apply(bar, lv) {
     for (let i = 1; i <= MAX; i++) bar.classList.toggle('tb-fit' + i, lv >= i);
     bar.setAttribute('data-fit', String(lv));
@@ -53,7 +68,7 @@
 
   function fit(bar) {
     if (!bar || !bar.isConnected) return 0;
-    const lv = fitLevel((n) => { apply(bar, n); return collides(bar); });
+    const lv = fitFrom((n) => { apply(bar, n); return collides(bar); }, Number(bar.getAttribute('data-fit')) || 0);
     apply(bar, lv);
     return lv;
   }
@@ -71,7 +86,8 @@
         // Kendi düzey sınıflarımız ve canlı ölçer değişimleri ölçüm tetiklemez
         if (list.some((m) => m.target !== bar && !(m.target.closest && m.target.closest('.sv-vu')))) later();
       });
-      mo.observe(bar, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'hidden', 'class'] });
+      // `disabled` genişliği değiştirmiyor; geri al/yinele her ayar değişiminde açılıp kapanıyordu
+      mo.observe(bar, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'class'] });
       new MutationObserver(later).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
     window.addEventListener('resize', later);
@@ -80,7 +96,7 @@
     return later;
   }
 
-  const api = { overlaps, fitLevel, fit, install, collides, MAX };
+  const api = { overlaps, fitLevel, fitFrom, fit, install, collides, MAX };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') {
     window.SVTopbarFit = api;

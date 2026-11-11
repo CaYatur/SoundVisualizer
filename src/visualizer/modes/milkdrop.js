@@ -1335,6 +1335,16 @@ void main(){
           carry = { targets: this.targets, cur: this.cur };
           this.targets = null;
         }
+        /* Flaş sınırlayıcının "önceki gösterilen kare"si de taşınıyor (#905). Siyah kurulunca
+           sınırlayıcı basamaktan sonraki kareyi siyahtan parlağa ani sıçrama sanıp kısıyordu.
+           Ölçüldü (MilkDrop, sınırlama açık, varsayılan): basamaktan önce ortalama parlaklık 68,
+           sonraki kareler 10, 20, 31, 51, 62, 75 — anlık düşüşte uyarlanır çözünürlük basamak
+           inince ekran beş kare kararıp geri geliyordu. Sınırlama kapalıyken 72 → 72. */
+        if (this.flash && this.flash.prev && this.gl2.width > 1) {
+          if (this._flashCarry) { gl.deleteTexture(this._flashCarry.tex); gl.deleteFramebuffer(this._flashCarry.fb); }
+          this._flashCarry = this.flash.prev;
+          this.flash.prev = null;
+        }
         this.gl2.width = W;
         this.gl2.height = H;
         this._disposeTargets();
@@ -1905,6 +1915,11 @@ void main(){
         raw: this._makeTarget(W, H, disp),
         prev: this._makeTarget(W, H, disp),
       };
+      // Boyut değişiminden kalan önceki kare (bkz. _initGL): ikisi de RGB8, doğrudan kopyalanıyor
+      if (this._flashCarry) {
+        this._carryTarget(this._flashCarry, this.flash.prev);
+        this._flashCarry = null;
+      }
       /* MIPMAP SÜZME ŞART: ortalama en küçük kademeden okunuyor ve
          `_makeTarget` dokuları düz LINEAR bırakıyor. Öyle kalsalardı
          `textureLod` 0. kademeyi verirdi ve "ortalama" tek bir teksel
@@ -6461,6 +6476,7 @@ void main(){
       this._texLoads = 0;
       this._texBusy(0);
       this._disposeTargets();
+      this._flashCarry = null; // bağlamla birlikte gidiyor
       this._dropReadback();
       const gl = this.gl;
       if (gl) {

@@ -102,17 +102,23 @@
         if (s.postfx && s.postfx.hasWork()) {
           s.postfx.resize(w, h); s.postfx.render(image, audio, localT, dt, true); image = s.postfx.canvas;
         }
+        /* GEÇİŞ YOKSA DOĞRUDAN (#905). Eskiden her klip için alt bileşim `from`a, oradan `to`ya
+           kopyalanıyor, klip `to`ya basılıyor, `to` yeniden ekrana kopyalanıyordu: geçiş olmayan
+           klipte bile kare başına tam ekranın dört kopyası. Zemin siyah ve opak (yukarıda
+           dolduruldu), klipler kaynak-üstü basılıyor: `to` alt bileşimin birebir kopyası olduğu
+           için klibi doğrudan aynı saydamlıkla basmak bayt bayt aynı sonucu veriyor. */
+        if (!u.transition) {
+          ctx.globalAlpha = u.opacity; ctx.drawImage(image, 0, 0, w, h); ctx.globalAlpha = 1;
+          continue;
+        }
         // Geçiş: mevcut etkin alt bileşim -> üzerine yeni klip eklenmiş bileşim.
         // Süresi dolmuş klipten snapshot alınmaz; sarma sırası sonucu değiştirmez.
         fromCtx.clearRect(0, 0, w, h); fromCtx.drawImage(ctx.canvas, 0, 0, w, h);
         toCtx.clearRect(0, 0, w, h); toCtx.globalAlpha = 1; toCtx.drawImage(this.from, 0, 0, w, h);
         toCtx.globalAlpha = u.opacity; toCtx.drawImage(image, 0, 0, w, h); toCtx.globalAlpha = 1;
-        if (u.transition) {
-          // Çıkışta klipli bileşimden hâlâ etkin alt bileşime/siyaha dönülür.
-          const tr = u.transition;
-          this.compositor.compose(ctx, tr.out ? this.to : this.from, tr.out ? this.from : this.to, w, h, tr.type, tr.p, tr.params);
-        }
-        else { ctx.clearRect(0, 0, w, h); ctx.drawImage(this.to, 0, 0, w, h); }
+        // Çıkışta klipli bileşimden hâlâ etkin alt bileşime/siyaha dönülür.
+        const tr = u.transition;
+        this.compositor.compose(ctx, tr.out ? this.to : this.from, tr.out ? this.from : this.to, w, h, tr.type, tr.p, tr.params);
       }
       ctx.restore();
     }
