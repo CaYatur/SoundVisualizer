@@ -8,7 +8,7 @@
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
 audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **60 presets of our
-own**, **70 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+own**, **71 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4451%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4455%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -57,7 +57,7 @@ and presets, images, backgrounds, templates and saved scenes one click away belo
 
 <div align="center">
 
-| **70** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
+| **71** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
@@ -160,7 +160,7 @@ fluid gradient backgrounds that move with the music.
 - **A rebuilt Layout Editor.** Undo that works, multi-select, align and distribute, lock and hide
   from the element list, Shift-constrained drags and a shortcut list on F1.
   [→ Layout editor](#broadcast-layout-editor)
-- **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
+- **More to start from.** 71 visualizer modes and 51 backgrounds (19 new), 60 CaYaDev MilkDrop
   presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
 - **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
   so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
@@ -386,7 +386,7 @@ and 174 BPM signals), with tap tempo and a BPM lock shared by Auto VJ, the clip 
 
 <div align="center">
 
-**All 70 visualizer modes**
+**All 71 visualizer modes**
 
 ![Every visualizer mode](docs/screenshots/modes-visualizer.jpg)
 
@@ -2084,7 +2084,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4451 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4455 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
