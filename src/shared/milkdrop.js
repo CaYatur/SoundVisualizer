@@ -1929,8 +1929,8 @@
      (README): 16 şekil ve dalga, q1–q64, 16 basit dalga biçimi, shader'da
      FFT ve fare; o özelliklerin koduna erişim yok, yalnız adları.
 
-     Otomatik kip (`md3Auto`) yalnız 'slots', 'q64', 'fft' ve 'mouse'u MD3
-     sayıyor. Korpusun 10.347 presetinden 14'ü öbür ikisine takılıyor ve
+     Otomatik kip (`md3Auto`) yalnız 'slots', 'q64', 'fft' ve 'mouse'u genişletilmiş biçime
+     ait sayıyor. Korpusun 10.347 presetinden 14'ü öbür ikisine takılıyor ve
      hepsi MilkDrop 2 dönemi dosyası: 7'si 4 numaralı yuvayı açık ya da
      kodlu yazıyor (162 dosya o yuvanın anahtarını taşıyor), 5'i 8 ve üstü
      dalga kipi yazıyor. MilkDrop 2 ikisini de yok sayıyordu (yuva 4'ün
