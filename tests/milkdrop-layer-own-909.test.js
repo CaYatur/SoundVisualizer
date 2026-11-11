@@ -215,19 +215,20 @@ test('ortak seçim barları MilkDrop\'a çevirmiyor: ortak katman zaten varsa on
   assert.strictEqual(cfg.milkdrop.presetId, 'u_beta');
 });
 
-test('MilkDrop katmanı yokken tek görselleştirici çevriliyor, bağımsız katmana dokunulmuyor', async () => {
+test('MilkDrop katmanı yokken (eski kip) tek görselleştirici çevriliyor, bağımsız katmana dokunulmuyor', async () => {
   const bars = { id: 'v', name: 'Barlar', kind: 'visualizer', type: 'bars', enabled: true, settings: {} };
   const own = mdLayer('o', 'Kendi');
   own.settings.milkdrop = { independent: true, presetId: 'u_beta', name: 'Beta', source: 'x' };
   const { M, cfg } = await fresh([own, bars]);
+  cfg.ui = Object.assign({}, cfg.ui, { modeTargetAuto: true });
   M.pointStackAtMilkdrop(cfg);
   assert.strictEqual(bars.type, 'milkdrop');
   assert.strictEqual(own.settings.milkdrop.presetId, 'u_beta');
 });
 
-test('motor: kendi preseti olan katman geçişe girmiyor, lideri izlemiyor', () => {
+test('motor: kendi geçişi kapalı bağımsız katman presetinde duruyor, lideri izlemiyor', () => {
   const E = read('src/visualizer/modes/milkdrop.js');
-  const own = E.indexOf('if (cfg.milkdrop && cfg.milkdrop.independent === true) {');
+  const own = E.indexOf("if (own && cfg.milkdrop.ownAuto !== true) {");
   assert.ok(own > 0);
   assert.ok(own < E.indexOf('const FOLLOW_MS = 1500;'), 'izleme denetiminden önce');
   assert.ok(own > E.indexOf('const trackNew = this._trackChanged();'), 'parça takibi durmasın');
@@ -272,7 +273,7 @@ test('ana süreç: kaydedilen presetin metni katmanın kopyasına da gidiyor', (
 
 test('metinler çevrilmiş', () => {
   const i18n = read('src/shared/i18n.js');
-  for (const s of ['Kendi Preseti', 'Seçim Nereye', 'Ortak katmanlar', 'Listeden seçilen preset bu katmana gider. Otomatik geçişe girmez.', 'Kapalıyken ortak preseti gösterir.', 'MilkDrop Presetleri kartında bu katman için seçin']) {
+  for (const s of ['Ortak', 'Bağımsız', 'Seçim Nereye', 'Ortak katmanlar', 'Listeden seçilen preset bu katmana gider.', 'Bütün ortak katmanlarla aynı preseti gösterir.', 'Sahne sayfasının MilkDrop rafında bu katman için seçin']) {
     assert.ok(i18n.includes("'" + s + "':"), s);
   }
 });

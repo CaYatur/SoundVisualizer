@@ -516,6 +516,42 @@
         "tr": "Durgun bir gölün üstünde yükselen gök fenerleri: on iki şekil dörder kez çizilerek 48 kâğıt fener oluyor; her biri uzak kıyıdan kendi yolunda sallanarak yükseliyor, uzaklaştıkça küçülüp titreşiyor ve gökte sönüp yeniden başlıyor. Güçlü bir vuruşta birkaçı daha parlak yanıyor; göl fenerleri hafif bir dalgalanmayla yansıtıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında 16 fener görünür.",
         "en": "Sky lanterns rising over a still lake: twelve shapes, each drawn four times, make 48 paper lanterns that rise from the far shore on their own swaying paths, shrinking and flickering as they go, then fade high in the sky and start again. A strong beat makes a few burn brighter, and the lake mirrors them with a gentle ripple. A MilkDrop 3 preset; MilkDrop 2 players show 16 lanterns."
       }
+    },
+    {
+      "file": "CaYaDev - Stained Glass.milk",
+      "id": "md_caya_stained_glass",
+      "category": "geometric",
+      "description": {
+        "tr": "Arkadan aydınlatılan bir vitray: ekranı düzensiz cam parçalarından bir mozaik kaplıyor, her parça paletten kendi rengini alıyor ve parçaların arasında koyu kurşun çizgiler duruyor. Camın arkasında yumuşak bir ışık geziyor; tayf parçaları yüksekliğe göre yakıyor (altta bas, üstte tiz), her vuruşta merkezden bir ışık halkası pencereyi geçiyor. Ortalar paleti yavaşça çeviriyor.",
+        "en": "A stained-glass window lit from behind: a mosaic of irregular panes fills the screen, each pane takes its own colour from the palette and dark lead runs between them. A soft light moves behind the glass; the spectrum lights panes by height (bass at the foot, treble at the top) and on every beat a ring of light crosses the window from the centre. Mids turn the palette slowly."
+      }
+    },
+    {
+      "file": "CaYaDev - Thunderhead.milk",
+      "id": "md_caya_thunderhead",
+      "category": "ambient",
+      "description": {
+        "tr": "Gece bir fırtına bulutu: koyu göğün üstünde sürüklenen bulut katmanları. Vuruşta bulutun içinde yeni bir yerde şimşek çakıyor: bulutu içeriden aydınlatan bir parlama ve ufka inen ince, kırık bir yıldırım. Parlama saniyenin küçük bir bölümünde titreyerek sönüyor. Tiz ince bir yağmuru eğiyor, bas bulutu kalınlaştırıyor, ortalar rüzgârı itiyor. Çakmalar arasında bulutun kenarı soluk bir ay ışığıyla görünür kalıyor.",
+        "en": "A storm cloud at night: cloud layers drifting over a dark sky. On a beat lightning fires inside the cloud at a new place: a flash that lights the cloud from within and a thin, jagged bolt down to the horizon. The flash flickers out in a fraction of a second. Treble slants a fine rain, bass thickens the cloud and mids push the wind. Between flashes the cloud keeps a faint moonlit edge."
+      }
+    },
+    {
+      "file": "CaYaDev - Hologram Globe.milk",
+      "id": "md_caya_hologram_globe",
+      "category": "tech",
+      "description": {
+        "tr": "Dönen bir kürenin hologramı: enlem ve boylam ızgarası kürenin hem ön hem arka yüzünde çiziliyor (arka yüz daha soluk, küre içi boş görünüyor), içinden tarama çizgileri geçiyor. Tayf ekvatorun çevresinde bir çubuk halkası. Vuruşta görüntü birkaç bantta yana kayıyor ve kutuptan kutba bir ışık dalgası geçiyor. Bas küreyi hafifçe şişiriyor, ortalar dönüş hızını belirliyor, tiz tarama çizgilerini keskinleştiriyor.",
+        "en": "A hologram of a turning globe: the latitude and longitude grid is drawn on both the near and the far side of the sphere (the far side dimmer, so the globe reads as hollow) with scan lines running through it. The spectrum is a ring of bars round the equator. On a beat the picture glitches sideways in a few bands and a pulse of light runs from pole to pole. Bass swells the globe a little, mids set the spin and treble sharpens the scan lines."
+      }
+    },
+    {
+      "file": "CaYaDev - Double Helix.milk",
+      "id": "md_caya_double_helix",
+      "category": "organic",
+      "description": {
+        "tr": "Yavaşça dönen bir çift sarmal: iki iplik ters fazda kıvrılıyor, her yarım turda öne geçen iplik değişiyor; öndeki daha kalın ve parlak olduğu için sarmal yuvarlak görünüyor. İplikleri düzenli aralıklarla iki renkli basamaklar birleştiriyor ve parlaklıklarını sarmal boyunca tayftan alıyor (solda bas, sağda tiz). Vuruşta sarmal boyunca parlak bir darbe ilerliyor, arkada odak dışı ışık diskleri süzülüyor. Ortalar dönüş hızını belirliyor.",
+        "en": "A slowly turning double helix: two strands curl in opposite phase and swap which is in front every half turn; the nearer one is thicker and brighter, so the helix reads as round. Two-coloured rungs join the strands at regular steps and take their brightness from the spectrum along the helix (bass at the left, treble at the right). On a beat a bright pulse travels along it while soft out-of-focus discs drift behind. Mids set how fast it turns."
+      }
     }
   ]
 }

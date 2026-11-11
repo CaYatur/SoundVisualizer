@@ -28,7 +28,7 @@ function sceneKeys(file) {
 }
 
 test('sahne listeleri milkdrop bloğunu taşıyor, puanları ve kilidi taşımıyor', () => {
-  for (const f of ['src/admin/admin.js', 'src/admin/control.js', 'src/shared/templates.js']) {
+  for (const f of ['src/shared/schema.js']) {
     const keys = sceneKeys(f);
     assert.ok(keys.includes('milkdrop'), f + ': milkdrop sahnenin parçası olmalı');
     assert.ok(!keys.includes('milkdropLibrary'), f + ': puanlar sahneye girmemeli');

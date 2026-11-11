@@ -36,12 +36,13 @@ function panel(cfg) {
     updateConfig: (c) => sent.push({ full: true, keys: Object.keys(c) }),
     patchConfig: (p) => sent.push({ full: false, keys: Object.keys(p), patch: JSON.parse(JSON.stringify(p)) }),
   };
-  const src = ['lightSig', 'sendFullConfig', 'sendConfigPatch'].map((n) => sliceFn(ADMIN, n)).join('\n');
+  const src = ['outputConfig', 'lightSig', 'fullPayload', 'sendFullConfig', 'sendConfigPatch'].map((n) => sliceFn(ADMIN, n)).join('\n');
   const env = { cfg, blacked: false };
   const fns = new Function('window', 'env', 'setTimeout', 'clearTimeout', `
     const HEAVY_KEYS = { scenes: 1, milkdropLibrary: 1, userPresets: 1 };
     const FULL_AFTER_MS = 700;
-    let sentSig = null; let fullTimer = null;
+    let sentSig = null; let fullTimer = null; let heavySent = null;
+    const sendStats = { full: 0, patch: 0, preview: 0 }; let lastOutSig = null; let pendingOutSig = null;
     const isBlackedOut = () => env.blacked;
     let cfg = env.cfg;
     ${src}
@@ -127,7 +128,7 @@ test('ana süreç yamayı tam yapılandırma olmadan uygulamaz, tehlikeli anahta
 });
 
 test('pencerelere sahne listesi ve renk şablonları gitmez', () => {
-  const fn = new Function(sliceFn(MAIN, 'rendererConfig') + "\nconst RENDERER_OMIT = ['scenes', 'userPresets'];\nreturn rendererConfig;")();
+  const fn = new Function(sliceFn(MAIN, 'tagPoolInUse') + sliceFn(MAIN, 'rendererConfig') + "\nconst RENDERER_OMIT = ['scenes', 'userPresets'];\nreturn rendererConfig;")();
   const cfg = base();
   const out = fn(cfg);
   assert.ok(!('scenes' in out) && !('userPresets' in out));
@@ -158,4 +159,14 @@ test('MCP preset yoklaması yedek: 3 sn, pencere gizliyken yok', () => {
   // Ana süreç her MCP isteğinden sonra ve izleyiciyle farkı yayınlıyor
   assert.match(MAIN, /syncPresets: \(\) => \{\s*const delta = presetsStore\.syncDisk\(\);/);
   assert.match(MAIN, /presetsStore\.watch\(/);
+});
+
+test('etiket tablosu çiziciye yalnız havuz etikete bağlıyken gider', () => {
+  const fn = new Function(sliceFn(MAIN, 'tagPoolInUse') + sliceFn(MAIN, 'rendererConfig') + "\nconst RENDERER_OMIT = ['scenes', 'userPresets'];\nreturn rendererConfig;")();
+  const lib = { tags: { a: ['x'] }, favorites: { a: true }, ratings: { a: 5 }, textureRev: 2 };
+  const off = fn({ milkdrop: { autoFrom: 'all' }, milkdropLibrary: lib });
+  assert.deepStrictEqual(off.milkdropLibrary, { tags: {}, favorites: { a: true }, ratings: { a: 5 }, textureRev: 2 });
+  assert.strictEqual(lib.tags.a[0], 'x', 'asıl yapılandırma değişmemeli');
+  assert.strictEqual(fn({ milkdrop: { autoFrom: 'tag' }, milkdropLibrary: lib }).milkdropLibrary, lib);
+  assert.strictEqual(fn({ milkdrop: {}, layers: [{ settings: { milkdrop: { autoFrom: 'tag' } } }], milkdropLibrary: lib }).milkdropLibrary, lib);
 });

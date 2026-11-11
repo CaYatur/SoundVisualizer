@@ -51,10 +51,7 @@ test('#883: Gökkuşağı çizim saatine bağlı ve belirlenimci', () => {
   assert.ok(new Set(a).size === 5, 'beş farklı ton');
 });
 
-test('#883: ana kartta Studio kendi Renk Modu\'nu gösteriyor, katman kartında da var', () => {
-  const admin = read('src/admin/admin.js');
-  assert.match(admin, /path: 'visualizer\.studioColorMode'[\s\S]{0,400}show: \(\) => v\.type === 'custom'/);
-  assert.match(admin, /path: 'visualizer\.colorMode',[\s\S]{0,400}show: \(\) => v\.type !== 'none' && v\.type !== 'custom'/);
+test('#883: katman kartında Studio kendi Renk Modu\'nu gösteriyor', () => {
   const layer = read('src/admin/scene-panels.js');
   assert.match(layer, /l\.kind === 'visualizer' && l\.type === 'custom'\) \{[\s\S]{0,700}studioColorMode/);
   global.window = global.window || {};

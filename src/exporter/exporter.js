@@ -18,6 +18,21 @@
      an derlemenin hızına bağlı. Dışa aktarımda bir presetin hangi karede
      göründüğü buna kalamaz: aynı iş aynı videoyu vermeli. */
   window.SVMilkdropSync = true;
+  /* Rastgele sayılar da öyle (#905). Presetlerin `rand_frame`i her karede
+     Math.random'dan çekiyor: aynı sahnenin kayıpsız dışa aktarımlarında 60
+     karenin 59'u farklıydı, yalnız onu sabitleyince üç koşu birebir aynı çıktı.
+     Üreteç yalnız bu sayfada değişiyor ve her iş yeni pencere açtığı için her
+     iş aynı diziden başlıyor; canlı pencereler Math.random'da kalıyor. */
+  function exportRandom(seed) {
+    let s = seed | 0;
+    return function () { // mulberry32
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  Math.random = exportRandom(0x53564558);
   /* Medya katmanı çevrimdışı (#539): video kendiliğinden oynamaz, her kare
      kare saatine sarılır; kamera açılmaz (canlı kaynak). */
   window.SV_OFFLINE = true;
@@ -223,7 +238,7 @@
       isMac: os === 'darwin',
       isLinux: os === 'linux',
     };
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportJobConfig(job.cfg || {}));
     // Video katmanlarının ara kopyaları (ana süreç hazırladı, #539)
     window.SVExportMediaMap = job.mediaMap && typeof job.mediaMap === 'object' ? job.mediaMap : {};
     alpha = !!job.alpha;
@@ -267,6 +282,7 @@
     if (sprites) stack.setSprites(sprites);
     if (alpha) installKeyFilter();
     stack.resize(width, height);
+    stackLayerSig = null; /* yeni iş: imza baştan */
     stack.setConfig(cfg);
     setupMedia();
     /* Kusursuz döngü: canlı kaynaklar (web sayfası, Spout/Syphon) kendi
@@ -309,26 +325,23 @@
      katman başına oynatıcı havuzu, katmansız kipte tek oynatıcı. Videolar
      ilk kare çizilmeden yüklenir; her kareden önce o karenin zamanına
      sarılır (seekMedia). */
-  let mediaSingle = null;
   function setupMedia() {
     const L = window.SVLayers;
     if (!window.SVMedia || !L || !stack) return;
-    const isStack = L.stackOn(cfg);
-    const hasLayer = isStack && Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasLayer) { stack.syncMedia(cfg); return; }
-    if (!isStack && cfg.media && cfg.media.enabled) {
-      mediaSingle = new window.SVMedia();
-      stack.setMedia(mediaSingle);
-      mediaSingle.apply(Object.assign({}, cfg.media, { enabled: true }));
-    }
+    if (Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(cfg);
   }
   function mediaPlayers() {
     const out = [];
     if (stack && stack._mediaPool) for (const m of stack._mediaPool.values()) out.push(m);
-    if (mediaSingle) out.push(mediaSingle);
     return out;
   }
   async function seekMedia(t) {
+    if (window.SVTimelineCompose.exportEnabled(cfg)) {
+      if (!exportTl) exportTl = window.SVTimeline.makeTimeline(cfg.timeline);
+      const base = window.SVTimelineCompose.composeAt(cfg, exportTl, t).cfg;
+      const renderer = stack.prepareTimeline(base);
+      if (renderer) return renderer.seekMedia(base.timelineComposition);
+    }
     const list = mediaPlayers().filter((m) => typeof m.seekTo === 'function');
     if (!list.length) return true;
     const res = await Promise.all(list.map((m) => m.seekTo(t)));
@@ -431,6 +444,24 @@
     };
   }
 
+  let stackLayerSig = null;
+  let exportTl = null;
+  let exportFx = null;
+  function layerSig(c) {
+    const ls = c && Array.isArray(c.layers) ? c.layers : [];
+    return JSON.stringify(ls, (k, v) => (k === 'opacity' ? undefined : v));
+  }
+  function syncStackLayers(base) {
+    if (!stack) return;
+    const sig = layerSig(base);
+    if (stackLayerSig === null) { stackLayerSig = layerSig(cfg); }
+    if (sig === stackLayerSig) return;
+    stackLayerSig = sig;
+    stack.setConfig(base);
+    // Yeni sahnedeki medya katmanları da havuza girsin
+    if (window.SVMedia && Array.isArray(base.layers) && base.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(base);
+  }
+
   function renderFrame(i) {
     const t0 = prof ? performance.now() : 0;
     const t = i / fps;
@@ -443,15 +474,24 @@
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, left: leftBytes, right: rightBytes, sampleRate });
     audio.update(dt);
 
-    /* Zaman çizelgesi otomasyonu. Gösteri saati (showclock.js) BURADA
-       KULLANILMAZ: o duvar saatine dayanır ve aynı işi iki kez
-       çalıştırdığında farklı kareler üretirdi. Çevrimdışı işlemede zaman
-       yalnızca KARE İNDEKSİNDEN gelir — dışa aktarımın regresyon ağı
-       olma özelliği buna bağlı. */
+    /* Zaman çizelgesi: sahne klipleri + otomasyon. Gösteri saati
+       (showclock.js) BURADA KULLANILMAZ: o duvar saatine dayanır ve aynı
+       işi iki kez çalıştırdığında farklı kareler üretirdi. Çevrimdışı
+       işlemede zaman yalnızca KARE İNDEKSİNDEN gelir.
+       includeTimeline varsayılan kapalıdır. Açıkken canlı moddan bağımsız
+       aynı yalıtılmış bileşim kullanılır: döngü sarar, boşluk/bitiş siyahtır. */
     let base = cfg;
-    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline) {
-      base = window.SVTimeline.applyAutomation(cfg, cfg.timeline, t).cfg;
+    if (window.SVTimelineCompose.exportEnabled(cfg)) {
+      if (!exportTl) exportTl = window.SVTimeline.makeTimeline(cfg.timeline);
+      base = window.SVTimelineCompose.composeAt(cfg, exportTl, t).cfg;
+      if (postfx) { const fx = JSON.stringify(base.postfx || []); if (fx !== exportFx) { exportFx = fx; postfx.setChain(base.postfx || []); } }
     }
+
+    /* Çizelge sahne değiştirince yığını yeni katmanlarla kur. Yığın yalnız
+       başta cfg ile kuruluyordu: ikinci klibin katmanlarının motoru yoktu,
+       kare siyah kalıyordu. Opaklık her karede değişebilir (fade), imzaya
+       girmez; aynı anahtarlı motorlar setConfig'te yeniden kullanılır. */
+    syncStackLayers(base);
 
     // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
     // aynı iş iki kez çalıştırıldığında bit bazında aynı sonucu verir.
@@ -462,10 +502,13 @@
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
     stack.composeTo(compCtx, audio, mcfg, t, dt, drawLogo);
 
-    if (postfx) {
+    /* Zincir boşsa tuvali BASMA. Timeline birleşimi efektleri alt yığına
+       bırakır ve düz postfx listesini temizler. Kurulum elle sahneden
+       zincir açmışsa nesne durur; render() false döner ve tuval boş kalır.
+       Onu 'copy' ile basmak, doğru çizilmiş kareyi siyaha çeviriyordu. */
+    if (postfx && postfx.render(comp, audio, t, dt)) {
       // Efekt zinciri GPU'da çalışır; sonucu geri okuyabilmek için
       // birleştirme yüzeyine yazarız.
-      postfx.render(comp, audio, t, dt);
       compCtx.setTransform(1, 0, 0, 1, 0, 0);
       compCtx.globalCompositeOperation = 'copy';
       compCtx.globalAlpha = 1;
@@ -593,7 +636,7 @@
      aynı kare saatiyle çözümleniyor, yani aynı dosya video dışa
      aktarımının yanına yazılanla aynı. İptal ana süreçten soruluyor. */
   async function runAnalysisOnly(job, duration) {
-    cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportJobConfig(job.cfg || {}));
     fps = job.fps;
     const renderSec = Number(job.durationSec) > 0 ? Number(job.durationSec) : duration;
     totalFrames = Math.max(1, Math.ceil(renderSec * fps));

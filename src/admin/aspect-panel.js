@@ -109,8 +109,12 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    nodes.push(SP().miniToggle('Basıklık Düzeltme Etkin',
-      () => !!root.enabled, (v) => { root.enabled = v; }, rerender));
+    nodes.push(P().moduleHead({
+      id: 'aspect', title: 'Basıklık Düzeltme', on: !!root.enabled,
+      status: el('div', { class: 'studio-status', text: root.enabled ? 'Uygulanıyor' : 'Kapalı' }),
+      start: 'Düzeltmeyi Uygula', stop: 'Düzeltmeyi Kaldır',
+      toggle: (next) => { root.enabled = next; rerender(); },
+    }));
 
     if (!root.enabled) {
       nodes.push(el('div', {

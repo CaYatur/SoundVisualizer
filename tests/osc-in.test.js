@@ -283,7 +283,7 @@ test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
   assert.match(read('README.md'), /17801/);
   assert.match(read('README.tr.md'), /17801/);
   assert.match(read('src/admin/admin.js'), /title: 'OSC Girişi'/);
-  assert.match(panel, /OSC Girişi Etkin/);
+  assert.match(panel, /title: 'OSC Girişi'/);
   assert.match(read('src/shared/i18n.js'), /'OSC Girişi': 'OSC Input'/);
   const lan = Query.chooseLanIPv4({
     'VirtualBox Host-Only Network': [{ family: 'IPv4', internal: false, address: '192.168.56.1' }],

@@ -126,7 +126,18 @@ function localFollow(follow, toLocal) {
   } else {
     out.startedAt = null;
   }
+  // Kendi geçişi olan katmanların payı (#905) aynı kurallarla
+  if (out.layers && typeof out.layers === 'object') {
+    const layers = {};
+    for (const id of Object.keys(out.layers)) layers[id] = localFollow(out.layers[id], toLocal);
+    out.layers = layers;
+  }
   return out;
+}
+
+/* Başka makinedeki sayfanın saati ayrı: geçiş anı ona gitmiyor. */
+function withoutStart(follow) {
+  return localFollow(follow, null);
 }
 
 function mdParity(follow, localFp) {
@@ -142,6 +153,19 @@ function problem(c) {
   if (s.secret.length < MIN_SECRET) return 'secret';
   if (s.role === 'backup' && !s.host) return 'host';
   return '';
+}
+
+/* ANA SÜRÜM (#905). v4'te ayar biçimi değişiyor: iki yönetici ayrı biçimle çalışırsa
+   gösteri ortasında sessiz uyumsuzluk çıkar. Ana sürümü farklı iki makine eşleşmez.
+   Bilinmeyen sürüm uyumsuz sayılmaz: karar verecek bilgi yok. */
+function majorOf(v) {
+  const m = /^v?(\d+)\./.exec(String(v == null ? '' : v).trim());
+  return m ? Number(m[1]) : null;
+}
+function majorMismatch(a, b) {
+  const x = majorOf(a);
+  const y = majorOf(b);
+  return x !== null && y !== null && x !== y;
 }
 
 /* YEDEĞİN DURUM MAKİNESİ. Saat dışarıdan verilir (test sahte saatle sürer). */
@@ -566,7 +590,7 @@ function peerUrlHmac(c) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, SOFT_KEYS, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
+  DEFAULTS, MIN_SECRET, SOFT_KEYS, normalize, linkSig, showSource, localFollow, withoutStart, mdParity, problem, majorOf, majorMismatch, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, peerUrlHmac, createClient,
   authority, GATED, outputModes, gates, secretTag, createTermStore, splitBrain,
   HANDBACK_MIN_ALIVE_MS, HANDBACK_MIN_SAMPLES, HANDBACK_AT, handbackCheck, handbackDue,

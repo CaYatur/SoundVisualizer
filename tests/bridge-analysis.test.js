@@ -110,8 +110,8 @@ test('köprü kipi: tek kopya, öz test, Windows görevi ve kısayol', () => {
   assert.match(MAIN, /app\.on\('second-instance', \(ev, argv\) => \{\n      if \(!app\.isReady\(\)\) return;\n      openBridgeWindow\(\);\n      if \(Array\.isArray\(argv\) && argv\.includes\('--panel'\)\) openPanelFromBridge\(\);/);
   assert.match(MAIN, /if \(BRIDGE_ONLY\) return runBridgeSmoke\(\);/);
   assert.match(MAIN, /app\.setUserTasks\(\[\{ program: exe, arguments: '--bridge'/);
-  const nsh = read('scripts/installer.nsh');
-  assert.match(nsh, /CreateShortCut "\$SMPROGRAMS\\CAYADEV Visualizer Audio Bridge\.lnk" "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" "--bridge"/);
+  const nsh = read('scripts/windows-shortcuts.nsh');
+  assert.match(nsh, /CreateShortCut "\$SMPROGRAMS\\\$\{SV_BRIDGE_MENU_FOLDER\}\\\$\{SV_BRIDGE_SHORTCUT\}\.lnk" "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" "--bridge"/);
   assert.match(nsh, /Delete "\$SMPROGRAMS\\CAYADEV Visualizer Audio Bridge\.lnk"/);
   assert.match(read('package.json'), /"smoke:bridge": "node scripts\/start\.js --smoke --bridge"/);
   // Linux deb: masaüstü girdisinde "Ses Köprüsü" eylemi

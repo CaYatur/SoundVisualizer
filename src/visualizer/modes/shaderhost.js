@@ -90,6 +90,90 @@ uniform sampler2D uTex;
 uniform vec2 uSize;
 void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
 
+  /* ÇOK GEÇİŞLİ SHADER (#905). Kod bölüm işaretleriyle bölünüyor:
+       //@common              — her geçişin başına eklenen ortak işlevler
+       //@pass A [channels=…] — A, B, C, D tamponları (en çok dört), bu sırayla çiziliyor
+       //@pass image [channels=…] — ekrana giden geçiş (zorunlu)
+     İşaret yoksa kod eskisi gibi tek geçiş: eski presetler ve dışa aktarım aynı kalıyor.
+     Her tampon kendi ping-pong çiftinde, ondalıklı (destekleniyorsa RGBA16F); önceki karesi
+     korunuyor. Bir geçiş, kendinden ÖNCE çizilen tamponun bu karesini, kendisini ve sonrakilerin
+     önceki karesini okuyor. Örnekleyiciler: sv_bufA…sv_bufD; `channels=` iChannel0…3'ü bağlıyor
+     (spectrum, wave, prev, media, A–D; varsayılan spectrum, wave, prev, media). Tampon
+     geçişinde sv_prev / `prev` o tamponun kendi önceki karesi. */
+  const PASS_IDS = ['A', 'B', 'C', 'D'];
+  const CHANNEL_DEFAULT = ['spectrum', 'wave', 'prev', 'media'];
+  const CHANNEL_OK = ['spectrum', 'wave', 'prev', 'media', 'A', 'B', 'C', 'D'];
+  const MARK = /^\s*\/\/\s*@(common|pass)\b(.*)$/i;
+
+  function splitPasses(text) {
+    const src = String(text || '').replace(/\r\n/g, '\n');
+    if (!/^\s*\/\/\s*@(common|pass)\b/im.test(src)) return null;
+    const lines = src.split('\n');
+    const out = { common: [], passes: [], image: null, error: null };
+    const fail = (message, line) => { if (!out.error) out.error = { message, line }; };
+    const seen = new Set();
+    // İlk işaretten önceki satırlar (açıklama, ortak tanım) ortak bölüm sayılıyor
+    let cur = { kind: 'common', start: 1, body: [] };
+    const flush = () => {
+      if (!cur) return;
+      const code = cur.body.join('\n');
+      if (cur.kind === 'common') { if (code.trim()) out.common.push({ code, line: cur.start }); }
+      else if (cur.id === 'image') out.image = { code, channels: cur.channels, line: cur.start };
+      else out.passes.push({ id: cur.id, code, channels: cur.channels, line: cur.start });
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const m = MARK.exec(lines[i]);
+      if (!m) { if (cur) cur.body.push(lines[i]); continue; }
+      flush();
+      const kind = m[1].toLowerCase();
+      const rest = m[2].trim();
+      if (kind === 'common') { cur = { kind, start: i + 2, body: [] }; continue; }
+      const nm = /^(image|[A-Da-d])\b/i.exec(rest);
+      if (!nm) { fail('Geçiş adı A, B, C, D ya da image olmalı.', i + 1); cur = null; continue; }
+      const id = nm[1].length === 1 ? nm[1].toUpperCase() : 'image';
+      if (seen.has(id)) fail('Aynı geçiş iki kez tanımlanmış.', i + 1);
+      seen.add(id);
+      let channels = null;
+      const ch = /channels\s*=\s*([A-Za-z,\s]+)/i.exec(rest);
+      if (ch) {
+        channels = ch[1].split(',').map((x) => x.trim()).filter(Boolean).slice(0, 4)
+          .map((x) => (/^[a-d]$/i.test(x) ? x.toUpperCase() : x.toLowerCase() === 'self' ? 'prev' : x.toLowerCase()));
+        const bad = channels.find((x) => CHANNEL_OK.indexOf(x) < 0);
+        if (bad) fail('Bilinmeyen kanal; kullanılabilenler: spectrum, wave, prev, media, A, B, C, D.', i + 1);
+      }
+      cur = { kind: 'pass', id, channels, start: i + 2, body: [] };
+    }
+    flush();
+    if (!out.image) fail('Görüntü geçişi yok: //@pass image bölümü ekleyin.', 0);
+    out.passes.sort((a, b) => PASS_IDS.indexOf(a.id) - PASS_IDS.indexOf(b.id));
+    return out;
+  }
+
+  // Geçişin iChannel0…3 bağları
+  function channelsOf(list) {
+    const ch = Array.isArray(list) ? list.slice(0, 4) : [];
+    for (let i = ch.length; i < 4; i++) ch[i] = CHANNEL_DEFAULT[i];
+    return ch;
+  }
+  const samplerOf = (c) => (c === 'spectrum' ? 'sv_spectrum' : c === 'wave' ? 'sv_wave' : c === 'media' ? 'sv_media' : c === 'prev' ? 'sv_prev' : 'sv_buf' + c);
+
+  const PRELUDE_MP = PRELUDE.replace(/#define iChannel[0-3] \w+\n/g, '') +
+    'uniform sampler2D sv_bufA;\nuniform sampler2D sv_bufB;\nuniform sampler2D sv_bufC;\nuniform sampler2D sv_bufD;\n';
+
+  function passSource(mp, pass, decls) {
+    let s = PRELUDE_MP + decls;
+    channelsOf(pass.channels).forEach((c, i) => { s += '#define iChannel' + i + ' ' + samplerOf(c) + '\n'; });
+    for (const c of mp.common) s += '#line ' + c.line + '\n' + c.code + '\n';
+    return s + '#line ' + pass.line + '\n' + pass.code + EPILOGUE;
+  }
+
+  // Görüntü geçişi önceki kareyi okuyor mu (geri besleme tamponu gerekiyor mu)
+  function imageNeedsPrev(img) {
+    const code = String(img.code || '');
+    if (/\bsv_prev\b/.test(code)) return true;
+    return channelsOf(img.channels).some((c, i) => c === 'prev' && new RegExp('\\biChannel' + i + '\\b').test(code));
+  }
+
   function countLines(s) {
     let n = 1;
     for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++;
@@ -226,6 +310,8 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     setSource(userCode, controls) {
       const gl = this.gl;
       if (!gl) return { ok: false, error: this.error };
+      const mp = splitPasses(userCode);
+      if (mp) return this._setMulti(mp, controls);
       const decls = this._paramDecls(controls);
       const full = PRELUDE + decls + '#line 1\n' + String(userCode || '') + EPILOGUE;
       const key = full;
@@ -260,6 +346,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     }
 
     _install(p, key, userCode) {
+      this._dropMulti();
       if (this.program) this.gl.deleteProgram(this.program);
       this.program = p;
       this.source = key;
@@ -278,6 +365,17 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       if (!gl) return { ok: false, error: this.error };
       const L = window.SVGlLink;
       if (!L || !L.canWait(gl)) return this.setSource(userCode, controls);
+      const mp = splitPasses(userCode);
+      if (mp) {
+        if (mp.error) { this._dropJob(); this.error = mp.error; return { ok: false, error: mp.error }; }
+        const list = this._multiSources(mp, controls);
+        const key = list.map((x) => x.src).join('\u0000');
+        if (this._job && this._job.key === key) return null;
+        this._dropJob();
+        if (this.source === key && this.program) return { ok: true };
+        this._job = { key, mp, multi: list.map((x) => ({ id: x.id, h: L.begin(gl, VERT, x.src, ['aPos']) })) };
+        return null;
+      }
       const full = PRELUDE + this._paramDecls(controls) + '#line 1\n' + String(userCode || '') + EPILOGUE;
       if (this._job && this._job.key === full) return null;
       this._dropJob();
@@ -289,6 +387,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     pollSource() {
       const j = this._job;
       const gl = this.gl;
+      if (j && gl && j.multi) return this._pollMulti(j);
       if (!j || !gl || !window.SVGlLink.ready(gl, j.h)) return null;
       this._job = null;
       const r = window.SVGlLink.end(gl, j.h);
@@ -301,8 +400,196 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     }
 
     _dropJob() {
-      if (this._job && this.gl) window.SVGlLink.drop(this.gl, this._job.h);
+      if (this._job && this.gl) {
+        if (this._job.multi) this._job.multi.forEach((x) => window.SVGlLink.drop(this.gl, x.h));
+        else window.SVGlLink.drop(this.gl, this._job.h);
+      }
       this._job = null;
+    }
+
+    // --- çok geçişli: derleme ve kurulum ---
+    _multiSources(mp, controls) {
+      const decls = this._paramDecls(controls);
+      const list = mp.passes.map((p) => ({ id: p.id, src: passSource(mp, p, decls) }));
+      list.push({ id: 'image', src: passSource(mp, mp.image, decls) });
+      return list;
+    }
+
+    _linkFull(full) {
+      const gl = this.gl;
+      const f = this._compile(gl.FRAGMENT_SHADER, full);
+      if (!f.ok) return { ok: false, error: parseLog(f.log, 0) };
+      const v = this._compile(gl.VERTEX_SHADER, VERT);
+      if (!v.ok) { gl.deleteShader(f.shader); return { ok: false, error: { message: v.log, line: 0 } }; }
+      const p = gl.createProgram();
+      gl.attachShader(p, v.shader);
+      gl.attachShader(p, f.shader);
+      gl.bindAttribLocation(p, 0, 'aPos');
+      gl.linkProgram(p);
+      gl.deleteShader(v.shader);
+      gl.deleteShader(f.shader);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(p) || 'bağlama hatası';
+        gl.deleteProgram(p);
+        return { ok: false, error: { message: log, line: 0 } };
+      }
+      return { ok: true, prog: p };
+    }
+
+    _setMulti(mp, controls) {
+      const gl = this.gl;
+      this._dropJob();
+      if (mp.error) { this.error = mp.error; return { ok: false, error: mp.error }; }
+      const list = this._multiSources(mp, controls);
+      const key = list.map((x) => x.src).join('\u0000');
+      if (this.source === key && this.program) return { ok: true };
+      const progs = {};
+      for (const it of list) {
+        const r = this._linkFull(it.src);
+        if (!r.ok) {
+          for (const k in progs) gl.deleteProgram(progs[k]);
+          this.error = Object.assign({ pass: it.id }, r.error);
+          return { ok: false, error: this.error };
+        }
+        progs[it.id] = r.prog;
+      }
+      this._installMulti(progs, key, mp);
+      return { ok: true };
+    }
+
+    _pollMulti(j) {
+      const gl = this.gl;
+      const L = window.SVGlLink;
+      if (!j.multi.every((x) => L.ready(gl, x.h))) return null;
+      this._job = null;
+      const progs = {};
+      let err = null;
+      for (const x of j.multi) {
+        const r = L.end(gl, x.h);
+        if (r.ok) { progs[x.id] = r.prog; continue; }
+        if (!err) err = Object.assign({ pass: x.id }, r.stage === 'link' ? { message: r.log, line: 0 } : parseLog(r.log, 0));
+      }
+      if (err) {
+        for (const k in progs) gl.deleteProgram(progs[k]);
+        this.error = err;
+        return { ok: false, error: err };
+      }
+      this._installMulti(progs, j.key, j.mp);
+      return { ok: true };
+    }
+
+    _installMulti(progs, key, mp) {
+      this._dropMulti();
+      if (this.program) this.gl.deleteProgram(this.program);
+      this.program = progs.image;
+      this.source = key;
+      this.error = null;
+      this._lineOffset = 0;
+      this.loc = {};
+      this.needsFeedback = imageNeedsPrev(mp.image);
+      this.frame = 0;
+      this._mp = mp.passes.map((p) => ({ id: p.id, prog: progs[p.id], loc: {}, fbo: null, tex: null, w: 0, h: 0, cur: 0 }));
+    }
+
+    _dropMulti() {
+      const gl = this.gl;
+      const mp = this._mp;
+      this._mp = null;
+      if (!mp || !gl) return;
+      for (const p of mp) {
+        if (p.prog) gl.deleteProgram(p.prog);
+        if (p.fbo) for (let i = 0; i < 2; i++) { gl.deleteFramebuffer(p.fbo[i]); gl.deleteTexture(p.tex[i]); }
+      }
+    }
+
+    // Tampon biçimi: durum saklayan geçişler için ondalıklı, yoksa 8 bit
+    _bufFormat() {
+      if (this._bufFmt) return this._bufFmt;
+      const gl = this.gl;
+      this._bufFmt = gl.getExtension('EXT_color_buffer_float')
+        ? { internal: gl.RGBA16F, type: gl.HALF_FLOAT }
+        : { internal: gl.RGBA8, type: gl.UNSIGNED_BYTE };
+      return this._bufFmt;
+    }
+
+    /* Tamponlar çizim boyunda; boyut değişince içerik taşınıyor (uyarlanır çözünürlük
+       basamağında tamponda saklanan durum sıfırlanmasın, #453). */
+    _ensureBufs(W, H) {
+      const gl = this.gl;
+      const fmt = this._bufFormat();
+      for (const p of this._mp) {
+        if (p.fbo && p.w === W && p.h === H) continue;
+        const old = p.fbo ? { fbo: p.fbo, tex: p.tex, w: p.w, h: p.h } : null;
+        p.fbo = [];
+        p.tex = [];
+        for (let i = 0; i < 2; i++) {
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, fmt.internal, W, H, 0, gl.RGBA, fmt.type, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          const fb = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          p.fbo[i] = fb;
+          p.tex[i] = tex;
+        }
+        if (old) {
+          for (let i = 0; i < 2; i++) {
+            try {
+              gl.bindFramebuffer(gl.READ_FRAMEBUFFER, old.fbo[i]);
+              gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, p.fbo[i]);
+              gl.blitFramebuffer(0, 0, old.w, old.h, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+            } catch (e) { /* olmazsa boş başlar */ }
+            gl.deleteFramebuffer(old.fbo[i]);
+            gl.deleteTexture(old.tex[i]);
+          }
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        } else {
+          p.cur = 0;
+        }
+        p.w = W;
+        p.h = H;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    // sv_bufA…D, birim 4…7: o anki son kare (bu karede çizildiyse yenisi, değilse öncekisi)
+    _bindBufs(u) {
+      const gl = this.gl;
+      PASS_IDS.forEach((id, i) => {
+        const q = this._mp.find((x) => x.id === id);
+        gl.activeTexture(gl.TEXTURE4 + i);
+        gl.bindTexture(gl.TEXTURE_2D, q && q.tex ? q.tex[q.cur] : this.texMedia);
+        const loc = u('sv_buf' + id);
+        if (loc) gl.uniform1i(loc, 4 + i);
+      });
+    }
+
+    _renderBufs(W, H, frame) {
+      const gl = this.gl;
+      this._ensureBufs(W, H);
+      for (const p of this._mp) {
+        const u = (name) => { if (!(name in p.loc)) p.loc[name] = gl.getUniformLocation(p.prog, name); return p.loc[name]; };
+        const write = 1 - p.cur;
+        gl.useProgram(p.prog);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._quad);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        // Tampon geçişinde sv_prev: kendi önceki karesi
+        frame(u, p.tex[p.cur]);
+        this._bindBufs(u);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, p.fbo[write]);
+        gl.viewport(0, 0, W, H);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        p.cur = write;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
     _u(name) {
@@ -315,10 +602,11 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     resize(w, h) {
       const W = Math.max(2, w | 0);
       const H = Math.max(2, h | 0);
+      /* Kalıcı tamponlar burada bırakılmıyor: _ensureFbos yeni boyutu kurarken eski içeriği
+         taşıyor (#453, uyarlanır çözünürlük basamağında geri besleme sıfırlanmasın). */
       if (this.canvas.width !== W || this.canvas.height !== H) {
         this.canvas.width = W;
         this.canvas.height = H;
-        this._releaseFbos();
       }
     }
 
@@ -337,6 +625,8 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
     _ensureFbos(W, H) {
       const gl = this.gl;
       if (this._fbo[0] && this._fboSize[0] === W && this._fboSize[1] === H) return;
+      const old = this._fbo[0] ? { fbo: this._fbo.slice(), tex: this._fboTex.slice(), w: this._fboSize[0], h: this._fboSize[1] } : null;
+      if (old) { this._fbo = [null, null]; this._fboTex = [null, null]; }
       this._releaseFbos();
       for (let i = 0; i < 2; i++) {
         const tex = gl.createTexture();
@@ -353,6 +643,20 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
         gl.clear(gl.COLOR_BUFFER_BIT);
         this._fbo[i] = fb;
         this._fboTex[i] = tex;
+      }
+      if (old) {
+        // Önceki içerik yeni boyuta: Studio geri beslemesi boyut değişiminde baştan başlamasın
+        for (let i = 0; i < 2; i++) {
+          try {
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, old.fbo[i]);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this._fbo[i]);
+            gl.blitFramebuffer(0, 0, old.w, old.h, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+          } catch (e) { /* olmazsa boş başlar */ }
+          gl.deleteFramebuffer(old.fbo[i]);
+          gl.deleteTexture(old.tex[i]);
+        }
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this._fboSize = [W, H];
@@ -387,10 +691,11 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     }
 
-    _setParams(controls, values) {
+    _setParams(controls, values, u) {
       const gl = this.gl;
+      const at = u || ((name) => this._u(name));
       for (const c of controls || []) {
-        const loc = this._u(c.name);
+        const loc = at(c.name);
         if (!loc) continue;
         const val = values && c.name in values ? values[c.name] : c.default;
         if (c.type === 'color') {
@@ -424,25 +729,21 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
 
       const useFb = this.needsFeedback;
       if (useFb) this._ensureFbos(W, H);
-
-      gl.useProgram(this.program);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._quad);
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      gl.viewport(0, 0, W, H);
       gl.disable(gl.BLEND);
       gl.disable(gl.DEPTH_TEST);
 
-      gl.uniform3f(this._u('iResolution'), W, H, 1);
-      gl.uniform1f(this._u('iTime'), t);
-      gl.uniform1f(this._u('iTimeDelta'), dt || 0.016);
-      gl.uniform1i(this._u('iFrame'), this.frame);
-      gl.uniform4f(this._u('iMouse'), 0, 0, 0, 0);
-      gl.uniform1f(this._u('sv_level'), audio ? audio.level : 0);
-      gl.uniform1f(this._u('sv_bass'), bass);
-      gl.uniform1f(this._u('sv_mid'), audio ? audio.mid : 0);
-      gl.uniform1f(this._u('sv_treble'), audio ? audio.treble : 0);
-      gl.uniform1f(this._u('sv_beat'), this.beat);
+      // Her geçişin ortak girdileri; `u` geçişin konum önbelleği, `prevTex` sv_prev'e giden doku
+      const frame = (u, prevTex) => {
+      gl.uniform3f(u('iResolution'), W, H, 1);
+      gl.uniform1f(u('iTime'), t);
+      gl.uniform1f(u('iTimeDelta'), dt || 0.016);
+      gl.uniform1i(u('iFrame'), this.frame);
+      gl.uniform4f(u('iMouse'), 0, 0, 0, 0);
+      gl.uniform1f(u('sv_level'), audio ? audio.level : 0);
+      gl.uniform1f(u('sv_bass'), bass);
+      gl.uniform1f(u('sv_mid'), audio ? audio.mid : 0);
+      gl.uniform1f(u('sv_treble'), audio ? audio.treble : 0);
+      gl.uniform1f(u('sv_beat'), this.beat);
 
       // Studio görselleştiricisinin renk modu paleti değiştirebilir (#883)
       const cols = this.paletteOverride
@@ -454,23 +755,35 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
         pal[i * 3 + 1] = c[1];
         pal[i * 3 + 2] = c[2];
       }
-      const palLoc = this._u('sv_palette[0]') || this._u('sv_palette');
+      const palLoc = u('sv_palette[0]') || u('sv_palette');
       if (palLoc) gl.uniform3fv(palLoc, pal);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.texSpectrum);
-      gl.uniform1i(this._u('sv_spectrum'), 0);
+      gl.uniform1i(u('sv_spectrum'), 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.texWave);
-      gl.uniform1i(this._u('sv_wave'), 1);
+      gl.uniform1i(u('sv_wave'), 1);
       gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D, useFb ? this._fboTex[this._pingpong] : this.texMedia);
-      gl.uniform1i(this._u('sv_prev'), 2);
+      gl.bindTexture(gl.TEXTURE_2D, prevTex);
+      gl.uniform1i(u('sv_prev'), 2);
       gl.activeTexture(gl.TEXTURE3);
       gl.bindTexture(gl.TEXTURE_2D, this.texMedia);
-      gl.uniform1i(this._u('sv_media'), 3);
+      gl.uniform1i(u('sv_media'), 3);
 
-      this._setParams(controls, values);
+      this._setParams(controls, values, u);
+      };
+
+      // Çok geçişli: önce tamponlar, sırayla
+      if (this._mp) this._renderBufs(W, H, frame);
+
+      gl.useProgram(this.program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._quad);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.viewport(0, 0, W, H);
+      frame((name) => this._u(name), useFb ? this._fboTex[this._pingpong] : this.texMedia);
+      if (this._mp) this._bindBufs((name) => this._u(name));
 
       if (useFb) {
         const write = 1 - this._pingpong;
@@ -511,6 +824,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       const gl = this.gl;
       if (!gl) return;
       this._dropJob();
+      this._dropMulti();
       this._releaseFbos();
       if (this.program) gl.deleteProgram(this.program);
       const ext = gl.getExtension('WEBGL_lose_context');
@@ -809,6 +1123,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
   }
 
   window.SVShaderHost = ShaderHost;
+  window.SVShaderPasses = { splitPasses, passSource, channelsOf, imageNeedsPrev, PRELUDE_MP };
   window.SVModes = window.SVModes || {};
   window.SVModes.custom = CustomVisualizer;
   window.SVModes.feedback = FeedbackMode;

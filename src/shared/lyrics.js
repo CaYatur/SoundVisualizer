@@ -290,7 +290,50 @@
     return { text: s.slice(0, c) + tag + s.slice(c), caret: c + tag.length };
   }
 
-  const api = { parse, parseLRC, parseSRT, at, shift, toLRC, nudgeText, stampAt, fmtStamp, lineSpan };
+
+  /* Uzatılan hece görseli (#938): ses analizi YOK. Süre yalnızca LRC
+     zaman damgalarından gelir. Eşik aşılınca tutulan sesli progress ile
+     çoğalır — "love" → "loooove", "yar" → "yaaar". */
+  const HELD_VOWELS = /[aeıioöuüâîûAEIİOÖUÜÂÎÛ]/;
+  const HELD_TRAIL = /[\s.,!?;:'"…)\]\}»”’\-…]/;
+  function heldVowelIndex(core) {
+    /* İngilizce sessiz e: love/come → o/o uzar (loooove). Yoksa son sesli. */
+    const silentE = /([aeıioöuüâîûAEIİOÖUÜÂÎÛ])([^aeıioöuüâîûAEIİOÖUÜÂÎÛ]+)e$/i.exec(core);
+    if (silentE) return silentE.index;
+    for (let i = core.length - 1; i >= 0; i--) {
+      if (HELD_VOWELS.test(core[i])) return i;
+    }
+    return -1;
+  }
+  function stretchHeldVowel(text, durationSec, progress, opts) {
+    const raw = String(text == null ? '' : text);
+    const dur = Math.max(0, Number(durationSec) || 0);
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const o = opts || {};
+    const minD = o.minDuration == null ? 0.6 : Number(o.minDuration);
+    const amt = o.amount == null ? 0.25 : Number(o.amount);
+    const maxExtra = o.maxExtra == null ? 8 : Math.max(0, o.maxExtra | 0);
+    if (!(dur >= minD) || p <= 0 || !(amt > 0) || maxExtra <= 0 || !raw) return raw;
+
+    let end = raw.length - 1;
+    while (end >= 0 && HELD_TRAIL.test(raw[end])) end--;
+    if (end < 0) return raw;
+    const core = raw.slice(0, end + 1);
+    const vowelIdx = heldVowelIndex(core);
+    if (vowelIdx < 0) return raw;
+
+    /* ~0.45 sn eşik üstü = bir ekstra sesli; miktar kaydırıcısı çoğaltır.
+       2 sn tutulmuş "love" ≈ loooove. progress 0→1 ile harfler zamanla belirir. */
+    const past = dur - minD;
+    const per = Math.max(0.25, 0.55 - Math.min(1, amt) * 0.25);
+    const target = Math.min(maxExtra, Math.max(1, Math.round(past / per + amt * 2)));
+    const n = Math.max(0, Math.min(maxExtra, Math.round(target * p)));
+    if (n <= 0) return raw;
+    const ch = raw[vowelIdx];
+    return raw.slice(0, vowelIdx + 1) + ch.repeat(n) + raw.slice(vowelIdx + 1);
+  }
+
+  const api = { parse, parseLRC, parseSRT, at, shift, toLRC, nudgeText, stampAt, fmtStamp, lineSpan, stretchHeldVowel, fillWordEnds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLyrics = api;
 })();

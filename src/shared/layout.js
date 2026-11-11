@@ -256,28 +256,19 @@
 
   function round(v) { return Math.round(v * 10000) / 10000; }
 
-  // layers.js stackOn ile aynı kural: anahtar yoksa katman listesi belirler
-  function stackOn(cfg) {
-    const s = cfg && cfg.layerStack;
-    if (s && typeof s.enabled === 'boolean') return s.enabled;
-    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-  }
-
   // Açılış modülü (#537): tarayıcıda pencereden, testte modülden
   function reveal() {
     if (typeof window !== 'undefined' && window.SVReveal) return window.SVReveal;
     try { return typeof require === 'function' ? require('./reveal') : null; } catch (e) { return null; }
   }
 
-  /* Öğenin açılış ayarı ve onu tutan nesne: katman yığınında katman,
-     katmansız kipte bölüm (shared/reveal.js holderOf). */
-  function revealOf(layer, cfg) {
+  // Öğenin açılış ayarı katmanda
+  function revealOf(layer) {
     const R = reveal();
-    return R ? R.normalize(R.specOf(layer, cfg, stackOn(cfg)) || { type: 'none' }) : null;
+    return R ? R.normalize(R.specOf(layer) || { type: 'none' }) : null;
   }
-  function revealHolder(layer, cfg) {
-    const R = reveal();
-    return R ? R.holderOf(layer, cfg, stackOn(cfg), true) : null;
+  function revealHolder(layer) {
+    return reveal() ? layer : null;
   }
 
   // Katman hangi öğe türü (yoksa null: düzenlenemez)
@@ -302,22 +293,14 @@
        yoksa genel logoyu kullanıyor (layers.js `l.settings.logo || cfg.logo`).
        Katmana kısmi bir `{ x }` yazmak logonun kaynağını kaybettirirdi. */
     if (kind === 'logo') {
-      /* Katmansız kipte katman sentezlenmiş: `settings.logo` genel logonun
-         o anki KOPYASI, bir sonraki yapılandırmada yeniden kuruluyor. Yazılan
-         kaybolurdu (sürüklenen logo geri zıplıyordu) — kaynak genel logo. */
-      const own = stackOn(cfg) && layer.settings && layer.settings.logo;
+      const own = layer.settings && layer.settings.logo;
       if (own) return own;
       if (!cfg.logo) { if (!create) return {}; cfg.logo = {}; }
       return cfg.logo;
     }
-    const stack = stackOn(cfg);
-    if (stack) {
-      if (!layer.settings) { if (!create) return {}; layer.settings = {}; }
-      if (!layer.settings[sec]) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings[sec] = {}; }
-      return create ? layer.settings[sec] : Object.assign({}, cfg && cfg[sec], layer.settings[sec]);
-    }
-    if (!cfg[sec]) { if (!create) return {}; cfg[sec] = {}; }
-    return cfg[sec];
+    if (!layer.settings) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings = {}; }
+    if (!layer.settings[sec]) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings[sec] = {}; }
+    return create ? layer.settings[sec] : Object.assign({}, cfg && cfg[sec], layer.settings[sec]);
   }
 
   // Öğeyi normalize (dx, dy) kadar taşır; değişen bölümü döndürür
@@ -397,6 +380,89 @@
     return KINDS[kind].fallbackBox(sectionOf(layer, cfg, false), aspect);
   }
 
+  /* ÇERÇEVE DIŞI (düzen editörü). Kaynak ve web katmanı bilerek kısmen dışarı taşabiliyor
+     (alan -0,5…1,5), ama tamamen dışarı çıkan öğe ne görülüyor ne tutulabiliyordu.
+     visibleFraction: kutunun çerçeve içindeki alan oranı (0–1).
+     reachClamp: kutuyu, her eksende en az `minW` / `minH` kadarı çerçevede kalacak
+     biçimde iter (kutu bundan küçükse kutunun tamamı). Konum alanının kendi sınırı
+     ayrıca setField / moveBy'da. */
+  function visibleFraction(box) {
+    if (!box || !(box.w > 0) || !(box.h > 0)) return 0;
+    const ix = Math.max(0, Math.min(1, box.x + box.w) - Math.max(0, box.x));
+    const iy = Math.max(0, Math.min(1, box.y + box.h) - Math.max(0, box.y));
+    return (ix * iy) / (box.w * box.h);
+  }
+  function reachClamp(box, minW, minH) {
+    if (!box) return box;
+    const mw = Math.min(box.w, Math.max(0, minW || 0));
+    const mh = Math.min(box.h, Math.max(0, minH || 0));
+    return {
+      x: clamp(box.x, mw - box.w, 1 - mw),
+      y: clamp(box.y, mh - box.h, 1 - mh),
+      w: box.w,
+      h: box.h,
+    };
+  }
+  // Kutuyu sığıyorsa tamamen çerçeveye alır, sığmıyorsa ortalar ("Çerçeveye Getir")
+  function intoFrame(box) {
+    if (!box) return box;
+    const fit = (p, s) => (s >= 1 ? (1 - s) / 2 : clamp(p, 0, 1 - s));
+    return { x: fit(box.x, box.w), y: fit(box.y, box.h), w: box.w, h: box.h };
+  }
+
+  /* HİZALAMA VE DAĞITMA (düzen editörü). Kutular { id, x, y, w, h }; dönen: id → { dx, dy }.
+     Tek kutu çerçeveye, birden çok kutu seçimin sınır kutusuna hizalanır. Dağıtmada uçtaki
+     iki kutu yerinde kalır, aradakilerin boşlukları eşitlenir (en az üç kutu). Kayma öğenin
+     kendi konum alanına moveBy ile yazılır; alanın sınırı orada uygulanır. */
+  function boundsOf(boxes) {
+    const list = (boxes || []).filter((b) => b && b.w > 0 && b.h > 0);
+    if (!list.length) return null;
+    let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+    for (const b of list) {
+      x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+      x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  const ALIGN_MODES = ['left', 'hcenter', 'right', 'top', 'vcenter', 'bottom'];
+  function alignDeltas(boxes, mode) {
+    const out = {};
+    const list = (boxes || []).filter((b) => b && b.id != null && b.w > 0 && b.h > 0);
+    if (!list.length || ALIGN_MODES.indexOf(mode) < 0) return out;
+    const ref = list.length === 1 ? { x: 0, y: 0, w: 1, h: 1 } : boundsOf(list);
+    for (const b of list) {
+      let dx = 0;
+      let dy = 0;
+      if (mode === 'left') dx = ref.x - b.x;
+      else if (mode === 'hcenter') dx = ref.x + ref.w / 2 - (b.x + b.w / 2);
+      else if (mode === 'right') dx = ref.x + ref.w - (b.x + b.w);
+      else if (mode === 'top') dy = ref.y - b.y;
+      else if (mode === 'vcenter') dy = ref.y + ref.h / 2 - (b.y + b.h / 2);
+      else dy = ref.y + ref.h - (b.y + b.h);
+      out[b.id] = { dx: round(dx) || 0, dy: round(dy) || 0 };
+    }
+    return out;
+  }
+  function distributeDeltas(boxes, axis) {
+    const out = {};
+    const list = (boxes || []).filter((b) => b && b.id != null && b.w > 0 && b.h > 0);
+    if (list.length < 3) return out;
+    const p = axis === 'y' ? 'y' : 'x';
+    const s = axis === 'y' ? 'h' : 'w';
+    const sorted = list.slice().sort((a, b) => (a[p] + a[s] / 2) - (b[p] + b[s] / 2));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const total = sorted.reduce((sum, b) => sum + b[s], 0);
+    const gap = ((last[p] + last[s]) - first[p] - total) / (sorted.length - 1);
+    let at = first[p];
+    for (const b of sorted) {
+      const d = round(at - b[p]) || 0;
+      out[b.id] = p === 'y' ? { dx: 0, dy: d } : { dx: d, dy: 0 };
+      at += b[s] + gap;
+    }
+    return out;
+  }
+
   // Normalize kutu (piksel dikdörtgenden)
   function normBox(px, py, pw, ph, W, H) {
     if (!(W > 0) || !(H > 0) || !(pw > 0) || !(ph > 0)) return null;
@@ -462,7 +528,7 @@
       // Açılış animasyonu görünüşün parçası (#537); yoksa 'none' (içe aktarım temizlesin)
       const R = reveal();
       if (R) {
-        const spec = R.specOf(l, cfg, stackOn(cfg));
+        const spec = R.specOf(l);
         el.reveal = spec ? R.normalize(spec) : { type: 'none' };
       }
       elements.push(el);
@@ -589,7 +655,8 @@
 
   const api = {
     SAFE, PLATFORM_ZONES, platformZones, KINDS, canResize, resizeBy, frameGuides, elementGuides, mergeGuides, snapBox,
-    kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
+    kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox, visibleFraction, reachClamp, intoFrame,
+    boundsOf, ALIGN_MODES, alignDeltas, distributeDeltas,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
     revealOf, revealHolder,

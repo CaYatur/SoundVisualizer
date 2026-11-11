@@ -103,7 +103,7 @@ test('panel değeri paneli yeniden çizmeden güncelliyor', () => {
   assert.match(ADMIN, /getElementById\('mdMonitorVal'\)/);
   assert.match(ADMIN, /window\.SVMdMonitor = d\.mdMonitor;/);
   assert.match(PANEL, /id: 'mdMonitorVal'/);
-  const satir = /nodes\.push\(P\(\)\.row\('monitor'[\s\S]*?\)\)\);/.exec(PANEL);
+  const satir = /nodes\.push\(P\(\)\.row\('İzleme Değeri'[\s\S]*?\)\)\);/.exec(PANEL);
   assert.ok(satir, 'panelde monitor satırı yok');
   assert.match(satir[0], /'—'/, 'yazılmamış preset için tire gösterilmeli');
   assert.match(satir[0], /toFixed\(4\)/);

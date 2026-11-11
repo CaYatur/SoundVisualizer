@@ -49,8 +49,9 @@
     }
 
     // ------------------------------------------------------------- tür
-    const opts = T.TRANSITION_IDS.map((id) => ({ value: id, label: T.TRANSITIONS[id].label }));
-    nodes.push(P().segment('Tür', 'transition.type', opts, { rebuild: true }));
+    // 20 tür: düğme grubu yerine seçim kutusu, denetçide yer açılıyor
+    const opts = T.TRANSITION_IDS.map((id) => [id, T.TRANSITIONS[id].label]);
+    nodes.push(SP().miniSelect('Tür', opts, () => tr.type, (v) => { tr.type = v; }, rerender));
 
     // --------------------------------------------------------- süre / eğri
     nodes.push(SP().miniSelect('Süre Birimi', UNIT_LABELS, () => tr.unit || 'seconds', (v) => { tr.unit = v; }, rerender));
@@ -101,28 +102,21 @@
     }
 
     // ------------------------------------------------------------- deneme
-    nodes.push(el('div', { class: 'row' }, [
-      el('button', {
-        class: 'btn', type: 'button', icon: 'play', text: 'Geçişi Dene',
-        title: 'Sahneyi kendisiyle değiştirerek geçişi bir kez oynatır',
-        onclick: () => {
-          /* Sahneyi gerçekten değiştirmeden geçişi tetiklemek için katman
-             yığınına doğrudan söylüyoruz. Kullanıcının seçtiği ayarları
-             görmenin en hızlı yolu bu; sahneyi bozmadan çalışır. */
-          const prev = window.SVPreview;
-          const stack = prev && prev.stack && prev.stack();
-          if (!stack) { P().toast('Önizleme hazır değil.'); return; }
-          const cfg = P().cfg();
-          stack.beginTransition(window.SV.clone(cfg), {
-            type: tr.type,
-            duration: window.SVTransition.durationSeconds(cfg, stack.bpm || 0),
-            opts: tr.params || {},
-            ease: tr.ease,
-          });
-          stack.setConfig(cfg);
-        },
-      }),
-    ]));
+    /* Deneme yalnız paneldeki küçük önizlemede (#957): canlı çıkışa, kayda,
+       NDI/Spout'a hiç gitmiyor; iki karşıt örnek sahne arasında oynuyor. */
+    const PV = window.SVTransitionPreview;
+    if (PV) {
+      const stack = () => { const pr = window.SVPreview; return pr && pr.stack && pr.stack(); };
+      const box = PV.create(() => P().cfg().transition || tr, { bpm: () => { const st = stack(); return (st && st.bpm) || 0; } });
+      nodes.push(box);
+      nodes.push(el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn', type: 'button', icon: 'play', text: 'Geçişi Dene',
+          title: 'Geçişi ve karartmayı yalnız bu önizlemede oynatır; çıkış değişmez',
+          onclick: () => box._play(),
+        }),
+      ]));
+    }
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',

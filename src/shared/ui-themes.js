@@ -258,6 +258,8 @@
     const n = normalizeId(id);
     if (n === SYSTEM_ID) {
       if (moreContrast === true) return BY_ID.contrast;
+      /* Cihaz varsayılanı işletim sistemini izler (#957): koyu → Karanlık,
+         açık → Aydınlık. a336679'da koyu cihaz CaYaDev'e çözülüyordu. */
       return BY_ID[prefersDark === false ? 'light' : 'dark'];
     }
     return BY_ID[n];

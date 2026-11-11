@@ -188,6 +188,13 @@
   let lastDraw = 0;
   let lastRaf = 0;
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
+  /* Uyarlanır çözünürlük (#453, shared/adaptive-scale.js): kare kaçıyorsa çizim çözünürlüğü
+     basamak basamak düşer, sahne hafifleyince geri yükselir. Kullanıcının ölçeğiyle çarpılır.
+     Yalnız uygulamanın açtığı çıkış penceresinde (adresteki işaret); ölçüm araçlarında ve yayın
+     katmanında kapalı. */
+  const adaptiveHere = typeof location !== 'undefined' && /(?:\?|&)svAdaptive=1(?:&|$)/.test(location.search);
+  const adaptive = adaptiveHere && window.SVAdaptiveScale ? window.SVAdaptiveScale.create() : null;
+  let autoScale = 1;
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
   /* Çizilen kare sayısı (#545, gösteri öncesi denetim): çıkış hedef kare
@@ -197,6 +204,13 @@
   let drawFps = 0;
   let fpsMeasured = false;
   let lastSilent = false;
+  /* Yapılandırma geldiğinde en az bir kare boyanır (#template-output-lag).
+     Sessizlikte duraklat açıkken ve ses yokken çizim atlanırdı; panel
+     önizlemesi setConfig'te drawOnce + demo sesle güncellenirken açık
+     çıkış önceki karenin piksellerinde kalıyordu. Bir sonraki sahne/
+     şablon değişiminde geçiş veya ses o eski kareyi "önceki seçim" gibi
+     gösteriyordu. Bayrak, applyConfig sonrası ilk gerçek çizimde iner. */
+  let needsPaint = false;
   /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
      vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
      karesi taze ise aynı vuruş ikinci kez gitmesin. */
@@ -240,7 +254,10 @@
   /* 16 logaritmik bant, görsel bar motorunun balistiği olmadan. Masa
      sesi görür, çizimin yumuşatmasını değil. */
   function oscSpectrum(audio) {
-    if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.analysis === false) return null;
+    // WLED ses senkronu da aynı 16 bandı kullanır
+    const forOsc = !!cfg.oscOut && cfg.oscOut.enabled === true && cfg.oscOut.analysis !== false;
+    const forWled = !!cfg.wledSync && cfg.wledSync.enabled === true;
+    if (!forOsc && !forWled) return null;
     const spec = audio.rawSpectrum ? audio.rawSpectrum() : null;
     if (!spec || !spec.length || !audio.binHz) return null;
     const n = 16;
@@ -276,7 +293,7 @@
     const w = window.innerWidth;
     const h = window.innerHeight;
     // Arkaplan çözünürlük ölçeği katman yığınının tamamına uygulanır
-    const rs = clamp(cfg.power.renderScale, 0.4, 1);
+    const rs = clamp(clamp(cfg.power.renderScale, 0.4, 1) * autoScale, 0.4, 1);
     const fw = Math.round(w * dpr * rs);
     const fh = Math.round(h * dpr * rs);
 
@@ -384,7 +401,10 @@
   // --------------------------------------------------------------------------
   // Sahne
   // --------------------------------------------------------------------------
+  /* Timeline kullan modu: yalıtılmış bileşimin yığın durumu. */
+  const tlLive = {};
   function applyScene() {
+    if (window.SVTimelineCompose) window.SVTimelineCompose.resetLive(tlLive);
     analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(cfg);
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
@@ -439,20 +459,12 @@
   }
 
   function applyMedia() {
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+    /* Tekil oynatıcı hep kapalı: açık kalırsa ilk kamera iki kez istenir ve ikinci
+       katmanın aygıtı hiç açılmaz. Medyayı katmanların havuzu oynatıyor. */
+    mediaOn = Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasMediaLayer) {
-      /* Klasik tek oynatıcıyı kapat. Açık bırakılırsa ilk kamera iki kez
-         istenir ve ikinci katmanın aygıtı hiç açılmaz. */
-      mediaOn = true;
-      media.apply({ enabled: false });
-      stack.syncMedia(cfg);
-      return;
-    }
-    if (stack.syncMedia) stack.syncMedia(cfg);
-    mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
-    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
+    media.apply({ enabled: false });
+    stack.syncMedia(cfg);
   }
 
   // --------------------------------------------------------------------------
@@ -527,6 +539,14 @@
     const cap = cfg.power.fpsCap;
     const rafDt = lastRaf ? now - lastRaf : 16.7;
     lastRaf = now;
+    if (adaptive) {
+      if (cfg.power.adaptiveScale === false) {
+        if (autoScale !== 1) { adaptive.reset(); autoScale = 1; resize(); }
+      } else {
+        const next = adaptive.tick(rafDt);
+        if (next != null) { autoScale = next; resize(); }
+      }
+    }
     if (cap > 0) {
       const interval = 1000 / cap;
       frameAcc += Math.min(rafDt, interval * 2); // sekme sonrası sıçramayı sınırla
@@ -559,7 +579,7 @@
        Sahne geçişi sürerken duraklamak yok: geçiş ilerlemesini çizim
        karesi taşıyor. Karartma en çok müzik durduğunda kullanılıyor ve
        duraklama tam o anda panik düğmesini işlevsiz bırakıyordu. */
-    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans;
+    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans && !needsPaint;
     if (!silent) {
       /* SIRA BİLİNÇLİ: önce zaman çizelgesi otomasyonu TABANI yazar,
          sonra canlı modülasyon onun üstüne biner. Çizilmiş bir eğri
@@ -568,8 +588,31 @@
          çizilen eğriyi görünmez kılardı.
          Yazma kopyala-yaz: kullanıcının kayıtlı ayarına dokunulmaz. */
       let base = cfg;
-      if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
-        const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+      let showT = -1;
+      /* Durmuş çizelge canlı çıkışı sürmesin (#961): yalnız oynarken
+         (veya çıpa playing iken) otomasyon/sync yazar. Duraklatılmış
+         kafanın bir klip üzerinde durması Sahne/Şablon seçimini ezmesin. */
+      const tlDriving = !!(showAnchor && showAnchor.playing);
+      const TC = window.SVTimelineCompose;
+      if (TC && (TC.modeOn(cfg) || tlLive.on) && window.SVShowClock) {
+        /* Timeline kullan: oynarken de duraklatılmışken de çıkış oynatma
+           kafasındaki bileşim. Elle ayar (cfg) değişmez; mod kapanınca
+           yığın elle ayara geri kurulur. */
+        showT = TC.modeOn(cfg) ? window.SVShowClock.resolve(showAnchor || window.SVShowClock.idle(), Date.now()) : -1;
+        const r = TC.live(cfg, showT, tlLive);
+        base = r.cfg;
+        if (r.rebuild) {
+          analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(base);
+          stack.setConfig(base);
+          if (Array.isArray(base.layers) && base.layers.some((l) => l && l.kind === 'media' && l.enabled !== false)) stack.syncMedia(base);
+        }
+        if (r.fx) stack.setPostFX(base.postfx);
+        window.SVShowDebug.time = showT;
+        window.SVShowDebug.composed = r.restore ? null : (tlLive.active || []).slice();
+        window.SVShowDebug.black = !!tlLive.black;
+        if (r.restore) showT = -1;
+      } else if (tlDriving && cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
+        showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;
         window.SVShowDebug.time = showT;
@@ -600,7 +643,9 @@
       // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
+      if (showT >= 0 && stack.syncTimeline) stack.syncTimeline(cfg.timeline, showT);
       stack.draw(audio, mcfg, t, dt);
+      needsPaint = false;
       drawCount++;
       applyMapping(mcfg);
     }
@@ -632,7 +677,8 @@
          ya da Art-Net — onun için. Yığında MilkDrop yoksa arkaplana
          düşülüyor, ışık sönmesin. */
       const lightSrc = cfg.lighting?.paletteSource;
-      const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled;
+      const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled
+        || !!cfg.sacn?.enabled || !!cfg.wled?.enabled;
       let backgroundColors = [];
       if (lightSrc === 'milkdrop' && lightsOut) {
         backgroundColors = stack.milkdropColors(8);
@@ -664,6 +710,8 @@
            yazmıyor; panel ekranda ne olduğunu, önizleme ve diğer ekranlar
            da neyi izleyeceğini buradan öğreniyor. */
         mdPreset,
+        // Kendi geçişi olan katmanların seçimi (#905); yoksa null
+        mdLayers: stack.milkdropLayers(),
         analysis: oscAnalysis(audio),
         spectrum: oscSpectrum(audio),
       });
@@ -679,9 +727,9 @@
        sayfayı kullanıyor ama onda bu köprü yok (web-shim): OBS kaynağı değişmiyor. */
     if (window.SVLowPower && window.api.getPowerSource) cfg = window.SVLowPower.apply(cfg, onBattery);
 
-    if (!window.SVLayers || !window.SVLayers.stackOn(cfg)) {
-      sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
-    }
+    /* Sahne / şablon / kip: yığın güncellendi; sessizlik çizimi atlasa bile
+       açık ekran yeni seçimi bir karede göstersin (önizlemedeki drawOnce gibi). */
+    needsPaint = true;
     applyMedia();
     applyScene();
     applyLogo();
@@ -901,6 +949,9 @@
       });
     }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
+    if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
+    if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
     if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
     /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki
        pencerenin `t`si kendi açılışları kadar, 53 ms ayrıktı): istenir. */
@@ -988,7 +1039,7 @@
      `SVPreview.stack()` ile aynı desen. Öz test (#572) WebGL bağlamını
      buradan bulduğu katmanda bilerek kaybettirip karelerin geri geldiğini
      ölçüyor; başka türlü çizen motora ulaşmanın yolu yok. */
-  window.SVStage = { stack: () => stack };
+  window.SVStage = { stack: () => stack, autoScale: () => autoScale };
 
   init().catch((e) => showError('Başlatılamadı: ' + (e && e.message ? e.message : e)));
 })();

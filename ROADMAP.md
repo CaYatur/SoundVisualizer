@@ -30,7 +30,7 @@ decision, moves after that.
 | v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
 | v3.1.6 | Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets | 2026-10-29 | Shipped |
 | **v3.1.7** | **Fixes and performance: half the memory, background shader compiles, low-power mode, a preset per MilkDrop layer, GPU export on Linux** | **2026-11-03** | **Current** |
-| v4.0.0 | New core and interface: one document model, one settings schema, layer-owned engines, rebuilt panel | — | Planned |
+| v4.0.0 | New core and interface: every scene a layer list, MilkDrop layers that run on their own, rebuilt panel | — | In testing, not released |
 | After v4.0.0 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
@@ -77,7 +77,7 @@ decision, moves after that.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net. v3.1.6: twelve formats including alpha, 10-bit and PNG/EXR sequences, about 3× faster, profiles, a queue, chapters, and BT.709 colours that match the screen |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **3832** unit tests on `main` (3785 at v3.1.7) + a GPU self-test over every engine (3666 at v3.1.6, 2999 at v3.1.5, 1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **3785** unit tests at v3.1.7 + a GPU self-test over every engine (3666 at v3.1.6, 2999 at v3.1.5, 1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | ✅ | Shipped in v3.1.0: tracks, clips, automation lanes, markers, one shared transport. v3.1.5 (#636): a DAW-style editor with undo, split, duplicate and solo, multi-select with box selection, a loop brace, fade handles, tempo changes on the ruler, and media clips with a target. v3.1.6: YouTube chapters written from the markers |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | ✅ | Shipped in v3.1.0: sparse grid, beat-quantised launch, follow actions, performance view. v3.1.5 (#637): several decks, trigger/toggle/gate launch modes, keyboard play, drag and drop, video, image and shader slots on a chosen layer, and action slots |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -89,7 +89,7 @@ decision, moves after that.
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux. v3.1.6 adds input: another application's sender becomes a layer. Spout input was measured on Windows; Syphon input has never received a picture on a Mac |
 | Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles. v3.1.5: a layer kind of its own, cover fit modes and music video cards |
 | Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
-| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default. v3.1.6: 97 tools |
+| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default. v3.1.6: 97 tools; v4: 106 (timeline editing, layer duplicate, lyrics library) |
 | In-app updates | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.5: checks GitHub Releases and notifies by default; the Windows installer and the AppImage install in place only when the size and SHA-256 match. Off sends no request |
 | Web page layer | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.6 (#866): any web page as a layer, in its own sandboxed session that cannot reach the app, files, camera, microphone or the local network unless that address was typed; placed and resized in the layout editor |
 | Interface themes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **8** | **8** | Shipped in v3.1.6 (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon, contrast tested in every theme; Interface Size 90–150% and Reduce Motion |
@@ -107,7 +107,7 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| New core and interface | v4.0.0 | Planned: one document model, one settings schema, layer-owned engines, rebuilt panel. The clickable interface design is approved. See the v4.0.0 section |
+| New core and interface | v4.0.0 | In testing: every scene a layer list, MilkDrop layers that run on their own, rebuilt panel. The clickable interface design was approved first. See the v4.0.0 section |
 | Video project view and video wizard | After v4.0.0 | Planned (music video studio, phase 1), with mix videos from a track list |
 | Song sections and an edit that follows them | After v4.0.0 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
 | Kinetic lyric styles, podcast and audiogram templates | After v4.0.0 | Planned (phase 3) |
@@ -153,12 +153,12 @@ npm test
 npm start -- --smoke
 ```
 
-- **3832 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **4388 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
   more with v3.1.6 — 3666 at that tag — and 119
-  more with v3.1.7 — 3785 at that tag — and 47 more since.
+  more with v3.1.7 — 3785 at that tag — and 385 on `dev/v4` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -3304,13 +3304,13 @@ change, by area, is in [CHANGELOG.md](CHANGELOG.md).
 | Tools for music videos and short video | "Additions for music videos and short video" |
 | Broadcast layout editor | "Broadcast layout editor" |
 | Redundancy, failover, frame sync and the network audio bridge | "Redundancy, failover and frame sync", [docs/REDUNDANCY.md](docs/REDUNDANCY.md), [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
-| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets](presets/README.md) |
+| 60 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets](presets/README.md) |
 | Spout/Syphon input and web page layers | "Spout/Syphon input and web page layers" below |
 | Readability, Electron 44 and two packaged Windows crashes | "Also in v3.1.6" below |
 
 ### CaYaDev MilkDrop presets (#825) · done
 
-56 presets of our own, built into the app and also attached to the release as a zip with a picture
+60 presets of our own, built into the app and also attached to the release as a zip with a picture
 of each, under CC BY 4.0 with the attribution "CaYaDev". Ten of them are for MilkDrop 3. Each one
 was compared with MilkDrop 2 itself through the reference renderer, run for 90 s without fading,
 blowing out or freezing, checked at 60 and 144 Hz, and held 60 fps at 1080p on an entry-level
@@ -3838,9 +3838,59 @@ identical to v3.1.6, frame by frame, with a control run of the same build also a
   here; see "Shipped, but never run on real hardware".
 - **`npm run perf`** (#910), to measure a real setup and compare runs.
 
-## v4.0.0 — New core and interface · planned
+## v4.0.0 — New core and interface · in testing, not released
 
-Tracked in #905. Work happens on a separate `dev/v4` branch, so `main` stays releasable.
+Tracked in #905. Work happened on a separate `dev/v4` branch.
+
+### Where it stands
+
+Measured on the development machine against v3.1.7. The Radeon 610M numbers and the two-core limit are
+the closest available stand-ins for the minimum target; no real low-end machine has run v4 yet.
+
+| Target | v3.1.7 | v4 | Result |
+|---|---|---|---|
+| Frames over 100 ms in a real scene | 6-7 | 0 | Met |
+| Total memory, real scene, 10,392 presets (≤1.2 GB) | 3.0 GB | 1.2 GB | Met narrowly |
+| Real scene with main thread slowed 4 times (≥30 fps) | 7.8 fps | 46 fps | Met |
+| Preview's added panel CPU (≤15%) | 55-60% | 11-16% | Met or close |
+| Longest output frame on a full settings send, slowed 4 times (≤30 ms) | not measured | 13.5 ms | Met |
+| Output window open, median (≤300 ms) | 646 ms | 553 ms | Better, target not met |
+| Output window open, two logical cores | 1161 ms | 1072 ms | Better |
+| Longest frame on a Studio preset change (≤33 ms) | 680 ms | 40 ms | Near |
+| Empty scene total CPU (≤25%) | 58% | 36-42% | Better, target not met |
+
+What changed from the plan:
+
+- **No worker compositor.** Stage 2 planned one GL compositor in a worker. Measured on real scenes it gave
+  no gain worth its limits (four WebGL contexts per worker), so live drawing stays on the page. It can be
+  reopened if a measurement calls for it.
+- **The settings schema is not the single source yet.** Slider limits come from one schema. The panel,
+  MCP and OSC still declare their own controls.
+- **Stage 4 and 5 are partly done.** See the v4 notes in #905 for what ran on real hardware. macOS has not
+  been run at all.
+
+### Added in November (#994 onward)
+
+Closing gaps against other VJ and music-visualizer software, and the slowdowns reported in daily use. Every row was
+measured in the real application; the numbers are from the development machine.
+
+| Area | What | Measured |
+|---|---|---|
+| Live | T-bar on the Live page: hand-mixed scene transition, held blend, undo by pulling back; `show/tbar` for OSC / Companion | Output colour followed the bar: 30 % → 184/0/71, 70 % → 76/1/181, back to start → first scene unchanged |
+| Live | Scenes with the same layers now transition (manual scene changes counted) | Previously a cut |
+| Live | Cued monitor shows a picture for a scene that has never been live: its MilkDrop preset's, or a rendered preview of its top layer | Previously only a text summary |
+| Studio | Multi-pass shaders (buffers A–D), ISF `PASSES` imported as passes, Ink Flow | Golden: 83/83 templates unchanged |
+| Media | Video speed, in/out points, beat-locked loop, live scrub | 2× → +0.51 s per 250 ms; 4-beat loop at 120 BPM restarts every 2 s |
+| Remote | Phone remote rebuilt in the panel's design; protocol documented (`docs/REMOTE-PROTOCOL.md`) | LAN with a required token: page 401 without, 200 with; commands applied |
+| Performance | Adaptive resolution | Eight-layer scene, 2560×1600, 75 Hz: 56.4 → 72.4 fps |
+| Performance | Panel stalls while editing removed | Slider drag 33.6 → 59.6 fps, opacity drag 37 → 74 fps, layer clicks 52 → 64 fps |
+| Performance | MilkDrop no longer dims at a resolution step (flash limiter's previous frame carried) | 68 → 10…75 before, 73.3 → 73.7 after |
+| Performance | Galaxy colours per ring | 3.0 → 0.41 ms per frame at 1080p |
+| Content | 10 visualizer modes, 8 backgrounds, 4 MilkDrop presets; mode previews no longer empty | — |
+
+Not taken, on purpose: NDI (licence decision), a central preset store (the app contacts no server), WebGPU (a
+rewrite for no visible gain) and a continuously rendered Cued monitor (a second engine on the same GPU takes
+frames from the live output). See "Not done, and why".
 
 ### What the review found
 

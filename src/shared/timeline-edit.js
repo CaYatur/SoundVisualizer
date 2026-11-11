@@ -178,6 +178,26 @@
      kimlikle dönüyor. Sağ parçanın kırpma başı ilerliyor: bir video klibi
      bölününce ikinci yarı kaldığı yerden sürmeli, baştan başlamamalı.
      Parçalardan biri en kısa süreden kısa kalacaksa bölünmüyor (null). */
+  /* Klip yerel kopyası (Timeline kullan, klip düzenleme) kopyalanan klipte
+     DERİN kopyalanır ve katman kimlikleri yenilenir: iki örnek aynı nesneyi
+     paylaşırsa birini düzenlemek ötekini de değiştirirdi. */
+  let isoSeq = 0;
+  function isolateLocal(copy) {
+    if (!copy || !copy.local || !copy.local.data) return copy;
+    copy.local = JSON.parse(JSON.stringify(copy.local));
+    const layers = Array.isArray(copy.local.data.layers) ? copy.local.data.layers : [];
+    const map = {};
+    for (const l of layers) {
+      if (!l) continue;
+      isoSeq = (isoSeq + 1) % 0x7fffffff;
+      const nid = 'ly_' + Date.now().toString(36) + '_' + isoSeq.toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
+      if (l.id) map[l.id] = nid;
+      l.id = nid;
+    }
+    for (const l of layers) if (l && l.mask && map[l.mask.from]) l.mask.from = map[l.mask.from];
+    return copy;
+  }
+
   function splitClip(clip, t) {
     if (!clip) return null;
     t = num(t, NaN);
@@ -191,6 +211,7 @@
       inPoint: num(clip.inPoint, 0) + leftDur * (num(clip.speed, 1) || 1),
     }));
     if (clip.color) right.color = clip.color;
+    isolateLocal(right);
     clip.dur = leftDur;
     return right;
   }
@@ -201,14 +222,14 @@
   function duplicateClip(clip) {
     const copy = TL().makeClip(Object.assign({}, clip, { id: undefined, start: clip.start + clip.dur }));
     if (clip.color) copy.color = clip.color;
-    return copy;
+    return isolateLocal(copy);
   }
 
   // Panodan yapıştırma: verilen başlangıçta, yeni kimlikle
   function pasteClip(clip, at) {
     const copy = TL().makeClip(Object.assign({}, clip, { id: undefined, start: Math.max(0, num(at, 0)) }));
     if (clip.color) copy.color = clip.color;
-    return copy;
+    return isolateLocal(copy);
   }
 
   function sortClips(track) {
@@ -247,35 +268,67 @@
     return Math.max(num(delta, 0), -Math.min.apply(null, starts));
   }
 
-  /* Kopyalama: her klip grubun başına ve ilk şeridine göre konumuyla.
-     `picked`: [{ trackIndex, clip }]. */
-  function copyGroup(picked) {
+  /* ÇOK PARÇALI KOPYALA / YAPIŞTIR. Şerit farkı KLİP PARÇALARI arasında sayılıyor
+     (otomasyon parçaları atlanır): eskiden ham sıra farkı tutuluyordu, arada bir otomasyon
+     parçası varsa ya da yapıştırma tabanı farklı bir yerdeyse göreli şerit "uygun değil"
+     sayılıp klip taban şeride düşüyordu. Farklı parçalardaki klipler tek şeride yığılıyor,
+     sıraları ve aralıkları bozuluyordu.
+
+     Çapa: en üstteki klip parçası ve en erken başlangıç. Her klip çapaya göre şerit ve
+     zaman farkını korur. Hedef son klip parçasının ötesine taşarsa sona YENİ klip parçaları
+     eklenir (sıra hiç değişmez, sıkıştırılmaz). Hedeflerden biri kilitliyse yapıştırma
+     bütünüyle yapılmaz (boş liste): bir kısmını yapıştırıp kalanı kaydırmak grubun biçimini
+     bozardı.
+
+     `picked`: [{ trackIndex, clip }], `tl` verilirse şerit farkı klip parçası sırasıyla. */
+  function clipOrdinals(tl) {
+    const out = [];
+    ((tl && tl.tracks) || []).forEach((t, i) => { if (t && t.kind === 'clip') out.push(i); });
+    return out;
+  }
+  function copyGroup(picked, tl) {
     if (!picked || !picked.length) return null;
-    const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
+    const ords = tl ? clipOrdinals(tl) : null;
+    const lane = (i) => (ords && ords.indexOf(i) >= 0 ? ords.indexOf(i) : i);
+    const base = Math.min.apply(null, picked.map((p) => lane(p.trackIndex)));
     const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
     const t1 = Math.max.apply(null, picked.map((p) => p.clip.start + p.clip.dur));
-    return {
-      span: t1 - t0,
-      items: picked.map((p) => ({ dTrack: p.trackIndex - base, dStart: p.clip.start - t0, clip: JSON.parse(JSON.stringify(p.clip)) })),
-    };
+    const items = picked.map((p) => ({ dTrack: lane(p.trackIndex) - base, dStart: p.clip.start - t0, clip: JSON.parse(JSON.stringify(p.clip)) }));
+    // Belirli sıra: şerit, sonra başlangıç (seçim sırası sonucu değiştirmesin)
+    items.sort((a, b) => a.dTrack - b.dTrack || a.dStart - b.dStart);
+    return { span: t1 - t0, lanes: 'clip', items };
   }
 
-  /* Yapıştırma: grup `at` anına ve `baseIndex` şeridine. Göreli şerit bir
-     klip parçası değilse (ya da yoksa) klip taban şeride düşüyor; kaybolmuyor.
-     Dönen: [{ trackIndex, clip }] — yeni kimliklerle. */
+  /* Yapıştırma: grup `at` anına, `baseIndex` şeridinin klip sırasından başlayarak.
+     Dönen: [{ trackIndex, clip }] — yeni kimliklerle; gerekirse tl.tracks sonuna klip
+     parçası eklenmiş olur. Kilitli hedef: []. */
   function pasteGroup(tl, board, at, baseIndex) {
-    if (!board || !board.items) return [];
-    const tracks = (tl && tl.tracks) || [];
-    const okTrack = (i) => tracks[i] && tracks[i].kind === 'clip' && !tracks[i].locked;
-    return board.items.map((it) => {
-      const want = baseIndex + it.dTrack;
-      return { trackIndex: okTrack(want) ? want : baseIndex, clip: pasteClip(it.clip, Math.max(0, num(at, 0)) + it.dStart) };
-    });
+    if (!board || !board.items || !tl) return [];
+    if (!Array.isArray(tl.tracks)) tl.tracks = [];
+    const ords = clipOrdinals(tl);
+    let baseOrd = ords.indexOf(baseIndex);
+    if (baseOrd < 0) {
+      // Taban klip parçası değil: ondan sonraki ilk klip parçası, yoksa sona eklenecek olan
+      baseOrd = ords.filter((i) => i < baseIndex).length;
+    }
+    const need = baseOrd + Math.max.apply(null, board.items.map((it) => it.dTrack));
+    for (let k = 0; k <= need; k++) {
+      const i = ords[k];
+      if (i != null && tl.tracks[i].locked && board.items.some((it) => baseOrd + it.dTrack === k)) return [];
+    }
+    const T = TL();
+    while (ords.length <= need) {
+      const trk = T && T.makeTrack ? T.makeTrack({ kind: 'clip' }) : { id: 'trk_' + Date.now().toString(36) + ords.length, kind: 'clip', name: 'Parça', clips: [] };
+      tl.tracks.push(trk);
+      ords.push(tl.tracks.length - 1);
+    }
+    const t = Math.max(0, num(at, 0));
+    return board.items.map((it) => ({ trackIndex: ords[baseOrd + it.dTrack], clip: pasteClip(it.clip, t + it.dStart) }));
   }
 
   // Grubu çoğalt: kopyalar grubun hemen ardına, aynı şeritlere
   function duplicateGroup(tl, picked) {
-    const board = copyGroup(picked);
+    const board = copyGroup(picked, tl);
     if (!board) return [];
     const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
     const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
@@ -288,6 +341,8 @@
   function gridStep(tempo, mode, fps, at) {
     const T = TL();
     if (mode === 'frame') return 1 / Math.max(1, num(fps, 60));
+    if (mode === '1s') return 1;
+    if (mode === '0.5s') return 0.5;
     if (mode === 'off' || !T) return 0.1;
     const beat = { beat: 1, half: 0.5, quarter: 0.25 }[mode];
     const t = Math.max(0, num(at, 0));
@@ -313,6 +368,7 @@
   // ==========================================================================
   /* Tür başına varsayılan renk: tuvalde türler renginden ayırt edilsin.
      Klibin kendi rengi, yoksa parçanın rengi, yoksa bu. */
+  const SCENE_TINTS = ['#a8843f', '#4f79ad', '#b0524f', '#7560b5', '#3f9272', '#a15a7e', '#5a8f9e', '#8a7a4f'];
   const TYPE_COLORS = {
     scene: '#4f8cff',
     preset: '#a970ff',
@@ -326,10 +382,148 @@
     const ok = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
     if (clip && ok(clip.color)) return clip.color;
     if (track && ok(track.color)) return track.color;
+    /* Sahne klipleri birbirinden ayrılsın: aynı sahne hep aynı ton. */
+    if (clip && clip.type === 'scene' && clip.ref) {
+      let h = 0;
+      for (const ch of String(clip.ref)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      return SCENE_TINTS[Math.abs(h) % SCENE_TINTS.length];
+    }
     return TYPE_COLORS[clip && clip.type] || TYPE_COLORS.scene;
   }
 
+
+  // --------------------------------------------------------------------------
+  // NLE düzenleme yardımcıları (#957): parçalar arası taşıma, mıknatıslı
+  // yakalama, otomasyon hedef bilgisi ve kayıt
+  // --------------------------------------------------------------------------
+
+  /* Klibi başka bir parçaya taşı. Yalnız klip parçaları uyumlu; otomasyon
+     parçası klip almaz. Kilitli hedef reddediliyor. Hedef sıra parça
+     sayısına eşitse (son parçanın altı) yeni bir klip parçası açılıyor;
+     `makeTrack` verilmediyse açılamaz. Dönen: taşındığı parça ya da null. */
+  function moveClipToTrack(tl, clip, toIndex, makeTrack) {
+    if (!tl || !Array.isArray(tl.tracks) || !clip) return null;
+    const from = tl.tracks.find((t) => t.kind === 'clip' && Array.isArray(t.clips) && t.clips.indexOf(clip) >= 0);
+    if (!from || from.locked) return null;
+    let to = tl.tracks[toIndex];
+    if (!to) {
+      if (toIndex !== tl.tracks.length || typeof makeTrack !== 'function') return null;
+      to = makeTrack();
+      if (!to) return null;
+      tl.tracks.push(to);
+    }
+    if (to.kind !== 'clip' || to.locked) return null;
+    if (to === from) return from;
+    from.clips.splice(from.clips.indexOf(clip), 1);
+    to.clips.push(clip);
+    sortClips(to);
+    return to;
+  }
+
+  /* Komşu klip parçası: `dir` -1 yukarı, +1 aşağı; araya giren otomasyon
+     ve kilitli parçalar atlanıyor. Yoksa -1. */
+  function adjacentClipTrack(tl, index, dir) {
+    if (!tl || !Array.isArray(tl.tracks)) return -1;
+    for (let i = index + dir; i >= 0 && i < tl.tracks.length; i += dir) {
+      const t = tl.tracks[i];
+      if (t.kind === 'clip' && !t.locked) return i;
+    }
+    return -1;
+  }
+
+  /* Mıknatıslı yakalama: `t` bir adayın `tol` saniye yakınındaysa ona
+     oturur. Adaylar klip kenarları, işaretler, oynatma kafası. En yakın
+     aday kazanıyor; hiçbiri yakın değilse null. */
+  function magnetSnap(t, candidates, tol) {
+    let best = null;
+    let bd = tol;
+    for (const c of candidates || []) {
+      if (!isFinite(c)) continue;
+      const d = Math.abs(c - t);
+      if (d <= bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  // Bir parça dışındaki kliplerin kenarları, işaretler ve kafa
+  function snapCandidates(tl, playhead, skipClips) {
+    const out = [];
+    const skip = skipClips || [];
+    for (const trk of (tl && tl.tracks) || []) {
+      if (trk.kind !== 'clip') continue;
+      for (const c of trk.clips) {
+        if (skip.indexOf(c) >= 0) continue;
+        out.push(c.start, c.start + c.dur);
+      }
+    }
+    for (const m of (tl && tl.markers) || []) out.push(m.t);
+    if (isFinite(playhead)) out.push(playhead);
+    return out;
+  }
+
+  /* Otomasyon hedefinin okunur bilgisi: katalogdaki ad, grup ve aralık.
+     Katalogda yoksa yolun son parçası ad; aralık mevcut değerden. */
+  function targetInfo(catalog, path, current) {
+    const cat = Array.isArray(catalog) ? catalog : [];
+    const hit = cat.find((c) => c.path === path);
+    let min;
+    let max;
+    if (hit && hit.min != null && hit.max != null) { min = hit.min; max = hit.max; }
+    else {
+      const v = typeof current === 'number' && isFinite(current) ? current : 1;
+      if (v >= 0 && v <= 1) { min = 0; max = 1; }
+      else { const span = Math.max(1, Math.abs(v) * 2); min = v - span; max = v + span; }
+    }
+    const last = String(path || '').split('.').pop();
+    return { path, label: hit ? hit.label : last, group: hit ? hit.group : '', min, max, known: !!hit };
+  }
+
+  // Aramada eşleşen hedefler: ad, grup ya da yol, büyük/küçük harf ve Türkçe i duyarsız
+  function filterTargets(catalog, q) {
+    const norm = (s) => String(s || '').toLocaleLowerCase('tr');
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    return (catalog || []).filter((c) => {
+      const hay = norm(c.group + ' ' + (c.sub || '') + ' ' + c.label + ' ' + (c.keys || '') + ' ' + c.path);
+      return words.every((w) => hay.indexOf(w) >= 0);
+    });
+  }
+
+  /* Kayıt: gerçek değeri 0..1'e çevirip anahtara yaz. Son anahtara `gap`
+     saniyeden yakınsa onu güncelliyor; nokta yağmuru olmuyor. */
+  function recordKey(trk, t, value, gap) {
+    if (!trk || !Array.isArray(trk.keys)) return null;
+    const span = trk.max - trk.min;
+    const v = span ? Math.max(0, Math.min(1, (value - trk.min) / span)) : 0;
+    const g = gap == null ? 0.1 : gap;
+    const near = trk.keys.find((k) => Math.abs(k.t - t) < g);
+    if (near) { near.v = v; return near; }
+    const k = { t: Math.max(0, t), v, curve: 'linear' };
+    trk.keys.push(k);
+    trk.keys.sort((a, b) => a.t - b.t);
+    return k;
+  }
+
+  // Birden çok şerit aynı hedefi sürüyorsa: sonuncusu kazanır, diğerleri uyarı alır
+  function duplicateTargets(tl) {
+    const seen = {};
+    const dup = new Set();
+    for (const t of (tl && tl.tracks) || []) {
+      if (t.kind !== 'automation' || !t.target) continue;
+      if (seen[t.target]) { dup.add(seen[t.target]); dup.add(t.id); }
+      seen[t.target] = t.id;
+    }
+    return dup;
+  }
+
   const api = {
+    moveClipToTrack,
+    adjacentClipTrack,
+    magnetSnap,
+    snapCandidates,
+    targetInfo,
+    filterTargets,
+    recordKey,
+    duplicateTargets,
     History,
     snapshot,
     restore,

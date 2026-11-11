@@ -144,14 +144,11 @@ test('katman panosu: yığın açıkken en üstte tek şeffaf arkaplan anahtarı
   assert.ok(i > 0, 'layersPanel bulunamadı');
   const end = src.indexOf('function effectsPanel(', i);
   const body = src.slice(i, end > i ? end : i + 8000);
-  const stackRow = body.indexOf("Katman Yığınını Kullan");
-  const stackClass = body.indexOf("layer-stack-toggle");
   const transRow = body.indexOf("P().row('Şeffaf Arkaplan'");
-  assert.ok(stackRow > 0, 'yığın anahtarı yok');
-  assert.ok(stackClass > 0, 'yığın anahtarı layer-stack-toggle ile işaretli olmalı');
-  assert.ok(transRow > stackRow, 'şeffaf arkaplan anahtarı yığın anahtarından sonra, listenin üstünde olmalı');
-  const assign = body.indexOf('cfg.background.transparent = v');
-  assert.ok(assign > stackRow, 'anahtar kök background.transparent yazmıyor');
+  const listStart = body.indexOf('if (!list.length');
+  assert.ok(transRow > 0, 'şeffaf arkaplan anahtarı yok');
+  assert.ok(transRow < listStart, 'şeffaf arkaplan anahtarı listenin üstünde olmalı');
+  assert.ok(body.indexOf('cfg.background.transparent = v') > 0, 'anahtar kök background.transparent yazmıyor');
 });
 
 test('Spout/Syphon şeffaf arkaplanı kapalı tutar, GPU yayını bozulmaz', () => {
@@ -179,14 +176,11 @@ test('şeffaf tam ekran: coverTaskbar workArea vs bounds', () => {
   assert.match(src, /wantsRaiseAboveShell/);
   assert.match(src, /applyVisualizerRects/);
   assert.match(read('src/shared/defaults.js'), /coverTaskbar:\s*false/);
-  const admin = read('src/admin/admin.js');
-  assert.match(admin, /path: 'background\.coverTaskbar'/);
-  assert.match(admin, /Tam Ekran \(Görev Çubuğu Dahil\)/);
   const scene = read('src/admin/scene-panels.js');
   assert.match(scene, /coverTaskbar/);
   assert.match(scene, /Tam Ekran \(Görev Çubuğu Dahil\)/);
   assert.match(read('src/shared/templates.js'), /keepCover/);
-  assert.match(admin, /keepCover/);
+  assert.match(read('src/admin/admin.js'), /keepCover/);
 });
 
 test('panel: coverTaskbar etiketleri iki dilde', () => {
@@ -196,15 +190,6 @@ test('panel: coverTaskbar etiketleri iki dilde', () => {
   assert.ok(!/Görev Çubuğu Dahil':\s*'[^']*[çğıöşüÇĞİÖŞÜ]/.test(dictSrc), 'EN çevirisi Türkçe kalmış');
 });
 
-test('Background card: transparent toggle rebuilds so coverTaskbar shows', () => {
-  const admin = read('src/admin/admin.js');
-  /* Layers path rebuilds its panel on each paint; the Background settings
-     card only re-evaluates show() after render(). Without rebuild:true on
-     background.transparent, coverTaskbar stayed hidden until another control
-     forced a redraw. */
-  assert.match(admin, /path: 'background\.transparent'[\s\S]*?rebuild:\s*true/);
-  assert.match(admin, /path: 'background\.coverTaskbar'[\s\S]*?show:\s*\(\)\s*=>\s*!!cfg\.background\.transparent/);
-});
 
 test('coverTaskbar: live apply on transparent/cover change and after recreate', () => {
   const src = read('src/main/main.js');
@@ -244,15 +229,15 @@ test('panel: eşik kaydırıcısı ve notlar iki dilde', () => {
   let m;
   while ((m = re.exec(body))) dict.set(norm(m[1]), m[2]);
 
-  const admin = read('src/admin/admin.js');
-  const i = admin.indexOf("path: 'background.transparent'");
+  const panel = read('src/admin/scene-panels.js');
+  const i = panel.indexOf("P().row('Şeffaf Arkaplan'");
   assert.ok(i > 0, 'şeffaf arkaplan denetimi bulunamadı');
-  const block = admin.slice(i, i + 1600);
-  assert.match(block, /path: 'background\.transparentKey'/);
+  const block = panel.slice(i, i + 2200);
+  assert.match(block, /'background\.transparentKey'/);
   const texts = [];
   const tre = /(?:label|text): '((?:[^'\\]|\\.)*)'/g;
   while ((m = tre.exec(block))) texts.push(m[1]);
-  assert.ok(texts.length >= 4, 'beklenen metinler okunamadı: ' + texts.length);
+  assert.ok(texts.length >= 2, 'beklenen metinler okunamadı: ' + texts.length);
   for (const s of texts) {
     const en = dict.get(norm(s));
     assert.ok(en, 'sözlükte yok: ' + s.slice(0, 70));

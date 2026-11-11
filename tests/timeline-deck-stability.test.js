@@ -47,7 +47,7 @@ function el(tag, props, kids) {
     n.height = 0;
     n.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 200 });
     // Her çizim çağrısını yutan bağlam
-    n.getContext = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+    n.getContext = () => new Proxy({ createLinearGradient: () => ({ addColorStop() {} }), measureText: () => ({ width: 40 }) }, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
   }
   (kids || []).forEach((c) => c && n.appendChild(c));
   return n;
@@ -76,6 +76,7 @@ function setupPanel(cfg) {
   window.SVPanel = {
     cfg: () => cfg, el,
     row: (label, node) => el('div', { class: 'row' }, [el('label', { text: label }), node]),
+    moduleHead: (o) => el('div', { class: 'sv-module' }, [el('button', { class: 'sv-module-act', text: o.on ? (o.stop || 'Durdur') : (o.start || 'Başlat'), onclick: () => o.toggle(!o.on) })]),
     push() { calls.push++; }, apply() { calls.apply++; }, rerender() { calls.rerender++; },
     confirm: () => Promise.resolve(true), toast() {}, actions: () => ({ applyScene() {} }),
   };

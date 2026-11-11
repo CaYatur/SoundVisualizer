@@ -32,31 +32,35 @@
    ve dosya işi main.js'te. */
 const path = require('path');
 
-// layers.js stackOn ile aynı kural: anahtar yoksa katman listesi belirler
-function stackOnCfg(cfg) {
-  const s = cfg && cfg.layerStack;
-  if (s && typeof s.enabled === 'boolean') return s.enabled;
-  return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-}
-
 // Sahnede dışa aktarıma girecek video dosyaları: cfg değerleri (URL ya da yol)
 function mediaFiles(cfg) {
-  const stackOn = stackOnCfg(cfg);
   const out = [];
   const add = (m) => {
     if (!m || m.source !== 'file' || !m.file || typeof m.file !== 'string') return;
     if (out.indexOf(m.file) < 0) out.push(m.file);
   };
   if (!cfg) return out;
-  if (stackOn) {
-    (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((l) => {
-      if (!l || l.kind !== 'media' || l.enabled === false || l.muted) return;
-      add(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {}));
-    });
-  } else if (cfg.media && cfg.media.enabled) {
-    add(cfg.media);
-  }
+  (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((l) => {
+    if (!l || l.kind !== 'media' || l.enabled === false || l.muted) return;
+    add(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {}));
+  });
   return out;
+}
+
+/* İşte gerçekten kullanılabilecek klip videoları da hazırlanır. Elle video
+   yalnız çizelge eklenmiyorsa alınır; kaynak/kopya hiçbir zaman değiştirilmez. */
+function jobMediaFiles(cfg) {
+  const C = require('../shared/timeline-compose');
+  const T = require('../shared/timeline');
+  const manual = C.exportConfig(cfg);
+  if (!C.exportEnabled(manual)) return mediaFiles(manual);
+  const tl = T.makeTimeline(manual.timeline);
+  const files = new Set();
+  for (const track of tl.tracks) for (const clip of (track.clips || [])) {
+    const frame = C.composeAt(manual, tl, clip.start).cfg;
+    for (const unit of frame.timelineComposition.units) for (const f of mediaFiles(unit.cfg)) files.add(f);
+  }
+  return Array.from(files);
 }
 
 /* ffmpeg'in `-i` çıktısından saydamlık: piksel biçiminde alfa (yuva, rgba,
@@ -87,4 +91,4 @@ function tempName(dir, i) {
   return path.join(dir, 'media-' + i + '.mp4');
 }
 
-module.exports = { mediaFiles, hasAlpha, transcodeArgs, tempName, stackOnCfg };
+module.exports = { mediaFiles, jobMediaFiles, hasAlpha, transcodeArgs, tempName };

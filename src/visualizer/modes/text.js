@@ -405,36 +405,41 @@
         /* Karaoke: satır tek parça çizilmez. Söylenen kelimeler vurgu
            renginde, gelecek kelimeler sönük. Tek fillText iki renk veremez.
            Satır kutuya sığmıyorsa kelimeler birlikte kırpılıp kayar. */
-        const parts = words.map((w) => w.text);
-        /* Uzatılan hece (#938): etkin kelime uzun tutuluyorsa (süresi eşikten
-           uzun) yatayda esner. Katman başına isteğe bağlı; kapalıyken
-           genişlikler eskisiyle aynı. */
+        /* Uzatılan hece (#938): ses analizi yok — süre LRC damgalarından.
+           Eşik aşılınca son sesli harf çoğalır (love → loooove). Kapalıyken
+           veya kısa kelimelerde metin eskisiyle aynı. */
         const holdOn = T.karaokeHold === true;
         const holdMin = T.karaokeHoldMin == null ? 0.6 : T.karaokeHoldMin;
         const holdAmt = T.karaokeHoldAmount == null ? 0.25 : T.karaokeHoldAmount;
-        const stretch = parts.map((p, i) => {
-          if (!holdOn || i !== wordIndex) return 1;
-          const w = words[i];
-          const dur = (w.end != null ? w.end : w.t) - w.t;
-          return dur >= holdMin ? 1 + holdAmt * Math.sin(Math.min(1, wordProgress) * Math.PI * 0.5) : 1;
+        const stretchFn = window.SVLyrics && window.SVLyrics.stretchHeldVowel;
+        const parts = words.map((w, i) => {
+          const raw = w.text;
+          if (!holdOn || i !== wordIndex || !stretchFn) return raw;
+          const dur = Math.max(0, (w.end != null && w.end > w.t ? w.end : w.t) - w.t);
+          return stretchFn(raw, dur, wordProgress, { minDuration: holdMin, amount: holdAmt });
         });
-        const widths = parts.map((p, i) => ctx.measureText(p).width * stretch[i]);
+        const widths = parts.map((p) => ctx.measureText(p).width);
         const total = widths.reduce((s, w) => s + w, 0);
         /* Dolum: 'word' (eski: kelime bir anda yanar) ya da 'progressive'
-           (etkin kelime süresi boyunca soldan sağa dolar). */
-        const progressive = T.karaokeFill === 'progressive';
+           (etkin kelime süresi boyunca soldan sağa dolar). Varsayılan akan. */
+        const progressive = T.karaokeFill !== 'word';
         const paintWords = (origin) => {
           let x = origin;
           for (let i = 0; i < parts.length; i++) {
             const sung = i <= wordIndex;
             const dy = jitter * Math.sin(i * 1.7 + t * 9);
-            const sx = stretch[i];
+            /* Tutulan notada hafif nabız — harf tekrarı asıl ipucu. */
+            let pulse = 1;
+            if (holdOn && i === wordIndex && words[i]) {
+              const dur = Math.max(0, (words[i].end != null && words[i].end > words[i].t ? words[i].end : words[i].t) - words[i].t);
+              if (dur >= holdMin) pulse = 1 + 0.04 * Math.sin(t * 8 + wordProgress * Math.PI);
+            }
             const paint = (fill) => {
-              if (sx === 1) { drawOne(parts[i], x, dy, fill); return; }
+              if (pulse === 1) { drawOne(parts[i], x, dy, fill); return; }
               ctx.save();
-              ctx.translate(x, 0);
-              ctx.scale(sx, 1);
-              drawOne(parts[i], 0, dy, fill);
+              ctx.translate(x + widths[i] / 2, dy);
+              ctx.scale(pulse, pulse);
+              drawOne(parts[i], -widths[i] / 2, 0, fill);
               ctx.restore();
             };
             if (progressive && i === wordIndex && wordProgress < 1) {

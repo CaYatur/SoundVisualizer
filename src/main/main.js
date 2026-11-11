@@ -18,7 +18,11 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
+const sacn = require('./sacn');
+const ddp = require('./ddp');
+const wledSync = require('./wled-audiosync');
 const oscOut = require('./osc-out');
+const artnetIn = require('./artnet-in');
 const oscQuery = require('./osc-query');
 const oscTree = require('../shared/osc-tree');
 const openrgb = require('./openrgb');
@@ -39,6 +43,8 @@ const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
 const uiScale = require('../shared/ui-scale');
 const mcpServer = require('./mcp-server');
+const mqttLite = require('./mqtt-lite');
+const mqttBridge = require('./mqtt-bridge');
 const faultGuardLib = require('./fault-guard');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
@@ -226,6 +232,8 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const SETTINGS_V3_BACKUP = path.join(app.getPath('userData'), 'settings.v3-backup.json');
+const settingsStore = require('./settings-store').create(app.getPath('userData'));
 const audioBridge = require('./audio-bridge');
 const { createInputSwitch } = require('./bridge-input');
 const bridgeAnalysis = require('./bridge-analysis');
@@ -235,6 +243,13 @@ function bridgeOnlyInSettings(file) {
 }
 const BRIDGE_ONLY = BRIDGE_FLAG || bridgeOnlyInSettings(SETTINGS_PATH);
 if (BRIDGE_ONLY) app.disableHardwareAcceleration();
+/* GPU'suz Linux/CI (#957): SV_SOFTWARE_GL=1 yazılım WebGL'ini (SwiftShader) açar. Küçük resim
+   üretimi ve görsel denetimler başsız makinede de motorla çizilebilsin; olağan açılışı etkilemez. */
+if (process.env.SV_SOFTWARE_GL === '1') {
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
+}
 /* Köprü kipinde tek kopya (#813): ikinci kez açmak (kısayol, `--bridge`)
    yeni bir köprü açıp aynı portu ve ses aygıtını kapmaya çalışmasın;
    çalışan köprünün panelini açar. Kilit profil klasörüne bağlı, olağan
@@ -277,14 +292,14 @@ const LYRICS_LIB_DIR = path.join(app.getPath('userData'), 'lyrics-library');
    yazdığını kovalamak yerine kural tek yerde: dosya açılışta okunuyor,
    kapanışta aynen geri yazılıyor ve o andan sonra hiçbir yazım kabul
    edilmiyor. */
-const SMOKE_SETTINGS = SMOKE && fs.existsSync(SETTINGS_PATH) ? fs.readFileSync(SETTINGS_PATH) : null;
+const SMOKE_SETTINGS = SMOKE && fs.existsSync(SETTINGS_PATH) ? settingsStore.snapshot() : null;
 let settingsFrozen = false;
 function restoreSmokeSettings() {
   if (!SMOKE || settingsFrozen) return;
   settingsFrozen = true;
   if (!SMOKE_SETTINGS) return;
   try {
-    fs.writeFileSync(SETTINGS_PATH, SMOKE_SETTINGS);
+    settingsStore.restore(SMOKE_SETTINGS);
   } catch (e) {
     console.error('[SMOKE] ayarlar geri yazılamadı:', e);
   }
@@ -293,6 +308,25 @@ function restoreSmokeSettings() {
 // ----------------------------------------------------------------------------
 // Ayar kalıcılığı
 // ----------------------------------------------------------------------------
+/* v4 göçü (#905). Disktekini çevirmeden önce bir kez kopyalar: eski dosya yedek olarak
+   kalır, üstüne yazılmaz. Çevrilen bellekteki; dosya bir sonraki kayıtta değişir, o
+   zamana kadarki okumalar aynı sonucu verir. */
+const migrationLogged = new Set();
+function migrateLoaded(cfg) {
+  const migrateV4 = require('../shared/migrate-v4');
+  if (!migrateV4.needsMigration(cfg)) return cfg;
+  try {
+    if (fs.existsSync(SETTINGS_PATH) && !fs.existsSync(SETTINGS_V3_BACKUP)) fs.copyFileSync(SETTINGS_PATH, SETTINGS_V3_BACKUP);
+  } catch (e) {
+    console.warn('[ayarlar] göç yedeği alınamadı: ' + (e && e.message));
+  }
+  const r = migrateV4.migrate(cfg);
+  const note = r.archived.filter((n) => !migrationLogged.has(n));
+  note.forEach((n) => migrationLogged.add(n));
+  if (note.length) console.log('[ayarlar] eski katmanlar arşivlendi: ' + note.join(', '));
+  return cfg;
+}
+
 function loadSettings() {
   /* Kayıt birleştirilirken (#621) disk son değişikliğin 300 ms gerisinde
      kalabiliyor; dosyayı okuyan (yeni açılan pencere, `get-settings`)
@@ -304,7 +338,7 @@ function loadSettings() {
        düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
        JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
        biçimi de çözüyor (source: string -> sources: [string]). */
-    return sanitizeLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)));
+    return sanitizeLoaded(migrateLoaded(settingsStore.merge(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)))));
   } catch {
     return null;
   }
@@ -373,29 +407,29 @@ function flushSettings() {
   if (!config || settingsFrozen) return;
   /* Yedek birincili izlerken (#812) aktarılan anahtarlar diske YEREL
      gösteriden yazılır; birincilin kopyası yedeklilik klasörüne gider. */
-  const text = JSON.stringify(redundancyDiskView(config), null, 2);
+  const texts = settingsStore.serialize(redundancyDiskView(config));
   /* Başkası dosyayı bu kopya en son bıraktıktan sonra değiştirdiyse ÜSTÜNE
      YAZILMAZ (#564): yapılandırma bellekte kalır, kullanıcıya sorulur. */
   if (settingsGuardOn) {
-    if (!settingsConflict && settingsGuard.changed() === true) raiseSettingsConflict();
+    if (!settingsConflict && settingsFilesChanged() === true) raiseSettingsConflict();
     if (settingsConflict) {
-      pendingSettings = text;
+      pendingSettings = texts;
       return;
     }
   }
-  writeSettingsText(text);
+  writeSettingsTexts(texts);
 }
 
-/* Aynı metin yeniden yazılmaz (#812). Yedek birincili izlerken her
-   değişiklikte kayıt sıraya giriyor ama diske giden yerel gösteri
-   değişmiyor; eşzamanlı yazım olay döngüsünü boşuna bekletiyordu. */
-let lastSettingsText = null;
-function writeSettingsText(text) {
-  if (text === lastSettingsText && fs.existsSync(SETTINGS_PATH) && (!settingsGuardOn || settingsGuard.changed() === false)) return true;
+/* Aynı metin yeniden yazılmaz (#812): depo karşılaştırıyor. Yedek birincili izlerken
+   her değişiklikte kayıt sıraya giriyor ama diske giden yerel gösteri değişmiyor;
+   eşzamanlı yazım olay döngüsünü boşuna bekletiyordu. */
+function writeSettingsTexts(texts) {
   try {
-    fs.writeFileSync(SETTINGS_PATH, text, 'utf-8');
-    if (settingsGuardOn) settingsGuard.remember(text);
-    lastSettingsText = text;
+    settingsStore.write(
+      texts,
+      (name, text) => { if (settingsGuardOn) settingsGuards.get(name).remember(text); },
+      (name) => !settingsGuardOn || settingsGuards.get(name).changed() === false,
+    );
     return true;
   } catch (e) {
     console.error('Ayarlar kaydedilemedi:', e);
@@ -433,10 +467,24 @@ let instanceTicks = 0;
 let otherInstances = [];
 let otherInstancesSig = '';
 
-const settingsGuard = new SettingsGuard(SETTINGS_PATH);
+/* Her ayar dosyasının kendi bekçisi: başka bir kopya yalnız sahneleri de değiştirmiş olabilir. */
+const settingsGuards = new Map(settingsStore.files().map((name) => [name, new SettingsGuard(settingsStore.fileOf(name))]));
+// true: biri değişti; null: biri okunamadı, karar yok; false: hepsi bu kopyanın bıraktığı gibi
+function settingsFilesChanged() {
+  let unknown = false;
+  for (const g of settingsGuards.values()) {
+    const c = g.changed();
+    if (c === true) return true;
+    if (c === null) unknown = true;
+  }
+  return unknown ? null : false;
+}
+function rememberSettingsFiles(snap) {
+  for (const [name, g] of settingsGuards) g.remember(snap[name]);
+}
 let settingsGuardOn = false; // otomasyonda kapalı — öz testin kendi kuralı var
 let settingsConflict = null; // { since } — sürerken dosyaya yazılmaz
-let pendingSettings = null; // çakışma sürerken yazılamayan son yapılandırma (metin)
+let pendingSettings = null; // çakışma sürerken yazılamayan son yapılandırma (dosya başına metin)
 
 function instanceStatus() {
   const pub = (o) => ({ pid: o.pid, version: o.version, kind: o.kind, role: o.role, exe: o.exe, startedAt: o.startedAt });
@@ -460,7 +508,7 @@ function raiseSettingsConflict() {
 
 function pollSettingsGuard() {
   if (!settingsGuardOn) return;
-  const changed = settingsGuard.changed();
+  const changed = settingsFilesChanged();
   if (changed === null) return; // şu an okunamadı, sonraki denetim karar verir
   if (changed && !settingsConflict) {
     raiseSettingsConflict();
@@ -470,9 +518,9 @@ function pollSettingsGuard() {
        değişiklik varsa şimdi yazılır. */
     settingsConflict = null;
     if (pendingSettings != null) {
-      const text = pendingSettings;
+      const texts = pendingSettings;
       pendingSettings = null;
-      writeSettingsText(text);
+      writeSettingsTexts(texts);
     }
     notifyInstanceStatus();
   }
@@ -794,6 +842,8 @@ function createAdminWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload-admin.js'),
+      // Öz test bütün kartları tek sayfada tarar (admin.js SECTION_PAGES)
+      additionalArguments: SMOKE ? ['--sv-all-sections'] : [],
       contextIsolation: true,
       nodeIntegration: false,
       /* Görselleştirici tam ekran ve "her zaman üstte" olduğu için bu
@@ -894,11 +944,7 @@ function wantsTransparent() {
   if (!cfg || !cfg.background) return false;
   if (cfg.background.type === 'transparent') return true;
   if (cfg.background.transparent) return true;
-  const stack = cfg.layerStack;
-  const stackOn = stack && typeof stack.enabled === 'boolean'
-    ? stack.enabled
-    : !!(cfg.layers && cfg.layers.length);
-  if (stackOn && Array.isArray(cfg.layers)) {
+  if (Array.isArray(cfg.layers)) {
     for (let i = 0; i < cfg.layers.length; i++) {
       const l = cfg.layers[i];
       if (l && l.kind === 'background' && l.enabled !== false && !l.muted
@@ -981,10 +1027,19 @@ function configForTextureShare(cfg) {
    yapılandırmanın yarısı (~330 KB) ve her gönderimde her pencereye
    kopyalanıyordu (#695). */
 const RENDERER_OMIT = ['scenes', 'userPresets'];
+/* Etiket tablosu gerçek ayarda 291 KB; çizici onu yalnız otomatik geçiş havuzu bir etikete bağlıyken
+   okuyor (milkdrop-library.js pool). Her tam gönderimde her pencereye kopyalanıyordu. */
+function tagPoolInUse(cfg) {
+  const on = (md) => !!md && md.autoFrom === 'tag';
+  if (on(cfg.milkdrop)) return true;
+  return Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.settings && on(l.settings.milkdrop));
+}
 function rendererConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return cfg;
   const out = Object.assign({}, cfg);
   for (const k of RENDERER_OMIT) delete out[k];
+  const lib = out.milkdropLibrary;
+  if (lib && lib.tags && !tagPoolInUse(cfg)) out.milkdropLibrary = Object.assign({}, lib, { tags: {} });
   return out;
 }
 
@@ -1047,6 +1102,18 @@ function resolveDisplayIds(input) {
   return wanted;
 }
 
+/* Paketli sürümde betikler tek dosyada (scripts/bundle-pages.js). Geliştirmede bayat paket
+   yüklenmesin diye yalnız SV_BUNDLED ile; öz test ve kare kapısı paketi böyle denetler. */
+/* Uyarlanır çözünürlük (#453) yalnız uygulamanın kendi çıkış pencerelerinde: sayfa adresindeki
+   işaretle açılır. Öz test, ekran görüntüsü üretici ve ölçüm araçları (bench, golden, parity)
+   sayfayı işaretsiz yükler; orada çözünürlük ölçüm sırasında değişmemeli. */
+const ADAPTIVE_QUERY = SMOKE || SHOTS ? undefined : { query: { svAdaptive: '1' } };
+function visualizerPage() {
+  const gen = path.join(__dirname, '..', 'visualizer', 'index.gen.html');
+  const use = (app.isPackaged || process.env.SV_BUNDLED) && fs.existsSync(gen);
+  return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
+}
+
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = visualizerRect(display);
@@ -1094,7 +1161,7 @@ function createVisualizerWindow(display) {
   outputOpenedAt.set(win, Date.now()); // gösteri öncesi denetim: açılış payı
   notifyVisualizerStatus();
 
-  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  win.loadFile(visualizerPage(), ADAPTIVE_QUERY);
   attachSmoke(win, 'VIS');
 
   /* Beyaz parlama: show:false + show() Electron hatası.
@@ -2410,6 +2477,7 @@ function closeVisualizer(displayId) {
    bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
+  stopMqtt().catch(() => {});
   /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner.
      Kaynaklardan ÖNCE: iş biterken kaynaklar yeniden eşitleniyor, sonra
@@ -2418,6 +2486,7 @@ function closeHelperWindows() {
   // Web katmanının görünmez sayfaları ve etkileşim pencereleri (layer-sources.js)
   if (layerSources) layerSources.shutdown();
   closeThumbWin();
+  closeModeThumbWin();
   closeBridgePlayer();
   // Köprü kipinde durum penceresi köprünün kendisidir; panel kapanınca kalır
   if (!BRIDGE_ONLY) closeBridgeWin();
@@ -2750,18 +2819,25 @@ async function downloadUpdate() {
 ipcMain.handle('updates:download', () => downloadUpdate().catch((e) => Object.assign({}, updateState, { downloadError: String((e && e.message) || e) })));
 // Kullanıcı istedi: kaza korumasını geçip çık; kurulum ya da yeni AppImage başlar
 ipcMain.handle('updates:install', () => installUpdateNow());
+// Kurucuyu başlatmanın tek yolu: yönetici izni burada isteniyor (#926)
+function startUpdateInstaller(silent) {
+  return updateInstall.startInstaller({
+    file: updateReadyFile,
+    silent,
+    spawn: require('child_process').spawn,
+    elevate: path.join(process.resourcesPath, 'elevate.exe'),
+    exists: fs.existsSync,
+    openPath: (f) => shell.openPath(f),
+  }).catch((e) => ({ ok: false, error: String((e && e.message) || e) }));
+}
 function installUpdateNow() {
   if (UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
-    let child;
-    try {
-      child = updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
-    } catch (e) {
-      return { ok: false, error: String((e && e.message) || e) };
-    }
     // Kurucu gerçekten doğmadan çıkma: dosya silinmiş ya da izin yoksa
     // kullanıcı hatayı görsün, indirilen dosya yerinde kalsın.
-    return updateInstall.whenInstallerStarted(child).then((r) => {
-      if (!r || !r.ok) return r || { ok: false, error: 'installer failed to start' };
+    return startUpdateInstaller(false).then((r) => {
+      updateState = Object.assign({}, updateState, { installError: r.ok ? '' : r.error });
+      notifyAdmin('updates:status', updateState);
+      if (!r.ok) return r;
       updateReadyFile = null;
       forceQuitApp = true;
       setTimeout(() => app.quit(), 200);
@@ -2797,14 +2873,7 @@ function armSilentInstall(e) {
   if (silentInstallClaimed || !silentInstallPending()) return false;
   e.preventDefault();
   silentInstallClaimed = true;
-  let pending;
-  try {
-    const child = updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn);
-    pending = updateInstall.whenInstallerStarted(child);
-  } catch (err) {
-    pending = Promise.resolve({ ok: false, error: String((err && err.message) || err) });
-  }
-  pending.then((r) => {
+  startUpdateInstaller(true).then((r) => {
     if (r && r.ok) updateReadyFile = null;
     else {
       try {
@@ -3091,7 +3160,7 @@ function createFloatingWindow() {
   floatingWin = win;
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true);
-  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  win.loadFile(visualizerPage(), ADAPTIVE_QUERY);
   attachSmoke(win, 'FLOAT');
   applyFloatingPrefs();
   applyGeometryLockAll();
@@ -3241,6 +3310,31 @@ ipcMain.handle('close-visualizer', (e, displayId) => {
    kapalı formülle hesapladığı için aralarında kayma olmaz.
    (bkz. src/shared/showclock.js) */
 let showClockAnchor = null;
+/* Anlık efektler (#905): ayara ve kayda yazılmaz, her çıkışa anında gider. */
+ipcMain.on('momentary-fx', (e, list) => {
+  const held = Array.isArray(list) ? list.slice(0, 6) : [];
+  sendToVisualizers('momentary-fx', held);
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'momentary-fx', list: held }, 'overlay');
+});
+/* T-bar (#905): elle sürülen sahne geçişi. Ayara ve kayda yazılmaz; sahnenin kendisi her
+   zamanki yapılandırma yoluyla gidiyor, bu ileti yalnız geçişin ilerlemesini taşıyor. Sıra
+   korunuyor: kurulum, sahneden önce her pencereye ulaşıyor. */
+const TBAR_PHASES = new Set(['arm', 'move', 'end', 'cancel']);
+ipcMain.on('tbar', (e, m) => {
+  if (!m || !TBAR_PHASES.has(m.phase)) return;
+  const msg = { phase: m.phase, p: Math.max(0, Math.min(1, Number(m.p) || 0)) };
+  sendToVisualizers('tbar', msg);
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'tbar', m: msg }, 'overlay');
+});
+
+/* Video sarma (#905): paneldeki konum kaydırıcısı. Ayara yazılmaz; her çıkış penceresine. */
+ipcMain.on('media-scrub', (e, m) => {
+  if (!m || typeof m !== 'object') return;
+  const frac = Math.max(0, Math.min(1, Number(m.frac) || 0));
+  const layerId = typeof m.layerId === 'string' ? m.layerId.slice(0, 64) : '';
+  sendToVisualizers('media-scrub', { layerId, frac });
+});
+
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);
@@ -3437,6 +3531,11 @@ function ensureMcp() {
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
     launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; const hit = C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return hit === false ? { ok:false, error:"No clip in that slot. Read sv_get_clipdeck for the filled slots." } : { ok:true }; })()'),
     locale: () => appLocale(),
+    // Söz kütüphanesi: MCP yalnız okur (sv_lyrics_library)
+    lyricsLibrary: {
+      list: () => lyricsLibrary.list(lyricsLibDir()),
+      read: (id) => lyricsLibrary.read(lyricsLibDir(), id),
+    },
     /* Panelin önizleme motorundaki canlı analiz (Ses › Ses Çözümlemesi). */
     analysis: () => mcpAdminCall('(() => { const P = window.SVPreview; const eng = P && P.isLive && P.isLive() && P.audioEngine ? P.audioEngine() : null; const a = eng && eng.analysis; if (!a || a.silent) return null; const pick = (o) => o ? JSON.parse(JSON.stringify(o)) : null; return { key: pick(a.key), chord: pick(a.chord), pitch: pick(a.pitch), loudness: a.loudness, peak: a.peak, dynamics: a.dynamics, crest: a.crest, centroid: a.centroid, spread: a.spread, flatness: a.flatness, rolloff: a.rolloff, flux: a.flux, harmonic: a.harmonic, percussive: a.percussive, width: a.width, correlation: a.correlation, bands: pick(a.bands), hits: pick(a.hits), chroma: Array.from(a.chromaSmooth || []), humDetected: !!a.humDetected }; })()'),
     diagnoseAudio: () => nativeAudio.diagnoseAudio(),
@@ -3485,6 +3584,89 @@ function syncMcp() {
 }
 
 ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: false, running: false, host: '127.0.0.1', port: 0, shell: '', script: '' }));
+
+/* MQTT / Home Assistant (mqtt-lite.js, mqtt-bridge.js). Varsayılan kapalı;
+   aracı adresi kullanıcıdan. Ayar anahtarı değişmedikçe bağlantı yeniden
+   kurulmaz. Durum yarım saniyede bir okunur, yalnız değişen konu gider.
+   Komutlar (allowControl) OSC girişinin yolundan uygulanır: panel aynı
+   osc-tree planını çalıştırır, ayrı bir yazma yolu yok. Öz test ve ekran
+   görüntüsünde (HW_OFF) ağa bağlanılmaz. */
+const mqttRun = { client: null, key: '', prev: null, timer: null, cfg: null, error: '', generation: 0 };
+function mqttStatus() {
+  const c = mqttRun.client ? mqttRun.client.status() : { connected: false, error: '' };
+  return { connected: c.connected, error: c.error || mqttRun.error || '' };
+}
+function stopMqtt() {
+  mqttRun.generation++;
+  clearInterval(mqttRun.timer);
+  mqttRun.timer = null;
+  const cl = mqttRun.client;
+  const base = mqttRun.cfg ? mqttRun.cfg.baseTopic : '';
+  mqttRun.client = null;
+  mqttRun.key = '';
+  mqttRun.prev = null;
+  mqttRun.cfg = null;
+  if (!cl) return Promise.resolve();
+  return cl.stop(base ? [{ topic: base + '/status', payload: 'offline', retain: true }] : []);
+}
+function mqttTick() {
+  const cl = mqttRun.client;
+  if (!cl || !cl.status().connected) return;
+  let next;
+  try { next = mqttBridge.stateOf(oscOutContext()); } catch (e) { return; }
+  for (const m of mqttBridge.stateMessages(mqttRun.prev, next, mqttRun.cfg)) cl.publish(m.topic, m.payload, m.retain);
+  mqttRun.prev = next;
+}
+function syncMqtt() {
+  const c = mqttBridge.normalize(currentConfig && currentConfig.mqtt);
+  if (!c.enabled || !c.host || HW_OFF) {
+    mqttRun.error = '';
+    const was = !!mqttRun.client;
+    return stopMqtt().then(() => { if (was) notifyAdmin('mqtt-status', mqttStatus()); });
+  }
+  const key = JSON.stringify(c);
+  if (mqttRun.client && key === mqttRun.key) return Promise.resolve();
+  const stopped = stopMqtt();
+  const generation = mqttRun.generation;
+  return stopped.then(() => {
+    // Daha yeni kapatma/ayar isteği varsa eski bağlantı yeniden doğmasın.
+    if (generation !== mqttRun.generation) return;
+    const node = mqttBridge.nodeIdOf(require('os').hostname());
+    const cl = mqttLite.createClient({
+      host: c.host, port: c.port, tls: c.tls, username: c.username, password: c.password,
+      clientId: 'soundvisualizer-' + node + '-' + process.pid,
+      will: { topic: c.baseTopic + '/status', payload: 'offline', retain: true },
+    });
+    mqttRun.client = cl;
+    mqttRun.key = key;
+    mqttRun.cfg = c;
+    mqttRun.error = '';
+    cl.on('connect', () => {
+      if (mqttRun.client !== cl) return;
+      cl.publish(c.baseTopic + '/status', 'online', true);
+      for (const m of mqttBridge.discoveryMessages(c, { nodeId: node, version: app.getVersion() })) cl.publish(m.topic, m.payload, m.retain);
+      cl.subscribe(mqttBridge.commandTopics(c));
+      mqttRun.prev = null;
+      mqttTick();
+      notifyAdmin('mqtt-status', mqttStatus());
+    });
+    cl.on('close', () => { if (mqttRun.client === cl) notifyAdmin('mqtt-status', mqttStatus()); });
+    cl.on('error', (msg) => {
+      if (mqttRun.client !== cl) return;
+      mqttRun.error = String(msg || '');
+      notifyAdmin('mqtt-status', mqttStatus());
+    });
+    cl.on('message', (topic, payload, retained) => {
+      // Aracının sakladığı eski komut bağlanınca bir daha uygulanmaz
+      if (retained || mqttRun.client !== cl) return;
+      const messages = mqttBridge.commandToOsc(topic, payload, c, oscTree.prefixOf(currentConfig));
+      if (messages.length) notifyAdmin('osc-message', { messages, source: 'mqtt' });
+    });
+    cl.start();
+    mqttRun.timer = setInterval(mqttTick, 500);
+  });
+}
+ipcMain.handle('mqtt:status', () => mqttStatus());
 ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
 
 /* Öz testin bir ölçümü sürerken panelin ayar gönderimleri bekletilir.
@@ -3505,9 +3687,21 @@ function smokeHoldEnd() {
   for (const p of h.patches) applyConfigPatch(p);
 }
 
+/* Panel değişmeyen ağır anahtarları göndermiyor (#905): burada bellektekiyle tamamlanır.
+   Nesne aynı kaldığı için depo onları yeniden metne çevirmiyor. */
+const KEPT_KEYS = new Set(['scenes', 'milkdropLibrary', 'userPresets']);
+function restoreKeptKeys(config) {
+  if (!config || !Array.isArray(config.__keep)) return config;
+  for (const k of config.__keep) {
+    if (KEPT_KEYS.has(k) && currentConfig && currentConfig[k] !== undefined) config[k] = currentConfig[k];
+  }
+  delete config.__keep;
+  return config;
+}
 ipcMain.on('update-config', (e, config) => {
-  if (smokeHold) { smokeHold.full = config; smokeHold.patches = []; return; }
-  applyIncomingConfig(config);
+  const full = restoreKeptKeys(config);
+  if (smokeHold) { smokeHold.full = full; smokeHold.patches = []; return; }
+  applyIncomingConfig(full);
 });
 /* Panelin kaydırıcı sürüklerken yolladığı değişen üst düzey anahtarlar.
    Sürükleme bitince panel bütün yapılandırmayı yine yollar (#695). Tam
@@ -3638,6 +3832,8 @@ ipcMain.on('lyrics-clock', (e, anchor) => {
    kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
    zaten diskte olduğu için kaydedilmez. */
 function applyIncomingConfig(config, opts) {
+  const stack = stackHelpers();
+  if (stack) stack.ensureStack(config); // MCP ve uzak yol da katman listesinde kalsın (#905)
   opts = redundancyGuard(config, opts); // yedek izlerken görüntü birincilden (#540)
   noteLyricsFile(config);
   const save = !(opts && opts.save === false);
@@ -3694,7 +3890,9 @@ function applyIncomingConfig(config, opts) {
     const p = pickKeys(config, patchKeys);
     if (p) streamServer.broadcast({ type: 'config-patch', patch: p });
   } else {
-    streamServer.broadcast({ type: 'config', config });
+    // Web çıkışı sahne listesini ve etiketleri okumuyor; kumanda sahne listesini gösteriyor
+    streamServer.broadcast({ type: 'config', config: rendererConfig(config) }, 'overlay');
+    streamServer.broadcast({ type: 'config', config }, 'remote');
   }
   syncBridge(); // ses köprüsü (#813)
   // Köprü kipinde görüntü, ışık, yayın ve OSC çıkışları kapalı kalır
@@ -3704,11 +3902,14 @@ function applyIncomingConfig(config, opts) {
     syncStreamServer();
     syncOscServer();
     syncArtnet();
+    syncLedNet();
     syncOscOut();
     syncOpenRgb();
+    syncArtnetIn();
     syncTextureShare();
     syncLayerSources();
     syncRemotePeers();
+    syncMqtt();
   }
   syncTempoSync();
   syncRecovery();
@@ -3732,29 +3933,30 @@ ipcMain.handle('instances:status', () => instanceStatus());
 ipcMain.handle('settings-conflict:resolve', (e, choice) => {
   if (!settingsConflict) return { ok: true };
   if (choice === 'keep') {
-    const text = pendingSettings != null
+    const texts = pendingSettings != null
       ? pendingSettings
-      : currentConfig ? JSON.stringify(currentConfig, null, 2) : null;
-    if (text == null || !writeSettingsText(text)) return { ok: false, error: 'write' };
+      : currentConfig ? settingsStore.serialize(currentConfig) : null;
+    if (texts == null || !writeSettingsTexts(texts)) return { ok: false, error: 'write' };
     pendingSettings = null;
     settingsConflict = null;
     notifyInstanceStatus();
     return { ok: true };
   }
   if (choice === 'load') {
-    let buf;
+    let snap;
     let loaded;
     try {
-      buf = fs.readFileSync(SETTINGS_PATH);
-      loaded = SettingsGuard.parse(buf);
+      snap = settingsStore.snapshot();
+      loaded = settingsStore.merge(SettingsGuard.parse(snap['settings.json']), snap);
     } catch {
       return { ok: false, error: 'read' };
     }
     if (!loaded || typeof loaded !== 'object') return { ok: false, error: 'read' };
     dropQueuedSave();
-    settingsGuard.remember(buf);
+    rememberSettingsFiles(snap);
     pendingSettings = null;
     settingsConflict = null;
+    sanitizeLoaded(migrateLoaded(loaded));
     applyIncomingConfig(loaded, { save: false });
     notifyAdmin('external-config', loaded); // panel kendi kopyasını tazelesin
     notifyInstanceStatus();
@@ -3841,11 +4043,8 @@ ipcMain.handle('file:import-json', async (e, title) => {
    (`milkdropControl.independent`) açıkken hiç yollanmıyor. Panel
    önizlemesi ölçer mesajının kendisini izlediği için burada ayrıca yok. */
 let mdFollowSent = { key: '', at: 0 };
-function relayMdFollow(sender, mp) {
-  if (!mp) return;
-  const ctl = currentConfig && currentConfig.milkdropControl;
-  if (ctl && ctl.independent === true) return;
-  const follow = { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
+function mdFollowOf(mp) {
+  return { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
     blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null,
     /* Liderin önceden derlediği SIRADAKİ preset (#573): izleyenler de onu
        önceden derliyor, değişim geldiğinde hepsi aynı anda geçebiliyor. */
@@ -3853,7 +4052,23 @@ function relayMdFollow(sender, mp) {
     /* Liderin geçişi başlattığı an (#812, duvar saati): izleyen geç
        başladıysa geçişini öne alıp hizalanıyor. Anahtara girmiyor. */
     startedAt: Number.isFinite(mp.startedAt) ? mp.startedAt : null };
-  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
+}
+const mdFollowKey = (f) => [f.id, f.base, f.cut, f.blend, f.seed, f.next].join('|');
+function relayMdFollow(sender, mp, mpLayers) {
+  const layers = mpLayers && typeof mpLayers === 'object' ? mpLayers : null;
+  if (!mp && !layers) return;
+  const ctl = currentConfig && currentConfig.milkdropControl;
+  if (ctl && ctl.independent === true) return;
+  const follow = mdFollowOf(mp || {});
+  /* Kendi geçişi olan katmanların payı aynı mesajda (#905): ekranlar katman katman aynı seçimi gösterir. */
+  let key = mdFollowKey(follow);
+  if (layers) {
+    follow.layers = {};
+    for (const id of Object.keys(layers)) {
+      follow.layers[id] = mdFollowOf(layers[id] || {});
+      key += ';' + id + '=' + mdFollowKey(follow.layers[id]);
+    }
+  }
   const now = Date.now();
   /* Yedek birincili izlerken kendi seçimini dağıtmaz (#540): ekranları
      birincilin seçimini alıyor (onPrimaryMessage). */
@@ -3866,7 +4081,7 @@ function relayMdFollow(sender, mp) {
   const ts = textureShare.window();
   if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
   // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
-  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
+  streamServer.broadcast({ type: 'md-follow', follow: redundancy.withoutStart(follow) }, 'overlay');
   /* Yedeğe preset içerik özeti ve seçim anı da gider (#812): yedek kendi
      presetinin aynı olup olmadığını bilsin; tohum (#585) zaten seçimde. */
   if (red.role === 'primary' && streamServer.peerCount()) {
@@ -3954,9 +4169,9 @@ function noteMdManual(cfg) {
 
 /* Görselleştirici penceresi ve Spout/Syphon yokken lider panel
    önizlemesi: seçimini buradan yolluyor ve yalnız web çıkışı izliyor. */
-ipcMain.on('md-live', (e, mp) => {
+ipcMain.on('md-live', (e, mp, layers) => {
   if (openWindows().length || textureShare.window()) return;
-  relayMdFollow(e.sender, mp);
+  relayMdFollow(e.sender, mp, layers);
 });
 
 ipcMain.on('audio-meter', (e, data) => {
@@ -3975,7 +4190,7 @@ ipcMain.on('audio-meter', (e, data) => {
   }
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
-  if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
+  if (data && (data.mdPreset || data.mdLayers)) relayMdFollow(e.sender, data.mdPreset, data.mdLayers);
   notifyAdmin('audio-meter', data);
   /* Çıkış yetkisi (#814): ışık ve OSC yalnız kapısı açıksa. Kapı yetki
      değişince bir kez hesaplanır (redAuth.gates); burada tek okuma. */
@@ -3983,6 +4198,14 @@ ipcMain.on('audio-meter', (e, data) => {
   if (g.lighting) dynamicLighting.onAudioFrame(data, currentConfig);
   if (g.artnet && currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
+  }
+  /* sACN, WLED (DDP) ve WLED ses senkronu: ağ ışık çıkışları Art-Net ile
+     aynı yetki kapısından geçer; yedek makine aynı ışıklara ikinci kez
+     yollamaz. Kapalıyken send() hiçbir şey yapmaz. */
+  if (g.artnet && currentConfig) {
+    if (currentConfig.sacn && currentConfig.sacn.enabled) sacn.send(currentConfig.sacn, data);
+    if (currentConfig.wled && currentConfig.wled.enabled) ddp.send(currentConfig.wled, data);
+    if (currentConfig.wledSync && currentConfig.wledSync.enabled) wledSync.send(currentConfig.wledSync, data);
   }
   if (g.oscOut && currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
     oscOut.send(currentConfig.oscOut, data, oscOutContext());
@@ -4018,6 +4241,7 @@ ipcMain.on('cam-status', (e, msg) => {
 
 // Ses giriş cihazlarını listele (renderer enumerateDevices sonucu admin'e iletilir)
 ipcMain.on('report-audio-devices', (e, devices) => {
+  if (SHOTS) return; // gerçek aygıt adları görüntüye girmesin
   notifyAdmin('audio-devices', devices);
 });
 
@@ -4099,8 +4323,8 @@ ipcMain.handle('presets:list', async () => {
   return leanPresets(withOverlayPresets(list));
 });
 /* Metin yalnız gerektiğinde (#906): liste metinsiz gidiyor (preset-lean.js) */
-ipcMain.handle('presets:source', (e, id) => {
-  const p = presetForShow(String(id || ''));
+ipcMain.handle('presets:source', async (e, id) => {
+  const p = (await presetsStore.getAsync(String(id || ''))) || isolatedPreset(String(id || ''));
   return p && typeof p.source === 'string' ? p.source : '';
 });
 ipcMain.handle('presets:head', () => ({ gen: presetGen }));
@@ -4345,6 +4569,9 @@ ipcMain.handle('presets:import-text', async () => {
 // Yayın sunucusu (OBS tarayıcı kaynağı + mobil kumanda)
 // ----------------------------------------------------------------------------
 
+// Kumandanın sabit ağaç ve adlı eylem komutları: doğrulama remote-commands.js'te
+const remoteCommands = require('./remote-commands');
+
 // Uzaktan kumandanın değiştirmesine izin verilen ayar yolları.
 // Liste kasıtlı olarak dar: yayın sunucusu ayarları, kontrol yüzeyleri ve dosya
 // yolları telefondan değiştirilemez. Gelen mesajlar VERİDİR, komut değil.
@@ -4398,7 +4625,7 @@ function stackHelpers() {
 }
 function setRemotePath(cfg, p, value) {
   const L = stackHelpers();
-  const stack = !!(L && L.stackOn(cfg));
+  const stack = !!L;
   if (stack && p === 'visualizer.type') { L.adoptVisualizer(cfg, { type: value }); return; }
   if (stack && p === 'background.type') { L.adoptBackground(cfg, { type: value }); return; }
   setConfigPath(cfg, p, value);
@@ -4435,6 +4662,16 @@ function applyRemoteCommand(msg, client) {
     return;
   }
 
+  if (msg.action === 'osc') {
+    const m = remoteCommands.oscMessage(msg, currentConfig, oscTree);
+    if (m) notifyAdmin('osc-message', { messages: [m], source: 'remote' });
+    return;
+  }
+  if (msg.action === 'run') {
+    if (remoteCommands.actionAllowed(msg.id)) notifyAdmin('remote-action', msg.id);
+    return;
+  }
+
   if (msg.action === 'scene') {
     const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
     if (!scene || !scene.data) return;
@@ -4442,8 +4679,7 @@ function applyRemoteCommand(msg, client) {
     const keepTransparent = !!(currentConfig.background && currentConfig.background.transparent);
     const keepKey = currentConfig.background && currentConfig.background.transparentKey;
     const keepCover = currentConfig.background && currentConfig.background.coverTaskbar;
-    const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
-    for (const key of SCENE_KEYS) {
+    for (const key of ShowKeys.SCENE) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
     }
     if (currentConfig.background) {
@@ -4485,6 +4721,32 @@ function applyRemoteCommand(msg, client) {
   lightingSet(currentConfig.lighting).catch(() => {});
 }
 
+/* KUMANDANIN CANLI ÖZETİ: seviye, tempo, çizelge ve karartma. Yapılandırmada olmayan,
+   saniyede birkaç kez değişen şeyler. Yalnız kumanda bağlıyken ve değişince gider. */
+let remoteLiveSent = '';
+const remoteLiveTimer = setInterval(() => {
+  if (!currentConfig || !streamServer.remoteCount || streamServer.remoteCount() < 1) { remoteLiveSent = ''; return; }
+  let state;
+  try { state = remoteCommands.liveState(oscOutContext(), mcpLive, Date.now()); } catch { return; }
+  const key = JSON.stringify(state);
+  if (key === remoteLiveSent) return;
+  remoteLiveSent = key;
+  streamServer.broadcast({ type: 'live', state }, 'remote');
+}, 200);
+if (remoteLiveTimer.unref) remoteLiveTimer.unref();
+
+/* Kumandadaki mod karosunun resmi: uygulamayla gelen ya da çalışma anında çizilmiş dosya.
+   İstemci yalnız tür adı yollar; anahtar burada hesaplanır, yol yanıtta yoktur. */
+let remoteThumbCtx = null;
+function remoteModeThumb(kind, type) {
+  if (modeThumbsLib.KINDS.indexOf(kind) < 0 || typeof type !== 'string' || !/^[A-Za-z0-9_-]{1,48}$/.test(type)) return null;
+  try {
+    if (!remoteThumbCtx) remoteThumbCtx = modeThumbsLib.context(path.join(__dirname, '..', '..'));
+    const key = modeThumbsLib.keyOf(remoteThumbCtx, kind, type);
+    return key ? modeThumbsLib.fileForModeUrl(modeThumbShippedDir(), modeThumbDir(), modeThumbsLib.urlOf(key)) : null;
+  } catch { return null; }
+}
+
 let streamSyncing = false;
 let streamResync = false;
 function syncStreamServer() {
@@ -4517,6 +4779,7 @@ function syncStreamServer() {
   return streamServer
     .start(peerOnly ? { port: s.port, lan: !!s.lan, peerOnly: true } : s, {
       getConfig: () => currentConfig,
+      getRendererConfig: () => rendererConfig(currentConfig),
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
       getVersion: () => app.getVersion(),
@@ -4536,6 +4799,7 @@ function syncStreamServer() {
         return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
       },
       logoFile: (id) => logoInfoForShow(id),
+      modeThumbFile: (kind, type) => remoteModeThumb(kind, type),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onPeerOpen: (client) => onPeerOpen(client),
       onPeerMessage: (msg, client) => onPeerMessage(msg, client),
@@ -4930,9 +5194,33 @@ function redSpace() {
   return red.space;
 }
 
+/* Ana sürümü farklı birincilden gelen hello (#905). Anlık görüntü hello'dan sonra
+   geliyor, yani hiçbir şey uygulanmadan kesiliyor. İzleme de bitiyor: birincili
+   kaybetti sayıp kendiliğinden yetki almasın. */
+function refusePrimaryMajor(version) {
+  red.versionMismatch = String(version).slice(0, 40);
+  if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
+  if (redAuth.peerBeatTimer) { clearInterval(redAuth.peerBeatTimer); redAuth.peerBeatTimer = null; }
+  if (red.client) { red.client.close(); red.client = null; }
+  red.follower = null;
+  console.warn('[redundancy] birincil farklı ana sürümde (' + red.versionMismatch + '), eşleşme yapılmadı');
+  notifyRedundancy();
+}
+/* Birincil: eski sürüm yedeğin kodu değiştirilemez ve bağlantı kesilirse birincili
+   kaybetti sayıp kendiliğinden yetki alıyor, iki makine birden yönetiyor (ölçüldü).
+   O yüzden bağlantı kalıyor, atış gidiyor, başka hiçbir şey gitmiyor. */
+function refusePeerMajor(client, version) {
+  if (client.peerInfoTimer) { clearTimeout(client.peerInfoTimer); client.peerInfoTimer = null; }
+  client.peerRefused = true;
+  red.peerMismatch = String(version).slice(0, 40);
+  console.warn('[redundancy] yedek farklı ana sürümde (' + red.peerMismatch + '), gösteri gönderilmiyor');
+  notifyRedundancy();
+}
+
 function redundancyStatus() {
   const base = {
-    role: red.role, problem: redundancy.problem(red.cfg), archives: showArchives(),
+    role: red.role, problem: red.versionMismatch ? 'version' : redundancy.problem(red.cfg), archives: showArchives(),
+    versionMismatch: red.versionMismatch || '', peerMismatch: red.peerMismatch && streamServer.peerCount() ? red.peerMismatch : '',
     // Yetki (#814): kimde, dönem, çit, kapılar, iki yönetici, tanık, öteki makine
     holder: redAuth.holder, term: red.role === 'off' ? 0 : redTerms().term, fenced: redAuth.fenced, gates: redAuth.gates,
     split: redAuth.split, witness: redAuth.witness ? Object.assign(redAuth.witness.status(), { foreign: witnessForeign() }) : null,
@@ -5119,7 +5407,7 @@ function withOverlayPresets(list) {
 function syncOverlay() {
   const want = new Set();
   if (overlayOn()) {
-    for (const id of red.overlay.presets.keys()) if (!presetsStore.get(id)) want.add(id);
+    for (const id of red.overlay.presets.keys()) if (!presetsStore.has(id)) want.add(id);
   }
   const up = [];
   const rm = [];
@@ -5208,6 +5496,8 @@ function leaveBackupSpace() {
 }
 
 function stopRedundancy() {
+  red.versionMismatch = '';
+  red.peerMismatch = '';
   if (red.beatTimer) { clearInterval(red.beatTimer); red.beatTimer = null; }
   if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
   if (red.client) { red.client.close(); red.client = null; }
@@ -5310,6 +5600,8 @@ function syncRedundancy() {
       urls: [redundancy.peerUrlHmac(c), redundancy.peerUrl(c)], secret: c.secret,
       onOpen: () => {
         red.follower.connected();
+        // Birincil anlık görüntüyü sürümümüzü görünce gönderiyor (#905)
+        if (red.client) red.client.send(peerInfoMsg());
         // Yarıda kalan paket aktarımı kaldığı yerden (#812)
         if (red.pull) { for (const r of red.pull.resume()) red.client.send(Object.assign({ type: 'pkg-get', pkg: red.pull.status.pkg }, r)); finishPull(); }
         notifyRedundancy();
@@ -5336,9 +5628,17 @@ function syncRedundancy() {
   notifyRedundancy();
 }
 
+const PEER_INFO_WAIT_MS = 5000;
 // Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
 function onPeerOpen(client) {
   red.peerSince = Date.now();
+  /* Anlık görüntü yedeğin sürümünü bekliyor (#905). Bu sürüm bağlanır bağlanmaz
+     bildiriyor, eskisi saniyede bir. Hiç bildirmeyen eski yedek süre dolunca alır. */
+  client.peerInfoTimer = setTimeout(() => finishPeerOpen(client), PEER_INFO_WAIT_MS);
+  notifyRedundancy();
+}
+function finishPeerOpen(client) {
+  if (client.peerInfoTimer) { clearTimeout(client.peerInfoTimer); client.peerInfoTimer = null; }
   sendPeerSnapshot(client);
   // Anlık görüntü uygulandıktan sonra gösteri karşılaştırması (#541)
   requestInventory();
@@ -5355,6 +5655,7 @@ function sendPeerSnapshot(client) {
   for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
 }
 function onPeerMessage(msg, client) {
+  if (client && client.peerRefused) return;
   if (msg && msg.type === 'peer-state' && typeof msg.state === 'string') {
     red.peerState = msg.state.slice(0, 20);
     notifyRedundancy();
@@ -5369,7 +5670,11 @@ function onPeerMessage(msg, client) {
   } else if (msg && msg.type === 'peer-beat' && red.role === 'primary') {
     onPeerBeat(msg);
   } else if (msg && msg.type === 'peer-info') {
-    onPeerInfo(msg);
+    if (client && red.role === 'primary' && redundancy.majorMismatch(msg.version, app.getVersion())) refusePeerMajor(client, msg.version);
+    else {
+      onPeerInfo(msg);
+      if (client && client.peerInfoTimer) finishPeerOpen(client);
+    }
   } else if (msg && msg.type === 'ctl') {
     onCtl(msg);
   } else if (msg && msg.type === 'ctl-result') {
@@ -5483,6 +5788,7 @@ function onPrimaryBeatAuth(msg) {
 function onPrimaryMessage(msg) {
   const f = red.follower;
   if (!f) return;
+  if (msg.type === 'hello' && redundancy.majorMismatch(msg.version, app.getVersion())) { refusePrimaryMajor(msg.version); return; }
   if (msg.type === 'hello' || msg.type === 'beat') {
     if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
     if (msg.type === 'beat') onPrimaryBeatAuth(msg);
@@ -5530,7 +5836,7 @@ function onPrimaryMessage(msg) {
     const ts = textureShare.window();
     if (ts) ts.webContents.send('md-follow', follow);
     // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
-  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
+    streamServer.broadcast({ type: 'md-follow', follow: redundancy.withoutStart(follow) }, 'overlay');
     return;
   }
   if (msg.type === 'pkg-manifest') { onPackageManifest(msg); return; }
@@ -5655,7 +5961,7 @@ async function buildPackageEntries() {
     if (!full) continue;
     const bytes = Buffer.from(JSON.stringify(full), 'utf-8');
     entries.push({ kind: 'presets', id: p.id, name: p.name || p.id, ext: '.json', size: bytes.length, sha256: showPackage.sha256(bytes), bytes });
-    if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+    if (++i % 25 === 0) await new Promise((r) => setImmediate(r));
   }
   for (const it of logoLibrary.loadManifest(logoLibDir()).items) {
     if (!it || !it.id) continue;
@@ -5848,13 +6154,18 @@ function buildLocalInventory() {
   localInvBusy = (async () => {
     const presets = [];
     let i = 0;
-    for (const p of presetsStore.list()) {
-      if (!p || !p.id) continue;
-      const key = p.id + '|' + (p.updatedAt || 0);
+    for (const lean of presetsStore.list()) {
+      if (!lean || !lean.id) continue;
+      const key = lean.id + '|' + (lean.updatedAt || 0);
       let fp = presetFpCache.get(key);
-      if (!fp) { fp = showInventory.presetFp(p); presetFpCache.set(key, fp); }
-      presets.push({ id: p.id, fp });
-      if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+      if (!fp) {
+        const p = presetsStore.get(lean.id);
+        if (!p) continue;
+        fp = showInventory.presetFp(p);
+        presetFpCache.set(key, fp);
+      }
+      presets.push({ id: lean.id, fp });
+      if (++i % 25 === 0) await new Promise((r) => setImmediate(r));
     }
     /* Logo: dosyanın kendisinden (boyut + baş/son özeti). Kitaplık
        kaydındaki `fp` eski öğelerde yok; ona güvenmek aynı dosyayı farklı
@@ -5939,7 +6250,7 @@ function onPrimaryAsset(msg) {
   /* Yedeğin kendi öğesi ezilmez (#812): aynı kimlik varsa gönderim atlanır;
      birincilin sürümü gösteri paketiyle gelir ve operatör tek tek seçer. */
   if (msg.kind === 'preset' && msg.preset && typeof msg.preset === 'object' && typeof msg.preset.id === 'string') {
-    if (presetsStore.get(msg.preset.id)) return false;
+    if (presetsStore.has(msg.preset.id)) return false;
     const r = presetsStore.save(Object.assign({}, msg.preset, { builtin: false }));
     if (r.ok) broadcastPresetDelta([r.preset], []);
     return r.ok;
@@ -6066,7 +6377,7 @@ function preshowMissing(cfg) {
   const out = [];
   for (const r of PreshowRefs.collect(cfg)) {
     if (r.kind === 'preset') {
-      if (presetsStore.get(r.id)) continue;
+      if (presetsStore.has(r.id)) continue;
       const file = path.join(presetsStore.dir(), String(r.id).replace(/[^A-Za-z0-9_-]/g, '') + '.json');
       const exists = fs.existsSync(file);
       out.push(Object.assign({}, r, {
@@ -6359,6 +6670,53 @@ function syncAppSuspension() {
   }
 }
 
+/* Art-Net GİRİŞİ: masadan gelen DMX kanalları paneldeki eşlemelere gider.
+   Varsayılan kapalı ve yalnız 127.0.0.1'i dinler. Kendi Art-Net çıkışımızla
+   aynı evren seçilirse açılmaz (kendi yayınımızı okuyup döngüye girerdi). */
+let artnetInRx = null;
+let artnetInKey = '';
+let artnetInGeneration = 0;
+let artnetInState = { listening: false, error: '', packets: 0 };
+function artnetInStatus() {
+  return artnetInRx ? artnetInRx.status() : Object.assign({}, artnetInState);
+}
+function syncArtnetIn() {
+  const c = (currentConfig && currentConfig.control && currentConfig.control.artnet) || {};
+  const out = (currentConfig && currentConfig.artnet) || {};
+  const stopRx = () => {
+    artnetInGeneration++;
+    const rx = artnetInRx;
+    artnetInRx = null;
+    artnetInKey = '';
+    return rx ? rx.stop() : Promise.resolve();
+  };
+  if (!c.enabled || HW_OFF) {
+    artnetInState = { listening: false, error: '', packets: 0 };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const universe = Math.max(0, Math.min(32767, c.universe | 0));
+  if (out.enabled && (out.universe | 0) === universe) {
+    artnetInState = { listening: false, error: 'same-universe', packets: 0, universe };
+    return stopRx().then(() => { notifyAdmin('artnetin-status', artnetInStatus()); return artnetInStatus(); });
+  }
+  const bind = artnetIn.safeBind(c.bind);
+  const port = Math.max(1, Math.min(65535, c.port | 0 || artnet.ART_PORT));
+  const key = bind + ':' + port + '/' + universe;
+  if (artnetInRx && key === artnetInKey) return Promise.resolve(artnetInStatus());
+  const stopped = stopRx();
+  const generation = artnetInGeneration;
+  return stopped.then(() => {
+    // Beklenen kapanışın ardından daha yeni kapatma/ayar isteği gelmiş olabilir.
+    if (generation !== artnetInGeneration) return artnetInStatus();
+    artnetInRx = artnetIn.createReceiver({
+      bind, port, universe,
+      onChanges: (msg) => notifyAdmin('artnet-in', msg),
+    });
+    artnetInKey = key;
+    return artnetInRx.start();
+  }).then((st) => { notifyAdmin('artnetin-status', st); return st; });
+}
+
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
   // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
@@ -6368,6 +6726,27 @@ function syncArtnet() {
     syncWitness();
     return st;
   });
+}
+
+/* Ağ LED çıkışları: sACN, WLED (DDP) ve WLED ses senkronu. Hepsi varsayılan
+   kapalı; Art-Net gibi otomasyonda (HW_OFF) ağa paket gitmez. */
+function ledNetStatus() {
+  return { sacn: sacn.status(), wled: ddp.status(), wledSync: wledSync.status() };
+}
+function syncLedNet() {
+  const c = currentConfig || {};
+  const pick = (k) => (HW_OFF ? { enabled: false } : (c[k] || { enabled: false }));
+  // sACN kapanırken "akış bitti" paketi yollar; ayar kapalıysa son ayarla
+  const s = pick('sacn');
+  return Promise.all([
+    s.enabled ? sacn.start(s) : sacn.stop(c.sacn),
+    ddp.start(pick('wled')),
+    wledSync.start(pick('wledSync')),
+  ]).then((list) => {
+    const st = { sacn: list[0] || sacn.status(), wled: list[1] || ddp.status(), wledSync: list[2] || wledSync.status() };
+    notifyAdmin('lednet-status', st);
+    return st;
+  }).catch(() => ledNetStatus());
 }
 
 /* OSC çıkışı (#437). OSC girişinin ayarı da veriliyor: hedef bu
@@ -6782,8 +7161,16 @@ ipcMain.handle('recovery:status', () => {
 ipcMain.handle('remote-peers:status', () => peerRelay.status());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
+ipcMain.handle('lednet:status', () => ledNetStatus());
+ipcMain.handle('lednet:sync', () => syncLedNet());
+// WLED keşfi ve bilgisi yalnız kullanıcı düğmeye basınca; otomasyonda ağa çıkılmaz
+ipcMain.handle('wled:discover', () => (HW_OFF ? { ok: false, error: 'disabled', devices: [] } : ddp.discover({ ms: 2000 })));
+ipcMain.handle('wled:info', (e, host) => (HW_OFF ? { ok: false, error: 'disabled' } : ddp.fetchInfo(String(host || '').slice(0, 260), 2500)));
 ipcMain.handle('oscout:status', () => oscOut.status());
 ipcMain.handle('oscout:sync', () => syncOscOut());
+ipcMain.handle('artnetin:status', () => artnetInStatus());
+ipcMain.handle('artnetin:sync', () => syncArtnetIn());
+ipcMain.handle('artnetin:resync', () => { if (artnetInRx) artnetInRx.resync(); return true; });
 /* Tempo motorunun vuruşu panelden geliyor (autovj.js). Yalnız panel
    penceresinden kabul edilir: vuruş başka bir sayfadan uydurulamasın. */
 function noteOscLive(info) {
@@ -6811,11 +7198,14 @@ ipcMain.on('tempo:beat', (e, info) => {
   oscOut.beat(currentConfig.oscOut, info);
 });
 /* Faz, çalma ve gösteri durumu. Vuruş kenarı tempo:beat'te kalır. */
+/* Durum OSC çıkışı kapalıyken de not edilir: MQTT ve telefon kumandası karartmayı, tempoyu
+   ve çizelgeyi buradan okuyor. Eskiden yalnız OSC çıkışı açıkken güncelleniyordu; MQTT tek
+   başına açıkken Home Assistant'taki karartma ve tempo eski değerde kalıyordu. */
 ipcMain.on('tempo:clock', (e, info) => {
   if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  noteOscLive(info);
   if (!redAuth.gates.oscOut) return;
   if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
-  noteOscLive(info);
   const track = oscTrackTitle(shownNowPlaying());
   const show = Object.assign({}, info && info.show, { track });
   oscOut.clock(currentConfig.oscOut, Object.assign({}, info, { show }));
@@ -7003,7 +7393,7 @@ ipcMain.handle('milkdrop:library-import', async (e, token) => {
   if (plan.tooBig) return { ok: false, error: 'TOO_BIG' };
   const sender = e.sender;
   const r = await mdImport.runImport(plan, {
-    existing: () => presetsStore.list(),
+    existing: () => presetsStore.listFull(),
     saveManyAsync: presetsStore.saveManyAsync,
     textureDir: managedTextureDir(),
     onProgress: (phase, done, total) => {
@@ -7058,10 +7448,10 @@ function milkdropBuiltins() {
   return mdBuiltins;
 }
 
-function thumbSourceOf(id) {
+async function thumbSourceOf(id) {
   const b = milkdropBuiltins().find((p) => p.id === id);
   if (b) return b.source;
-  const p = presetsStore.get(id);
+  const p = await presetsStore.getAsync(id);
   return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
 }
 
@@ -7162,7 +7552,28 @@ ipcMain.on('thumbs:done', (e, key, r) => {
   j.resolve(r);
 });
 
+/* ÇIKIŞ AÇIKKEN KÜÇÜK RESİM SEYREK ÇİZİLİR (#905, #957). Gizli pencere GPU'yu canlı görüntüyle
+   paylaşıyor ve her preset için shader derliyor: tümleşik GPU'da 5 katmanlı sahnede sayfa kareleri
+   takılıyordu. #905 çıkış açıkken çizimi TAMAMEN durdurmuştu; ama çıkış (ya da Spout/doku paylaşımı)
+   v4'te çoğu zaman açık, kuyruk hiç ilerlemiyor ve kitaplıktaki bütün hücreler çizgili bekliyordu
+   (#957). Şimdi çıkış açıkken işler arasında THUMB_BUSY_GAP_MS bekleniyor: tek iş, aralıklı. */
+const THUMB_BUSY_GAP_MS = 1500;
+let thumbLastEnd = 0;
+function thumbOutputBusy() {
+  if (SMOKE) return false;
+  return openWindows().length > 0 || !!textureShare.window() || !!(exportWin && !exportWin.isDestroyed());
+}
+// Bekleme süresi: çıkış yoksa 0, varsa son işin bitişinden bu yana kalan aralık
+function thumbGapMs(busy, now, lastEnd) {
+  return busy ? Math.max(0, THUMB_BUSY_GAP_MS - (now - lastEnd)) : 0;
+}
+async function thumbTurn() {
+  const ms = thumbGapMs(thumbOutputBusy(), Date.now(), thumbLastEnd);
+  if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+}
+
 async function renderThumb(job) {
+  await thumbTurn();
   clearTimeout(thumbIdle);
   /* Kuyrukta beklerken dokular değiştiyse bu anahtarın görüntüsü artık bu
      değil: çizilmiyor, bekleyenlere yeniden istemeleri söyleniyor. */
@@ -7183,6 +7594,7 @@ async function renderThumb(job) {
       recipe: mdThumbs.RECIPE,
     });
   });
+  thumbLastEnd = Date.now();
   closeThumbWinSoon();
   return r && r.ok && r.bytes ? Buffer.from(r.bytes) : null;
 }
@@ -7208,11 +7620,12 @@ async function pruneThumbs() {
   await presetsStore.warm();
   const lib = thumbTextureLib();
   const live = new Set();
-  const all = milkdropBuiltins().concat(presetsStore.list().filter((p) => p && p.kind === 'milkdrop'));
-  for (let i = 0; i < all.length; i++) {
-    if (typeof all[i].source === 'string') live.add(thumbKeyOf(all[i].source, lib));
-    if (i % 250 === 249) await new Promise((r) => setImmediate(r));
-  }
+  for (const p of milkdropBuiltins()) if (typeof p.source === 'string') live.add(thumbKeyOf(p.source, lib));
+  let i = 0;
+  await presetsStore.eachFull(async (p) => {
+    if (p.kind === 'milkdrop' && typeof p.source === 'string') live.add(thumbKeyOf(p.source, lib));
+    if (++i % 250 === 0) await new Promise((r) => setImmediate(r));
+  });
   mdThumbs.prune(thumbDir(), live, started);
 }
 
@@ -7223,15 +7636,140 @@ ipcMain.handle('milkdrop:thumbs', async (e, ids) => {
   const lib = thumbTextureLib();
   const items = [];
   for (const id of list) {
-    const source = thumbSourceOf(id);
+    const source = await thumbSourceOf(id);
     if (typeof source === 'string' && source) items.push({ id, source, key: thumbKeyOf(source, lib) });
   }
   const ready = thumbQueue().request(items);
   if (!thumbPruned) {
     thumbPruned = true;
-    setTimeout(() => { pruneThumbs().catch(() => {}); }, 5000);
+    // Bütün preset dosyalarını okuyor: canlı görüntüyü beklemeden değil
+    setTimeout(() => { thumbTurn().then(pruneThumbs).catch(() => {}); }, 5000);
   }
   return { ok: true, ready };
+});
+
+// ----------------------------------------------------------------------------
+// Görsel / Zemin küçük resimleri (#957) — bkz. src/main/mode-thumbs.js.
+// MilkDrop'unkiyle aynı boru hattı: ThumbQueue, aynı önyükleme
+// (preload-thumbs.js), aynı seyreklik (thumbTurn), `sv-thumb://m/…`.
+// Ayrı gizli pencere: sayfası katman motorunu yüklüyor.
+// ----------------------------------------------------------------------------
+const modeThumbsLib = require('./mode-thumbs');
+let modeThumbWin = null;
+let modeThumbWinReady = null;
+let modeThumbJob = null;
+let modeThumbIdle = null;
+let modeThumbQ = null;
+let modeThumbClient = null;
+let smokeModeThumbDir = null;
+
+function modeThumbDir() {
+  if (SMOKE) {
+    if (!smokeModeThumbDir) smokeModeThumbDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'sv-smoke-mthumbs-'));
+    return smokeModeThumbDir;
+  }
+  return path.join(app.getPath('userData'), 'mode-thumbs');
+}
+const modeThumbShippedDir = () => path.join(__dirname, '..', '..', modeThumbsLib.SHIPPED_DIR);
+
+function ensureModeThumbWin() {
+  if (modeThumbWin && !modeThumbWin.isDestroyed()) return modeThumbWinReady;
+  const R = modeThumbsLib.RECIPE;
+  const win = new BrowserWindow({
+    width: R.renderW,
+    height: R.renderH,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-thumbs.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  modeThumbWin = win;
+  attachSmoke(win, 'MODETHUMBS');
+  modeThumbWinReady = new Promise((resolve) => {
+    const onReady = (e) => {
+      if (e.sender !== win.webContents) return;
+      ipcMain.removeListener('thumbs:ready', onReady);
+      resolve(true);
+    };
+    ipcMain.on('thumbs:ready', onReady);
+    win.on('closed', () => { ipcMain.removeListener('thumbs:ready', onReady); resolve(false); });
+  });
+  win.on('closed', () => {
+    if (modeThumbWin === win) { modeThumbWin = null; modeThumbWinReady = null; }
+    const j = modeThumbJob;
+    if (j) { modeThumbJob = null; clearTimeout(j.timer); j.resolve(null); }
+  });
+  win.webContents.on('render-process-gone', () => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  win.loadFile(path.join(__dirname, '..', 'thumbs', 'modes.html')).catch(() => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  return modeThumbWinReady;
+}
+
+function closeModeThumbWin() {
+  clearTimeout(modeThumbIdle);
+  if (modeThumbQ) modeThumbQ.queue.clear();
+  if (modeThumbWin && !modeThumbWin.isDestroyed()) { try { modeThumbWin.destroy(); } catch { /* zaten kapalı */ } }
+}
+
+ipcMain.on('thumbs:done', (e, key, r) => {
+  const j = modeThumbJob;
+  if (!j || !modeThumbWin || modeThumbWin.isDestroyed() || e.sender !== modeThumbWin.webContents || j.key !== key) return;
+  modeThumbJob = null;
+  clearTimeout(j.timer);
+  j.resolve(r);
+});
+
+async function renderModeThumb(meta) {
+  await thumbTurn();
+  clearTimeout(modeThumbIdle);
+  const ready = await ensureModeThumbWin();
+  if (!ready || !modeThumbWin || modeThumbWin.isDestroyed()) return null;
+  const r = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (modeThumbJob && modeThumbJob.key === meta.key) { modeThumbJob = null; resolve(null); }
+    }, THUMB_JOB_MS);
+    modeThumbJob = { key: meta.key, resolve, timer };
+    modeThumbWin.webContents.send('thumbs:job', meta);
+  });
+  thumbLastEnd = Date.now();
+  modeThumbIdle = setTimeout(() => {
+    if (modeThumbQ && modeThumbQ.queue.pending()) return;
+    if (modeThumbWin && !modeThumbWin.isDestroyed()) { try { modeThumbWin.destroy(); } catch { /* zaten kapalı */ } }
+  }, THUMB_IDLE_MS);
+  return r && r.ok && r.bytes ? Buffer.from(r.bytes) : null;
+}
+
+function modeThumbQueue() {
+  if (!modeThumbQ) {
+    modeThumbQ = new modeThumbsLib.ModeThumbs({
+      root: path.join(__dirname, '..', '..'),
+      shippedDir: modeThumbShippedDir(),
+      dir: modeThumbDir(),
+      render: renderModeThumb,
+      onReady: (id, url) => {
+        if (modeThumbClient && !modeThumbClient.isDestroyed()) modeThumbClient.send('modes:thumb', { id, url });
+      },
+    });
+  }
+  return modeThumbQ;
+}
+
+// items: [{ id, kind: 'vis'|'bg', type }] → { ready: { id: url|'' } }
+ipcMain.handle('modes:thumbs', async (e, items) => {
+  const list = Array.isArray(items) ? items.slice(0, 200) : [];
+  modeThumbClient = e.sender;
+  try {
+    return { ok: true, ready: modeThumbQueue().request(list) };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err), ready: {} };
+  }
 });
 
 // ----------------------------------------------------------------------------
@@ -8001,6 +8539,7 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    açılamaması için ikisi ayrı parametre. */
 // Son dışa aktarma işinin yapılandırması: sv-media o işin videolarını da sunar
 let exportMediaCfg = null;
+let exportMediaPaths = new Set();
 // Süren video dışa aktarımının yapılandırması: dış kaynakları da açılır
 let exportSourceCfg = null;
 /* Dışa aktarımda video katmanının ara kopyaları (#539, export-media.js):
@@ -8024,7 +8563,7 @@ function runFfmpegCapture(ff, args) {
    sv-media adresi }. Kopyalanamayan (yok, saydamlıklı, çevirme hatası)
    eşlemeye girmez, dışa aktarıcı özgün dosyayı kullanır. */
 async function prepareExportMedia(ff, cfg, maxSec, w, h) {
-  const files = exportMedia.mediaFiles(cfg);
+  const files = exportMedia.jobMediaFiles(cfg);
   const map = {};
   if (!files.length) return map;
   cleanupExportMedia();
@@ -8039,7 +8578,7 @@ async function prepareExportMedia(ff, cfg, maxSec, w, h) {
       catch { return map; }
     }
     const out = exportMedia.tempName(exportMediaTemp.dir, i++);
-    const res = await runFfmpegCapture(ff, exportMedia.transcodeArgs(raw, out, { maxSec, width: w, height: h }));
+    const res = await runFfmpegCapture(ff, exportMedia.transcodeArgs(raw, out, { maxSec: require('../shared/timeline-compose').exportEnabled(cfg) ? 0 : maxSec, width: w, height: h }));
     if (res.code === 0 && fs.existsSync(out) && fs.statSync(out).size > 0) {
       exportMediaTemp.paths.add(path.resolve(out));
       map[file] = mediaUrl.toMediaUrl(out);
@@ -8058,14 +8597,26 @@ function cleanupExportMedia() {
 }
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
+  opts = opts || {};
+  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
      (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
-  const jobCfg = (extra && extra.cfg) || currentConfig;
+  let jobCfg = (extra && extra.cfg) || currentConfig;
+  /* İş kopyası: klip düzenleyicisinin geçici görünümü dışa aktarılmaz.
+     Çizelge yalnız açıkça seçilmiş true ile dahil edilir. */
+  try { jobCfg = require('../shared/timeline-compose').exportJobConfig(jobCfg, opts); }
+  catch (e) {
+    const messages = {
+      EXPORT_TIMELINE_MISSING: trUi('Dışa aktarılacak çizelge bulunamadı; yeniden seçin.', 'The export timeline was not found; select it again.'),
+      EXPORT_TIMELINE_PASSIVE: trUi('Seçilen çizelge pasif; dışa aktarmadan önce etkinleştirin.', 'The selected timeline is passive; enable it before exporting.'),
+      EXPORT_TIMELINE_EMPTY: trUi('Seçilen çizelgede kullanılabilir görsel klip yok; çizelgeyi ve kaynakları denetleyin.', 'The selected timeline has no usable visual clips; check the timeline and its sources.'),
+    };
+    return { ok: false, error: messages[e.code] || String(e.message || e) };
+  }
   /* Kuyruktaki sahnenin videosu o anki ayarda olmayabilir (#539):
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
   exportMediaCfg = jobCfg;
-  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
-  opts = opts || {};
+  exportMediaPaths = new Set(exportMedia.jobMediaFiles(jobCfg).map((f) => path.resolve(mediaUrl.fromMediaUrl(f))));
   const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
   /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve
@@ -8340,13 +8891,15 @@ async function startExportJob(opts, bench, extra) {
     if (isMine()) finalizeExport('error', trUi('Render penceresi yüklenemedi: ', 'Could not load the render window: ') + err.message);
     return { ok: false, error: trUi('Render penceresi yüklenemedi.', 'Could not load the render window.') };
   }
+  /* Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi. MilkDrop metinleri
+     de: dışa aktarımda otomatik geçiş metni beklemeden, kare kare aynı yerde olmalı. */
+  const jobPresets = await presetsStore.listFull();
   // Cancelled or failed while the window was loading: do not send the job
   if (!isMine() || win.isDestroyed()) return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
 
   const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
   exportWin.webContents.send('export:job', {
-    // Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi
-    presets: presetsStore.list(),
+    presets: jobPresets,
     audioBuffer: ab,
     width: w,
     height: h,
@@ -8461,6 +9014,7 @@ async function startAnalysisJob(opts) {
     chapterListText: '', analysisOnly: true, analysisData: null, startedAt: 0, total: 0,
   };
   exportMediaCfg = null;
+  exportMediaPaths.clear();
   const job = exportState;
   const isMine = () => exportState === job;
   notifyAdmin('export-progress', { phase: 'start', encoder: '', encoderLabel: '', kind: 'analysis' });
@@ -8652,6 +9206,8 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   cleanupExportMedia();
+  exportMediaPaths.clear();
+  exportMediaCfg = null;
   const out = exportState.outputPath;
   const seqDir = exportState.seqDir;
   const workDir = exportState.workDir;
@@ -8815,16 +9371,16 @@ app.whenReady().then(async () => {
   /* Dosya BİR KEZ okunuyor: hem yapılandırma hem bekçinin öğrendiği hâl
      aynı baytlardan gelsin. Arada başka bir kopya yazarsa ikisi ayrışır ve
      bekçi, bu kopyanın hiç görmediği bir içeriği "bizimki" sanardı. */
-  let startupSettings = null;
-  try { startupSettings = fs.readFileSync(SETTINGS_PATH); } catch { startupSettings = null; }
+  const startupFiles = settingsStore.snapshot();
+  const startupSettings = startupFiles['settings.json'];
   if (!AUTOMATION_RUN) {
-    settingsGuard.remember(startupSettings);
+    rememberSettingsFiles(startupFiles);
     settingsGuardOn = true;
   }
   startInstanceRegistry();
 
   try {
-    currentConfig = startupSettings ? SettingsGuard.parse(startupSettings) : null;
+    currentConfig = startupSettings ? settingsStore.merge(SettingsGuard.parse(startupSettings), startupFiles) : null;
   } catch {
     currentConfig = null;
   }
@@ -8850,7 +9406,8 @@ app.whenReady().then(async () => {
       }
     } catch { recovery = null; }
   }
-  sanitizeLoaded(currentConfig); // stray layer settings.postfx (#768)
+  // Göç kurtarmadan sonra: geri gelen kopya eski sürümden olabilir
+  sanitizeLoaded(migrateLoaded(currentConfig)); // v4 göçü (#905), stray layer settings.postfx (#768)
   if (currentConfig?.lighting?.enabled) {
     lightingSet(currentConfig.lighting).catch(() => {});
   }
@@ -8887,7 +9444,7 @@ app.whenReady().then(async () => {
       const raw = mediaUrl.fromMediaUrl(request.url);
       const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
       const inExport = !!(raw && ((exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl))
-        || exportMediaTemp.paths.has(path.resolve(raw))));
+        || exportMediaPaths.has(path.resolve(raw)) || exportMediaTemp.paths.has(path.resolve(raw))));
       if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport)) {
         return new Response('forbidden', { status: 403 });
       }
@@ -8916,7 +9473,9 @@ app.whenReady().then(async () => {
      anahtarı: dosya yalnız küçük resim klasöründen okunuyor. Anahtar
      içerikten türediği için değişmiyor, önbellekte süresiz kalabilir. */
   protocol.handle('sv-thumb', async (request) => {
-    const file = mdThumbs.fileForUrl(thumbDir(), request.url);
+    // `sv-thumb://m/…` Görsel/Zemin küçük resmi (#957); gerisi MilkDrop (`sv-thumb://t/…`)
+    const modeFile = modeThumbsLib.fileForModeUrl(modeThumbShippedDir(), modeThumbDir(), request.url);
+    const file = modeFile || mdThumbs.fileForUrl(thumbDir(), request.url);
     if (!file) return new Response('not found', { status: 404 });
     try {
       const buf = await fs.promises.readFile(file);
@@ -8996,10 +9555,13 @@ app.whenReady().then(async () => {
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
+  syncLedNet().catch(() => {});
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
+  syncArtnetIn().catch(() => {});
   syncTextureShare().catch(() => {});
   syncLayerSources();
+  syncMqtt();
   }
 
   // Ekran değişikliklerini admin'e bildir
@@ -9185,7 +9747,7 @@ async function runBridgeSmoke() {
     for (var i = 0; i < items.length; i++) {
       items[i].click();
       await new Promise(function(r){ setTimeout(r, 300); });
-      var heads = document.querySelectorAll('#sections .fold-head:not(.open)');
+      var heads = document.querySelectorAll('.sv-content .fold-head:not(.open)');
       for (var h = 0; h < heads.length; h++) heads[h].click();
       await new Promise(function(r){ setTimeout(r, 150); });
       var bp = document.querySelector('#sections .bridge-panel');
@@ -9264,6 +9826,19 @@ async function runSmoke() {
       ' var was = !!(c.autovj && c.autovj.enabled); if (c.autovj) c.autovj.enabled = false; return was ? "kapatıldı" : "zaten kapalı"; })()'
     ).catch((e) => 'hata: ' + (e && e.message));
     console.log('[SMOKE] panelin Otomatik VJ\'si: ' + held);
+    /* Timeline kullan açıksa çıkış elle sahne değil, çizelge bileşimidir.
+       MilkDrop, gradyan, sprite ve otomasyon ölçümleri elle katmanı arar;
+       bileşim üst yığını boşalttığı için hepsi "layer" diye düşüyordu.
+       Bayrak burada kapanır. Klip eklemek onu yeniden açar; o adımdan
+       sonra deste ve Otomatik VJ'den önce yine kapatılır. */
+    const tlOff = await adminWin.webContents.executeJavaScript(
+      '(function(){ var c = window.SVPanel && window.SVPanel.cfg(); if (!c || !c.timeline) return "yok";' +
+      ' var was = c.timeline.useTimeline === true;' +
+      ' if (window.SVTimelinePanel && window.SVTimelinePanel.useTimeline) window.SVTimelinePanel.useTimeline(false);' +
+      ' else { c.timeline.useTimeline = false; if (window.SVPanel.apply) window.SVPanel.apply(); }' +
+      ' return was ? "kapatıldı" : "zaten kapalı"; })()'
+    ).catch((e) => 'hata: ' + (e && e.message));
+    console.log('[SMOKE] timeline kullan: ' + tlOff);
   }
 
   const cam = await cameraProbe(meterWindow());
@@ -9280,6 +9855,7 @@ async function runSmoke() {
      yapılandırmayı da kapatmak, testin her karede boşuna aygıt açmaya
      çalışmasını ve konsolu hata mesajıyla doldurmasını engelliyor. */
   base.media = Object.assign({}, base.media, { enabled: false, source: 'file' });
+  if (base.timeline) base.timeline = Object.assign({}, base.timeline, { useTimeline: false });
   const send = (over) => wc.send('config', Object.assign({}, base, over));
 
   // Her ön mod (gradient bir arkaplan motorudur, ön mod olarak atlanır)
@@ -9352,7 +9928,8 @@ async function runSmoke() {
        gelene kadar karanlık kalıyor ve adım rastgele düşüyordu. */
     const probeMd = milkdropBuiltins()[0];
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' },
         probeMd ? { presetId: probeMd.id, name: probeMd.name, source: probeMd.source } : {}),
       background: { type: 'solid', solidColor: '#000000' } });
@@ -9422,7 +9999,16 @@ async function runSmoke() {
     }
     return out;
   };
-  const loss = await lossProbe();
+  /* Panel ölçümün ortasında tam ayar basabiliyor (Timeline kullan dahil).
+     Sprite için konan bekletme MilkDrop ve gradyan ölçümünü de sarıyor:
+     basılan ayar elle sahneyi ya da çizelge bileşimini geri getirip
+     ölçülen katmanı siliyordu. */
+  smokeHoldStart();
+  let loss;
+  let surf;
+  let spr;
+  try {
+  loss = await lossProbe();
   console.log('[SMOKE] bağlam kaybı: ' + JSON.stringify(loss));
   if (loss.hata) {
     errors.push('context loss: ' + loss.hata);
@@ -9470,7 +10056,11 @@ async function runSmoke() {
      korunmuyor ve kare gösterildikten sonra okunursa boş görünürdü. */
   const surfaceProbe = async () => {
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'bars' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [
+        { id: 'ly_smoke_bg', kind: 'background', type: 'gradient', enabled: true, settings: {} },
+        { id: 'ly_smoke_vis', kind: 'visualizer', type: 'bars', enabled: true, settings: {} },
+      ],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       background: Object.assign({}, base.background, { type: 'gradient' }),
       postfx: [{ type: 'bloom', enabled: true }] });
     await wait(1200);
@@ -9516,7 +10106,7 @@ async function runSmoke() {
     const after = await sample('after');
     return { before, after, lostGrad, lostFx };
   };
-  const surf = await surfaceProbe();
+  surf = await surfaceProbe();
   console.log('[SMOKE] yüzeylerin bağlam kaybı: ' + JSON.stringify(surf));
   if (surf.hata) {
     errors.push('context loss (surfaces): ' + surf.hata);
@@ -9555,7 +10145,8 @@ async function runSmoke() {
     const prevCtl = currentConfig && currentConfig.milkdropControl;
     currentConfig = Object.assign({}, currentConfig, { milkdropControl: Object.assign({}, prevCtl, { spriteFile: ini }) });
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
-      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      layers: [{ id: 'ly_smoke_md', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} }],
+      layerStack: Object.assign({}, base.layerStack, { enabled: true }),
       milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' }),
       postfx: [], background: { type: 'solid', solidColor: '#000000' } });
     await wait(900);
@@ -9588,9 +10179,8 @@ async function runSmoke() {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* geçici */ }
     return { launched, killed, before, on, off };
   };
-  smokeHoldStart();
-  let spr;
-  try { spr = await spriteProbe(); } finally { smokeHoldEnd(); }
+  spr = await spriteProbe();
+  } finally { smokeHoldEnd(); }
   console.log('[SMOKE] sprite: ' + JSON.stringify(spr));
   {
     const red = (p) => p && p.rgb && p.rgb[0] >= 200 && p.rgb[1] <= 60 && p.rgb[2] <= 60;
@@ -10066,10 +10656,10 @@ async function runSmoke() {
     for (let i = 0; i < cats.length; i++) {
       await awc.executeJavaScript(
         "(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click(); " +
-        "return document.querySelectorAll('#sections .card').length;})()"
+        "return document.querySelectorAll('.sv-content .card').length;})()"
       );
       await wait(320);
-      const cards = await awc.executeJavaScript("document.querySelectorAll('#sections .card').length");
+      const cards = await awc.executeJavaScript("document.querySelectorAll('.sv-content .card').length");
       console.log('[SMOKE]   ' + cats[i] + ' -> ' + cards + ' kart');
       if (!cards) errors.push('admin category "' + cats[i] + '" rendered 0 cards');
     }
@@ -10110,8 +10700,7 @@ async function runSmoke() {
     }
     // Studio: yeni shader oluştur, derlensin
     await awc.executeJavaScript(
-      "(function(){var i=Array.from(document.querySelectorAll('.nav-item .nav-label')).findIndex(function(n){return n.textContent.indexOf('Studio')>=0;});" +
-      "if(i>=0) document.querySelectorAll('.nav-item')[i].click();})()"
+      "(function(){var b=document.querySelector('[data-cat=\"studio\"]'); if(b) b.click();})()"
     );
     await wait(320);
     const studioProbe = await awc.executeJavaScript(
@@ -10312,6 +10901,9 @@ async function runSmoke() {
     // 2) Otomasyon çizim döngüsüne ULAŞIYOR mu?
     const setup = await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
+      /* Otomasyon elle sahnenin üstüne yazılır. Timeline kullan açıksa
+         görselleştirici bileşim dalındadır ve bu sayacı artırmaz. */
+      c.timeline.useTimeline = false;
       c.timeline.enabled = true;
       c.timeline.tempo = [{ t: 0, bpm: 120, beatsPerBar: 4 }];
       c.timeline.tracks = [{
@@ -10321,6 +10913,10 @@ async function runSmoke() {
       }];
       window.SVPanel.apply();
       window.SVTimelinePanel.seek(4);
+      /* İlk taşıma kurulumu, Timeline kullan kapalıyken enabled'ı kapatır.
+         Otomasyonun çalışması için ölçüm bayrağı kapalı, taşıma açık kalır. */
+      if (c.timeline.useTimeline !== true) c.timeline.enabled = true;
+      window.SVPanel.apply();
       window.SVTimelinePanel.play();
       return "hazır";
     })()`);
@@ -10357,11 +10953,16 @@ async function runSmoke() {
        Bu yüzden burada gerçek düğmeye tıklanır ve sonucun YAPILANDIRMAYA
        yazıldığı doğrulanır. */
     const btnRes = await awc5.executeJavaScript(`(function(){
+      /* Parça ve işaret ekleme "Yeni Şerit" menüsünde; menü her seferinde yeniden açılıyor. */
       function clickByText(txt) {
-        var all = document.querySelectorAll("#sections button");
+        var opener = document.querySelector("#sections .tl-add");
+        if (!opener) return false;
+        opener.click();
+        var all = document.querySelectorAll(".sv-menu button");
         for (var i = 0; i < all.length; i++) {
           if ((all[i].textContent || "").indexOf(txt) >= 0) { all[i].click(); return true; }
         }
+        document.querySelectorAll(".sv-menu").forEach(function (m) { m.remove(); });
         return false;
       }
       var c = window.SVPanel.cfg();
@@ -10373,7 +10974,7 @@ async function runSmoke() {
       for (var n = 0; n < navs.length; n++) {
         var lbl = navs[n].querySelector(".nav-label");
         var txt = lbl ? (lbl.textContent || "") : "";
-        if (txt.indexOf("Kontrol") >= 0 || txt.indexOf("Control") >= 0) { navs[n].click(); break; }
+        if (navs[n].getAttribute("data-cat") === "time") { navs[n].click(); break; }
       }
       window.SVPanel.rerender();
 
@@ -10403,11 +11004,12 @@ async function runSmoke() {
        ZATEN SEÇİLİ bir klip varken çiziliyordu, boş parçada panel "bir klip
        seçin" diyordu ve seçilecek klip yoktu. Çizelge bu haliyle kullanılamaz
        durumdaydı. */
-    /* #636'dan beri düğme düzenleyicinin altındaki "＋ Kafada Klip": seçili
-       (yoksa ilk) klip parçasına, oynatma kafasına ekliyor. Şeride çift
-       tıklamak da ekliyor; burada düğme sınanıyor. */
+    /* "Yeni Şerit" menüsündeki "Kafada Klip": seçili (yoksa ilk) klip parçasına,
+       oynatma kafasına ekliyor. Şeride çift tıklamak da ekliyor; burada düğme sınanıyor. */
     const clipRes = await awc5.executeJavaScript(`(function(){
-      var bs = document.querySelectorAll("#sections .tl-panel button");
+      var opener = document.querySelector("#sections .tl-add");
+      if (opener) opener.click();
+      var bs = document.querySelectorAll(".sv-menu button");
       var found = null;
       for (var j = 0; j < bs.length; j++) {
         var tx = bs[j].textContent || "";
@@ -10425,6 +11027,21 @@ async function runSmoke() {
     const cr = JSON.parse(clipRes);
     if (!cr.button) errors.push('timeline: no way to add a clip to an empty track - the timeline is unusable');
     if (cr.clips < 1) errors.push('timeline: the add-clip button did not create a clip (got ' + cr.clips + ')');
+
+    /* Klip parçası eklemek Timeline kullan'ı açar. Deste ve Otomatik VJ
+       elle sahneye yazar; bayrak açıkken bu yazı klibin kopyasına gider
+       ve ölçülen geçiş ile katman türleri hemen geri alınır. */
+    const tlBack = await awc5.executeJavaScript(`(function(){
+      if (window.SVTimelinePanel && window.SVTimelinePanel.useTimeline) window.SVTimelinePanel.useTimeline(false);
+      else {
+        var c = window.SVPanel.cfg();
+        if (c.timeline) c.timeline.useTimeline = false;
+        window.SVPanel.apply();
+      }
+      return window.SVPanel.cfg().timeline.useTimeline === true;
+    })()`);
+    console.log('[SMOKE] timeline kullan ölçümden önce: ' + (tlBack ? 'açık kaldı' : 'kapalı'));
+    if (tlBack) errors.push('timeline: Use Timeline stayed on after the hand-scene probes');
 
     /* 2c) Kaynak seçici var olan sahneleri listeliyor mu?
        Kullanıcının sahne kimliği ezberlemesi gerekmemeli. */
@@ -10488,20 +11105,36 @@ async function runSmoke() {
     if (fr.active < 1) errors.push('clipdeck: armed slot never fired');
 
     /* 4) Deste, kullanıcının geçiş ayarını KALICI olarak ezmiyor mu?
-       Bir "Kesme" yuvası ateşlemek transition.enabled değerini false yapıp
-       orada bıraksaydı kullanıcının sahne geçişleri bir daha çalışmazdı ve
-       sebebi hiçbir yerde görünmezdi. */
+       Kesme yalnız o gönderimde. applyScene gönderdikten hemen sonra
+       kullanıcının geçişini geri koyar; panelde kesme kalmaz. Sahne
+       verisinde geçiş yoksa varsayılan süre kullanıcınınkinin yerine
+       geçmemeli. */
     const transRes = await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
       c.transition.enabled = true;
       c.transition.duration = 1.75;
       var before = { enabled: c.transition.enabled, duration: c.transition.duration };
+      var sent = [];
+      var preview = window.SVPreview;
+      var origSet = preview && preview.setConfig;
+      if (origSet) {
+        preview.setConfig = function(next) {
+          var t = next && next.transition;
+          if (t) sent.push({ enabled: t.enabled === true, duration: t.duration });
+          return origSet.apply(this, arguments);
+        };
+      }
       var dp = window.SVClipDeckPanel;
-      dp.engine().emit("fire", { deckId: "deck", slot: { type: "scene", ref: "sc_test", row: 0, col: 0 }, fade: 0, transition: "cut", at: 0 });
-      var during = { enabled: c.transition.enabled };
-      return JSON.stringify({ before: before, during: during });
+      try {
+        dp.engine().emit("fire", { deckId: "deck", slot: { type: "scene", ref: "sc_test", row: 0, col: 0 }, fade: 0, transition: "cut", at: 0 });
+      } finally {
+        if (origSet) preview.setConfig = origSet;
+      }
+      var after = { enabled: c.transition.enabled, duration: c.transition.duration };
+      return JSON.stringify({ before: before, sent: sent, after: after });
     })()`);
-    /* Geri verme geçiş tamamlandıktan sonra zamanlayıcıyla oluyor; bekle. */
+    /* Eski yol geri vermeyi zamanlayıcıya bırakıyordu. Hâlâ sonradan
+       ezilmediğini görmek için kısa beklenir. */
     await wait(700);
     const afterRes = await awc5.executeJavaScript(
       'JSON.stringify({ enabled: window.SVPanel.cfg().transition.enabled, duration: window.SVPanel.cfg().transition.duration })'
@@ -10509,7 +11142,8 @@ async function runSmoke() {
     console.log('[SMOKE] geçiş ayarı koruması: ' + transRes + ' -> ' + afterRes);
     const tx = JSON.parse(transRes);
     const ax = JSON.parse(afterRes);
-    if (tx.during.enabled !== false) errors.push('clipdeck: a cut slot did not take over the transition');
+    if (!tx.sent || !tx.sent.some(function (s) { return s.enabled === false; })) errors.push('clipdeck: a cut slot did not take over the transition');
+    if (tx.after.enabled !== true || Math.abs(tx.after.duration - 1.75) > 1e-6) errors.push('clipdeck: the user transition was not restored after the cut (got ' + tx.after.duration + ')');
     if (ax.enabled !== true) errors.push('clipdeck: the user transition setting was NOT restored after the fade');
     if (Math.abs(ax.duration - 1.75) > 1e-6) errors.push('clipdeck: the user transition duration was not restored (got ' + ax.duration + ')');
 
@@ -10864,7 +11498,7 @@ async function runSmoke() {
     console.log('[SMOKE] dolu panel: ' + JSON.stringify(populated));
     if (!populated || populated.error) errors.push('populated panel: ' + ((populated && populated.error) || 'no result'));
     await wait(700);
-    const openFolds = "(function(){var h=document.querySelectorAll('#sections .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
+    const openFolds = "(function(){var h=document.querySelectorAll('.sv-content .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
 
     const cats = await awc3.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
@@ -10882,7 +11516,7 @@ async function runSmoke() {
         var out = [];
         // Yer tutucu ve başlık metinleri de taranır: gözle görünür oldukları
         // halde metin düğümü olmadıkları için kolayca gözden kaçarlar.
-        var attrs = document.querySelectorAll('#sections [placeholder], #sections [title]');
+        var attrs = document.querySelectorAll('.sv-content [placeholder], .sv-content [title]');
         /* Kullanıcı içeriği (preset, sahne, katman, klip adları) çevrilmez ve
            taranmaz: onu çizen öğe data-user-text (metni ve altı) ya da
            data-user-attr (yalnız title/placeholder) ile işaretlenir. */
@@ -10977,8 +11611,10 @@ async function runSmoke() {
           const tiny = [];
           for (const c of cats) {
             click('[data-cat="' + c + '"]'); await sleep(400);
+            // Klip destesi Canlı sayfasında ikinci sekmede
+            if (c === 'live' && window.SVLiveShell) { window.SVLiveShell.setLower('deck'); await sleep(300); }
             // Katlanır bölümlerin içeriği kapalıyken DOM'da yok
-            const folds = document.querySelectorAll('#sections .fold-head:not(.open)');
+            const folds = document.querySelectorAll('.sv-content .fold-head:not(.open)');
             folds.forEach((h) => h.click());
             if (folds.length) { seen.folds += folds.length; await sleep(250); }
             if (document.querySelector('#sceneList .scene-item.active')) seen.active = true;
@@ -11056,7 +11692,7 @@ async function runSmoke() {
           await awc4.executeJavaScript(`(async function () {
             var b = document.querySelector('[data-cat="${c}"]'); if (b) b.click();
             await new Promise(function (r) { setTimeout(r, 400); });
-            var h = document.querySelectorAll('#sections .fold-head:not(.open)');
+            var h = document.querySelectorAll('.sv-content .fold-head:not(.open)');
             for (var i = 0; i < h.length; i++) h[i].click();
             await new Promise(function (r) { setTimeout(r, 300); });
             var P = ['outline-style','outline-width','outline-color','box-shadow','border-top-color','border-bottom-color','background-color','color'];
@@ -11121,7 +11757,7 @@ async function runSmoke() {
           if (window.SVLayoutEditor) window.SVLayoutEditor.close();
           await new Promise(function (r) { setTimeout(r, 300); });
           var stage = document.getElementById('previewStage');
-          return !!(stage && stage.closest('#dock')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
+          return !!(stage && stage.closest('#dock, .sv-frame')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
         })()`);
         console.log('[SMOKE] düzen editörü: ' + JSON.stringify(lay) + ', adsız ' + layUnnamed + ', önizleme yerine döndü ' + back);
         if (!lay || lay.err || !lay.open || !lay.inDialog) errors.push('layout editor did not open with the preview: ' + JSON.stringify(lay));
@@ -11329,7 +11965,8 @@ async function runSmoke() {
         } else {
           currentConfig = Object.assign({}, JSON.parse(JSON.stringify(PINNED)), {
             isBlackout: false,
-            layerStack: { enabled: false },
+            layerStack: { enabled: true },
+            layers: [{ id: 'ly_smoke_media', kind: 'media', enabled: true, settings: {} }],
             visualizer: { type: 'none' },
             background: { type: 'solid', solidColor: '#000000' },
             media: { enabled: true, source: 'file', file: mediaUrl.toMediaUrl(src), loop: true, fit: 'cover', layer: 'back', opacity: 1 },
@@ -11802,6 +12439,7 @@ async function runSmoke() {
   }
   // Öz testin küçük resim klasörü geçici (#575)
   closeThumbWin();
+  closeModeThumbWin();
   if (smokeThumbDir) { try { fs.rmSync(smokeThumbDir, { recursive: true, force: true }); } catch { /* geçici */ } }
   // İşleyici kutuyu kaldırdı; ana süreç hatası yine de koşuyu düşürmeli
   for (const k of faultGuard.errors()) errors.push('main process: uncaught ' + k);
@@ -11841,9 +12479,13 @@ function shutdownCleanup() {
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});
+  sacn.stop(currentConfig && currentConfig.sacn && currentConfig.sacn.enabled ? currentConfig.sacn : null).catch(() => {});
+  ddp.stop().catch(() => {});
+  wledSync.stop().catch(() => {});
   oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
+  if (artnetInRx) artnetInRx.stop().catch(() => {});
   textureShare.stop().catch(() => {});
   if (layerSources) layerSources.shutdown(); // web katmanının görünmez sayfaları
   mediaSession.stop();
@@ -11891,6 +12533,12 @@ app.on('window-all-closed', () => {
 // "canlı" gösterip docs/screenshots/ altına PNG kaydeder. Gerçek ses yakalanmaz.
 // ----------------------------------------------------------------------------
 async function runShots() {
+  /* Gerçek ses aygıtının adı panele hiç gitmez: demo sesi ölçeri oynatınca panel "Yakalanıyor:
+     Hoparlör (…)" yazıyordu ve README görseline giriyordu. Gerçek adlar yalnız aşağıdaki denetim için. */
+  const realDevices = await nativeAudio.listDevices().then((l) => l.map((d) => d.name).filter(Boolean)).catch(() => []);
+  const shotDevices = [{ name: 'System Audio', kind: 'output', loopback: true, isDefault: true }];
+  nativeAudio.listDevices = async () => shotDevices;
+  nativeAudio.diagnoseAudio = async () => ({ ok: true, devices: shotDevices });
   /* Üretici KULLANICININ AYARLARINA YAZMAZ. Panel görüntüleri için panele
      gösterilmelik bir şov (zaman çizelgesi, klip destesi, MilkDrop) veriliyor;
      panel bunu ana sürece geri yollarsa diske gitmesin. Öz testteki kural. */
@@ -11909,6 +12557,9 @@ async function runShots() {
           'requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(d);r();});});})'
       );
     } catch (e) { /* pencere kapanmış olabilir */ }
+    const text = await win.webContents.executeJavaScript('document.body.innerText').catch(() => '');
+    const leak = realDevices.find((n) => text.includes(n));
+    if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
     const img = await win.webContents.capturePage();
     fs.writeFileSync(path.join(shotsDir, name), img.toPNG());
     console.log('[SHOTS] saved ' + name);
@@ -11983,7 +12634,7 @@ async function runShots() {
       if (!adminWin || adminWin.isDestroyed()) return false;
       try {
         const n = await adminWin.webContents.executeJavaScript(
-          "document.getElementById('sections') ? document.getElementById('sections').children.length : 0"
+          "document.querySelectorAll('.sv-content .card, .sv-content .sv-lt').length"
         );
         if (n > 0) return true;
       } catch (e) { /* henüz yüklenmedi */ }
@@ -12008,53 +12659,7 @@ async function runShots() {
     if (!(await adminReady())) console.log('[SHOTS] panel hazır olmadı, yine de kaydediliyor');
   }
 
-  /* Panel görüntüleri: kategori + o kategoride öne çıkan kart.
-
-     Kartın kimliğine göre kaydırma yapılıyor; kategoriyi açıp en üstten
-     ekran almak yeni motorları göstermezdi (Sahne kategorisinde on kart var). */
   const want = (name) => !SHOTS_ONLY || String(name).toLowerCase().includes(SHOTS_ONLY);
-
-  const PANELS = [
-    ['scene', null, 'panel-scene.png'],
-    ['scene', 'modulation', 'panel-modulation.png'],
-    ['scene', 'transition', 'panel-transition.png'],
-    ['scene', 'layers', 'panel-layers.png'],
-    ['scene', 'effects', 'panel-effects.png'],
-    ['scene', 'geometry', 'panel-geometry.png'],
-    ['audio', 'deepanalysis', 'panel-analysis.png'],
-    ['output', 'mapping', 'panel-mapping.png'],
-    ['output', 'record', 'panel-record.png'],
-    ['output', 'stream', 'panel-output.png'],
-    ['library', 'templates', 'panel-templates.png'],
-    ['studio', null, 'panel-studio.png'],
-    ['control', 'oscOut', 'panel-control.png'],
-  ];
-
-  if (adminWin && !adminWin.isDestroyed()) {
-    const awc = adminWin.webContents;
-    for (const [cat, cardId, name] of PANELS) {
-      if (!want(name)) continue;
-      try {
-        await awc.executeJavaScript(
-          '(function(){var b=document.querySelector(\'.nav-item[data-cat="' + cat + '"]\');' +
-            "if(!b){var all=document.querySelectorAll('.nav-item');for(var i=0;i<all.length;i++){if(all[i].dataset&&all[i].dataset.cat==='" + cat + "'){b=all[i];break;}}}" +
-            'if(b)b.click();return !!b})()'
-        );
-        await wait(900);
-        if (cardId) {
-          await awc.executeJavaScript(
-            "(function(){var c=document.querySelector('#sections .card[data-card=\"" + cardId + "\"]');" +
-              "if(!c){var cards=document.querySelectorAll('#sections .card');for(var i=0;i<cards.length;i++){if(cards[i].id==='card-" + cardId + "'){c=cards[i];break;}}}" +
-              "if(c)c.scrollIntoView({block:'start'});return !!c})()"
-          );
-          await wait(500);
-        }
-        await save(adminWin, name);
-      } catch (e) {
-        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
-      }
-    }
-  }
 
   /* Gösterilmelik şov: boş bir zaman çizelgesi ya da klip destesi kartın ne
      yaptığını anlatmıyor. Panele kaydedilmeyen bir yapılandırma veriliyor
@@ -12066,7 +12671,14 @@ async function runShots() {
   const bar = 60 / 124 * 4; // 124 BPM'de bir ölçü
   const tlClip = (ref, startBar, bars, color) => ({ type: 'preset', ref, start: startBar * bar, dur: bars * bar, fade: 1, color });
   const SHOW = {
-    layerStack: { enabled: false },
+    layerStack: { enabled: true },
+    layers: [
+      { id: 'ly_show_bg', name: 'Background', kind: 'background', type: 'gradient', enabled: true, settings: {} },
+      { id: 'ly_show_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} },
+      { id: 'ly_show_geo', name: 'Wire Torus', kind: 'visualizer', type: 'geometry', enabled: true, blend: 'screen', opacity: 0.7, settings: {} },
+      { id: 'ly_show_bars', name: 'Spectrum', kind: 'visualizer', type: 'bars', enabled: true, blend: 'screen', opacity: 0.55, settings: {} },
+      { id: 'ly_show_np', name: 'Track Info', kind: 'nowplaying', type: 'nowplaying', enabled: true, settings: {} },
+    ],
     visualizer: { type: 'milkdrop' },
     milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
     timeline: {
@@ -12114,43 +12726,61 @@ async function runShots() {
       }],
     },
   };
-  /* [kategori, kart, dosya, kaydırılacak öğe, önce tıklanacak düğme]. MCP
-     kartı bilerek yok: açıkken kurulum komutu kullanıcının uygulama veri
-     klasörünün yolunu gösteriyor. */
-  const SHOW_PANELS = [
-    ['scene', 'milkdrop', 'panel-milkdrop.png', '.md-grid'],
-    ['control', 'timeline', 'panel-timeline.png'],
-    ['control', 'clipdeck', 'panel-clipdeck.png'],
-    ['studio', 'mdedit', 'panel-mdedit.png', null, 'button'],
+  /* Panel görüntüleri, hepsi şov yapılandırmasında. [sayfa, dosya, görünmesi gereken öğe,
+     hazırlık]. Sayfanın düzeni değişince eski adres sessizce başka bir ekranı kaydederdi:
+     öğe yoksa görüntü YAZILMAZ ve koşu başarısız biter. MCP kartı bilerek yok: açıkken kurulum
+     komutu kullanıcının uygulama veri klasörünün yolunu gösteriyor. */
+  const SHELL = 'window.SVSceneShell';
+  const PANELS = [
+    ['scene', 'panel-scene.png', '#svInspector .layer-tabs', `${SHELL}.select('ly_show_md');${SHELL}.setShelf('milkdrop')`],
+    ['scene', 'panel-layers.png', '#svInspector .layer-tabs', `${SHELL}.select('ly_show_bars')`],
+    ['scene', 'panel-milkdrop.png', '.md-grid', `${SHELL}.select('ly_show_md');${SHELL}.setShelf('milkdrop')`],
+    ['scene', 'panel-effects.png', '.card[data-card="effects"]', `${SHELL}.setShelf('effects')`],
+    ['scene', 'panel-modulation.png', '.card[data-card="modulation"]', `${SHELL}.setShelf('modulation')`],
+    ['scene', 'panel-templates.png', '.card[data-card="templates"]', `${SHELL}.setShelf('templates')`],
+    ['scene', 'panel-transition.png', '.card[data-card="transition"]', `${SHELL}.select('')`],
+    ['scene', 'panel-geometry.png', '.card[data-card="geometry"]', `${SHELL}.select('ly_show_geo')`],
+    ['live', 'panel-clipdeck.png', '.card[data-card="clipdeck"]', "window.SVLiveShell.setLower('deck')"],
+    ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
+    ['studio', 'panel-studio.png', '.card[data-card="studio"]', "window.SVPanel.setSection('studio')"],
+    ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "window.SVPanel.setSection('mdedit');document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
+    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]'],
+    ['output', 'panel-mapping.png', '.card[data-card="mapping"]', "window.SVPanel.setSection('mapping')"],
+    ['output', 'panel-record.png', '.card[data-card="record"]', "window.SVPanel.setSection('record')"],
+    ['output', 'panel-output.png', '.card[data-card="stream"]', "window.SVPanel.setSection('stream')"],
+    ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
   ];
-  if (adminWin && !adminWin.isDestroyed() && SHOW_PANELS.some((p) => want(p[2]))) {
+  const missing = [];
+  if (adminWin && !adminWin.isDestroyed() && PANELS.some((p) => want(p[1]))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
     await wait(1500);
-    for (const [cat, cardId, name, inner, click] of SHOW_PANELS) {
+    for (const [page, name, need, prep] of PANELS) {
       if (!want(name)) continue;
       try {
-        await awc.executeJavaScript(
-          "(function(){var b=document.querySelector('.nav-item[data-cat=\"" + cat + "\"]');if(b)b.click();return !!b})()"
-        );
-        await wait(1200);
-        const card = "document.querySelector('#sections .card[data-card=\"" + cardId + "\"]')||document.getElementById('card-" + cardId + "')";
-        if (click) {
-          await awc.executeJavaScript('(function(){var c=' + card + ';var b=c&&c.querySelector(' + JSON.stringify(click) + ');if(b)b.click();return !!b})()');
-          await wait(1500);
+        await awc.executeJavaScript(`window.SVPanel.setCategory(${JSON.stringify(page)})`);
+        await wait(900);
+        if (prep) {
+          await awc.executeJavaScript(`(function(){${prep}})()`);
+          await wait(1200);
         }
-        await awc.executeJavaScript(
-          '(function(){var c=' + card + ';var t=c&&' + (inner ? 'c.querySelector(' + JSON.stringify(inner) + ')' : 'null') + ';' +
-            "if(t)t.scrollIntoView({block:'center'});else if(c)c.scrollIntoView({block:'start'});return !!c})()"
+        const found = await awc.executeJavaScript(
+          `(function(){var c=document.querySelector(${JSON.stringify(need)});if(!c||!c.getClientRects().length)return false;` +
+            "c.style.scrollMarginTop='96px';c.scrollIntoView({block:'start'});return true})()"
         );
-        await wait(1500);
+        if (!found) { missing.push(name + ' (' + need + ')'); continue; }
+        await wait(1200);
         await save(adminWin, name);
       } catch (e) {
-        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
+        missing.push(name + ': ' + (e && e.message));
       }
     }
     awc.send('external-config', realCfg);
     await wait(600);
+  }
+  if (missing.length) {
+    console.log('[SHOTS] HEDEF BULUNAMADI, görüntü yazılmadı:\n  ' + missing.join('\n  '));
+    process.exitCode = 1;
   }
 
   // ==========================================================================
@@ -12377,13 +13007,28 @@ async function runShots() {
      sınırlı palet ve hafif titreme. MilkDrop sahnesi kendi presetimizle.
      Çakar ışık (club-strobe) bilerek yok: sayfanın en üstünde yanıp sönen
      bir görüntü ışığa duyarlı okuyucuya zarar verebilir. */
+  /* v4 vitrini (#905): en yeni CaYaDev MilkDrop presetleri, çok geçişli Studio zemini (Mürekkep
+     Akışı) üstünde yeni bir mod, yeni Korona, sonra 3B, synthwave ve yayın kartı. Üçüncü öğe
+     bekleme süresi: mürekkep birikerek doluyor. */
+  const mdOver = (name) => {
+    const p = MD_PRESETS.find((x) => x.name === name) || MD_PRESETS[0];
+    return { milkdrop: { presetId: p.id, name: p.name, source: p.source } };
+  };
+  const heroLayers = (bg, vis, extra) => Object.assign({
+    layerStack: { enabled: true },
+    layers: [
+      { id: 'ly_hero_bg', name: 'Background', kind: 'background', type: bg, enabled: true, opacity: 1, blend: 'normal', settings: {} },
+      { id: 'ly_hero_vis', name: 'Visualizer', kind: 'visualizer', type: vis, enabled: true, opacity: 1, blend: 'normal', settings: {} },
+    ],
+  }, extra || {});
   const HERO = [
-    ['club-milkdrop', { milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source } }],
-    ['club-tunnel'],
+    ['club-milkdrop', mdOver('Hologram Globe')],
+    ['club-milkdrop', heroLayers('custom', 'liquidspectrum', { custom: { backgroundId: 'sh_ink_flow' } }), 3200],
+    ['club-milkdrop', mdOver('Stained Glass')],
+    ['club-milkdrop', heroLayers('nightsky', 'corona')],
     ['geo-lorenz'],
-    ['bc-label', NOW_PLAYING],
     ['gen-synthwave'],
-    ['gen-dnb'],
+    ['bc-label', NOW_PLAYING],
   ];
   /* Klibin başı kullanıcının kendi kaydı (demo-visualizer.gif, 10.10):
      degrade üzerinde logolu gökkuşağı barlar. Uygulamadan üretilmiyor, elle
@@ -12409,9 +13054,9 @@ async function runShots() {
           bufs.push(await sharp(HERO_LEAD, { page: i }).resize(800, 450, { fit: 'cover' }).png().toBuffer());
         }
       }
-      for (const [id, over] of HERO) {
+      for (const [id, over, settle] of HERO) {
         if (!(await applyTemplate(id, over, postFor(over)))) continue;
-        await wait(1500);
+        await wait(settle || 1500);
         for (let k = 0; k < 14; k++) {
           const img = await vw.webContents.capturePage();
           bufs.push(await sharp(img.toPNG()).resize(800).png().toBuffer());
@@ -12558,6 +13203,7 @@ async function runShots() {
   clearInterval(pump);
   console.log('[SHOTS] done');
   closeVisualizer(); // kasıtlı: koruma geri açmasın
+  if (missing.length) app.exit(1);
   app.quit();
 }
 

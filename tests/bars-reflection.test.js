@@ -31,9 +31,9 @@ test('varsayılan kapalı; panelde tabanda duran barlarda', () => {
   const D = read('src/shared/defaults.js');
   assert.match(D, /reflection: 0, \/\/ zemin yansıması/);
   assert.match(D, /reflectionLength: 0\.4,/);
-  const admin = read('src/admin/admin.js');
-  assert.match(admin, /path: 'visualizer\.reflection', label: 'Zemin Yansıması'/);
-  assert.match(admin, /path: 'visualizer\.reflectionLength', label: 'Yansıma Boyu'/);
+  const panel = read('src/admin/scene-panels.js');
+  assert.match(panel, /'Zemin Yansıması'/);
+  assert.match(panel, /'Yansıma Boyu'/);
   const i18n = read('src/shared/i18n.js');
   assert.ok(i18n.includes("'Zemin Yansıması': 'Floor Reflection'") && i18n.includes("'Yansıma Boyu': 'Reflection Length'"));
   assert.match(read('scripts/parity-lib.js'), /name: 'bars-reflection'/);

@@ -29,7 +29,7 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], tbar: [], live: [],
   };
   let lyricsLibItems = [];
   let lyricsLibSeen = false;
@@ -276,6 +276,10 @@
         window.SVLyricsRun = window.SVLyricsRun || { anchor: null };
         window.SVLyricsRun.anchor = lyricsClockAnchor;
         handlers.lyricsClock.forEach((h) => h(lyricsClockAnchor));
+      } else if (msg.type === 'momentary-fx') {
+        handlers.momentaryFx.forEach((h) => h(msg.list));
+      } else if (msg.type === 'tbar') {
+        handlers.tbar.forEach((h) => h(msg.m));
       } else if (msg.type === 'show-clock') {
         handlers.showClock.forEach((h) => h(msg.anchor));
       } else if (msg.type === 'md-follow') {
@@ -288,6 +292,9 @@
         if (typeof window.SVCamFrame === 'function') window.SVCamFrame(String(msg.key || ''), String(msg.data || ''));
       } else if (msg.type === 'cam-status') {
         if (typeof window.SVCamStatus === 'function') window.SVCamStatus(String(msg.key || ''), msg.error || '', !!msg.ready);
+      } else if (msg.type === 'live') {
+        // Kumandanın canlı özeti: seviye, tempo, çizelge, karartma
+        handlers.live.forEach((h) => h(msg.state || {}));
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -368,6 +375,8 @@
     onPresets: (cb) => handlers.presets.push(cb),
     onPresetsDelta: (cb) => handlers.presetsDelta.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
+    onMomentaryFx: (cb) => handlers.momentaryFx.push(cb),
+    onTbar: (cb) => handlers.tbar.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
     /* Kütüphane ve söz saati, dinleyici kurulmadan önce gelebilir.
        Son örnek abone olunca yeniden verilir. */
@@ -419,6 +428,7 @@
     onPresets: (cb) => handlers.presetsList.push(cb),
     onStatus: (cb) => handlers.status.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
+    onLive: (cb) => handlers.live.push(cb),
     ready: configReady,
     presetsReady,
     raw: () => firstConfig,

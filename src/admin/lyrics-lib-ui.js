@@ -427,8 +427,9 @@
     nodes.push(SP().miniToggle('Çalan Parçayı İzle', () => txt.lyricsFollow === true, (v) => {
       txt.lyricsFollow = !!v;
       if (v && window.api && window.api.nowPlayingSubscribe) window.api.nowPlayingSubscribe(true);
-      if (ctx && ctx.sync) ctx.sync();
-    }, rerender, { def: false }));
+    /* Bu blok yalnız Windows'ta çizilir; orada fabrika varsayılanı açık. Yanlış
+       varsayılan (false) açıkken "varsayılana döndür" düğmesini gösteriyordu. */
+    }, rerender, { def: true }));
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.',
@@ -439,7 +440,7 @@
         ['partial', 'Kısmen Eşleme'],
       ], () => txt.lyricsMatch || 'exact', (v) => {
         txt.lyricsMatch = v === 'partial' ? 'partial' : 'exact';
-        if (ctx && ctx.sync) ctx.sync();
+        
       }, rerender, 'exact'));
       nodes.push(statusNode(el, txt));
     }

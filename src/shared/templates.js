@@ -773,11 +773,10 @@
         { mapping: { enabled: true, outputs: { default: null } } })),
   ];
 
-  // Bir şablonu yapılandırmaya uygular; kullanıcının kurulumuna dokunmaz.
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'geometry', 'postfx', 'layers', 'layerStack', 'logo',
-    'modulation', 'transition', 'custom', 'milkdrop', 'images', 'feedback',
-  ];
+  /* Bir şablonu yapılandırmaya uygular; kullanıcının kurulumuna dokunmaz.
+     Sahneyle aynı alanlar (#905): önceden 13 alandı, şablon uygulayınca medya,
+     metin, katman grupları ve çapraz geçiş önceki sahneden kalıyordu. */
+  const SCENE_KEYS = ((typeof window !== 'undefined' && window.SVSchema) || require('./schema.js')).SCENE_KEYS;
 
   /* Şablonu uygula.
 
@@ -853,7 +852,6 @@
     const logoKind = (cfg.logo && cfg.logo.kind) || null;
     const logoSource = (cfg.logo && cfg.logo.source) || null;
     const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
-    const layerStackEnabled = cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : null;
     const userLogo = (cfg.logo && typeof cfg.logo === 'object') ? clone(cfg.logo) : null;
     for (const k of SCENE_KEYS) {
       if (def[k] !== undefined) out[k] = clone(def[k]);
@@ -887,10 +885,8 @@
         merged.logo.source = logoSource;
       }
     }
-    if (layerStackEnabled !== null && (!tpl.patch.layerStack || tpl.patch.layerStack.enabled === undefined)) {
-      merged.layerStack = merged.layerStack || {};
-      merged.layerStack.enabled = layerStackEnabled;
-    }
+    // Tek yol katman listesi (#905): şablon da liste olarak açılır
+    merged.layerStack = Object.assign({}, merged.layerStack, { enabled: true });
     /* Listeler doğrudan geçer. deepMerge dizileri birleştirmez ve bu
        bilinçli: bir şablonun efekt zinciri öncekinin ÜSTÜNE eklenmemeli,
        onun YERİNE geçmeli. */
@@ -908,16 +904,11 @@
           if (logoSource) ly.settings.logo.source = logoSource;
         }
       });
-    } else if (layerStackEnabled) {
-      // Şablonda açık katman listesi yoksa ve katman yığını açıksa,
-      // önceki şablondan kalan eski katmanların (metinler, eski logolar,
-      // önceki görselleştiriciler) üst üste binmesini önlemek için
+    } else if (layersApi && typeof layersApi.synthesize === 'function') {
+      // Şablonda açık katman listesi yoksa önceki şablondan kalan eski katmanlar
+      // (metinler, eski logolar, önceki görselleştiriciler) üst üste binmesin diye
       // yeni şablonun temiz sahnesinden katmanlar yeniden sentezlenir.
-      if (layersApi && typeof layersApi.synthesize === 'function') {
-        merged.layers = layersApi.synthesize(merged);
-      } else {
-        merged.layers = [];
-      }
+      merged.layers = layersApi.synthesize(merged);
     } else {
       merged.layers = [];
     }

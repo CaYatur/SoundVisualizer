@@ -281,5 +281,5 @@ test('öz test bağlamı gerçekten kaybettirip kareleri ve pikselleri ölçüyo
   assert.match(main, /the picture did not come back/);
   /* Yığına erişim: öz testin çizen motoru bulabilmesi için tek kapı. */
   const vis = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'visualizer.js'), 'utf-8');
-  assert.match(vis, /window\.SVStage = \{ stack: \(\) => stack \};/);
+  assert.match(vis, /window\.SVStage = \{ stack: \(\) => stack, /);
 });

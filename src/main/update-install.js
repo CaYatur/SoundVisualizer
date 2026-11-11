@@ -156,7 +156,7 @@ function runInstaller(file, silent, spawn) {
 /* spawn gelirse kurucu başladı. error gelirse ya da ikisi de gelmezse
    başarısız: çağıran uygulamayı kapatmamalı. */
 function whenInstallerStarted(child, timeoutMs) {
-  const fail = (err) => ({ ok: false, error: String((err && err.message) || err || 'installer failed to start') });
+  const fail = (err) => ({ ok: false, error: String((err && err.message) || err || 'installer failed to start'), code: err && err.code });
   if (child && child.spawnError) return Promise.resolve(fail(child.spawnError));
   if (!child || typeof child.once !== 'function') return Promise.resolve(fail());
   return new Promise((resolve) => {
@@ -173,6 +173,48 @@ function whenInstallerStarted(child, timeoutMs) {
   });
 }
 
+/* YÖNETİCİ İZNİ (#926). Kurulum tüm kullanıcılar için, kurucunun bildirimi
+   requireAdministrator. Ölçüldü: yönetici olmayan süreçten düz spawn kurucuyu hiç
+   başlatmıyor, EACCES veriyor. İzin penceresini kurulumla gelen elevate.exe açıyor:
+   izin penceresi kapanınca çıkar, 0 kurucu başladı demek, başlatamazsa 1.
+   Testler spawn'ı sahte verdiği için bu hata uzun süre görünmedi. */
+const NEEDS_ELEVATION = new Set(['EACCES', 'EPERM', 'UNKNOWN']);
+const ELEVATE_WAIT_MS = 5 * 60 * 1000; // kullanıcı izin penceresinde düşünüyor olabilir
+
+function whenElevated(child, timeoutMs) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish({ ok: false, error: 'no answer to the permission prompt' }), timeoutMs == null ? ELEVATE_WAIT_MS : timeoutMs);
+    child.once('error', (err) => finish({ ok: false, error: String((err && err.message) || err), helperFailed: true }));
+    child.once('exit', (code) => finish(code === 0 ? { ok: true } : { ok: false, error: 'permission refused or installer failed (' + code + ')' }));
+  });
+}
+
+/* o: file, silent, spawn, elevate (elevate.exe yolu), exists, openPath, timeoutMs, elevateTimeoutMs.
+   Önce doğrudan: uygulama yönetici olarak açıldıysa izin penceresi gereksiz.
+   Kullanıcı izni reddederse kabuk denenmez, aynı soru ikinci kez sorulmasın.
+   Yardımcı yoksa kabuk açar: --updated geçilemez, kurucu kendi sihirbazıyla gelir. */
+async function startInstaller(o) {
+  const direct = await whenInstallerStarted(runInstaller(o.file, o.silent, o.spawn), o.timeoutMs);
+  if (direct.ok || !NEEDS_ELEVATION.has(direct.code)) return direct;
+  if (o.elevate && (!o.exists || o.exists(o.elevate))) {
+    const child = o.spawn(o.elevate, [o.file].concat(installerArgs(o.silent)), { stdio: 'ignore', windowsHide: true });
+    const r = await whenElevated(child, o.elevateTimeoutMs);
+    if (r.ok || !r.helperFailed) return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+  if (o.openPath) {
+    const err = await o.openPath(o.file);
+    return err ? { ok: false, error: String(err) } : { ok: true };
+  }
+  return direct;
+}
+
 /* AppImage: yeni dosya AYNI klasöre (aynı dosya sistemi) iner, çalıştırılabilir
    yapılır ve eskisinin üstüne atomik olarak taşınır. Çalışan kopya eski
    dosyayı bağlı tuttuğu için etkilenmez; yeni sürüm bir sonraki açılışta. */
@@ -185,4 +227,4 @@ async function replaceAppImage(file, target, fsx) {
   return target;
 }
 
-module.exports = { MAX_REDIRECTS, allowedUrl, refusedEncoding, download, installerArgs, runInstaller, whenInstallerStarted, appImageTemp, replaceAppImage };
+module.exports = { MAX_REDIRECTS, allowedUrl, refusedEncoding, download, installerArgs, runInstaller, whenInstallerStarted, whenElevated, startInstaller, appImageTemp, replaceAppImage };

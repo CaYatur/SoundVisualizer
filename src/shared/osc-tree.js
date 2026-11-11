@@ -23,38 +23,9 @@ const DEFAULT_PREFIX = '/cayadev';
 const MAX_WAIT_MS = 30000;
 const NTP_UNIX = 2208988800;
 
-/* Aralıklar panel kaydırıcılarıyla aynı (control.js TARGETS). */
-const SLIDERS = [
-  { path: 'audio.sensitivity', min: 0.2, max: 4 },
-  { path: 'audio.smoothing', min: 0, max: 0.95 },
-  { path: 'audio.bassBoost', min: 1, max: 4 },
-  { path: 'visualizer.sensitivity', min: 0.3, max: 3 },
-  { path: 'visualizer.glow', min: 0, max: 1 },
-  { path: 'visualizer.barCount', min: 16, max: 160, int: true },
-  { path: 'visualizer.gap', min: 0, max: 0.8 },
-  { path: 'visualizer.lineWidth', min: 1, max: 12 },
-  { path: 'visualizer.thickness', min: 0.1, max: 1 },
-  { path: 'visualizer.trailHeight', min: 0.4, max: 3 },
-  { path: 'background.gradient.speed', min: 0, max: 2 },
-  { path: 'background.gradient.audioReactivity', min: 0, max: 2 },
-  { path: 'background.gradient.brightness', min: 0.4, max: 1.6 },
-  { path: 'background.gradient.audioHue', min: 0, max: 1 },
-  { path: 'background.gradient.vignette', min: 0, max: 1 },
-  { path: 'logo.opacity', min: 0, max: 1 },
-  { path: 'logo.scale', min: 0.05, max: 0.6 },
-  { path: 'feedback.zoom', min: 0.94, max: 1.08 },
-  { path: 'feedback.decay', min: 0.7, max: 0.999 },
-  { path: 'feedback.warp', min: 0, max: 2 },
-  { path: 'feedback.rotate', min: -1, max: 1 },
-  { path: 'media.opacity', min: 0, max: 1 },
-  { path: 'media.kaleido', min: 0, max: 12, int: true },
-  { path: 'milkdrop.blendTime', min: 0, max: 5 },
-  { path: 'milkdrop.autoNext', min: 0, max: 120, int: true },
-  { path: 'milkdrop.autoNextRand', min: 0, max: 30, int: true },
-  { path: 'milkdrop.hardCutThreshold', min: 1, max: 6 },
-  { path: 'milkdrop.mesh', steps: [24, 32, 48, 64, 96, 128] },
-  { path: 'milkdrop.renderScale', steps: [0.75, 1, 1.5, 2] },
-];
+/* Aralıklar panel kaydırıcılarıyla aynı, şemadan (#905). */
+const Schema = (typeof window !== 'undefined' && window.SVSchema) || require('./schema.js');
+const SLIDERS = Schema.SLIDERS.map(({ label, ...row }) => row);
 
 const PALETTES = ['theme', 'solid', 'rainbow'];
 const PREFIX_RE = /^(\/[A-Za-z0-9_-]{1,32}){1,4}$/;
@@ -241,6 +212,12 @@ function match(parts, args, cfg, opt) {
     if (v == null) return null;
     return { kind: 'set', path: 'autovj.enabled', value: v };
   }
+  if (key === 'show/tbar') {
+    // Canlı sayfasının T-bar'ı: mutlak konum (src/admin/live-shell.js tbarTo)
+    const n = finite(args[0]);
+    if (n == null) return null;
+    return { kind: 'op', op: 'tbar', value: clamp(n, 0, 1) };
+  }
   if (key === 'crossfade') {
     const n = finite(args[0]);
     if (n == null) return null;
@@ -387,6 +364,7 @@ function leaves(cfg, opt) {
   add('show/opacity', leaf(pre + '/show/opacity', 'f', 3, clamp(master, 0, 1), [{ MIN: 0, MAX: 1 }], 'Master opacity'));
   add('show/transition', leaf(pre + '/show/transition', 's', 3, getPath(cfg, 'transition.type') || '', null, 'Transition id'));
   add('show/autovj', leaf(pre + '/show/autovj', 'i', 3, cfg && cfg.autovj && cfg.autovj.enabled ? 1 : 0, [{ MIN: 0, MAX: 1 }], 'Auto VJ'));
+  add('show/tbar', leaf(pre + '/show/tbar', 'f', 2, undefined, [{ MIN: 0, MAX: 1 }], 'T-bar position'));
   add('crossfade', leaf(pre + '/crossfade', 'f', 3, cfg && cfg.crossfade && Number.isFinite(cfg.crossfade.value) ? cfg.crossfade.value : 0, [{ MIN: 0, MAX: 1 }], 'A/B crossfader'));
   add('scene', leaf(pre + '/scene', 's', 3, sceneName(cfg), null, 'Scene name, UTF-8'));
   add('visualizer', leaf(pre + '/visualizer', 's', 3, getPath(cfg, 'visualizer.type') || '', null, 'Visualizer id'));

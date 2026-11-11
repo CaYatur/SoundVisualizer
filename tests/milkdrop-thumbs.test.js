@@ -401,7 +401,7 @@ test('ana süreç: protokol, istek, eskime, pencere ve yerleşikler', () => {
   assert.match(M, /\{ scheme: 'sv-thumb', privileges: \{ standard: true, secure: true, supportFetchAPI: true, bypassCSP: false \} \}/);
   const proto = /protocol\.handle\('sv-thumb', async \(request\) => \{[\s\S]*?\n {2}\}\);/.exec(M);
   assert.ok(proto, 'protokol işleyicisi yok');
-  assert.match(proto[0], /const file = mdThumbs\.fileForUrl\(thumbDir\(\), request\.url\);\s*if \(!file\) return new Response\('not found', \{ status: 404 \}\);/);
+  assert.match(proto[0], /const file = (?:modeFile \|\| )?mdThumbs\.fileForUrl\(thumbDir\(\), request\.url\);\s*if \(!file\) return new Response\('not found', \{ status: 404 \}\);/);
   assert.match(proto[0], /'Content-Type': 'image\/webp'/);
   const h = /ipcMain\.handle\('milkdrop:thumbs', async \(e, ids\) => \{[\s\S]*?\n\}\);/.exec(M);
   assert.ok(h, 'istek işleyicisi yok');

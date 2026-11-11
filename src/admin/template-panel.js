@@ -49,6 +49,7 @@
         grid.appendChild(el('button', {
           class: 'tpl-card' + (lastApplied === t.id ? ' active' : ''),
           type: 'button',
+          'data-cur': t.id,
           onclick: () => applyTemplate(t),
         }, [
           el('span', { class: 'tpl-swatch', style: swatch(t) }),
@@ -162,5 +163,7 @@
   window.SVTemplatePanel = {
     panel,
     clearLastApplied() { lastApplied = ''; },
+    // Raf vurgusu (scene-shell syncShelf): son uygulanan şablon
+    current() { return lastApplied; },
   };
 })();

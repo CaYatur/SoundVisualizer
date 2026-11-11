@@ -72,7 +72,7 @@
     const list = el('div', { class: 'map-list' });
     if (!L.providers.length) list.appendChild(el('div', { class: 'studio-empty', text: T('Sağlayıcı yok: hiçbir ağ isteği yapılmaz.') }));
     L.providers.forEach((pr, i) => {
-      const kind = el('select', { class: 'p-in', onchange: (e) => { pr.format = e.target.value; p.push(true); p.rerender(); } });
+      const kind = el('select', { class: 'p-in', 'aria-label': T('Biçim'), onchange: (e) => { pr.format = e.target.value; p.push(true); p.rerender(); } });
       [['json', 'JSON'], ['lrc', T('Ham LRC')]].forEach(([v, t]) => {
         const o = el('option', { value: v, text: t });
         if ((pr.format || 'json') === v) o.selected = true;
@@ -95,13 +95,27 @@
         onclick: () => { L.providers.splice(i, 1); p.push(true); p.rerender(); } }));
       list.appendChild(el('div', { class: 'map-row' }, row));
     });
-    list.appendChild(el('button', {
-      class: 'btn ghost small', type: 'button', icon: 'plus', text: T('Sağlayıcı Ekle'),
-      onclick: () => {
-        L.providers.push({ enabled: true, name: '', url: 'https://example.com/api/get?artist={artist}&title={title}', format: 'json', path: 'syncedLyrics' });
-        p.push(true); p.rerender();
-      },
-    }));
+    list.appendChild(el('div', { class: 'map-row', style: 'gap:8px;flex-wrap:wrap;align-items:center' }, [
+      el('button', {
+        class: 'btn ghost small', type: 'button', icon: 'plus', text: T('Sağlayıcı Ekle'),
+        onclick: () => {
+          L.providers.push({ enabled: true, name: '', url: 'https://example.com/api/get?artist={artist}&title={title}', format: 'json', path: 'syncedLyrics' });
+          p.push(true); p.rerender();
+        },
+      }),
+      el('button', {
+        class: 'btn ghost small', type: 'button', icon: 'plus', text: T('LRCLIB Ekle'),
+        title: T('LRCLIB hazır şablonunu ekle (isteğe bağlı)'),
+        onclick: () => {
+          const api = window.SVLyricsProviders;
+          if (!api) return;
+          const r = api.addLrclibPreset(L.providers);
+          if (!r.added) { p.toast(T('LRCLIB zaten listede.'), 'info'); return; }
+          p.push(true); p.rerender();
+          p.toast(T('LRCLIB eklendi.'), 'ok');
+        },
+      }),
+    ]));
     nodes.push(list);
     nodes.push(el('button', {
       class: 'btn ghost small', type: 'button', text: T('Söz Önbelleğini Temizle'),
@@ -110,7 +124,7 @@
         p.toast(T('Söz önbelleği temizlendi.'));
       },
     }));
-    nodes.push(note('Sıra: şarkının yanındaki .lrc/.srt → dosyaya gömülü sözler (ID3 USLT/SYLT, Vorbis LYRICS, MP4 lyr) → önbellek → sağlayıcılar (yukarıdan aşağı). Adreste {artist}, {title}, {album} ve {duration} kullanılabilir. Sağlayıcı hatası çalmayı asla durdurmaz; sağlayıcı yoksa ağa çıkılmaz.'));
+    nodes.push(note('Sıra: şarkının yanındaki .lrc/.srt → dosyaya gömülü sözler (ID3 USLT/SYLT, Vorbis LYRICS, MP4 lyr) → önbellek → sağlayıcılar (yukarıdan aşağı). Adreste {artist}, {title}, {album} ve {duration} kullanılabilir. Sağlayıcı hatası çalmayı asla durdurmaz; sağlayıcı yoksa ağa çıkılmaz. LRCLIB hazır isteğe bağlı bir şablondur; zorunlu değildir.'));
     return el('div', { class: 'control-panel' }, nodes);
   }
 

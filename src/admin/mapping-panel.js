@@ -239,6 +239,7 @@
       if (h !== hover) { hover = h; draw(); }
     });
     cv.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return; // yalnız sol tuş (#957)
       const r = cv.getBoundingClientRect();
       const px = ((e.clientX - r.left) / r.width) * W;
       const py = ((e.clientY - r.top) / r.height) * H;
@@ -294,7 +295,12 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    nodes.push(SP().miniToggle('Haritalama Etkin', () => !!m.enabled, (v) => { m.enabled = v; }, rerender));
+    nodes.push(P().moduleHead({
+      id: 'mapping', title: 'Projeksiyon Haritalama', on: !!m.enabled,
+      status: el('div', { class: 'studio-status', text: m.enabled ? 'Uygulanıyor' : 'Kapalı' }),
+      start: 'Haritalamayı Uygula', stop: 'Haritalamayı Kaldır',
+      toggle: (next) => { m.enabled = next; rerender(); },
+    }));
     if (!m.enabled) {
       nodes.push(el('div', {
         class: 'studio-note dim-hint',

@@ -155,6 +155,38 @@
     }
   }
 
+  /* İz tamponu: yoksa kurulur, boyut değişince eski izler yeni boyuta ölçeklenerek taşınır.
+     Uyarlanır çözünürlük (#453) çıkışın boyutunu basamak basamak değiştiriyor; taşınmazsa
+     her basamakta biriken izler bir anda silinirdi. */
+  function sizeTrail(self, W, H) {
+    const old = self.trail;
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const tc = c.getContext('2d');
+    if (old && old.width > 1 && old.height > 1) {
+      tc.imageSmoothingEnabled = true;
+      tc.drawImage(old, 0, 0, W, H);
+    }
+    self.trail = c;
+    self.tctx = tc;
+  }
+
+  /* Piksel koordinatlı durum, tuval boyutu değişince orantılı taşınır (#453). Eskiden
+     resize() parçacıkları yeniden tohumluyor, ipleri baştan kuruyordu: uyarlanır çözünürlüğün
+     her basamağında sahne bir anda başka bir yere atlıyordu. İlk çağrı yalnız boyutu kaydeder. */
+  function rescale(self, W, H, xs, ys) {
+    const lw = self._lw;
+    const lh = self._lh;
+    self._lw = W;
+    self._lh = H;
+    if (!lw || !lh || (lw === W && lh === H)) return;
+    const kx = W / lw;
+    const ky = H / lh;
+    for (const a of xs) for (let i = 0; i < a.length; i++) a[i] *= kx;
+    for (const a of ys) for (let i = 0; i < a.length; i++) a[i] *= ky;
+  }
+
   // Ortak vuruş algılayıcı sarmalayıcısı (bkz. src/shared/onset.js)
   function onset(refractory) {
     return new window.SVOnset.Onset({ refractory: refractory == null ? 0.11 : refractory });
@@ -178,7 +210,7 @@
       this.trail = null;
       this.tctx = null;
     }
-    resize() { this.init = false; this.trail = null; }
+    resize() {}
     _seed(W, H) {
       for (let i = 0; i < this.N; i++) {
         this.px[i] = this.rand() * W;
@@ -195,14 +227,11 @@
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       if (!this.init) this._seed(W, H);
+      rescale(this, W, H, [this.px], [this.py]);
 
       // İz tamponu: parçacıkların geçtiği yol solarak kalır
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.035 + (1 - v.thickness) * 0.06, this);
       tc.globalCompositeOperation = 'lighter';
@@ -267,7 +296,7 @@
       this.vy = new Float32Array(this.N);
       this.init = false;
     }
-    resize() { this.init = false; }
+    resize() {}
     _seed(W, H) {
       for (let i = 0; i < this.N; i++) {
         this.x[i] = this.rand() * W;
@@ -285,6 +314,7 @@
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       if (!this.init) this._seed(W, H);
+      rescale(this, W, H, [this.x, this.vx], [this.y, this.vy]);
       ctx.clearRect(0, 0, W, H);
 
       const sens = v.sensitivity || 1;
@@ -454,7 +484,7 @@
       this.cols = 0;
       this.rows = 0;
     }
-    resize() { this.flip = null; }
+    resize() {}
     draw(audio, cfg, t, dt) {
       const ctx = this.ctx;
       const W = this.canvas.width;
@@ -659,7 +689,7 @@
       this.onset = onset(0.1);
       this.ropes = null;
     }
-    resize() { this.ropes = null; }
+    resize() {}
     _build(W, H, count, seg) {
       this.ropes = [];
       for (let r = 0; r < count; r++) {
@@ -677,13 +707,22 @@
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      const step = Math.min(0.033, dt || 0.016);
+      const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
 
       const count = clamp(Math.round((v.barCount | 0) * 0.05), 3, 14);
       const seg = clamp(Math.round((v.barCount | 0) * 0.3), 24, 90);
       if (!this.ropes || this.ropes.length !== count || this.ropes[0].length !== seg) {
         this._build(W, H, count, seg);
+        this._lw = W;
+        this._lh = H;
+      } else if (this._lw !== W || this._lh !== H) {
+        // Boyut değişti: ipler orantılı taşınır, fizik kaldığı yerden sürer
+        const kx = W / this._lw;
+        const ky = H / this._lh;
+        for (const pts of this.ropes) for (const p of pts) { p.x *= kx; p.px *= kx; p.y *= ky; p.py *= ky; }
+        this._lw = W;
+        this._lh = H;
       }
 
       const sens = v.sensitivity || 1;
@@ -691,46 +730,64 @@
       const hit = this.onset.push(audio.bass * sens, step);
       const minDim = Math.min(W, H);
 
+      /* SABİT ADIMLI FİZİK. Eskiden kare başına tek Verlet adımı ve üç kısıt turu vardı: ip
+         lastik gibi uzuyor, sarkma kare hızına bağlı kalıyordu. Ölçüldü (8 sn, örnek ses, üstteki
+         ipin ortası, yüksekliğe oranla): 1080p 60 fps'te 1,66, 30 fps dışa aktarımda 4,1, 144 fps'te
+         0,81; ipler ekranın dışına sarkıyor, yalnız iki kenardaki uçları görünüyordu. Şimdi en çok
+         1/120 sn'lik alt adımlar, her adımda gidiş-dönüş on altı kısıt turu ve açıklığın binde 4
+         fazlası ip boyu. Aynı ölçüm: 30, 60 fps ve 4K'da 0,31-0,32, 144 fps'te 0,27 (bağlantı
+         0,18'de): sarkma yüksekliğin ~%14'ü, en alttaki ip de ekranda kalıyor. Tekme ve titreşim
+         saniye başına ölçekli; alt adım sayısı değişince güçleri değişmiyor. */
+      const subs = Math.max(1, Math.ceil(step * 120 - 1e-6));
+      const h = step / subs;
+      const k60 = h * 60;
+      const grav = minDim * 1.5 * h * h;
+      const damp = Math.pow(0.4, h);
+      const rest = (W / (seg - 1)) * 1.004;
       for (let r = 0; r < count; r++) {
         const pts = this.ropes[r];
         const e = clamp(bars[r] * sens, 0, 1);
+        const y0 = H * (0.18 + 0.64 * (count === 1 ? 0.5 : r / (count - 1)));
         // Vuruşta rastgele bir noktadan tekme
         if (hit > 0) {
           const i = 1 + ((this.rand() * (seg - 2)) | 0);
-          pts[i].py += (this.rand() - 0.5) * minDim * 0.25 * hit;
+          pts[i].py += (this.rand() - 0.5) * minDim * 0.25 * hit * k60;
         }
         // Bant enerjisi ipi sürekli titretir
         for (let i = 1; i < seg - 1; i++) {
-          pts[i].py -= Math.sin(t * 6 + i * 0.4 + r) * e * minDim * 0.0016;
+          pts[i].py -= Math.sin(t * 6 + i * 0.4 + r) * e * minDim * 0.0016 * k60;
         }
-        // Verlet entegrasyonu + yerçekimi + sönüm
-        for (let i = 1; i < seg - 1; i++) {
-          const p = pts[i];
-          const vx = (p.x - p.px) * 0.985;
-          const vy = (p.y - p.py) * 0.985;
-          p.px = p.x;
-          p.py = p.y;
-          p.x += vx;
-          p.y += vy + minDim * 0.5 * step * step * 60;
-        }
-        // Mesafe kısıtları (birkaç yineleme yeterli)
-        const rest = W / (seg - 1);
-        for (let it = 0; it < 3; it++) {
-          for (let i = 0; i < seg - 1; i++) {
-            const a = pts[i];
-            const b = pts[i + 1];
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const d = Math.hypot(dx, dy) || 1;
-            const diff = (d - rest) / d * 0.5;
-            const ox = dx * diff;
-            const oy = dy * diff;
-            if (i > 0) { a.x += ox; a.y += oy; }
-            if (i + 1 < seg - 1) { b.x -= ox; b.y -= oy; }
+        for (let s = 0; s < subs; s++) {
+          // Verlet entegrasyonu + yerçekimi + sönüm
+          for (let i = 1; i < seg - 1; i++) {
+            const p = pts[i];
+            const vx = (p.x - p.px) * damp;
+            const vy = (p.y - p.py) * damp;
+            p.px = p.x;
+            p.py = p.y;
+            p.x += vx;
+            p.y += vy + grav;
           }
-          // Uçlar sabit
-          pts[0].x = 0; pts[0].y = H * (0.18 + 0.64 * (count === 1 ? 0.5 : r / (count - 1)));
-          pts[seg - 1].x = W; pts[seg - 1].y = pts[0].y;
+          // Uçlar sabit; kısıtlar sırayla bir baştan bir sondan (uzun zincirde çabuk yakınsıyor)
+          pts[0].x = 0; pts[0].y = y0;
+          pts[seg - 1].x = W; pts[seg - 1].y = y0;
+          for (let it = 0; it < 16; it++) {
+            const fwd = (it & 1) === 0;
+            for (let q = 0; q < seg - 1; q++) {
+              const i = fwd ? q : seg - 2 - q;
+              const a = pts[i];
+              const b = pts[i + 1];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const d = Math.hypot(dx, dy) || 1;
+              if (d <= rest) continue;
+              const diff = (d - rest) / d * 0.5;
+              const ox = dx * diff;
+              const oy = dy * diff;
+              if (i > 0) { a.x += ox; a.y += oy; } else { b.x -= ox; b.y -= oy; }
+              if (i + 1 < seg - 1) { b.x -= ox; b.y -= oy; } else { a.x += ox; a.y += oy; }
+            }
+          }
         }
 
         const c = tone(v, cfg, r / count, t);
@@ -768,6 +825,21 @@
         this.ang[i] = r() * 0.9;
         this.jit[i] = (r() - 0.5) * 0.28;
       }
+      /* HALKA SIRASI (#905). Renk ve saydamlık yıldızın yarıçapına ve bandına bağlı; yarıçap
+         sabit. Eskiden her karede 2600 yıldızın her biri için renk hesaplanıyor, rgba metni
+         kuruluyor ve tuval o metni yeniden çözüyordu (çıkış profilinde en pahalı mod). Yıldızlar
+         bir kez 48 halkaya diziliyor; renk halka başına bir kez. 48 halka 16 bandın tam katı:
+         bir halkadaki yıldızların bandı aynı, boyutları da. Toplamalı karışım sıradan
+         bağımsız, konumlar yıldızın kendi yarıçapından. */
+      const B = Galaxy.RINGS;
+      const ring = (i) => Math.min(B - 1, (this.rad[i] * B) | 0);
+      const idx = Array.from({ length: this.N }, (_, i) => i).sort((a, b) => ring(a) - ring(b) || a - b);
+      this.order = Uint16Array.from(idx);
+      this.ringStart = new Uint16Array(B + 1);
+      for (let k = 0, i = 0; k <= B; k++) {
+        while (i < this.N && ring(this.order[i]) < k) i++;
+        this.ringStart[k] = i;
+      }
     }
     resize() {}
     draw(audio, cfg, t) {
@@ -794,27 +866,32 @@
       ctx.fillRect(0, 0, W, H);
 
       ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < this.N; i++) {
-        const rr = this.rad[i];
-        // Diferansiyel dönme: içeri hızlı, dışarı yavaş
-        const spin = t * (0.5 / (0.25 + rr)) * 0.5;
-        const armOff = this.arm[i] * Math.PI;
-        const a = this.ang[i] + armOff + rr * 5.2 + spin;
-        const band = bars[Math.min(15, (rr * 16) | 0)];
-        const e = clamp(band * sens, 0, 1);
-        const rad = rr * R * (1 + this.jit[i] * 0.35 + e * 0.05);
-        const x = cx + Math.cos(a) * rad;
-        const y = cy + Math.sin(a) * rad * 0.42;
-        const c = tone(v, cfg, rr, t);
+      const B = Galaxy.RINGS;
+      for (let k = 0; k < B; k++) {
+        const lo = this.ringStart[k];
+        const hi = this.ringStart[k + 1];
+        if (lo === hi) continue;
+        const rc = (k + 0.5) / B;
+        const e = clamp(bars[Math.min(15, (k * 16 / B) | 0)] * sens, 0, 1);
         const s = Math.max(0.7, minDim * 0.0016 * (0.5 + v.thickness) * (0.6 + e));
-        ctx.fillStyle = rgba(c, (0.15 + e * 0.6) * (1 - rr * 0.4));
-        ctx.fillRect(x, y, s, s);
+        ctx.fillStyle = rgba(tone(v, cfg, rc, t), (0.15 + e * 0.6) * (1 - rc * 0.4));
+        for (let j = lo; j < hi; j++) {
+          const i = this.order[j];
+          const rr = this.rad[i];
+          // Diferansiyel dönme: içeri hızlı, dışarı yavaş
+          const spin = t * (0.5 / (0.25 + rr)) * 0.5;
+          const a = this.ang[i] + this.arm[i] * Math.PI + rr * 5.2 + spin;
+          const rad = rr * R * (1 + this.jit[i] * 0.35 + e * 0.05);
+          ctx.fillRect(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad * 0.42, s, s);
+        }
       }
       ctx.globalCompositeOperation = 'source-over';
       this.glow.apply(this.canvas, v.glow, 0.9);
     }
     dispose() {}
   }
+
+  Galaxy.RINGS = 48;
 
   // ==========================================================================
   // DNA SARMALI
@@ -991,18 +1068,13 @@
       this.ctx = canvas.getContext('2d');
       this.trail = null;
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t) {
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       // Fosfor sönümü: kalınlık ayarı kalıcılığı belirler
       fadeTrail(tc, W, H, 0.06 + (1 - v.thickness) * 0.22, this);
@@ -1043,18 +1115,13 @@
       this.ctx = canvas.getContext('2d');
       this.trail = null;
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t) {
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.12, this);
       tc.globalCompositeOperation = 'lighter';
@@ -1221,7 +1288,7 @@
       this.idx = 0;
       this.onset = onset(0.6);
     }
-    resize() { this.trail = null; }
+    resize() {}
     draw(audio, cfg, t, dt) {
       const ctx = this.ctx;
       const W = this.canvas.width;
@@ -1236,12 +1303,7 @@
         this.keys = Object.keys(A).filter((k) => A[k].discrete);
         if (!this.keys.length) this.keys = Object.keys(A);
       }
-      if (!this.trail || this.trail.width !== W || this.trail.height !== H) {
-        this.trail = document.createElement('canvas');
-        this.trail.width = W;
-        this.trail.height = H;
-        this.tctx = this.trail.getContext('2d');
-      }
+      if (!this.trail || this.trail.width !== W || this.trail.height !== H) sizeTrail(this, W, H);
       const tc = this.tctx;
       fadeTrail(tc, W, H, 0.04 + (1 - v.thickness) * 0.1, this);
       tc.globalCompositeOperation = 'lighter';
@@ -1291,7 +1353,7 @@
   // ==========================================================================
   /* Ortak yardımcılar: generative2.js ve sonraki üretken modlar aynı renk,
      gürültü ve vuruş kurallarını kullansın. */
-  window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail };
+  window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail, sizeTrail, rescale };
 
   window.SVModes = window.SVModes || {};
   Object.assign(window.SVModes, {

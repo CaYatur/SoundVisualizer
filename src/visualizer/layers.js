@@ -76,6 +76,10 @@
 
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
   const REVIVE_MS = 2000;
+  /* T-bar kurulumunun ömrü: panel kurup hemen sahneyi gönderiyor; bu sürede geçiş
+     başlamazsa (sahne aynıydı) kurulum sonraki, alakasız bir sahne değişimini yakalamasın. */
+  const MANUAL_ARM_MS = 3000;
+  const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 
   let layerIdSeq = 0;
   function newLayerId() {
@@ -181,7 +185,7 @@
       text.lyricsSource = '';
       text.lyricsName = '';
       text.karaoke = true;
-      text.lyricsFollow = false;
+      text.lyricsFollow = s.lyricsFollow === true;
       text.lyricsMatch = 'exact';
     }
     return normalizeLayer({
@@ -287,12 +291,6 @@
     return 'cam|' + (m.deviceId || '');
   }
 
-  function stackOn(cfg) {
-    const s = cfg && cfg.layerStack;
-    if (s && typeof s.enabled === 'boolean') return s.enabled;
-    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
-  }
-
   /* SAYDAM MOD — "şeffaf arkaplan".
 
      İki ayrı saydamlık var ve ikisi de aynı şeyi istiyor: katmanların
@@ -321,7 +319,7 @@
     if (bg.type === 'transparent') return true;
     if (cfg.isBlackout === true) return false;
     if (bg.transparent) return true;
-    if (stackOn(cfg) && Array.isArray(cfg.layers)) {
+    if (Array.isArray(cfg.layers)) {
       for (let i = 0; i < cfg.layers.length; i++) {
         const l = cfg.layers[i];
         if (l && l.kind === 'background' && l.enabled !== false && !l.muted
@@ -419,44 +417,76 @@
     if (cfg.text) cfg.text.enabled = false;
   }
 
-  function setStackEnabled(cfg, enabled) {
+  /* Eski (katmansız) sahneyi listeye çevirir (#905). Çevrilmiş sahnede kök alanlar zaten
+     temiz; yeniden yedeklemek gerçek görüntüyü silerdi. Boş liste yine sentezlenir. */
+  function enableStack(cfg) {
     if (!cfg) return;
     cfg.layerStack = cfg.layerStack || {};
-    const on = !!enabled;
-    if (on) {
-      /* Zaten açıksa klasik alanlar temizlenmiş durumda ('none'); yeniden
-         yedeklemek gerçek klasik sahneyi silerdi. Boş liste yine sentezlenir:
-         "Katmanlara Geç" düğmesi tam bu durumda (açık, liste boş) görünüyor. */
-      const already = cfg.layerStack.enabled === true;
-      if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
-        cfg.layers = synthesize(cfg);
-      }
-      if (already) return;
-      /* Fresh snapshot every time the stack is turned on — do not ratchet
-         previous backup flags to true. Overlay modes added as layers while
-         the stack is on must not leak into classic roots on the way back. */
-      cfg.layerStack.classicBackup = snapshotClassic(cfg);
-      clearClassicOverlays(cfg);
-      cfg.layerStack.enabled = true;
-    } else {
-      cfg.layerStack.enabled = false;
-      const b = cfg.layerStack.classicBackup;
-      if (b) {
-        restoreClassic(cfg, b);
-      } else {
-        /* No snapshot (legacy / template): keep the scene lit via the
-           visualizer type from the layer list, but do NOT promote logo /
-           text / images / media layers into classic toggles — those stay
-           at whatever the classic roots already are (usually off). */
-        const list = Array.isArray(cfg.layers) ? cfg.layers : [];
-        const vis = list.find((l) => l && l.kind === 'visualizer'
-          && l.type !== 'text' && l.type !== 'nowplaying');
-        /* kind nowplaying is a dedicated overlay, not a classic visualizer type. */
-        if (cfg.visualizer && cfg.visualizer.type === 'none') {
-          cfg.visualizer.type = vis ? vis.type : 'bars';
-        }
-      }
+    const already = cfg.layerStack.enabled === true;
+    if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
+      cfg.layers = synthesize(cfg);
     }
+    if (already) return;
+    cfg.layerStack.classicBackup = snapshotClassic(cfg);
+    clearClassicOverlays(cfg);
+    cfg.layerStack.enabled = true;
+  }
+
+  /* v4 göçü (#905): sahneyi ekrandaki görüntüsünü koruyarak katman listesine çevirir.
+     Yığını kapalı sahnede ekrandaki klasik içeriktir; duran eski katmanlar silinmez,
+     archivedLayers altına kaldırılır. Çevrilmiş sahnede bir şey yapmaz. */
+  function toStack(doc) {
+    const out = { changed: false, archived: false };
+    if (!doc || typeof doc !== 'object') return out;
+    const flag = doc.layerStack && typeof doc.layerStack.enabled === 'boolean' ? doc.layerStack.enabled : null;
+    const list = Array.isArray(doc.layers) ? doc.layers : [];
+    if (flag === true) return out;
+    if (flag === false && list.length) {
+      doc.layerStack.archivedLayers = list;
+      doc.layers = [];
+      out.archived = true;
+    }
+    enableStack(doc);
+    out.changed = true;
+    return out;
+  }
+
+  /* Tek yol katman listesi (#905). Anahtar kalktı; varsayılana dönen alanlar, sıfırlama
+     ve dışarıdan yazılan yapılandırma burada yığına döner. Dolu liste silinmez:
+     göçten farkı bu, burada arşivlenecek eski bir sahne yok. */
+  function ensureStack(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    if (cfg.layerStack && cfg.layerStack.enabled === true) return;
+    if (Array.isArray(cfg.layers) && cfg.layers.length) {
+      cfg.layerStack = Object.assign({}, cfg.layerStack, { enabled: true });
+      return;
+    }
+    enableStack(cfg);
+  }
+
+  /* Listeyi arkaplan ve görselleştiriciyle yeniden başlatır (#905). Kök alanlar yığına
+     geçerken kapatılıyor; yedekten geri konmazsa sentez yalnız arkaplan veriyor ve
+     görselleştirici kayboluyordu (ölçüldü). Anahtar varken kapatıp açmak bunu kurtarıyordu. */
+  function rebuildStack(cfg) {
+    if (!cfg) return;
+    cfg.layerStack = cfg.layerStack || {};
+    if (cfg.layerStack.classicBackup) restoreClassic(cfg, cfg.layerStack.classicBackup);
+    if (cfg.visualizer && (!cfg.visualizer.type || cfg.visualizer.type === 'none')) cfg.visualizer.type = 'bars';
+    cfg.layers = synthesize(cfg);
+    cfg.layerStack.classicBackup = snapshotClassic(cfg);
+    clearClassicOverlays(cfg);
+    cfg.layerStack.enabled = true;
+  }
+
+  /* Göçte arşivlenen katmanlarla şu anki liste yer değiştirir (#905): ikisi arasında
+     kayıpsız gidip gelinir, onay gerekmez. */
+  function swapArchived(cfg) {
+    const s = cfg && cfg.layerStack;
+    if (!s || !Array.isArray(s.archivedLayers)) return false;
+    const now = Array.isArray(cfg.layers) ? cfg.layers : [];
+    cfg.layers = s.archivedLayers;
+    s.archivedLayers = now;
+    return true;
   }
 
   /* Canlı görselleştirici.
@@ -472,8 +502,13 @@
     const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
     return list.filter((l) => l && l.kind === 'visualizer' && !OVERLAY_VIS[l.type]);
   }
+  /* Kilitli katman denetleyiciden (MIDI / OSC "sonraki görsel"), gösteri adımından ve
+     MCP'den de değişmiyor: ilk kilitsiz katman alınıyor, hepsi kilitliyse hiçbir şey
+     yazılmadan null dönüyor. Eskiden kilit yalnız panelde geçerliydi. */
   function adoptVisualizer(cfg, spec) {
     if (!cfg) return null;
+    const live0 = liveVisualizerLayers(cfg);
+    if (live0.length && live0.every((l) => l.locked)) return null;
     const s = spec || {};
     const type = s.type ? String(s.type) : ((cfg.visualizer && cfg.visualizer.type) || 'bars');
     const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
@@ -483,11 +518,8 @@
       cfg.custom = Object.assign({}, cfg.custom);
       if (presetId) cfg.custom.visualizerId = presetId;
     }
-    const hadLayers = Array.isArray(cfg.layers) && cfg.layers.length > 0;
-    if (!stackOn(cfg) && !hadLayers) return null;
-    if (!stackOn(cfg)) setStackEnabled(cfg, true);
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
-    let layer = liveVisualizerLayers(cfg)[0];
+    let layer = liveVisualizerLayers(cfg).find((l) => !l.locked);
     if (!layer) {
       layer = normalizeLayer({
         name: 'Görselleştirici',
@@ -518,7 +550,6 @@
      listeyi kullanmaz; anahtar açılır, sessiz kalkar, katman çizilir. */
   function revealLayer(cfg, layer) {
     if (!cfg || !layer) return;
-    if (!stackOn(cfg)) setStackEnabled(cfg, true);
     layer.enabled = true;
     layer.muted = false;
   }
@@ -565,7 +596,7 @@
      o değeri taşımıyorken kendisi, aksi halde
      `layers.<i>.settings.<bölüm>.<alt yol>`. */
   function effectivePath(cfg, path) {
-    if (typeof path !== 'string' || !stackOn(cfg)) return path;
+    if (typeof path !== 'string') return path;
     const keys = path.split('.');
     const section = keys[0];
     if (!SECTION_KIND[section] || keys.length < 2 || keys[1] === 'type') return path;
@@ -596,16 +627,15 @@
      'none'; sıradaki moda geçen bir eylem onu okursa listenin başına
      atlıyordu. */
   function currentType(cfg, section) {
-    if (stackOn(cfg)) {
-      const i = firstLayerIndex(cfg, section);
-      return i >= 0 ? cfg.layers[i].type : null;
-    }
-    return (cfg && cfg[section] && cfg[section].type) || null;
+    const i = firstLayerIndex(cfg, section);
+    return i >= 0 ? cfg.layers[i].type : null;
   }
   /* adoptVisualizer'ın arkaplan karşılığı. Bir farkla: yığın kapalıyken
      yalnız klasik alan yazılır, yığın açılmaz. */
   function adoptBackground(cfg, spec) {
     if (!cfg) return null;
+    const bgs = Array.isArray(cfg.layers) ? cfg.layers.filter((l) => l && l.kind === 'background') : [];
+    if (bgs.length && bgs.every((l) => l.locked)) return null;
     const s = spec || {};
     const type = s.type ? String(s.type) : ((cfg.background && cfg.background.type) || 'gradient');
     const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
@@ -615,10 +645,10 @@
       cfg.custom = Object.assign({}, cfg.custom);
       if (presetId) cfg.custom.backgroundId = presetId;
     }
-    if (!stackOn(cfg)) return null;
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
     const i = firstLayerIndex(cfg, 'background');
     let layer = i >= 0 ? cfg.layers[i] : null;
+    if (layer && layer.locked) layer = cfg.layers.find((l) => l && l.kind === 'background' && !l.locked && l.enabled !== false && !l.muted) || cfg.layers.find((l) => l && l.kind === 'background' && !l.locked) || null;
     if (!layer) {
       layer = normalizeLayer({
         name: 'Arkaplan',
@@ -645,6 +675,122 @@
     }
     return layer;
   }
+  /* MOD HEDEFİ: bir görsel / zemin modu hangi katmana gider?
+
+     Eskiden seçili katman o türden değilse (ör. arkaplan seçiliyken Görsel
+     rafından bir mod) mod sessizce en üstteki görselleştirici katmanına
+     uygulanıyor, o katman da seçiliyordu. Kullanıcı seçtiği katmanın
+     değiştiğini sanıyordu; değişen başka bir katmandı.
+
+     Varsayılan artık katı kural: hedef yalnız seçili katman. Türü uymuyorsa
+     ya da kilitliyse hiçbir şey yazılmaz, neden döner (panel kartta, MCP
+     hata olarak gösterir). Eski davranış Ayarlar'daki `ui.modeTargetAuto`
+     ile geri açılır. Hiç katman seçili değilse yeni katman eklenir (rafın
+     "Yeni katman olarak eklenir" satırı bunu söylüyor).
+
+     opts: { kind: 'visualizer' | 'background', layerId, legacy }
+     dönüş: { layer } | { create: true } | { error: 'NOT_FOUND' | 'WRONG_KIND' | 'LOCKED', layer } */
+  function modeTargetAuto(cfg) {
+    return !!(cfg && cfg.ui && cfg.ui.modeTargetAuto === true);
+  }
+  function modeTarget(cfg, opts) {
+    const o = opts || {};
+    const want = o.kind === 'background' ? 'background' : 'visualizer';
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const legacy = o.legacy != null ? !!o.legacy : modeTargetAuto(cfg);
+    const id = o.layerId ? String(o.layerId) : '';
+    if (id) {
+      const l = list.find((x) => x && x.id === id) || null;
+      if (l && l.kind === want && !l.locked) return { layer: l };
+      if (!legacy) {
+        if (!l) return { error: 'NOT_FOUND', layerId: id };
+        return { error: l.kind !== want ? 'WRONG_KIND' : 'LOCKED', layer: l, want };
+      }
+    }
+    if (legacy) {
+      // Eski kural: listede en üstteki (önde görünen) uygun katman
+      const near = list.slice().reverse().find((x) => x && x.kind === want && !x.locked) || null;
+      return near ? { layer: near, redirected: !!id } : { create: true };
+    }
+    return { create: true };
+  }
+  /* Seçilen modu belirli bir katmana yazar (panel rafı ve MCP aynı yoldan).
+     Tür değişmez; çağıran modeTarget ile katmanın türünü doğrulamış olmalı. */
+  function setLayerMode(cfg, layer, spec) {
+    if (!layer) return null;
+    const s = spec || {};
+    const type = String(s.type || layer.type || '');
+    const sect = layer.kind === 'background' ? 'background' : 'visualizer';
+    layer.type = type;
+    if (Object.prototype.hasOwnProperty.call(s, 'presetId')) layer.presetId = s.presetId || null;
+    if (layer.settings && layer.settings[sect]) layer.settings[sect].type = type;
+    if (s.reveal) {
+      layer.enabled = true;
+      layer.muted = false;
+    }
+    return layer;
+  }
+  /* MILKDROP HEDEFİ: bir MilkDrop preseti hangi katmana gider? modeTarget'ın
+     MilkDrop karşılığı; panel rafı, preset listesi ve MCP aynı kuralı kullanıyor.
+
+     Seçili katman (layerId) bir MilkDrop görselleştiricisiyse ona gider. Başka bir
+     katmansa katı kipte hiçbir şey yazılmaz, neden döner. Seçim yoksa ortak preseti
+     çizen MilkDrop katmanı; o da yoksa katı kipte yeni katman eklenir, eski kipte
+     (Ayarlar > Modu Uygun Katmana Yönlendir) ilk kilitsiz görselleştirici çevrilir.
+     Eskiden seçimsiz yükleme her zaman ilk görselleştiriciyi çeviriyordu: kullanıcının
+     kurduğu barlar katmanı tek tıkla kayboluyordu.
+
+     dönüş: { layer, convert? } | { create: true } | { error, layer?, layerId? } */
+  function isOwnMilkdrop(l) {
+    return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
+      && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
+  }
+  function milkdropTarget(cfg, opts) {
+    const o = opts || {};
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const legacy = o.legacy != null ? !!o.legacy : modeTargetAuto(cfg);
+    const id = o.layerId ? String(o.layerId) : '';
+    if (id) {
+      const l = list.find((x) => x && x.id === id) || null;
+      const md = !!(l && l.kind === 'visualizer' && l.type === 'milkdrop');
+      if (md && !l.locked) return { layer: l };
+      if (!legacy) {
+        if (!l) return { error: 'NOT_FOUND', layerId: id };
+        if (md || l.locked) return { error: 'LOCKED', layer: l, want: 'milkdrop' };
+        return { error: 'WRONG_KIND', layer: l, want: 'milkdrop', convertible: l.kind === 'visualizer' && !OVERLAY_VIS[l.type] };
+      }
+    }
+    const vis = list.filter((l) => l && l.kind === 'visualizer' && !OVERLAY_VIS[l.type] && !isOwnMilkdrop(l));
+    const shared = vis.find((l) => l.type === 'milkdrop');
+    if (shared) return { layer: shared };
+    if (legacy) {
+      const c = vis.find((l) => !l.locked);
+      if (c) return { layer: c, convert: true, redirected: !!id };
+    }
+    return { create: true };
+  }
+  /* Gömülü pakette MilkDrop 3 biçiminde, sakin başlayan bir preset: "MilkDrop" kartıyla
+     eklenen katman boş ekranla açılmasın. */
+  const MD_DEFAULT_PRESET = 'md_caya_twelve_moons';
+  /* Hazır MilkDrop katmanı (Katman Ekle > MilkDrop, MCP sv_add_layer). Ortak preseti çizen
+     başka MilkDrop katmanı varsa yeni katman bağımsız olur (kendi preseti): ikisi aynı
+     görüntüyü göstermesin. Yoksa ortak presete bağlanır; ortak seçim boşsa verilen preset
+     ortak seçim olur. `preset`: { id, name, source } (kaynak yoksa motor kimlikle ister). */
+  function makeMilkdropLayer(cfg, opts) {
+    const o = opts || {};
+    const p = o.preset && o.preset.id ? o.preset : null;
+    const layer = normalizeLayer({ kind: 'visualizer', type: 'milkdrop', name: o.name || 'MilkDrop', enabled: true, settings: {} });
+    if (!p || !cfg) return layer;
+    const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+    const sharedTaken = list.some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && !isOwnMilkdrop(l));
+    const src = typeof p.source === 'string' ? p.source : '';
+    if (sharedTaken) {
+      layer.settings.milkdrop = { independent: true, presetId: p.id, name: p.name || '', source: src };
+    } else if (!(cfg.milkdrop && cfg.milkdrop.presetId)) {
+      cfg.milkdrop = Object.assign({}, cfg.milkdrop, { presetId: p.id, name: p.name || '', source: src });
+    }
+    return layer;
+  }
   function syncStackState(cfg) {
     if (!cfg || !cfg.layerStack || !cfg.layerStack.enabled) return;
     const curVis = cfg.visualizer && cfg.visualizer.type;
@@ -664,8 +810,12 @@
 
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez
   function resolve(cfg) {
-    const list = stackOn(cfg) && cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
-    const used = list.length ? list.map(normalizeLayer) : synthesize(cfg);
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    /* Yığın açık + boş liste = bilinçli boş sahne. Klasik visualizer.type
+       (ör. milkdrop) hâlâ dolu olsa bile sentezleme; kullanıcı tüm
+       katmanları silince boş kalsın. */
+    const stackOn = !!(cfg && cfg.layerStack && cfg.layerStack.enabled);
+    const used = list.length ? list.map(normalizeLayer) : (stackOn ? [] : synthesize(cfg));
     /* Solo varsa yalnızca solo katmanlar çizilir. Bir kompozitörde solo,
        "diğerlerini kapat" demenin geri alınabilir yoludur; katmanları tek tek
        kapatıp sonra geri açmak zorunda kalmamak için var. */
@@ -849,14 +999,15 @@
       ? cfg.layers.map((l) => (l.kind || '') + '.' + (l.type || '') + '.' + (l.presetId || '') + '.' + (l.enabled !== false ? '1' : '0')).join(',')
       : '';
     const grad = ((b.gradient && b.gradient.colors) || []).join(',');
-    const stackState = stackOn(cfg) ? 'stack' : 'classic';
     const black = (cfg.isBlackout === true || (cfg.isBlackout !== false && (
       cfg.background &&
       (cfg.background.type === 'transparent' || (cfg.background.type === 'solid' && cfg.background.solidColor === '#000000')) &&
       cfg.visualizer && cfg.visualizer.type === 'none' &&
       (!cfg.layers || cfg.layers.every((l) => !l.enabled))
     ))) ? 'blackout' : '';
-    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState, black].join('|');
+    // Panelin elle sahne değişimi sayacı (admin.js applyScene): aynı yapılı sahneler de geçiş yapsın
+    const seq = cfg._sceneSeq == null ? '' : String(cfg._sceneSeq);
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, black, seq].join('|');
   }
 
   function bandValue(audio, band) {
@@ -1012,7 +1163,20 @@
     /* Efekt zincirini kur. Boş zincir = CSS kompozit yolu (en ucuz).
        Dolu zincir = tek yüzeye birleştirme + GPU geçişleri. */
     setPostFX(chain) {
-      const list = Array.isArray(chain) ? chain.filter((f) => f && f.enabled !== false) : [];
+      this._fxBase = Array.isArray(chain) ? chain : [];
+      this._syncFx();
+    }
+
+    /* Anlık efekt (Canlı sayfası): basılı tutulurken zincirin sonuna eklenir, ayara yazılmaz. Panel
+       kapanırsa efekt ekranda takılı kalmasın: tazelenmezse kendiliğinden düşüyor (draw). */
+    setMomentary(list) {
+      this._fxHold = Array.isArray(list) ? list : [];
+      this._fxHoldAt = performance.now();
+      this._syncFx();
+    }
+
+    _syncFx() {
+      const list = (this._fxBase || []).filter((f) => f && f.enabled !== false).concat(this._fxHold || []);
       if (!list.length) {
         if (this.postfx) this.postfx.setChain([]);
         return;
@@ -1140,43 +1304,6 @@
       return rest;
     }
 
-    // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
-    // logonun da efektlerden geçmesi için)
-    _drawLogoToCanvas(ctx, cfg, audio, t) {
-      if (stackOn(cfg)) return;
-      const l = cfg && cfg.logo;
-      if (!l || !l.enabled) return;
-      const effectiveSrc = resolveLogoSrc(l, cfg);
-      if (!effectiveSrc) {
-        this._lastLogoImg = null;
-        this._lastLogoSrc = '';
-        return;
-      }
-      const gif = this._logoDrawable(l, effectiveSrc, audio, t);
-      if (gif) {
-        this._paintLogo(ctx, gif, l, audio, this.width, this.height);
-        return;
-      }
-      /* GIF_LIB_NO_IMG_FALLBACK */
-      if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(l, effectiveSrc)) {
-        return;
-      }
-      let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
-        ? this.logoEl
-        : this._getImage(effectiveSrc);
-      if (!img || !img.naturalWidth) {
-        if (this._lastLogoSrc === effectiveSrc && this._lastLogoImg && this._lastLogoImg.naturalWidth) {
-          img = this._lastLogoImg;
-        } else {
-          return;
-        }
-      } else {
-        this._lastLogoImg = img;
-        this._lastLogoSrc = effectiveSrc;
-      }
-      this._paintLogo(ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, l, audio, this.width, this.height);
-    }
-
     setSprites(s) { this.sprites = s; }
     setMedia(m) { this.media = m; }
 
@@ -1205,11 +1332,12 @@
     /* Açık medya katmanlarının kaynaklarını havuza kurar. Yeni kamera
        eskisinin yerine yazılmaz; kullanılmayan akış kapanır. */
     syncMedia(cfg) {
+      if (cfg.timelineComposition) cfg = Object.assign({}, cfg, { layers: [] });
       this._ownsMedia = true;
       if (!this._mediaPool) this._mediaPool = new Map();
       const byLayer = new Map();
       const wanted = new Map();
-      if (stackOn(cfg) && cfg && Array.isArray(cfg.layers)) {
+      if (cfg && Array.isArray(cfg.layers)) {
         const defMedia = cfg.media || {};
         cfg.layers.forEach((l, i) => {
           if (!l || l.kind !== 'media' || l.enabled === false) return;
@@ -1281,11 +1409,13 @@
       const c = document.createElement('canvas');
       c.width = this.width;
       c.height = this.height;
-      c.style.position = 'absolute';
-      c.style.inset = '0';
-      c.style.width = '100%';
-      c.style.height = '100%';
-      c.style.display = 'block';
+      if (c.style) {
+        c.style.position = 'absolute';
+        c.style.inset = '0';
+        c.style.width = '100%';
+        c.style.height = '100%';
+        c.style.display = 'block';
+      }
       return c;
     }
 
@@ -1321,8 +1451,10 @@
       const old = e.canvas;
       if (old && fresh.canvas) {
         if (old.parentNode) old.parentNode.insertBefore(fresh.canvas, old);
-        fresh.canvas.style.cssText = old.style.cssText;
-        fresh.canvas.className = old.className;
+        if (old.style) {
+          fresh.canvas.style.cssText = old.style.cssText;
+          fresh.canvas.className = old.className;
+        }
       }
       this._disposeEntry(e);
       for (const k of ['canvas', 'ctx', 'mode', 'gl', 'solid', 'webglFallback']) e[k] = fresh[k];
@@ -1399,6 +1531,9 @@
       /* Sahne değiştiyse ve geçiş açıksa, mevcut katmanları giden yığına
          devret. Bu, aşağıdaki yeniden kurulumdan ÖNCE olmalı — sonrasında
          eski katmanlar çoktan atılmış olurdu. */
+      if (!cfg.timelineComposition && this.timelineRenderer) { this.timelineRenderer.dispose(); this.timelineRenderer = null; }
+      const isolated = !!(cfg.timelineComposition || (this.prevCfg && this.prevCfg.timelineComposition));
+      if (isolated && this.trans) this.endTransition();
       const scnSig = sceneSignature(cfg);
       const T = window.SVTransition;
       const spec = cfg && cfg.transition;
@@ -1435,9 +1570,9 @@
       const transOn = isBlackoutTrans || (spec && spec.enabled !== false);
       /* Varış sahnesinin katmanları geçişten ÖNCE çözülüyor: hangi katmanın
          iki sahnede de durduğunu geçiş bilmek zorunda (beginTransition). */
-      const wanted = resolve(cfg);
+      const wanted = cfg.timelineComposition ? [] : resolve(cfg);
       const wantedKeys = new Set(wanted.map((l) => this._key(l)));
-      if (T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
+      if (!isolated && T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
           this.lastSig && scnSig !== this.lastSig && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
           type: transType,
@@ -1447,6 +1582,8 @@
             : (spec.params || {}),
           ease: isBlackoutTrans ? 'smooth' : (spec.ease || 'smooth'),
         }, wantedKeys);
+        // T-bar kurulduysa bu geçişi panel sürüyor (bkz. tbar)
+        this._claimManual(isBlackoutTrans);
       }
       this.lastSig = scnSig;
       this.prevCfg = cfg;
@@ -1521,7 +1658,7 @@
       e.canvas = this._makeCanvas();
       /* Arkaplan tuvali işaretli: şeffaf arkaplanda koyu yerleri saydamlaşan
          yalnız o (visualizer.css, `.sv-bgkey`). */
-      if (layer.kind === 'background') e.canvas.classList.add('sv-bg');
+      if (layer.kind === 'background' && e.canvas.classList) e.canvas.classList.add('sv-bg');
       if (this.container) this.container.appendChild(e.canvas);
 
       if (layer.kind === 'logo') {
@@ -1562,6 +1699,8 @@
       } else if (layer.kind === 'visualizer' || layer.kind === 'nowplaying') {
         const modeType = layer.kind === 'nowplaying' ? 'nowplaying' : layer.type;
         if (window.SVModes[modeType]) e.mode = new window.SVModes[modeType](e.canvas);
+        // Motor izleme mesajındaki kendi payını bu kimlikle buluyor (#905)
+        if (e.mode) e.mode.layerId = layer.id;
         e.ctx = e.canvas.getContext('2d');
       } else {
         e.ctx = e.canvas.getContext('2d');
@@ -1591,8 +1730,10 @@
     _sizeEntry(e) {
       if (!e.canvas) return;
       if (e.gl && e.mode && e.mode.resize) {
-        e.canvas.style.width = '100%';
-        e.canvas.style.height = '100%';
+        if (e.canvas.style) {
+          e.canvas.style.width = '100%';
+          e.canvas.style.height = '100%';
+        }
         e.mode.resize(this.width, this.height);
         return;
       }
@@ -1631,22 +1772,6 @@
        Kimlik önbelleği sayesinde değişmeyen katmanda normalleştirme tekrar
        çalışmaz. */
     _live(e, cfg) {
-      if (!stackOn(cfg)) {
-        if (e.layer && e.layer.id === 'ly_vis' && cfg && cfg.visualizer) {
-          e.layer.settings = e.layer.settings || {};
-          e.layer.settings.visualizer = cfg.visualizer;
-          if (cfg.visualizer.type && cfg.visualizer.type !== 'none') {
-            e.layer.type = cfg.visualizer.type;
-          }
-        } else if (e.layer && e.layer.id === 'ly_bg' && cfg && cfg.background) {
-          e.layer.settings = e.layer.settings || {};
-          e.layer.settings.background = cfg.background;
-          if (cfg.background.type) {
-            e.layer.type = cfg.background.type;
-          }
-        }
-        return e.layer;
-      }
       const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : null;
       if (!list || !list.length) return e.layer;
       let src = null;
@@ -1698,7 +1823,7 @@
        bildirdiği yerleşim kutusu: kırpma ve büyüme merkezi öğeye göre. */
     _reveal(e, l, cfg, t) {
       const R = typeof window !== 'undefined' ? window.SVReveal : null;
-      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      const spec = R ? R.specOf(l) : null;
       if (!spec) { e._rv = null; e._revealDone = true; return null; }
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
       if (!e._rv || e._rv.sig !== sig) {
@@ -1720,7 +1845,7 @@
     // Açılışı bitmemiş katman: altını örtemez (saydam ya da kırpılı)
     _revealPending(e, l, cfg) {
       const R = typeof window !== 'undefined' ? window.SVReveal : null;
-      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      const spec = R ? R.specOf(l) : null;
       if (!spec) return false;
       // Ayar bu karede değiştiyse çizim saati baştan alacak: daha bitmedi
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
@@ -1852,20 +1977,150 @@
       };
     }
 
+    /* Panelden video sarma (#905): katmanın oynatıcısı (yoksa hepsi) verilen orana. */
+    scrubMedia(layerId, frac) {
+      if (!this._mediaPool) return;
+      const key = layerId && this._mediaByLayer ? this._mediaByLayer.get(layerId) : null;
+      for (const [k, inst] of this._mediaPool) {
+        if (key && k !== key) continue;
+        if (inst && inst.scrub) inst.scrub(frac);
+      }
+    }
+
+    /* Giden sahnenin örnekleri KAREDEN SONRA, birer birer atılıyor (#905). Geçiş çizimin içinde
+       bitiyor; atma eşzamanlıydı ve WebGL'li her mod bağlamını kapatıyordu (gradyanda ~11 ms):
+       sahne değişiminin son karesi uzuyordu. Tuvaller geçişin başında DOM'dan zaten söküldü,
+       artık çizilmiyorlar; kapsayıcısız yığında (dışa aktarım, testler, bileşim) eskisi gibi
+       hemen. */
     endTransition() {
       if (!this.trans) return;
       const out = this.trans.stack;
-      for (const e of out.entries) if (!e.proxyOf) out._disposeEntry(e);
+      const gone = out.entries.filter((e) => !e.proxyOf);
       out.entries = [];
       this.trans = null;
       this._flushHeldMedia();
+      if (this.container && gone.length && typeof setTimeout === 'function') {
+        const next = () => {
+          const e = gone.shift();
+          if (e) out._disposeEntry(e);
+          if (gone.length) setTimeout(next, 0);
+        };
+        setTimeout(next, 0);
+      } else {
+        for (const e of gone) out._disposeEntry(e);
+      }
+    }
+
+    /* T-BAR (#905). Canlı sayfasındaki çubuk sahne geçişini elle sürüyor; ileti her çıkışa ve
+       panel önizlemesine aynı sırayla gidiyor.
+         arm    — sıradaki sahne geçişi elle sürülecek. Panel hemen ardından sahneyi gönderiyor;
+                  MANUAL_ARM_MS içinde geçiş başlamazsa kurulum düşüyor.
+         move   — ilerleme 0-1, doğrusal: çubuk nerede ise karışım orada. Bırakılan çubuk
+                  karışımı tutuyor (iki sahne yarı yarıya kalabiliyor).
+         end    — çubuk sona vardı: varış sahnesi canlı.
+         cancel — çubuk başa döndü: geçiş geri alınıyor (cancelTransition).
+       Elle sürülen geçiş kare saatiyle ilerlemiyor ve kendiliğinden bitmiyor. Dışa aktarım bu
+       iletiyi hiç almıyor; kaydedilen görüntü değişmiyor. */
+    tbar(m) {
+      const ph = m && m.phase;
+      if (ph === 'arm') { this._manualArm = nowMs(); return; }
+      const tr = this.trans;
+      if (!tr || !tr.manual) return;
+      if (ph === 'move') tr.manualP = Math.max(0, Math.min(1, Number(m.p) || 0));
+      else if (ph === 'end') this.endTransition();
+      else if (ph === 'cancel') this.cancelTransition();
+    }
+
+    /* Yeni başlayan geçiş T-bar'ın mı? Kurulum tek geçişlik: kullanılınca ya da süresi geçince
+       düşüyor. Karartma geçişi elle sürülmez (panik düğmesi her zaman kendi süresinde). */
+    _claimManual(blackout) {
+      const armed = this._manualArm;
+      this._manualArm = 0;
+      if (!armed || blackout || !this.trans) return false;
+      if (nowMs() - armed >= MANUAL_ARM_MS) return false;
+      this.trans.manual = true;
+      this.trans.manualP = 0;
+      return true;
+    }
+
+    /* Geçişi geri al: giden sahnenin örnekleri olduğu gibi canlıya dönüyor. Modlar yeniden
+       kurulmuyor (MilkDrop, parçacıklar, video kaldığı yerden sürüyor). İki sahnede de duran
+       katmanın örneği zaten tekti (vekil); varış sahnesine yeni kurulan örnekler atılıyor.
+       Sahne imzası giden sahneye dönüyor: panel eski görünümü yeniden gönderdiğinde yeni bir
+       geçiş başlamıyor, aynı anahtarlı örnekler kullanılıyor. */
+    cancelTransition() {
+      const tr = this.trans;
+      if (!tr) return false;
+      const out = tr.stack;
+      const kept = new Set();
+      const restored = out.entries.map((e) => {
+        if (e.proxyOf) { kept.add(e.proxyOf); return e.proxyOf; }
+        return e;
+      });
+      for (const e of this.entries) if (!kept.has(e)) this._disposeEntry(e);
+      /* Medya: giden sahnenin havuzu geri geliyor. Varış sahnesi için açılan oynatıcılar
+         kapanıyor; giden sahne çizdiği için bekletilenler yeniden canlı, bırakılmıyor. */
+      const oldPool = out._mediaPool;
+      if (this._mediaPool) {
+        const back = new Set(oldPool ? oldPool.values() : []);
+        for (const inst of this._mediaPool.values()) {
+          if (!back.has(inst)) { try { inst.dispose(); } catch { /* akış zaten kapalı */ } }
+        }
+      }
+      this._mediaPool = oldPool || null;
+      this._mediaByLayer = out._mediaByLayer || null;
+      this._mediaHold = [];
+      out.entries = [];
+      this.trans = null;
+      this.entries = restored;
+      this.signature = restored.map((e) => e.key).join(';');
+      this.prevCfg = tr.cfg;
+      this.lastSig = sceneSignature(tr.cfg);
+      if (this.container) {
+        restored.forEach((e, i) => {
+          if (!e.canvas) return;
+          e.canvas.style.zIndex = String(i + 1);
+          if (!e.canvas.parentNode) this.container.appendChild(e.canvas);
+        });
+      }
+      return true;
+    }
+
+    /* Zaman çizelgesi geçişi (#957): geçiş çizelgedeki bir klibin penceresinde
+       başladıysa ilerleme kare süresi biriktirilerek değil gösteri saatinden
+       hesaplanır. Oynatıcı durdurulunca o kare kalır, geri/ileri sarınca o anın
+       karesi çizilir; klibin süresi/türü/eğrisi değişince hemen yansır. */
+    syncTimeline(tl, showT) {
+      const tr = this.trans;
+      if (!tr || tr.manual || !tl || !Array.isArray(tl.tracks) || !(showT >= 0)) return;
+      const TL = window.SVTimeline;
+      if (!TL || !TL.transitionAt) return;
+      if (tr.sync === undefined) {
+        const hit = TL.transitionAt(tl, showT, tr.dur);
+        tr.sync = hit ? { clip: hit.clip.id, track: hit.track.id, base: tr.dur, type: tr.type, ease: tr.ease } : null;
+      }
+      const sy = tr.sync;
+      if (!sy) return;
+      const trk = tl.tracks.find((k) => k.id === sy.track);
+      const c = trk && (trk.clips || []).find((k) => k.id === sy.clip);
+      if (!c) { tr.sync = null; return; }
+      const dur = c.fade > 0 ? c.fade : sy.base;
+      tr.dur = Math.max(0.02, dur);
+      tr.type = c.transType && c.transType !== 'cut' ? c.transType : sy.type;
+      tr.ease = c.transEase || sy.ease;
+      tr.elapsed = Math.max(0, showT - c.start);
+      tr.synced = true;
     }
 
     // Geçiş sürüyorsa bu karedeki ilerlemesini döndürür, yoksa null
     _tickTransition(dt) {
       const tr = this.trans;
       if (!tr) return null;
-      tr.elapsed += Math.max(0, dt || 0);
+      // T-bar: ilerleme çubuktan; kare süresi eklenmez, geçiş kendiliğinden bitmez
+      if (tr.manual) return { p: Math.max(0, Math.min(1, tr.manualP || 0)), tr };
+      // Çizelgeye bağlı geçişte süre saatten geldi; kare süresi eklenmez
+      if (tr.synced) tr.synced = false;
+      else tr.elapsed += Math.max(0, dt || 0);
       const raw = Math.min(1, tr.elapsed / tr.dur);
       if (raw >= 1) { this.endTransition(); return null; }
       const T = window.SVTransition;
@@ -1889,6 +2144,8 @@
     }
 
     draw(audio, cfg, t, dt) {
+      this._sharedLead = null;
+      if (this._fxHold && this._fxHold.length && performance.now() - this._fxHoldAt > 3000) this.setMomentary([]);
       const tick = this._tickTransition(dt);
       const isBlackout = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
         (
@@ -1907,7 +2164,7 @@
         this.revived = (this.revived || 0) + 1;
       }
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      const single = fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
+      const single = !!cfg.timelineComposition || fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
       if (single) {
         this._ensureComp();
@@ -1915,7 +2172,7 @@
           this.compCanvas.width = this.width;
           this.compCanvas.height = this.height;
         }
-        this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio, t));
+        this.drawTo(this.compCtx, audio, cfg, t, dt);
 
         let src = this.compCanvas;
         if (tick) {
@@ -1930,8 +2187,7 @@
               if (e.mode && e.mode.resize) e.mode.resize();
             }
           }
-          tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt,
-            (ctx) => tr.stack._drawLogoToCanvas(ctx, tr.cfg, audio, t));
+          tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt);
           this.compositor.compose(this.transCtx, this.transOut, this.compCanvas,
             this.width, this.height, tr.type, tick.p, tr.opts);
           src = this.transSurface;
@@ -2167,6 +2423,7 @@
            draw'da. audio.ready yalnizca ingestFrame'de true; aygitsiz ortamda
            clear+return GL'yi hic acmiyordu. AudioEngine sifir tamponlarla
            baslar; gercek kare gelince ayni yol canli sinyali surer. */
+        this._shareLead(e);
         e.mode.draw(audio, lcfg, t, dt);
         return;
       }
@@ -2287,7 +2544,20 @@
        birleştirir. Yalnız eşlik ölçümü (#539, scripts/parity.js) için:
        canlı CSS birleştirmesiyle aynı kareyi bu yoldan da kurup piksel
        piksel karşılaştırır; ikinci çizim durumlu modları ilerletirdi. */
+    prepareTimeline(cfg) {
+      if (!cfg.timelineComposition || !window.SVTimelineRender) return null;
+      if (!this.timelineRenderer) this.timelineRenderer = new window.SVTimelineRender.Renderer();
+      this.timelineRenderer.prepare(cfg.timelineComposition);
+      return this.timelineRenderer;
+    }
+
     drawTo(ctx, audio, cfg, t, dt, drawLogo, reuse) {
+      if (cfg.timelineComposition && window.SVTimelineRender) {
+        if (!this.timelineRenderer) this.timelineRenderer = new window.SVTimelineRender.Renderer();
+        this.timelineRenderer.draw(ctx, cfg.timelineComposition, audio, t, dt, this.width, this.height, drawLogo);
+        return;
+      }
+      if (!reuse) this._sharedLead = null;
       const W = this.width;
       const H = this.height;
       ctx.save();
@@ -2388,6 +2658,7 @@
 
     // Dynamic Lighting arkaplan rengi ister: en alttaki arkaplan katmanı bildirir
     palette(cfg) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('palette') || [];
       // Örneklenen arkaplan örtülse de çizilmeye devam etsin (_covered)
       this._paletteAt = performance.now();
       for (const e of this.entries) {
@@ -2410,6 +2681,7 @@
        kazanıyor: birden fazla varsa hangisinin izlendiği belirsiz kalırdı,
        ve pratikte yığında bir tane oluyor. */
     milkdropMonitor() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropMonitor');
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.monitorValue === 'function') {
           const v = e.mode.monitorValue();
@@ -2425,6 +2697,9 @@
        desen ve aynı ~30 Hz mesaja biniyor. null = yığında MilkDrop yok;
        `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
     milkdropPreset() {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropPreset');
+      // Seçimi yapan katman: listede önde duran ama çizilmeyen katman eski seçimi söylerdi
+      if (this._sharedLead) return this._sharedLead.livePreset();
       for (const e of this.entries) {
         if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
         // Kendi preseti olan katman (#909) ortak seçimi temsil etmiyor
@@ -2435,10 +2710,36 @@
       return null;
     }
 
+    /* Kendi otomatik geçişi olan katmanların o anki seçimi (#905): katman kimliğine göre.
+       Ayara yazılmıyor, panel ve öteki ekranlar buradan öğreniyor. Yoksa null: mesaj büyümesin. */
+    milkdropLayers() {
+      if (this.timelineRenderer) return this.timelineRenderer.layerReadouts();
+      let out = null;
+      for (const e of this.entries) {
+        if (!e.mode || typeof e.mode.livePreset !== 'function') continue;
+        const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+        if (!own || own.independent !== true || own.ownAuto !== true) continue;
+        (out || (out = {}))[e.layer.id] = e.mode.livePreset();
+      }
+      return out;
+    }
+
+    /* Ortak MilkDrop katmanları tek seçimde (#905): bu karede ÇİZİLEN ilk ortak katman seçer,
+       sonrakiler onu alır. Listedeki ilki değil: örtülen ya da kapatılan katmanın sayacı
+       yürümez, ona bağlı görünür katman da donup kalırdı. */
+    _shareLead(e) {
+      if (!e.mode || typeof e.mode.livePreset !== 'function') return;
+      const own = e.layer && e.layer.settings && e.layer.settings.milkdrop;
+      if (own && own.independent === true) { e.mode.sharedLeader = null; return; }
+      e.mode.sharedLeader = this._sharedLead || null;
+      if (!this._sharedLead) this._sharedLead = e.mode;
+    }
+
     /* O an çizilen MilkDrop görüntüsünün renkleri, soldan sağa (#589).
        Işıklar bunları arkaplan paleti yerine alıyor. Yığında MilkDrop yoksa
        boş dizi: çağıran arkaplanın renklerine düşüyor. */
     milkdropColors(n) {
+      if (this.timelineRenderer) return this.timelineRenderer.read('milkdropColors', n) || [];
       for (const e of this.entries) {
         if (e.mode && typeof e.mode.sampleColors === 'function') return e.mode.sampleColors(n);
       }
@@ -2450,7 +2751,7 @@
        yerleştiği diskin hızına değil kare sırasına bağlı kalıyor. Geçişte
        giden sahnenin katmanları da sayılıyor. */
     _assetModes() {
-      const out = [];
+      const out = this.timelineRenderer ? this.timelineRenderer.assetModes() : [];
       const add = (list) => {
         for (const e of list || []) {
           if (e.mode && typeof e.mode.texturesPending === 'function') out.push(e.mode);
@@ -2472,6 +2773,7 @@
     }
 
     dispose() {
+      if (this.timelineRenderer) { this.timelineRenderer.dispose(); this.timelineRenderer = null; }
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];
       if (this.postfx) { this.postfx.dispose(); this.postfx = null; }
@@ -2503,8 +2805,11 @@
     newLayerId,
     synthesize,
     resolve,
-    stackOn,
-    setStackEnabled,
+    enableStack,
+    toStack,
+    ensureStack,
+    rebuildStack,
+    swapArchived,
     adoptVisualizer,
     revealLayer,
     effectivePath,
@@ -2512,6 +2817,13 @@
     currentType,
     firstLayerIndex,
     adoptBackground,
+    modeTarget,
+    modeTargetAuto,
+    milkdropTarget,
+    isOwnMilkdrop,
+    makeMilkdropLayer,
+    MD_DEFAULT_PRESET,
+    setLayerMode,
     syncStackState,
     layerConfig,
     sceneSignature,

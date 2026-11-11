@@ -302,6 +302,15 @@ test('tarayıcı: koruma gerçekten yakalıyor', () => {
 /* Panel betiklerindeki renk dizeleri: hepsi KULLANICI İÇERİĞİ. Panelin kendi
    rengi buraya girmez; SVUiTheme.color / SVUiTheme.alpha kullanılır. */
 const JS_CONTENT = {
+  'transition-preview.js': {
+    '#ffbe3c': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#e63c5a': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#ffecc8': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#080e28': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#3cdcff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#8c50ff': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+    '#000000': [1, 'örnek sahne: geçiş önizlemesinin içeriği, temadan bağımsız (#957)'],
+  },
   'admin.js': {
     '#000000': [4, 'karartma ve palet: görüntünün kendi siyahı'],
     '#2a1f2e': [2, 'arkaplanı olmayan sahnenin küçük resmi'],
@@ -377,7 +386,7 @@ test('normalizeId ve resolve', () => {
   assert.strictEqual(T.normalizeId('light'), 'light');
   assert.strictEqual(T.normalizeId('system'), 'system');
   ['', null, undefined, 'yok', '__proto__', 'constructor', 42].forEach((v) => assert.strictEqual(T.normalizeId(v), 'system', String(v)));
-  assert.strictEqual(T.resolve('system', true).id, 'dark');
+  assert.strictEqual(T.resolve('system', true).id, 'dark', 'koyu cihaz → Karanlık');
   assert.strictEqual(T.resolve('system', false).id, 'light');
   assert.strictEqual(T.resolve('system').id, 'dark', 'tercih bilinmiyorsa koyu');
   assert.strictEqual(T.resolve('neon', false).id, 'neon', 'somut tema tercihe bakmaz');
@@ -596,7 +605,7 @@ test('öz test her temayı panelin seçicisinden tarıyor ve kullanıcının tem
   const m = read('src/main/main.js');
   const i = m.indexOf('Arayüz temaları: ekrandaki yazıların karşıtlığı (#770)');
   assert.ok(i > 0, 'öz test adımı');
-  const step = m.slice(i, i + 5000);
+  const step = m.slice(i, i + 6000);
   assert.match(step, /ui-contrast-audit\.js/);
   assert.match(step, /for \(const t of UT\.THEMES\)/);
   assert.match(step, /\.ui-theme-opt\[data-theme=/);

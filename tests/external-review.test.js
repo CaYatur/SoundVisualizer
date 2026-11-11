@@ -637,9 +637,7 @@ test('şablon yer tutucusu arayüz dilinde çizilir, kullanıcının metni çevr
   const I = read('src/shared/i18n.js');
   assert.ok(I.includes("'SANATÇI ADI': 'ARTIST NAME'") && I.includes("'PARÇA ADI': 'TRACK TITLE'"));
   // Panelde metin düzenlenince ya da kaynak değişince bayrak kalkar
-  const TP = read('src/admin/text-panel.js');
-  assert.match(TP, /T\.content = e\.target\.value; delete T\.placeholder;/);
-  assert.match(TP, /if \(v !== 'now'\) settle\(\);/);
+  assert.match(read('src/admin/scene-panels.js'), /txt\.content = e\.target\.value;\s*delete txt\.placeholder;/);
 });
 
 /* UX 10: Studio listesinde iki ayrı "Sıvı Metal". */

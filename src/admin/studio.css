@@ -329,7 +329,7 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 /* ======================== TEMPO / OTOMATİK VJ ======================== */
 .autovj-panel { display: flex; flex-direction: column; gap: 8px; }
 .bpm-box {
-  display: flex; align-items: center; gap: 9px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 9px;
   background: var(--bg2); border: 1px solid var(--line);
   border-radius: 10px; padding: 9px 11px;
 }
@@ -339,7 +339,8 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 }
 .beat-dot.hit { background: var(--accent2); box-shadow: 0 0 12px var(--accent2); }
 .bpm-value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 84px; }
-.bpm-conf { flex: 1; height: 4px; background: var(--card2); border-radius: 3px; overflow: hidden; }
+.bpm-box > .btn { margin-left: auto; }
+.bpm-conf { flex: 1 1 40px; height: 4px; background: var(--card2); border-radius: 3px; overflow: hidden; }
 .bpm-conf i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-grad)); transition: width .25s; }
 
 /* Otomatik VJ durum satırı: kullanıcı çalıştığını buradan görür. Eskiden
@@ -911,7 +912,7 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 
 
 /* ===== Metin paneli ===== */
-.txt-panel { display: flex; flex-direction: column; gap: 8px; }
+
 .txt-area {
   width: 100%;
   resize: vertical;
@@ -1024,12 +1025,68 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   border-radius: 9px;
   padding: 7px 9px;
 }
+/* Grup başlığı, katman sayısı ve M düğmesi birbirine yapışmasın */
+.grp-item > .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.grp-item > .row > .item-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp-count { margin-left: auto; font-size: 11px; color: var(--muted2); }
 .btn.tiny.on.mute { background: var(--danger); color: var(--on-solid); border-color: transparent; }
 
-.xf-box { background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px; }
-.xf-tag { font-weight: 700; font-size: 13px; }
+/* shell.css'teki .sv-insp .ctrl (0,2,0, sonra yüklenir) kutuyu 3 sütunlu grid yapıp
+   sürgüyü grid-area 1/2'ye itiyordu: etiketler, sürgü ve düğmeler tek satıra sıkışıyordu.
+   .sv-insp .ctrl.ctrl.xf-box (0,4,0) bunu ve pages.css'teki iç boşluk sıfırlamasını
+   (.sv-insp .group > :where(..) .ctrl) ezer; satırlar alt alta, kenarda pay kalır. */
+.sv-insp .ctrl.ctrl.xf-box, .ctrl.xf-box {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 8px 9px; min-height: 0; margin: 0;
+}
+.sv-insp .ctrl.xf-box > input.xf-slider, .ctrl.xf-box > input.xf-slider { grid-area: auto; width: 100%; align-self: stretch; }
+.xf-box {
+  background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow: hidden; box-sizing: border-box;
+}
+/* .ctrl .row flex/space-between'i ezer: özgüllük .ctrl.xf-box > .row */
+.ctrl.xf-box > .row, .xf-box > .row {
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
+  gap: 8px; justify-content: stretch; min-width: 0; flex-wrap: nowrap;
+}
+.ctrl.xf-box > .row.xf-btns, .xf-box > .row.xf-btns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ctrl.xf-box > .row > .btn, .xf-box > .row > .btn {
+  width: 100%; min-width: 0; max-width: 100%; justify-content: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex: none;
+}
+.xf-tag { font-weight: 700; font-size: 13px; flex: none; }
 /* Boş taraf: saydamlık 2.9:1'e indiriyordu; ikincil yazı rengi okunur kalır (#770) */
 .xf-tag.dim { color: var(--muted2); font-weight: 400; }
-.xf-val { margin: 0 auto; font-variant-numeric: tabular-nums; font-size: 12px; }
-.xf-slider { width: 100%; margin: 6px 0; }
+.xf-val { justify-self: center; text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; min-width: 0; }
+.xf-slider { width: 100%; min-width: 0; margin: 0; box-sizing: border-box; }
+
+/* Oyun kumandası: analog ayrıntı satırı ve canlı eksen göstergesi */
+.map-row.gp-opts { flex-wrap: wrap; gap: 6px 10px; margin-top: -2px; padding-left: 12px; font-size: 12px; color: var(--muted); }
+.map-row.gp-opts select.p-in { flex: 0 1 150px; }
+.gp-opt { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gp-opt .p-num { width: 64px; }
+.gp-axes { display: grid; gap: 4px; margin: 4px 0 6px; }
+.gp-axis { display: grid; grid-template-columns: minmax(0, 120px) 1fr 52px; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.gp-bar { position: relative; height: 6px; border-radius: 3px; background: rgb(var(--fg-rgb) / .1); overflow: hidden; }
+.gp-bar i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 3px; }
+.gp-v { text-align: right; }
+
+/* Adım sıralayıcı: her adım dikey bir kaydırıcı, yükseklik = değer */
+.mod-steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  height: 72px;
+  margin: 6px 0;
+}
+.mod-steps input[type='range'] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+}

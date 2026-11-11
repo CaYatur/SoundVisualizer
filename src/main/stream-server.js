@@ -38,6 +38,8 @@ const ROOT = path.join(__dirname, '..'); // src/
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_MESSAGE = 256 * 1024; // istemciden gelen tek mesaj üst sınırı
 
+const PROTOCOL = 1; // docs/REMOTE-PROTOCOL.md "Stability"
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -46,6 +48,8 @@ const MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
@@ -222,7 +226,8 @@ function startTick() {
 function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 
 function sendPeers(obj) {
-  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed) sendJson(c, obj);
+  // Reddedilen yedeğe yalnız atış: kesilirse kendiliğinden yetki alıyor (#905)
+  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed && (!c.peerRefused || obj.type === 'beat')) sendJson(c, obj);
 }
 function peerCount() {
   let n = 0;
@@ -301,6 +306,11 @@ function publicConfig(cfg) {
   const rd = cfg.redundancy;
   if (rd && typeof rd === 'object' && rd.secret) {
     out = Object.assign({}, out, { redundancy: Object.assign({}, rd, { secret: '' }) });
+  }
+  // MQTT aracı parolası web istemcisine gitmez
+  const mq = cfg.mqtt;
+  if (mq && typeof mq === 'object' && mq.password) {
+    out = Object.assign({}, out, { mqtt: Object.assign({}, mq, { password: '' }) });
   }
   const md = cfg.milkdrop;
   if (md && typeof md.textureDir === 'string' && md.textureDir) {
@@ -634,6 +644,7 @@ function handleRequest(req, res) {
 
   if (p === '/media-file') { serveMedia(req, res, url); return; }
   if (p === '/logo-file') { serveLogoFile(res, url.searchParams.get('id') || ''); return; }
+  if (p === '/mode-thumb') { serveModeThumb(res, url.searchParams.get('kind') || '', url.searchParams.get('type') || ''); return; }
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
   if (p === '/milkdrop/sprite') { serveSprite(res, url.searchParams.get('key') || ''); return; }
@@ -660,6 +671,22 @@ function serveTextureNames(res) {
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(JSON.stringify({ names: Array.isArray(names) ? names : [] }));
+}
+
+/* MOD KÜÇÜK RESMİ (kumanda). İstemci tür adı yollar; dosyayı ana süreç bulur (kanca).
+   Jetonun arkasında; resim içerik anahtarlı olduğu için bir gün önbellekte kalabilir. */
+function serveModeThumb(res, kind, type) {
+  const file = typeof hooks.modeThumbFile === 'function' ? hooks.modeThumbFile(kind, type) : null;
+  if (!file) { res.writeHead(404).end('not found'); return; }
+  let st;
+  try { st = fs.statSync(file); } catch { res.writeHead(404).end('not found'); return; }
+  res.writeHead(200, {
+    'Content-Type': 'image/webp',
+    'Content-Length': st.size,
+    'Cache-Control': 'private, max-age=86400',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
 }
 
 function serveLogoFile(res, id) {
@@ -875,12 +902,18 @@ function handleUpgrade(req, socket) {
   sendJson(client, {
     type: 'hello',
     app: 'CAYADEV Visualizer',
+    /* Kumanda protokolünün sürümü (docs/REMOTE-PROTOCOL.md). Uyumsuz bir değişiklikte artar;
+       dış istemciler (telefon uygulaması, gösteri paneli) bununla uyumluluğu denetler. */
+    protocol: PROTOCOL,
     kind: client.kind,
     platform: process.platform,
     serverNow: Date.now(),
     version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
   });
-  sendJson(client, { type: 'config', config: publicConfig(hooks.getConfig()) });
+  // Yayın katmanı sahne listesini çizmiyor, panel gönderimlerinde de almıyor. Kumanda alıyor.
+  const openingConfig = client.kind === 'overlay' && typeof hooks.getRendererConfig === 'function'
+    ? hooks.getRendererConfig() : hooks.getConfig();
+  sendJson(client, { type: 'config', config: publicConfig(openingConfig) });
   sendJson(client, { type: 'presets', presets: publicPresets(hooks.getPresets()) });
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
   if (np && np.has) {
@@ -1078,6 +1111,7 @@ function newToken() {
 }
 
 module.exports = {
+  PROTOCOL,
   parseFallbacks,
   start,
   stop,
@@ -1105,6 +1139,11 @@ module.exports = {
   setPeerSecret,
   sendJson,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
+  remoteCount: () => {
+    let n = 0;
+    for (const c of clients) if (c.kind === 'remote') n++;
+    return n;
+  },
   overlayCount: () => {
     let n = 0;
     for (const c of clients) if (c.kind === 'overlay') n++;

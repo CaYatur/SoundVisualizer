@@ -11,6 +11,7 @@ const assert = require('node:assert');
 
 global.window = global.window || {};
 require('../src/shared/defaults.js');
+require('../src/shared/schema.js');
 require('../src/shared/lyrics-clock.js');
 require('../src/admin/lyrics-lib-ui.js');
 const L = require('../src/visualizer/layers.js');
@@ -37,6 +38,7 @@ function setup(layers, openIds) {
   };
   window.SVLayers = L;
   window.SVPanel = {
+    sliderMax: (d) => d.max,
     el,
     cfg: () => cfg,
     row: (label, ctrl) => el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), ctrl])]),
@@ -190,18 +192,17 @@ test('layer-internal mini helpers use attachDefault with def', () => {
   assert.doesNotMatch(src, /attachPath\([\s\S]{0,220}stackSwitch[\s\S]{0,100}layerStack\.enabled/);
 });
 
-test('Use Layer Stack toggle is visually distinct from other switches', () => {
+test('the layer stack switch is gone (#905)', () => {
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
-  assert.match(src, /class:\s*'ctrl layer-stack-toggle'/);
-  assert.match(src, /Katman Yığınını Kullan/);
+  assert.doesNotMatch(src, /layer-stack-toggle/);
+  assert.doesNotMatch(src, /Katman Yığınını Kullan/);
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
-  assert.match(css, /\.ctrl\.layer-stack-toggle\s*\{/);
+  assert.doesNotMatch(css, /layer-stack-toggle/);
   assert.match(css, /\.btn\.layers-cta/);
   const { panel } = setup(LAYERS);
-  const marked = all(panel, cls('layer-stack-toggle'));
-  assert.strictEqual(marked.length, 1, 'exactly one master stack toggle');
+  assert.strictEqual(all(panel, cls('layer-stack-toggle')).length, 0);
 });
 
 test('attachDefault registers local-def sync so modified refreshes without rerender', () => {
@@ -554,8 +555,10 @@ test('söz kütüphanesi yalnız Windows panelinde görünür', () => {
     assert.strictEqual(all(panel, cls('lyrics-follow')).length, 0);
     const texts = all(panel, (n) => n.attrs && typeof n.attrs.text === 'string').map((n) => n.attrs.text);
     const iFollow = texts.indexOf('Çalan Parçayı İzle');
-    const iLoad = texts.indexOf('Söz Dosyası Yükle');
-    assert.ok(iLoad >= 0 && iLoad < iFollow, 'izle, dosya yüklemenin altında');
+    assert.ok(iFollow >= 0);
+    assert.strictEqual(texts.indexOf('Söz Dosyası Yükle'), -1, 'Windows: söz yalnız kütüphaneden eklenir');
+    assert.strictEqual(texts.indexOf('Temizle'), -1, 'Windows: tek dosya temizleme yok');
+    assert.strictEqual(rowOf(panel, 'Dosya'), undefined, 'Windows: yüklü dosya satırı yok');
     assert.ok(texts.includes('Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.'));
     assert.strictEqual(rowOf(panel, 'Eşleme'), undefined, 'takip kapalıyken eşleme gizli');
     assert.strictEqual(rowOf(panel, 'Parça Adı'), undefined, 'kütüphane kapalıyken alanlar gizli');

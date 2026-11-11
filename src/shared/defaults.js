@@ -30,6 +30,8 @@
       smoothing: 0.5, // zaman yumuşatma (0..0.95)
       bassBoost: 2.05, // düşük frekans vurgusu
       humGuard: true, // 50/60 Hz şebeke uğultusu ve dip gürültüsü filtresi (akıllı sessizlik)
+      // MilkDrop'un kendi giriş ayarları (genel analizden bağımsız, varsayılan nötr)
+      milkdrop: { gate: false, gateThreshold: 0.02, gateHold: 0.5, gain: 1, smoothing: 0 },
     },
 
     background: {
@@ -224,6 +226,14 @@
       wireframe: { rings: 16, sides: 10, speed: 1 },
       hexpulse: { size: 1, gap: 1, wave: 1 },
       lavalamp: { blobs: 7, size: 1, flow: 1, glowAmt: 1, bassPush: 1.2 },
+      colorcloud: { blobs: 5, size: 1, drift: 1, contrast: 1, bassPush: 1 },
+      silk: { folds: 7, amplitude: 1, flow: 1, sheen: 0.6, bassPush: 1 },
+      sunset: { sun: 1, stripes: 6, mountains: 1, haze: 0.6, bassPush: 1 },
+      dunes: { layers: 6, height: 1, drift: 1, haze: 0.6, bassPush: 1 },
+      nightsky: { stars: 260, twinkle: 1, milky: 0.6, shooting: 1, bassPush: 1 },
+      stripes: { count: 9, angle: 0.62, speed: 1, softness: 0.15, bassPush: 1 },
+      dotgrid: { cells: 26, size: 0.55, wave: 1, speed: 1, bassPush: 1.2 },
+      papercut: { layers: 6, relief: 1, sway: 1, shadow: 0.6, bassPush: 1 },
       lowpoly: { cells: 16, jitter: 0.6, shimmer: 1, relief: 1, bassPush: 1.2 },
       clouds: { scale: 1, cover: 0.5, drift: 1, softness: 1, bassPush: 1 },
       halftone: { cells: 38, angle: 0.26, contrast: 1, response: 1, bassPush: 1.3 },
@@ -350,6 +360,12 @@
       scale: 1,
       // Paneldeki geçiş ve animasyonları kapat (sistemin tercihi ayrıca izlenir)
       reduceMotion: false,
+      // Sahne listesinin düzeni: 'list' (tek sütun, sıralı) | 'grid' (satır satır ızgara)
+      sceneView: 'list',
+      /* Mod hedefi: false (varsayılan) = Görsel/Zemin/MilkDrop modu yalnız
+         seçili katmana gider, uymayan raf kilitlenir; MCP de katman kimliği
+         ister. true = eski davranış, mod o türün ilk katmanına yönlenir. */
+      modeTargetAuto: false,
     },
 
     power: {
@@ -364,6 +380,7 @@
          çözünürlük ve efektler çizilen kopyada kısılıyor (low-power.js). */
       lowPower: 'off',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
+      adaptiveScale: true, // kare kaçıyorsa çözünürlüğü kendiliğinden düşür (#453)
       pauseOnSilence: false,
       hideCursor: true,
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.
@@ -473,27 +490,20 @@
     // ------------------------------------------------------------------
     // Katman yığını.
     //
-    // Boşsa liste eski alanlardan (background / media / images / visualizer /
-    // logo) otomatik SENTEZLENİR; v2.0 ayarları ve sahneleri hiçbir değişiklik
-    // olmadan aynı kareyi verir. Kullanıcı katman eklediği anda bu liste
-    // sahnenin tek kaynağı olur.
+    // Boşsa panel ilk çizimde varsayılan katmanları kuruyor; eski ayarlar göçle
+    // (shared/migrate-v4.js) bir kez listeye çevriliyor.
     //
     // Not: her modun kendi içindeki parlama (glow) yerinde kalır — o, şeklin
     // kendi görünümünün parçası. Kompozisyon seviyesindeki bloom ayrı bir
     // son-işlem efektidir ve varsayılan olarak kapalıdır; ikisi toplanır.
     // ------------------------------------------------------------------
     layers: [],
-    /* Katman yığını anahtarı. Kapalıyken liste korunur ama sahne
-       Arkaplan ve Görselleştirici kartlarından sentezlenir — böylece hem
-       yalın hem katmanlı deneyim tek ayarla değişir.
-
-       Varsayılan false DEĞİL null. Panel kaydedilmiş ayarları
-       deepMerge(defaultConfig(), saved) ile açıyor; false olsaydı bu değer
-       v3.0.0 öncesi her ayar dosyasına sızar ve dolu bir katman listesi olan
-       kullanıcının sahnesi sessizce arkaplan+görselleştiriciye dönerdi.
-       null iken stackOn() listenin dolu olup olmadığına bakar; panel ilk
-       çizimde bunu somut bir değere çeviriyor. */
+    /* Eski sürümden kalma anahtar. v4'te sahne her zaman katman listesi: panel ilk çizimde bunu
+       true yapıyor. null, deepMerge eski dosyalara false sızdırmasın diye. */
     layerStack: { enabled: null },
+
+    // Ayar biçimi (#905). Yeni kurulumda çevrilecek bir şey yok; göç migrate-v4.js'te
+    docVersion: 4,
 
     // ------------------------------------------------------------------
     // Son-işlem efekt zinciri. Katmanların BİRLEŞTİRİLMİŞ çıktısına sırayla
@@ -600,11 +610,12 @@
       scrollSpeed: 1,
       maxWidth: 0.9,
       karaoke: true,
-      /* Kelime süresi (#938): 'word' kelime bir anda yanar (eski davranış),
-         'progressive' kelime süresi boyunca dolar. Esneme isteğe bağlı. */
-      karaokeFill: 'word',
-      karaokeHold: false,
-      karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelime esner (sn)
+      /* Kelime süresi (#938): süre LRC damgalarından (ses analizi yok).
+         'progressive' etkin kelimeyi soldan sağa doldurur; kısa kelimelerde
+         neredeyse anında biter. Uzatılan hecede son sesli çoğalır (loooove). */
+      karaokeFill: 'progressive',
+      karaokeHold: false, // varsayılan: kelime süresince durur, sesli uzamaz (#938 esneme isteğe bağlı)
+      karaokeHoldMin: 0.6,  // bu kadar uzun tutulan kelimede sesli uzar (sn)
       karaokeHoldAmount: 0.25,
       offset: 0,        // söz senkron düzeltmesi (sn)
       lyricsSource: '', // LRC/SRT dosya içeriği
@@ -631,7 +642,8 @@
     // ------------------------------------------------------------------
     /* Otomatik söz bulma (#937): yan .lrc/.srt → gömülü etiket → önbellek →
        kullanıcının tanımladığı sağlayıcılar. Sağlayıcı listesi BOŞ gelir;
-       boşken hiçbir ağ isteği yapılmaz. Sağlayıcı:
+       boşken hiçbir ağ isteği yapılmaz. LRCLIB hazır şablon olarak UI'dan
+       eklenir (src/shared/lyrics-providers.js); varsayılana yazılmaz. Sağlayıcı:
        { name, url: 'https://example.com/api/get?artist={artist}&title={title}',
          format: 'lrc' | 'json', path: 'syncedLyrics', enabled } */
     // Dış tempo: 'off' | 'link' (Ableton Link, yalnız dinleme) | 'midi' (MIDI saati)
@@ -1016,6 +1028,12 @@
         { lo: 1500, hi: 4000, floor: -60, ceil: -28, attack: 0.01, release: 0.15 },
         { lo: 6000, hi: 14000, floor: -70, ceil: -36, attack: 0.005, release: 0.1 },
       ],
+      /* Adım sıralayıcılar (seq1..2): tempoya kilitli değer dizileri. Tüm
+         adımlar 0 başlar; bir yönlendirmeye bağlanmadıkça etkisizdir. */
+      sequencers: [
+        { length: 8, division: '1/4', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { length: 16, division: '1/16', glide: 0, values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      ],
       /* Adlar boş başlar. Bir ad yapılandırmada saklanan DEĞERdir, arayüz
          metni değil; içine Türkçe yazmak İngilizce arayüzde çevrilemeyen bir
          dize bırakırdı. Panel boş adı çevrilmiş bir yer tutucuyla gösterir. */
@@ -1039,17 +1057,28 @@
       /* Oynatma kafası panelde yaşar ve tüm görselleştirici pencereleri
          aynı değeri okur; her pencere kendi saatini tutsaydı ekranlar
          arasında kayma görünürdü. */
+      /* Banka: birden çok çizelge. Çalışan belge aşağıdaki alanlarda;
+         diğerleri bank[] içinde. itemEnabled=false → silmeden pasif. */
+      id: 'tl1',
+      name: 'A',
+      itemEnabled: true,
+      bank: [],
       tempo: [{ t: 0, bpm: 120, beatsPerBar: 4 }],
       tracks: [],
       markers: [],
       loop: { enabled: false, start: 0, end: 0 },
-      snap: 'bar', // off | bar | beat | half | quarter | frame
+      snap: 'bar', // off | bar | beat | half | quarter | 1s | 0.5s | frame
       fps: 60, // yalnızca kare yakalaması için
       /* Görünüm durumu: yakınlaştırma saniye başına piksel. */
       zoom: 60,
       scroll: 0,
       ruler: 'both', // time | bars | both
       followPlayhead: true,
+      /* "Timeline kullan": açıkken çıkış çizelgenin yalıtılmış bileşimi,
+         kapalıyken (varsayılan) çizelge elle ayara hiç dokunmaz. Eski
+         `applyEditsImmediately` tercihi kaldırıldı; mod açıkken düzenlemeler
+         her zaman hemen yansır. */
+      useTimeline: false,
       // Şerit yüksekliği, piksel (28..120); tam pencerede yer açmak için büyütülür
       laneHeight: 40,
     },
@@ -1139,6 +1168,46 @@
     },
 
     // ------------------------------------------------------------------
+    // Ağ LED çıkışları. Hepsi varsayılan KAPALI; açılınca yalnız gönderir,
+    // hiçbir porta dinlemek için bağlanmaz.
+    // sACN (E1.31): Art-Net ile aynı kanal üreticisi; boş host = evrenin
+    // multicast adresi (239.255.H.L).
+    // ------------------------------------------------------------------
+    sacn: {
+      enabled: false,
+      host: '', // boş = multicast; tek düğüm için onun IP'si (unicast)
+      port: 5568,
+      universe: 1, // sACN evrenleri 1'den başlar
+      priority: 100, // 0..200, E1.31 varsayılanı 100
+      sourceName: 'SoundVisualizer',
+      startChannel: 1,
+      fixtures: 8,
+      channelsPerFixture: 3,
+      mode: 'palette', // 'palette' | 'bands' | 'spectrum' | 'single'
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED doğrudan sürme (DDP, UDP 4048). Host boşsa hiçbir şey gönderilmez.
+    wled: {
+      enabled: false,
+      host: '',
+      port: 4048,
+      ledCount: 60,
+      mode: 'palette',
+      color: '#ff2020',
+      brightness: 1,
+      fps: 30,
+    },
+    // WLED ses senkronu (Audio Sync v2) yayını
+    wledSync: {
+      enabled: false,
+      host: '239.0.0.1', // WLED'in varsayılan multicast adresi
+      port: 11988,
+      fps: 40,
+    },
+
+    // ------------------------------------------------------------------
     // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
     // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
     // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
@@ -1163,10 +1232,17 @@
     // Eşleme: { id, source:'midi'|'osc', channel, cc, address, path, min, max, mode }
     // ------------------------------------------------------------------
     control: {
-      midi: { enabled: false, deviceId: 'all', mappings: [] },
+      // feedback: MIDI çıkışı ile denetleyici LED / motorlu fader geri bildirimi (varsayılan kapalı)
+      midi: { enabled: false, deviceId: 'all', mappings: [], feedback: { enabled: false, outputId: 'auto', onVelocity: 127, offVelocity: 0 } },
       osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
       // Oyun kumandası (Gamepad API): düğme/eksen → ayar ya da eylem
       gamepad: { enabled: false, mappings: [] },
+      // Art-Net (DMX) girişi: masadan gelen kanallar ayarlara/eylemlere.
+      // Varsayılan kapalı ve yalnız bu bilgisayar (127.0.0.1) dinlenir.
+      // Eşleme: { id, channel (1..512), target, min, max }
+      artnet: { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] },
+      // MIDI Time Code girişi: Zaman Çizelgesi dış zaman koduna kilitlenir
+      mtc: { enabled: false, deviceId: 'all', offsetSec: 0 },
     },
 
     // ------------------------------------------------------------------
@@ -1194,6 +1270,11 @@
       kenBurns: 0, // yavaş yakınlaşma ve kayma 0..1 (#841); 0 = kapalı
       kenBurnsPeriod: 20, // bir döngü, saniye
       beatPulse: 0, // vuruşta kısa yakınlaşma 0..1 (#841)
+      // Video taşıma (#905): hız, bölge (sn; 0 = baş/son) ve vuruşa kilitli döngü (vuruş; 0 = kapalı)
+      speed: 1,
+      inPoint: 0,
+      outPoint: 0,
+      loopBeats: 0,
     },
 
     // ------------------------------------------------------------------
@@ -1258,6 +1339,11 @@
       /* Süre kaynağı (#523): ses dosyası, sabit saniye, zaman çizelgesinin
          uzunluğu ya da N ölçü (bpm 0 = zaman çizelgesinin temposu). */
       duration: { mode: 'audio', seconds: 30, bars: 16, bpm: 0 },
+      /* İstenirse çizelgeyi videoya uygula (canlı moddan bağımsız).
+         Varsayılan KAPALI; kayıtlı açık tercih korunur.
+         Açıkken döngü sarar; boşluk ve döngüsüz bitiş siyahtır. */
+      includeTimeline: false,
+      timelineId: '', // boş: iş eklenirken etkin çizelgenin kimliği alınır
       chapters: false, // zaman çizelgesi işaretçilerinden bölümlere ayır (#527)
       chapterList: false, // işaretçilerden YouTube bölüm listesi .txt (#837)
       analysis: false, // ses analizini videonun yanına yaz: JSON, CSV, MIDI
@@ -1275,6 +1361,7 @@
       enabled: false,
       mode: 'read',
       port: 38471,
+      httpApi: false, // belgeli HTTP API (/api/v1, OpenAPI); MCP ile aynı jeton ve izin
     },
 
     /* Yedeklilik (#540). Kurulum ayarı: makineye özgü, aktarılmaz.
@@ -1298,6 +1385,23 @@
       artnetWitness: true, // ağda aynı evrene başka kaynak gönderiyor mu (iki yönetici ipucu)
       alarmSound: false, // devralma ve iki yönetici alarmında ses (#815); varsayılan yalnız görsel
       phaseLock: true, // izleyen yedek birincilin tempo ızgarasını kullanır (#815)
+    },
+
+    /* MQTT / Home Assistant. Varsayılan kapalı; aracı adresi kullanıcıdan.
+       Durum <baseTopic>/state/... konularına gider. allowControl açık
+       değilse hiçbir komut dinlenmez. Parola MCP'de ve web istemcilerinde
+       gizlidir. Yedeklilikte aktarılmaz (show-keys izin listesinde yok). */
+    mqtt: {
+      enabled: false,
+      host: '',
+      port: 1883,
+      tls: false,
+      username: '',
+      password: '',
+      baseTopic: 'soundvisualizer',
+      discovery: true,
+      discoveryPrefix: 'homeassistant',
+      allowControl: false,
     },
 
     /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.

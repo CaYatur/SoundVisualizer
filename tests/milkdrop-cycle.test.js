@@ -213,7 +213,7 @@ test('motor: önizleme yalnız AYNI elle seçimin üstündeki seçimi izliyor', 
      izlemek yeni preseti eskisine geri harmanlardı. */
   const fn = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(fn, /F\.base === \(this\._manualKey \|\| ''\)/);
-  assert.match(fn, /\(performance\.now\(\) - F\.at\) < FOLLOW_MS/);
+  assert.match(fn, /\(performance\.now\(\) - msg\.at\) < FOLLOW_MS/);
   assert.match(MODE, /livePreset\(\) \{[\s\S]*?base: this\._manualKey \|\| ''/);
 });
 
@@ -223,7 +223,7 @@ test('aktarım: ölçer mesajı → panel → önizleme', () => {
   assert.match(bare(read('src/visualizer/visualizer.js')),
     /const mdPreset = stack\.milkdropPreset\(\);[\s\S]*?window\.api\.sendAudioMeter\(\{[\s\S]*?\bmdPreset,/);
   assert.match(bare(read('src/admin/admin.js')),
-    /window\.SVMdFollow = d\.mdPreset \? Object\.assign\(\{ at: performance\.now\(\) \}, d\.mdPreset\) : null;/);
+    /window\.SVMdFollow = d\.mdPreset \? Object\.assign\(\{ at: performance\.now\(\), layers: d\.mdLayers \|\| null \}, d\.mdPreset\)/);
   /* İzleme TEK pencereye dayanıyor: birden çok ekranda her görselleştirici
      kendi mesajını gönderseydi önizleme aralarında gidip gelirdi. Ana süreç
      yalnız birincil pencerenin mesajını geçiriyor — bu varsayım sabit. */

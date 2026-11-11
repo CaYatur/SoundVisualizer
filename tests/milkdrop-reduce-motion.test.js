@@ -108,10 +108,19 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
   /* `milkdropControl` sahne anahtarı değil; dışa aktarıcı yalnız sahneyi
      alsaydı 'on' motora hiç varmaz, belgelerdeki söz boşa çıkardı. */
   assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: jobCfg \|\| \{\},/);
-  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), job\.cfg \|\| \{\}\);/);
+  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), window\.SVTimelineCompose\.exportJobConfig\(job\.cfg \|\| \{\}\)\);/);
   require('../src/visualizer/layers.js');
-  const cfg = SV.defaultConfig();
-  cfg.milkdropControl.reduceMotion = 'on';
+  const jobCfg = SV.defaultConfig();
+  jobCfg.milkdropControl.reduceMotion = 'on';
+  // Klip düzenleyicisinin sahne kökleri temizlenir; gösteri genelindeki
+  // erişilebilirlik tercihi iş kopyasında aynen motora ulaşmalı.
+  jobCfg.timeline.manualBaseline = { layers: [], layerStack: { enabled: true } };
+  jobCfg.timeline.editTarget = { trackId: 't', clipId: 'c' };
+  const before = JSON.stringify(jobCfg);
+  const cfg = SV.deepMerge(SV.defaultConfig(), require('../src/shared/timeline-compose').exportJobConfig(jobCfg));
+  assert.strictEqual(cfg.milkdropControl.reduceMotion, 'on');
+  assert.strictEqual(cfg.timeline.editTarget, undefined);
+  assert.strictEqual(JSON.stringify(jobCfg), before, 'iş temizliği özgün yapılandırmayı değiştirmez');
   for (const settings of [{}, { visualizer: { sensitivity: 2 } }]) {
     const lc = window.SVLayers.layerConfig(cfg, { kind: 'visualizer', type: 'milkdrop', settings });
     assert.strictEqual(lc.milkdropControl.reduceMotion, 'on', 'katman ayarı ' + JSON.stringify(settings));
@@ -121,7 +130,7 @@ test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşını
 test('varsayılan "sistemi izle"; ayar gösterinin, sahnenin değil', () => {
   assert.strictEqual(SV.defaultConfig().milkdropControl.reduceMotion, 'system');
   // Sahne anahtarlarında milkdropControl yok: sahne değişince ayar kalıyor
-  for (const f of ['src/main/main.js', 'src/admin/control.js', 'src/admin/admin.js']) {
+  for (const f of ['src/shared/schema.js']) {
     const m = /const SCENE_KEYS = \[([\s\S]*?)\];/.exec(read(f));
     assert.ok(m, f + ': SCENE_KEYS bulunamadı');
     assert.ok(m[1].includes("'milkdrop'") && !m[1].includes('milkdropControl'), f);

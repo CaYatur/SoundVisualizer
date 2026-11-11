@@ -202,7 +202,7 @@ body {
 .svi-lead { margin-right: .42em; }
 .svi-after { display: inline-flex; margin-left: .38em; vertical-align: -0.22em; }
 .btn .svi, .filebtn .svi { width: 1.2em; height: 1.2em; }
-.nav-ico .svi { width: 17px; height: 17px; }
+
 .card-head .ico .svi { width: 16px; height: 16px; }
 .sr-ico .svi, .source-icon .svi { width: 15px; height: 15px; }
 .icon-btn .svi { width: 16px; height: 16px; }
@@ -245,21 +245,6 @@ body {
   box-shadow: 0 8px 28px rgb(var(--accent-rgb) / .42), inset 0 1px 0 rgb(var(--fg-rgb) / .16);
 }
 .btn.layers-cta .svi { width: 1.35em; height: 1.35em; }
-/* Use Layer Stack — master switch; not the same as other toggles in this card */
-.ctrl.layer-stack-toggle {
-  margin: 0 0 14px; padding: 12px 14px; border-radius: 10px;
-  border: 1px solid rgb(var(--accent-rgb) / .38);
-  border-left: 3px solid var(--accent);
-  background: linear-gradient(135deg, var(--accent-soft), rgb(var(--accent-rgb) / .06));
-  box-shadow: 0 4px 16px rgb(var(--accent-rgb) / .12), inset 0 1px 0 rgb(var(--fg-rgb) / .06);
-}
-.ctrl.layer-stack-toggle > .row > label.lbl {
-  font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--accent-label);
-}
-.ctrl.layer-stack-toggle .switch { width: 46px; height: 24px; }
-.ctrl.layer-stack-toggle .switch .track { border-radius: 12px; }
-.ctrl.layer-stack-toggle .switch .track::after { width: 18px; height: 18px; top: 2px; left: 2px; }
-.ctrl.layer-stack-toggle .switch input:checked + .track::after { left: 24px; }
 .btn.ghost { background: transparent; }
 .btn.small { padding: 6px 11px; font-size: 11.5px; }
 .btn.danger { color: var(--danger-text); border-color: rgb(var(--danger-rgb) / .35); }
@@ -303,10 +288,7 @@ body {
   padding: 12px 10px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 3px;
 }
-.nav-group-label {
-  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--muted2); padding: 12px 10px 5px;
-}
+
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 11px; border-radius: var(--radius-sm);
@@ -324,16 +306,12 @@ body {
   width: 3px; height: 20px; border-radius: 0 3px 3px 0;
   background: linear-gradient(180deg, var(--accent2), var(--accent));
 }
-.nav-ico { font-size: 15px; width: 19px; text-align: center; flex-shrink: 0; }
+
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.nav-badge {
-  font-size: 11px; font-weight: 700; min-width: 18px; text-align: center;
-  padding: 2px 5px; border-radius: 20px;
-  background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); border: 1px solid rgb(var(--accent-rgb) / .3);
-}
-.nav-item.active .nav-badge { background: rgb(var(--fg-rgb) / .16); color: var(--text-strong); border-color: transparent; }
-.nav-spacer { flex: 1; min-height: 8px; }
-.nav-foot { font-size: 11px; color: var(--muted2); padding: 8px 11px; line-height: 1.5; }
+
+
+
+
 
 /* -------- Orta: çalışma alanı -------- */
 .work { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -497,8 +475,8 @@ body {
 }
 .advanced.open .adv-summary .caret { transform: rotate(90deg); }
 .adv-summary .count { margin-left: auto; font-size: 11px; color: var(--muted2); font-weight: 700; }
-.adv-body { display: none; padding: 12px 2px 2px; }
-.advanced.open .adv-body { display: block; }
+
+
 
 /* ============================ KONTROLLER ============================ */
 .ctrl { margin-bottom: 12px; position: relative; }
@@ -617,10 +595,12 @@ select.sel-ctrl { font-size: 13px; margin-top: 6px; }
 /* presets */
 /* Hazır şablon gruplarında 10 ve 6 öğe var (#622). `auto-fill` 9 sütun
    veriyordu ve her 10'luk grubun son şablonu alt satırda TEK BAŞINA
-   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 4, 6, 7, 8, 10 —
-   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. */
+   kalıyordu. Sütun sayısı genişliğe göre ama yalnız 2, 4, 6, 7, 8, 10 —
+   hiçbiri 10'u ya da 6'yı bir artıkla bölmüyor. 2 sütun dar denetçide:
+   dört sütunda "Okyanus" iki satıra bölünüyordu. */
 .ctrl:has(> .presets) { container-type: inline-size; }
 .presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 7px; }
+@container (max-width: 239px) { .presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 500px) { .presets { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @container (min-width: 590px) { .presets { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @container (min-width: 670px) { .presets { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
@@ -642,7 +622,7 @@ select.sel-ctrl { font-size: 13px; margin-top: 6px; }
   cursor: pointer; font-size: 12px; color: var(--text); transition: .15s;
 }
 .filebtn:hover { border-color: var(--accent); background: var(--card3); }
-.logo-preview { margin-top: 10px; max-height: 78px; max-width: 100%; border-radius: 8px; display: none; border: 1px solid var(--line); }
+
 
 .logo-lib { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .logo-lib-search { width: 100%; margin: 6px 0 8px; }
@@ -754,10 +734,7 @@ video.logo-lib-thumb { pointer-events: none; }
 .settings-io-panel .up-toolbar { margin-top: 12px; }
 
 /* ---------- Ek görsel nesneler ---------- */
-.img-card {
-  border: 1px solid var(--line); border-radius: 12px; background: var(--card2);
-  padding: 10px; margin-top: 10px;
-}
+
 .img-head { display: flex; gap: 10px; align-items: center; }
 .img-thumb {
   width: 50px; height: 50px; object-fit: contain; border-radius: 9px;
@@ -842,7 +819,9 @@ video.logo-lib-thumb { pointer-events: none; }
 /* --- önizleme --- */
 .preview-stage {
   position: relative; width: 100%; aspect-ratio: 16 / 9;
-  border-radius: 11px; overflow: hidden; background: var(--media-bg);
+  /* clip: kırpar ama kaydırılamaz. hidden iken odak alan bir öğe (düzen editöründe
+     çerçeve dışındaki kutu) sahneyi kaydırıyor, görüntü kayık kalıyordu. */
+  border-radius: 11px; overflow: hidden; overflow: clip; background: var(--media-bg);
   border: 1px solid var(--line2); box-shadow: inset 0 0 40px rgb(var(--shadow-rgb) / .6);
 }
 #pvStage { position: absolute; inset: 0; isolation: isolate; }
@@ -860,9 +839,18 @@ video.logo-lib-thumb { pointer-events: none; }
 /* Duraklatma işareti CSS'te: ikon setindeki "pause" (icons.js), sabit renkle
    data: URL'si olarak (#665). */
 .preview-stage.paused::after {
-  content: ''; position: absolute; inset: 0; z-index: 6;
-  background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3Cpath d=%22M14.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3C/svg%3E") center / 38px no-repeat, var(--media-scrim);
+  content: ''; position: absolute; inset: 0; z-index: 60; pointer-events: none; background: var(--media-scrim);
 }
+/* Sürdür düğmesi her katmanın üstünde ve tıklanabilir (#957) */
+.sv-resume {
+  position: absolute; left: 50%; top: 50%; z-index: 61; transform: translate(-50%, -50%);
+  width: 56px; height: 56px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--media-scrim); color: rgb(var(--on-media-rgb) / .85); cursor: pointer;
+}
+.sv-resume[hidden] { display: none; }
+.sv-resume:hover, .sv-resume:focus-visible { color: rgb(var(--on-media-rgb)); outline: 2px solid var(--accent); }
+.sv-resume .svi { width: 26px; height: 26px; }
+.preview-stage.paused { cursor: pointer; }
 
 /* --- seviye göstergeleri --- */
 .meter-strip { display: flex; flex-direction: column; gap: 7px; }
@@ -1248,7 +1236,31 @@ input.num {
 }
 input.num:focus { border-color: var(--accent); }
 .tl-editor { border: 1px solid var(--line); border-radius: 10px; outline: none; background: var(--bg2); }
-.tl-editor:focus-visible, .tl-editor:focus-within { border-color: var(--line2); box-shadow: 0 0 0 1px var(--accent-soft); }
+/* Tıklayınca halka yok (#957). Klavye odağında halka kalır: :focus-visible
+   bu satırdan sonra gelmeli. :focus-within da kendisini kapsar ve halkayı silerdi. */
+.tl-editor:focus, .tl-editor:focus-within { outline: none; box-shadow: none; }
+.tl-editor:focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
+.tl-ctx button, .tl-target-menu button { display: flex; justify-content: space-between; gap: 18px; }
+.tl-ctx kbd { opacity: .6; font: 500 11px ui-monospace, monospace; }
+.tl-ctx .sv-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.tl-target-menu { width: 400px; max-height: 360px; display: flex; flex-direction: column; }
+.tl-target-menu input { margin: 4px 6px 6px; }
+.tl-target-list { overflow: auto; }
+.tl-target-list button.on { color: var(--accent); }
+/* Hedef satırları (#957): tek satır, sola yaslı, renk kutusu + ad; başlıklar parçaya göre */
+.tl-target-menu .tl-target-row { display: flex; justify-content: flex-start; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-size: 12px; text-align: left; white-space: nowrap; cursor: pointer; }
+.tl-target-menu .tl-target-row:hover, .tl-target-menu .tl-target-row:focus-visible { background: rgb(var(--fg-rgb) / .07); }
+.tl-target-menu .tl-target-row.on { color: var(--accent); }
+.tl-target-sw { flex: none; width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .2); }
+.tl-target-lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tl-target-head { position: sticky; top: 0; z-index: 1; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--muted2); background: var(--popover); }
+.tl-target-empty { padding: 8px 10px; opacity: .7; }
+.tl-keys-dlg { max-width: 560px; }
+.tl-keys-dlg table { width: 100%; border-collapse: collapse; }
+.tl-keys-dlg td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.tl-keys-dlg kbd { font: 500 12px ui-monospace, monospace; }
+.tl-tog.rec.on { background: var(--danger); color: var(--on-solid); }
+input[type=range].sv-automated { accent-color: var(--danger); }
 /* Tam pencere düzenleyici (#636 TL-2): panel ekranı kaplar, düzenleme alanı
    pencerenin boyunu alır. Satır içi boy (kullanıcının tutamaktan verdiği) ezilir. */
 .tl-panel.tl-full {
@@ -1278,7 +1290,7 @@ body.tl-full-open { overflow: hidden; }
 }
 .tl-panel .tl-head input.tl-trackname:hover { border-color: var(--line); }
 .tl-panel .tl-head input.tl-trackname:focus { border-color: var(--accent); background: var(--card2); }
-.tl-kind { font-size: 12px; width: 16px; text-align: center; }
+
 input[type=color].tl-swatch { width: 16px; height: 16px; padding: 0; border: 1px solid var(--line2); border-radius: 4px; background: none; cursor: pointer; flex: none; }
 input[type=color].tl-swatch::-webkit-color-swatch-wrapper { padding: 0; }
 input[type=color].tl-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
@@ -1293,6 +1305,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .tl-tog.l.on { background: var(--card3); color: var(--text); border-color: var(--line2); }
 .tl-canvas-wrap { flex: 1; min-width: 0; background: rgb(var(--fg-rgb) / .015); }
 .tl-canvas { display: block; width: 100%; cursor: crosshair; }
+/* Oynatma kafası ayrı katman: yalnız transform ile kayar, tuval her karede çizilmez */
+.tl-canvas-wrap { position: relative; overflow: hidden; }
+.tl-playhead { position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; pointer-events: none; will-change: transform;
+  background: var(--accent2); box-shadow: 0 0 8px var(--accent); }
+.tl-playhead::before { content: ''; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 0 0 5px 5px; background: var(--accent2); }
 .tl-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .tl-inspector { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .tl-panel input.txt {
@@ -1338,6 +1355,20 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .cd-rowlaunch.cursor { border-color: var(--accent); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .cd-cell.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
 /* Deste sekmeleri */
+.tl-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 8px 8px 2px; }
+/* Kenarlık yerine iç gölge: eski tarz çerçeveli düğme görünmesin (ui-layout) */
+.tl-tab { height: 26px; min-width: 34px; padding: 0 10px; border-radius: 7px; border: 0; box-shadow: inset 0 0 0 1px var(--line); background: var(--card); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.tl-tab:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--line2); }
+.tl-tab.on { color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.tl-tab.passive { opacity: .55; text-decoration: line-through; }
+.tl-tab.add { min-width: 28px; padding: 0 8px; }
+.tl-tab.tl-renaming { visibility: hidden; pointer-events: none; }
+input.tl-tab-rename {
+  height: 26px; min-width: 48px; max-width: 140px; padding: 0 8px;
+  border-radius: 7px; border: 1px solid var(--accent); background: var(--card2);
+  color: var(--text); font-size: 12px; font-weight: 600; outline: none;
+}
+
 .cd-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 4px; }
 .cd-tab { height: 26px; min-width: 34px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
 .cd-tab:hover { color: var(--text); border-color: var(--line2); }
@@ -1514,9 +1545,9 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
   padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px;
   background: var(--card2); color: var(--muted); font-size: 11.5px;
 }
-.mcp-group { border-top: 1px solid var(--line); padding-top: 8px; }
-.mcp-group-title { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
-.mcp-switches { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+
+
+
 .mcp-card .switch input:disabled + .track { opacity: 0.38; filter: grayscale(0.35); }
 .mcp-setup {
   width: min(720px, calc(100vw - 28px));
@@ -1565,16 +1596,16 @@ input[type="email"],
 input[type="tel"],
 input[type="number"],
 textarea:not(.code-input):not(.mded-input) {
-  background: var(--card2);
+  background: rgb(var(--fg-rgb) / .07);
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 8px;
-  padding: 0 8px;
+  padding: 0 9px;
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.2;
   outline: none;
-  height: 30px;
+  height: 28px;
   box-sizing: border-box;
 }
 textarea:not(.code-input):not(.mded-input) {
@@ -1592,9 +1623,11 @@ input[type="number"]:focus,
 textarea:not(.code-input):not(.mded-input):focus {
   border-color: var(--accent);
 }
+/* pages.css içindeki textarea/.p-in.p-in kuralları sonra yüklenip renk, dolgu ve
+   yazı boyunu eziyordu; iki katman kayıyordu. Seçici bu yüzden daha özgül. */
 /* Genel kutu kuralı yükseklik ve yazı ölçüsünü ezer; bu alan pencereyi doldurur. */
-textarea.p-in.lyr-editor-text,
-.lyr-editor-paint {
+.lyr-editor-code > textarea.p-in.lyr-editor-text,
+.lyr-editor-code > .lyr-editor-paint {
   height: 100%;
   min-height: 0;
   max-height: none;
@@ -1613,20 +1646,20 @@ textarea.p-in.lyr-editor-text,
   overflow: auto;
   tab-size: 2;
 }
-textarea.p-in.lyr-editor-text {
+.lyr-editor-code > textarea.p-in.lyr-editor-text {
   grid-area: 1 / 1;
   color: transparent;
   caret-color: var(--text-strong);
 }
-textarea.p-in.lyr-editor-text::selection {
+.lyr-editor-code > textarea.p-in.lyr-editor-text::selection {
   background: rgb(var(--accent-rgb) / .35);
   color: transparent;
 }
-textarea.p-in.lyr-editor-text.lyr-plain {
+.lyr-editor-code > textarea.p-in.lyr-editor-text.lyr-plain {
   color: var(--text);
   caret-color: var(--text);
 }
-textarea.p-in.lyr-editor-text.lyr-plain::selection { color: inherit; }
+.lyr-editor-code > textarea.p-in.lyr-editor-text.lyr-plain::selection { color: inherit; }
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -1701,66 +1734,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .ui-theme-split .ui-theme-preview:first-child { border-radius: 7px 0 0 7px; }
 .ui-theme-split .ui-theme-preview + .ui-theme-preview { border-left: 0; border-radius: 0 7px 7px 0; }
 
-/* ================= DÜZEN EDİTÖRÜ (#534) =================
-   Önizleme sahnesi buraya taşınır; boyutu JS sığdırır (oran seçimine göre).
-   Kılavuzlar görüntünün üstünde: medya üstü renkler (on-media / media-scrim). */
-.lay-editor {
-  width: min(1280px, calc(100vw - 24px)); height: min(92vh, 900px); max-height: calc(100vh - 20px);
-  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; overflow: hidden;
-}
-.lay-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.lay-head h3 { font-size: 15px; margin: 0 auto 0 0; }
-.lay-aspect { display: flex; gap: 4px; }
-.lay-aspect .btn.active, .lay-list .btn.active { border-color: var(--accent); color: var(--text); }
-.lay-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
-.lay-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
-.lay-stage-wrap {
-  position: relative; min-width: 0; min-height: 0; display: grid; place-items: center;
-  background: var(--bg2); border-radius: 10px; overflow: hidden;
-}
-.preview-stage.lay-stage { aspect-ratio: auto; }
-.lay-overlay { position: absolute; inset: 0; z-index: 5; }
-.lay-safe { position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .55); }
-.lay-safe.title { border-style: dotted; }
-/* Kısa video uygulamalarının arayüzünün kapladığı bölgeler (#838): taralı, tıklamayı geçirir */
-.lay-platform-wrap { position: absolute; inset: 0; pointer-events: none; }
-.lay-platform {
-  position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .6);
-  /* Açık zeminde de seçilsin: koyu örtü + açık tarama */
-  background: repeating-linear-gradient(135deg, rgb(var(--on-media-rgb) / .22) 0 6px, transparent 6px 12px), var(--media-scrim);
-  opacity: .7;
-}
-.lay-center { position: absolute; pointer-events: none; background: rgb(var(--on-media-rgb) / .22); }
-.lay-center.v { left: 50%; top: 0; bottom: 0; width: 1px; }
-.lay-center.h { top: 50%; left: 0; right: 0; height: 1px; }
-.lay-guide { position: absolute; pointer-events: none; background: var(--warn); }
-.lay-guide.x { top: 0; bottom: 0; width: 1px; }
-.lay-guide.y { left: 0; right: 0; height: 1px; }
-.lay-box {
-  position: absolute; margin: 0; padding: 0; background: transparent; cursor: move; touch-action: none;
-  border: 1px dashed rgb(var(--on-media-rgb) / .7); border-radius: 3px;
-}
-.lay-box:hover { background: rgb(var(--accent-rgb) / .08); }
-.lay-box.sel { border: 2px solid var(--accent); background: rgb(var(--accent-rgb) / .1); }
-.lay-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.lay-box.resizable { overflow: visible; }
-/* Boyutlandırma tutamacı (sağ alt köşe): logo ve dış kaynak katmanları */
-.lay-handle {
-  position: absolute; right: -10px; bottom: -10px; width: 20px; height: 20px; box-sizing: border-box;
-  cursor: nwse-resize; touch-action: none; border-radius: 4px;
-  background: var(--accent); border: 2px solid rgb(var(--on-media-rgb)); opacity: .55;
-}
-.lay-box.sel .lay-handle, .lay-box:hover .lay-handle, .lay-box:focus-visible .lay-handle, .lay-handle:hover { opacity: 1; }
-.lay-tag {
-  position: absolute; left: -1px; top: 0; transform: translateY(-100%); pointer-events: none;
-  font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 3px 3px 0 0; white-space: nowrap;
-  color: rgb(var(--on-media-rgb)); background: var(--media-scrim);
-}
-.lay-side { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
-.lay-list { display: flex; flex-wrap: wrap; gap: 4px; }
-@media (max-width: 860px) { .lay-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } }
-/* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
-.preview-stage.lay-stage .preview-badge { display: none; }
+/* Düzen editörünün stilleri pages.css'te (15. bölüm). Bu satır yedeklilik panelinin düğme sırası için kaldı. */
 .lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 /* Yedeklilik (#540, düzen #816): gruplar arası tek çizgi ve boşluk; durum
    hapı ve kutucuklar bridge.css'ten (br-pill, br-tile). Renk yalnız tema
@@ -1925,3 +1899,16 @@ input[type="number"]::-webkit-inner-spin-button {
     forced-color-adjust: none;
   }
 }
+/* Geçiş önizlemesi (#957): yalnız panelde */
+.tr-preview { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.tr-preview-cv { width: 100%; max-width: 320px; aspect-ratio: 16 / 9; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
+.tr-preview-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tr-preview-cap { font-size: 11px; opacity: .7; }
+/* Otomasyonla sürülen ayar (#957) */
+.ctrl.sv-automated input[type=range] { accent-color: var(--danger); }
+.ctrl.sv-automated { box-shadow: inset 3px 0 0 var(--danger); }
+
+/* Öğren (#957): hedef bekleyen kayıt düğmesi yanıp söner */
+.tl-tog.rec.learn { background: rgb(var(--danger-rgb) / .35); color: var(--text-strong); animation: tlLearn 1s ease-in-out infinite; }
+@keyframes tlLearn { 50% { background: var(--danger); color: var(--on-solid); } }
+.tl-target-menu .tl-target-clear { color: var(--danger-text); }

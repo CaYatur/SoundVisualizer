@@ -31,7 +31,7 @@
     controlBindings: 'control',
   };
   const DEFAULT_PORT = 38471;
-  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT, toolProfile: 'full' };
+  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT, toolProfile: 'full', httpApi: false };
   /* Tool list profiles (#768). "full" (default) lists every tool with its
      full description. "compact" lists only core read + common edit tools
      with one-sentence descriptions, for small-context local models. It only
@@ -45,18 +45,15 @@
     'sv_add_layer_effect', 'sv_set_layer_effect_param', 'sv_set_layer_effect_enabled', 'sv_remove_layer_effect',
     'sv_patch_config', 'sv_set_blackout',
   ];
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
-    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
-    'transition', 'custom', 'milkdrop', 'feedback',
-  ];
+  const Schema = (typeof window !== 'undefined' && window.SVSchema) || require('./schema.js');
+  const SCENE_KEYS = Schema.SCENE_KEYS;
   const EFFECT_TYPES = [
     'bloom', 'chroma', 'glitch', 'grain', 'crt', 'pixelate', 'kaleido', 'mirror',
     'grade', 'vignette', 'trails', 'edge', 'zoomblur', 'ripple', 'posterize',
     'blur', 'radialblur', 'motionblur', 'tiltshift', 'dof', 'sharpen', 'emboss',
     'dither', 'halftone', 'ascii', 'hatch', 'paint', 'vhs', 'datamosh', 'slitscan',
-    'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize',
-    'godrays', 'badtv', 'starfilter',
+    'lens', 'twirl', 'polar', 'gradientmap', 'levels', 'threshold', 'solarize', 'flash', 'strobe',
+    'godrays', 'badtv', 'starfilter', 'tonemap', 'lut3d',
   ];
   const LAYER_DEFAULTS = {
     id: null, name: '', enabled: true, kind: 'visualizer', type: 'bars', presetId: null,
@@ -80,7 +77,7 @@
   function normalizeMcp(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
     const mode = MODES.indexOf(src.mode) >= 0 ? src.mode : 'read';
-    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port), toolProfile: TOOL_PROFILES.indexOf(src.toolProfile) >= 0 ? src.toolProfile : 'full' };
+    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port), toolProfile: TOOL_PROFILES.indexOf(src.toolProfile) >= 0 ? src.toolProfile : 'full', httpApi: src.httpApi === true };
   }
   function mcpI18n() {
     if (mcpI18n.cached !== undefined) return mcpI18n.cached;
@@ -127,7 +124,7 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['lyricsLookup', 'providers'], ['redundancy', 'secret'], ['bridge', 'secret']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['stream', 'remotePeers'], ['lyricsLookup', 'providers'], ['redundancy', 'secret'], ['bridge', 'secret'], ['mqtt', 'password']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];
@@ -173,9 +170,11 @@
      kipindeki bir istemci `stream` nesnesinin tamamını yazıp yayın
      anahtarını değiştirebiliyor, `power` ile ESC kilidini kaldırabiliyordu. */
   const PATH_GROUPS = {
-    mcp: 'mcp', version: 'never',
+    mcp: 'mcp', version: 'never', docVersion: 'never',
     // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
     redundancy: 'never',
+    // MQTT aracı adresi ve parolası: ajan yazamaz
+    mqtt: 'never',
     // Otomatik söz (#937): sağlayıcı adresi ağa çıkar; MCP yazamaz
     lyricsLookup: 'never',
     tempoSync: 'output',
@@ -192,7 +191,7 @@
     master: 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
-    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', sacn: 'output', wled: 'output', wledSync: 'output', oscOut: 'output',
     // Panelin arayüz teması (#770): uygulama ayarı, power ile aynı izin
     ui: 'output',
     'audio.sources': 'output',
@@ -387,7 +386,30 @@
      bilinen anahtarlarını ve aynı türde değer yazar. Eskiden
      `geometry.shape` ya da `media.path` gibi var olmayan anahtarlar
      sessizce kaydediliyor, hiçbir şey olmuyordu. */
-  function sectionPatchError(section, patch) {
+  /* Aralık denetimi (#905). Sayısal ayarın sınırı şemada, panel de oradan okuyor.
+     Panel genişletilmiş aralıkla üst sınırı büyütebildiği için ajan da o sınıra
+     kadar yazabilir; panelin veremediğini yazamaz. Yalnız değişen değer denetlenir:
+     diskte eskiden kalan bir değer başka bir yazımı durdurmaz. Nesne yazılırsa
+     altındaki yollara da bakılır. Tür hatası burada değil, valueTypeError'da. */
+  function rangeError(path, next, prev) {
+    if (next && typeof next === 'object' && !Array.isArray(next)) {
+      const was = prev && typeof prev === 'object' ? prev : {};
+      for (const k of Object.keys(next)) {
+        const bad = rangeError(path ? path + '.' + k : k, next[k], was[k]);
+        if (bad) return bad;
+      }
+      return '';
+    }
+    if (typeof next !== 'number' || next === prev) return '';
+    const row = Schema.rangeFor(path);
+    if (!row) return '';
+    const lo = row.steps ? row.steps[0] : row.min;
+    const hi = row.steps ? row.steps[row.steps.length - 1] : Schema.extendedMax(row);
+    if (!(next >= lo && next <= hi)) return path + ' must be between ' + lo + ' and ' + hi + '.';
+    if (row.int && !Number.isInteger(next)) return path + ' must be a whole number.';
+    return '';
+  }
+  function sectionPatchError(section, patch, current) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return 'patch must be an object.';
     const SV = defaultsApi();
     const base = SV && SV.defaultConfig ? SV.defaultConfig()[section] : null;
@@ -405,7 +427,7 @@
       if (vt === 'number' && !isFinite(v)) return section + '.' + k + ' must be a finite number.';
     }
     if (bad.length) return 'Unknown ' + section + ' key(s): ' + bad.join(', ') + '. Known keys: ' + Object.keys(base).join(', ') + '.';
-    return '';
+    return rangeError(section, patch, current);
   }
   /* Yazılan değerin türü var olan değerinkiyle aynı olmalı. Eskiden
      `{"path":"layers","value":"x"}` katman listesini metne çeviriyor,
@@ -517,6 +539,8 @@
       out.transform = t.value;
     }
     const was = before || {};
+    const offRange = rangeError('', out.settings, was.settings);
+    if (offRange) return { error: 'settings: ' + offRange };
     if (out.postfx !== undefined) {
       const fx = fxListCheck(out.postfx, was.postfx);
       if (fx.error) return { error: 'postfx: ' + fx.error };
@@ -594,9 +618,9 @@
      changed are checked, so legacy values already on disk still load. */
   function controlError(next, prev, platform) {
     prev = prev && typeof prev === 'object' ? prev : {};
-    const surfaces = ['midi', 'osc', 'gamepad'];
+    const surfaces = ['midi', 'osc', 'gamepad', 'artnet', 'mtc'];
     for (const k of Object.keys(next)) {
-      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc, gamepad.';
+      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: ' + surfaces.join(', ') + '.';
     }
     for (const s of surfaces) {
       const n = next[s];
@@ -614,6 +638,22 @@
       }
       if (s === 'midi' && changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) {
         return 'control.midi.deviceId must be a non-empty string ("all" listens to every input).';
+      }
+      // Art-Net girişi: dinleme adresi yalnız 127.0.0.1, 0.0.0.0 ya da tek bir IPv4
+      if (s === 'artnet') {
+        if (changed('bind') && (typeof n.bind !== 'string' || !/^(\d{1,3})(\.\d{1,3}){3}$/.test(n.bind) || n.bind.split('.').some((x) => Number(x) > 255))) {
+          return 'control.artnet.bind must be 127.0.0.1, 0.0.0.0 or one IPv4 address.';
+        }
+        if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad.replace('control.osc.port', 'control.artnet.port'); }
+        if (changed('universe') && (!Number.isInteger(n.universe) || n.universe < 0 || n.universe > 32767)) {
+          return 'control.artnet.universe must be an integer between 0 and 32767.';
+        }
+      }
+      if (s === 'mtc') {
+        if (changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) return 'control.mtc.deviceId must be a non-empty string ("all" listens to every input).';
+        if (changed('offsetSec') && (typeof n.offsetSec !== 'number' || !(n.offsetSec >= 0 && n.offsetSec <= 86400))) {
+          return 'control.mtc.offsetSec must be a number of seconds between 0 and 86400.';
+        }
       }
       if (s === 'osc') {
         if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad; }
@@ -836,7 +876,7 @@
     try { return require('./export-formats.js'); } catch (e) { return null; }
   }
   function layersApi() {
-    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.setStackEnabled) return window.SVLayers;
+    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.enableStack) return window.SVLayers;
     try { return require('../visualizer/layers.js'); } catch (e) { return null; }
   }
   /* Mod kimlikleri uygulamanın kendi kataloğundan (mode-catalog.js) gelir;
@@ -912,8 +952,8 @@
   }
   function ensureLayers(cfg) {
     const L = layersApi();
-    if (L && L.setStackEnabled) {
-      if (!L.stackOn(cfg)) L.setStackEnabled(cfg, true);
+    if (L && L.enableStack) {
+      L.enableStack(cfg);
       if (!Array.isArray(cfg.layers)) cfg.layers = [];
       return cfg.layers;
     }
@@ -995,6 +1035,22 @@
     try { if (ctx.presets && ctx.presets.list) return ctx.presets.list() || []; } catch (e) { /* cold store */ }
     return [];
   }
+  /* Yerleşik MilkDrop presetleri (CaYaDev, gömülü paket dahil). Kullanıcı deposunda yoklar;
+     MCP onları ne listeleyebiliyor ne yükleyebiliyordu, panelde ise en üstte duruyorlar. */
+  let mdBuiltinCache = null;
+  function mdBuiltins() {
+    if (mdBuiltinCache) return mdBuiltinCache;
+    let list = (typeof window !== 'undefined' && window && window.SVMilkdropBuiltins) || null;
+    if (!list) { try { list = require('./presets-milkdrop.js'); } catch (e) { list = null; } }
+    mdBuiltinCache = Array.isArray(list) ? list : [];
+    return mdBuiltinCache;
+  }
+  function libraryPreset(ctx, id) {
+    let p = null;
+    try { p = ctx.presets && ctx.presets.get ? ctx.presets.get(id) : null; } catch (e) { p = null; }
+    if (p) return p;
+    return mdBuiltins().find(function (x) { return x && x.id === id; }) || null;
+  }
   /* Araç parametreleri (inputSchema). Eskiden her araç yalnız
      `{type:'object'}` bildiriyordu; istemci `id` mi `name` mi `patch` mi
      verileceğini tahmin ediyordu ve `engine` gibi alanlar yanlış yazılıyordu
@@ -1040,11 +1096,59 @@
     sv_list_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
     mcp_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
     sv_apply_scene: { props: SCENE_REF },
-    sv_set_visualizer_type: { props: { type: sp('string', 'Visualizer mode id from sv_list_modes.'), presetId: sp('string', 'Studio preset id when type is custom.') }, required: ['type'] },
-    sv_set_background_type: { props: { type: sp('string', 'Background mode id from sv_list_modes.') }, required: ['type'] },
+    sv_set_visualizer_type: { props: { type: sp('string', 'Visualizer mode id from sv_list_modes.'), presetId: sp('string', 'Studio preset id when type is custom.'), layerId: sp('string', 'Visualizer layer to change (sv_list_layers). Required when there are several visualizer layers.') }, required: ['type'] },
+    sv_set_background_type: { props: { type: sp('string', 'Background mode id from sv_list_modes.'), layerId: sp('string', 'Background layer to change (sv_list_layers). Required when there are several background layers.') }, required: ['type'] },
     sv_set_layer_enabled: { props: Object.assign({}, LAYER_REF, { enabled: sp('boolean', 'false hides the layer. Default true.') }) },
     sv_set_crossfade: { props: { value: sp('number', 'Crossfader position.', { minimum: 0, maximum: 1 }) }, required: ['value'] },
     sv_apply_template: { props: { id: sp('string', 'Template id.'), name: sp('string', 'Template name, used when id is not given.') } },
+    sv_timeline_inspect: { props: { at: sp('number', 'Optional time in seconds: also report the clips playing and automation values then.', { minimum: 0 }), trackId: sp('string', 'Only this track.') } },
+    sv_timeline_edit_track: { props: {
+      action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove', 'move'] }),
+      trackId: sp('string', 'Track id (update, remove, move).'),
+      kind: sp('string', 'For add: clip (default) or automation.', { enum: ['clip', 'automation'] }),
+      index: sp('integer', 'add: position (default last); move: new position.', { minimum: 0 }),
+      name: sp('string', 'Track name.'), muted: sp('boolean', 'Mute.'), solo: sp('boolean', 'Solo.'), locked: sp('boolean', 'Lock against edits.'),
+      color: sp('string', 'Color #rrggbb.'), opacity: sp('number', 'Clip track opacity 0–1.', { minimum: 0, maximum: 1 }),
+      target: sp('string', 'Automation target: a numeric config path, or tl.track.<id>.opacity / tl.clip.<id>.opacity.'),
+      min: sp('number', 'Automation value at key v=0.'), max: sp('number', 'Automation value at key v=1.'),
+    }, required: ['action'] },
+    sv_timeline_edit_clip: { props: {
+      action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove', 'split'] }),
+      trackId: sp('string', 'Clip track id.'), clipId: sp('string', 'Clip id (update, remove, split).'),
+      at: sp('number', 'split: time in seconds inside the clip.', { minimum: 0 }),
+      type: sp('string', 'Clip type.', { enum: ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'] }),
+      ref: sp('string', 'What the clip plays: scene id, preset id, palette id, mode id, file or action.'),
+      target: sp('string', 'Layer or surface for video, image and shader clips.'),
+      name: sp('string', 'Clip name.'), start: sp('number', 'Start, seconds.', { minimum: 0 }), dur: sp('number', 'Length, seconds.', { minimum: 0.001 }),
+      inPoint: sp('number', 'Source in point, seconds.', { minimum: 0 }), outPoint: sp('number', 'Source out point, seconds.', { minimum: 0 }),
+      speed: sp('number', 'Playback speed 0.05–20.', { minimum: 0.05, maximum: 20 }), fade: sp('number', 'Transition length, seconds.', { minimum: 0 }),
+      fadeIn: sp('number', 'Fade in, seconds.', { minimum: 0 }), fadeOut: sp('number', 'Fade out, seconds.', { minimum: 0 }),
+      opacity: sp('number', 'Opacity 0–1.', { minimum: 0, maximum: 1 }), color: sp('string', 'Color #rrggbb.'),
+      transType: sp('string', 'Transition type id (empty = scene default).'), transEase: sp('string', 'Transition easing (empty = scene default).'),
+    }, required: ['action', 'trackId'] },
+    sv_timeline_set_keys: { props: {
+      trackId: sp('string', 'Automation track id.'),
+      keys: sp('array', 'Keys in any order.', { items: { type: 'object', properties: { t: { type: 'number', minimum: 0 }, v: { type: 'number', minimum: 0, maximum: 1 }, curve: { type: 'string' } }, required: ['t', 'v'] } }),
+    }, required: ['trackId', 'keys'] },
+    sv_timeline_edit_marker: { props: {
+      action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove'] }),
+      markerId: sp('string', 'Marker id (update, remove).'), t: sp('number', 'Time, seconds.', { minimum: 0 }), name: sp('string', 'Marker name.'),
+      hold: sp('boolean', 'Cue hold: live playback stops at this marker until GO (add, update). Export ignores holds.'),
+    }, required: ['action'] },
+    sv_timeline_set_options: { props: {
+      bpm: sp('number', 'Tempo at the start.', { minimum: 1, maximum: 999 }), beatsPerBar: sp('integer', 'Beats per bar at the start.', { minimum: 1, maximum: 16 }),
+      tempo: sp('array', 'Full tempo map, replaces the current one.', { items: { type: 'object', properties: { t: { type: 'number', minimum: 0 }, bpm: { type: 'number' }, beatsPerBar: { type: 'integer' } } } }),
+      loop: sp('object', 'Loop range {enabled, start, end} in seconds; only given fields change.'),
+      snap: sp('string', 'Snap grid.', { enum: ['off', 'bar', 'beat', 'half', 'quarter', '1s', '0.5s', 'frame'] }),
+      fps: sp('integer', 'Frame rate for frame snapping.', { minimum: 1, maximum: 240 }),
+      useTimeline: sp('boolean', '"Use Timeline": the output follows the timeline composition.'),
+      enabled: sp('boolean', 'Timeline on or off.'),
+    } },
+    sv_timeline_bank: { props: {
+      action: sp('string', 'What to do.', { enum: ['switch', 'add', 'rename', 'remove', 'enable', 'disable', 'move'] }),
+      id: sp('string', 'Timeline id from sv_timeline_inspect bank (not for add).'), name: sp('string', 'Name (add, rename).'),
+      index: sp('integer', 'New position (move).', { minimum: 0 }),
+    }, required: ['action'] },
     sv_timeline_transport: { props: { action: sp('string', 'Transport action.', { enum: ['play', 'pause', 'stop', 'seek'] }), time: sp('number', 'Seconds, for seek.', { minimum: 0 }) }, required: ['action'] },
     sv_trigger_clip: { props: { row: sp('integer', 'Slot row from 0.', { minimum: 0 }), col: sp('integer', 'Slot column from 0.', { minimum: 0 }) }, required: ['row', 'col'] },
     sv_set_autovj: {
@@ -1079,6 +1183,7 @@
         opacity: sp('number', 'Opacity.', { minimum: 0, maximum: 1 }),
         blend: sp('string', 'Blend mode (sv_list_modes blendModes).'),
         layer: sp('object', 'A whole layer object; the fields above override it.'),
+        presetId: sp('string', 'type milkdrop only: MilkDrop preset id (sv_list_presets). Default: a built-in MilkDrop 3 preset. If another layer already draws the shared preset, the new layer gets its own.'),
       },
     },
     sv_update_layer: {
@@ -1099,6 +1204,16 @@
     },
     sv_set_layer_settings: { props: Object.assign({}, LAYER_REF, { settings: sp('object', 'Settings to merge (layer type settings only; postfx is refused, use the LAYER effect tools).'), key: sp('string', 'One setting key, with value.'), value: ANY('Value for key.') }) },
     sv_remove_layer: { props: LAYER_REF },
+    sv_duplicate_layer: { props: Object.assign({}, LAYER_REF, { name: sp('string', 'Name for the copy. Default: source name + " (copy)".') }) },
+    sv_lyrics_library: {
+      props: {
+        action: sp('string', 'list (default), search or get.', { enum: ['list', 'search', 'get'] }),
+        query: sp('string', 'search: text matched against name, artist and title.'),
+        id: sp('string', 'get: item id from list or search.'),
+        limit: sp('number', 'list/search: at most this many items (default 100).', { minimum: 1, maximum: 500 }),
+        maxChars: sp('number', 'get: cut the text after this many characters (default 20000).', { minimum: 100, maximum: 200000 }),
+      },
+    },
     sv_reorder_layers: { props: { ids: sp('array', 'Layer ids in the new order; missing ones keep their order after these.', { items: { type: 'string' } }) }, required: ['ids'] },
     sv_set_text: { props: PATCH('the text overlay (sv_get_config path text)'), required: ['patch'] },
     sv_set_logo: { props: PATCH('the logo (sv_get_config path logo)'), required: ['patch'] },
@@ -1128,7 +1243,7 @@
       required: ['source', 'target'],
     },
     sv_remove_modulation_route: { props: { id: sp('string', 'Route id.'), index: sp('integer', 'Route index, used when id is not given.', { minimum: 0 }) } },
-    sv_load_preset: { props: { id: sp('string', 'Library preset id from sv_list_presets.') }, required: ['id'] },
+    sv_load_preset: { props: { id: sp('string', 'Library preset id from sv_list_presets.'), layerId: sp('string', 'Optional MilkDrop layer id. A layer with its own preset gets it; a shared MilkDrop layer changes the shared pick. Other layers are refused.') }, required: ['id'] },
     sv_apply_color_preset: { props: { id: sp('string', 'Color preset id.'), name: sp('string', 'Color preset name, used when id is not given.') } },
     sv_set_milkdrop_cycle: {
       props: {
@@ -1140,6 +1255,8 @@
         autoNextBars: sp('number', 'Bars between presets when the unit is bars.', { minimum: 1 }),
         trackAdvance: sp('boolean', 'Next preset when the track changes.'),
         hardCut: sp('string', 'Hard cut mode; off disables it.'),
+        layerId: sp('string', 'A MilkDrop layer with its own preset. It gets its own cycle; the shared cycle stays as it is. Omit for the shared cycle.'),
+        ownAuto: sp('boolean', 'With layerId: the layer advances on its own; false leaves it on its preset.'),
       },
     },
     sv_save_preset: {
@@ -1346,6 +1463,36 @@
     if (!found) return fail('Layer not found.');
     return { ok: true, layer: publicLayer(found.layer, found.index) };
   });
+  /* SÖZ KÜTÜPHANESİ (yalnız okuma). Panelde kütüphane yalnız Windows'ta (sistem medya
+     oturumu parçayı orada veriyor); MCP de aynı sınırda, başka sistemde açık bir hata döner. */
+  const LYRICS_TEXT_MAX = 20000;
+  tool('sv_lyrics_library', null, 'Read the lyrics library (Windows only): action list, search (query matches name, artist, title) or get (id, returns the text). Read-only.', function (args, ctx) {
+    const plat = ctx && ctx.platform ? String(ctx.platform) : (typeof process !== 'undefined' ? process.platform : '');
+    if (plat !== 'win32') return fail('The lyrics library is only available on Windows (it follows the Windows media session). This system is ' + (plat || 'unknown') + '.');
+    const lib = ctx && ctx.lyricsLibrary;
+    if (!lib || !lib.list) return fail('Lyrics library is not available.');
+    const action = args && args.action ? String(args.action) : 'list';
+    if (action === 'get') {
+      if (!args || !args.id) return fail('id is required for get.');
+      const one = lib.read ? lib.read(String(args.id)) : null;
+      if (!one) return fail('Lyrics item not found or unreadable: ' + args.id + '. Use action list.');
+      const max = Math.max(100, Math.min(200000, Number(args.maxChars) || LYRICS_TEXT_MAX));
+      const text = String(one.text || '');
+      return { ok: true, item: { id: one.id, name: one.name, artist: one.artist, title: one.title }, text: text.slice(0, max), truncated: text.length > max, length: text.length };
+    }
+    if (action !== 'list' && action !== 'search') return fail('action must be list, search or get.');
+    let items = [];
+    try { items = lib.list() || []; } catch (e) { return fail('Lyrics library could not be read.'); }
+    if (action === 'search') {
+      const q = String((args && args.query) || '').trim().toLocaleLowerCase();
+      if (!q) return fail('query is required for search.');
+      items = items.filter(function (it) {
+        return [it.name, it.artist, it.title].some(function (v) { return String(v || '').toLocaleLowerCase().indexOf(q) >= 0; });
+      });
+    }
+    const limit = Math.max(1, Math.min(500, Number(args && args.limit) || 100));
+    return { ok: true, total: items.length, items: items.slice(0, limit), truncated: items.length > limit };
+  });
   tool('sv_list_effects', null, 'List global and per-layer effects plus the built-in type catalog. Read-only.', function (args, ctx) {
     const cfg = configOf(ctx);
     return {
@@ -1381,7 +1528,8 @@
     const cfg = configOf(ctx);
     return {
       ok: true,
-      library: presetRecords(ctx).map(function (p) { return { id: p.id, name: p.name || '', kind: p.kind || '' }; }),
+      library: presetRecords(ctx).map(function (p) { return { id: p.id, name: p.name || '', kind: p.kind || '' }; })
+        .concat(mdBuiltins().map(function (p) { return { id: p.id, name: p.name || '', kind: 'milkdrop', builtin: true, md3: !!p.md3 }; })),
       colors: (cfg.userPresets || []).map(function (p) { return { id: p.id, name: p.name || '', colors: p.colors || [] }; }),
     };
   });
@@ -1432,7 +1580,51 @@
       return { sceneId: found.scene.id, name: found.scene.name, visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_set_visualizer_type', 'sceneApply', 'Switch the visualizer to an existing mode id and show it on the live stack.', function (args, ctx) {
+  /* MOD HEDEFİ (layers.js modeTarget). Panelde mod yalnız seçili katmana gidiyor;
+     MCP'de "seçili" yok, katman kimliği (`layerId`) var. Kimlik verilmişse yalnız o
+     katman değişir, türü uymuyorsa / kilitliyse / yoksa açık bir hata döner. Kimlik
+     yoksa ve o türden birden çok katman varsa hangisi olduğu tahmin edilmez: hata
+     adayları listeler. Ayarlar'daki `ui.modeTargetAuto` açıkken eski davranış: ilk
+     uygun katman. */
+  const MODE_KIND_LABEL = { visualizer: 'visualizer', background: 'background' };
+  function modeCandidates(cfg, kind) {
+    const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+    return list.filter(function (l) {
+      if (!l || l.kind !== kind) return false;
+      return kind !== 'visualizer' || (l.type !== 'text' && l.type !== 'nowplaying');
+    });
+  }
+  function modeTargetError(r, kind, tool) {
+    const other = kind === 'visualizer' ? 'sv_set_background_type' : 'sv_set_visualizer_type';
+    if (r.error === 'NOT_FOUND') return fail('Layer "' + r.layerId + '" not found. Use sv_list_layers to get layer ids.');
+    if (r.error === 'LOCKED') return fail('Layer "' + r.layer.id + '" is locked; nothing was changed. Unlock it first (sv_update_layer with locked:false).');
+    return fail('Layer "' + r.layer.id + '" is a ' + r.layer.kind + ' layer; ' + tool + ' only changes ' + MODE_KIND_LABEL[kind]
+      + ' layers, so nothing was changed. Pass a ' + MODE_KIND_LABEL[kind] + ' layer id'
+      + (r.layer.kind === (kind === 'visualizer' ? 'background' : 'visualizer') ? ', or use ' + other + ' for this layer.' : '.'));
+  }
+  // Dönüş: { layer } (o katmana yaz) | { adopt: true } (eski yol) | fail(...)
+  function resolveModeLayer(cfg, args, kind, tool) {
+    const L = layersApi();
+    const id = args && args.layerId != null && args.layerId !== '' ? String(args.layerId) : '';
+    const legacy = !!(L && L.modeTargetAuto && L.modeTargetAuto(cfg));
+    if (id && L && L.modeTarget) {
+      const r = L.modeTarget(cfg, { kind: kind, layerId: id });
+      if (r.error) return modeTargetError(r, kind, tool);
+      if (r.layer) return { layer: r.layer, redirectedFrom: r.redirected ? id : undefined };
+      return { adopt: true };
+    }
+    const stackOn = !!(cfg.layerStack && cfg.layerStack.enabled !== false && Array.isArray(cfg.layers) && cfg.layers.length);
+    if (!legacy && stackOn) {
+      const c = modeCandidates(cfg, kind);
+      if (c.length > 1) {
+        return fail('There are ' + c.length + ' ' + MODE_KIND_LABEL[kind] + ' layers; pass layerId to say which one to change. Candidates: '
+          + c.map(function (l) { return l.id + ' (' + (l.name || l.type) + ', ' + l.type + ')'; }).join(', ') + '.');
+      }
+      if (c.length === 1 && c[0].locked) return modeTargetError({ error: 'LOCKED', layer: c[0] }, kind, tool);
+    }
+    return { adopt: true };
+  }
+  tool('sv_set_visualizer_type', 'sceneApply', 'Switch a visualizer layer to an existing mode id and show it on the live stack. Pass layerId to choose the layer; without it, works only when there is a single visualizer layer (unless the panel setting "Redirect Modes to a Matching Layer" is on).', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
     const wrong = badMode('visualizer', args.type);
     if (wrong) return fail(wrong);
@@ -1440,22 +1632,46 @@
       const spec = { type: String(args.type) };
       if (args.presetId != null) spec.presetId = args.presetId;
       const L = layersApi();
-      if (L && L.adoptVisualizer) L.adoptVisualizer(cfg, spec);
+      const t = L ? resolveModeLayer(cfg, args, 'visualizer', 'sv_set_visualizer_type') : { adopt: true };
+      if (t.ok === false) return t;
+      if (t.layer) {
+        ensureLayers(cfg);
+        L.setLayerMode(cfg, t.layer, Object.assign({ reveal: true }, spec));
+        const out = { type: t.layer.type, layerId: t.layer.id, presetId: t.layer.type === 'custom' ? (t.layer.presetId || null) : null };
+        if (t.redirectedFrom) out.redirectedFrom = t.redirectedFrom;
+        return out;
+      }
+      let layer = null;
+      if (L && L.adoptVisualizer) layer = L.adoptVisualizer(cfg, spec);
       else cfg.visualizer = Object.assign({}, cfg.visualizer, { type: spec.type });
       // Studio kimliği yalnız tür 'custom' iken anlamlı; eskiden bars için de eski kimlik dönüyordu
-      return { type: cfg.visualizer.type, presetId: cfg.visualizer.type === 'custom' ? ((cfg.custom && cfg.custom.visualizerId) || null) : null };
+      const out = { type: cfg.visualizer.type, presetId: cfg.visualizer.type === 'custom' ? ((cfg.custom && cfg.custom.visualizerId) || null) : null };
+      if (layer && layer.id) out.layerId = layer.id;
+      return out;
     });
   });
-  tool('sv_set_background_type', 'sceneApply', 'Switch the background to an existing mode id.', function (args, ctx) {
+  tool('sv_set_background_type', 'sceneApply', 'Switch a background layer to an existing mode id. Pass layerId to choose the layer; without it, works only when there is a single background layer (unless the panel setting "Redirect Modes to a Matching Layer" is on).', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
     const wrong = badMode('background', args.type);
     if (wrong) return fail(wrong);
     return withConfig(ctx, function (cfg) {
-      // Yığın açıkken ilk arkaplan katmanı (sv_set_visualizer_type ile aynı kural)
       const L = layersApi();
-      if (L && L.adoptBackground) L.adoptBackground(cfg, { type: String(args.type) });
+      const t = L ? resolveModeLayer(cfg, args, 'background', 'sv_set_background_type') : { adopt: true };
+      if (t.ok === false) return t;
+      if (t.layer) {
+        ensureLayers(cfg);
+        L.setLayerMode(cfg, t.layer, { type: String(args.type), reveal: true });
+        const out = { type: t.layer.type, layerId: t.layer.id };
+        if (t.redirectedFrom) out.redirectedFrom = t.redirectedFrom;
+        return out;
+      }
+      // Yığın açıkken ilk arkaplan katmanı (sv_set_visualizer_type ile aynı kural)
+      let layer = null;
+      if (L && L.adoptBackground) layer = L.adoptBackground(cfg, { type: String(args.type) });
       else cfg.background = Object.assign({}, cfg.background, { type: String(args.type) });
-      return { type: cfg.background.type };
+      const out = { type: cfg.background.type };
+      if (layer && layer.id) out.layerId = layer.id;
+      return out;
     });
   });
   tool('sv_set_layer_enabled', 'sceneApply', 'Show or hide an existing layer and turn the layer stack on. Does not change layer contents.', function (args, ctx) {
@@ -1498,6 +1714,331 @@
     if (!ctx.timeline) return fail('Timeline transport is not available. Keep the admin window open.');
     return Promise.resolve(ctx.timeline(args && args.action, args && args.time)).then(function (r) {
       return r && r.ok === false ? r : Object.assign({ ok: true }, r || {});
+    });
+  });
+  /* ZAMAN ÇİZELGESİ DÜZENLEME (MCP denetimi). Eskiden MCP çizelgeyi yalnız
+     özetle okuyabiliyor (sv_get_timeline: 40 öğe, 4 kat derinlik) ve oynatabiliyordu;
+     parça, klip, işaret, tempo, döngü ve banka için hiçbir araç yoktu, tek yol ham
+     sv_patch_config idi. Okuma `sv_timeline_inspect` (Okuma kipi); düzenleme
+     araçları `timeline` grubunda, yani sv_patch_config'in `timeline.*` yoluyla aynı
+     izin (Tam kip, varsayılan kapalı). Model her yazımda timeline.js'in kendi
+     kurucularından geçiyor (makeTrack / makeClip / makeMarker): panel ne
+     kuruyorsa MCP de onu yazıyor. Kilitli parçaya yazılmaz. */
+  function tlApi() {
+    if (typeof window !== 'undefined' && window.SVTimeline && window.SVTimeline.makeTrack) return window.SVTimeline;
+    try { return require('./timeline.js'); } catch (e) { return null; }
+  }
+  function tlEditApi() {
+    if (typeof window !== 'undefined' && window.SVTimelineEdit && window.SVTimelineEdit.splitClip) return window.SVTimelineEdit;
+    try { return require('./timeline-edit.js'); } catch (e) { return null; }
+  }
+  function tlDoc(cfg) {
+    if (!cfg.timeline || typeof cfg.timeline !== 'object') cfg.timeline = {};
+    const t = cfg.timeline;
+    if (!Array.isArray(t.tracks)) t.tracks = [];
+    if (!Array.isArray(t.markers)) t.markers = [];
+    return t;
+  }
+  function tlFindTrack(doc, id) {
+    const i = doc.tracks.findIndex(function (x) { return x && x.id === id; });
+    return i < 0 ? null : { index: i, track: doc.tracks[i] };
+  }
+  function tlTrackErr(doc, args) {
+    if (!args || !args.trackId) return 'trackId is required. sv_timeline_inspect lists the tracks.';
+    const hit = tlFindTrack(doc, String(args.trackId));
+    if (!hit) return 'Track "' + args.trackId + '" not found. sv_timeline_inspect lists the tracks.';
+    if (hit.track.locked) return 'Track "' + hit.track.id + '" is locked; nothing was changed. Unlock it first (sv_timeline_edit_track action update, locked:false).';
+    return '';
+  }
+  function tlPublicClip(c) {
+    return { id: c.id, name: c.name, type: c.type, ref: c.ref, target: c.target, start: c.start, dur: c.dur, end: c.start + c.dur,
+      inPoint: c.inPoint, outPoint: c.outPoint, speed: c.speed, fade: c.fade, fadeIn: c.fadeIn, fadeOut: c.fadeOut,
+      opacity: c.opacity, color: c.color, transType: c.transType, transEase: c.transEase, hasLocalCopy: !!c.local };
+  }
+  function tlPublicTrack(t) {
+    const o = { id: t.id, name: t.name, kind: t.kind, muted: t.muted, solo: t.solo, locked: t.locked, color: t.color };
+    if (t.kind === 'automation') { o.target = t.target; o.min = t.min; o.max = t.max; o.keys = t.keys; }
+    else { o.opacity = t.opacity; o.clips = (t.clips || []).map(tlPublicClip); }
+    return o;
+  }
+  const TL_CLIP_FIELDS = ['name', 'type', 'ref', 'target', 'start', 'dur', 'inPoint', 'outPoint', 'speed', 'fade', 'fadeIn', 'fadeOut', 'opacity', 'color', 'transType', 'transEase'];
+  const TL_TRACK_FIELDS = ['name', 'muted', 'solo', 'locked', 'color', 'opacity', 'target', 'min', 'max'];
+  function tlPick(src, keys) {
+    const out = {};
+    keys.forEach(function (k) { if (src && Object.prototype.hasOwnProperty.call(src, k) && src[k] !== undefined) out[k] = src[k]; });
+    return out;
+  }
+  // Sahne klibinin kaynağı var olan bir sahne olmalı; yoksa klip boş çizilir
+  function tlClipRefErr(cfg, c) {
+    if (c.type === 'scene' && c.ref) {
+      const ok = (cfg.scenes || []).some(function (x) { return x && x.id === c.ref; });
+      if (!ok) return 'Scene "' + c.ref + '" not found for a scene clip. sv_list_scenes lists the scene ids.';
+    }
+    return '';
+  }
+  /* Otomasyon hedefi: çizelgenin kendi opaklık hedefi ya da sayısal bir ayar yolu.
+     Ayar yolu sv_patch_config ile aynı izne bakar: çizelge karede o yola yazıyor. */
+  function tlTargetErr(cfg, ctx, target) {
+    const TL = tlApi();
+    if (!target) return '';
+    if (TL && TL.isTimelineTarget(target)) return '';
+    const group = groupForPath(target);
+    if (group === 'mcp') return 'Automation cannot target mcp settings.';
+    const mcp = normalizeMcp(configOf(ctx).mcp);
+    if (group && !modeAllows(mcp, group)) return 'Automation target "' + target + '" needs ' + modeWord(minMode(group) || 'everything', localeOf(ctx)) + ' mode.';
+    if (typeof getPath(cfg, target) !== 'number') return 'Automation target "' + target + '" is not a number in the config. Pick a numeric path (sv_get_config) or tl.track.<id>.opacity / tl.clip.<id>.opacity.';
+    return '';
+  }
+
+  tool('sv_timeline_inspect', null, 'Read the whole timeline model: every track, clip, automation key and marker (no truncation), tempo, loop, snap and the timeline bank. With "at" (seconds) also reports the clips playing and the automation values at that time. Read-only.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    const raw = configOf(ctx).timeline || {};
+    const tl = TL.makeTimeline(raw);
+    const out = {
+      ok: true,
+      enabled: raw.enabled === true,
+      useTimeline: raw.useTimeline === true,
+      id: raw.id || null,
+      name: raw.name || null,
+      length: TL.timelineLength(tl),
+      tempo: (tl.tempo || []).map(function (e) { return { t: e.t, bpm: e.bpm, beatsPerBar: e.beatsPerBar }; }),
+      loop: tl.loop,
+      snap: tl.snap,
+      fps: tl.fps,
+      markers: tl.markers,
+      tracks: tl.tracks.filter(function (t) { return !args || !args.trackId || t.id === args.trackId; }).map(tlPublicTrack),
+      bank: (TL.listTimelineBank(clone(raw)) || []).map(function (b) {
+        return { id: b.id, name: b.name, enabled: b.itemEnabled !== false, active: b.id === (raw.id || null), tracks: (b.tracks || []).length, markers: (b.markers || []).length };
+      }),
+    };
+    if (args && args.at != null) {
+      const at = Number(args.at);
+      if (!Number.isFinite(at) || at < 0) return fail('at must be a time in seconds, 0 or more.');
+      out.at = {
+        time: at,
+        clips: TL.activeClipsAt(tl, at).map(function (e) { return { trackId: e.track.id, clip: tlPublicClip(e.clip) }; }),
+        automation: TL.automationAt(tl, at),
+      };
+    }
+    return out;
+  });
+
+  tool('sv_timeline_edit_track', 'timeline', 'Add, update, remove or move a timeline track. Clip tracks hold clips; automation tracks drive one numeric target with keys (sv_timeline_set_keys). Locked tracks only accept unlocking.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    const action = args && args.action;
+    if (['add', 'update', 'remove', 'move'].indexOf(action) < 0) return fail('action must be add, update, remove or move.');
+    return withConfig(ctx, function (cfg) {
+      const doc = tlDoc(cfg);
+      if (action === 'add') {
+        const spec = tlPick(args, TL_TRACK_FIELDS);
+        spec.kind = args.kind === 'automation' ? 'automation' : 'clip';
+        if (spec.kind === 'automation') {
+          const bad = tlTargetErr(cfg, ctx, spec.target);
+          if (bad) return fail(bad);
+        }
+        const t = TL.makeTrack(spec);
+        // Kimlik çakışmasın: yüklenen çizelgedeki en büyük sonek
+        TL.uniqueIds(TL.makeTimeline(doc));
+        if (doc.tracks.some(function (x) { return x && x.id === t.id; })) t.id = TL.newId('trk');
+        const at = args.index == null ? doc.tracks.length : Math.max(0, Math.min(doc.tracks.length, Math.round(Number(args.index) || 0)));
+        doc.tracks.splice(at, 0, t);
+        return { trackId: t.id, index: at, track: tlPublicTrack(t) };
+      }
+      const hit = args.trackId ? tlFindTrack(doc, String(args.trackId)) : null;
+      if (!hit) return fail('Track "' + (args.trackId || '') + '" not found. sv_timeline_inspect lists the tracks.');
+      const unlockOnly = action === 'update' && args.locked === false && Object.keys(tlPick(args, TL_TRACK_FIELDS)).length === 1;
+      if (hit.track.locked && !unlockOnly) return fail(tlTrackErr(doc, args));
+      if (action === 'remove') {
+        doc.tracks.splice(hit.index, 1);
+        return { removed: hit.track.id };
+      }
+      if (action === 'move') {
+        const to = Math.max(0, Math.min(doc.tracks.length - 1, Math.round(Number(args.index))));
+        if (!Number.isFinite(to)) return fail('index is required for move.');
+        doc.tracks.splice(hit.index, 1);
+        doc.tracks.splice(to, 0, hit.track);
+        return { trackId: hit.track.id, index: to };
+      }
+      const patch = tlPick(args, TL_TRACK_FIELDS);
+      if (hit.track.kind === 'automation' && patch.target !== undefined) {
+        const bad = tlTargetErr(cfg, ctx, patch.target);
+        if (bad) return fail(bad);
+      }
+      const next = TL.makeTrack(Object.assign({}, hit.track, patch, { id: hit.track.id, kind: hit.track.kind }));
+      doc.tracks[hit.index] = next;
+      return { trackId: next.id, track: tlPublicTrack(next) };
+    });
+  });
+
+  tool('sv_timeline_edit_clip', 'timeline', 'Add, update, remove or split a clip on a timeline clip track. Times are seconds. Scene clips must reference an existing scene id. Locked tracks are not changed.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    const action = args && args.action;
+    if (['add', 'update', 'remove', 'split'].indexOf(action) < 0) return fail('action must be add, update, remove or split.');
+    return withConfig(ctx, function (cfg) {
+      const doc = tlDoc(cfg);
+      const bad = tlTrackErr(doc, args);
+      if (bad) return fail(bad);
+      const trk = tlFindTrack(doc, String(args.trackId)).track;
+      if (trk.kind === 'automation') return fail('Track "' + trk.id + '" is an automation track; clips go on clip tracks. Use sv_timeline_set_keys for automation.');
+      if (!Array.isArray(trk.clips)) trk.clips = [];
+      if (args.type != null && TL.CLIP_TYPES.indexOf(args.type) < 0) return fail('type must be one of: ' + TL.CLIP_TYPES.join(', ') + '.');
+      const sortClips = function () { trk.clips.sort(function (a, b) { return a.start - b.start; }); };
+      if (action === 'add') {
+        const spec = tlPick(args, TL_CLIP_FIELDS);
+        TL.uniqueIds(TL.makeTimeline(doc));
+        const c = TL.makeClip(spec);
+        const refBad = tlClipRefErr(cfg, c);
+        if (refBad) return fail(refBad);
+        if (trk.clips.some(function (x) { return x && x.id === c.id; })) c.id = TL.newId('clip');
+        trk.clips.push(c);
+        sortClips();
+        return { trackId: trk.id, clipId: c.id, clip: tlPublicClip(c) };
+      }
+      const i = trk.clips.findIndex(function (x) { return x && x.id === args.clipId; });
+      if (i < 0) return fail('Clip "' + (args.clipId || '') + '" not found on track "' + trk.id + '". sv_timeline_inspect lists the clips.');
+      if (action === 'remove') {
+        const gone = trk.clips.splice(i, 1)[0];
+        return { trackId: trk.id, removed: gone.id };
+      }
+      if (action === 'split') {
+        const TE = tlEditApi();
+        const at = Number(args.at);
+        const clip = TL.makeClip(trk.clips[i]);
+        const right = TE && Number.isFinite(at) ? TE.splitClip(clip, at) : null;
+        if (!right) return fail('at must be a time inside the clip (start + 0.05 s … end − 0.05 s).');
+        trk.clips[i] = clip;
+        trk.clips.push(right);
+        sortClips();
+        return { trackId: trk.id, left: tlPublicClip(clip), right: tlPublicClip(right) };
+      }
+      const next = TL.makeClip(Object.assign({}, trk.clips[i], tlPick(args, TL_CLIP_FIELDS), { id: trk.clips[i].id }));
+      const refBad = tlClipRefErr(cfg, next);
+      if (refBad) return fail(refBad);
+      trk.clips[i] = next;
+      sortClips();
+      return { trackId: trk.id, clipId: next.id, clip: tlPublicClip(next) };
+    });
+  });
+
+  tool('sv_timeline_set_keys', 'timeline', 'Replace the keys of an automation track. Each key is {t: seconds, v: 0..1 of the track range, curve}. Pass an empty list to clear.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    if (!args || !Array.isArray(args.keys)) return fail('keys must be a list of {t, v, curve}.');
+    if (args.keys.length > 2000) return fail('At most 2000 keys.');
+    for (const k of args.keys) {
+      if (!k || !Number.isFinite(Number(k.t)) || Number(k.t) < 0 || !Number.isFinite(Number(k.v))) return fail('Every key needs t (seconds, 0 or more) and v (number).');
+    }
+    return withConfig(ctx, function (cfg) {
+      const doc = tlDoc(cfg);
+      const bad = tlTrackErr(doc, args);
+      if (bad) return fail(bad);
+      const hit = tlFindTrack(doc, String(args.trackId));
+      if (hit.track.kind !== 'automation') return fail('Track "' + hit.track.id + '" is a clip track; keys go on automation tracks.');
+      const keys = TL.sortKeys(args.keys.map(function (k) { return { t: Number(k.t), v: Math.max(0, Math.min(1, Number(k.v))), curve: k.curve }; }));
+      doc.tracks[hit.index] = TL.makeTrack(Object.assign({}, hit.track, { keys: keys }));
+      return { trackId: hit.track.id, keys: keys.length };
+    });
+  });
+
+  tool('sv_timeline_edit_marker', 'timeline', 'Add, update or remove a timeline marker (cue). Markers also become export chapters.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    const action = args && args.action;
+    if (['add', 'update', 'remove'].indexOf(action) < 0) return fail('action must be add, update or remove.');
+    return withConfig(ctx, function (cfg) {
+      const doc = tlDoc(cfg);
+      if (action === 'add') {
+        if (!Number.isFinite(Number(args.t)) || Number(args.t) < 0) return fail('t (seconds, 0 or more) is required.');
+        TL.uniqueIds(TL.makeTimeline(doc));
+        const m = TL.makeMarker({ t: Number(args.t), name: args.name, hold: args.hold === true });
+        doc.markers.push(m);
+        doc.markers.sort(function (a, b) { return a.t - b.t; });
+        return { markerId: m.id, marker: m };
+      }
+      const i = doc.markers.findIndex(function (x) { return x && x.id === args.markerId; });
+      if (i < 0) return fail('Marker "' + (args.markerId || '') + '" not found. sv_timeline_inspect lists the markers.');
+      if (action === 'remove') return { removed: doc.markers.splice(i, 1)[0].id };
+      const patch = {};
+      if (args.t != null) {
+        if (!Number.isFinite(Number(args.t)) || Number(args.t) < 0) return fail('t must be seconds, 0 or more.');
+        patch.t = Number(args.t);
+      }
+      if (args.name != null) patch.name = String(args.name);
+      if (args.hold != null) patch.hold = args.hold === true;
+      const m = TL.makeMarker(Object.assign({}, doc.markers[i], patch));
+      doc.markers[i] = m;
+      doc.markers.sort(function (a, b) { return a.t - b.t; });
+      return { markerId: m.id, marker: m };
+    });
+  });
+
+  tool('sv_timeline_set_options', 'timeline', 'Set timeline options: tempo (bpm and beats per bar at the start, or a full tempo map), loop range, snap, fps, "Use Timeline" (the output follows the timeline) and the timeline on/off switch. Only the given fields change.', function (args, ctx) {
+    const TL = tlApi();
+    const TE = tlEditApi();
+    if (!TL || !TE) return fail('Timeline model is not available.');
+    const a = args || {};
+    if (a.snap != null && TL.SNAP_MODES.indexOf(a.snap) < 0) return fail('snap must be one of: ' + TL.SNAP_MODES.join(', ') + '.');
+    if (a.bpm != null && !(Number(a.bpm) >= 1 && Number(a.bpm) <= 999)) return fail('bpm must be 1–999.');
+    if (a.beatsPerBar != null && !(Number(a.beatsPerBar) >= 1 && Number(a.beatsPerBar) <= 16)) return fail('beatsPerBar must be 1–16.');
+    if (a.fps != null && !(Number(a.fps) >= 1 && Number(a.fps) <= 240)) return fail('fps must be 1–240.');
+    if (a.tempo != null && (!Array.isArray(a.tempo) || !a.tempo.length || a.tempo.length > 500)) return fail('tempo must be a list of 1–500 {t, bpm, beatsPerBar} entries.');
+    return withConfig(ctx, function (cfg) {
+      const doc = tlDoc(cfg);
+      const changed = [];
+      if (a.tempo != null) { doc.tempo = TE.tempoList(a.tempo); changed.push('tempo'); }
+      if (a.bpm != null || a.beatsPerBar != null) {
+        doc.tempo = TE.setTempo(doc.tempo, 0, { bpm: a.bpm, beatsPerBar: a.beatsPerBar });
+        changed.push('tempo');
+      }
+      if (a.loop && typeof a.loop === 'object') {
+        const cur = doc.loop || { enabled: false, start: 0, end: 0 };
+        const next = {
+          enabled: a.loop.enabled != null ? a.loop.enabled === true : !!cur.enabled,
+          start: a.loop.start != null ? Math.max(0, Number(a.loop.start) || 0) : Number(cur.start) || 0,
+          end: a.loop.end != null ? Math.max(0, Number(a.loop.end) || 0) : Number(cur.end) || 0,
+        };
+        if (next.enabled && !(next.end > next.start)) return fail('loop.end must be after loop.start.');
+        doc.loop = next;
+        changed.push('loop');
+      }
+      if (a.snap != null) { doc.snap = a.snap; changed.push('snap'); }
+      if (a.fps != null) { doc.fps = Math.round(Number(a.fps)); changed.push('fps'); }
+      if (a.useTimeline != null) { doc.useTimeline = a.useTimeline === true; changed.push('useTimeline'); }
+      if (a.enabled != null) { doc.enabled = a.enabled === true; changed.push('enabled'); }
+      if (!changed.length) return fail('Nothing to change. Pass tempo, bpm, beatsPerBar, loop, snap, fps, useTimeline or enabled.');
+      return { changed: changed.filter(function (k, i, all) { return all.indexOf(k) === i; }), tempo: doc.tempo, loop: doc.loop, snap: doc.snap, fps: doc.fps, useTimeline: doc.useTimeline === true, enabled: doc.enabled === true };
+    });
+  });
+
+  tool('sv_timeline_bank', 'timeline', 'Manage the timeline bank (the tabs above the timeline): switch to, add, rename, remove, enable/disable or move a timeline.', function (args, ctx) {
+    const TL = tlApi();
+    if (!TL) return fail('Timeline model is not available.');
+    const action = args && args.action;
+    if (['switch', 'add', 'rename', 'remove', 'enable', 'disable', 'move'].indexOf(action) < 0) return fail('action must be switch, add, rename, remove, enable, disable or move.');
+    return withConfig(ctx, function (cfg) {
+      const doc = TL.ensureTimelineBank(tlDoc(cfg));
+      const ids = TL.listTimelineBank(clone(doc)).map(function (b) { return b.id; });
+      if (action !== 'add' && ids.indexOf(args.id) < 0) return fail('Timeline "' + (args.id || '') + '" not found. sv_timeline_inspect lists the bank.');
+      if (action === 'switch') TL.switchTimeline(doc, args.id);
+      else if (action === 'add') TL.addTimeline(doc, args.name ? { name: String(args.name).slice(0, 60) } : {});
+      else if (action === 'remove') TL.removeTimeline(doc, args.id);
+      else if (action === 'enable' || action === 'disable') TL.setTimelineItemEnabled(doc, args.id, action === 'enable');
+      else if (action === 'move') {
+        if (!Number.isFinite(Number(args.index))) return fail('index is required for move.');
+        TL.moveTimeline(doc, args.id, Number(args.index));
+      } else if (action === 'rename') {
+        const name = String(args.name || '').trim().slice(0, 60);
+        if (!name) return fail('name is required for rename.');
+        if (args.id === doc.id) doc.name = name;
+        else doc.bank.forEach(function (b) { if (b && b.id === args.id) b.name = name; });
+      }
+      return {
+        active: doc.id,
+        bank: TL.listTimelineBank(clone(doc)).map(function (b) { return { id: b.id, name: b.name, enabled: b.itemEnabled !== false, active: b.id === doc.id }; }),
+      };
     });
   });
   tool('sv_trigger_clip', 'sceneApply', 'Fire an existing clip-deck slot. Does not edit the grid.', function (args, ctx) {
@@ -1648,7 +2189,7 @@
       return { deleted: found.scene.id };
     });
   });
-  tool('sv_add_layer', 'sceneEdit', 'Add a layer and turn the layer stack on. Authoring.', function (args, ctx) {
+  tool('sv_add_layer', 'sceneEdit', 'Add a layer and turn the layer stack on. type milkdrop adds a ready MilkDrop layer with a preset (presetId or a built-in default). Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const list = ensureLayers(cfg);
       const raw = Object.assign({}, (args && args.layer) || {});
@@ -1668,9 +2209,30 @@
         raw.transform = t.value;
       }
       if (raw.opacity !== undefined) raw.opacity = Math.max(0, Math.min(1, raw.opacity));
+      const L = layersApi();
+      const isMd = kind === 'visualizer' && raw.type === 'milkdrop';
+      let mdPreset = null;
+      if (args && args.presetId != null && args.presetId !== '' && !isMd) return fail('presetId is only used with type milkdrop.');
+      if (isMd && !(raw.settings && raw.settings.milkdrop)) {
+        const pid = args && args.presetId ? String(args.presetId) : (L && L.MD_DEFAULT_PRESET) || '';
+        mdPreset = pid ? libraryPreset(ctx, pid) : null;
+        if (args && args.presetId && !mdPreset) return fail('Preset not found: ' + args.presetId + '. Use sv_list_presets (kind milkdrop).');
+        if (mdPreset && mdPreset.kind && mdPreset.kind !== 'milkdrop') return fail('Preset "' + mdPreset.id + '" is not a MilkDrop preset.');
+      }
       const layer = normalizeLayer(layerStart(raw));
+      /* MilkDrop katmanı panelin "MilkDrop" kartıyla aynı: ortak preseti çizen başka katman
+         varsa kendi preseti olur, yoksa boş ortak seçim gömülü paketten bir presetle dolar. */
+      if (mdPreset && L && L.makeMilkdropLayer) {
+        const made = L.makeMilkdropLayer(cfg, { preset: mdPreset });
+        if (made.settings && made.settings.milkdrop) layer.settings = Object.assign({}, layer.settings, { milkdrop: made.settings.milkdrop });
+      }
       list.push(layer);
-      return { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
+      const out = { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
+      if (isMd) {
+        const own = !!(layer.settings && layer.settings.milkdrop && layer.settings.milkdrop.independent);
+        out.milkdrop = { presetId: own ? layer.settings.milkdrop.presetId : ((cfg.milkdrop && cfg.milkdrop.presetId) || ''), own: own };
+      }
+      return out;
     });
   });
   tool('sv_update_layer', 'sceneEdit', 'Change layer name, type, opacity, blend, transform, or settings. Does not add effects. Authoring.', function (args, ctx) {
@@ -1736,12 +2298,16 @@
         const p = coerceParams(args.settings, true, 'settings');
         if (p.error) return fail(p.error);
         if (Object.prototype.hasOwnProperty.call(p.value, 'postfx')) return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
+        const offRange = rangeError('', p.value, found.layer.settings);
+        if (offRange) return fail(offRange);
         applied = p.value;
         found.layer.settings = mergeObj(found.layer.settings, applied);
       } else if (args && args.key) {
         if (unsafeKey(args.key)) return fail('Refusing unsafe settings key.');
         if (args.key === 'postfx' || String(args.key).split('.')[0] === 'postfx') return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
         if (args.value === undefined) return fail('value is required with key.');
+        const offRange = rangeError(args.key, args.value, (found.layer.settings || {})[args.key]);
+        if (offRange) return fail(offRange);
         const settings = Object.assign({}, found.layer.settings);
         settings[args.key] = args.value;
         found.layer.settings = settings;
@@ -1760,6 +2326,26 @@
       if (found.layer.locked) return fail(lockedError(found.layer));
       found.list.splice(found.index, 1);
       return { removed: found.layer.id, visual: visualState(cfg, ctx) };
+    });
+  });
+  /* ÇOĞALT: paneldeki "Çoğalt" düğmesiyle aynı. Kopya kaynağın hemen üstüne girer, yeni
+     kimlik alır, solo kapanır. Kaynak değişmediği için kilitli katman da çoğaltılabilir;
+     kopya kilidi korur (aynı korumayla başlar). Yazma izni sv_add_layer ile aynı. */
+  tool('sv_duplicate_layer', 'sceneEdit', 'Duplicate a layer right above it with a new id (like the panel Duplicate button). Locked layers can be copied; the copy keeps the lock. Authoring.', function (args, ctx) {
+    return withConfig(ctx, function (cfg) {
+      const found = findLayer(cfg, args);
+      if (!found) return fail('Layer not found. Use sv_list_layers to get layer ids.');
+      const L = layersApi();
+      const copy = clone(found.layer);
+      copy.id = null;
+      copy.solo = false;
+      const loc = ctx && ctx.locale ? String(ctx.locale() || '') : '';
+      copy.name = args && args.name ? String(args.name) : (found.layer.name || found.layer.kind || 'Layer') + (/^tr/i.test(loc) ? ' (kopya)' : ' (copy)');
+      const made = L && L.normalizeLayer ? L.normalizeLayer(copy) : copy;
+      if (!made.id) made.id = L && L.newLayerId ? L.newLayerId() : 'ly_' + Date.now().toString(36);
+      found.list.splice(found.index + 1, 0, made);
+      ensureLayers(cfg);
+      return { sourceId: found.layer.id, layer: publicLayer(made, found.index + 1), locked: !!made.locked };
     });
   });
   tool('sv_reorder_layers', 'sceneEdit', 'Reorder layers by id list. Authoring.', function (args, ctx) {
@@ -1781,22 +2367,22 @@
     });
   });
   tool('sv_set_text', 'sceneEdit', 'Edit the text overlay, including a lyrics or now-playing source. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('text', (args && args.patch) || {});
+    const bad = sectionPatchError('text', (args && args.patch) || {}, configOf(ctx).text);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.text = mergeObj(cfg.text || {}, args.patch); return { text: summarize(cfg.text) }; });
   });
   tool('sv_set_logo', 'sceneEdit', 'Edit logo settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('logo', (args && args.patch) || {});
+    const bad = sectionPatchError('logo', (args && args.patch) || {}, configOf(ctx).logo);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.logo = mergeObj(cfg.logo || {}, args.patch); return { logo: summarize(cfg.logo) }; });
   });
   tool('sv_set_media', 'sceneEdit', 'Edit media-layer settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('media', (args && args.patch) || {});
+    const bad = sectionPatchError('media', (args && args.patch) || {}, configOf(ctx).media);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.media = mergeObj(cfg.media || {}, args.patch); return { media: summarize(cfg.media) }; });
   });
   tool('sv_set_geometry', 'sceneEdit', 'Edit geometry settings. Authoring.', function (args, ctx) {
-    const bad = sectionPatchError('geometry', (args && args.patch) || {});
+    const bad = sectionPatchError('geometry', (args && args.patch) || {}, configOf(ctx).geometry);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) { cfg.geometry = mergeObj(cfg.geometry || {}, args.patch); return { geometry: summarize(cfg.geometry) }; });
   });
@@ -1976,18 +2562,48 @@
     });
   });
 
-  tool('sv_load_preset', 'presetApply', 'Load an existing library preset into MilkDrop. Does not write a new preset file.', function (args, ctx) {
+  tool('sv_load_preset', 'presetApply', 'Load an existing MilkDrop library preset. Without layerId it becomes the shared MilkDrop pick; layerId targets one MilkDrop layer and refuses other or locked layers. Does not write a new preset file.', function (args, ctx) {
     if (!args || !args.id) return fail('id is required.');
-    if (!ctx.presets || !ctx.presets.get) return fail('Preset store is not available.');
-    const preset = ctx.presets.get(args.id);
+    const preset = libraryPreset(ctx, args.id);
     if (!preset) return fail('Preset not found: ' + args.id);
+    if (preset.kind && preset.kind !== 'milkdrop') return fail('Preset "' + preset.id + '" is a ' + preset.kind + ' preset, not MilkDrop. Show it with sv_set_visualizer_type or sv_set_background_type (type custom, presetId).');
     return withConfig(ctx, function (cfg) {
+      /* MILKDROP HEDEFİ (layers.js milkdropTarget), paneldeki kuralla aynı. layerId bir
+         MilkDrop katmanı olmalı: bağımsızsa preset o katmana, değilse ortak seçime yazılır.
+         Başka türden, kilitli ya da bilinmeyen katmanda hiçbir şey yazılmaz. layerId yoksa
+         ortak seçim değişir; ekranda onu çizen katman yoksa sonuç bunu söyler. */
+      const L = layersApi();
+      const src = typeof preset.source === 'string' ? preset.source : null;
+      const id = args.layerId != null && args.layerId !== '' ? String(args.layerId) : '';
+      if (id && L && L.milkdropTarget) {
+        const r = L.milkdropTarget(cfg, { layerId: id, legacy: false });
+        if (r.error === 'NOT_FOUND') return fail('Layer "' + id + '" not found. Use sv_list_layers to get layer ids.');
+        if (r.error === 'LOCKED') return fail('Layer "' + id + '" is locked; nothing was changed. Unlock it first (sv_update_layer with locked:false).');
+        if (r.error) {
+          return fail('Layer "' + id + '" is a ' + (r.layer.kind === 'visualizer' ? r.layer.type + ' visualizer' : r.layer.kind) + ' layer, not MilkDrop, so nothing was changed.'
+            + (r.convertible ? ' Switch it first with sv_set_visualizer_type type milkdrop, or add one with sv_add_layer type milkdrop.' : ' Pass a MilkDrop layer id, or add one with sv_add_layer type milkdrop.'));
+        }
+        if (L.isOwnMilkdrop(r.layer)) {
+          r.layer.settings.milkdrop = Object.assign({}, r.layer.settings.milkdrop, {
+            presetId: preset.id, name: preset.name || '', source: src != null ? src : (r.layer.settings.milkdrop.source || ''),
+          });
+          return { presetId: preset.id, name: preset.name || '', kind: preset.kind || '', layerId: r.layer.id, target: 'layer' };
+        }
+      }
       cfg.milkdrop = Object.assign({}, cfg.milkdrop, {
         presetId: preset.id,
         name: preset.name || '',
-        source: typeof preset.source === 'string' ? preset.source : ((cfg.milkdrop && cfg.milkdrop.source) || ''),
+        source: src != null ? src : ((cfg.milkdrop && cfg.milkdrop.source) || ''),
       });
-      return { presetId: preset.id, name: preset.name || '', kind: preset.kind || '' };
+      const out = { presetId: preset.id, name: preset.name || '', kind: preset.kind || '', target: 'shared' };
+      const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+      const stackOn = !!(cfg.layerStack && cfg.layerStack.enabled !== false && list.length);
+      const drawn = list.filter(function (l) { return l && l.kind === 'visualizer' && l.type === 'milkdrop' && !(L && L.isOwnMilkdrop && L.isOwnMilkdrop(l)); });
+      if (stackOn) {
+        out.shownOn = drawn.map(function (l) { return l.id; });
+        if (!drawn.length) out.warning = 'No layer draws the shared MilkDrop preset, so nothing changes on screen. Add one with sv_add_layer (type milkdrop) or switch a visualizer layer with sv_set_visualizer_type.';
+      }
+      return out;
     });
   });
   tool('sv_apply_color_preset', 'presetApply', 'Apply an existing user or built-in color preset. Does not create one.', function (args, ctx) {
@@ -2012,10 +2628,27 @@
   });
   tool('sv_set_milkdrop_cycle', 'presetApply', 'Change how the existing MilkDrop library advances. Does not write preset source.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
+      if (args && args.layerId) {
+        const layer = (Array.isArray(cfg.layers) ? cfg.layers : []).find(function (l) { return l && l.id === args.layerId; });
+        const own = layer && layer.settings && layer.settings.milkdrop;
+        if (!own || own.independent !== true) return fail('layerId must be a MilkDrop layer with its own preset.');
+        const nextLayer = Object.assign({}, own);
+        ['autoNext', 'autoOrder', 'autoFrom', 'autoTag', 'autoNextUnit', 'autoNextBars', 'trackAdvance', 'hardCut'].forEach(function (k) {
+          if (args[k] !== undefined) nextLayer[k] = args[k];
+        });
+        const offLayer = rangeError('milkdrop', nextLayer, own);
+        if (offLayer) return fail(offLayer);
+        if (args.ownAuto === true) nextLayer.ownAuto = true;
+        else if (args.ownAuto === false) delete nextLayer.ownAuto;
+        layer.settings.milkdrop = nextLayer;
+        return { layerId: args.layerId, presetId: nextLayer.presetId || '', ownAuto: nextLayer.ownAuto === true, autoNext: nextLayer.autoNext, autoOrder: nextLayer.autoOrder };
+      }
       const next = Object.assign({}, cfg.milkdrop);
       ['autoNext', 'autoOrder', 'autoFrom', 'autoTag', 'autoNextUnit', 'autoNextBars', 'trackAdvance', 'hardCut'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
       });
+      const offRange = rangeError('milkdrop', next, cfg.milkdrop);
+      if (offRange) return fail(offRange);
       cfg.milkdrop = next;
       return { presetId: next.presetId || '', autoNext: next.autoNext, autoOrder: next.autoOrder };
     });
@@ -2135,6 +2768,8 @@
 
   function outputPatch(ctx, key, patch) {
     return withConfig(ctx, function (cfg) {
+      const bad = rangeError(key, patch || {}, cfg[key]);
+      if (bad) return fail(bad);
       cfg[key] = mergeObj(cfg[key] || {}, patch || {});
       return { value: summarize(cfg[key]) };
     });
@@ -2286,7 +2921,7 @@
       return { blackoutType: cfg.transition.blackoutType, blackoutDuration: cfg.transition.blackoutDuration };
     });
   });
-  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. Cannot change mcp permissions.', function (args, ctx) {
+  tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. A number on a known slider must stay inside what the panel allows, extended ranges included. Cannot change mcp permissions.', function (args, ctx) {
     if (!args || !args.path) return fail('path is required.');
     /* Bilinmeyen üst anahtar (ör. `MCP.mode`) eskiden yeni bir anahtar
        olarak ayar dosyasına yazılıyordu. Bilinen ya da ayarda zaten
@@ -2301,7 +2936,8 @@
     if (!mcp.enabled) return fail(text('mcp.err.disabled', localeOf(ctx)).replace('{mode}', modeWord(minMode(group) || 'everything', localeOf(ctx))));
     if (!modeAllows(mcp, group)) return fail(modeBlockError(localeOf(ctx), minMode(group) || 'everything'));
     return withConfig(ctx, function (cfg) {
-      const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value);
+      const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value) ||
+        rangeError(String(args.path).replace(/^scenes\.\d+\./, ''), args.value, getPath(cfg, args.path));
       if (bad) return fail(bad);
       if (top === 'layers') {
         const r = patchLayers(cfg, args.path, args.value);
@@ -2571,6 +3207,7 @@
       mode: mcp.mode,
       port: mcp.port,
       toolProfile: mcp.toolProfile,
+      httpApi: mcp.httpApi,
       profiles: TOOL_PROFILES.slice(),
       setupVisible: mcp.enabled === true,
       modes: MODES.slice(),

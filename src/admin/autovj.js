@@ -132,16 +132,14 @@
      düzeni görsel olarak yok olurdu. Her katman kendi çekimini alıyor. */
   function applyVisualizer(cfg, items, targets) {
     const layers = R().visualizerLayers(cfg.layers);
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
 
     if (layers.length) {
       const hit = targets === 'first' ? layers.slice(0, 1) : layers;
       hit.forEach((l, i) => { l.type = items[i % items.length].id; });
-      if (!isStack && cfg.visualizer) cfg.visualizer.type = items[0].id;
       return true;
     }
     // Yığında görselleştiricilerin hepsi kilitliyse değiştirilecek bir şey yok
-    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
+    if ((cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
     if (cfg.visualizer) { cfg.visualizer.type = items[0].id; return true; }
     return false;
   }
@@ -159,15 +157,13 @@
     const setCustom = () => {
       if (preset) cfg.custom = Object.assign({}, cfg.custom, { backgroundId: preset });
     };
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
     const layers = R().backgroundLayers(cfg.layers);
     if (layers.length) {
       layers.forEach((l) => { l.type = type; l.presetId = preset; });
-      if (!isStack && cfg.background && !cfg.background.transparent) { cfg.background.type = type; setCustom(); }
       return true;
     }
     // Background layers exist but all are locked or transparent: report it, do not fall back
-    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'background' && (l.locked || R().isTransparentBackground(l)))) return false;
+    if ((cfg.layers || []).some((l) => l && l.kind === 'background' && (l.locked || R().isTransparentBackground(l)))) return false;
     if (!cfg.background || cfg.background.transparent || cfg.background.type === 'transparent') return false;
     cfg.background.type = type;
     setCustom();
@@ -204,6 +200,10 @@
   /* Bir değişim uygula.
      Dönüş: { ok, kind, pushed } ya da { ok:false, code, kind } */
   function applySwitch() {
+    const target = window.SVTimelineTarget;
+    return target ? target.withManual(applySwitchManual) : applySwitchManual();
+  }
+  function applySwitchManual() {
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const ctx = ctxOf(cfg);
@@ -418,7 +418,11 @@
     }
     /* Faz ölçer hızında değil, tempo motorunun kendi karesinde gider.
        50 ms, vuruşlar arasında bir süpürme için yeter ve paneli meşgul etmez. */
-    if (cfg.oscOut && cfg.oscOut.enabled && window.api && window.api.reportTempoClock && now - lastOscClock >= 0.05) {
+    /* OSC çıkışı kapalıyken de, MQTT ya da telefon kumandası dinliyorsa durum seyrek gider
+       (saniyede dört): karartma, tempo ve çizelge onlarda da güncel kalsın. */
+    const oscOn = !!(cfg.oscOut && cfg.oscOut.enabled);
+    const liveWanted = oscOn || !!(cfg.mqtt && cfg.mqtt.enabled) || !!(cfg.stream && cfg.stream.enabled && cfg.stream.remote !== false);
+    if (liveWanted && window.api && window.api.reportTempoClock && now - lastOscClock >= (oscOn ? 0.05 : 0.25)) {
       lastOscClock = now;
       window.api.reportTempoClock(oscClockPayload(tempo, audio, cfg));
     }
@@ -585,9 +589,12 @@
 
     // --- tempo göstergesi ---
     nodes.push(el('div', { class: 'bpm-box' }, [
-      el('span', { id: 'beatDot', class: 'beat-dot' }),
-      el('span', { id: 'bpmValue', class: 'bpm-value', text: tempo && tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM' }),
-      el('div', { class: 'bpm-conf' }, [el('i', { id: 'bpmConf' })]),
+      el('div', { class: 'bpm-hero' }, [
+        el('span', { id: 'bpmValue', class: 'bpm-value', text: tempo && tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM' }),
+        el('span', { id: 'beatDot', class: 'beat-dot' }),
+        el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': T('Tempo, spektral akıdan bulunan vuruşların aralık histogramıyla kestirilir ve 60–180 BPM aralığına katlanır; böylece aynı parça bazen 75 bazen 150 görünmez. Dış bir tempo kaynağına bağlanılmaz — elle vurarak sabitleyebilirsiniz.') }),
+      ]),
+      el('div', { class: 'bpm-conf', title: 'Tempo güveni' }, [el('i', { id: 'bpmConf' })]),
       el('button', {
         class: 'btn small', type: 'button', icon: 'hand', text: 'Tempoya Vur',
         title: 'Ritimle birkaç kez basın; tempo elle sabitlenir',
@@ -597,6 +604,11 @@
           P().push(true);
           P().rerender();
         },
+      }),
+      el('button', {
+        class: 'btn small', type: 'button', icon: 'reset', text: 'Sıfırla',
+        title: 'Elle verilen tempoyu bırak, müzikten bulsun',
+        onclick: () => { raw.bpmLock = 0; P().push(true); P().rerender(); },
       }),
     ]));
 
@@ -608,30 +620,27 @@
       min: 1, max: 16, step: 1, fmt: (v) => String(Math.round(v)),
     }));
 
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Tempo, spektral akıdan bulunan vuruşların aralık histogramıyla kestirilir ve 60–180 BPM aralığına katlanır; böylece aynı parça bazen 75 bazen 150 görünmez. Dış bir tempo kaynağına bağlanılmaz — elle vurarak sabitleyebilirsiniz.' }));
 
     // --- otomatik VJ ---
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: (e) => {
-        raw.enabled = e.target.checked;
+    /* Durum satırı — kapalıyken de duruyor ki kullanıcı nereye bakacağını
+       bilsin. Döngü bunu yerinde günceller. */
+    const stText = statusText(a, ctx);
+    nodes.push(P().moduleHead({
+      id: 'autovj', title: 'Otomatik VJ', on: !!a.enabled,
+      status: el('div', {
+        id: 'autovjStatus', class: 'studio-status autovj-status',
+        icon: statusWarn ? 'warning' : '',
+        text: stText,
+      }),
+      start: 'Otomatik VJ\'yi Başlat', stop: 'Durdur',
+      toggle: (next) => {
+        raw.enabled = next;
         restartTiming();
         lastResult = null;
         lastFailure = null;
         P().push(true);
         P().rerender();
       },
-    });
-    enable.checked = !!a.enabled;
-    nodes.push(P().row('Otomatik VJ', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
-    /* Durum satırı — kapalıyken de duruyor ki kullanıcı nereye bakacağını
-       bilsin. Döngü bunu yerinde günceller. */
-    const stText = statusText(a, ctx);
-    nodes.push(el('div', {
-      id: 'autovjStatus', class: 'studio-note autovj-status',
-      icon: statusWarn ? 'warning' : '',
-      text: stText,
     }));
 
     if (a.enabled) {

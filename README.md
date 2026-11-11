@@ -7,8 +7,8 @@
 ### Free, open-source music visualizer and VJ software for every screen you own
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
-audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **56 presets of our
-own**, **60 visualizer modes**, layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **60 presets of our
+own**, **70 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3832%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4388%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -31,7 +31,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 **[FAQ](#faq)** ·
 **[Türkçe](README.tr.md)**
 
-<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, two of the newest CaYaDev MilkDrop presets (Hologram Globe and Stained Glass), the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, a 3D Lorenz attractor, synthwave and a broadcast title card, all reacting to music" width="800" />
 
 </div>
 
@@ -41,13 +41,50 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 <div align="center">
 
-| **60** visualizer modes | **43** backgrounds | **40** GPU effects | **18** scene transitions |
+| **70** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
-| **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
-| **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
-| **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
+| **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
+| **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
+| **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
+
+---
+
+## New in v4
+
+> **v4 is not released yet.** Everything below is on `main` and runs [from source](#run-from-source)
+> today; the installers under [Download](#download) are the latest release (v3.1.7) until v4 ships.
+
+- **A Live page built like a vision mixer.** A scene grid with banks and F-keys, Cued and Live
+  monitors, and a **T-bar**: drag it to mix the next scene in by hand, stop halfway to hold a blend
+  of two scenes for as long as you like, pull it back to undo the change without restarting
+  anything. TAKE does the same on its own clock. The bar can also be a hardware fader over
+  **OSC / Companion** (`show/tbar`). [→ Show control](#show-control-timeline-clip-deck-auto-vj-midi-and-osc)
+- **A phone remote that looks like the app.** Five pages — Live, Scenes, Layers, Appearance and
+  Audio — in the panel's own theme, over Wi-Fi with a token of its own. Blackout is one tap away on
+  every page. The protocol is documented for anyone who wants to write their own controller.
+  [→ Outputs](#outputs-screens-obs-spout-and-syphon)
+- **Multi-pass Studio shaders.** Split a shader into buffers A–D and an image pass with
+  `//@pass` markers; buffers keep their previous frame, hold values above 1, and survive a resolution
+  change. Multi-buffer shader code can be pasted pass by pass, ISF files with `PASSES` import as
+  real passes, and the built-in **Ink Flow** shows what a single pass cannot do.
+  [→ Studio](#studio--write-your-own-shader)
+- **Video that plays to the beat.** A video layer has speed (0.25–4×), in and out points, a
+  **beat-locked loop** of 1–16 beats and a position slider that scrubs every output live. Exports
+  stay frame-exact. [→ Media layer](#logo-images-and-the-media-layer)
+- **Adaptive resolution.** When a heavy scene cannot keep up with the display, the drawing
+  resolution steps down a little and comes back when there is headroom. Measured on an eight-layer
+  scene at 2560×1600 on a 75 Hz display: **56.4 fps off, 72.4 fps on**. MilkDrop, trails and
+  particles carry across a step instead of restarting. [→ Power and performance](#reliability-power-and-updates)
+- **A panel that stays smooth while you work.** Dragging a setting, an opacity or clicking through
+  layers no longer stalls the panel: on a seven-layer scene, slider drags went from 33.6 to 59.6 fps
+  and opacity drags from 37 to 74 fps, measured against the previous build.
+- **A rebuilt Layout Editor.** Undo that works, multi-select, align and distribute, lock and hide
+  from the element list, Shift-constrained drags and a shortcut list on F1.
+  [→ Layout editor](#broadcast-layout-editor)
+- **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
+  presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
 
 ---
 
@@ -63,10 +100,10 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
   against a reference MilkDrop 2 renderer. Import whole libraries, browse them as thumbnails, edit presets live,
-  or generate new ones. **56 CaYaDev presets** of our own are built in, free for any MilkDrop player
+  or generate new ones. **60 CaYaDev presets** of our own are built in, free for any MilkDrop player
   under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
-  crossfader, 40 GPU effects per layer or on the whole frame, and a modulation matrix that routes
+  crossfader, 44 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
 - **Bring other apps and the web in.** A **Spout / Syphon input** puts TouchDesigner, Resolume, OBS
   or a camera app on a layer over the GPU, and a **web page layer** adds alerts, chat, a scoreboard or
@@ -96,7 +133,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   and short-video guides. Reveal animations, logo swapping on the beat, broadcast text styles, and
   layouts saved as files. What you place is what the export renders, checked pixel by pixel.
   [→ Layout editor](#broadcast-layout-editor)
-- **AI-ready.** A local **MCP server** with 97 tools lets Claude, Codex, Cursor and other agents
+- **AI-ready.** A local **MCP server** with 106 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
   only. [→ MCP](#mcp--control-from-an-ai-agent)
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
@@ -150,6 +187,8 @@ fluid gradient backgrounds that move with the music.
 ### Download
 
 Get the latest build from **[Releases](https://github.com/CaYatur/SoundVisualizer/releases/latest)**.
+The newest release is v3.1.7; the [v4 features](#new-in-v4) arrive with the next release or can be
+[run from source](#run-from-source) now.
 
 | Platform | File | Notes |
 |---|---|---|
@@ -166,8 +205,8 @@ Nothing else needs to be installed: the audio helper runs on the application's o
    **audio sources** under **Audio**.
 2. Click **Open Visualizer**. The visual opens full-screen on every selected display.
 3. Change anything on the right — it applies immediately and saves itself.
-4. Or start from a finished look: **Library → Templates** has 83 of them.
-5. For streaming, turn on **Output → Streaming Output** and paste the address into an OBS
+4. Or start from a finished look: **Library → Preset** holds the 83 ready-made templates.
+5. For streaming, turn on **Output → Streaming Output (OBS / Web)** and paste the address into an OBS
    **Browser Source**.
 6. Press **ESC** on any visualization window to close them all.
 
@@ -199,7 +238,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
 | **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 56 CaYaDev presets of our own. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
+| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 106 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
 
 ---
 
@@ -308,11 +347,11 @@ and 174 BPM signals), with tap tempo and a BPM lock shared by Auto VJ, the clip 
 
 <div align="center">
 
-**All 60 visualizer modes**
+**All 70 visualizer modes**
 
 ![Every visualizer mode](docs/screenshots/modes-visualizer.jpg)
 
-**All 43 backgrounds**
+**All 51 backgrounds**
 
 ![Every background](docs/screenshots/modes-background.jpg)
 
@@ -322,19 +361,24 @@ These two sheets are generated from the mode catalogue itself, so a new mode app
 next time the screenshots are rendered. Any visualizer can sit on any background, and with layers
 you can stack as many of each as you like.
 
-**Visualizer modes — 60**
+**Visualizer modes — 70**
 
 - **Basic** — Bars · Center · Blocks (LED equaliser) · Dot Matrix · City Skyline (buildings with lit
-  windows)
+  windows) · Capsule Wave (rounded bars opening from the centre, for speech and podcasts) · Stage
+  Equalizer (bars on a perspective floor with their reflection) · Hex Spectrum (a honeycomb lit
+  per band)
 - **Waveform** — Wave (oscilloscope) · Ribbon (waveform history) · 3D Wave (history stacked in
   perspective) · Lissajous (XY oscilloscope) · Strings (each string vibrates with its band) · Terrain
-  (perspective wireframe landscape) · Ridgelines · DJ Waveform
+  (perspective wireframe landscape) · Ridgelines · DJ Waveform · Liquid Spectrum (a filled, smoothed curve with a
+  reflection) · Dot Wave (a perspective sheet of dots carrying the spectrum history)
 - **Radial** — Circle · Radial Wave · Starburst · Arcs (one arc per band) · Pinwheel · Mandala (polar
-  rose curve) · Kaleidoscope · Vortex · Helix · Tunnel · Orb · Radar Chart
+  rose curve) · Kaleidoscope · Vortex · Helix · Tunnel · Orb · Radar Chart · Neon Rings (one ring per band) · Corona
+  (mirrored petals around a clear core) · Spiral Spectrum
 - **Particles and events** — Particle · Fireworks (bursts on the beat) · Lightning (branching bolts
   on bass) · Bubbles · Liquid Drop (metaballs) · Ripple Grid (rings spreading on the beat) ·
   Spectrogram · Confetti · Beat Pads · Bouncing Balls · Stereo Trails (each band launched from its
-  place in the stereo image)
+  place in the stereo image) · Star Warp (streaks from the centre that jump with the bass) · Orbitals
+  (one orbit per band)
 - **Generative systems** — Flow Field (particles steered by a noise field) · Flock (boids driven by
   the spectrum) · Voronoi · Truchet · Moiré · Wave Interference · Ropes (verlet physics kicked by
   onsets) · Galaxy · DNA Helix · Isometric City · Attractor Field (discrete maps from the formula
@@ -351,19 +395,21 @@ Colour comes from the scene palette, a custom colour pair, or **rainbow**. Bars 
 stand on a baseline above the bottom edge can cast a **floor reflection** that fades downward
 (strength and length).
 
-**Backgrounds — 43**
+**Backgrounds — 51**
 
 - **Fluid** — Fluid Gradient (an audio-reactive mesh gradient with flow, wander, orbit, swirl, warp,
   grain and audio hue shift) · Ink (liquid blobs that swirl as they flow) · Nebula (soft gas clouds)
   · Wave Layers (crests that swell with the audio) · Northern Lights (undulating curtains) · Lava
-  Lamp · Underwater
+  Lamp · Underwater · Colour Cloud (large, slow colour blobs: a calm ground for text) · Silk
 - **Geometric** — Retro Grid (a perspective grid to the horizon) · Honeycomb Grid (cells lit by a
   wave from the centre and by the spectrum) · Mosaic (a cell per frequency band) · Corridor (rings
   or polygons coming toward you) · Spiral · Pulse Rings (extra rings on bass hits) · Network
-  (drifting linked nodes) · Low Poly · Halftone · Isometric Cubes
+  (drifting linked nodes) · Low Poly · Halftone · Isometric Cubes · Paper Layers (cut paper with
+  soft shadows) · Diagonal Stripes · Dot Pattern
 - **Atmosphere** — Starfield · Snow / Embers · Light Particles (bokeh) · Digital Rain · City (a
   parallax skyline whose windows light up with the music) · Clouds · Stage Lights · Fireflies ·
-  Storm
+  Storm · Neon Sunset (a sliced sun over water) · Dunes · Night Sky (a shooting star on a strong
+  bass hit)
 - **Generative grounds** — Liquid Metal · Plasma · Caustics · Ribbons · Contours · Wave Field ·
   Embers · Sand · Stained Glass · Circuit Board · Prism · Globe Mesh · Wire Tunnel · Hex Pulse ·
   Mirror Pattern
@@ -401,7 +447,7 @@ shaders are translated to GLSL and run on the GPU.
 - **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
   Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
-- **CaYaDev MilkDrop Presets: 55 shader presets of our own, built in.** Each one has warp and comp shaders, and
+- **CaYaDev MilkDrop Presets: 60 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
   [`presets`](presets/README.md) (with a picture of each) or as the zip on each release. MilkDrop 2 originals are in
@@ -467,7 +513,7 @@ decay sliders, four wave styles, and bass-driven zoom and rotation for the class
 - **One broken layer no longer takes the frame with it**, and layers hidden under
   an opaque MilkDrop layer are not drawn at all.
 
-**Post-processing — 40 GPU effects**, orderable, each with its own opacity, toggleable, and
+**Post-processing — 44 GPU effects**, orderable, each with its own opacity, toggleable, and
 available per layer as well as on the composite. An effect on a single layer keeps that layer's
 transparency, so the layers below stay visible.
 
@@ -480,7 +526,9 @@ transparency, so the layers below stay visible.
   · Datamosh (Block Shift) · Bad Signal · Chromatic Aberration
 - **Distortion** — Lens Distortion · Twirl · Polar Transform · Ripple Distortion · Slit-Scan ·
   Kaleidoscope · Mirror
-- **Colour and light** — Gradient Map · Levels & Curve · God Rays · Star Filter
+- **Colour and light** — Gradient Map · Levels & Curve · God Rays · Star Filter · Tonemap (ACES /
+  AgX) · 3D LUT (.cube)
+- **Live hits** — Flash · Strobe (also as momentary effects held from the Live page)
 
 Any parameter of any effect can be driven by the modulation matrix.
 
@@ -558,12 +606,17 @@ Any parameter of any effect can be driven by the modulation matrix.
 - Shaders receive `sv_resolution`, `sv_time`, `sv_level`, `sv_bass`, `sv_mid`, `sv_treble`,
   `sv_beat`, `sv_spec(x)`, `sv_waveAt(x)`, `sv_col(x)` for the scene palette, and `sv_media` for the
   camera or video layer.
-- **42 built-in shaders**, all compiled on a real GPU by the self-test:
-  - **Backgrounds (25)** — Cloud Layers · Curl Flow · Lava Lamp · Ink Bleed · Smoke Rings · Hex Flow
+- **Multi-pass shaders.** Split the code with `//@pass A` … `//@pass D` (buffers, drawn in order,
+  each keeping its previous frame) and `//@pass image`; `//@common` is shared. A pass reads the
+  current frame of the buffers drawn before it (`sv_bufA`…`sv_bufD`) and `channels=` wires
+  `iChannel0`–`3`, so multi-buffer code can be pasted pass by pass. Buffers are half-float where the
+  GPU allows and survive a resolution change. ISF `PASSES` import as real passes.
+- **43 built-in shaders**, all compiled on a real GPU by the self-test:
+  - **Backgrounds (26)** — Cloud Layers · Curl Flow · Lava Lamp · Ink Bleed · Smoke Rings · Hex Flow
     · Warped Grid · Truchet Weave · Moiré Interference · Crystal Cave · Mandelbrot Zoom · Julia Set ·
     Burning Ship · Apollonian Gasket · Kaleidoscopic IFS · Menger Sponge · Mandelbulb · Light Tunnel
     · Star Warp · Aurora Curtain · Liquid Metal · Neon Rain · Reaction Pattern · Water Caustics ·
-    Prism Glow
+    Prism Glow · Ink Flow (two passes)
   - **Visualizers (11)** — Glowing Bars · Spectrum Ring · Wave Field · Beat Burst · Glowing
     Oscilloscope · Frequency Mesh · Note Ring · Particle Flow · Kaleidoscope Spectrum · Pulse Grid ·
     Liquid Bars
@@ -705,6 +758,9 @@ ticker · karaoke highlighting.
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
+  A video file has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** of 1–16 beats
+  on the app's tempo, and a **position** slider that scrubs every output live; the export follows
+  the same formula frame by frame.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -765,6 +821,16 @@ OBS overlay and video export draw.
 
 </div>
 
+**Live page and T-bar.** A scene grid with banks and F-keys, Cued and Live monitors, Auto VJ,
+momentary effects and layer faders on one page. The Cued monitor shows the scene's last frame from the
+output; a scene that has never been live shows its MilkDrop preset's picture or a rendered preview
+of its top layer, without starting a second engine on the GPU. **TAKE** puts the cued scene live with its
+transition; the **T-bar** next to it mixes the cued scene in by hand: the mix follows the bar,
+releasing it halfway holds a blend of both scenes, the far end puts the scene live and pulling it
+back to the start undoes the change without restarting anything. Every output, the OBS overlay and
+the panel preview follow the bar, and `show/tbar` lets a hardware fader drive it over OSC or
+Companion.
+
 **Timeline.** Lay scenes and setting changes out along time, aligned to the bar or to the second;
 one playhead drives every screen together, and offline export plays the same show.
 
@@ -794,6 +860,8 @@ one playhead drives every screen together, and offline export plays the same sho
 modes or colours by itself, aligned to the bar. Pick exactly which scenes, modes or palettes cycle
 (or leave it empty for all), give each visualizer layer its own mode, and read a status line that
 says what changed, what comes next, and why nothing can happen when a source is empty.
+
+Optional controller LED feedback and built-in maps are off by default. See the [controller setup and vendor protocol audit](docs/midi-controllers.md) for port/mode requirements, explicit Korg CC setup and hardware-test limitations.
 
 **MIDI.** Learn a control, then map any CC or note to any setting or action — including MilkDrop's
 next, previous, random, cut, lock and rating.
@@ -876,10 +944,15 @@ If the IPv6 socket cannot open, IPv4 keeps listening. The A/B crossfader is `/cr
 
 </div>
 
-**Phone remote.** A phone-sized page for scenes, colour palettes, Studio presets, visualizer and
-background modes, audio sensitivity, blackout and the now-playing card, served by the same server
-as the OBS overlay. Values sent from the phone are
-range-checked before they are applied.
+**Phone remote.** A page in the panel's own design and theme, served by the same server as the OBS
+overlay, for a phone, a tablet or another computer. Five pages: **Live** (open and close the
+output, blackout, master opacity, Auto VJ, scene step, A/B crossfade, timeline transport, MilkDrop
+previous / next / random), **Scenes** (searchable cards), **Layers** (show/hide and opacity per
+layer), **Appearance** (visual and background modes with thumbnails, colour presets, Studio
+presets) and **Audio**. The header shows the playing track, tempo and a three-band level.
+Commands go through the same fixed control tree as OSC and MQTT and are checked in the main
+process before they are applied. The messages are documented in
+[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) for anyone writing their own controller.
 
 **Blackout** on <kbd>Space</kbd> or from any controller, with its own transition, leaving the stored
 scene untouched.
@@ -1052,6 +1125,16 @@ the fixtures on the left take the colours on the left of the screen.
 
 ---
 
+### MQTT / Home Assistant
+
+**Control → MQTT / Home Assistant** (off by default) connects to an MQTT broker you name (plain or
+TLS, optional username and password). The app publishes blackout, Auto VJ, tempo, now playing,
+scene, visualizer mode and master opacity to retained `<base>/state/…` topics, with `<base>/status`
+as online/offline. Home Assistant discovery makes the device appear on its own. With **Accept
+commands** on (off by default), `<base>/set/blackout`, `autovj`, `scene`, `visualizer` and `opacity`
+are applied the same way as OSC input; retained commands are ignored. The broker password is hidden
+from MCP and from web clients, MCP cannot change `mqtt.*`, and the settings do not replicate to a backup.
+
 ### MCP — control from an AI agent
 
 An agent drives the running application over the **Model Context Protocol**. The switch is on the
@@ -1065,7 +1148,7 @@ a local model behind an MCP client and uses that same command.
 
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
-version. The server name is `soundvisualizer`. There are **97 tools**.
+version. The server name is `soundvisualizer`. There are **106 tools**.
 
 The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
 token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
@@ -1106,6 +1189,18 @@ accepted ones; fields sent next to a tool's `patch` argument get the hint to put
 read and common edit tools with one-sentence descriptions, for small-context local models. Every
 tool stays callable by name. The default is the full list.
 
+**HTTP API (OpenAPI).** "HTTP API (REST, OpenAPI)" on the MCP card (off by default) serves the same
+tools as plain HTTP on the MCP port, 127.0.0.1 only: `GET /api/v1/openapi.json` (OpenAPI 3.0, no
+token), `GET /api/v1/tools`, and `POST /api/v1/tools/<name>` with the tool arguments as the JSON body.
+Calls need `Authorization: Bearer <token>` (the MCP token, copyable from the card; it changes each
+time MCP starts) and run under the same mode as MCP. Requests that carry an `Origin` header or a
+non-loopback `Host` are refused. A refused tool call returns 400 with `ok:false`.
+
+**Bitfocus Companion.** `integrations/companion/` is a Companion module that sends OSC to the
+fixed OSC tree: blackout, Auto VJ, scenes, modes, opacity, crossfader, palette, layers, clip deck,
+timeline and any slider path. With the OSC output pointed at Companion it also shows blackout, Auto
+VJ, now playing, BPM and opacity as variables and button feedback. It is not part of the app build.
+
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
 the mode it needs and tells the agent to leave the mode alone and leave the panel unclicked.
@@ -1134,10 +1229,16 @@ The master switch is enough. These calls only read.
   background id, layer kind and blend mode; the mode and layer tools reject an id it does not list.
   `sv_list_effects` lists the global chain,
   each layer's chain, and the 40 built-in effect types. `sv_list_presets` lists library presets
-  and user colour palettes. `sv_list_displays` lists screens.
+  (the built-in MilkDrop presets too, marked `builtin`) and user colour palettes. `sv_list_displays` lists screens.
 - `sv_get_output_status` reads which visualizer windows are open, the stream switch, port and LAN
   flag, and the Spout/Syphon name. `sv_get_timeline`, `sv_get_clipdeck` and `sv_get_autovj` read
   those panels. `sv_get_config` reads the whole configuration or one dotted path.
+- `sv_lyrics_library` reads the lyrics library: `list`, `search` (name, artist, title) or `get`
+  (one item's text, capped by `maxChars`). Windows only, like the library itself; on macOS and
+  Linux it returns an error that says so. It never writes.
+- `sv_timeline_inspect` reads the whole timeline model with nothing cut off: every track, clip,
+  automation key and marker, the tempo map, loop, snap and the timeline bank. With `at` (seconds)
+  it also returns the clips playing and the automation values at that moment.
 
 #### Apply
 
@@ -1148,15 +1249,22 @@ Uses what is already saved.
   text, modulation, transition, Studio, MilkDrop and feedback. Window transparency and taskbar
   cover stay as they were.
 - `sv_apply_template` applies a built-in template by id or name. `sv_set_visualizer_type` and
-  `sv_set_background_type` switch to an existing mode id. A Studio shader is shown with type
-  `custom` and its `presetId`. `sv_set_layer_enabled` shows or hides a layer and turns the stack
+  `sv_set_background_type` switch a layer to an existing mode id. `layerId` names the layer; it is
+  required when there are several layers of that kind. A layer of the wrong kind, a locked layer
+  or an unknown id changes nothing and returns an error that says why. With **Redirect Modes to a
+  Matching Layer** on (Settings), the old rule applies and the mode goes to the first matching
+  layer. A Studio shader is shown with type `custom` and its `presetId`. `sv_set_layer_enabled` shows or hides a layer and turns the stack
   on. `sv_set_crossfade` sets the A/B fader from 0 to 1.
 - `sv_trigger_clip` fires one clip-deck slot by row and column. `sv_stop_clips` stops every playing
   slot. The grid stays as saved. Both need the admin window open.
 - `sv_set_effect_enabled` and `sv_set_effect_param` change a global effect already on the chain.
   The layer pair does the same for one layer. `sv_set_modulation_enabled` turns the modulation
   matrix on or off. `sv_set_macro` sets one existing macro fader.
-- `sv_load_preset` copies an existing library preset into the live MilkDrop source.
+- `sv_load_preset` copies an existing library or built-in MilkDrop preset into the live MilkDrop
+  source. With `layerId` it targets one MilkDrop layer: an Independent layer gets its own preset,
+  a Shared one changes the shared pick. A layer of another kind, a locked layer or an unknown id
+  changes nothing and returns an error that says why. Without `layerId` the result lists the
+  layers that show the shared preset, with a warning when none does.
   `sv_apply_color_preset` paints an existing user or built-in palette onto the background gradient.
   `sv_set_milkdrop_cycle` sets how the library advances: auto next, order, source, tag, unit, bar
   count, track advance and hard cut.
@@ -1169,14 +1277,18 @@ Creates and edits.
   one, `sv_rename_scene` gives a scene found by id or current name the `newName`,
   `sv_delete_scene` removes.
 - Layers: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
-  `sv_remove_layer`, `sv_reorder_layers`. A layer carries kind, type, preset, opacity, blend,
+  `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `sv_add_layer` with type
+  `milkdrop` adds a ready MilkDrop layer with a preset (`presetId`, or a built-in MilkDrop 3
+  preset); when another layer already shows the shared preset the new one is Independent.
+  `sv_duplicate_layer` puts a copy with a new id right above the source, like the panel's
+  Duplicate; a locked layer can be copied and the copy stays locked. A layer carries kind, type, preset, opacity, blend,
   transform (x, y, scale, rotate, flip), audio response, mask, solo, mute, lock and group. Effects
   on a layer go through the effect tools. Adding or showing a layer turns the stack on.
 - `sv_set_text` edits the text overlay, including a lyrics or now-playing source. `sv_set_logo`,
   `sv_set_media` and `sv_set_geometry` edit those blocks.
 - Effects: `sv_add_effect` and `sv_remove_effect` on the global chain, `sv_add_layer_effect` and
   `sv_remove_layer_effect` on one layer. The built-in types are bloom, chroma, glitch, grain, crt,
-  pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize, blur,
+  pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize, flash, strobe, blur,
   radialblur, motionblur, tiltshift, dof, sharpen, emboss, dither, halftone, ascii, hatch, paint,
   vhs, datamosh, slitscan, lens, twirl, polar, gradientmap, levels, threshold, solarize, godrays,
   badtv and starfilter. `sv_add_modulation_route` and `sv_remove_modulation_route` edit routes.
@@ -1219,6 +1331,15 @@ Opens the live surfaces.
   mesh, colour and test pattern, and turns mapping on. It binds no new network port.
 - `sv_timeline_transport` plays, pauses, stops or seeks the timeline through the admin transport.
   The admin window has to be open.
+- Timeline editing (same permission as writing `timeline.*` with `sv_patch_config`):
+  `sv_timeline_edit_track` adds, updates, removes or moves a clip or automation track;
+  `sv_timeline_edit_clip` adds, updates, removes or splits a clip (a scene clip must point at an
+  existing scene); `sv_timeline_set_keys` replaces an automation track's keys;
+  `sv_timeline_edit_marker` adds, moves, renames or removes a marker; `sv_timeline_set_options`
+  sets tempo, loop, snap, fps, **Use Timeline** and the timeline switch; `sv_timeline_bank`
+  switches, adds, renames, removes, enables, disables or moves a timeline in the bank. Locked
+  tracks only accept unlocking. An automation target is either a numeric config path the current
+  mode may write, or a track/clip opacity (`tl.track.<id>.opacity`, `tl.clip.<id>.opacity`).
 - `sv_set_blackout` takes `on`, `off` or `toggle` and leaves the stored scene in place.
   `sv_set_blackout_transition` sets the blackout transition type and duration.
 
@@ -1248,11 +1369,20 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 
 </div>
 
-- **Eight categories** — Scene, Audio, Lighting, Output, Control, Studio, Library and Settings.
+- **Five pages on top** — Scene, Live, Time, Studio and Output — and Audio, Lighting, Show, Control,
+  Library and Settings behind the gear (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> switches pages).
+- **Scene** is a layer list, a large preview, an inspector for the selected layer and a shelf of
+  presets, templates, effects and modulation. **Live** has Next and Live monitors with TAKE, a scene
+  grid on the F keys, layer faders and the clip deck. **Time** puts the preview above a full-width timeline.
+  **Output** and **Studio** show one section at a time.
+- **Momentary effects** on Live: flash, strobe, blur, kaleidoscope, glitch and negative while you hold
+  the button. They never touch your settings, and strobe stays at three flashes a second while flash
+  limiting is on.
+- **Undo and redo** for scene changes (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Live everywhere** — every change reaches the output windows immediately and saves itself.
 - **A live preview** with its own demo signal, audio meters and saved scenes beside every page.
-- **Modified badges** on each card and category, with a reset for the section or the whole category.
-- **Search** across every setting in every category (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- **Modified badges** on each card and page, with a reset for the section or the whole page.
+- **Search** across every setting on every page (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 - **Advanced** toggles hide rarely used controls until you want them; **extended ranges** raise the
   slider limits 5×.
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is
@@ -1291,6 +1421,11 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   mode, always or only on battery, limits the frame rate to 30, turns effects off and lowers MilkDrop
   and background resolution; exports and the OBS source do not change. The panel preview draws less
   while an output is open.
+- **Adaptive resolution** — when a heavy scene cannot keep up with the display, the output's
+  drawing resolution drops a step (to half at most) and rises again after ten calm seconds; MilkDrop,
+  trails and particles carry across a step instead of restarting. Measured on an eight-layer scene at
+  2560×1600 on a 75 Hz display: 56.4 fps off, 72.4 fps on. On by default, off under Performance;
+  never applied to video export or the OBS source.
 
 ---
 
@@ -1893,7 +2028,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3832 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4388 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

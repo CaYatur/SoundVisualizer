@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mcp = require('../shared/mcp');
+const restApi = require('./rest-api');
 
 const BIND_HOST = '127.0.0.1';
 const DEFAULT_PORT = 38471;
@@ -24,6 +25,10 @@ function assertLoopback(host) {
 
 function isLoopbackAddress(addr) {
   return addr === '127.0.0.1' || addr === '::ffff:127.0.0.1' || addr === '::1';
+}
+
+function appVersion() {
+  try { return require('../../package.json').version || '0.0.0'; } catch (e) { return '0.0.0'; }
 }
 
 function create(deps) {
@@ -66,6 +71,8 @@ function create(deps) {
       timeline: deps.timeline,
       launchClip: deps.launchClip,
       locale: deps.locale,
+      // Söz kütüphanesi (sv_lyrics_library): yalnız okuma, list/read
+      lyricsLibrary: deps.lyricsLibrary,
       // OS the admin panel runs on; control.osc.port uses the same port floor
       platform: process.platform,
       /* Bu altısı eksikti: araçlar listede görünüyor ama uygulamada hep
@@ -97,10 +104,18 @@ function create(deps) {
       args: bundle.args,
       shell: bundle.shell,
       url: bundle.url,
+      // HTTP API açıksa panel jetonu kopyalatabilsin; kapalıyken boş
+      apiUrl: apiOn() && port ? 'http://127.0.0.1:' + port + restApi.PREFIX + '/openapi.json' : '',
+      apiToken: apiOn() && port ? token : '',
       configuredPort: configuredPort(),
       portBusy: portBusy,
       requestedPort: portBusy ? busyPort : (port || configuredPort()),
     };
+  }
+
+  function apiOn() {
+    const cfg = deps.getConfig ? deps.getConfig() : null;
+    return !!(cfg && mcp.normalizeMcp(cfg.mcp).enabled && mcp.normalizeMcp(cfg.mcp).httpApi);
   }
 
   function configuredPort() {
@@ -138,6 +153,20 @@ function create(deps) {
       res.end('loopback only');
       return;
     }
+    // Belgeli HTTP API (/api/v1): ayrı anahtar, aynı jeton ve izinler
+    if (restApi.handle(req, res, {
+      mcp: mcp,
+      ctx: ctx,
+      token: function () { return token; },
+      port: function () { return port; },
+      enabled: function () {
+        const cfg = deps.getConfig ? deps.getConfig() : null;
+        return !!(cfg && mcp.normalizeMcp(cfg.mcp).httpApi);
+      },
+      version: appVersion(),
+      locale: function () { try { return deps.locale ? deps.locale() : 'en'; } catch (e) { return 'en'; } },
+      after: function () { if (deps.syncPresets) deps.syncPresets(); },
+    })) return;
     if (req.method !== 'POST' || req.url !== '/mcp') {
       res.writeHead(404);
       res.end();

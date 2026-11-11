@@ -7,8 +7,8 @@
 ### Sahip olduğunuz her ekran için ücretsiz, açık kaynak müzik görselleştirici ve VJ yazılımı
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
-da on ekranda sese tepki veren görsellere dönüştürür. **55 kendi presetiyle** gerçek bir
-**MilkDrop** motoru, **60 görselleştirici modu**, katmanlar ve **40 GPU efekti**, bir **OBS
+da on ekranda sese tepki veren görsellere dönüştürür. **60 kendi presetiyle** gerçek bir
+**MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **44 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
 **yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3832%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4388%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -32,7 +32,7 @@ kontrolü**.
 **[SSS](#sss)** ·
 **[English](README.md)**
 
-<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, bir MilkDrop preseti, bir tünel, 3B Lorenz çekicisi, bir müzik videosu düzeni, synthwave ve bir drum &amp; bass peteği, hepsi müziğe tepki veriyor" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, en yeni iki CaYaDev MilkDrop preseti (Hologram Globe ve Stained Glass), çok geçişli Mürekkep Akışı shader'ı üstünde Sıvı Spektrum, gece göğü üstünde Korona, 3B Lorenz çekicisi, synthwave ve bir yayın başlık kartı, hepsi müziğe tepki veriyor" width="800" />
 
 </div>
 
@@ -42,13 +42,50 @@ kontrolü**.
 
 <div align="center">
 
-| **60** görselleştirici modu | **43** arkaplan | **40** GPU efekti | **18** sahne geçişi |
+| **70** görselleştirici modu | **51** arkaplan | **44** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
-| **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
-| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
-| **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
+| **83** hazır sahne | **98** formül + **13** 3B katı cisim | **43** yerleşik GLSL shader | **58** renk paleti |
+| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **106** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
+| **12** video dışa aktarma biçimi | **60** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
+
+---
+
+## v4'te yeni
+
+> **v4 henüz yayınlanmadı.** Aşağıdakilerin hepsi `main` dalında ve bugün
+> [kaynaktan](#kaynaktan-çalıştırma) çalışıyor; [Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest) sayfasındaki kurulum dosyaları v4 çıkana
+> dek son sürüm olan v3.1.7.
+
+- **Görüntü mikseri gibi kurulmuş bir Canlı sayfası.** Bankalı ve F tuşlu sahne ızgarası, Sırada
+  ve Canlı ekranları ve bir **T-bar**: çekerek sıradaki sahneyi elle karıştırın, yarıda bırakıp iki
+  sahnenin karışımını istediğiniz kadar tutun, başa döndürüp hiçbir şeyi baştan başlatmadan
+  değişikliği geri alın. AL düğmesi aynı geçişi kendi süresinde yapıyor. Çubuk **OSC / Companion**
+  üzerinden bir donanım fader'ı da olabiliyor (`show/tbar`). [→ Gösteri denetimi](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
+- **Uygulamaya benzeyen telefon kumandası.** Beş sayfa — Canlı, Sahneler, Katmanlar, Görünüm ve
+  Ses — panelin kendi temasında, kendi jetonuyla Wi-Fi üzerinden. Karartma her sayfada tek dokunuş.
+  Kendi kumandasını yazmak isteyen için protokol belgelendi. [→ Çıkışlar](#çıkışlar-ekranlar-obs-spout-ve-syphon)
+- **Çok geçişli Studio shader'ları.** Bir shader'ı `//@pass` işaretleriyle A–D tamponlarına ve bir
+  görüntü geçişine bölün; tamponlar önceki karelerini saklıyor, 1'in üstündeki değerleri tutuyor ve
+  çözünürlük değişiminden etkilenmiyor. Çok tamponlu shader kodu geçiş geçiş yapıştırılabiliyor,
+  `PASSES` içeren ISF dosyaları gerçek geçişler olarak geliyor; yerleşik **Mürekkep Akışı** tek
+  geçişin yapamadığını gösteriyor. [→ Studio](#studio--kendi-shaderınızı-yazın)
+- **Vuruşa göre oynayan video.** Video katmanında hız (0,25–4×), giriş ve çıkış noktaları, 1–16
+  vuruşluk **vuruşa kilitli döngü** ve her çıkışta canlı sarma yapan konum kaydırıcısı var. Dışa
+  aktarım kare kare aynı kalıyor. [→ Medya katmanı](#logo-görseller-ve-medya-katmanı)
+- **Uyarlanır çözünürlük.** Ağır bir sahne ekrana yetişemeyince çizim çözünürlüğü biraz iniyor,
+  pay olunca geri çıkıyor. Ölçüldü (sekiz katmanlı sahne, 2560×1600, 75 Hz ekran): **kapalı 56,4 fps,
+  açık 72,4 fps**. MilkDrop, izler ve parçacıklar basamakta baştan başlamıyor. [→ Güç ve performans](#güvenilirlik-güç-ve-güncellemeler)
+- **Çalışırken akıcı kalan panel.** Ayar, opaklık sürüklemek ya da katmanlar arasında gezinmek paneli
+  artık takmıyor: yedi katmanlı sahnede kaydırıcı sürüklerken 33,6 → 59,6 fps, opaklık sürüklerken
+  37 → 74 fps, bir önceki sürümle karşılaştırıldı.
+- **Baştan yazılan Düzen Editörü.** Çalışan geri alma, çoklu seçim, hizalama ve dağıtma, öğe
+  listesinden kilitleme ve gizleme, Shift ile tek eksende sürükleme ve F1'de kısayol listesi.
+  [→ Düzen editörü](#yayın-düzeni-editörü)
+- **Başlamak için daha çok şey.** 70 görselleştirici modu ve 51 arkaplan (18'i yeni), 60 CaYaDev
+  MilkDrop preseti (4'ü yeni), 43 yerleşik GLSL shader; her mod seçicide gerçekten çizilmiş bir
+  önizleme var.
 
 ---
 
@@ -64,10 +101,10 @@ kontrolü**.
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
   çizicisiyle ölçüldü. Bütün kütüphaneleri içe aktarın, küçük resimlerle gezin, presetleri canlı
-  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **56 CaYaDev preseti** yerleşik geliyor;
+  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **60 CaYaDev preseti** yerleşik geliyor;
   CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
-  geçiş sürgüsü, katman başına ya da tüm kareye 40 GPU efekti, ve LFO'ları, zarfları ve canlı ses
+  geçiş sürgüsü, katman başına ya da tüm kareye 44 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
   [→ Katmanlar](#katmanlar-maskeler-ve-efektler)
 - **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** TouchDesigner, Resolume, OBS
@@ -98,7 +135,7 @@ kontrolü**.
   video kılavuzlarıyla. Açılış animasyonları, vuruşla logo değiştirme, yayın yazı biçemleri ve
   dosya olarak kaydedilen düzenler. Yerleştirdiğiniz neyse dışa aktarım onu çizer; piksel piksel
   denetlendi. [→ Düzen editörü](#yayın-düzeni-editörü)
-- **Yapay zekâya hazır.** 97 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
+- **Yapay zekâya hazır.** 106 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
@@ -151,6 +188,8 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 ### İndir
 
 Son derlemeyi **[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest)** sayfasından alın.
+En yeni sürüm v3.1.7; [v4'teki yenilikler](#v4te-yeni) bir sonraki sürümle geliyor, şimdiden
+[kaynaktan](#kaynaktan-çalıştırma) çalıştırılabiliyor.
 
 | Platform | Dosya | Not |
 |---|---|---|
@@ -167,8 +206,8 @@ Başka hiçbir şey kurmanız gerekmiyor: ses yardımcısı uygulamanın kendi i
    fazla **ses kaynağı** seçin.
 2. **Görselleştirmeyi Aç**'a tıklayın. Görüntü seçili her ekranda tam ekran açılır.
 3. Sağdaki her şeyi değiştirin — anında uygulanır ve kendini kaydeder.
-4. Ya da hazır bir görünümden başlayın: **Kitaplık → Hazır Şablonlar**'da 83 tane var.
-5. Yayın için **Çıkış → Yayın Çıkışı**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
+4. Ya da hazır bir görünümden başlayın: **Kitaplık → Şablon**'da 83 hazır şablon var.
+5. Yayın için **Çıkış → Yayın Çıkışı (OBS / Web)**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
 6. Tüm pencereleri kapatmak için herhangi bir görselleştirme penceresinde **ESC**'ye basın.
 
 ### Kaynaktan çalıştırma
@@ -200,7 +239,7 @@ npm start
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
 | **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 56 CaYaDev presetiyle gelen bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 106 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
 
 ---
 
@@ -310,11 +349,11 @@ paylaştığı bir BPM kilidiyle.
 
 <div align="center">
 
-**60 görselleştirici modunun hepsi**
+**70 görselleştirici modunun hepsi**
 
 ![Tüm görselleştirici modları](docs/screenshots/modes-visualizer.jpg)
 
-**43 arkaplanın hepsi**
+**51 arkaplanın hepsi**
 
 ![Tüm arkaplanlar](docs/screenshots/modes-background.jpg)
 
@@ -325,19 +364,23 @@ Bu iki pafta doğrudan mod kataloğundan üretiliyor; yeni bir mod, ekran görü
 Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birinden istediğiniz kadar
 üst üste koyabilirsiniz.
 
-**Görselleştirici modları — 60**
+**Görselleştirici modları — 70**
 
 - **Temel** — Barlar · Merkez · Segment (LED ekolayzer) · Nokta Matris · Şehir Silüeti (pencereleri
-  yanan binalar)
+  yanan binalar) · Kapsül Dalga (ortadan açılan yuvarlak uçlu çubuklar; konuşma ve podcast için) ·
+  Sahne Ekolayzeri (perspektifli zeminde barlar ve yansımaları) · Altıgen Tayf (bant başına yanan petek)
 - **Dalga formu** — Dalga (osiloskop) · Şerit (dalga geçmişi) · 3B Dalga (perspektifte yığılmış geçmiş)
   · Lissajous (XY osiloskop) · Teller (her tel kendi bandıyla titrer) · Arazi (perspektif tel kafes
-  manzara) · Sırt Çizgileri · DJ Dalga Formu
+  manzara) · Sırt Çizgileri · DJ Dalga Formu · Sıvı Tayf (dolgulu, yumuşak eğri ve yansıması) · Nokta
+  Dalgası (tayf geçmişini taşıyan perspektifli nokta örtüsü)
 - **Dairesel** — Çember · Dairesel Dalga · Işın · Yaylar (bant başına bir yay) · Fırıldak · Mandala
-  (kutupsal gül eğrisi) · Kaleydoskop · Girdap · Helis · Tünel · Küre · Radar Grafiği
+  (kutupsal gül eğrisi) · Kaleydoskop · Girdap · Helis · Tünel · Küre · Radar Grafiği · Neon Halkalar (bant başına
+  bir halka) · Güneş Tacı (saydam çekirdeğin çevresinde aynalı yapraklar) · Sarmal Tayf
 - **Parçacık ve olay** — Parçacık · Havai Fişek (vuruşta patlamalar) · Şimşek (basta dallanan
   yıldırımlar) · Baloncuk · Sıvı Damla (metatoplar) · Dalgalı Izgara (vuruşta yayılan halkalar) ·
   Spektrogram · Konfeti · Vuruş Pedleri · Zıplayan Toplar · Stereo İzler (her bant stereo görüntüdeki
-  yerinden fırlar)
+  yerinden fırlar) · Yıldız Sıçraması (basla hızlanan, merkezden çıkan izler) · Yörüngeler (bant başına
+  bir yörünge)
 - **Üretken sistemler** — Akış Alanı (gürültü alanının yönlendirdiği parçacıklar) · Sürü (tayfın sürdüğü
   boid'ler) · Voronoi · Truchet · Moiré · Dalga Girişimi · İpler (vuruşlarla itilen verlet fiziği) ·
   Galaksi · DNA Sarmalı · İzometrik Şehir · Çekici Alanı (formül kitaplığından iki parametresi sese
@@ -354,18 +397,20 @@ paletinden, özel bir renk çiftinden ya da **gökkuşağından** geliyor. Alt k
 bir taban çizgisinde duran barlar aşağı doğru sönen bir **zemin yansıması** bırakabiliyor (güç ve
 boy).
 
-**Arkaplanlar — 43**
+**Arkaplanlar — 51**
 
 - **Akışkan** — Akışkan Gradyan (akış, dolanma, yörünge, girdap, bükülme, gren ve ses tonu kaymasıyla
   sese tepki veren bir ağ degradesi) · Mürekkep (aktıkça dönen sıvı lekeler) · Bulutsu (yumuşak gaz
   bulutları) · Dalga Katmanları (sesle kabaran dalga tepeleri) · Kutup Işıkları (dalgalanan perdeler)
-  · Lav Lambası · Su Altı
+  · Lav Lambası · Su Altı · Renk Bulutu (yavaş, büyük renk lekeleri: yazı için sakin bir zemin) · İpek
 - **Geometrik** — Retro Izgara (ufka uzanan perspektif ızgara) · Petek Izgara (merkezden yayılan bir
   dalga ve tayfla yanan hücreler) · Mozaik (frekans bandı başına bir hücre) · Koridor (size doğru
   gelen halkalar ya da çokgenler) · Sarmal · Nabız Halkaları (bas vuruşlarında ek halkalar) · Ağ
-  (sürüklenen bağlı düğümler) · Alçak Poligon · Yarım Ton · İzometrik Küpler
+  (sürüklenen bağlı düğümler) · Alçak Poligon · Yarım Ton · İzometrik Küpler · Kağıt Katmanları
+  (yumuşak gölgeli kesik kağıtlar) · Çapraz Şeritler · Nokta Deseni
 - **Atmosfer** — Yıldız Alanı · Kar / Kor · Işık Parçacıkları (bokeh) · Dijital Yağmur · Şehir
-  (pencereleri müzikle yanan paralaks silüet) · Bulutlar · Sahne Işıkları · Ateş Böcekleri · Fırtına
+  (pencereleri müzikle yanan paralaks silüet) · Bulutlar · Sahne Işıkları · Ateş Böcekleri · Fırtına ·
+  Neon Gün Batımı (suyun üstünde dilimli güneş) · Kum Tepeleri · Gece Göğü (güçlü basta kayan yıldız)
 - **Üretken zeminler** — Sıvı Metal · Plazma · Su Yüzeyi · Şeritler · Eşyükselti · Dalga Alanı ·
   Kıvılcım · Kum · Vitray · Devre Kartı · Prizma · Küre Ağı · Tel Tüneli · Petek Nabzı · Ayna Deseni
 - **Diğer** — Düz Renk · Studio (kendi yazdığınız GLSL shader)
@@ -403,7 +448,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
   *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
-- **CaYaDev MilkDrop Presetleri: 55 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
+- **CaYaDev MilkDrop Presetleri: 60 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
   ücretsiz kullanılabilirler: [`presets`](presets/README.md) klasöründen (her birinin görseliyle) ya da
@@ -472,7 +517,7 @@ sürgüleri, dört dalga biçimi, ve klasik sonsuz tünel için basla sürülen 
 - **Bozuk bir katman artık bütün kareyi götürmüyor**, ve opak bir MilkDrop katmanının
   altında kalan katmanlar hiç çizilmiyor.
 
-**Son işlem — 40 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
+**Son işlem — 44 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
 katman başına hem de birleştirilmiş görüntüde kullanılabilir. Tek bir katmandaki efekt o katmanın
 saydamlığını koruyor; alttaki katmanlar görünür kalıyor.
 
@@ -485,7 +530,9 @@ saydamlığını koruyor; alttaki katmanlar görünür kalıyor.
   · Datamosh (Blok Kayması) · Bozuk Sinyal · Renk Sapması (Kromatik)
 - **Bozulma** — Lens Bozunumu · Burgu · Kutupsal Dönüşüm · Dalga Bozulması · Yarık Tarama ·
   Kaleydoskop · Ayna
-- **Renk ve ışık** — Gradyan Eşleme · Seviyeler ve Eğri · Işık Huzmeleri · Yıldız Süzgeci
+- **Renk ve ışık** — Gradyan Eşleme · Seviyeler ve Eğri · Işık Huzmeleri · Yıldız Süzgeci · Ton
+  Eşleme (ACES / AgX) · 3B LUT (.cube)
+- **Canlı vuruşlar** — Flaş · Strobe (Canlı sayfasından basılı tutulan anlık efekt olarak da)
 
 Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 
@@ -563,12 +610,17 @@ Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 - Shader'lar `sv_resolution`, `sv_time`, `sv_level`, `sv_bass`, `sv_mid`, `sv_treble`, `sv_beat`,
   `sv_spec(x)`, `sv_waveAt(x)`, sahne paleti için `sv_col(x)`, kamera ya da video katmanı için
   `sv_media` alıyor.
-- **42 yerleşik shader**, hepsi öz testte gerçek GPU'da derleniyor:
-  - **Arkaplanlar (25)** — Bulut Katmanları · Kıvrım Akışı · Lav Lambası · Mürekkep Yayılması · Duman
+- **Çok geçişli shader'lar.** Kodu `//@pass A` … `//@pass D` (sırayla çizilen, önceki karesini
+  saklayan tamponlar) ve `//@pass image` ile bölün; `//@common` ortak. Bir geçiş kendinden önce
+  çizilen tamponların bu karesini okuyor (`sv_bufA`…`sv_bufD`), `channels=` `iChannel0`–`3`'ü bağlıyor;
+  çok tamponlu kod geçiş geçiş yapıştırılabiliyor. Tamponlar GPU izin veriyorsa yarım kayan noktalı
+  ve çözünürlük değişiminde korunuyor. ISF `PASSES` gerçek geçişler olarak geliyor.
+- **43 yerleşik shader**, hepsi öz testte gerçek GPU'da derleniyor:
+  - **Arkaplanlar (26)** — Bulut Katmanları · Kıvrım Akışı · Lav Lambası · Mürekkep Yayılması · Duman
     Halkaları · Petek Akışı · Bükülmüş Izgara · Truchet Örgü · Moiré Girişimi · Kristal Mağara ·
     Mandelbrot Yakınlaşması · Julia Kümesi · Yanan Gemi · Apollonius Çemberleri · Kaleydoskopik IFS ·
     Menger Süngeri · Mandelbulb · Işık Tüneli · Yıldız Sıçraması · Kutup Perdesi · Sıvı Metal · Neon
-    Yağmur · Reaksiyon Deseni · Su Kostikleri · Prizma Işıması
+    Yağmur · Reaksiyon Deseni · Su Kostikleri · Prizma Işıması · Mürekkep Akışı (iki geçiş)
   - **Görselleştiriciler (11)** — Işıyan Barlar · Spektrum Halkası · Dalga Alanı · Vuruş Patlaması ·
     Parlayan Osiloskop · Frekans Ağı · Nota Çemberi · Parçacık Akışı · Kaleydoskop Spektrum · Nabız
     Izgarası · Sıvı Barlar
@@ -708,6 +760,9 @@ haber bandı · karaoke vurgusu.
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor. Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
   kısa bir **vuruşta nabız** çizim saatine bağlı; dışa aktarım ekrandaki hareketin aynısını gösteriyor.
+  Video dosyasında **hız** (0,25–4×), **giriş ve çıkış noktaları**, uygulamanın temposuna kilitli 1–16
+  vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
+  formülü kare kare izliyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
@@ -770,6 +825,15 @@ OBS katmanı ve video dışa aktarımı onu çizer.
 
 </div>
 
+**Canlı sayfası ve T-bar.** Bankalı ve F tuşlu sahne ızgarası, Sırada ve Canlı ekranları, Otomatik
+VJ, anlık efektler ve katman faderleri tek sayfada. Sırada ekranı sahnenin çıkıştaki son karesini
+gösteriyor; hiç canlıya çıkmamış bir sahnede MilkDrop presetinin resmi ya da en üst katmanının
+çizilmiş önizlemesi geliyor, bunun için GPU'da ikinci bir motor çalışmıyor. **AL** sıradaki sahneyi kendi geçişiyle canlıya
+alıyor; yanındaki **T-bar** sıradaki sahneyi elle karıştırıyor: karışım çubuğu izliyor, yarıda
+bırakınca iki sahnenin karışımı kalıyor, öbür uç sahneyi canlıya alıyor, başa döndürmek hiçbir şeyi
+baştan başlatmadan değişikliği geri alıyor. Her çıkış, OBS kaplaması ve panel önizlemesi çubuğu
+izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor.
+
 **Zaman çizelgesi.** Sahneleri ve ayar değişimlerini ölçüye ya da saniyeye hizalı biçimde zamana
 yayın; tek bir oynatma kafası bütün ekranları birlikte sürüyor, çevrimdışı dışa aktarma da aynı
 gösteriyi oynatıyor.
@@ -803,6 +867,8 @@ modlarını ya da renkleri ölçüye hizalı olarak kendiliğinden değiştiriyo
 ya da paletlerin döneceğini tam olarak seçin (ya da hepsi için boş bırakın), her görselleştirici
 katmanına kendi modunu verin, ve neyin değiştiğini, sıradakini ve bir kaynak boşsa neden hiçbir şey
 olamayacağını söyleyen bir durum satırını okuyun.
+
+İsteğe bağlı denetleyici LED geri bildirimi ve hazır haritalar varsayılan kapalıdır. Port/kip koşulları, Korg CC sahne ayarı ve gerçek donanım testi sınırları için [denetleyici kurulumuna ve üretici protokol incelemesine](docs/midi-controllers.md) bakın.
 
 **MIDI.** Bir denetimi öğretin, sonra herhangi bir CC'yi ya da notayı herhangi bir ayara ya da eyleme
 eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil.
@@ -884,9 +950,15 @@ aynı sayılardır.
 
 </div>
 
-**Telefon kumandası.** Sahneler, renk paletleri, Studio presetleri, görselleştirici ve arkaplan
-modları, ses hassasiyeti, karartma ve çalan parça kartı için telefon boyutunda bir sayfa; OBS
-katmanıyla aynı sunucudan. Telefondan gelen değerler uygulanmadan önce aralık denetiminden geçiyor.
+**Telefon kumandası.** Panelin kendi tasarımında ve temasında, OBS katmanıyla aynı sunucudan
+gelen bir sayfa; telefon, tablet ya da başka bir bilgisayar için. Beş sayfa: **Canlı** (çıkışı aç
+ve kapat, karartma, ana opaklık, Otomatik VJ, sahne adımı, A/B geçişi, zaman çizelgesi, MilkDrop
+önceki / sonraki / rastgele), **Sahneler** (aranabilir kartlar), **Katmanlar** (katman başına
+göster/gizle ve opaklık), **Görünüm** (küçük resimli görselleştirici ve arkaplan modları, renk
+şablonları, Studio presetleri) ve **Ses**. Üstte çalan parça, tempo ve üç bantlı seviye görünür.
+Komutlar OSC ve MQTT ile aynı sabit denetim ağacından geçer ve uygulanmadan önce ana süreçte
+denetlenir. Kendi denetleyicinizi yazmak için iletiler
+[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) sayfasında (İngilizce).
 
 **Karartma** <kbd>Space</kbd> ile ya da herhangi bir denetleyiciden; kendi geçişiyle, kayıtlı sahneye
 dokunmadan.
@@ -1055,6 +1127,16 @@ ekranın solundaki renkleri alıyor.
 
 ---
 
+### MQTT / Home Assistant
+
+**Kontrol → MQTT / Home Assistant** (varsayılan kapalı) yazdığınız MQTT aracısına bağlanır (düz ya
+da TLS, isteğe bağlı kullanıcı adı ve parola). Uygulama karartma, Auto VJ, tempo, çalan parça, sahne,
+görselleştirici kipi ve ana opaklığı saklanan (retain) `<kök>/state/…` konularına, çevrimiçi/dışı
+durumunu `<kök>/status` konusuna yayınlar. Home Assistant keşfiyle aygıt kendiliğinden görünür.
+**Komutları kabul et** açıkken (varsayılan kapalı) `<kök>/set/blackout`, `autovj`, `scene`,
+`visualizer` ve `opacity` OSC girişiyle aynı yoldan uygulanır; saklanan komutlar yok sayılır. Aracı
+parolası MCP'de ve web istemcilerinde gizlidir, MCP `mqtt.*` yazamaz ve ayar yedeğe aktarılmaz.
+
 ### MCP — bir yapay zekâ ajanıyla kontrol
 
 Bir ajan, çalışan uygulamayı **Model Context Protocol** üzerinden sürer. Anahtar **Kontrol**
@@ -1069,7 +1151,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **97 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **106 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -1110,6 +1192,18 @@ bir araca dışarıda gönderilen alanlar için "patch içine koyun" ipucu veril
 ve sık düzenleme araçlarını tek cümlelik açıklamalarla döner; küçük bağlamlı yerel modeller için.
 Her araç adıyla çağrılabilir. Varsayılan tam listedir.
 
+**HTTP API (OpenAPI).** MCP kartındaki "HTTP API (REST, OpenAPI)" (varsayılan kapalı) aynı
+araçları MCP portunda düz HTTP ile açar, yalnız 127.0.0.1: `GET /api/v1/openapi.json` (OpenAPI 3.0,
+jeton istemez), `GET /api/v1/tools` ve gövdesi aracın JSON argümanları olan
+`POST /api/v1/tools/<ad>`. Çağrılar `Authorization: Bearer <jeton>` ister (MCP jetonu, karttan
+kopyalanır, MCP her açıldığında değişir) ve MCP ile aynı kipte çalışır. `Origin` başlığı taşıyan ya
+da loopback dışı `Host` ile gelen istekler reddedilir. Reddedilen araç çağrısı `ok:false` ile 400 döner.
+
+**Bitfocus Companion.** `integrations/companion/` sabit OSC ağacına yazan bir Companion modülüdür:
+karartma, Auto VJ, sahneler, kipler, opaklık, crossfader, palet, katmanlar, klip destesi, zaman
+çizelgesi ve her kaydırıcı yolu. OSC çıkışı Companion'a yöneltilirse karartma, Auto VJ, çalan parça,
+BPM ve opaklık değişken ve düğme geri bildirimi olarak görünür. Uygulama paketine girmez.
+
 Beş kip birikir. Anahtar **Okuma** kipinde açılır. Üst kip altındakileri de kapsar. Ajan kendi
 iznini yükseltemez: `sv_patch_config` her `mcp.*` yolunu reddeder. Engellenen çağrı gereken kipin
 adını söyler ve ajana kipi değiştirmemesini, panele tıklamamasını bildirir.
@@ -1138,11 +1232,17 @@ Ana anahtar yeter. Bu çağrılar yalnız okur.
   arkaplan kimliklerini, katman türlerini ve karışım kiplerini listeler; mod ve katman araçları
   listede olmayan kimliği reddeder. `sv_list_effects` genel zinciri, her
   katmanın zincirini ve 40 hazır efekt türünü listeler. `sv_list_presets` kütüphane presetlerini
-  ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
+  (yerleşik MilkDrop presetleri de, `builtin` işaretiyle) ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
 - `sv_get_output_status` hangi görselleştirici pencerelerin açık olduğunu, yayın anahtarını,
   portunu ve LAN bayrağını, Spout/Syphon adını okur. `sv_get_timeline`, `sv_get_clipdeck` ve
   `sv_get_autovj` o panelleri okur. `sv_get_config` bütün yapılandırmayı ya da tek bir noktalı
   yolu okur.
+- `sv_lyrics_library` şarkı sözü kitaplığını okur: `list`, `search` (ad, sanatçı, başlık) ya da
+  `get` (bir öğenin metni, `maxChars` ile sınırlı). Kitaplığın kendisi gibi yalnız Windows'ta;
+  macOS ve Linux'ta bunu söyleyen bir hata döner. Hiçbir şey yazmaz.
+- `sv_timeline_inspect` zaman çizelgesinin bütün modelini kırpmadan okur: her parça, klip,
+  otomasyon anahtarı ve işaret, tempo haritası, döngü, yakalama ve çizelge bankası. `at` (saniye)
+  verilirse o anda çalan klipleri ve otomasyon değerlerini de döndürür.
 
 #### Uygula
 
@@ -1153,8 +1253,11 @@ Kayıtlı olanı kullanır.
   yazı, modülasyon, geçiş, Studio, MilkDrop ve geri beslemeyi kapsar. Pencere saydamlığı ve görev
   çubuğunu kaplama olduğu gibi kalır.
 - `sv_apply_template` hazır bir şablonu kimlik ya da adla uygular. `sv_set_visualizer_type` ve
-  `sv_set_background_type` var olan bir mod kimliğine geçer. Bir Studio shader'ı `custom` türü ve
-  `presetId` ile gösterilir. `sv_set_layer_enabled` bir katmanı gösterir ya da gizler ve yığını
+  `sv_set_background_type` bir katmanı var olan bir mod kimliğine geçirir. Katmanı `layerId`
+  seçer; o türden birden çok katman varsa gereklidir. Türü uymayan, kilitli ya da bilinmeyen
+  katmanda hiçbir şey değişmez, nedenini söyleyen bir hata döner. Ayarlar'da **Modu Uygun Katmana
+  Yönlendir** açıksa eski kural geçerlidir: mod uygun ilk katmana gider. Bir Studio shader'ı
+  `custom` türü ve `presetId` ile gösterilir. `sv_set_layer_enabled` bir katmanı gösterir ya da gizler ve yığını
   açar. `sv_set_crossfade` A/B sürgüsünü 0 ile 1 arasına alır.
 - `sv_trigger_clip` klip destesinde bir yuvayı satır ve sütunla ateşler. `sv_stop_clips` çalan her
   yuvayı durdurur. Izgara kayıtlı halinde kalır. İkisi de yönetici penceresinin açık olmasını
@@ -1162,7 +1265,11 @@ Kayıtlı olanı kullanır.
 - `sv_set_effect_enabled` ve `sv_set_effect_param` genel zincirde duran bir efekti değiştirir.
   Katman çifti aynı işi tek katmanda yapar. `sv_set_modulation_enabled` modülasyon matrisini açar
   ya da kapatır. `sv_set_macro` var olan bir makro sürgüsünü ayarlar.
-- `sv_load_preset` kütüphanedeki bir preseti canlı MilkDrop kaynağına kopyalar.
+- `sv_load_preset` kütüphanedeki ya da yerleşik bir MilkDrop presetini canlı MilkDrop kaynağına
+  kopyalar. `layerId` verilirse tek bir MilkDrop katmanını hedefler: Bağımsız katman kendi
+  presetini alır, Ortak katmanda ortak seçim değişir. Başka türden, kilitli ya da bilinmeyen
+  katmanda hiçbir şey değişmez, nedenini söyleyen bir hata döner. `layerId` yoksa sonuç ortak
+  preseti gösteren katmanları sayar; hiçbiri göstermiyorsa uyarır.
   `sv_apply_color_preset` var olan bir kullanıcı ya da hazır paleti arkaplan gradyanına boyar.
   `sv_set_milkdrop_cycle` kütüphanenin ilerleyişini ayarlar: otomatik sonraki, sıra, kaynak,
   etiket, birim, ölçü sayısı, parça ilerleyişi ve sert kesme.
@@ -1175,7 +1282,11 @@ Oluşturur ve düzenler.
   üstüne yazar, `sv_rename_scene` kimliği ya da şimdiki adıyla bulduğu sahneye `newName` adını verir,
   `sv_delete_scene` siler.
 - Katmanlar: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
-  `sv_remove_layer`, `sv_reorder_layers`. Bir katman tür, görselleştirici tipi, preset, opaklık,
+  `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `milkdrop` türüyle `sv_add_layer`
+  presetiyle hazır bir MilkDrop katmanı ekler (`presetId` ya da yerleşik bir MilkDrop 3 preseti);
+  ortak preseti gösteren başka bir katman varsa yenisi Bağımsız olur. `sv_duplicate_layer` paneldeki
+  Çoğalt gibi kaynağın hemen üstüne yeni kimlikli bir kopya koyar; kilitli katman kopyalanabilir,
+  kopya da kilitli kalır. Bir katman tür, görselleştirici tipi, preset, opaklık,
   harman, dönüşüm (x, y, ölçek, döndürme, çevirme), ses tepkisi, maske, solo, sessiz, kilit ve
   grup taşır. Katman efektleri efekt araçlarından gider. Katman eklemek ya da göstermek yığını
   açar.
@@ -1228,6 +1339,16 @@ Canlı yüzeyleri açar.
   harmanlama, maskeler, ağ, renk ve test deseni; haritalamayı da açar. Yeni bir ağ portu açmaz.
 - `sv_timeline_transport` zaman çizelgesini yönetici taşıması üzerinden oynatır, duraklatır,
   durdurur ya da sarar. Yönetici penceresi açık olmalıdır.
+- Çizelge düzenleme (`sv_patch_config` ile `timeline.*` yazmakla aynı izin):
+  `sv_timeline_edit_track` klip ya da otomasyon parçası ekler, günceller, kaldırır veya taşır;
+  `sv_timeline_edit_clip` klip ekler, günceller, kaldırır veya böler (sahne klibi var olan bir
+  sahneye bağlanmalı); `sv_timeline_set_keys` otomasyon parçasının anahtarlarını değiştirir;
+  `sv_timeline_edit_marker` işaret ekler, taşır, yeniden adlandırır ya da kaldırır;
+  `sv_timeline_set_options` tempo, döngü, yakalama, kare hızı, **Timeline kullan** ve çizelge
+  anahtarını ayarlar; `sv_timeline_bank` bankadaki çizelgeye geçer, ekler, yeniden adlandırır,
+  kaldırır, açar, kapatır ya da taşır. Kilitli parçada yalnız kilit açılabilir. Otomasyon hedefi
+  ya geçerli kipin yazabildiği sayısal bir ayar yolu ya da parça/klip opaklığıdır
+  (`tl.track.<id>.opacity`, `tl.clip.<id>.opacity`).
 - `sv_set_blackout` `on`, `off` ya da `toggle` alır ve kayıtlı sahneyi yerinde bırakır.
   `sv_set_blackout_transition` karartma geçişinin türünü ve süresini ayarlar.
 
@@ -1257,11 +1378,19 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 
 </div>
 
-- **Sekiz kategori** — Sahne, Ses, Işık, Çıkış, Kontrol, Studio, Kitaplık ve Ayarlar.
+- **Üstte beş sayfa** — Sahne, Canlı, Zaman, Stüdyo ve Çıktı; dişlinin arkasında Ses, Işık, Gösteri,
+  Kontrol, Kitaplık ve Ayarlar (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> sayfa değiştirir).
+- **Sahne**: katman listesi, büyük önizleme, seçili katmanın denetçisi ve preset, şablon, efekt ve
+  modülasyon rafı. **Canlı**: AL düğmeli Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
+  katman faderleri ve klip destesi. **Zaman**: önizleme üstte, çizelge altta bütün genişlikte.
+  **Çıktı** ve **Stüdyo** bir seferde tek bölüm gösterir.
+- Canlı'da **anlık efektler**: düğmeyi basılı tuttuğunuz sürece flaş, strobe, bulanık, kaleydoskop,
+  glitch ve negatif. Ayarlarınıza dokunmaz; flaş sınırlaması açıkken strobe saniyede üç flaşı geçmez.
+- Sahne değişikliklerinde **geri al ve yinele** (<kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd>).
 - **Her yerde canlı** — her değişiklik anında çıkış pencerelerine ulaşıyor ve kendini kaydediyor.
 - Her sayfanın yanında kendi demo sinyaliyle bir **canlı önizleme**, ses ölçerleri ve kayıtlı sahneler.
-- Her kartta ve kategoride **değişti işaretleri**; bölümü ya da bütün kategoriyi sıfırlama.
-- Her kategorideki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- Her kartta ve sayfada **değişti işaretleri**; bölümü ya da bütün sayfayı sıfırlama.
+- Her sayfadaki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 - **Gelişmiş** anahtarları seyrek kullanılan denetimleri siz isteyene kadar gizliyor; **genişletilmiş
   aralıklar** sürgü sınırlarını 5 katına çıkarıyor.
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test
@@ -1302,6 +1431,11 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   Düşük güç kipi, her zaman ya da yalnız pildeyken, kare hızını 30 ile sınırlıyor, efektleri kapatıyor,
   MilkDrop ve arkaplan çözünürlüğünü düşürüyor; dışa aktarım ve OBS kaynağı değişmiyor. Çıkış açıkken
   panel önizlemesi daha seyrek çiziyor.
+- **Uyarlanır çözünürlük** — ağır bir sahne ekrana yetişemeyince çıkışın çizim çözünürlüğü bir
+  basamak (en çok yarıya) iniyor, on sakin saniyeden sonra geri çıkıyor; MilkDrop, izler ve
+  parçacıklar basamakta baştan başlamıyor. Ölçüldü (sekiz katmanlı sahne, 2560×1600, 75 Hz ekran):
+  kapalı 56,4 fps, açık 72,4 fps. Varsayılan açık, Performans altında kapatılabiliyor; video dışa
+  aktarma ve OBS kaynağına hiç uygulanmıyor.
 
 ---
 
@@ -1903,7 +2037,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3832 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4388 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

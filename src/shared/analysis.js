@@ -107,6 +107,158 @@
   }
 
   // ==========================================================================
+
+  /* ITU-R BS.1770-4 / EBU R128 gürlük ölçeri (LUFS).
+
+     Mevcut "Gürlük" göstergesi 0..1 görsel bir sayı; mastering ve yayında
+     konuşulan birim ise LUFS. Bu sınıf standardın kendisini uygular:
+       - K ağırlıklama: yüksek raf ön süzgeci + RLB yüksek geçiren, iki
+         ikinci derece süzgeç. Katsayılar her örnekleme hızı için
+         formülden üretilir (libebur128 ile aynı yöntem), yani 44.1 ve
+         48 kHz ikisi de doğru ölçer.
+       - Anlık (M) 400 ms, kısa süreli (S) 3 s pencere; 100 ms adımla.
+       - Entegre (I): 400 ms bloklar, -70 LUFS mutlak ve -10 LU göreli kapı.
+         Bloklar 0.1 LU'luk bir histogramda tutulur; saatlerce açık kalsa da
+         bellek sabit kalır.
+     Saf aritmetik: tests/lufs.test.js bilinen cevaplı sinüslerle ölçer. */
+  const LUFS_FLOOR = -70;
+  const HIST_MIN = -70;
+  const HIST_MAX = 10;
+  const HIST_STEP = 0.1;
+  const HIST_BINS = Math.round((HIST_MAX - HIST_MIN) / HIST_STEP);
+
+  function kWeighting(fs) {
+    // Ön süzgeç (yüksek raf, ~+4 dB @ >1.5 kHz)
+    let f0 = 1681.974450955533;
+    const G = 3.999843853973347;
+    let Q = 0.7071752369554196;
+    let K = Math.tan((Math.PI * f0) / fs);
+    const Vh = Math.pow(10, G / 20);
+    const Vb = Math.pow(Vh, 0.4996667741545416);
+    let a0 = 1 + K / Q + K * K;
+    const pre = {
+      b0: (Vh + (Vb * K) / Q + K * K) / a0,
+      b1: (2 * (K * K - Vh)) / a0,
+      b2: (Vh - (Vb * K) / Q + K * K) / a0,
+      a1: (2 * (K * K - 1)) / a0,
+      a2: (1 - K / Q + K * K) / a0,
+    };
+    // RLB yüksek geçiren (~38 Hz)
+    f0 = 38.13547087602444;
+    Q = 0.5003270373238773;
+    K = Math.tan((Math.PI * f0) / fs);
+    a0 = 1 + K / Q + K * K;
+    const rlb = { b0: 1, b1: -2, b2: 1, a1: (2 * (K * K - 1)) / a0, a2: (1 - K / Q + K * K) / a0 };
+    return [pre, rlb];
+  }
+
+  const energyToLufs = (e) => (e > 0 ? -0.691 + 10 * Math.log10(e) : -Infinity);
+
+  class LoudnessMeter {
+    constructor(opts) {
+      const o = opts || {};
+      this.sampleRate = o.sampleRate || 48000;
+      this.filters = kWeighting(this.sampleRate);
+      this.hop = Math.max(1, Math.round(this.sampleRate * 0.1));
+      this.reset();
+    }
+
+    reset() {
+      // Kanal başına iki süzgecin durumu (DF-I: x1,x2,y1,y2)
+      this._state = [new Float64Array(8), new Float64Array(8)];
+      this._acc = [0, 0];
+      this._n = 0;
+      this._subs = new Float64Array(30); // son 30 × 100 ms alt blok enerjisi
+      this._subCount = 0;
+      this._subPos = 0;
+      this._histCount = new Float64Array(HIST_BINS);
+      this._histEnergy = new Float64Array(HIST_BINS);
+      this.momentary = -Infinity;
+      this.shortTerm = -Infinity;
+      this.integrated = -Infinity;
+      this.maxMomentary = -Infinity;
+    }
+
+    _filter(ch, x) {
+      const s = this._state[ch];
+      const f0 = this.filters[0];
+      const f1 = this.filters[1];
+      const y0 = f0.b0 * x + f0.b1 * s[0] + f0.b2 * s[1] - f0.a1 * s[2] - f0.a2 * s[3];
+      s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y0;
+      const y1 = f1.b0 * y0 + f1.b1 * s[4] + f1.b2 * s[5] - f1.a1 * s[6] - f1.a2 * s[7];
+      s[5] = s[4]; s[4] = y0; s[7] = s[6]; s[6] = y1;
+      return y1;
+    }
+
+    /* Ardışık örnekleri işle. right verilmezse tek kanal ölçülür.
+       start/end: dizinin hangi aralığının yeni örnek olduğu. */
+    push(left, right, start, end) {
+      if (!left) return this;
+      const a = start == null ? 0 : Math.max(0, start | 0);
+      const b = end == null ? left.length : Math.min(left.length, end | 0);
+      const stereo = !!(right && right.length >= b);
+      for (let i = a; i < b; i++) {
+        const l = this._filter(0, left[i]);
+        this._acc[0] += l * l;
+        if (stereo) {
+          const r = this._filter(1, right[i]);
+          this._acc[1] += r * r;
+        }
+        if (++this._n >= this.hop) this._closeSub();
+      }
+      return this;
+    }
+
+    _closeSub() {
+      // Kanal ortalama karelerinin toplamı (L/R ağırlığı 1.0)
+      const e = (this._acc[0] + this._acc[1]) / this._n;
+      this._acc[0] = 0; this._acc[1] = 0; this._n = 0;
+      this._subs[this._subPos] = e;
+      this._subPos = (this._subPos + 1) % this._subs.length;
+      if (this._subCount < this._subs.length) this._subCount++;
+      const mean = (k) => {
+        let sum = 0;
+        for (let j = 1; j <= k; j++) sum += this._subs[(this._subPos - j + this._subs.length) % this._subs.length];
+        return sum / k;
+      };
+      if (this._subCount >= 4) {
+        const block = mean(4);
+        this.momentary = energyToLufs(block);
+        if (this.momentary > this.maxMomentary) this.maxMomentary = this.momentary;
+        this._gate(block);
+      }
+      if (this._subCount >= 30) this.shortTerm = energyToLufs(mean(30));
+    }
+
+    // 400 ms bloğu entegre ölçüme ekle (mutlak kapı burada)
+    _gate(energy) {
+      const L = energyToLufs(energy);
+      if (!(L > LUFS_FLOOR)) return;
+      const bin = Math.min(HIST_BINS - 1, Math.max(0, Math.floor((L - HIST_MIN) / HIST_STEP)));
+      this._histCount[bin] += 1;
+      this._histEnergy[bin] += energy;
+      let n = 0;
+      let sum = 0;
+      for (let i = 0; i < HIST_BINS; i++) { n += this._histCount[i]; sum += this._histEnergy[i]; }
+      if (!n) return;
+      const rel = energyToLufs(sum / n) - 10;
+      let n2 = 0;
+      let sum2 = 0;
+      for (let i = 0; i < HIST_BINS; i++) {
+        if (!this._histCount[i]) continue;
+        // Kutunun ortalama gürlüğü göreli kapıyla karşılaştırılır
+        if (energyToLufs(this._histEnergy[i] / this._histCount[i]) >= rel) {
+          n2 += this._histCount[i];
+          sum2 += this._histEnergy[i];
+        }
+      }
+      this.integrated = n2 ? energyToLufs(sum2 / n2) : -Infinity;
+    }
+  }
+
+  // LUFS'u 0..1'e taşı (modülasyon kaynağı): -60 LUFS = 0, 0 LUFS = 1
+  const lufsUnit = (v) => (isFinite(v) ? clamp01((v + 60) / 60) : 0);
+
   class Analyser {
     /* opts:
          sampleRate — örnekleme hızı (varsayılan 48000)
@@ -132,6 +284,9 @@
       this.spread = 0;     // tayfsal yayılım
 
       this.loudness = 0;   // 0..1
+      // LUFS yalnız panel ya da etkin yönlendirme isteyince ayrılır ve işlenir.
+      this.loudnessMeter = null;
+      this._loudnessDemand = 0;
       this.peak = 0;
       this.dynamics = 0;   // tepe / RMS
       this.silent = true;
@@ -187,6 +342,7 @@
       this._ringPos = 0;
       this._ringFill = 0;
       this._cqNever = true;
+      if (this.loudnessMeter) this.loudnessMeter.reset();
       if (this._onsets) for (const k in this._onsets) this._onsets[k].reset();
     }
 
@@ -238,6 +394,7 @@
       this._key(step);
       this._hpss(spec);
       this._levels(time, step, spec);
+      this._lufs(time, step, stereo);
       this._pitchTrack(time);
       this._drums(spec, step);
       if (stereo) this._stereo(stereo);
@@ -783,6 +940,38 @@
       this.width = tot > 1e-12 ? clamp01(side / tot * 2) : 0;
     }
 
+    /* LUFS ölçerini besle. Analiz tamponu her karede son fftSize örneği
+       taşır ve ardışık kareler örtüşür; aynı örneği iki kez saymamak için
+       yalnız son dt × örnekleme hızı kadarı (yeni gelen kısım) işlenir. */
+    _lufs(time, dt, stereo) {
+      if (!(this._loudnessDemand > 0)) return;
+      this._loudnessDemand = Math.max(0, this._loudnessDemand - dt);
+      const L = stereo && stereo.left && stereo.left.length ? stereo.left : time;
+      if (!L || !L.length) return;
+      const R = stereo && stereo.right && stereo.right.length === L.length ? stereo.right : null;
+      const n = Math.min(L.length, Math.max(0, Math.round(dt * this.loudnessMeter.sampleRate)));
+      if (!n) return;
+      this.loudnessMeter.push(L, R, L.length - n, L.length);
+    }
+
+    /* Okuyucu talebini kısa süre canlı tut: panel 100 ms'de, modülasyon her
+       karede yeniler. Ayrılan panel ya da silinen yönlendirme zamanlayıcı
+       gerektirmeden en geç 250 ms sonra ölçümü durdurur. Çocuk çizelge
+       modülatörlerinden biri talep ettiğinde diğerleri bunu iptal etmez. */
+    requestLoudness(sampleRate) {
+      this._loudnessDemand = 0.25;
+      const rate = Number.isFinite(sampleRate) && sampleRate >= 8000 ? sampleRate : this.sampleRate;
+      if (!this.loudnessMeter || this.loudnessMeter.sampleRate !== rate) {
+        this.loudnessMeter = new LoudnessMeter({ sampleRate: rate });
+      }
+      return this.loudnessMeter;
+    }
+
+    // Entegre ölçümü sıfırla (panelin Sıfırla düğmesi)
+    resetLoudness() {
+      if (this.loudnessMeter) this.loudnessMeter.reset();
+    }
+
     /* Modülasyon matrisine açılan kaynaklar. Hepsi 0..1 (korelasyon -1..1
        olduğu için taşınır). */
     sources() {
@@ -794,6 +983,7 @@
         anFlux: this.flux,
         anSpread: this.spread,
         anLoudness: this.loudness,
+        anLufs: this.loudnessMeter ? lufsUnit(this.loudnessMeter.momentary) : 0,
         anPeak: this.peak,
         anDynamics: this.dynamics,
         anHarmonic: this.harmonic,
@@ -819,6 +1009,7 @@
   const READING_SOURCE = /"(an[A-Z]\w*|chroma\d+|kickTrig|snareTrig|hatTrig)"/;
   function neededBy(cfg) {
     const c = cfg || {};
+    if (c.timelineComposition && c.timelineComposition.units.some((u) => neededBy(u.cfg))) return true;
     if (c.oscOut && c.oscOut.enabled === true && c.oscOut.analysis !== false) return true;
     if (c.visualizer && READING_MODES.has(c.visualizer.type)) return true;
     if (Array.isArray(c.layers) && c.layers.some((l) => l && READING_MODES.has(l.type))) return true;
@@ -828,6 +1019,7 @@
   const api = {
     Analyser, NOTE_NAMES, CHORDS, KEY_MAJOR, KEY_MINOR,
     correlate, cosine, median, alphaFor, neededBy,
+    LoudnessMeter, kWeighting, energyToLufs, lufsUnit,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVAnalysis = api;

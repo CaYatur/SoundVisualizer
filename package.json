@@ -1,6 +1,6 @@
 {
   "name": "soundvisualizer",
-  "version": "3.1.7",
+  "version": "4.0.0-beta",
   "description": "CaYaDev Visualizer — free, open-source music visualizer and VJ software: multi-monitor output, a MilkDrop engine, OBS overlay, Spout/Syphon, projection mapping, RGB lighting and a GLSL shader studio (Windows, macOS, Linux)",
   "main": "src/main/main.js",
   "author": {
@@ -20,20 +20,27 @@
     "postinstall": "node scripts/rebuild-audify.js",
     "rebuild:audio": "node scripts/rebuild-audify.js",
     "icons": "node scripts/gen-icons.js",
+    "thumbs:modes": "node scripts/gen-mode-thumbs.js",
     "prepare:smtc": "node scripts/prepare-smtc.js",
     "prepare:appaudio": "node scripts/prepare-app-audio.js",
-    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-portable-stub.js && node scripts/prepare-smtc.js && node scripts/prepare-app-audio.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
-    "pack:dir": "electron-builder --dir",
+    "dist:win": "node scripts/bundle-pages.js && node scripts/gen-mode-thumbs.js && node scripts/prepare-lighting.js && node scripts/prepare-portable-stub.js && node scripts/prepare-smtc.js && node scripts/prepare-app-audio.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
+    "pack:dir": "node scripts/bundle-pages.js && node scripts/gen-mode-thumbs.js && electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
     "smoke:bridge": "node scripts/start.js --smoke --bridge",
-    "dist:linux": "npm run icons && electron-builder --linux --x64 --publish never",
+    "dist:linux": "node scripts/bundle-pages.js && node scripts/gen-mode-thumbs.js && npm run icons && electron-builder --linux --x64 --publish never",
     "prepare:appaudio:mac": "node scripts/prepare-app-audio-mac.js",
-    "dist:mac:arm64": "node scripts/prepare-app-audio-mac.js --arch=arm64 && npm run icons && electron-builder --mac --arm64 --publish never",
+    "dist:mac:arm64": "node scripts/bundle-pages.js && node scripts/gen-mode-thumbs.js && node scripts/prepare-app-audio-mac.js --arch=arm64 && npm run icons && electron-builder --mac --arm64 --publish never",
     "check:runtime": "node scripts/check-runtime.js",
     "release:assets": "node scripts/release-assets.js",
     "bench": "node scripts/bench.js",
     "perf": "node scripts/perf.js",
+    "golden": "node scripts/golden.js",
+    "ui-walk": "node scripts/ui-walk.js",
+    "ui-audit": "node scripts/ui-audit.js",
+    "ui-layout": "node scripts/ui-layout.js",
+    "engine-parity": "node scripts/engine-parity.js",
+    "engine-memory": "node scripts/engine-memory.js",
     "parity": "node scripts/parity.js",
     "failover": "node scripts/failover.js",
     "bridge-rig": "node scripts/bridge-rig.js",
@@ -147,7 +154,7 @@
       "perMachine": true,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "CAYADEV Visualizer",
+      "shortcutName": "CaYaDev SoundVisualizer",
       "include": "scripts/installer.nsh",
       "artifactName": "CAYADEV-Visualizer-${version}-windows-setup.exe"
     },
@@ -181,7 +188,8 @@
       "hardenedRuntime": false,
       "identity": null,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source."
+        "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source.",
+        "CFBundleDisplayName": "CaYaDev SoundVisualizer"
       },
       "artifactName": "CAYADEV-Visualizer-${version}-macos-${arch}.${ext}"
     },
@@ -207,7 +215,13 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Multi-monitor audio visualizer",
-      "description": "Music visualizer and VJ software that reacts to system audio in real time."
+      "description": "Music visualizer and VJ software that reacts to system audio in real time.",
+      "desktop": {
+        "entry": {
+          "Name": "CaYaDev SoundVisualizer",
+          "Keywords": "Visualizer;SoundVisualizer;CaYaDev;"
+        }
+      }
     },
     "deb": {
       "depends": [

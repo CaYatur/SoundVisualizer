@@ -27,12 +27,6 @@
   const EASES = ['out', 'smooth', 'linear', 'back'];
   const DEFAULTS = { type: 'none', duration: 0.6, delay: 0, ease: 'out', distance: 0.08 };
 
-  // Katmansız kipte sentezlenen katmanların bölümleri (layers.js synthesize)
-  const CLASSIC_SECTIONS = {
-    ly_bg: 'background', ly_media: 'media', ly_spr_back: 'images', ly_spr_front: 'images',
-    ly_vis: 'visualizer', ly_text: 'text', ly_logo: 'logo',
-  };
-
   function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 
@@ -50,20 +44,8 @@
     return !!(spec && spec.type && spec.type !== 'none' && TYPES.indexOf(spec.type) > 0);
   }
 
-  /* Ayarı tutan nesne: katman yığınında katman, katmansız kipte bölüm.
-     `stack` çağıranın stackOn sonucu (kural tek yerde kalsın). */
-  function holderOf(layer, cfg, stack, create) {
-    if (!layer) return null;
-    if (stack) return layer;
-    const sec = CLASSIC_SECTIONS[layer.id];
-    if (!sec || !cfg) return null;
-    if (!cfg[sec]) { if (!create) return null; cfg[sec] = {}; }
-    return cfg[sec];
-  }
-
-  function specOf(layer, cfg, stack) {
-    const h = holderOf(layer, cfg, stack, false);
-    return h && active(h.reveal) ? h.reveal : null;
+  function specOf(layer) {
+    return layer && active(layer.reveal) ? layer.reveal : null;
   }
 
   // Ayarın imzası: değişince animasyon baştan oynar (düzenlerken görülsün)
@@ -132,7 +114,7 @@
     return out;
   }
 
-  const api = { TYPES, EASES, DEFAULTS, CLASSIC_SECTIONS, normalize, active, holderOf, specOf, sig, ease, frame, stagger };
+  const api = { TYPES, EASES, DEFAULTS, normalize, active, specOf, sig, ease, frame, stagger };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVReveal = api;
 })();

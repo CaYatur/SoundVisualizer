@@ -22,6 +22,8 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 const root = path.join(__dirname, '..');
+// Paketleme ya da ölçümden kalan üretilmiş sayfa testlerin kaynak taramasına girmesin
+require('./bundle-pages').clean();
 const dir = path.join(root, 'tests');
 
 function collect(d) {

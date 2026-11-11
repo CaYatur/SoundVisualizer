@@ -111,3 +111,43 @@ test('yalnız http(s) adresleri kabul edilir', () => {
   const c = LL.sanitizeConfig({ providers: [{ url: 'file:///etc/passwd' }, { url: 'javascript:1' }, { url: 'https://example.com/x' }] });
   assert.strictEqual(c.providers.length, 1);
 });
+
+const LP = require('../src/shared/lyrics-providers.js');
+
+test('LRCLIB hazır şablon: adres ve yol doğru; varsayılan listeye yazılmaz', () => {
+  assert.strictEqual(LP.LRCLIB_PRESET.name, 'LRCLIB');
+  assert.strictEqual(LP.LRCLIB_PRESET.format, 'json');
+  assert.strictEqual(LP.LRCLIB_PRESET.path, 'syncedLyrics');
+  assert.strictEqual(LP.LRCLIB_PRESET.enabled, true);
+  assert.strictEqual(
+    LP.LRCLIB_PRESET.url,
+    'https://lrclib.net/api/get?artist_name={artist}&track_name={title}&album_name={album}&duration={duration}'
+  );
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'defaults.js'), 'utf8');
+  assert.match(src, /lyricsLookup: \{[^}]*providers: \[\]/);
+  assert.doesNotMatch(src, /lrclib\.net/);
+});
+
+test('LRCLIB şablonu bir kez eklenir; ikinci ekleme çoğaltmaz', () => {
+  const list = [];
+  const a = LP.addLrclibPreset(list);
+  assert.strictEqual(a.added, true);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].url, LP.LRCLIB_PRESET.url);
+  const b = LP.addLrclibPreset(list);
+  assert.strictEqual(b.added, false);
+  assert.strictEqual(list.length, 1);
+  list.push({ enabled: true, name: 'lrclib', url: 'https://other.example/x', format: 'lrc' });
+  const c = LP.addLrclibPreset(list);
+  assert.strictEqual(c.added, false);
+  assert.strictEqual(list.length, 2);
+});
+
+test('özel sağlayıcı ekleme LRCLIB şablonundan bağımsız kalır', () => {
+  const list = [];
+  LP.addLrclibPreset(list);
+  list.push({ enabled: true, name: '', url: 'https://example.com/api/get?artist={artist}&title={title}', format: 'json', path: 'syncedLyrics' });
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0].name, 'LRCLIB');
+  assert.match(list[1].url, /example\.com/);
+});

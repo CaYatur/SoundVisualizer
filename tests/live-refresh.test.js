@@ -54,12 +54,12 @@ test('adoptVisualizer retargets the live layer instead of only the classic field
   assert.strictEqual(drawn[0].presetId, 'usr_live');
 });
 
-test('revealLayer turns a hidden visualizer on when the stack was not driving', () => {
+test('revealLayer turns a hidden visualizer on', () => {
   const cfg = scene();
-  cfg.layerStack.enabled = false;
   const layer = cfg.layers[0];
+  layer.enabled = false;
+  layer.muted = true;
   L.revealLayer(cfg, layer);
-  assert.strictEqual(L.stackOn(cfg), true);
   assert.strictEqual(layer.enabled, true);
   assert.strictEqual(layer.muted, false);
   assert.ok(L.resolve(cfg).some((l) => l.id === 'ly_vis' && l.type === 'bars'));
@@ -86,7 +86,6 @@ test('MCP visualizer type and layer enable update the stack that is drawn', asyn
   assert.strictEqual(shown.ok, true, JSON.stringify(shown));
   assert.strictEqual(cfg.layers[0].enabled, true);
   assert.strictEqual(cfg.layers[0].muted, false);
-  assert.strictEqual(L.stackOn(cfg), true);
   assert.ok(L.resolve(cfg).some((l) => l.type === 'circular'));
 });
 

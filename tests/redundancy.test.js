@@ -97,11 +97,7 @@ test('aktarılan anahtarlar: kurulum hiç gitmez; sahne listesi diğer kopyalarl
   assert.deepStrictEqual(changed, ['visualizer']);
   assert.strictEqual(target.audio.device, 'mine');
   assert.strictEqual(R.patchMsg(cfg, ['audio', 'stream'], 1), null, 'yalnız kurulum değiştiyse ileti yok');
-  // SCENE listesi panel, kontrol, ana süreç ve MCP'dekiyle aynı
-  const list = (src) => JSON.parse('[' + /SCENE_KEYS = \[([^\]]*)\]/.exec(src)[1].replace(/'/g, '"').replace(/,\s*$/, '') + ']');
-  for (const f of ['src/admin/admin.js', 'src/admin/control.js', 'src/main/main.js', 'src/shared/mcp.js']) {
-    assert.deepStrictEqual(list(read(f)), K.SCENE, f);
-  }
+  assert.strictEqual(K.SCENE, require('../src/shared/schema.js').SCENE_KEYS, 'sahne alanları tek listeden');
 });
 
 /* Gerçek yayın sunucusu: yedek bağlantısı parolasız kabul edilmez; yayın
@@ -198,7 +194,7 @@ test('MilkDrop eşliği (#812): birincil tohum, içerik özeti ve anı gönderiy
   assert.strictEqual(R.mdParity({ id: 'builtin:1', hash: '' }, ''), '');
   assert.strictEqual(R.mdParity(null, 'x'), '');
   const main = read('src/main/main.js');
-  const relay = main.slice(main.indexOf('function relayMdFollow(sender, mp) {'), main.indexOf('function mdPresetHash(id) {'));
+  const relay = main.slice(main.indexOf('function mdFollowOf(mp) {'), main.indexOf('function mdPresetHash(id) {'));
   // Tohum (#585) seçimin içinde; yedeğe özet ve an eklenir
   assert.match(relay, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
   assert.match(relay, /streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ hash: mdPresetHash\(follow\.id\) \}\) \}\)/);

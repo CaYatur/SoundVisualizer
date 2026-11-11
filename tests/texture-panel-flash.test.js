@@ -1,5 +1,5 @@
 'use strict';
-/* Spout/Syphon kartı: durum ana süreçten gelene dek çıkış anahtarı çizilmez
+/* Spout/Syphon kartı: durum ana süreçten gelene dek başlatma düğmesi çizilmez
    (bir an görünüp tıklanabiliyor, sonra kart değişiyordu). */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -20,6 +20,7 @@ function mount(platform, statusPromise) {
     el,
     cfg: () => ({ textureShare: { enabled: false, name: 'X' }, background: {} }),
     row: (label, ctrl) => el('div', { label }, [ctrl]),
+    moduleHead: (o) => el('button', { class: 'sv-module-act', text: o.start }),
     push() {},
     rerender() { rerenders++; },
   };
@@ -34,7 +35,7 @@ function mount(platform, statusPromise) {
 test('Linux: anahtar hiç çizilmez, "yok" kartı ilk karede gelir', () => {
   const m = mount({ isLinux: true }, new Promise(() => {}));
   const p = m.api.panel();
-  assert.ok(!m.has(p, (n) => n.tag === 'input' && n.attrs.type === 'checkbox'), 'anahtar yok');
+  assert.ok(!m.has(p, (n) => n.tag === 'button' && n.attrs.class === 'sv-module-act'), 'düğme yok');
   assert.match(m.text(p), /Spout bir Windows/);
 });
 
@@ -43,14 +44,14 @@ test('Windows/macOS: durum gelene dek anahtar yok; gelince yeniden çizilir ve a
   const status = new Promise((r) => { resolve = r; });
   const m = mount({ isWindows: true }, status);
   const p1 = m.api.panel();
-  assert.ok(!m.has(p1, (n) => n.tag === 'input'), 'bilinmeyen durumda tıklanacak bir şey yok');
+  assert.ok(!m.has(p1, (n) => n.tag === 'input' || n.tag === 'button'), 'bilinmeyen durumda tıklanacak bir şey yok');
   assert.strictEqual(m.rerenders(), 0);
   resolve({ running: false, supported: true, protocol: 'spout', frames: 0, dropped: 0, error: null, reason: null });
   await status;
   await new Promise((r) => setImmediate(r));
   assert.strictEqual(m.rerenders(), 1, 'durum gelince yeniden çizim istendi');
   const p2 = m.api.panel();
-  assert.ok(m.has(p2, (n) => n.tag === 'input' && n.attrs.type === 'checkbox'), 'anahtar şimdi var');
+  assert.ok(m.has(p2, (n) => n.tag === 'button' && n.attrs.class === 'sv-module-act'), 'düğme şimdi var');
   // sonraki durum güncellemeleri yeniden çizimi tetiklemez (döngü yok)
   m.push({ running: true, supported: true, protocol: 'spout', frames: 3 });
   assert.strictEqual(m.rerenders(), 1);

@@ -123,7 +123,37 @@
     }
   }
 
-  const api = { SR, BEAT, NOTES, noise, sampleAt, sideAt, toByte, fill };
+  /* TAYF: hazır tayf okuyan modlar için (panel önizlemesi, src/admin/preview.js; mod küçük
+     resimleri, src/thumbs/mode-thumbs.js). Aynı 120 BPM ızgarası: kick, sekizlik hi-hat,
+     gezinen üç tepe. `out` 0-255 bayt dizisi, uzunluğu kutu sayısı.
+
+     BASTA PAY VAR. Eski eğride taban 0,85 + vuruş 0,9 en alçak kutuları hep 255'e
+     dayıyordu: SVAudio'nun basi 1,0'da sabit kalıyor, vuruş algılayıcı hiç vuruş görmüyordu.
+     Ölçüldü (180 kare, 30 fps): bas 1,00-1,00, 5 saniyede 1 vuruş; havai fişek, şimşek ve
+     çekim alanı demoda ve küçük resimde boş kalıyordu. Taban 0,45 + vuruş 0,5: bas 0,69-0,97,
+     12 vuruş (saniyede iki kick), ortalama seviye aynı (0,46).
+     Vuruş terimi yalnız 0-140 Hz: `1 - n * 7` sıfırın altına inince çift kuvvet artıya dönüp
+     her vuruşta üst kutuların hepsini tavana vuruyordu. */
+  function spectrum(t, out) {
+    const bins = out.length;
+    const kick = Math.pow(1 - frac(t * 2), 3.2);
+    const hat = Math.pow(1 - frac(t * 4), 9) * 0.55;
+    const swell = 0.5 + 0.5 * Math.sin(t * 0.55);
+    for (let i = 0; i < bins; i++) {
+      const n = i / bins;
+      let v = Math.pow(1 - n, 2.6) * 0.45;
+      v += kick * Math.pow(Math.max(0, 1 - n * 7), 6) * 0.5;
+      v += hat * Math.pow(n, 1.4) * 0.5;
+      v += 0.30 * swell * Math.exp(-Math.pow((n - (0.13 + 0.05 * Math.sin(t * 0.9))) * 26, 2));
+      v += 0.22 * Math.exp(-Math.pow((n - (0.26 + 0.07 * Math.sin(t * 0.63 + 2))) * 30, 2));
+      v += 0.14 * Math.exp(-Math.pow((n - (0.44 + 0.06 * Math.sin(t * 1.27 + 1))) * 34, 2));
+      v *= 0.86 + 0.14 * Math.sin(i * 12.9898 + t * 3.1);
+      out[i] = Math.max(0, Math.min(255, v * 255)) | 0;
+    }
+    return out;
+  }
+
+  const api = { SR, BEAT, NOTES, noise, sampleAt, sideAt, toByte, fill, spectrum };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVDemoAudio = api;
 })();

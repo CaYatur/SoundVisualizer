@@ -41,7 +41,7 @@ test('rastgele seçim metin olmadan dosyadaki puanı görüyor; kullanıcı puan
 test('ana süreç: liste ve değişiklik yayını metinsiz, metin kimlikle isteniyor', () => {
   const M = read('src/main/main.js');
   assert.match(M, /return leanPresets\(withOverlayPresets\(list\)\);/);
-  assert.match(M, /ipcMain\.handle\('presets:source', \(e, id\) => \{\s*const p = presetForShow\(String\(id \|\| ''\)\);/);
+  assert.match(M, /ipcMain\.handle\('presets:source', async \(e, id\) => \{\s*const p = \(await presetsStore\.getAsync\(String\(id \|\| ''\)\)\) \|\| isolatedPreset\(String\(id \|\| ''\)\);/);
   assert.match(M, /const delta = \{ upsert: lean, remove: rm, gen: presetGen \};/);
   assert.match(M, /upsert: bulk \? \[\] : lean/);
   // Etkin presetin metni değiştiyse ayar yine güncelleniyor: ham liste ile
@@ -61,7 +61,9 @@ test('panel: seçilen presetin metni ayara yazılmadan önce isteniyor; son seç
   assert.match(P, /presetSource: sourceOf/);
   // Liste satırı ve ızgara hücresi metinsiz kaydı doğrudan yüklemiyor
   assert.doesNotMatch(P, /keepScroll\(\); load\(cfg, p\)/);
-  assert.strictEqual(P.split('keepScroll(); loadWithText(cfg, p,').length - 1, 2);
+  // Tek seçim yolu (#957): `pick` kaydırmayı tutar, işareti yerinde değiştirir, metinli yükler
+  assert.match(P, /const pick = \(p\) => \{\s*keepScroll\(\); keepView = true;[\s\S]*?loadWithText\(cfg, p,/);
+  assert.strictEqual(P.split('onclick: () => pick(p)').length - 1, 2);
 });
 
 test('düzenleyici ve karıştırıcı metni kendileri istiyor', () => {

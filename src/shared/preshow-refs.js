@@ -21,11 +21,6 @@
               yığında kind 'media' katmanın settings.media.file'ı
    Kapsam: canlı sahne (scene: null) ve kayıtlı sahneler (scene: { index, name }). */
 (function () {
-  function stackOn(c) {
-    const s = c && c.layerStack;
-    if (s && typeof s.enabled === 'boolean') return s.enabled;
-    return !!(c && Array.isArray(c.layers) && c.layers.length);
-  }
   const isUserPreset = (x) => typeof x === 'string' && /^usr_/.test(x);
   const isStr = (x) => typeof x === 'string' && x !== '';
   /* Video yuvası medya panelinin yazdığı gibi yazılır (media-panel.js):
@@ -60,11 +55,6 @@
       }
     };
     logoSlots(c.logo, null, 'logo');
-    const on = stackOn(c);
-    if (!on && c.media && c.media.enabled && c.media.source === 'file' && isStr(c.media.file)) {
-      const m = c.media;
-      out.push({ kind: 'media', id: m.file, layer: null, field: 'media.file', set: (v) => setMedia(m, v) });
-    }
     (Array.isArray(c.layers) ? c.layers : []).forEach((l, i) => {
       if (!l || typeof l !== 'object') return;
       const layer = { index: i, name: typeof l.name === 'string' ? l.name : '', kind: l.kind || '' };
@@ -73,7 +63,7 @@
       if (st) logoSlots(st.logo, layer, 'settings.logo');
       /* Video: yalnız çizilen katman — export-media.mediaFiles ile aynı
          koşul (kapalı ya da susturulmuş katmanın dosyası yokken sorun yok). */
-      if (on && l.kind === 'media' && l.enabled !== false && !l.muted) {
+      if (l.kind === 'media' && l.enabled !== false && !l.muted) {
         const own = st && st.media && typeof st.media === 'object' ? st.media : null;
         const merged = Object.assign({}, c.media || {}, own || {});
         if (merged.source === 'file' && isStr(merged.file)) {
@@ -136,7 +126,7 @@
     return n;
   }
 
-  const api = { collect, replace, live, stackOn };
+  const api = { collect, replace, live };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVPreshowRefs = api;
 })();

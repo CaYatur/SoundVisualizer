@@ -31,11 +31,14 @@ ipcRenderer.on('lyrics-clock', (_e, anchor) => lyricsClockEvents.push(anchor));
 /* Arayüzün platformu bilmesi gerekiyor: Windows Dynamic Lighting yalnız
    Windows'ta anlamlı, Spout yalnız Windows'ta, Syphon yalnız macOS'ta.
    IPC'ye gerek yok; preload zaten ana süreç tarafında çalışıyor. */
+/* SV_UI_AS_WINDOWS=1: yalnız arayüz denetim araçları (ui-layout/ui-audit) için;
+   Windows'a özgü kartlar Linux/CI'da da çizilip ölçülebilsin. */
+const UI_AS_WIN = process.env.SV_UI_AS_WINDOWS === '1';
 contextBridge.exposeInMainWorld('SV_PLATFORM', {
-  os: process.platform,
-  isWindows: process.platform === 'win32',
+  os: UI_AS_WIN ? 'win32' : process.platform,
+  isWindows: UI_AS_WIN || process.platform === 'win32',
   isMac: process.platform === 'darwin',
-  isLinux: process.platform === 'linux',
+  isLinux: !UI_AS_WIN && process.platform === 'linux',
 });
 
 contextBridge.exposeInMainWorld('api', {
@@ -110,10 +113,15 @@ contextBridge.exposeInMainWorld('api', {
   openDynamicLightingSettings: () => ipcRenderer.invoke('lighting:open-settings'),
 
   // Canlı önizleme (panel içi): ses karesi akışını aç/kapat
+  allSections: process.argv.includes('--sv-all-sections'),
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
+  sendMomentaryFx: (list) => ipcRenderer.send('momentary-fx', list),
+  // Video sarma (#905): anlık, ayara yazılmıyor
+  sendMediaScrub: (m) => ipcRenderer.send('media-scrub', m),
+  sendTbar: (m) => ipcRenderer.send('tbar', m),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
-  sendMdLive: (p) => ipcRenderer.send('md-live', p),
+  sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
 
   // Eylemler
@@ -180,6 +188,9 @@ contextBridge.exposeInMainWorld('api', {
      `sv-thumb://t/<anahtar>.webp` adresinden. */
   milkdropThumbs: (ids) => ipcRenderer.invoke('milkdrop:thumbs', ids),
   onMilkdropThumb: (cb) => ipcRenderer.on('milkdrop:thumb', (e, t) => cb(t)),
+  // Görsel/Zemin küçük resimleri (#957)
+  modeThumbs: (items) => ipcRenderer.invoke('modes:thumbs', items),
+  onModeThumb: (cb) => ipcRenderer.on('modes:thumb', (e, t) => cb(t)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),
@@ -235,6 +246,11 @@ contextBridge.exposeInMainWorld('api', {
   artnetStatus: () => ipcRenderer.invoke('artnet:status'),
   artnetSync: () => ipcRenderer.invoke('artnet:sync'),
   onArtnetStatus: (cb) => ipcRenderer.on('artnet-status', (e, d) => cb(d)),
+  ledNetStatus: () => ipcRenderer.invoke('lednet:status'),
+  ledNetSync: () => ipcRenderer.invoke('lednet:sync'),
+  onLedNetStatus: (cb) => ipcRenderer.on('lednet-status', (e, d) => cb(d)),
+  wledDiscover: () => ipcRenderer.invoke('wled:discover'),
+  wledInfo: (host) => ipcRenderer.invoke('wled:info', host),
   oscStatus: () => ipcRenderer.invoke('osc:status'),
   oscSync: () => ipcRenderer.invoke('osc:sync'),
   tempoSyncStatus: () => ipcRenderer.invoke('tempo-sync:status'),
@@ -247,6 +263,11 @@ contextBridge.exposeInMainWorld('api', {
   oscOutStatus: () => ipcRenderer.invoke('oscout:status'),
   oscOutSync: () => ipcRenderer.invoke('oscout:sync'),
   onOscOutStatus: (cb) => ipcRenderer.on('oscout-status', (e, d) => cb(d)),
+  artnetInStatus: () => ipcRenderer.invoke('artnetin:status'),
+  artnetInSync: () => ipcRenderer.invoke('artnetin:sync'),
+  artnetInResync: () => ipcRenderer.invoke('artnetin:resync'),
+  onArtnetIn: (cb) => ipcRenderer.on('artnet-in', (e, d) => cb(d)),
+  onArtnetInStatus: (cb) => ipcRenderer.on('artnetin-status', (e, d) => cb(d)),
   reportTempoBeat: (info) => ipcRenderer.send('tempo:beat', info),
   reportTempoClock: (info) => ipcRenderer.send('tempo:clock', info),
 
@@ -302,6 +323,9 @@ contextBridge.exposeInMainWorld('api', {
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
   mcpStatus: () => ipcRenderer.invoke('mcp:status'),
+  // MQTT / Home Assistant
+  mqttStatus: () => ipcRenderer.invoke('mqtt:status'),
+  onMqttStatus: (cb) => ipcRenderer.on('mqtt-status', (e, d) => cb(d)),
   mcpReportLive: (data) => ipcRenderer.send('mcp:live', data),
   onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),

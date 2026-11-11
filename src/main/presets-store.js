@@ -23,14 +23,23 @@
    çağrıda klasörün yalnız ADLARINA bakıyor (10 bin adda milisaniyeler): elle
    eklenen ya da silinen dosya yine görünüyor. İçeriği değişen dosya, izleyen
    `syncDisk` çağrısında (dosya izleyicisi ya da MCP turu) yeniden okunuyor;
-   açık pencereler yeniden başlatılmadan listeyi alır. */
+   açık pencereler yeniden başlatılmadan listeyi alır.
+
+   METİN ÖNBELLEKTE DURMUYOR (#905). Pencerelere giden liste metinsizdi (#906) ama ana süreç
+   10 bin presetin metnini hep tutuyordu. Şimdi `list()` metinsiz kayıt dönüyor (`lazy`,
+   preset-lean.js); `get()` metni dosyasından okuyor ve son kullanılan birkaçını tutuyor.
+   Bütün metinleri gerçekten isteyen seyrek işler (dışa aktarım, içe aktarımda tekrar denetimi,
+   küçük resim temizliği, envanter) `listFull` ya da `eachFull` kullanıyor. */
 
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+const { leanPreset } = require('../shared/preset-lean.js');
 
 const MAX_PRESET_BYTES = 512 * 1024; // tek preset üst sınırı (shader metni)
 const WRITE_BATCH = 50; // toplu kayıtta aynı anda yazılan dosya
+const READ_BATCH = 64; // arka planda aynı anda okunan dosya
+const FULL_KEEP = 32; // metniyle tutulan son preset
 
 let root = null; // test kancası: `setDir`
 /* Kimlik: zaman + SÜREÇ İÇİ SAYAÇ + rastgele. Önce yalnız zaman ve
@@ -70,7 +79,8 @@ function compare(a, b) {
   return x < y ? -1 : x > y ? 1 : 0;
 }
 
-let byFile = null; // dosya adı → preset
+let byFile = null; // dosya adı → metinsiz preset
+const fullByFile = new Map(); // dosya adı → metniyle preset, en son kullanılan sonda
 let sorted = null; // sıralı liste; değişince null
 let warming = null;
 /* Arka plan okuması sürerken silinenler: okuma, silmeden ÖNCE aldığı ad
@@ -116,7 +126,7 @@ function ensure() {
   const map = new Map();
   for (const n of names()) {
     const p = readOne(n);
-    if (p) map.set(n, p);
+    if (p) map.set(n, leanPreset(p));
   }
   byFile = map;
   sorted = null;
@@ -132,11 +142,11 @@ function warm() {
     const map = new Map();
     const ns = names();
     const d = dir();
-    for (let i = 0; i < ns.length; i += 64) {
-      await Promise.all(ns.slice(i, i + 64).map(async (n) => {
+    for (let i = 0; i < ns.length; i += READ_BATCH) {
+      await Promise.all(ns.slice(i, i + READ_BATCH).map(async (n) => {
         try {
           const p = parse(await fs.promises.readFile(path.join(d, n), 'utf-8'));
-          if (p) map.set(n, p);
+          if (p) map.set(n, leanPreset(p));
         } catch { /* okunamayan dosya atlanıyor */ }
       }));
     }
@@ -163,7 +173,7 @@ function rescan() {
     if (byFile.has(n)) continue;
     const p = readOne(n);
     if (p) {
-      byFile.set(n, p);
+      byFile.set(n, leanPreset(p));
       noteStamp(path.join(dir(), n));
       queueUpsert(p);
       changed = true;
@@ -173,6 +183,7 @@ function rescan() {
     if (!seen.has(n)) {
       const old = byFile.get(n);
       byFile.delete(n);
+      fullByFile.delete(n);
       stamps.delete(n);
       if (old && old.id) queueRemove(old.id);
       changed = true;
@@ -201,7 +212,8 @@ function refreshHints(hints) {
     const p = readOne(n);
     stamps.set(n, stamp);
     if (!p) continue;
-    byFile.set(n, p);
+    byFile.set(n, leanPreset(p));
+    fullByFile.delete(n);
     sorted = null;
     queueUpsert(p);
   }
@@ -275,7 +287,13 @@ function list() {
   return sorted.slice();
 }
 
-/* Tek preset. Önbellekte yoksa dosyasına bakılıyor: arka plan okuması
+function keepFull(name, p) {
+  fullByFile.delete(name);
+  fullByFile.set(name, p);
+  if (fullByFile.size > FULL_KEEP) fullByFile.delete(fullByFile.keys().next().value);
+}
+
+/* Tek preset, metniyle. Önbellekte yoksa dosyasına bakılıyor: arka plan okuması
    sürerken kaydedilen preset okumanın ad listesinde yok, `list()` onu
    klasör eşitlemesiyle buluyor, `get()` de dosyadan. */
 function get(id) {
@@ -283,12 +301,68 @@ function get(id) {
   if (!n) return null;
   ensure();
   const name = n + '.json';
-  let p = byFile.get(name) || null;
-  if (!p && fs.existsSync(path.join(dir(), name))) {
-    p = readOne(name);
-    if (p) { byFile.set(name, p); sorted = null; }
-  }
+  const lean = byFile.get(name);
+  if (lean && !lean.lazy) return lean;
+  const held = fullByFile.get(name);
+  if (held) { keepFull(name, held); return held; }
+  if (!lean && !fs.existsSync(path.join(dir(), name))) return null;
+  const p = readOne(name);
+  if (!p) return null;
+  if (!lean) { byFile.set(name, leanPreset(p)); sorted = null; }
+  keepFull(name, p);
   return p;
+}
+
+/* Preset var mı. Metne bakan yok; listede olan için dosya okunmuyor. */
+function has(id) {
+  const n = safeName(id);
+  if (!n) return false;
+  ensure();
+  return byFile.has(n + '.json') || !!get(id);
+}
+
+/* `get`in ana süreci beklemeyen eşi: kullanıcı işine bağlı, seri okumalar için (preset değişimi,
+   küçük resim listesi). Tek dosya kısa ama panel 200 kimliği birden isteyebiliyor. */
+async function getAsync(id) {
+  const n = safeName(id);
+  if (!n) return null;
+  await warm();
+  ensure();
+  const name = n + '.json';
+  const lean = byFile.get(name);
+  if (lean && !lean.lazy) return lean;
+  const held = fullByFile.get(name);
+  if (held) { keepFull(name, held); return held; }
+  let p = null;
+  try { p = parse(await fs.promises.readFile(path.join(dir(), name), 'utf-8')); } catch { return null; }
+  if (!p) return null;
+  if (!byFile.has(name)) { byFile.set(name, leanPreset(p)); sorted = null; }
+  keepFull(name, p);
+  return p;
+}
+
+/* Bütün presetler metinleriyle, listeyle aynı sırada ve parça parça: kütüphane boyunca
+   metin bellekte birikmiyor. `fn` her preset için çağrılıyor; preset okunamadıysa atlanıyor. */
+async function eachFull(fn) {
+  const all = list();
+  const d = dir();
+  for (let i = 0; i < all.length; i += READ_BATCH) {
+    const part = all.slice(i, i + READ_BATCH);
+    const read = await Promise.all(part.map(async (lean) => {
+      if (!lean.lazy) return lean;
+      const held = fullByFile.get(safeName(lean.id) + '.json');
+      if (held) return held;
+      try { return parse(await fs.promises.readFile(path.join(d, safeName(lean.id) + '.json'), 'utf-8')); } catch { return null; }
+    }));
+    for (const p of read) if (p) await fn(p);
+  }
+}
+
+/* Listenin metinli kopyası. Bellekte 116 MB demek: yalnız o iş sürerken gerekirse. */
+async function listFull() {
+  const out = [];
+  await eachFull((p) => { out.push(p); });
+  return out;
 }
 
 /* Kaydın hazırlığı: doğrulama, kimlik ve zaman damgası. `stamp` verilirse
@@ -322,8 +396,10 @@ function noteStamp(file) {
 function remember(file, p) {
   const name = path.basename(file);
   noteStamp(file);
-  if (!byFile) { savedWhileWarming.set(name, p); return; }
-  byFile.set(name, p);
+  fullByFile.delete(name);
+  const lean = leanPreset(p);
+  if (!byFile) { savedWhileWarming.set(name, lean); return; }
+  byFile.set(name, lean);
   sorted = null;
 }
 
@@ -352,6 +428,7 @@ function remove(id) {
   try {
     fs.unlinkSync(file);
     const base = path.basename(file);
+    fullByFile.delete(base);
     if (byFile) { byFile.delete(base); sorted = null; }
     else if (warming) { droppedWhileWarming.add(base); savedWhileWarming.delete(base); }
     return { ok: true };
@@ -402,6 +479,7 @@ function setDir(d) {
   closeWatch();
   root = d || null;
   byFile = null;
+  fullByFile.clear();
   sorted = null;
   warming = null;
   droppedWhileWarming.clear();
@@ -412,6 +490,6 @@ function setDir(d) {
 }
 
 module.exports = {
-  list, get, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir,
+  list, listFull, eachFull, get, getAsync, has, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir,
   syncDisk, watch,
 };

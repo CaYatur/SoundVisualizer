@@ -5,6 +5,174 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Performance
+
+- **Galaxy draws seven times faster.** It computed a colour, built an rgba string and made the canvas parse it for each of its 2,600 stars on every frame, the most expensive mode in the output profile of a real scene. Stars are now sorted once into 48 rings by their fixed radius and the colour is set once per ring; 48 is a multiple of the 16 bands, so the stars of a ring share their band and size, and additive blending does not depend on order. Measured at 1920×1080: 3.0 ms → 0.41 ms per frame (five runs, twice). The colour along the radius now moves in 48 steps: mean difference 0.036 / 255 per channel against the previous frame, not visible side by side.
+- **No more panel stalls while dragging or clicking through layers** (#905). Measured on a real seven-layer scene with the output window open, back to back against the previous build (two runs each). Dragging an inspector slider: panel 33.6 → 59.6 fps, frames over 33 ms 122 → 3–4, and twice as many input events handled. Dragging layer opacity: 37 → 74 fps, frames over 33 ms 72 → 0. Clicking through layers: 52 → 64 fps, frames over 33 ms 30 → 3. The causes, all found by profiling:
+  - Every setting change rebuilt the page tabs in the top bar, and the top bar re-measured itself at up to six compaction levels (2 of every 6 seconds of panel time during an opacity drag). The tabs and the setup tree are now rebuilt only when their content changes, and the top bar starts from its current level (one or two measurements instead of up to six). A button turning disabled no longer triggers a measurement.
+  - Refreshing the "changed from default" marks read the layout twice on every change, even when no mark changed (1.7 of 6 seconds). It now works out what changes first and reads the layout only when something does.
+  - The panel preview re-measured its box on every setting change (3.5 of 6 seconds during a slider drag). It now uses the size it already knows; a resize observer still measures when the box changes.
+  - Selecting a layer rebuilt the whole library shelf whenever the selected layer did not fit the open shelf (727 ms over 38 selections). The lock note and the locked frame are now put on and taken off in place; the library itself stays.
+- **MilkDrop no longer dims for a moment when the app drops a frame.** A dropped frame makes adaptive resolution step down; at that step the flash limiter's "previous frame" was recreated black, so the limiter treated the next frame as a sudden flash from black and held it down. Measured: mean brightness 68 before the step, then 10, 20, 31, 51, 62, 75 over five frames. The previous frame is now copied to the new size like the feedback buffers: 73.3, 73.4, 73.7 after the step. This is the brief back-and-forth seen during timeline transitions, which push the frame rate down and trigger a step.
+- **Trails and slit-scan keep their history at a resolution step.** The effect chain's previous-frame buffer was recreated empty, so the trail vanished at each step. It is now copied across.
+- **Timeline clips without a transition are drawn straight onto the frame.** Each clip used to copy the full frame four times per frame even when no transition was running. The result is byte-identical (`scripts/ui-tl-render.js`: every transition type, 102 samples).
+- **The outgoing scene is released after the transition's last frame**, one layer at a time, instead of inside it (closing a gradient's WebGL context took about 11 ms in that frame).
+
+- **A resolution step no longer restarts the picture.** Measured after #997: when adaptive resolution changed size, MilkDrop rebuilt its feedback buffers and the frame went nearly black (mean brightness 13 → 7) before the preset built up again; Flow Field re-seeded its particles and dropped its trails; Confetti, Flock and Ropes reset. MilkDrop and the shader host now copy their feedback buffers to the new size, trail buffers are scaled across, and particle and rope positions are scaled instead of re-seeded. Checked by capturing output frames on both sides of a forced step: the step frame now differs from its neighbour no more than two ordinary frames do.
+- **Adaptive resolution** (#453, on by default). When the output window cannot keep up with the display, the drawing resolution drops one step (0.1) at a time, to half at most, and rises again after the scene has been calm for ten seconds. A step that does not hold doubles the wait before the next try, so a scene on the edge does not blur and sharpen every few seconds. It multiplies the Background Resolution setting, can be turned off under Performance, and never applies to video export, the OBS overlay or the measuring tools. Measured on an eight-layer scene at 2560×1600 on a 75 Hz output: 57 fps before, 72.5 fps with it on (30 s average, including the seconds it takes to settle).
+
+### Visuals
+
+- **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Ink Flow**, a built-in two-pass Studio background: ink drifts through a flow field and three bands of the spectrum lay down new colour, something a single-pass shader cannot do.
+- **Video layer transport** (#905). A video file on a media layer now has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** (1, 2, 4, 8 or 16 beats, restarted on the app's tempo grid, the same one the LFOs use) and a **position** slider that scrubs the video live on every output and the panel preview without saving anything. The live player, timeline clips and video export use one formula, so an export with these settings is frame-exact like any other; with the defaults the formula is the old one. Measured in the output window on a 10 s test video: normal speed advanced 0.25 s per 250 ms, 2× advanced 0.51 s; a 2–4 s region wrapped from 3.73 back to 2.04; a 4-beat loop at 120 BPM restarted every 2 s (1.87 → 0.14); scrubbing to 70 % landed on 7.15 s.
+- **No more empty mode previews.** Fireworks, Lightning, Attractor Field, Now Playing and Studio showed a black card in the mode picker, and Spectrogram, DJ Waveform, Lissajous, Confetti and Particles a half-drawn one. Three causes, all measured:
+  - The demo signal used by the panel preview and the thumbnails held the bass at its ceiling (1.00 for the whole run), so the beat detector fired once in five seconds and beat-driven modes never started. The bass now has headroom (0.69–0.97) and the detector finds the two kicks a second; the kick term also no longer slams the upper bins to full on every beat. With no audio playing, the panel preview of these modes now moves too.
+  - A thumbnail was the single frame at 1.5 s. It is now drawn for 6 s and the fullest of the candidate frames after the second second is kept (blown-out flash frames are not picked). Studio shows its first built-in shader and Now Playing a sample track.
+  - All 120 shipped thumbnails were redrawn.
+- **Ropes stay on screen.** The rope physics took one step a frame with three constraint passes, so the ropes stretched like rubber and the sag depended on the frame rate: at 1080p the middle of the top rope hung 1.66 screen heights down at 60 fps, 4.1 at 30 fps (video export), 0.81 at 144 fps, and only the two ends were visible. It now runs in fixed steps of at most 1/120 s with sixteen constraint passes: the same sag (about 14 % of the height) at 30, 60 and 144 fps and at 4K, with the lowest rope on screen.
+- **Ripple Grid rings are visible.** The ripple's crest sat 78 px behind the wave front while the ring faded out after 9 % of the width, so at small sizes the grid barely moved on a beat. The ring shape now scales with the ring width, with the crest on the front.
+- **Fireworks open up.** Drag stopped each burst early: measured over the two seconds after a beat, 90 % of the sparks stayed within 7–10 % of the short side from the centre. With lower drag and a stronger base speed that is now 26–34 %. Each spark draws the last 45 ms of its path instead of the last frame's, so trails no longer shrink at high refresh rates.
+- **Four new CaYaDev MilkDrop presets** (60 in the pack): Stained Glass, Thunderhead, Hologram Globe and Double Helix. Each compiles in MilkDrop 2 (checked with the SDK compiler), was run for 90 seconds without fading out, blowing out or freezing, and was compared frame by frame with MilkDrop 2 itself; they draw in 6.5–7 ms a frame at 1080p on the development machine.
+- **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.
+- **Eight new backgrounds**: Colour Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
+- Measured with `npm run bench` at 1920×1080 on the development machine: all eighteen held the display rate with no frame over 33 ms. That is one machine with a discrete GPU; nothing slower was measured.
+
+### Interface
+
+- **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its top visual or background mode. No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
+- **T-bar on the Live page** (#905). Between the Cued and Live monitors there is now a bar, as on a vision mixer. Dragging it from its resting end towards the other mixes the cued scene in with the scene's own transition type (crossfade if the transition is set to cut); the mix follows the bar, not a clock. Reaching the far end puts the scene live and the bar stays there for the next change, which runs the other way. Releasing it on the way holds the mix (two scenes half and half, as long as you like); bringing it back to the resting end undoes the change: the outgoing scene's layers were never torn down, so MilkDrop, particles and video carry on where they were instead of restarting. TAKE still runs the transition by itself and, during a held mix, completes it. Every output window, the OBS overlay and the panel preview follow the same bar. Keyboard: arrows, Page Up/Down, Home/End. Measured on two solid-colour scenes in the output window: 30 % gave 184/0/71 (red/green/blue), 70 % gave 76/1/181, 50 % held at 124/4/126, back to the start returned pure red with the first scene live again.
+- **`show/tbar` on the control tree.** OSC, Companion and the remote protocol can drive the bar with an absolute position 0–1. A controller is ignored until it has been at the bar's resting end once, so a hardware fader left at the other end does not take a scene with its first message.
+- **Scenes with the same layers now transition.** The output decided that a scene had changed from its layer structure alone, so two scenes with the same layers and different colours or settings switched with a cut even with a transition set. A manual scene change (TAKE, the grid, F keys, Auto VJ, the clip deck, MIDI/OSC, the remote) now counts as a change; dragging a setting still does not, the timeline keeps its own transitions, and re-applying the active scene restores its settings without restarting anything.
+
+- **The remote protocol has a version.** `hello` now carries `protocol: 1`; it goes up only for a change that breaks existing clients, so a phone app or a show panel can tell whether it understands the app it connected to.
+- **Remote control protocol documented** in [docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md): connecting, tokens, every message the app sends and every command it accepts, with the allow-lists. It is the contract for the built-in phone remote and for future controllers. `tests/remote-protocol-doc.test.js` fails if the allow-lists in the code and the page drift apart.
+- **A new phone remote** (#443). The remote page was rebuilt in the panel's design and follows the panel's interface theme. Five pages: Live (output, blackout on every page, master opacity, Auto VJ, scene step, A/B crossfade, timeline transport, MilkDrop previous / next / random), Scenes (searchable cards in the scene's colours), Layers (show/hide and opacity for each layer), Appearance (visual and background modes with their thumbnails, colour presets, Studio presets) and Audio. Now playing shows cover art, tempo and a three-band level. On a tablet or desktop the navigation moves to the side and the Live page uses two columns. Sliders send at most one message per frame and are not pulled back by the echo while a finger is on them.
+- **The remote writes through the fixed control tree.** Master opacity, crossfade, Auto VJ and layer commands use the same addresses and ranges as OSC, MQTT and Companion (`src/shared/osc-tree.js`), validated in the main process by the tree's own planner; named actions come from a short allow-list. There is no separate write path for the phone. Validation lives in `src/main/remote-commands.js` and is covered by `tests/remote-v2.test.js`.
+- **MQTT and the remote see blackout, tempo and timeline state with OSC output off.** That state was only recorded while OSC output was enabled, so Home Assistant could show a stale blackout or tempo when MQTT ran on its own.
+
+- **Layout editor rebuilt** (#905). Ctrl+Z used to leave the editor black: undo redrew the page behind it and the page pulled the preview stage back out of the editor. The stage now stays in the editor for as long as it is open. Arrow-key nudges and alignment leave their own undo step, and an edit made just before Ctrl+Z is no longer merged with the step before it. Keys are handled in one place and no longer reach the panel behind (Alt+1…5 does not switch pages under the editor). New: select several elements (Shift-click, Ctrl+A, or drag a frame on empty space) and move them together, align and distribute, show/hide and lock from the element list, Shift to keep a drag on one axis, Esc to cancel a drag, undo and redo buttons, a pixel readout of the selection, and a shortcut list (F1). Dragging writes the setting once per frame instead of once per mouse event. Checked live by `scripts/ui-layedit.js`.
+- **Adding a track after undo works.** The timeline's New Strip menu kept the model it was built with. When the track list was replaced from outside (undo, a scene, MCP) and the panel refreshed in place, a track added from the menu went to the old model and was silently lost. The self-test caught it; `tests/timeline-panel-reuse.test.js` covers it.
+- **One left edge in the inspector.** The dot that marks a changed setting reserved its own column, so labels started 11 px to the right of the notes and buttons in the same pane. The dot now sits in the margin and labels, notes, buttons and section titles share one edge; labels also get that width back before they are shortened.
+- **MilkDrop library search is no longer flush against the card edge.**
+- **Interface text no longer invalidates the shipped mode thumbnails.** The thumbnail key included the translation table, so every new interface string made all shipped thumbnails stale and they were redrawn and committed again with each change. The table is no longer part of the key.
+
+- **Selecting on the timeline no longer blinks the output.** Clicking a clip, touching clips with the lasso or pressing to start a drag opened and closed the clip edit session, and each of those sent the full configuration to the outputs and rebuilt the preview even though nothing that is drawn had changed: the picture dropped to black for a frame and the visualizer restarted, mid-show. The panel now compares the configuration that goes out (without the edit session) with the last one sent and sends nothing when it is the same; page renders go through the same check before touching the preview. Selection is UI state only; real edits still go out. Layer-list selection was already clean. `tests/live-selection-output.test.js`.
+- **Drag an unselected clip in one gesture.** Pressing on a clip that wasn't selected selected it and opened the edit session, which rebuilt the timeline model under the drag, so the first press only selected and a second press was needed to move. The session now waits until the drag ends, the drag re-binds to its clips by id if the model is rebuilt, and a 4 px threshold keeps a plain click from nudging the clip. Group drags keep each clip on its own track. `tests/timeline-tl2.test.js`.
+- **Multi-track copy / paste keeps the layout.** Copied clips stored track offsets that counted automation tracks, and pasting dropped clips onto the anchor track whenever the offset landed on an automation, locked or missing track, so clips from three tracks could collapse onto one. Offsets now count clip tracks only, are ordered deterministically (track, then start), and a paste that runs past the last clip track appends new clip tracks at the end (it never clamps or reorders). If any target clip track is locked the paste is refused as a whole. Duplicate uses the same path. `tests/timeline-tl2.test.js`.
+- **Shelf highlight follows the selected layer.** The highlighted card was set only when a shelf was built, and the Visual and Ground shelves were not rebuilt when the selected layer's mode changed, so a lyrics layer drawing Chroma Wheel could still show Oscilloscope (XY) highlighted. One shared sync now runs after every paint and moves the highlight in place on all five shelves (Visual, Ground, MilkDrop, Template, Scene), whether the change came from the layer list, the inspector, MCP, undo or a selection change. The shelf is not rebuilt, so its scroll stays. `tests/shelf-current-sync.test.js`.
+- **MilkDrop in Add Layer.** A MilkDrop card next to Visualizer adds a visualizer layer in MilkDrop mode with a calm built-in MilkDrop 3 preset (Twelve Moons), selects it and opens the MilkDrop shelf. If another layer already shows the shared preset, the new layer is Independent so the two don't draw the same picture. `tests/layer-tools-mcp.test.js`.
+- **The MilkDrop picker only loads onto a MilkDrop layer.** Picking a preset in the list, Previous / Next, Random and Back to Default used to convert the first visualizer when the selected layer was something else. With a non-MilkDrop or locked layer selected the picker now refuses with a short note; with nothing selected it uses the shared MilkDrop layer or adds one. **Redirect Modes to a Matching Layer** brings back the old behaviour. MIDI / OSC / show-step mode changes now skip locked layers. `tests/milkdrop-guard.test.js`.
+
+- **Modes only change the layer you selected.** With a background layer selected, picking a visual mode used to switch the topmost visualizer layer instead (and the MilkDrop shelf converted the first visualizer). Shelves that don't fit the selected layer now stay visible behind a lock scrim with the reason and a way out (go to the matching shelf, clear the selection, or convert the layer to MilkDrop); with nothing selected a mode adds a new layer, as the shelf line already said. **Settings → Redirect Modes to a Matching Layer** (off by default) brings back the old behaviour. `tests/mode-target.test.js`.
+- **Converting a layer to lyrics opens the lyrics library.** Switching a text layer's source to lyrics on Windows now starts with "Follow the playing track" on (like the ready-made Lyrics layer) and jumps the inspector to the Lyrics Library tab instead of leaving it at the end of the tab strip. 3D Geometry and Feedback layers no longer show Color Mode / Color / Glow controls those engines never read. A table test walks every visualizer and background mode. `tests/layer-mode-sections.test.js`.
+- **Timeline editing is smooth.** Every page render rebuilt the whole timeline (canvas, toolbar, inspector), and a stale or non-editable selection (after undo or removing the selected clip) re-entered the clip target and asked for another full render: 46–52 rebuilds per 500 ms, the flicker and jumping. The panel is now reused when its structure is the same (only the heads and inspector refresh, scroll, caret and selection stay), and a selection that can't be a clip target no longer re-renders the page. `tests/timeline-panel-reuse.test.js`.
+- **Layout editor keeps its view.** The preview stage was `overflow: hidden`, which browsers can scroll: focusing a box dragged outside the frame (Tab, the element list) scrolled the stage, so half the picture disappeared and the preview stayed shifted after closing. The stage now clips without scrolling, the view only changes from **Fit Frame / Show Surroundings**, and boxes outside the frame stay visible and grabbable. Every placeable layer is listed, including hidden, muted, not-drawn and locked ones (marked), instead of only what the renderer drew at that moment; dragging and arrow keys keep a 24 px piece inside the frame, locked layers don't move, and **Bring Into Frame** pulls a stray element back. `tests/layout-editor-viewport.test.js`.
+- **The preview's aspect-ratio picker lines up with the icon buttons.** The global `select` margin pushed it 3.5 px down and the native arrow looked oversized; it now matches the buttons' height, colour and baseline.
+
+- **Timeline right-click menus are fully English again.** Empty-track, clip, marker and automation menus still used Turkish for several lines and for the “Double-click” badge; those strings now go through the i18n table, and `tests/timeline-context-i18n.test.js` checks them. Composed “Transition type/ease: …” rows translate each part.
+- **Timeline auto clip titles match the UI language.** Shelf “Scene 1” / “Forest” while the clip still showed “Sahne 1” / “Orman” — `clipLabel` and the source picker now use the same i18n resolution as the shelf (stable source ids, no rewrite of user-named clips). Covers scenes, colour presets, visualizers and the clip deck.
+- **Colour-preset playback no longer sticks on a future clip; unrelated action/media clips are not replayed when a palette on another track enters or leaves** (edge-trigger per track; palette winner restored declaratively). With Forest from 0 and Night from 2 s, seeking or playing back before Night’s start re-applies Forest; selection alone does not drive output. `tests/timeline-palette-order.test.js`.
+- **Snap grid offers 1 s and 0.5 s steps** beside bars/beats/frames, plus Off for free placement. Ruler unit stays independent of snap. Alt+drag still suspends snap; Start/Duration keep fractional values. `tests/timeline-snap-seconds.test.js`.
+- **Apply edits immediately** is an opt-in toolbar toggle (default off) so a stopped timeline still will not overwrite Scene / Template / MilkDrop picks unless you turn it on.
+- **Visualizer is a real timeline clip type** (Type list, source list, apply path) alongside scene / preset / palette / media.
+- **Timeline scene clips link to the full Scene editor.** A clip is still a reference (timing/transition stay on the clip); “Open scene” jumps to the Scene page so layers and effects are not mistaken for missing inspector fields.
+- **Layer Groups A/B crossfader no longer wraps in a narrow inspector.** The A / value / B row and the A / Mid / B buttons stay on two clean grid rows at ~340 px.
+- **MilkDrop Previous / Next / Random / Lock no longer jump the inspector scroll.** The scene inspector keeps its scroll across in-place refreshes (double rAF, focus parked without scrolling) and resets only when you select a different layer or the scene.
+- **Preset shelf card-size slider works.** The template grid now follows the same `--sv-card` size as MilkDrop / Image / Ground; `ui-cardsize` covers the Preset tab too.
+
+- **A new panel** (#905). The picture sits in the centre, with tools around it on floating surfaces.
+  The top bar has the page tabs (Scene, Live, Time, Studio, Output), the screen picker, search,
+  undo and redo, and a Simple switch that hides what you rarely use. Everything else moves to Setup
+  behind the gear: audio, lighting, show, control, library and settings. All themes stay.
+- **Scene page.** Layers on the left, with solo, mute, lock, on/off and a drag bar for opacity, and
+  drag to reorder. An inspector on the right shows only what the selected layer or engine reads.
+  A shelf under the picture holds the library (MilkDrop with thumbnails, visuals, backgrounds,
+  templates, scenes) and the tools (effect chain, modulation, groups).
+- **Live page.** Cue and live monitors with a TAKE button, a scene grid with banks and F keys, layer
+  and output faders, effects on the chain, tempo, Auto VJ, the MilkDrop queue and the clip deck.
+- **Time, Studio and Output pages.** Time puts the preview above a full-width timeline, with coloured
+  clips, section markers and curves you can read at a glance. Output has a destination list on the left,
+  the preview in the middle with the export queue under it, and the settings on the right. Studio has
+  tabs; the shader list shows a small picture of each shader, and the two generators put their result
+  large in the middle of the page.
+- **The preview works from where it is.** On every page it carries the aspect ratio, safe area, grid,
+  pause and fullscreen controls, plus beat, tempo, chord, level and frame rate. The page background picks
+  up the colours of the picture.
+- **Start and stop instead of on/off switches.** The stream server, MIDI, OSC, gamepad, MCP, lighting
+  outputs, texture sharing, mapping, the clip deck and Auto VJ show their state and one button. The
+  timeline goes live when you press play or link it to the output. Stream settings can be changed before
+  the server starts.
+- **MilkDrop layers are Shared or Independent**, chosen on the layer itself.
+- **Setup is one tree.** Only the open category shows its sections; the others wait as headings with a
+  running light and a count of changed settings. Sections group their settings into panels that fold, and
+  long help text stays out of the way until you ask for it.
+- **Momentary effects on Live.** Flash, strobe, blur, kaleidoscope, glitch and negative apply while you
+  hold the button. They are never saved. Strobe stays at three flashes a second while flash limiting
+  is on. `flash` and `strobe` are also regular effects now, so the chain has 42.
+- **Undo and redo** for everything in the scene, not only the timeline.
+- **The Time page shortcut list is in English again.** The list was rewritten for the new keys but
+  most of its lines had no English text, so the English panel showed them in Turkish. Found by
+  `npm run ui-audit`; `tests/timeline-shortcuts-i18n.test.js` now checks every line.
+- **Time page timeline tabs sit clear of the card edge** and use the flat outline of the other
+  panel buttons instead of the old bordered style. Found by `npm run ui-layout`.
+- **`npm run ui-walk` works on a fresh profile on any system language.** It opens the panel in
+  Turkish, saves one scene when the profile has none (so the scene shelf and the Live TAKE checks
+  have something to use), and searches a logo setting that exists outside Windows too.
+- **Search finds layer settings.** A result selects the layer, opens the right tab and highlights the
+  control. If the scene has no layer of that kind, the result says so and adds one.
+- **One path for the picture.** Every scene is now a layer list, and the separate Background,
+  Visualizer, Text, Now Playing, Media, Logo and Visual Objects cards are gone. All their settings are
+  on the layer, including extended ranges, each image's motion and audio reaction, Studio preset
+  parameters and the Now Playing status line.
+- **Settings upgrade once and one way.** The first v4 start converts settings and saved scenes to layer
+  lists and keeps a copy as `settings.v3-backup.json`. Settings saved by v4 do not open in 3.x.
+
+### MCP
+
+- **Timeline editing tools** (seven new, 104 in total): `sv_timeline_inspect` reads the whole model without the 40-item cut and can report what plays at a given time; `sv_timeline_edit_track`, `sv_timeline_edit_clip` (add / update / remove / split), `sv_timeline_set_keys`, `sv_timeline_edit_marker`, `sv_timeline_set_options` (tempo, loop, snap, fps, Use Timeline) and `sv_timeline_bank`. Editing uses the same permission as `timeline.*` in `sv_patch_config` (Full mode, off by default); locked tracks are respected. `tests/mcp-timeline-edit.test.js`.
+- **`sv_duplicate_layer` and `sv_lyrics_library`** (106 tools in total). `sv_duplicate_layer` copies a layer right above it with a new id, like the panel's Duplicate (Scene editing permission; a locked layer can be copied and the copy stays locked). `sv_lyrics_library` reads the lyrics library with list, search and get; it is Windows only and says so elsewhere. `tests/layer-tools-mcp.test.js`.
+- **`sv_add_layer` adds MilkDrop layers** with type `milkdrop` and an optional `presetId` (default: a built-in MilkDrop 3 preset).
+- **`sv_load_preset` takes `layerId` and the built-in MilkDrop presets.** A wrong-kind, locked or unknown layer returns a clear error and changes nothing; the result says which layers show the shared preset and warns when none does. `sv_list_presets` now lists the built-in MilkDrop presets too (they were in the panel but not reachable over MCP). `tests/milkdrop-guard.test.js`.
+- **`sv_set_visualizer_type` / `sv_set_background_type` take `layerId`** and return a clear error for a wrong-kind, locked or unknown layer, or when several layers could be meant, instead of silently changing the first one.
+
+### Performance
+
+- **The output window opens faster** (#905). Packaged builds load the visualizer page from one script
+  instead of 85. Median time to the first frame fell from 646 ms in v3.1.7 to 553 ms, and limited to two
+  logical cores from 1161 ms to 1072 ms. Without this step v4 would have opened slower than v3.1.7.
+- **Changing a setting no longer costs the output a frame** (#905). Each full settings send copied a
+  291 KB MilkDrop tag table to every window, which only matters when auto advance picks from a tag.
+  With the CPU slowed 4 times, the output's longest frame during a send fell from 67-93 ms to 13.5 ms.
+  The OBS overlay no longer receives the scene list at all, so its first message fell from 704 KB to 24 KB.
+- **The panel costs less while an output is open** (#905). On an RTX machine the panel fell from 21-29%
+  to 13-17% CPU and total memory by about 200 MB. On a Radeon 610M the panel fell from 26-38% to 14-20%.
+  The preview draws smaller while an output is open, unless Preview Rate is Full, and preset thumbnails
+  wait until the output closes, so undrawn ones stay blank until then.
+- **Presets with many shape instances draw much faster** (#905). A custom shape runs its frame
+  equations up to 1024 times per frame, and each run copied the shared inputs, the q variables and the
+  shape's base by looking up their names. In the slowest presets of a 300-preset sample that was 20-45%
+  of the frame. It now copies by index, as the per-vertex path already did, and wave points do the same.
+  Main thread draw time fell 21-49% on seven of the eight slowest presets, for example from 47.8 to
+  60.2 fps. The eighth has no shapes and did not change. Output is bit for bit the same on all 10,347
+  corpus presets in both compatibility modes.
+- **The main process no longer keeps preset text in memory** (#905). With 10,392 presets its working set
+  fell from 311-323 MB to 175-192 MB, its peak from 318-325 MB to 180-197 MB, and the app's total by
+  about 110-180 MB in real scenes. Text is read from the file when a preset is drawn or edited, about
+  0.3-0.8 ms per preset, and the last 32 stay in memory. Starting an export takes about 1.3 s longer at
+  that library size, because the export window still gets every text up front.
+
+### Visualizer
+
+- **Each MilkDrop layer can run on its own** (#905). A layer with its own preset used to stay on that
+  preset. It can now advance on its own interval, in seconds or bars, in order or at random, while
+  the other layers keep theirs. The pool and hard cuts still come from the shared settings. Every
+  screen, Spout/Syphon, the web output and a backup machine show the same choice per layer.
+  `sv_set_milkdrop_cycle` takes a `layerId`.
+- **Shared MilkDrop layers in one window show one choice** (#905). Each ran its own timer, so two
+  shared layers drifted to different presets with auto advance on. This also changes an export with
+  two shared MilkDrop layers and auto advance on: both now show the same preset.
+
 ### Lyrics
 
 - **Automatic lyrics lookup** (#937). Off by default. When on, the playing track's lyrics are taken from
@@ -14,10 +182,26 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   default, so nothing goes to the network; a failing or slow provider never blocks playback.
   Following the playing track depends on the Windows media session, so this works on Windows only.
 - **Held syllables** (#938). Word end times, including A2 end tags (`<mm:ss.xx>` after a word), are
-  parsed. Karaoke can fill progressively inside the active word and optionally stretch long-held
-  words, in the live output and the exporter. Existing LRC/SRT files render exactly as before.
+  parsed from timestamps only (no audio analysis). Karaoke fills the active word left-to-right and,
+  when a word is held past a threshold, repeats the held vowel so "love" reads as "loooove" (and
+  Turkish "yar" as "yaaar"), in the live output and the exporter. Short words and plain LRC look as
+  before.
+  Stretching is off by default: a held word stays "love" for its timed duration while the fill runs
+  across it. Turn on "Uzatılan Heceyi Esnet" on a text layer for the "loooove" look; layers saved with
+  it on keep stretching.
 - **Timing tools in the lyrics editor** (#414, Windows, like the lyrics library): nudge the selected lines by ±0.1 s or ±1 s, and
   stamp the current lyrics clock on a line (Alt+Enter) or a word (Alt+.).
+- **Lyrics editor text no longer shows twice.** With colouring on, the panel's general text box
+  style overrode the editor's, so the raw text and the coloured copy were drawn on top of each other
+  at different sizes. Only the coloured copy shows now, aligned with the caret.
+- **Lyrics files come from the lyrics library only** (Windows). The Source tab of a lyrics layer no
+  longer has its own "Load Lyrics File" / "Clear" buttons or file row; add files in the Lyrics Library
+  tab. Follow the playing track and matching are unchanged. Platforms without the library keep the
+  per-layer picker.
+- **Follow the playing track is on for new lyrics layers on Windows.** Layers that saved it off stay
+  off. Linux and macOS do not have the feature; it stays hidden and off there.
+  Its factory default is now on as well, so the reset-to-default button only shows when it is off
+  and brings it back on.
 
 ### Control and show
 
@@ -41,6 +225,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   VA-API. H.264 now also tries constant QP (`-qscale:v`) with and without `-low_power`, after the
   existing attempts. Where the old arguments pass, they are kept. H.265 is unchanged, because on that
   machine `hevc_qsv` with low power failed and VA-API already works.
+
+### Documentation
+
+- **README: a "New in v4" section** (English and Turkish) with the Live page and T-bar, the phone remote, multi-pass shaders, video transport, adaptive resolution and the editing-speed work, each with its measurement. Corrected counts that had drifted from the code: 44 GPU effects (the effect list and two summaries said 40 and 42; Flash, Strobe, Tonemap and 3D LUT were missing from the list), 43 built-in shaders, 106 MCP tools (the table said 104). Quick start now names the panel as it is: **Library → Preset** and **Output → Streaming Output (OBS / Web)**. Adaptive resolution, which the README did not mention, is described under power and performance.
+- **A new showreel at the top** (`hero.webp`, 3.8 MB instead of 5.1 MB): the two newest CaYaDev MilkDrop presets, the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, the Lorenz attractor, synthwave and a broadcast card, after your own recording.
+- **ROADMAP** records what was added in November, with measurements, and what was deliberately not taken.
 
 ## v3.1.7 — 2026-11-03
 

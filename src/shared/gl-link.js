@@ -4,6 +4,7 @@
  * https://github.com/CaYatur/SoundVisualizer
  * SPDX-License-Identifier: MIT
  */
+'use strict';
 /* ARKA PLANDA GÖLGELENDİRİCİ DERLEME (#907).
 
    Derlemeyi başlatmak beklemek değildir: GL çağrıları GPU sürecine sıraya

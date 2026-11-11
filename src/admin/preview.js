@@ -24,6 +24,8 @@
      45 Hz'de kalıyor, çünkü Otomatik VJ'nin tempo motoru (autovj.js), Studio
      ve çözümleme paneli onu okuyor; ses yavaşlasa BPM takibi bozulurdu. */
   const PREVIEW_FPS_LOW = 20;
+  const PREVIEW_MAX_H = 540;
+  const PREVIEW_MAX_H_OUTPUT = 180;
   const BINS = 1024;
   const TIME_LEN = 2048;
 
@@ -51,7 +53,6 @@
   let started = false;
   let liveSource = false;
   let onSourceChange = null;
-  let lastSpriteSig = null;
   let lastW = 0;
   let lastH = 0;
 
@@ -67,25 +68,10 @@
   // Demo sinyali — 120 BPM civarı, bas vuruşu + hareketli orta/tiz içerik
   // --------------------------------------------------------------------------
   function buildSyntheticFrame(t) {
-    const beatPhase = (t * 2) % 1; // saniyede 2 vuruş
-    const kick = Math.pow(1 - beatPhase, 3.2); // keskin iniş
-    const halfPhase = (t * 4) % 1;
-    const hat = Math.pow(1 - halfPhase, 9) * 0.55;
-    const swell = 0.5 + 0.5 * Math.sin(t * 0.55);
-
-    for (let i = 0; i < BINS; i++) {
-      const n = i / BINS;
-      // Gerçekçi spektrum eğrisi: bas ağır, tizler zayıf
-      let v = Math.pow(1 - n, 2.6) * 0.85;
-      v += kick * Math.pow(1 - n * 7, 6) * 0.9; // bas vuruşu (0..140 Hz)
-      v += hat * Math.pow(n, 1.4) * 0.5; // hi-hat parlaklığı
-      // gezinen melodik tepe noktaları
-      v += 0.30 * swell * Math.exp(-Math.pow((n - (0.13 + 0.05 * Math.sin(t * 0.9))) * 26, 2));
-      v += 0.22 * Math.exp(-Math.pow((n - (0.26 + 0.07 * Math.sin(t * 0.63 + 2))) * 30, 2));
-      v += 0.14 * Math.exp(-Math.pow((n - (0.44 + 0.06 * Math.sin(t * 1.27 + 1))) * 34, 2));
-      v *= 0.86 + 0.14 * Math.sin(i * 12.9898 + t * 3.1); // hafif doku
-      synthFreq[i] = Math.max(0, Math.min(255, v * 255)) | 0;
-    }
+    const D = window.SVDemoAudio;
+    /* Tayf da örnek sesten (src/shared/demo-audio.js `spectrum`): mod küçük resimleri aynı
+       eğriyi kullanıyor. Eski eğride bas hep tavandaydı, vuruşla çalışan modlar demoda boştu. */
+    D.spectrum(t, synthFreq);
 
     /* ZAMAN VERİSİ ve iki kanal src/shared/demo-audio.js'ten: MilkDrop render
        ölçümünün her kareye verdiği sesin aynısı. MilkDrop'un bantları ve
@@ -93,10 +79,9 @@
        hesaplıyor. Buradaki eski üç alçak sinüs (2048 örnekte 3, 7 ve 17
        devir, ~70-398 Hz) orta ve tiz banda yalnız nicemleme gürültüsü
        düşürüyordu: 45 FPS'te `mid` 0,64-1,38, `treb` 0,66-1,30 arasında
-       kalıyordu; bu seste 0,38-10,5 ve 0,25-11,4. Tayf eğrisi değişmedi,
-       vuruşu ve hi-hat'i bu sesle aynı ızgarada. Kanallar ayrı: gonyometre
+       kalıyordu; bu seste 0,38-10,5 ve 0,25-11,4. Tayfın vuruşu ve
+       hi-hat'i bu sesle aynı ızgarada. Kanallar ayrı: gonyometre
        demoda da bir alan çiziyor. */
-    const D = window.SVDemoAudio;
     D.fill(Math.floor(t * D.SR), synthTime, synthLeft, synthRight);
     return synthFrame;
   }
@@ -104,11 +89,22 @@
   // --------------------------------------------------------------------------
   // Boyutlandırma — sahne kutusuna göre (pencereye göre değil)
   // --------------------------------------------------------------------------
-  function resize(force) {
+  /* `known`: kutunun boyu ölçülmeden son bilinen değer kullanılıyor (#905). setConfig her
+     ayar değişiminde buraya geliyordu ve kutuyu ölçmek, kaydırıcının yeni değer yazısı yüzünden
+     kirlenmiş yerleşimi zorla hesaplatıyordu: kaydırıcı sürüklerken 6 sn'lik panel profilinde
+     3,5 sn. Kutunun boyu değişince ResizeObserver zaten ölçüyor. */
+  function resize(force, known) {
     if (!stage || !stack) return;
-    const rect = stage.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width));
-    const h = Math.max(1, Math.round(rect.height));
+    let w;
+    let h;
+    if (known && lastW > 0 && lastH > 0) {
+      w = lastW;
+      h = lastH;
+    } else {
+      const rect = stage.getBoundingClientRect();
+      w = Math.max(1, Math.round(rect.width));
+      h = Math.max(1, Math.round(rect.height));
+    }
     // Boyut değişmediyse tuvalleri yeniden ayırma (kaydırıcı sürüklerken önemli)
     if (!force && w === lastW && h === lastH) {
       layoutLogo(w, h);
@@ -116,9 +112,14 @@
     }
     lastW = w;
     lastH = h;
-    // Önizleme küçük olduğu için dpr'ı 2 ile sınırla
+    /* Sahne sayfasında önizleme büyük: çizim yükü kutunun boyuyla değil bu sınırla büyüsün
+       (#905). Çıkış açıkken öncelik çıkışın: eski küçük önizlemenin çizim boyu. Tümleşik GPU'da 5
+       katmanlı sahnede 360p çıkış penceresini 56-58 fps'e indiriyordu, 180p'de 61 kalıyor.
+       Önizleme Hızı "Tam" ise hep büyük. */
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    stack.resize(Math.round(w * dpr), Math.round(h * dpr));
+    const full = cfg && cfg.power && cfg.power.previewRate === 'full';
+    const scale = Math.min(dpr, (outputOpen && !full ? PREVIEW_MAX_H_OUTPUT : PREVIEW_MAX_H) / h);
+    stack.resize(Math.round(w * scale), Math.round(h * scale));
     layoutLogo(w, h);
   }
 
@@ -127,42 +128,10 @@
   // --------------------------------------------------------------------------
   // Partikül sabitleri yalnızca bu alanlar değişince yeniden üretilir; diğer
   // parametreler (hız, saydamlık, ışıltı…) doğrudan cfg üzerinden canlı okunur.
-  function spriteSignature() {
-    const items = (cfg.images && cfg.images.items) || [];
-    return items.map((i) => [i.id, i.src ? i.src.length : 0, i.count, i.sizeVar, i.seed].join(':')).join('|');
-  }
-
-  function applyImages() {
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    if (isStack) return;
-    const on = !!(cfg.images && cfg.images.enabled);
-    const items = on ? cfg.images.items || [] : [];
-    const sig = on ? spriteSignature() : '';
-    if (sig !== lastSpriteSig) {
-      lastSpriteSig = sig;
-      sprites.setItems(items);
-    } else {
-      // Yapı aynı: yalnızca canlı okunan yapılandırma referansını tazele
-      const withSrc = items.filter((c) => c && c.src);
-      sprites.items.forEach((it, i) => {
-        if (withSrc[i]) it.cfg = withSrc[i];
-      });
-    }
-  }
-
   function applyMedia() {
     if (!media || !stack) return;
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
-      && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    if (hasMediaLayer) {
-      media.apply({ enabled: false });
-      stack.syncMedia(cfg);
-      return;
-    }
+    media.apply({ enabled: false });
     if (stack.syncMedia) stack.syncMedia(cfg);
-    const mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
-    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
   }
 
   // --------------------------------------------------------------------------
@@ -194,12 +163,14 @@
     const F = window.SVMdFollow;
     if (F && now - F.at < 1500) return;
     const mp = stack.milkdropPreset();
-    if (!mp) return;
-    const key = [mp.id, mp.base, mp.cut, mp.blend, mp.seed].join('|');
+    const layers = stack.milkdropLayers();
+    if (!mp && !layers) return;
+    const part = (p) => (p ? [p.id, p.base, p.cut, p.blend, p.seed].join('|') : '');
+    const key = part(mp) + (layers ? ';' + Object.keys(layers).map((k) => k + '=' + part(layers[k])).join(';') : '');
     if (key === mdLiveKey && now - mdLiveAt < 500) return;
     mdLiveKey = key;
     mdLiveAt = now;
-    window.api.sendMdLive(mp);
+    window.api.sendMdLive(mp, layers);
   }
 
   // --------------------------------------------------------------------------
@@ -220,6 +191,11 @@
     if (sceneAcc > every) sceneAcc = 0;
     return true;
   }
+
+  /* Kareyi kopyalamak isteyenler: WebGL tamponu çizimden sonraki görevde boşalıyor (preserveDrawingBuffer
+     kapalı), kopya çizimle aynı görevde alınmalı. */
+  let frameTap = null;
+  const nextTaps = [];
 
   function renderFrame(now, dt, t, skipScene) {
     if (!stack || !audio) return;
@@ -243,7 +219,19 @@
     sceneSkipped = 0;
 
     let base = cfg;
-    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
+    const TC = window.SVTimelineCompose;
+    if (TC && (TC.modeOn(cfg) || tlLive.on) && window.SVShowClock) {
+      // Timeline kullan: önizleme de çıkışla aynı yalıtılmış bileşimi çizer
+      let a = window.SVTimelinePanel && window.SVTimelinePanel.anchor ? window.SVTimelinePanel.anchor() : null;
+      if (!a) a = window.SVShowClock.idle();
+      const r = TC.live(cfg, TC.modeOn(cfg) ? window.SVShowClock.resolve(a, Date.now()) : 0, tlLive);
+      base = r.cfg;
+      if (r.rebuild) stack.setConfig(base);
+      if (r.fx) stack.setPostFX(base.postfx);
+    } else
+    /* Önizleme de durmuş çizelgeyi sürmesin: yalnız playing çıpasında
+       otomasyon uygula (açık çıkış ile aynı kural). */
+    if (cfg.timeline && cfg.timeline.enabled && cfg.timeline.itemEnabled !== false && window.SVTimeline && window.SVShowClock) {
       let showAnchor = null;
       if (window.SVTimelinePanel && typeof window.SVTimelinePanel.anchor === 'function') {
         showAnchor = window.SVTimelinePanel.anchor();
@@ -257,9 +245,11 @@
       if (!showAnchor) {
         showAnchor = window.SVShowClock.idle();
       }
-      const showT = window.SVShowClock.resolve(showAnchor, Date.now());
-      const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
-      base = auto.cfg;
+      if (showAnchor && showAnchor.playing) {
+        const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+        const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
+        base = auto.cfg;
+      }
     }
 
     modulator.update(base, audio, t, sceneDt);
@@ -267,6 +257,8 @@
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
     stack.draw(audio, mcfg, t, sceneDt);
     reportMdLive(now);
+    if (frameTap) frameTap(now);
+    if (nextTaps.length) nextTaps.splice(0).forEach((fn) => fn());
 
     // logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {
@@ -374,28 +366,30 @@
     setConfig(cfg);
   }
 
+  const tlLive = {};
   function setConfig(next) {
+    const wasFull = !!(cfg.power && cfg.power.previewRate === 'full');
     rawNext = next;
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), next);
     // Düşük güç kipi (#458): panelin ayarı değil, çizilen kopya
     if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
     if (!stack) return;
-    applyImages();
+    // Önizleme Hızı değişince çizim boyu da değişiyor
+    if (wasFull !== !!(cfg.power && cfg.power.previewRate === 'full')) resize(true, true);
     applyMedia();
+    if (window.SVTimelineCompose) window.SVTimelineCompose.resetLive(tlLive);
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
     /* Modlar setConfig ile yeni kurulur; sv_media bağı ondan sonra.
        Yığındaki her kamera kendi katmanında çizilir. Shader girişi alttaki
        ilk açık medya katmanının görüntüsüdür. */
-    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
-    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+    const mediaOn = Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    const mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
     stack.bindMedia(mediaOn && stack.shaderVideo ? stack.shaderVideo() : null);
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);
-    resize(true);
+    resize(true, true);
     drawOnce();
   }
 
@@ -428,9 +422,17 @@
     // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
     audioEngine: () => audio,
     stack: () => stack,
+    // T-bar (#905): panel önizlemesi de çıkışlarla aynı karışımı gösteriyor
+    tbar: (m) => { if (stack) stack.tbar(m); },
+    onFrame: (fn) => { frameTap = fn; },
+    nextFrame: (fn) => { nextTaps.push(fn); },
     ingest,
     setPaused,
-    setOutputOpen: (open) => { outputOpen = !!open; },
+    setOutputOpen: (open) => {
+      if (outputOpen === !!open) return;
+      outputOpen = !!open;
+      resize(true);
+    },
     getLevels,
     isPaused: () => paused,
     isLive: () => liveSource,

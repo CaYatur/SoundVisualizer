@@ -176,7 +176,7 @@ test('Otomatik VJ kilitli katmanın türüne ve rengine dokunmaz', () => {
   // Gözetimsiz otomasyonun ortak yolu (Otomatik VJ paleti, dinamik tema) kilitli katmana yazmaz
   const L = require('../src/visualizer/layers.js');
   const cfg = SV.defaultConfig();
-  L.setStackEnabled(cfg, true);
+  L.enableStack(cfg);
   const i = L.firstLayerIndex(cfg, 'visualizer');
   assert.ok(i >= 0);
   const was = cfg.layers[i].settings.visualizer.color;
@@ -187,7 +187,7 @@ test('Otomatik VJ kilitli katmanın türüne ve rengine dokunmaz', () => {
   assert.strictEqual(L.setEffective(cfg, 'visualizer.color', '#123456'), true);
   assert.strictEqual(cfg.layers[i].settings.visualizer.color, '#123456');
   const vis = fnBody(P, 'function applyVisualizer(cfg, items, targets)');
-  assert.match(vis, /if \(isStack && \(cfg\.layers \|\| \[\]\)\.some\(\(l\) => l && l\.kind === 'visualizer' && l\.locked\)\) return false;/);
+  assert.match(vis, /if \(\(cfg\.layers \|\| \[\]\)\.some\(\(l\) => l && l\.kind === 'visualizer' && l\.locked\)\) return false;/);
   // Durum satırı nedeni söyler
   assert.match(P, /parts\.push\(T\('görselleştirici katmanları kilitli'\)\);/);
 });
@@ -253,7 +253,7 @@ test('her resim seçici dosyayı tarayıcıya çözdürür', () => {
   assert.match(fn, /svToast\(tr\('Seçilen dosya açılabilen bir resim değil\.'\), 'err'\)/);
   assert.match(A, /confirm: svConfirm,\s*imageOk,/);
   let sites = 0;
-  for (const f of ['src/admin/admin.js', 'src/admin/clipdeck-panel.js', 'src/admin/nowplaying-panel.js', 'src/admin/scene-panels.js']) {
+  for (const f of ['src/admin/admin.js', 'src/admin/clipdeck-panel.js', 'src/admin/scene-panels.js']) {
     const s = read(f);
     let at = s.indexOf('readAsDataURL(');
     while (at >= 0) {
@@ -263,7 +263,7 @@ test('her resim seçici dosyayı tarayıcıya çözdürür', () => {
       at = s.indexOf('readAsDataURL(', at + 1);
     }
   }
-  assert.strictEqual(sites, 6);
+  assert.strictEqual(sites, 3);
   assert.strictEqual(loadEnglish().t('Seçilen dosya açılabilen bir resim değil.'), 'The selected file is not an image that can be opened.');
 });
 

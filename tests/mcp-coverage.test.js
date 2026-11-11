@@ -139,20 +139,9 @@ test('MCP efekt listesi görüntü motorunun efektleriyle aynı', () => {
 });
 
 test('sahne anahtarları her kopyada aynı', () => {
-  const arr = (src, from) => {
-    const at = src.indexOf(from);
-    assert.ok(at >= 0, from);
-    const open = src.indexOf('[', at);
-    const close = src.indexOf(']', open);
-    return src.slice(open + 1, close).match(/'([^']+)'/g).map((s) => s.slice(1, -1));
-  };
   const want = mcp.SCENE_KEYS.slice().sort();
-  assert.deepStrictEqual(arr(read('src/admin/admin.js'), 'const SCENE_KEYS = [').sort(), want, 'admin.js');
-  assert.deepStrictEqual(arr(read('src/main/main.js'), 'const SCENE_KEYS = [').sort(), want, 'main.js');
-  assert.deepStrictEqual(arr(read('src/admin/control.js'), 'const SCENE_KEYS = [').sort(), want, 'control.js');
-  // Şablonlar sahnenin alt kümesini siler (metin ve ortam korunur)
-  const tpl = require('../src/shared/templates.js').SCENE_KEYS;
-  assert.deepStrictEqual(tpl.filter((k) => want.indexOf(k) < 0), []);
+  // Şablonlar sahnenin bütün alanlarını sıfırlar (#905)
+  assert.deepStrictEqual(require('../src/shared/templates.js').SCENE_KEYS.slice().sort(), want);
 });
 
 test('MCP katman şablonu uygulamanın katman alanlarını kapsıyor', () => {

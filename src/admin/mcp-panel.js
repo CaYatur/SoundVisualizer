@@ -202,10 +202,13 @@
     const on = model.enabled === true;
     const nodes = [
       el('div', { class: 'studio-note dim-hint', text: tx('mcp.card.note') }),
-      toggle(tx('mcp.card.master'), on, setEnabled),
+      P().moduleHead({
+        id: 'mcp', title: tx('mcp.card.master'), on,
+        status: el('div', { class: 'studio-status mcp-status', text: on ? statusText() : tr('Kapalı') }),
+        start: 'Başlat', stop: 'Durdur', toggle: setEnabled,
+      }),
     ];
     if (!on) return el('div', { class: 'mcp-card' }, nodes);
-    nodes.push(el('div', { class: 'mcp-status', text: statusText() }));
     if (status && status.portBusy) {
       const busy = status.requestedPort || status.configuredPort || model.port;
       nodes.push(el('div', { class: 'studio-note', text: tx('mcp.port.busy').split('{port}').join(String(busy)) }));
@@ -237,6 +240,22 @@
       P().push(true);
     }));
     nodes.push(el('div', { class: 'studio-note dim-hint', text: tx('mcp.profile.hint') }));
+    // Belgeli HTTP API (/api/v1): varsayılan kapalı, yalnız 127.0.0.1
+    nodes.push(toggle(tx('mcp.http.toggle'), model.httpApi === true, function (v) {
+      const mcp = ensure(P().cfg());
+      mcp.httpApi = !!v;
+      if (P().rerender) P().rerender();
+      P().push(true);
+      setTimeout(refresh, 300);
+    }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: tx('mcp.http.hint') }));
+    if (model.httpApi === true && status && status.apiUrl) {
+      nodes.push(el('div', { class: 'mcp-port' }, [
+        el('code', { text: status.apiUrl }),
+        el('button', { class: 'btn ghost small', type: 'button', text: tx('mcp.http.copyUrl'), onclick: function () { copy(status.apiUrl); } }),
+        el('button', { class: 'btn ghost small', type: 'button', text: tx('mcp.http.copyToken'), onclick: function () { copy(status.apiToken); } }),
+      ]));
+    }
     if (model.setupVisible) {
       nodes.push(el('button', { class: 'btn', type: 'button', text: tx('mcp.card.setup'), onclick: openSetup }));
     }

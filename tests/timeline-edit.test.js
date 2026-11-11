@@ -233,7 +233,7 @@ function el(tag, props, kids) {
   if (tag === 'canvas') {
     n.clientWidth = 800;
     n.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 200 });
-    n.getContext = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+    n.getContext = () => new Proxy({ createLinearGradient: () => ({ addColorStop() {} }), measureText: () => ({ width: 40 }) }, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
   }
   (kids || []).forEach((c) => c && n.appendChild(c));
   return n;
@@ -333,7 +333,7 @@ test('kısayollar: metin alanına yazarken çalışmıyor', async () => {
   assert.strictEqual(TP.transport().playing, false, 'Boşluk oynatmadı');
 });
 
-test('kısayollar: Boşluk oynatıp duraklatıyor; L döngüyü kafadan dört ölçü açıyor', async () => {
+test('kısayollar: Boşluk oynatıp duraklatıyor; Shift+L döngüyü kafadan dört ölçü açıyor', async () => {
   const cfg = showCfg();
   await mount(cfg);
   TP._select(null);
@@ -343,9 +343,9 @@ test('kısayollar: Boşluk oynatıp duraklatıyor; L döngüyü kafadan dört ö
   key(' ');
   assert.strictEqual(TP.transport().playing, false);
   TP.seek(2);
-  key('l');
+  key('L', { shiftKey: true });
   assert.deepStrictEqual(cfg.timeline.loop, { enabled: true, start: 2, end: 10 }, '120 BPM 4/4: dört ölçü 8 sn');
-  key('l');
+  key('L', { shiftKey: true });
   assert.strictEqual(cfg.timeline.loop.enabled, false, 'ikinci basış kapatıyor, bölge kalıyor');
   assert.strictEqual(cfg.timeline.loop.end, 10);
 });

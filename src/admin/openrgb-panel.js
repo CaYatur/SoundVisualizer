@@ -46,18 +46,6 @@
       window.api.openrgbStatus().then((s) => { state = s; }).catch(() => {});
     }
 
-    const enable = el('input', {
-      type: 'checkbox',
-      onchange: async (e) => {
-        o.enabled = e.target.checked;
-        P().push(true);
-        try { state = await window.api.openrgbSync(); } catch {}
-        P().rerender();
-      },
-    });
-    enable.checked = !!o.enabled;
-    nodes.push(P().row('OpenRGB Çıkışı', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
-
     // --- Durum. Sayılar ayrı düğümlerde: birleşik metin çevrilemez. ---
     const st = el('div', { class: 'studio-status ' + (state.connected ? 'ok' : state.error ? 'err' : '') });
     if (state.connected) {
@@ -79,7 +67,16 @@
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));
     }
-    nodes.push(st);
+    nodes.push(P().moduleHead({
+      id: 'openrgb', title: 'OpenRGB', on: !!o.enabled, error: !!state.error, status: st,
+      start: 'Bağlan', stop: 'Bağlantıyı Kes',
+      toggle: async (next) => {
+        o.enabled = next;
+        P().push(true);
+        try { state = await window.api.openrgbSync(); } catch {}
+        P().rerender();
+      },
+    }));
 
     /* Bağlanamama en olası durum ve tek başına bir hata mesajı hiçbir şey
        anlatmaz: kullanıcının OpenRGB'yi kurup SDK sunucusunu açması gerekir. */

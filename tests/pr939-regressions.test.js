@@ -69,13 +69,6 @@ test('zamanlama araç çubuğunun her metni İngilizce sözlükte', () => {
   assert.ok(n >= 6);
 });
 
-test('dosya bilgisi adı ayrı düğümde; parçaların hepsi çevrilebilir', () => {
-  const src = read('src/admin/text-panel.js');
-  assert.doesNotMatch(src, /\(T\.lyricsName \|\| ''\) \+ ' ' \+ info/);
-  const dict = dictionary();
-  for (const k of ['karaoke zamanlı', 'yüklü dosya yok']) assert.ok(dict.has(k), k);
-  assert.match(read('src/shared/i18n.js'), /\.replace\(\/\^\(\\d\+\) satır · \(\.\+\)\$\/g/);
-});
 
 /* Kod incelemesinde bulunanlar */
 const os = require('os');
@@ -183,6 +176,10 @@ test('sağlayıcının hata sayfası söz sayılmıyor, önbellek temizlenebiliy
   assert.strictEqual(LL.clearCache(dir), 1);
   assert.deepStrictEqual(fs.readdirSync(dir), ['kullanici.txt'], 'yalnız önbellek dosyası silinir');
   assert.match(read('src/admin/extras-panel.js'), /lyricsCacheClear/);
+  assert.match(read('src/admin/extras-panel.js'), /LRCLIB Ekle/);
+  assert.match(read('src/admin/extras-panel.js'), /SVLyricsProviders/);
+  assert.match(read('src/admin/index.html'), /lyrics-providers\.js/);
+
 });
 
 test('kaydırma seçimi koruyor: ikinci tıklama yalnız aynı satırları kaydırır', () => {
@@ -272,4 +269,17 @@ test('çökme bildirimi "sağlam" derken dosya gerçekten okunmuş olmalı', () 
   // Üç metin de İngilizce arayüzde karşılığını buluyor
   const i18n = read('src/shared/i18n.js');
   assert.ok(i18n.includes("'Önceki oturum beklenmedik biçimde kapandı. Ayar dosyası okunamadı, varsayılan ayarlarla açıldı.':"));
+});
+
+test('ek panellerin kaydırıcıları şemayla aynı sınırda (#905)', () => {
+  const Schema = require('../src/shared/schema.js');
+  const src = read('src/admin/extras-panel.js');
+  const rows = [...src.matchAll(/p\.slider\(T\('[^']*'\), '([a-zA-Z.]+)', \{ min: ([\d.]+), max: ([\d.]+)/g)];
+  assert.ok(rows.length >= 4);
+  for (const [, path, min, max] of rows) {
+    const row = Schema.rangeFor(path);
+    assert.ok(row, path + ' şemada yok');
+    assert.strictEqual(row.min, Number(min), path);
+    assert.strictEqual(row.max, Number(max), path);
+  }
 });

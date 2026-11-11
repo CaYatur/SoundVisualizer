@@ -30,6 +30,7 @@
   const PROBLEM_TEXT = {
     secret: 'Eşleşme parolası en az 16 karakter olmalı.',
     host: 'Birincilin adresini yazın.',
+    version: 'Birincil farklı ana sürümde, eşleşme yapılmadı. İki makineye aynı ana sürümü kurup uygulamayı yeniden açın.',
   };
   const PEER_STATE_TEXT = { following: 'izliyor', active: 'yetkide', lost: 'birincili kaybetti', connecting: 'bağlanıyor' };
   // Yetki (#814)
@@ -247,6 +248,9 @@
     const el = P().el;
     /* İKİ YÖNETİCİ (#814): iki makine de karar veriyor. Panelde en üstte,
        ne yapılacağıyla. Çit: yeniden açılan birincil yedeği bekliyor. */
+    if (status.peerMismatch) {
+      nodes.push(el('div', { class: 'br-err', role: 'alert', text: 'Yedek farklı ana sürümde, bağlantı kesildi. İki makineye aynı ana sürümü kurup uygulamayı yeniden açın.' }));
+    }
     if (status.split) {
       nodes.push(el('div', { class: 'br-err red-split', role: 'alert' }, [
         el('strong', { text: 'İki yönetici: iki makine de yetkide.' }),

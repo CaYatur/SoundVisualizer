@@ -102,8 +102,8 @@ test('validateOptions: omitted values pass, unknown ones are reported', () => {
 
 test('timeline-follow recording reacts to external config changes', () => {
   const admin = read('src/admin/admin.js');
-  const a = admin.indexOf('window.api.onExternalConfig(');
-  const body = admin.slice(a, admin.indexOf('\n    });', a));
+  const a = admin.indexOf('function acceptExternalConfig(incoming)');
+  const body = admin.slice(a, admin.indexOf('window.api.onExternalConfig(acceptExternalConfig)', a));
   assert.match(body, /SVRecordPanel\.ensureFollow\(!!\(cfg\.recording && cfg\.recording\.followTimeline\)\)/);
 });
 
@@ -123,7 +123,7 @@ function loadEnglish() {
 
 test('EN UI: export queue heading reads "Export Queue", toasts are translated', () => {
   const i18n = loadEnglish();
-  assert.ok(read('src/admin/admin.js').includes("text: 'Dışa Aktarma Kuyruğu'"));
+  assert.ok(read('src/admin/admin.js').includes("text: tr('Dışa Aktarma Kuyruğu')"));
   assert.strictEqual(i18n.t('Dışa Aktarma Kuyruğu'), 'Export Queue');
   assert.strictEqual(i18n.t('Kaydedilemedi: x'), 'Could not save: x');
   assert.match(read('src/admin/admin.js'), /host\.textContent = window\.SVI18n && window\.SVI18n\.t \? window\.SVI18n\.t\(String\(message\)\) : message;/);

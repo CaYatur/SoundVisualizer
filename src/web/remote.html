@@ -9,204 +9,164 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0910" />
+    <meta name="theme-color" content="#0b0910" id="themeColor" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>CAYADEV Visualizer — Uzaktan Kumanda</title>
-    <style>
-      :root {
-        --bg: #0b0910;
-        --card: #16121d;
-        --card2: #1d1826;
-        --line: #2c2438;
-        --text: #ece8f2;
-        --dim: #9c92ad;
-        --red: #dc2727;
-      }
-      * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font: 15px/1.45 'Segoe UI', -apple-system, system-ui, sans-serif;
-        padding: 14px 14px calc(28px + env(safe-area-inset-bottom));
-        max-width: 640px;
-        margin: 0 auto;
-      }
-      header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-      .logo { width: 34px; height: 34px; border-radius: 9px; background: #111827; display: grid; place-items: center; flex: none; }
-      .logo i { display: block; width: 4px; height: 16px; background: var(--red); border-radius: 2px; box-shadow: 7px 0 0 var(--red), -7px 0 0 var(--red); }
-      h1 { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
-      h1 span { color: var(--red); }
-      .sub { font-size: 11.5px; color: var(--dim); }
-      #dot { margin-left: auto; width: 9px; height: 9px; border-radius: 50%; background: #6b6478; flex: none; }
-      html[data-sv-status='connected'] #dot { background: #3ddc84; box-shadow: 0 0 10px #3ddc8455; }
-      html[data-sv-status='closed'] #dot, html[data-sv-status='error'] #dot { background: var(--red); }
-
-      .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px; margin-bottom: 11px; }
-      .card h2 {
-        font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
-        color: var(--dim); margin-bottom: 10px; font-weight: 600;
-        display: flex; align-items: center; gap: 8px;
-      }
-      .card h2 b { margin-left: auto; color: var(--text); font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
-
-      .row { display: flex; gap: 8px; }
-      button {
-        font: inherit; color: var(--text); background: var(--card2);
-        border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
-        cursor: pointer; flex: 1; touch-action: manipulation;
-      }
-      button:active { transform: scale(.985); }
-      button.primary { background: var(--red); border-color: var(--red); font-weight: 600; }
-      button.on { background: #33243a; border-color: #6b4bd8; color: #fff; }
-      /* İkonlar masaüstüyle aynı set (shared/icons.js, #665) */
-      .svi { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
-      .svi-lead { margin-right: .4em; }
-      .stepper button .svi { width: 20px; height: 20px; }
-
-      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; }
-      .grid button { padding: 10px 6px; font-size: 13px; }
-
-      /* sırayla gezinme çubuğu */
-      .stepper { align-items: center; margin-bottom: 9px; }
-      .stepper button { flex: none; width: 52px; padding: 9px 0; font-size: 16px; line-height: 1; }
-      .stepper .now {
-        flex: 1; text-align: center; font-size: 13px; color: var(--text);
-        background: var(--card2); border: 1px solid var(--line); border-radius: 10px;
-        padding: 10px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      }
-      .stepper .now small { display: block; color: var(--dim); font-size: 10px; }
-
-      /* adlandırılmış renk şablonları */
-      .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 7px; }
-      .sw {
-        padding: 0; overflow: hidden; border-radius: 10px; border: 1px solid var(--line);
-        display: flex; flex-direction: column; cursor: pointer; background: var(--card2);
-      }
-      .sw .bar { height: 30px; display: block; }
-      .sw .nm {
-        font-size: 11px; color: var(--dim); padding: 5px 4px; text-align: center;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      }
-      .sw.on { border-color: #6b4bd8; }
-      .sw.on .nm { color: #fff; background: #33243a; }
-
-      /* çalan parça & albüm kapağı */
-      .now-playing-box { display: flex; align-items: center; gap: 12px; }
-      .now-art { width: 54px; height: 54px; border-radius: 9px; object-fit: cover; background: var(--card2); border: 1px solid var(--line); flex: none; }
-      .now-info { flex: 1; min-width: 0; }
-      .now-title { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
-      .now-artist { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .empty { color: var(--dim); font-size: 13px; }
-      footer { text-align: center; color: var(--dim); font-size: 11.5px; margin-top: 16px; }
-    </style>
+    <link rel="manifest" href="/app/web/remote-manifest.json" />
+    <link rel="stylesheet" href="/app/web/remote.css" />
   </head>
   <body>
-    <header>
-      <div class="logo"><i></i></div>
-      <div>
-        <h1><span>CAYA</span>DEV Kumanda</h1>
-        <div class="sub" id="statusText">Bağlanıyor…</div>
-      </div>
-      <div id="dot"></div>
-    </header>
-
-    <div class="card" id="nowPlayingCard" style="display: none;">
-      <h2><span id="nowPlayingHeading">Çalan Parça</span><b id="nowPlayingApp"></b></h2>
-      <div class="now-playing-box">
-        <img id="nowPlayingArt" src="" alt="" class="now-art" style="display: none;" />
-        <div class="now-info">
-          <div class="now-title" id="nowPlayingTitle">—</div>
-          <div class="now-artist" id="nowPlayingArtist">—</div>
+    <div id="ambient" aria-hidden="true"></div>
+    <div class="app">
+      <header class="top">
+        <div class="mark" aria-hidden="true"><i></i></div>
+        <div class="top-t">
+          <h1>Kumanda</h1>
+          <div class="sub"><span class="dot" aria-hidden="true"></span><span id="statusText">Bağlanıyor…</span></div>
         </div>
+        <div class="bpm" id="bpmBox" hidden><b id="bpmVal">—</b><small>BPM</small></div>
+      </header>
+
+      <!-- Karartma her sayfada, tek dokunuşla: gösteride panik düğmesi -->
+      <div class="panic">
+        <button class="btn danger" id="blackoutBtn" data-icon="moon" aria-pressed="false">Karart</button>
       </div>
+
+      <section class="page on" id="pageLive" aria-labelledby="navLive">
+        <div class="cols">
+          <div>
+            <div class="card" id="nowCard">
+              <div class="now">
+                <img id="nowArt" class="now-art" src="" alt="" hidden />
+                <div id="nowArtNone" class="now-art none" data-icon="music" aria-hidden="true"></div>
+                <div class="now-t">
+                  <div class="now-title" id="nowTitle" data-user-text>—</div>
+                  <div class="now-sub" id="nowSub" data-user-text>Çalan parça yok</div>
+                </div>
+              </div>
+              <div class="meter" aria-hidden="true">
+                <div class="meter-b"><i id="mBass"></i></div>
+                <div class="meter-b"><i id="mMid"></i></div>
+                <div class="meter-b"><i id="mTreble"></i></div>
+              </div>
+              <div class="meter-l" aria-hidden="true"><span>Bas</span><span>Orta</span><span>Tiz</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><h2>Çıkış</h2><span class="aux" id="modeNow" data-user-text></span></div>
+              <div class="row">
+                <button class="btn primary" data-action="openVisualizer" data-icon="play">Aç</button>
+                <button class="btn" data-action="closeVisualizer" data-icon="stop">Kapat</button>
+              </div>
+              <div class="fader">
+                <label for="master">Ana Opaklık</label><output id="vMaster">—</output>
+                <input type="range" id="master" min="0" max="1" step="0.01" />
+              </div>
+              <div class="line">
+                <div class="lbl">Otomatik VJ<small>Sahneleri ve presetleri müziğe göre değiştirir</small></div>
+                <label class="sw"><input type="checkbox" id="autovj" aria-label="Otomatik VJ" /><i></i></label>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-h"><h2>Sahne</h2><span class="aux" id="sceneCount"></span></div>
+              <div class="stepper">
+                <button class="ib" data-step="scene:-1" title="Önceki sahne" aria-label="Önceki sahne" data-icon="chevron-left"></button>
+                <div class="cur"><b id="sceneNow" data-user-text>—</b><small id="sceneSub">sahne yok</small></div>
+                <button class="ib" data-step="scene:1" title="Sonraki sahne" aria-label="Sonraki sahne" data-icon="chevron-right"></button>
+              </div>
+            </div>
+
+            <div class="card" id="mdCard" hidden>
+              <div class="card-h"><h2>MilkDrop</h2></div>
+              <div class="stepper">
+                <button class="ib" data-run="mdPrev" title="Önceki preset" aria-label="Önceki preset" data-icon="chevron-left"></button>
+                <div class="cur"><b id="mdNow" data-user-text>—</b><small>preset</small></div>
+                <button class="ib" data-run="mdNext" title="Sonraki preset" aria-label="Sonraki preset" data-icon="chevron-right"></button>
+                <button class="ib" data-run="mdRandom" title="Rastgele preset" aria-label="Rastgele preset" data-icon="dice"></button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><h2>A / B Geçişi</h2><span class="aux" id="vXf">—</span></div>
+              <input type="range" id="xfade" min="0" max="1" step="0.01" aria-label="A / B Geçişi" />
+              <div class="xf-ends" aria-hidden="true"><span>A</span><span>B</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><h2>Zaman Çizelgesi</h2><span class="aux" id="tlState"></span></div>
+              <div class="row">
+                <button class="ib" data-run="tlPrevMarker" title="Önceki işaret" aria-label="Önceki işaret" data-icon="prev"></button>
+                <button class="btn" id="tlPlay" data-icon="play">Oynat</button>
+                <button class="ib" data-run="tlStop" title="Durdur" aria-label="Durdur" data-icon="stop"></button>
+                <button class="ib" data-run="tlNextMarker" title="Sonraki işaret" aria-label="Sonraki işaret" data-icon="next"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="pageScenes" aria-labelledby="navScenes">
+        <div class="card">
+          <label class="search"><span data-icon="search" aria-hidden="true"></span><input type="search" id="sceneSearch" placeholder="Sahne ara" aria-label="Sahne ara" /></label>
+          <div class="grid" id="scenes"></div>
+          <div class="empty" id="scenesEmpty" hidden>Kayıtlı sahne yok. Bilgisayardaki panelden sahne kaydedin.</div>
+        </div>
+      </section>
+
+      <section class="page" id="pageLayers" aria-labelledby="navLayers">
+        <div class="card">
+          <div class="card-h"><h2>Katmanlar</h2><span class="aux" id="layerCount"></span></div>
+          <div id="layers"></div>
+          <div class="empty" id="layersEmpty" hidden>Bu sahnede katman yok. Katmanları bilgisayardaki panelden ekleyin.</div>
+        </div>
+      </section>
+
+      <section class="page" id="pageLook" aria-labelledby="navLook">
+        <div class="card">
+          <div class="seg" id="lookTabs" role="tablist">
+            <button data-look="vis" role="tab">Görselleştirici</button>
+            <button data-look="bg" role="tab">Arkaplan</button>
+            <button data-look="pal" role="tab">Renkler</button>
+            <button data-look="studio" role="tab" id="lookStudioTab" hidden>Studio</button>
+          </div>
+          <label class="search" style="margin-top: 10px"><span data-icon="search" aria-hidden="true"></span><input type="search" id="lookSearch" placeholder="Ara" aria-label="Ara" /></label>
+          <div class="grid" id="visModes" data-look-body="vis"></div>
+          <div class="grid" id="bgModes" data-look-body="bg" hidden></div>
+          <div class="grid" id="palettes" data-look-body="pal" hidden></div>
+          <div class="list" id="studioPresets" data-look-body="studio" hidden></div>
+        </div>
+      </section>
+
+      <section class="page" id="pageAudio" aria-labelledby="navAudio">
+        <div class="card">
+          <div class="card-h"><h2>Ses Tepkisi</h2></div>
+          <div class="fader"><label for="sens">Hassasiyet</label><output id="vSens">—</output><input type="range" id="sens" min="0.2" max="4" step="0.05" /></div>
+          <div class="fader"><label for="smooth">Yumuşatma</label><output id="vSmooth">—</output><input type="range" id="smooth" min="0" max="0.95" step="0.01" /></div>
+          <div class="fader"><label for="bass">Bas Vurgusu</label><output id="vBass">—</output><input type="range" id="bass" min="1" max="4" step="0.05" /></div>
+          <div class="fader"><label for="glow">Parlama</label><output id="vGlow">—</output><input type="range" id="glow" min="0" max="1" step="0.02" /></div>
+        </div>
+      </section>
+
+      <footer>CAYADEV Visualizer · cayadev.com</footer>
     </div>
 
-    <div class="card">
-      <h2>Görselleştirme</h2>
-      <div class="row">
-        <button class="primary" data-action="openVisualizer" data-icon="play">Aç</button>
-        <button data-action="closeVisualizer" data-icon="stop">Kapat</button>
-        <button id="blackoutBtn" data-icon="moon">Karart</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Sahneler <b id="sceneCount"></b></h2>
-      <div class="row stepper">
-        <button data-step="scene:-1" title="Önceki sahne" data-icon="chevron-left"></button>
-        <div class="now" id="sceneNow">—<small>sahne yok</small></div>
-        <button data-step="scene:1" title="Sonraki sahne" data-icon="chevron-right"></button>
-      </div>
-      <div class="grid" id="scenes"><span class="empty">Kayıtlı sahne yok.</span></div>
-    </div>
-
-    <div class="card">
-      <h2>Renk Şablonları <b id="paletteCount"></b></h2>
-      <div class="row stepper">
-        <button data-step="palette:-1" title="Önceki şablon" data-icon="chevron-left"></button>
-        <div class="now" id="paletteNow">—<small>şablon</small></div>
-        <button data-step="palette:1" title="Sonraki şablon" data-icon="chevron-right"></button>
-      </div>
-      <div class="swatches" id="palettes"></div>
-    </div>
-
-    <div class="card" id="studioCard" hidden>
-      <h2>Studio Presetleri <b id="studioCount"></b></h2>
-      <div class="row stepper">
-        <button data-step="studio:-1" title="Önceki preset" data-icon="chevron-left"></button>
-        <div class="now" id="studioNow">—<small>preset</small></div>
-        <button data-step="studio:1" title="Sonraki preset" data-icon="chevron-right"></button>
-      </div>
-      <div class="grid" id="studioPresets"></div>
-    </div>
-
-    <div class="card">
-      <h2>Görselleştirici</h2>
-      <div class="grid" id="visModes"></div>
-    </div>
-
-    <div class="card">
-      <h2>Arkaplan</h2>
-      <div class="grid" id="bgModes"></div>
-    </div>
-
-    <div class="card">
-      <h2>Ses</h2>
-      <div class="slider">
-        <label>Hassasiyet <b id="vSens">—</b></label>
-        <input type="range" id="sens" min="0.2" max="4" step="0.05" />
-      </div>
-      <div class="slider">
-        <label>Yumuşatma <b id="vSmooth">—</b></label>
-        <input type="range" id="smooth" min="0" max="0.95" step="0.01" />
-      </div>
-      <div class="slider">
-        <label>Bas Vurgusu <b id="vBass">—</b></label>
-        <input type="range" id="bass" min="1" max="4" step="0.05" />
-      </div>
-      <div class="slider">
-        <label>Parlama <b id="vGlow">—</b></label>
-        <input type="range" id="glow" min="0" max="1" step="0.02" />
-      </div>
-    </div>
-
-    <style>
-      .slider { margin-bottom: 12px; }
-      .slider:last-child { margin-bottom: 0; }
-      .slider label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
-      .slider label b { color: var(--dim); font-weight: 500; font-variant-numeric: tabular-nums; }
-      input[type=range] { width: 100%; height: 28px; background: transparent; -webkit-appearance: none; appearance: none; }
-      input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: #2e2739; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--red); margin-top: -8.5px; border: 2px solid #1a1520; }
-      input[type=range]::-moz-range-track { height: 5px; border-radius: 3px; background: #2e2739; }
-      input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 2px solid #1a1520; border-radius: 50%; background: var(--red); }
-    </style>
-
-    <footer>CAYADEV Visualizer · cayadev.com</footer>
+    <nav class="nav" aria-label="Sayfalar">
+      <button id="navLive" data-page="Live" data-icon="broadcast"><span>Canlı</span></button>
+      <button id="navScenes" data-page="Scenes" data-icon="clapper"><span>Sahneler</span></button>
+      <button id="navLayers" data-page="Layers" data-icon="layers"><span>Katmanlar</span></button>
+      <button id="navLook" data-page="Look" data-icon="palette"><span>Görünüm</span></button>
+      <button id="navAudio" data-page="Audio" data-icon="sliders"><span>Ses</span></button>
+    </nav>
 
     <script src="/app/shared/defaults.js"></script>
     <script src="/app/shared/icons.js"></script>
     <script src="/app/shared/i18n.js"></script>
+    <script src="/app/shared/ui-themes.js"></script>
     <script src="/app/web/web-shim.js"></script>
     <script src="/app/shared/mode-catalog.js"></script>
     <script src="/app/visualizer/layers.js"></script>

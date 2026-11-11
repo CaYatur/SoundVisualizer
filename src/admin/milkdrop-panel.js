@@ -17,6 +17,8 @@
    gösteriliyor — bozuk bir preset sessizce boş ekran vermemeli. */
 (function () {
   const P = () => window.SVPanel;
+  // Raftaki kütüphaneyi de değiştirebilir: raf bu kez yeniden çizilsin
+  const applyShelf = () => { if (window.SVSceneShell) window.SVSceneShell.invalidateShelf(); P().apply(); };
   const SP = () => window.SVScenePanels;
 
   let loaded = false;
@@ -29,6 +31,8 @@
   let authorSel = '';
   let busy = '';
   let listScroll = 0;
+  // Listeden seçimde etkin kart zaten görünür (#957): yeniden çizimde kaydırma oynatılmaz
+  let keepView = false;
   /* Doku klasöründe kaç görsel bulunduğu. null = henüz sorulmadı.
      Yol tek başına yeterli değil: kullanıcı klasörü doğru seçip yanlış
      klasörü göstermiş olabilir ve sayı bunu anında ele veriyor. */
@@ -150,7 +154,7 @@
     if (!L || !id) return;
     const lib = library(cfg);
     lib.favorites = L.withFavorite(lib, id, on);
-    P().apply();
+    applyShelf();
   }
 
   /* PAKET (#576). Dışa aktarılan: listede GÖRÜNEN kendi presetleri — süzgeç
@@ -294,7 +298,7 @@
     if (L && tagged.length && control(cfg).importFolderTags !== false) lib.tags = L.addTags(lib, tagged);
     if (r.textures && r.textures.copied) lib.textureRev = (+lib.textureRev || 0) + 1;
     libResult = libResultText(r);
-    P().apply();
+    applyShelf();
   }
 
   async function pickLibrary(kind) {
@@ -337,9 +341,11 @@
      bir küçük resimden ayrı görünmeli — presetlerin ~%9'u gerçekten siyah
      başlıyor. */
   const VIEW_KEY = 'sv-md-view';
+  // Seçim yoksa rafta küçük resimli ızgara, kartta liste (#905)
   let viewMode = (() => {
-    try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'; } catch (e) { return 'list'; }
+    try { const v = localStorage.getItem(VIEW_KEY); return v === 'grid' || v === 'list' ? v : ''; } catch (e) { return ''; }
   })();
+  const viewNow = () => viewMode || (part === 'library' ? 'grid' : 'list');
   const thumbKeys = new Map();
   const thumbWanted = new Set();
   let thumbTexSig = null;
@@ -349,6 +355,16 @@
   // Gözlemci (IntersectionObserver) yoksa istenen ilk hücre sayısı
   const THUMB_FIRST = 24;
   const thumbUrl = (key) => 'sv-thumb://t/' + key + '.webp';
+
+  // Denetçideki ve katman satırındaki resim: anahtar henüz yoksa bir sonraki çizimde
+  function thumbFor(md) {
+    const id = md && md.presetId;
+    if (!id) return '';
+    const key = thumbKeys.get(id);
+    if (key) return thumbUrl(key);
+    if (key === undefined) wantThumb(id);
+    return '';
+  }
 
   function setView(v) {
     viewMode = v === 'grid' ? 'grid' : 'list';
@@ -376,9 +392,11 @@
 
   function thumbBox(id) {
     if (typeof document === 'undefined') return null;
-    const root = (document.getElementById && document.getElementById('sections')) || document;
-    if (!root || !root.querySelectorAll) return null;
-    for (const b of root.querySelectorAll('.md-thumb-box')) if (b.getAttribute('data-id') === id) return b;
+    const gid = (x) => (document.getElementById ? document.getElementById(x) : null);
+    for (const root of [gid('svShelf'), gid('sections')]) {
+      if (!root || !root.querySelectorAll) continue;
+      for (const b of root.querySelectorAll('.md-thumb-box')) if (b.getAttribute('data-id') === id) return b;
+    }
     return null;
   }
 
@@ -400,6 +418,8 @@
   function setThumb(id, key) {
     thumbKeys.set(id, key);
     paintThumb(thumbBox(id), key);
+    // Katman satırı ve denetçi başlığı da aynı preseti gösteriyor olabilir
+    if (key && window.SVSceneShell && window.SVSceneShell.thumbReady) window.SVSceneShell.thumbReady(id, thumbUrl(key));
   }
 
   function wantThumb(id) {
@@ -445,12 +465,15 @@
      sütun sayısı CSS'in `auto-fill`inden ölçülüyor, boşluk kutusu bütün
      sütunları kaplıyor, böylece pencerenin ilk hücresi hep satır başında. */
   const WINDOW_MIN = 200;
+  const lastMeasure = {};
   const WINDOW_PAD = 6;
 
   function windowList(list, items, make, grid, activeIdx) {
     const el = P().el;
     const gap = grid ? 6 : 2;
-    const st = { pitch: grid ? 104 : 28, cols: 1, r0: -1, r1: -1, nodes: new Map() };
+    // Son ölçülen satır aralığı ve sütun (#957): yeniden çizimde tahmin tutar, kaydırma oynamaz
+    const was = lastMeasure[grid ? 'grid' : 'list'];
+    const st = { pitch: was ? was.pitch : (grid ? 104 : 28), cols: was ? was.cols : 1, r0: -1, r1: -1, nodes: new Map() };
     const top = el('div', { class: 'md-spacer' });
     const bottom = el('div', { class: 'md-spacer' });
     list.appendChild(top);
@@ -494,16 +517,17 @@
       const changed = cols !== st.cols || Math.abs(pitch - st.pitch) > 0.5;
       st.cols = cols;
       st.pitch = pitch;
+      lastMeasure[grid ? 'grid' : 'list'] = { cols, pitch };
       return changed;
     };
 
     // Etkin presete göre kaydırma: görünmüyorsa en yakın kenara getiriliyor
     const scrollFor = (s) => {
-      if (activeIdx < 0) return s;
+      if (activeIdx < 0 || keepView) return s;
       const h = list.clientHeight || 0;
       const y = Math.floor(activeIdx / st.cols) * st.pitch;
       if (y < s) return y;
-      if (h && y + st.pitch > s + h) return y + st.pitch - h;
+      if (h && y + st.pitch > s + h) return Math.ceil((y + st.pitch - h) / st.pitch) * st.pitch;
       return s;
     };
 
@@ -513,6 +537,7 @@
       for (let k = 0; k < 3 && measure(); k++) draw(true, listScroll);
       list.scrollTop = scrollFor(listScroll);
       listScroll = list.scrollTop;
+      keepView = false;
       draw(true);
       if (measure()) draw(true);
       /* Doğrudan kaydırma olayında: pencere yalnız aralık değişince
@@ -527,6 +552,12 @@
         });
         ro.observe(list);
       }
+      // Raf kart boyu değişti (#957): liste boyu aynı kalıyor, sütunları yeniden ölç
+      const onCard = () => {
+        if (!list.isConnected) { window.removeEventListener('sv-cardsize', onCard); return; }
+        requestAnimationFrame(() => { if (measure()) draw(true); else draw(false); });
+      };
+      if (grid) window.addEventListener('sv-cardsize', onCard);
     }, 0);
   }
 
@@ -554,7 +585,7 @@
     adoptDelta({ upsert: saved });
     if (L) L.adopt(library(P().cfg()), read.library, saved);
     refresh(() => {
-      P().apply();
+      applyShelf();
       P().toast(saved.length + ' ' + tr('preset içe aktarıldı.'), 'ok');
     });
   }
@@ -566,7 +597,7 @@
     const lib = library(cfg);
     const before = JSON.stringify(L.tagsOf(lib, id));
     lib.tags = L.withTags(lib, id, input);
-    if (JSON.stringify(L.tagsOf(lib, id)) !== before) P().apply();
+    if (JSON.stringify(L.tagsOf(lib, id)) !== before) applyShelf();
   }
 
   /* Katman yığını AÇIKKEN sahneyi cfg.visualizer.type belirlemiyor:
@@ -589,9 +620,9 @@
      preseti gösteriyordu. Katman bağımsızsa seçim (liste, ◀ ▶, rastgele) ona
      gidebiliyor.
 
-     Bağımsız katman kendi presetinde DURUR, otomatik geçişe girmez: geçiş seçimi
-     pencereler arasında tek kanaldan gidiyor (`SVMdFollow`), katman başına
-     seçimler ekranlar arasında ayrışırdı. */
+     Bağımsız katman kendi presetinde durur; `ownAuto` açıksa kendi aralığıyla
+     geçer (#905). Seçimi izleme mesajında kendi payıyla gidiyor
+     (`SVMdFollow.layers`), yani ekranlar katman katman aynı kalıyor. */
   function isOwnLayer(l) {
     return !!(l && l.kind === 'visualizer' && l.type === 'milkdrop'
       && l.settings && l.settings.milkdrop && l.settings.milkdrop.independent === true);
@@ -600,8 +631,6 @@
   const hasSharedLayer = (cfg) => (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && !isOwnLayer(l));
   let pickFor = '';
   function pickTarget(cfg) {
-    const L = window.SVLayers;
-    if (!L || !L.stackOn || !L.stackOn(cfg)) return null;
     const own = ownLayers(cfg);
     if (!own.length) return null;
     const hit = pickFor && own.find((l) => l.id === pickFor);
@@ -622,36 +651,80 @@
     }
   }
 
-  function pointStackAtMilkdrop(cfg) {
+  /* Katmanın kendi otomatik geçişi (#905). Aralık ortak ayardan başlıyor, ortakta kapalıysa
+     30 sn: anahtarı açan kullanıcı bir şey olduğunu görsün. Kapatınca aralık katmanda kalıyor. */
+  function setLayerAuto(cfg, l, on) {
+    const m = l && l.settings && l.settings.milkdrop;
+    if (!m) return;
+    if (!on) { delete m.ownAuto; return; }
+    const md = cfg.milkdrop || {};
+    m.ownAuto = true;
+    if (m.autoNextUnit == null) m.autoNextUnit = md.autoNextUnit === 'bars' ? 'bars' : 'seconds';
+    if (!(m.autoNext > 0)) m.autoNext = md.autoNext > 0 ? md.autoNext : 30;
+    if (!(m.autoNextBars > 0)) m.autoNextBars = md.autoNextBars > 0 ? md.autoNextBars : 8;
+    if (m.autoOrder == null) m.autoOrder = md.autoOrder === 'random' ? 'random' : 'sequential';
+  }
+
+  /* Ortak seçimin görüneceği katman (layers.js milkdropTarget). Seçimsiz yüklemede
+     ortak preseti çizen katman açılır; yoksa katı kipte yeni bir MilkDrop katmanı
+     eklenir, eski kipte (Modu Uygun Katmana Yönlendir) ilk kilitsiz görselleştirici
+     çevrilir. `opts.layerId` verilirse yalnız o katman: uymuyorsa neden döner, hiçbir
+     şey yazılmaz. Metin ve "şimdi çalan" katmanları hiçbir kipte çevrilmez. */
+  function pointStackAtMilkdrop(cfg, opts) {
+    if (!Array.isArray(cfg.layers) || !cfg.layers.length) return { classic: true };
     const L = window.SVLayers;
-    if (!L || !L.stackOn || !L.stackOn(cfg)) return;
-    if (!Array.isArray(cfg.layers) || !cfg.layers.length) return;
-    const vis = cfg.layers.filter(
-      (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0 && !isOwnLayer(l));
-    /* Ortak seçimi çizen bir MilkDrop katmanı zaten varsa başka katmana
-       dokunulmuyor: [barlar, MilkDrop] kurulumunda barlar da MilkDrop'a dönüyordu. */
-    const already = vis.find((l) => l.type === 'milkdrop');
-    if (already) {
-      already.enabled = true;
-      already.muted = false;
-      return;
-    }
-    if (vis.length) {
-      /* Birden çok görselleştirici katmanı varsa yalnız ilki çevriliyor:
-         hepsini çevirmek kullanıcının kurduğu kompozisyonu tek tıkla yok
-         ederdi. */
-      vis[0].type = 'milkdrop';
-      if (vis[0].settings && vis[0].settings.visualizer) {
-        vis[0].settings.visualizer.type = 'milkdrop';
+    if (!L || !L.milkdropTarget) return { classic: true };
+    const r = L.milkdropTarget(cfg, { layerId: opts && opts.layerId });
+    if (r.error) return r;
+    if (r.layer) {
+      if (r.convert) L.setLayerMode(cfg, r.layer, { type: 'milkdrop' });
+      if (!r.layer.locked) {
+        r.layer.enabled = true;
+        r.layer.muted = false;
       }
-      vis[0].enabled = true;
-      vis[0].muted = false;
-      return;
+      return r;
     }
-    cfg.layers.push({
-      id: 'ly_vis_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop',
-      enabled: true, settings: {},
-    });
+    const taken = new Set(cfg.layers.map((l) => l && l.id));
+    let id = 'ly_vis_md';
+    for (let n = 2; taken.has(id); n++) id = 'ly_vis_md_' + n;
+    const made = L.normalizeLayer({ id, name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop', enabled: true, settings: {} });
+    cfg.layers.push(made);
+    return { layer: made, created: true };
+  }
+
+  /* SEÇİM KORUMASI. Sahne sayfasında seçili katman MilkDrop değilse (ya da kilitliyse)
+     paneldeki liste, ◀ ▶, Rastgele ve Varsayılana Dön hiçbir şey yazmaz; neden uyarı olarak
+     görünür. Raf zaten kilit kartıyla örtülü, bu kodun kendi emniyeti (raf dışından gelen
+     tıklama, klavye). Bağımsız katmanın seçimi (pickTarget) o katmana gider, korumaya
+     takılmaz. MIDI / OSC / gösteri adımları seçime bağlı değil: sahnedeki seçim bir
+     düzenleme bağlamı, canlı denetleyiciyi kilitlememeli (pointStackAtMilkdrop yine
+     yalnız MilkDrop katmanına yazar). */
+  function pickBlocked(cfg) {
+    const L = window.SVLayers;
+    const S = window.SVSceneShell;
+    if (!L || !L.milkdropTarget || !S || !S.selected) return null;
+    if (pickTarget(cfg)) return null;
+    const sel = S.selected();
+    if (!sel) return null;
+    const r = L.milkdropTarget(cfg, { layerId: sel.id });
+    return r.error ? r : null;
+  }
+  function guardText(r) {
+    if (r.error === 'LOCKED') return 'Seçili katman kilitli; önce kilidini açın.';
+    if (r.error === 'NOT_FOUND') return 'Seçili katman bulunamadı.';
+    return 'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.';
+  }
+  // Rafta vurgulanacak preset: seçimin gittiği yer (bağımsız katman ya da ortak seçim)
+  function currentPick(cfg) {
+    const c = cfg || P().cfg();
+    const t = pickTarget(c);
+    return t ? (t.settings.milkdrop.presetId || '') : ((c.milkdrop && c.milkdrop.presetId) || '');
+  }
+  function uiPickOk(cfg) {
+    const r = pickBlocked(cfg);
+    if (!r) return true;
+    if (P() && P().toast) P().toast(tr(guardText(r)), 'warn');
+    return false;
   }
 
   function load(cfg, p) {
@@ -663,7 +736,7 @@
     control(cfg).cutTo = '';
     // Sahne MilkDrop motoruna geçsin, yoksa yükleme görünmez olur
     cfg.visualizer.type = 'milkdrop';
-    pointStackAtMilkdrop(cfg);
+    return pointStackAtMilkdrop(cfg);
   }
 
   const CY = () => window.SVMilkdropCycle;
@@ -706,13 +779,24 @@
     return md.presetId || '';
   }
 
+  /* Bağımsız katmanda ekrandaki preset (#905): kendi geçişi açıksa son mesajdaki payı,
+     aksi halde katmanın ayarı. */
+  function layerLiveId(l) {
+    const m = l.settings.milkdrop;
+    const F = window.SVMdFollow;
+    const f = F && F.layers && F.layers[l.id];
+    if (f && f.id && m.ownAuto === true && (performance.now() - F.at) < 1500) return f.id;
+    return m.presetId || '';
+  }
+
   // Rastgele seçim motorunkiyle aynı kural: o an görülen hariç, puana göre
   function randomPick(cfg, md) {
     const C = CY();
     if (!C) return presets[(Math.random() * presets.length) | 0];
     const ratings = ratingsOf(cfg);
     const w = md.useRatings === false ? null : (p) => C.ratingOf(p, ratings);
-    return C.pick(presets, liveId(md), 'random', Math.random, w);
+    const tl = pickTarget(cfg);
+    return C.pick(presets, tl ? layerLiveId(tl) : liveId(md), 'random', Math.random, w);
   }
 
   /* `cut`: karışmadan yükle (#570, "şimdi kes"). Motor bunu elle seçimin
@@ -758,11 +842,11 @@
     if (!p) return;
     loadWithText(cfg, p, (c) => {
       // Katmanın seçimi ortak ◀ ▶ geçmişine ve "şimdi kes"e girmiyor
-      if (pickTarget(c)) { P().apply(); return; }
+      if (pickTarget(c)) { applyShelf(); return; }
       if (cut) control(c).cutTo = p.id;
       const h = history();
       if (h) h.note(p.id);
-      P().apply();
+      applyShelf();
     });
   }
 
@@ -814,7 +898,7 @@
   function stepList(cfg, md, dir, cut) {
     if (!presets.length) return;
     const tl = pickTarget(cfg);
-    const cur = tl ? tl.settings.milkdrop.presetId : liveId(md);
+    const cur = tl ? layerLiveId(tl) : liveId(md);
     const i = presets.findIndex((p) => p.id === cur);
     const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
     go(cfg, presets[j], cut);
@@ -878,7 +962,7 @@
   };
   const spriteErr = (code) => tr(SPRITE_ERR[code] || 'Sprite başlatılamadı');
 
-  /* Liste isteği bir sonraki göreve bırakılıyor: `P().apply()` önce paneli
+  /* Liste isteği bir sonraki göreve bırakılıyor: `applyShelf()` önce paneli
      çiziyor, ayarı SONRA gönderiyor. Hemen sorulsaydı ana süreç yeni
      seçilen dosyayı henüz bilmez, eskisini okurdu. Aynı sayfanın IPC
      iletileri sırasıyla işleniyor; ayar önce varıyor. */
@@ -926,7 +1010,7 @@
     if (name === 'Lock') {
       const c = control(cfg);
       c.locked = c.locked !== true;
-      P().apply();
+      applyShelf();
       return true;
     }
     if (!presets.length) return false;
@@ -1005,7 +1089,7 @@
     const next = Object.assign({}, lib.ratings);
     next[id] = k;
     lib.ratings = next;
-    P().apply();
+    applyShelf();
   }
 
   function syncStars() {
@@ -1134,11 +1218,16 @@
     if (id !== starsFor) syncStars();
   }
 
+  /* Yeni yerleşimde liste rafta, oynatma ayarları denetçide (#905). `setPart` bir sonraki
+     çizimin hangi parçayı vereceğini söylüyor; bayrak boşsa bütün kart. */
+  let part = '';
+  function setPart(p) { part = p || ''; }
+
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
     const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
-    const rerender = () => P().apply();
+    const rerender = () => applyShelf();
     const nodes = [];
 
     // Ortak liste değişiklik yayınıyla güncel (#574): her çizimde ondan
@@ -1208,7 +1297,7 @@
            kaybolurdu. "—" yazması "preset hiç yazmadı" demek; 0 yazan bir
            preset 0.0000 gösterir. */
         const mval = window.SVMdMonitor;
-        nodes.push(P().row('monitor', el('span', {
+        nodes.push(P().row('İzleme Değeri', el('span', {
           id: 'mdMonitorVal', class: 'md-num',
           text: (mval === null || mval === undefined) ? '—' : Number(mval).toFixed(4),
         })));
@@ -1372,7 +1461,7 @@
         && !(cfg.openrgb && cfg.openrgb.enabled) && !(cfg.artnet && cfg.artnet.enabled)) {
       nodes.push(el('div', {
         class: 'studio-note md-err',
-        text: 'Işık çıkışı kapalı: Aydınlatma bölümünden Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
+        text: 'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
       }));
     }
 
@@ -1572,6 +1661,7 @@
     }
 
     // İçe aktarma
+    const libFrom = nodes.length;
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
         class: 'btn', type: 'button', icon: busy ? '' : 'folder-open', text: busy || '.milk Dosyaları Ekle',
@@ -1617,7 +1707,7 @@
       }),
       el('button', {
         class: 'btn ghost', type: 'button', text: 'Varsayılana Dön',
-        onclick: () => { load(cfg, null); rerender(); },
+        onclick: () => { if (!uiPickOk(cfg)) return; load(cfg, null); rerender(); },
       }),
     ]));
     // Paket (#576): favori, etiket ve puanlar presetlerle birlikte
@@ -1700,6 +1790,7 @@
     }));
 
     // Arama
+    const listFrom = nodes.length;
     if (presets.length > 6) {
       nodes.push(P().row('Ara', el('input', {
         class: 'p-in md-search', type: 'search', value: filter,
@@ -1756,7 +1847,7 @@
     }
 
     const target = pickTarget(cfg);
-    if (ownLayers(cfg).length && window.SVLayers && window.SVLayers.stackOn(cfg)) {
+    if (ownLayers(cfg).length && part !== 'library') {
       const pickSel = el('select', { class: 'sel' });
       if (hasSharedLayer(cfg)) pickSel.appendChild(el('option', { value: '', text: tt('Ortak katmanlar') }));
       for (const l of ownLayers(cfg)) {
@@ -1773,12 +1864,12 @@
     const viewSel = el('select', { class: 'sel' });
     for (const [v, label] of [['list', 'Liste'], ['grid', 'Izgara']]) {
       const o = el('option', { value: v, text: tr(label) });
-      if (v === viewMode) o.selected = true;
+      if (v === viewNow()) o.selected = true;
       viewSel.appendChild(o);
     }
     viewSel.addEventListener('change', () => { setView(viewSel.value); listScroll = 0; P().rerender(); });
     nodes.push(P().row('Düzen', viewSel));
-    const grid = viewMode === 'grid';
+    const grid = viewNow() === 'grid';
 
     // Liste ya da ızgara
     const list = el('div', {
@@ -1792,7 +1883,8 @@
     const LBn = LB();
     const libNow = library(cfg);
     const keepScroll = () => {
-      const box = document.querySelector(grid ? '.md-grid' : '.md-list');
+      // Bu listenin kendi kaydırması (#957): belgedeki ilk .md-grid başka bir kart olabiliyordu
+      const box = list.isConnected ? list : document.querySelector(grid ? '.md-grid' : '.md-list');
       if (box) listScroll = box.scrollTop;
     };
     const removePreset = async (p) => {
@@ -1821,8 +1913,18 @@
           : 'Preset listesi yüklenemedi. Bir MilkDrop paketindeki .milk dosyalarını ekleyebilirsiniz; hepsi bir kerede seçilebilir.',
       }));
     }
+    // Etkin işaret yerinde (#957): yeniden çizim beklenmeden kart değişir, kaydırma yerinde kalır
+    const pick = (p) => {
+      keepScroll(); keepView = true;
+      list.querySelectorAll('.md-cell.active, .md-item.active').forEach((n) => n.classList.remove('active'));
+      list.querySelectorAll('[data-id]').forEach((n) => { if (n.dataset.id === p.id && !n.classList.contains('md-thumb-box')) n.classList.add('active'); });
+      if (!uiPickOk(cfg)) return;
+      loadWithText(cfg, p, () => rerender());
+    };
     const makeItem = (p) => {
-      const active = (target ? target.settings.milkdrop.presetId : md.presetId) === p.id;
+      /* Etkin işaret o anki seçimden: raf preset değişince yeniden kurulmuyor, pencereli
+         listede kaydırmayla sonradan çizilen satır da güncel olsun (scene-shell syncShelf). */
+      const active = currentPick(cfg) === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
       const favBtn = LBn ? el('button', {
@@ -1847,10 +1949,10 @@
         if (key) img.setAttribute('src', thumbUrl(key));
         const box = el('div', { class: 'md-thumb-box', 'data-id': p.id }, [img]);
         paintThumb(box, key);
-        return el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
+        return el('div', { class: 'md-cell' + (active ? ' active' : ''), 'data-id': p.id }, [
           el('button', {
             class: 'md-cell-main', type: 'button', title: tr(p.name || p.id),
-            onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
+            onclick: () => pick(p),
           }, [box, el('span', { class: 'md-cell-name', text: tr(p.name || p.id) })]),
           favBtn,
           p.builtin ? null : el('button', {
@@ -1860,11 +1962,11 @@
         ]);
       }
       const tags = LBn ? LBn.tagsOf(libNow, p.id) : [];
-      return el('div', { class: 'md-item' + (active ? ' active' : '') }, [
+      return el('div', { class: 'md-item' + (active ? ' active' : ''), 'data-id': p.id }, [
         favBtn,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
-          onclick: () => { keepScroll(); loadWithText(cfg, p, () => rerender()); },
+          onclick: () => pick(p),
         }),
         tags.length ? el('span', { class: 'md-tagline', text: tags.map((t) => '#' + t).join(' ') }) : null,
         /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
@@ -1890,11 +1992,13 @@
         setTimeout(() => {
           list.scrollTop = listScroll;
           const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
-          if (active) P().revealInList(list, active);
+          if (active && !keepView) P().revealInList(list, active);
+          keepView = false;
         }, 0);
       }
       if (grid) setTimeout(() => watchThumbs(list), 0);
     }
+    const listAt = nodes.length;
     nodes.push(list);
     if (grid) {
       nodes.push(el('div', {
@@ -1903,21 +2007,22 @@
       }));
     }
 
+    const libTo = nodes.length;
     // Gezinme ve otomatik geçiş
     if (presets.length > 1) {
       // Düğmeler ve denetleyici eylemleri aynı yoldan (bkz. `act`)
-      const back = () => navBack(cfg, md);
-      const forward = () => navForward(cfg, md);
+      const back = () => { if (uiPickOk(cfg)) navBack(cfg, md); };
+      const forward = () => { if (uiPickOk(cfg)) navForward(cfg, md); };
       /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
       const locked = control(cfg).locked === true;
-      nodes.push(el('div', { class: 'row' }, [
+      nodes.push(el('div', { class: 'row sv-btn-row' }, [
         el('button', { class: 'btn ghost', type: 'button', icon: 'chevron-left', text: 'Önceki', onclick: back }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki', onclick: forward }, [el('span', { class: 'svi-after', icon: 'chevron-right' })]),
         el('button', {
           class: 'btn ghost', type: 'button', icon: 'dice', text: 'Rastgele',
-          onclick: () => go(cfg, randomPick(cfg, md)),
+          onclick: () => { if (uiPickOk(cfg)) go(cfg, randomPick(cfg, md)); },
         }),
         el('button', {
           id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
@@ -2080,6 +2185,19 @@
       text: 'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.',
     }));
 
+    if (part === 'library') {
+      /* Rafta önce süzgeçler ve ızgara; içe aktarma araçları açılır bölümde. Izgara kendi
+         penceresini (listWindow) kendi kaydırmasıyla sürüyor, o yüzden kalan yüksekliği alıyor. */
+      const bar = nodes.slice(listFrom, listAt);
+      const more = el('details', { class: 'md-imports' }, [
+        el('summary', { class: 'btn small', text: tr('İçe Aktar') }),
+        el('div', { class: 'md-imports-body' }, nodes.slice(libFrom, listFrom)),
+      ]);
+      return el('div', { class: 'md-panel md-library' }, [
+        el('div', { class: 'md-lib-bar' }, bar.concat([more])),
+      ].concat(nodes.slice(listAt, libTo)));
+    }
+    if (part === 'control') return el('div', { class: 'md-panel' }, nodes.slice(0, libFrom).concat(nodes.slice(libTo)));
     return el('div', { class: 'md-panel' }, nodes);
   }
 
@@ -2101,9 +2219,9 @@
      arıyor: geçmişteki bir karışım süzgeç değişse de geri getirilebilsin. */
   const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
-    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
+    panel, init, refresh, load, pointStackAtMilkdrop, pickBlocked, uiPickOk, currentPick, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
-    isOwnLayer, setLayerOwn, pickFor: (id) => { pickFor = id || ''; },
+    isOwnLayer, setLayerOwn, setLayerAuto, setPart, thumbFor, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

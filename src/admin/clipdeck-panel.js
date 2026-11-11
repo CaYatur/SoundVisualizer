@@ -111,14 +111,18 @@
      değil. Video, görsel ve shader ise BİR HEDEFE uygulanır (#637 CD-3):
      yuvanın `target` alanı ya da yoksa ilk uygun hedef. Hedef söylenmeden
      rastgele bir katmanın üzerine yazılmıyor. */
-  function applyRef(type, ref, target) {
+  function applyRef(type, ref, target, opts) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applyRefManual(type, ref, target, opts)) : applyRefManual(type, ref, target, opts);
+  }
+  function applyRefManual(type, ref, target, opts) {
     if (!ref) return false;
     if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
     if (type === 'action') return runActionRef(ref);
     const actions = P().actions ? P().actions() : null;
     if (type === 'scene') {
       if (actions && actions.applyScene) {
-        actions.applyScene(ref);
+        actions.applyScene(ref, opts && (opts.light || opts.transition) ? opts : undefined);
         return true;
       }
       return false;
@@ -150,6 +154,30 @@
       P().apply();
       return true;
     }
+    if (type === 'visualizer') {
+      /* Katalog kimliği (bars, milkdrop, …); kind değil. Önce etkin, kilitli
+         olmayan, metin/nowplaying olmayan görselleştirici katmanı; yoksa
+         klasik cfg.visualizer. Tip değişince katman ayar iskeleti korunur
+         (normalize); kilitli/gizli katmanlara dokunulmaz. */
+      const MC = window.SVModeCatalog;
+      const known = MC && MC.VISUALIZERS && MC.VISUALIZERS.some((m) => m && m.id === ref);
+      if (!known && ref) return false;
+      const cur = P().cfg();
+      const skip = (l) => !l || l.kind !== 'visualizer' || l.locked || l.enabled === false
+        || l.type === 'text' || l.type === 'nowplaying';
+      const layers = Array.isArray(cur.layers) ? cur.layers.filter((l) => !skip(l)) : [];
+      if (layers.length) {
+        const l = layers[0];
+        l.type = ref;
+        if (window.SVLayers && window.SVLayers.normalizeLayer) {
+          const n = window.SVLayers.normalizeLayer(l);
+          for (const k of Object.keys(n)) l[k] = n[k];
+        }
+      } else if (cur.visualizer) cur.visualizer.type = ref;
+      else return false;
+      P().apply();
+      return true;
+    }
     return false;
   }
 
@@ -177,6 +205,7 @@
     c.transition.enabled = ev.fade > 0;
     if (ev.fade > 0) {
       c.transition.duration = ev.fade;
+      c.transition.unit = 'seconds'; // klip süresi saniye; vuruş birimi süreyi bozuyordu
       if (ev.transition && ev.transition !== 'cut') c.transition.type = ev.transition;
     }
   }
@@ -198,6 +227,10 @@
   }
 
   function releaseTransition() {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => releaseTransitionManual()) : releaseTransitionManual();
+  }
+  function releaseTransitionManual() {
     if (releaseTimer) {
       clearTimeout(releaseTimer);
       releaseTimer = 0;
@@ -223,6 +256,10 @@
      ayarını yaz → yeniden gönder. İkinci gönderim aynı tık içinde olduğu
      için çizim tarafı ikisini de bir sonraki kareden önce işler. */
   function applySlot(ev) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applySlotManual(ev)) : applySlotManual(ev);
+  }
+  function applySlotManual(ev) {
     const slot = ev.slot;
     if (!slot.ref) return;
     // Eylemin geçişi yok: kullanıcının geçiş ayarına hiç dokunulmuyor
@@ -230,8 +267,21 @@
       applyRef(slot.type, slot.ref);
       return;
     }
+    /* Sahnede geçiş gönderimden ÖNCE ve YALNIZ o gönderim için yazılıyor
+       (applyScene içinde; sonra sahnenin kendi geçişi geri konuyor).
+       Sonradan yazılan süre başlamış geçişi değiştirmiyordu; kalıcı yazmak
+       da sahnenin genel geçişini değiştiriyordu (#957). */
+    if (slot.type === 'scene') {
+      const o = { transition: { duration: Number(ev.fade) || 0, type: ev.transition || '', ease: ev.ease || '' } };
+      if (ev.light) o.light = true;
+      if (ev.under) o.under = ev.under; // çizelgede alttaki parçaların sahneleri (#957)
+      applyRef(slot.type, slot.ref, slot.target, o);
+      return;
+    }
     stashTransition();
-    applyRef(slot.type, slot.ref, slot.target);
+    const o = {};
+    if (ev.light) o.light = true;
+    applyRef(slot.type, slot.ref, slot.target, o);
     overrideTransition(ev);
     P().push(true);
     scheduleRelease(ev.fade);
@@ -412,11 +462,17 @@
     if (slot.ref) {
       if (slot.type === 'scene') {
         const sc = (P().cfg().scenes || []).find((x) => x && x.id === slot.ref);
-        if (sc) return sc.name || sc.id;
+        if (sc) return tt(sc.name || sc.id);
       }
       if (slot.type === 'preset' && window.SVTemplates) {
         const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === slot.ref);
         if (tp) return tt(tp.name);
+      }
+      if (slot.type === 'palette') return tt(slot.ref);
+      if (slot.type === 'visualizer') {
+        const MC = window.SVModeCatalog;
+        const hit = MC && MC.VISUALIZERS && MC.VISUALIZERS.find((m) => m.id === slot.ref);
+        return hit ? tt(hit.label || hit.id) : slot.ref;
       }
       if (slot.type === 'shader' && window.SVPresets) {
         const sp = window.SVPresets.get(slot.ref);
@@ -701,7 +757,7 @@
     mediaPicker,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
-    applyFaded: (type, ref, fade, target) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0 }),
+    applyFaded: (type, ref, fade, target, opts) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0, light: !!(opts && opts.light), transition: (opts && opts.transType) || '', ease: (opts && opts.transEase) || '', under: (opts && opts.under) || null }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,
@@ -730,25 +786,20 @@
     const c = cfg();
     const host = el('div', { class: 'cd-panel' });
 
-    host.appendChild(
-      p.row(
-        'Klip Destesini Etkinleştir',
-        (() => {
-          const box = el('input', { type: 'checkbox' });
-          box.checked = !!c.enabled;
-          box.addEventListener('change', () => {
-            c.enabled = box.checked;
-            if (!box.checked) {
-              ensureEngine().stopAll();
-              releaseTransition(); // kullanıcının geçiş ayarını geri ver
-            }
-            p.apply();
-            if (box.checked && window.SVTimelinePanel) window.SVTimelinePanel.start();
-          });
-          return el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]);
-        })()
-      )
-    );
+    host.appendChild(p.moduleHead({
+      id: 'clipdeck', title: 'Klip Destesi', on: !!c.enabled,
+      status: el('div', { class: 'studio-status', text: c.enabled ? 'Vuruş ızgarası akıyor' : 'Kapalı' }),
+      start: 'Desteyi Başlat', stop: 'Desteyi Durdur',
+      toggle: (next) => {
+        c.enabled = next;
+        if (!next) {
+          ensureEngine().stopAll();
+          releaseTransition(); // kullanıcının geçiş ayarını geri ver
+        }
+        p.apply();
+        if (next && window.SVTimelinePanel) window.SVTimelinePanel.start();
+      },
+    }));
 
     if (!c.enabled) {
       /* Deste kapalıysa kullanıcının geçiş ayarını geri ver. Yalnızca
@@ -1315,7 +1366,7 @@
       box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.' }));
     } else if ((spec.type === 'video' || spec.type === 'image' || spec.type === 'shader') && !targetOptions(spec.type).length) {
       box.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: spec.type === 'image'
-        ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'
+        ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne sayfasında Katman Ekle menüsünden Görsel Nesneler ekleyin.'
         : 'Bu tür için uygun hedef yok.' }));
     }
     return box;

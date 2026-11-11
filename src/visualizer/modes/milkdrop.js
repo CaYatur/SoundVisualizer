@@ -1324,7 +1324,27 @@ void main(){
       }
 
       const gl = this.gl;
+      /* BOYUT DEĞİŞİNCE GERİ BESLEME TAŞINIR (#453). Uyarlanır çözünürlük çıkışın boyutunu
+         basamak basamak değiştiriyor; hedefler yeniden kurulunca preset sıfırdan, simsiyah bir
+         kareden başlıyordu (ölçüldü: basamak karesinde ortalama parlaklık 13'ten 7'ye). Eski iki
+         hedef yeni boyuta doğrusal süzgeçle kopyalanıyor; bulanık kademeler her kare zaten
+         yeniden üretiliyor. */
+      let carry = null;
       if (this.gl2.width !== W || this.gl2.height !== H) {
+        if (this.targets && this.gl2.width > 1) {
+          carry = { targets: this.targets, cur: this.cur };
+          this.targets = null;
+        }
+        /* Flaş sınırlayıcının "önceki gösterilen kare"si de taşınıyor (#905). Siyah kurulunca
+           sınırlayıcı basamaktan sonraki kareyi siyahtan parlağa ani sıçrama sanıp kısıyordu.
+           Ölçüldü (MilkDrop, sınırlama açık, varsayılan): basamaktan önce ortalama parlaklık 68,
+           sonraki kareler 10, 20, 31, 51, 62, 75 — anlık düşüşte uyarlanır çözünürlük basamak
+           inince ekran beş kare kararıp geri geliyordu. Sınırlama kapalıyken 72 → 72. */
+        if (this.flash && this.flash.prev && this.gl2.width > 1) {
+          if (this._flashCarry) { gl.deleteTexture(this._flashCarry.tex); gl.deleteFramebuffer(this._flashCarry.fb); }
+          this._flashCarry = this.flash.prev;
+          this.flash.prev = null;
+        }
         this.gl2.width = W;
         this.gl2.height = H;
         this._disposeTargets();
@@ -1335,6 +1355,11 @@ void main(){
       if (!this.targets) {
         this.targets = [this._makeTarget(W, H), this._makeTarget(W, H)];
         this.cur = 0;
+        if (carry) {
+          for (let i = 0; i < 2; i++) this._carryTarget(carry.targets[i], this.targets[i]);
+          this.cur = carry.cur;
+          carry = null;
+        }
         /* Blur kademeleri giderek küçülüyor: MilkDrop'ta da öyle. Küçültmek
            hem ucuz hem de tek geçişle daha geniş bir bulanıklık veriyor.
 
@@ -1890,6 +1915,11 @@ void main(){
         raw: this._makeTarget(W, H, disp),
         prev: this._makeTarget(W, H, disp),
       };
+      // Boyut değişiminden kalan önceki kare (bkz. _initGL): ikisi de RGB8, doğrudan kopyalanıyor
+      if (this._flashCarry) {
+        this._carryTarget(this._flashCarry, this.flash.prev);
+        this._flashCarry = null;
+      }
       /* MIPMAP SÜZME ŞART: ortalama en küçük kademeden okunuyor ve
          `_makeTarget` dokuları düz LINEAR bırakıyor. Öyle kalsalardı
          `textureLod` 0. kademeyi verirdi ve "ortalama" tek bir teksel
@@ -1907,6 +1937,20 @@ void main(){
       return this.flash;
     }
 
+    // Eski hedefin içeriği yeni boyuttakine, doğrusal süzgeçle; eski hedef silinir
+    _carryTarget(src, dst) {
+      const gl = this.gl;
+      if (!src) return;
+      try {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, src.fb);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dst.fb);
+        gl.blitFramebuffer(0, 0, src.w, src.h, 0, 0, dst.w, dst.h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      } catch (e) { /* biçim uymazsa hedef boş başlar: eski davranış */ }
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.deleteTexture(src.tex);
+      gl.deleteFramebuffer(src.fb);
+    }
     _disposeTargets() {
       const gl = this.gl;
       if (!gl) return;
@@ -1986,15 +2030,21 @@ void main(){
          mesaj olabilir. Onu izlemek yeni preseti eskisine geri harmanlar,
          bir sonraki mesaj da tekrar yeniye — ekranda iki geçiş üst üste.
          Yalnız AYNI elle seçimin üstünde yapılmış bir seçim izleniyor. */
-      /* Kendi preseti olan katman (#909) geçişe girmez ve lideri izlemez: seçimini
-         aynı kimlikte yapmış olsa bile ortak katmanların seçimi ona geçmesin. */
-      if (cfg.milkdrop && cfg.milkdrop.independent === true) {
+      /* Kendi preseti olan katman (#909) ortak seçimi izlemez: seçimini aynı kimlikte
+         yapmış olsa bile ortak katmanların seçimi ona geçmesin. Kendi geçişi
+         (`ownAuto`, #905) açık değilse presetinde durur. Açıksa aşağıdaki yolun aynısı:
+         listeyi kendi ayarıyla süzer, ekranlar arasında kendi payını izler. */
+      const own = !!(cfg.milkdrop && cfg.milkdrop.independent === true);
+      if (own && cfg.milkdrop.ownAuto !== true) {
         this.autoPick = null;
+        this._ownFollow = false;
         return;
       }
+      this._ownFollow = own;
       const FOLLOW_MS = 1500;
-      const F = typeof window !== 'undefined' && window.SVMdFollow;
-      if (F && F.base === (this._manualKey || '') && (performance.now() - F.at) < FOLLOW_MS) {
+      const msg = typeof window !== 'undefined' && window.SVMdFollow;
+      const F = own ? this._layerFollow(msg) : msg;
+      if (F && F.base === (this._manualKey || '') && (performance.now() - msg.at) < FOLLOW_MS) {
         this.cycle.reset();
         /* Liderin önceden derlediği sıradakini izleyen de hazırlıyor (#573);
            liste yalnız sıradaki DEĞİŞİNCE aranıyor. */
@@ -2017,6 +2067,17 @@ void main(){
             seed: Number.isInteger(F.seed) ? F.seed : null,
           };
         }
+        return;
+      }
+      /* AYNI PENCEREDEKİ ORTAK KATMANLAR tek seçim gösterir: her biri ayrı sayaç koştursaydı
+         "ortak" dediğimiz katmanlar farklı presetlere dağılırdı. İlk ortak katman seçiyor,
+         yığın ötekilere onu veriyor (`LayerStack._linkShared`). Tohum da aynı. */
+      const peer = !own && this.sharedLeader;
+      if (peer) {
+        this.cycle.reset();
+        const a = peer.autoPick;
+        if (!a) { this.autoPick = null; return; }
+        if (!this.autoPick || this.autoPick.id !== a.id || this.autoPick.seed !== a.seed) this.autoPick = Object.assign({}, a);
         return;
       }
       /* Liste zamanlayıcı ya da sert geçiş açıksa kuruluyor; ikisi de
@@ -2065,6 +2126,11 @@ void main(){
           seed: (Math.random() * 4294967296) >>> 0,
         };
       }
+    }
+
+    /* Bu katmanın izleme mesajındaki payı (#905). Mesajın zamanı ortak: tek mesajda geliyor. */
+    _layerFollow(msg) {
+      return (msg && msg.layers && this.layerId && msg.layers[this.layerId]) || null;
     }
 
     /* HAREKETİ AZALT (#581). İşletim sistemi hareketin azaltılmasını
@@ -2156,7 +2222,8 @@ void main(){
     _alignBlend(now) {
       const b = this._blendStart;
       if (!b || b.aligned || !b.id) return false;
-      const F = typeof window !== 'undefined' && window.SVMdFollow;
+      const msg = typeof window !== 'undefined' && window.SVMdFollow;
+      const F = this._ownFollow ? this._layerFollow(msg) : msg;
       if (!F || F.id !== b.id || !Number.isFinite(F.startedAt)) return false;
       b.aligned = true;
       const dur = Math.max(1e-3, this.blendDur);
@@ -3348,6 +3415,12 @@ void main(){
     // ----------------------------------------------------------------- çiz
     draw(audio, cfg, t, dt) {
       if (this._disposed) return;
+      /* MilkDrop'a özel kapı/kazanç/yumuşatma (Ses Analizi › MilkDrop, #957).
+         Varsayılanda nötr: ses nesnesi aynen geçer. */
+      if (window.SVMilkdropAudio && window.SVMilkdropAudio.MilkdropInput) {
+        if (!this._mdIn) this._mdIn = new window.SVMilkdropAudio.MilkdropInput();
+        audio = this._mdIn.update(audio, cfg && cfg.audio && cfg.audio.milkdrop, dt);
+      }
       const W = this.canvas.width;
       const H = this.canvas.height;
       /* Geri besleme yüzeyi TUVAL BOYUTUNDA.
@@ -4771,6 +4844,9 @@ void main(){
       const ANG0 = Math.PI * 0.25;
       const acc = this._wantAcc !== false;
       const out = this._shapeOut || (this._shapeOut = {});
+      const cn = window.SVMilkdrop.colorNorm;
+      const c1 = this._shapeC1 || (this._shapeC1 = [0, 0, 0, 0]);
+      const c2 = this._shapeC2 || (this._shapeC2 = [0, 0, 0, 0]);
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
       for (const s of P.shapes) {
@@ -4802,9 +4878,8 @@ void main(){
           /* milkdropfs.cpp:2185-2192. `alpha_mult` COLOR_NORM'un İÇİNDE:
              önce çarpılıyor, sonra 8 bite iniyor. Dışında yapmak geçiş
              sırasında başka bir alfa verirdi. */
-          const cn = window.SVMilkdrop.colorNorm;
-          const c1 = [cn(o.r), cn(o.g), cn(o.b), cn((+o.a || 0) * aMul)];
-          const c2 = [cn(o.r2), cn(o.g2), cn(o.b2), cn((+o.a2 || 0) * aMul)];
+          c1[0] = cn(o.r); c1[1] = cn(o.g); c1[2] = cn(o.b); c1[3] = cn((+o.a || 0) * aMul);
+          c2[0] = cn(o.r2); c2[1] = cn(o.g2); c2[2] = cn(o.b2); c2[3] = cn((+o.a2 || 0) * aMul);
 
           if (textured) {
             /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez
@@ -6401,6 +6476,7 @@ void main(){
       this._texLoads = 0;
       this._texBusy(0);
       this._disposeTargets();
+      this._flashCarry = null; // bağlamla birlikte gidiyor
       this._dropReadback();
       const gl = this.gl;
       if (gl) {

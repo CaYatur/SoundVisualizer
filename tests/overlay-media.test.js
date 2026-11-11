@@ -160,3 +160,33 @@ test('OBS kamerayı tarayıcıdan açmaz, uygulamanın karesini alır', async ()
     await S.stop();
   }
 });
+
+test('bağlanan yayın katmanına sahne listesi gitmiyor, kumandaya gidiyor', async () => {
+  const full = { scenes: [{ id: 's' }], userPresets: [{ name: 'p' }], layers: [{ id: 'l' }] };
+  let port = 0;
+  for (let i = 0; i < 20; i++) {
+    const cand = 21000 + Math.floor(Math.random() * 20000);
+    const st = await S.start({ enabled: true, port: cand, requireToken: false }, {
+      getConfig: () => full,
+      getRendererConfig: () => ({ layers: full.layers }),
+      getPresets: () => [],
+      onClientsChanged: () => {},
+    });
+    if (st.running) { port = cand; break; }
+  }
+  assert.ok(port, 'port');
+  const overlay = await wsConnect(port, 'kind=overlay');
+  const remote = await wsConnect(port, 'kind=remote');
+  try {
+    const o = (await overlay.next('config')).config;
+    assert.ok(!('scenes' in o) && !('userPresets' in o), 'yayın katmanına sahne listesi gitti');
+    assert.strictEqual(o.layers.length, 1);
+    const r = (await remote.next('config')).config;
+    assert.strictEqual(r.scenes.length, 1, 'kumanda sahneleri listeliyor');
+    assert.strictEqual(r.userPresets.length, 1);
+  } finally {
+    try { overlay.socket.destroy(); } catch { /* */ }
+    try { remote.socket.destroy(); } catch { /* */ }
+    await S.stop();
+  }
+});

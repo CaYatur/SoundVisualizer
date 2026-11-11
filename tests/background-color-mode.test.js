@@ -58,11 +58,6 @@ test('resolve: rainbow sabit spektrum', () => {
   assert.notStrictEqual(a[0], '#000');
 });
 
-test('kaynak: Admin Background Renk Modu segmenti', () => {
-  assert.match(adminSrc, /path:\s*'background\.colorMode'/);
-  assert.match(adminSrc, /value:\s*'solid'[\s\S]*value:\s*'theme'[\s\S]*value:\s*'rainbow'/);
-});
-
 test('kaynak: Layers Background Renk Modu miniSegment', () => {
   assert.match(sceneSrc, /setBgColorMode|getBgColorMode|colorMode/);
   assert.match(sceneSrc, /\['solid',\s*'Düz Renk'\]/);
@@ -76,41 +71,18 @@ test('kaynak: nowplaying colorMode (custom/theme/rainbow) uygular', () => {
   assert.match(npSrc, /cfg\.visualizer && cfg\.visualizer\.colorMode/);
 });
 
-test('kaynak: NP ve text panelleri Renk Modu segmenti kullanir', () => {
-  const npPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'nowplaying-panel.js'), 'utf8');
-  const textPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'text-panel.js'), 'utf8');
-  assert.match(npPanel, /miniSegment\('Renk Modu'/);
-  assert.match(npPanel, /nowplaying\.colorDim/);
-  assert.match(npPanel, /nowplaying\.colorBar/);
-  assert.match(textPanel, /miniSegment\('Renk Modu'/);
-  assert.match(textPanel, /text\.colorHighlight/);
-});
-
 test('kaynak: text.js colorMode uygular', () => {
   const textSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'text.js'), 'utf8');
   assert.match(textSrc, /colorMode === 'custom'/);
   assert.match(textSrc, /colorMode === 'rainbow'/);
 });
 
-test('kaynak: Admin NP solid modunda uc renk', () => {
-  assert.match(adminSrc, /path: 'nowplaying\.color'/);
-  assert.match(adminSrc, /path: 'nowplaying\.colorDim'/);
-  assert.match(adminSrc, /path: 'nowplaying\.colorBar'/);
-});
-
-test('kaynak: Admin Background Renk Modu solidColor\'dan once', () => {
-  const modeAt = adminSrc.indexOf("path: 'background.colorMode'");
-  const solidAt = adminSrc.indexOf("path: 'background.solidColor'");
-  assert.ok(modeAt > 0 && solidAt > 0, 'ikisi de olmali');
-  assert.ok(modeAt < solidAt, 'Renk Modu, Duz Renk secicisinden once gelmeli');
-});
-
 test('kaynak: renk sablonlari asla gizlenmez (usesPalette stripte cagrilmaz)', () => {
   /* Keep usesPalette helper for Background card sliders, but the
      Renkler ve Hazır Şablonlar strip must not call it. */
   assert.match(adminSrc, /const usesPalette\s*=\s*\(\)\s*=>/);
-  const stripAt = adminSrc.indexOf("title: 'Renkler ve Hazır Şablonlar'");
-  assert.ok(stripAt > 0, 'Renkler ve Hazır Şablonlar karti yok');
+  const stripAt = adminSrc.indexOf("title: 'Renk Teması'");
+  assert.ok(stripAt > 0, 'Renk Teması karti yok');
   const stripBlock = adminSrc.slice(stripAt, adminSrc.indexOf('controls:', stripAt));
   assert.match(stripBlock, /show:\s*\(\)\s*=>\s*true/);
   assert.doesNotMatch(stripBlock, /usesPalette\s*\(/);

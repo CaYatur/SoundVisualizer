@@ -12,3 +12,4 @@ native/smtc-helper/bin/
 native/smtc-helper/obj/
 native/app-audio-helper/bin/
 native/app-audio-helper/obj/
+src/visualizer/*.gen.*

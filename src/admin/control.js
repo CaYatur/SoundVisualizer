@@ -21,47 +21,14 @@
   let midiInputs = [];
   let midiError = '';
   let learning = null; // { surface, id }
-  let lastSignal = { midi: '', osc: '', gamepad: '' };
+  let lastSignal = { midi: '', osc: '', gamepad: '', artnet: '' };
   let oscState = { running: false, port: 0, error: null, lastAddress: '' };
   let oscOutState = { running: false, host: '', port: 0, packets: 0, error: null };
   let started = false;
 
-  // Sürülebilir hedefler. Aralıklar panel kaydırıcılarıyla aynı tutuldu ki
-  // denetleyicinin tam açması, kaydırıcının sonuna gelmesiyle aynı şey olsun.
-  const TARGETS = [
-    { path: 'audio.sensitivity', label: 'Ses · Hassasiyet', min: 0.2, max: 4 },
-    { path: 'audio.smoothing', label: 'Ses · Yumuşatma', min: 0, max: 0.95 },
-    { path: 'audio.bassBoost', label: 'Ses · Bas Vurgusu', min: 1, max: 4 },
-    { path: 'visualizer.sensitivity', label: 'Görselleştirici · Hassasiyet', min: 0.3, max: 3 },
-    { path: 'visualizer.glow', label: 'Görselleştirici · Parlama', min: 0, max: 1 },
-    { path: 'visualizer.barCount', label: 'Görselleştirici · Bar Sayısı', min: 16, max: 160, int: true },
-    { path: 'visualizer.gap', label: 'Görselleştirici · Bar Boşluğu', min: 0, max: 0.8 },
-    { path: 'visualizer.lineWidth', label: 'Görselleştirici · Çizgi Kalınlığı', min: 1, max: 12 },
-    { path: 'visualizer.thickness', label: 'Görselleştirici · Genlik', min: 0.1, max: 1 },
-    { path: 'visualizer.trailHeight', label: 'Görselleştirici · Yükseklik', min: 0.4, max: 3 },
-    { path: 'background.gradient.speed', label: 'Arkaplan · Akış Hızı', min: 0, max: 2 },
-    { path: 'background.gradient.audioReactivity', label: 'Arkaplan · Ses Tepkisi', min: 0, max: 2 },
-    { path: 'background.gradient.brightness', label: 'Arkaplan · Parlaklık', min: 0.4, max: 1.6 },
-    { path: 'background.gradient.audioHue', label: 'Arkaplan · Renk Kayması', min: 0, max: 1 },
-    { path: 'background.gradient.vignette', label: 'Arkaplan · Vinyet', min: 0, max: 1 },
-    { path: 'logo.opacity', label: 'Logo · Saydamlık', min: 0, max: 1 },
-    { path: 'logo.scale', label: 'Logo · Boyut', min: 0.05, max: 0.6 },
-    { path: 'feedback.zoom', label: 'Geri Besleme · Yakınlaşma', min: 0.94, max: 1.08 },
-    { path: 'feedback.decay', label: 'Geri Besleme · Sönme', min: 0.7, max: 0.999 },
-    { path: 'feedback.warp', label: 'Geri Besleme · Bükülme', min: 0, max: 2 },
-    { path: 'feedback.rotate', label: 'Geri Besleme · Dönüş', min: -1, max: 1 },
-    { path: 'media.opacity', label: 'Medya · Saydamlık', min: 0, max: 1 },
-    { path: 'media.kaleido', label: 'Medya · Kaleydoskop', min: 0, max: 12, int: true },
-    /* MILKDROP (#570). Aralıklar panelin kaydırıcılarıyla aynı. */
-    { path: 'milkdrop.blendTime', label: 'MilkDrop · Geçiş Süresi', min: 0, max: 5 },
-    { path: 'milkdrop.autoNext', label: 'MilkDrop · Otomatik Geçiş', min: 0, max: 120, int: true },
-    { path: 'milkdrop.autoNextRand', label: 'MilkDrop · Rastgele Pay', min: 0, max: 30, int: true },
-    { path: 'milkdrop.hardCutThreshold', label: 'MilkDrop · Sert Geçiş Eşiği', min: 1, max: 6 },
-    /* Ağ sıklığı ve iç çözünürlük panelde de yalnız bu değerleri alıyor.
-       Sürekli bir düğme her ara değerde ağı ya da çerçeve tamponlarını
-       yeniden kurardı; denetleyicinin yolu kovalara bölünüyor. */
-    { path: 'milkdrop.mesh', label: 'MilkDrop · Ağ Sıklığı', steps: [24, 32, 48, 64, 96, 128] },
-    { path: 'milkdrop.renderScale', label: 'MilkDrop · İç Çözünürlük', steps: [0.75, 1, 1.5, 2] },
+  /* Sürülebilir hedefler: kaydırıcılar şemadan (#905), eylemler burada. */
+  const Schema = (typeof window !== 'undefined' && window.SVSchema) || require('../shared/schema.js');
+  const TARGETS = Schema.SLIDERS.concat([
     { action: 'nextVisualizer', label: 'Eylem · Sonraki Görselleştirici' },
     { action: 'prevVisualizer', label: 'Eylem · Önceki Görselleştirici' },
     { action: 'nextBackground', label: 'Eylem · Sonraki Arkaplan' },
@@ -95,7 +62,7 @@
     { action: 'mdSpriteNewest', label: 'MilkDrop · Sprite: En Yeniyi Sil' },
     { action: 'mdSpriteOldest', label: 'MilkDrop · Sprite: En Eskiyi Sil' },
     { action: 'mdSpriteAll', label: 'MilkDrop · Sprite: Hepsini Sil' },
-  ];
+  ]);
 
   /* Kısayol döngüsü katalogdan: elle tutulan liste on beşten fazla modu
      atlıyordu (#638). */
@@ -159,6 +126,10 @@
   // Eşlemenin uygulanması
   // --------------------------------------------------------------------------
   function applyMapping(map, value01) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => applyMappingManual(map, value01)) : applyMappingManual(map, value01);
+  }
+  function applyMappingManual(map, value01) {
     const cfg = P().cfg();
     const t = targetFor(map.target);
     if (!t) return;
@@ -210,12 +181,16 @@
      currentType / adoptVisualizer / adoptBackground). */
   function stackLive(cfg) {
     const L = window.SVLayers;
-    return !!(L && L.stackOn && L.currentType && L.stackOn(cfg));
+    return !!(L && L.currentType && cfg);
   }
 
   /* Dönüş true: eylem sahneyi kendisi uyguladı ve gönderdi; çağıran yeniden
      göndermez (göndermek etkin sahne işaretini silerdi). */
   function runAction(action, cfg) {
+    const editor = window.SVTimelineTarget;
+    return editor && P() && P().cfg() === cfg ? editor.withManual(() => runActionManual(action, P().cfg())) : runActionManual(action, cfg);
+  }
+  function runActionManual(action, cfg) {
     if (action === 'nextVisualizer' || action === 'prevVisualizer') {
       const stack = stackLive(cfg);
       const cur = stack ? window.SVLayers.currentType(cfg, 'visualizer') : cfg.visualizer.type;
@@ -246,7 +221,7 @@
       const data = list[idx].data || {};
       const bg = cfg.background || {};
       const keep = { transparent: !!bg.transparent, transparentKey: bg.transparentKey, coverTaskbar: bg.coverTaskbar };
-      const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
+      const SCENE_KEYS = Schema.SCENE_KEYS;
       for (const key of SCENE_KEYS) {
         if (data[key] !== undefined) cfg[key] = JSON.parse(JSON.stringify(data[key]));
       }
@@ -327,9 +302,12 @@
   // --------------------------------------------------------------------------
   // MIDI
   // --------------------------------------------------------------------------
-  function onMidi(ev) {
+  function onMidi(ev, input) {
     const d = ev.data;
     if (!d || d.length < 3) return;
+    const cfg = P().cfg();
+    // Aynı çıkıştan geri dönen LED iletisi bir kullanıcı hareketi değildir.
+    if (input && isFeedbackEcho(d, input, cfg)) return;
     const status = d[0] & 0xf0;
     const channel = (d[0] & 0x0f) + 1;
     const isCC = status === 0xb0;
@@ -344,7 +322,13 @@
     const chip = document.getElementById('midiSignal');
     if (chip) chip.textContent = lastSignal.midi;
 
-    const cfg = P().cfg();
+    // Genel mutlak CC'de aynı değeri geri yollama; şablon LED'leri ise
+    // kullanıcı basınca kendiliğinden yanmaz, hedef durumu yine yollanmalı.
+    const presetSource = (cfg.control.midi.mappings || []).some((m) => m.preset && m.cc === num && (m.kind === 'note') === isNote && (!m.channel || m.channel === channel));
+    const actionSource = (cfg.control.midi.mappings || []).some((m) => m.cc === num && (m.kind === 'note') === isNote && (!m.channel || m.channel === channel) && String(m.target || '').startsWith('action:'));
+    if (input && isCC && !presetSource && !actionSource) for (const { output, sender } of fbSenders.values()) {
+      if (feedbackPairsInput(output, input, cfg)) sender.noteIncoming(isCC ? 'cc' : 'note', channel, num, isNote ? (value01 ? raw : 0) : raw);
+    }
     if (learning && learning.surface === 'midi') {
       const m = (cfg.control.midi.mappings || []).find((x) => x.id === learning.id);
       if (m) {
@@ -360,9 +344,17 @@
 
     if (!cfg.control.midi.enabled) return;
     for (const m of cfg.control.midi.mappings || []) {
+      if (input && ((m.deviceId && m.deviceId !== input.id) || (m.preset && !CMAPS().acceptsPort(m.preset, input.name)))) continue;
       if (m.cc !== num) continue;
       if (m.channel && m.channel !== channel) continue;
       if ((m.kind === 'note') !== isNote) continue;
+      // Push 2 kodlayıcıları mutlak değer değil, 7 bit ikinin tümleyeni adım yollar.
+      // https://github.com/Ableton/push-interface/blob/main/doc/AbletonPush2MIDIDisplayInterface.asc
+      if (isCC && m.relative === 'twos-complement') {
+        const delta = raw < 64 ? raw : raw - 128;
+        if (delta) applyMapping(m, Math.max(0, Math.min(1, feedbackValue(cfg, m) + delta / 127)));
+        continue;
+      }
       if (value01 < 0.5) m._armed = true; // eylem yeniden tetiklenebilir hale gelsin
       applyMapping(m, value01);
     }
@@ -375,11 +367,14 @@
     const want = cfg.control.midi.deviceId || 'all';
     const ts = cfg.tempoSync || {};
     const clockWant = ts.source === 'midi' ? ts.midiDevice || 'all' : null;
+    const mt = cfg.control.mtc || {};
+    const mtcWant = mt.enabled ? mt.deviceId || 'all' : null;
     for (const input of midiInputs) {
       const map = !!cfg.control.midi.enabled && (want === 'all' || want === input.id);
       const clk = clockWant != null && (clockWant === 'all' || clockWant === input.id);
-      input.onmidimessage = map || clk
-        ? (ev) => { if (clk) onMidiClock(ev); if (map || learning) onMidi(ev); }
+      const tc = mtcWant != null && (mtcWant === 'all' || mtcWant === input.id);
+      input.onmidimessage = map || clk || tc
+        ? (ev) => { if (tc) onMtc(ev); if (clk) onMidiClock(ev); if (map || learning) onMidi(ev, input); }
         : null;
     }
   }
@@ -475,51 +470,422 @@
   function padCount() {
     try { return Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean).length; } catch { return 0; }
   }
+  // Analog eşlemenin son yazılan değeri (0..1); ayara kaydedilmez
+  const padVal = new Map();
+  let padAt = 0;
+  let padTick = 0;
+  /* Hedefin şu anki değeri 0..1 olarak (göreli kip buradan devam eder). */
+  function value01Of(t, map) {
+    const v = P().get(t.path);
+    if (Array.isArray(t.steps) && t.steps.length) {
+      const i = t.steps.indexOf(v);
+      return i < 0 ? 0 : (i + 0.5) / t.steps.length;
+    }
+    const lo = map && map.min != null ? map.min : t.min;
+    const hi = map && map.max != null ? map.max : t.max;
+    if (typeof v !== 'number' || hi === lo) return 0;
+    return Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  }
+  /* Sürekli (analog) eşleme: eksen ya da analog tetik bir kaydırıcıyı sürer. Her okumada çalışır;
+     göreli kip ve yumuşatma olay beklemeden ilerlesin diye. */
+  function continuous(m) {
+    if (!m || !(m.index >= 0)) return null;
+    const t = targetFor(m.target);
+    if (!t || t.action) return null;
+    return t;
+  }
+  function driveAnalog(m, t, raw, dt) {
+    const G = GPM();
+    const o = G.opts(m);
+    let want;
+    if (o.mode === 'rel') {
+      const base = padVal.has(m.id) ? padVal.get(m.id) : value01Of(t, m);
+      want = G.relStep(m, base, m.kind === 'button' ? raw * 2 - 1 : raw, dt);
+      // Göreli kipte yumuşatma yok: değer zaten adım adım ilerliyor
+      if (want === padVal.get(m.id)) return;
+      padVal.set(m.id, want);
+    } else {
+      const target = m.kind === 'button' ? Math.max(0, Math.min(1, raw)) : G.abs01(m, raw);
+      const prev = padVal.has(m.id) ? padVal.get(m.id) : null;
+      want = G.smoothTo(m, prev, target, dt);
+      if (Math.abs(want - target) < 0.0005) want = target;
+      if (prev != null && Math.abs(want - prev) < 0.0005) return;
+      padVal.set(m.id, want);
+    }
+    applyMapping(m, want);
+  }
+  function paintAxes(state) {
+    const host = document.getElementById('gamepadAxes');
+    if (!host) return false;
+    const keys = Object.keys(state).filter((k) => k.includes(':a:') || (state[k] > 0 && state[k] < 1));
+    const sig = keys.join(',');
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.replaceChildren(...keys.map((k) => {
+        const [p, kind, i] = k.split(':');
+        const en = !!(window.SVI18n && window.SVI18n.locale === 'en');
+        const name = (kind === 'a' ? (en ? 'Axis ' : 'Eksen ') : (en ? 'Button ' : 'Düğme ')) + i + ' · #' + (Number(p) + 1);
+        return P().el('div', { class: 'gp-axis', 'data-k': k }, [P().el('span', { class: 'gp-n', text: name }), P().el('span', { class: 'gp-bar' }, [P().el('i')]), P().el('span', { class: 'gp-v sv-mono' })]);
+      }));
+    }
+    for (const row of host.children) {
+      const v = Number(state[row.dataset.k]) || 0;
+      const bipolar = row.dataset.k.includes(':a:');
+      const bar = row.querySelector('i');
+      bar.style.left = bipolar ? (Math.min(0, v) * 50 + 50) + '%' : '0%';
+      bar.style.width = (bipolar ? Math.abs(v) * 50 : v * 100) + '%';
+      row.querySelector('.gp-v').textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
+    }
+    return true;
+  }
   function pollGamepads() {
     if (!navigator.getGamepads) return;
     const cfg = P().cfg();
     const g = cfg.control.gamepad || {};
-    const r = GPM().diff(padState, navigator.getGamepads());
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const dt = padAt ? Math.min(100, now - padAt) : 16;
+    padAt = now;
+    // Ölü bölgeyi eşleme uygular; burada yalnız çok küçük titreme yutulur
+    const r = GPM().diff(padState, navigator.getGamepads(), 0.02);
     padState = r.state;
-    if (!r.events.length) return;
-    const e0 = r.events[r.events.length - 1];
-    lastSignal.gamepad = GPM().label(e0, !!(window.SVI18n && window.SVI18n.locale === 'en')) + ' → ' + (Math.round(e0.raw * 100) / 100);
-    const chip = document.getElementById('gamepadSignal');
-    if (chip) chip.textContent = lastSignal.gamepad;
+    const shown = (padTick++ % 3 === 0) ? paintAxes(r.state) : !!document.getElementById('gamepadAxes');
+    if (r.events.length) {
+      const e0 = r.events[r.events.length - 1];
+      lastSignal.gamepad = GPM().label(e0, !!(window.SVI18n && window.SVI18n.locale === 'en')) + ' → ' + (Math.round(e0.raw * 100) / 100);
+      const chip = document.getElementById('gamepadSignal');
+      if (chip) chip.textContent = lastSignal.gamepad;
+    }
     if (learning && learning.surface === 'gamepad') {
       const got = GPM().learnFrom(r.events);
       const m = got && (g.mappings || []).find((x) => x.id === learning.id);
-      if (m) { Object.assign(m, got); learning = null; syncGamepad(); P().push(true); P().rerender(); }
+      if (m) {
+        Object.assign(m, got);
+        // Öğrenilen yön: çubuğun tek yönü ya da tetik yalnız o yarıyı kullansın diye ipucu
+        if (got.kind === 'axis' && m.range == null) m.range = 'full';
+        padVal.delete(m.id);
+        learning = null; syncGamepad(); P().push(true); P().rerender();
+      }
       return;
     }
-    if (!g.enabled) return;
+    if (!g.enabled) { if (!shown) syncGamepad(); return; }
+    const analog = new Set();
+    for (const m of g.mappings || []) {
+      const t = continuous(m);
+      if (!t) continue;
+      analog.add(m);
+      const raw = GPM().rawOf(m, r.state);
+      if (raw == null) continue;
+      /* Mutlak kip kumanda dokunulmadan ayarı ezmesin: ilk hareketten sonra sürer.
+         Göreli kip zaten ortada sıfır adım atar. */
+      if (GPM().opts(m).mode === 'abs' && !padVal.has(m.id) && !r.events.some((ev) => GPM().matches(m, ev))) continue;
+      driveAnalog(m, t, raw, dt);
+    }
     for (const ev of r.events) {
       for (const m of g.mappings || []) {
-        if (!GPM().matches(m, ev)) continue;
-        if (ev.value01 < 0.5) m._armed = true;
-        applyMapping(m, ev.value01);
+        if (analog.has(m) || !GPM().matches(m, ev)) continue;
+        // Eksen → eylem: biçimlenmiş değer eşiği geçince bir kez
+        const v = ev.kind === 'axis' ? GPM().abs01(Object.assign({}, m, { range: m.range || 'pos' }), ev.raw) : ev.value01;
+        if (v < 0.5) m._armed = true;
+        applyMapping(m, v);
       }
     }
   }
   function syncGamepad() {
     const cfg = P().cfg();
-    const on = !!(cfg.control.gamepad && cfg.control.gamepad.enabled) || (learning && learning.surface === 'gamepad');
-    if (on && !padTimer) padTimer = setInterval(pollGamepads, 16);
+    const on = !!(cfg.control.gamepad && cfg.control.gamepad.enabled) || (learning && learning.surface === 'gamepad') || !!document.getElementById('gamepadAxes');
+    if (on && !padTimer) { padAt = 0; padTimer = setInterval(pollGamepads, 16); }
     else if (!on && padTimer) { clearInterval(padTimer); padTimer = null; }
   }
 
-  async function initMidi() {
+  // --------------------------------------------------------------------------
+  // MIDI çıkışı: denetleyici LED / motorlu fader geri bildirimi
+  // --------------------------------------------------------------------------
+  const MFB = () => window.SVMidiFeedback || require('../shared/midi-feedback.js');
+  const CMAPS = () => window.SVControllerMaps || require('../shared/controller-maps.js');
+  const fbSenders = new Map();
+  let fbTimer = null;
+
+  function feedbackCfg(cfg) {
+    const m = cfg && cfg.control && cfg.control.midi;
+    return (m && m.feedback) || { enabled: false, outputId: 'auto' };
+  }
+
+  // Hedefin güncel değeri (0..1). Eylemlerde yalnız aç/kapa durumu olanlar yanar.
+  function feedbackValue(cfg, map) {
+    const t = targetFor(map.target);
+    if (!t) return 0;
+    if (t.action) {
+      if (t.action === 'blackout') return P().isBlackedOut && P().isBlackedOut() ? 1 : 0;
+      if (t.action === 'tlPlay') { const p = window.SVTimelinePanel; return p && p.transport && p.transport().playing ? 1 : 0; }
+      if (t.action === 'mdLock') return cfg.milkdropControl && cfg.milkdropControl.locked === true ? 1 : 0;
+      return 0;
+    }
+    const L = window.SVLayers;
+    const eff = L && L.effectivePath ? L.effectivePath(cfg, t.path) : t.path;
+    let v = P().get(eff);
+    if (v == null) v = P().get(t.path);
+    return MFB().normalize(t, map, v);
+  }
+
+  function feedbackTick() {
+    const cfg = P() && P().cfg();
+    if (!cfg || !midiAccess || !cfg.control || !cfg.control.midi) return;
+    const f = feedbackCfg(cfg);
+    if (!cfg.control.midi.enabled || !f.enabled) { syncFeedback(); return; }
+    const outs = MFB().pickOutputs(midiAccess.outputs ? midiAccess.outputs.values() : [], midiInputs, f.outputId, cfg.control.midi.deviceId);
+    const C = CMAPS();
+    const maps = cfg.control.midi.mappings || [];
+    const signature = JSON.stringify([f.onVelocity, f.offVelocity, cfg.control.midi.deviceId,
+      maps.map((m) => [m.kind, m.channel, m.cc, m.target, m.min, m.max, m.preset, m.relative, m.deviceId])]);
+    const ids = new Set(outs.map((o) => o.id));
+    for (const id of fbSenders.keys()) if (!ids.has(id)) fbSenders.delete(id);
+    for (const output of outs) {
+      let rec = fbSenders.get(output.id);
+      if (!rec || rec.output !== output || rec.signature !== signature) {
+        rec = { output, signature, sender: MFB().create({
+          onVelocity: f.onVelocity, offVelocity: f.offVelocity, send: (bytes) => output.send(bytes),
+        }) };
+        fbSenders.set(output.id, rec);
+      }
+      const pairedInputs = midiInputs.filter((i) => feedbackPairsInput(output, i, cfg));
+      const items = maps.filter((m) => m.cc >= 0 && (!m.preset || C.acceptsPort(m.preset, output.name))
+        && (!m.deviceId || pairedInputs.some((i) => i.id === m.deviceId)))
+        .map((map) => ({ map: C.feedbackMap(map), value01: feedbackValue(cfg, map) })).filter((it) => it.map);
+      rec.sender.update(items);
+    }
+  }
+
+  function feedbackPairsInput(output, input, cfg) {
+    const m = cfg.control.midi;
+    return (m.feedback && m.feedback.outputId === output.id && m.deviceId === input.id)
+      || MFB().pickOutputs([output], [input], 'auto', input.id).length > 0;
+  }
+
+  function isFeedbackEcho(bytes, input, cfg) {
+    for (const { output, sender } of fbSenders.values()) {
+      if (feedbackPairsInput(output, input, cfg) && sender.isEcho(bytes)) return true;
+    }
+    return false;
+  }
+
+  /* Hazırlama ayrı bir kullanıcı hareketidir. MIDI/geri bildirim açılması,
+     harita uygulama ya da aygıt takma hiçbir kip SysEx'i yollamaz. */
+  async function prepareController(preset, restore) {
+    const cfg = P().cfg(); const m = cfg.control.midi; const C = CMAPS();
+    const input = midiInputs.find((i) => i.id === m.deviceId);
+    if (!m.enabled || !input || !C.acceptsPort(preset, input.name)) {
+      P().toast(T('Önce tek bir uygun MIDI/User girişi seçin.'), 'warn'); return false;
+    }
+    if (preset === 'nanokontrol2') { P().toast(T('Korg CC sahnesini Kontrol Editor ile ayarlayın; sahneye yazılmaz.'), 'info'); return false; }
+    const outputs = MFB().pickOutputs(midiAccess.outputs.values(), midiInputs, feedbackCfg(cfg).outputId, m.deviceId)
+      .filter((o) => C.acceptsPort(preset, o.name));
+    if (outputs.length !== 1) { P().toast(T('Tek bir uygun MIDI/User çıkışı seçin.'), 'warn'); return false; }
+    const messages = C.modeMessages(preset, outputs[0].name, restore);
+    if (!messages.length) { P().toast(T('Korg CC sahnesini Kontrol Editor ile ayarlayın; sahneye yazılmaz.'), 'info'); return false; }
+    if (!midiAccess.sysexEnabled) await initMidi(true);
+    if (!midiAccess || !midiAccess.sysexEnabled) return false;
+    const output = midiAccess.outputs.get(outputs[0].id);
+    if (!output || output.state === 'disconnected') return false;
+    try {
+      for (const bytes of messages) output.send(bytes);
+      fbSenders.clear();
+      P().toast(T('Kip komutu yollandı; aygıt onayı veya gerçek donanım testi değildir.'), 'info');
+      return true;
+    } catch (e) { P().toast(T('MIDI çıkışına yazılamadı.'), 'warn'); return false; }
+  }
+
+  function syncFeedback() {
+    // 10 Hz yeter: LED ve fader insan gözüyle izleniyor; yalnız değişen değer gider
+    const cfg = P() && P().cfg();
+    const on = !!(midiAccess && cfg && cfg.control && cfg.control.midi && cfg.control.midi.enabled && feedbackCfg(cfg).enabled);
+    if (on && !fbTimer) fbTimer = setInterval(feedbackTick, 100);
+    else if (!on) {
+      if (fbTimer) clearInterval(fbTimer);
+      fbTimer = null;
+      fbSenders.clear();
+    }
+  }
+
+  async function initMidi(wantSysex) {
     if (!navigator.requestMIDIAccess) {
       midiError = 'Bu ortamda Web MIDI kullanılamıyor.';
       return;
     }
     try {
-      midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-      midiAccess.onstatechange = () => { bindMidiInputs(); P().rerender(); };
+      // Tam kare MTC, SysEx izni ister; MTC kapalıyken eski MIDI izni değişmez.
+      const cfg = P().cfg();
+      midiAccess = await navigator.requestMIDIAccess({ sysex: wantSysex === true || !!(midiAccess && midiAccess.sysexEnabled) || !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
+      midiAccess.onstatechange = () => { fbSenders.clear(); bindMidiInputs(); syncFeedback(); P().rerender(); };
       bindMidiInputs();
+      syncFeedback();
     } catch (e) {
+      if (wantSysex === true) P().toast(T('SysEx izni verilmedi; aygıt kipi değiştirilmedi.'), 'warn');
       midiError = 'MIDI erişimi reddedildi: ' + (e && e.message ? e.message : e);
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // MIDI Time Code girişi: Zaman Çizelgesi dış zaman kodunu kovalar
+  // --------------------------------------------------------------------------
+  const MTCM = () => window.SVMtc || require('../shared/mtc.js');
+  let mtcDecoder = null;
+  let mtcTimer = null;
+  function onMtc(ev) {
+    const d = ev.data;
+    if (!d || !d.length || (d[0] !== 0xf1 && d[0] !== 0xf0)) return;
+    if (!mtcDecoder) mtcDecoder = MTCM().createDecoder();
+    mtcDecoder.feed(d, performance.now());
+  }
+  function mtcTick() {
+    const cfg = P() && P().cfg();
+    const m = cfg && cfg.control && cfg.control.mtc;
+    const chip = document.getElementById('mtcSignal');
+    if (chip && mtcDecoder) chip.textContent = mtcDecoder.label() + (mtcDecoder.running(performance.now()) ? '' : ' · ' + T('durdu'));
+    if (!m || !m.enabled || !mtcDecoder || mtcDecoder.time() == null) return;
+    const tp = window.SVTimelinePanel;
+    if (!tp || !tp.transport) return;
+    const tr = tp.transport();
+    const step = MTCM().chaseStep(
+      { time: mtcDecoder.time(), running: mtcDecoder.running(performance.now()) },
+      { time: tr.time, playing: !!tr.playing },
+      { offset: Number(m.offsetSec) || 0 }
+    );
+    if (step.pause) tp.pause();
+    if (step.seek != null) tp.seek(step.seek);
+    if (step.play) tp.play();
+  }
+  function syncMtc() {
+    const cfg = P() && P().cfg();
+    const on = !!(cfg && cfg.control && cfg.control.mtc && cfg.control.mtc.enabled);
+    if (on && !mtcTimer) mtcTimer = setInterval(mtcTick, 40);
+    else if (!on && mtcTimer) { clearInterval(mtcTimer); mtcTimer = null; if (mtcDecoder) mtcDecoder.reset(); }
+  }
+
+  // --------------------------------------------------------------------------
+  // Art-Net (DMX) girişi: ana süreç yalnız değişen kanalları iletir
+  // --------------------------------------------------------------------------
+  let artnetInState = { listening: false, error: '', packets: 0 };
+  function onArtnetIn(msg) {
+    const cfg = P() && P().cfg();
+    const a = cfg && cfg.control && cfg.control.artnet;
+    if (!a || !msg || !Array.isArray(msg.changes) || !msg.changes.length) return;
+    const lastCh = msg.changes[msg.changes.length - 1];
+    lastSignal.artnet = 'DMX ' + lastCh[0] + ' → ' + lastCh[1];
+    const chip = document.getElementById('artnetInSignal');
+    if (chip) chip.textContent = lastSignal.artnet;
+    if (learning && learning.surface === 'artnet') {
+      // Öğrenme: en çok oynayan kanal (aynı anda birkaç kanal değişebilir)
+      const m = (a.mappings || []).find((x) => x.id === learning.id);
+      const pick = msg.changes.slice().sort((x, y) => y[1] - x[1])[0];
+      if (m && pick) {
+        m.channel = pick[0];
+        learning = null;
+        P().push(true);
+        P().rerender();
+      }
+      return;
+    }
+    if (!a.enabled) return;
+    for (const [ch, v] of msg.changes) {
+      for (const m of a.mappings || []) {
+        if ((m.channel | 0) !== ch) continue;
+        const value01 = Math.max(0, Math.min(1, v / 255));
+        if (value01 < 0.5) m._armed = true; // eylem yeniden tetiklenebilir
+        applyMapping(m, value01);
+      }
+    }
+  }
+
+  function artnetInNodes(cfg) {
+    const el = P().el;
+    const a = cfg.control.artnet || (cfg.control.artnet = { enabled: false, bind: '127.0.0.1', port: 6454, universe: 0, mappings: [] });
+    const sync = async () => {
+      P().push(true);
+      if (window.api.artnetInSync) artnetInState = (await window.api.artnetInSync()) || artnetInState;
+      P().rerender();
+    };
+    const st = artnetInState;
+    const status = el('div', { class: 'studio-status ' + (st.listening ? 'ok' : st.error ? 'err' : '') });
+    if (st.listening) {
+      status.appendChild(el('span', { text: 'Dinliyor' }));
+      status.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
+      status.appendChild(el('span', { class: 'st-num', text: String(st.packets || 0) + ' ' }));
+      status.appendChild(el('span', { text: 'paket' }));
+    } else if (st.error === 'same-universe') {
+      status.appendChild(el('span', { text: 'Art-Net çıkışıyla aynı evren: kapalı' }));
+    } else if (st.error) {
+      status.appendChild(el('span', { text: st.error }));
+    } else {
+      status.appendChild(el('span', { text: 'Kapalı' }));
+    }
+    const nodes = [P().moduleHead({
+      id: 'artnetIn', title: 'Art-Net Girişi', on: !!a.enabled, error: !!st.error, status,
+      start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+      toggle: async (next) => { a.enabled = next; await sync(); },
+    })];
+    const bindSel = el('select', {
+      'aria-label': T('Dinleme Adresi'),
+      onchange: async (e) => { a.bind = e.target.value; await sync(); },
+    });
+    [['127.0.0.1', 'Yalnız bu bilgisayar (127.0.0.1)'], ['0.0.0.0', 'Tüm ağ arayüzleri (0.0.0.0)']].forEach(([v, t]) => {
+      const o = el('option', { value: v, text: T(t) });
+      if ((a.bind || '127.0.0.1') === v) o.selected = true;
+      bindSel.appendChild(o);
+    });
+    nodes.push(P().row('Dinleme Adresi', bindSel));
+    nodes.push(P().row('Evren (Universe)', el('input', {
+      class: 'p-in p-num', type: 'number', min: '0', max: '32767', value: a.universe | 0,
+      onchange: async (e) => {
+        const n = Math.max(0, Math.min(32767, parseInt(e.target.value, 10) || 0));
+        a.universe = n;
+        await sync();
+      },
+    })));
+    nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+      el('label', { class: 'lbl', text: 'Son kanal' }),
+      el('span', { id: 'artnetInSignal', class: 'map-signal', text: lastSignal.artnet || T('sinyal bekleniyor…') }),
+    ])]));
+    nodes.push(mappingRows('artnet'));
+    nodes.push(el('div', { class: 'note', text: 'Işık masasının gönderdiği DMX kanallarını ayarlara ve eylemlere bağlar (0–255 → hedef aralığı; eylemler yarının üstüne çıkınca tetiklenir). Varsayılan yalnız bu bilgisayarı dinler; ağdaki bir masa için Tüm ağ arayüzleri seçin. Art-Net çıkışıyla aynı evren seçilemez.' }));
+    return nodes;
+  }
+
+  function mtcNodes(cfg) {
+    const el = P().el;
+    const m = cfg.control.mtc || (cfg.control.mtc = { enabled: false, deviceId: 'all', offsetSec: 0 });
+    const nodes = [P().moduleHead({
+      id: 'mtc', title: 'MIDI Zaman Kodu (MTC)', on: !!m.enabled,
+      status: el('div', { class: 'studio-status', text: m.enabled ? 'Dinliyor' : 'Kapalı' }),
+      start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+      toggle: async (next) => {
+        m.enabled = next;
+        P().push(true);
+        if (next) await initMidi();
+        bindMidiInputs();
+        syncMtc();
+        P().rerender();
+      },
+    })];
+    const sel = el('select', { 'aria-label': T('Aygıt'), onchange: (e) => { m.deviceId = e.target.value; P().push(true); bindMidiInputs(); } });
+    const optAll = el('option', { value: 'all', text: 'Tüm MIDI aygıtları' });
+    if ((m.deviceId || 'all') === 'all') optAll.selected = true;
+    sel.appendChild(optAll);
+    midiInputs.forEach((inp) => {
+      const o = el('option', { value: inp.id, text: inp.name || 'MIDI' });
+      if (m.deviceId === inp.id) o.selected = true;
+      sel.appendChild(o);
+    });
+    nodes.push(P().row('Aygıt', sel));
+    nodes.push(P().row('Başlangıç Ofseti (sn)', el('input', {
+      class: 'p-in p-num', type: 'number', step: '0.01', min: '0', max: '86400', value: Number(m.offsetSec) || 0,
+      onchange: (e) => { const n = parseFloat(e.target.value); m.offsetSec = Number.isFinite(n) ? Math.max(0, Math.min(86400, n)) : 0; P().push(true); },
+    })));
+    nodes.push(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [
+      el('label', { class: 'lbl', text: 'Zaman Kodu' }),
+      el('span', { id: 'mtcSignal', class: 'map-signal', text: mtcDecoder ? mtcDecoder.label() : '--:--:--:--' }),
+    ])]));
+    nodes.push(el('div', { class: 'note', text: 'DAW ya da şov denetleyicisi MTC gönderirken Zaman Çizelgesi aynı konumda oynar, durunca durur, atlayınca atlar. Çizelge zamanı = zaman kodu − ofset (ör. 01:00:00:00 başlayan bir şov için 3600). 24, 25, 29.97 drop-frame ve 30 fps desteklenir.' }));
+    return nodes;
   }
 
   // --------------------------------------------------------------------------
@@ -599,6 +965,10 @@
       runAction('deckStopAll', cfg);
       return;
     }
+    if (step.op === 'tbar') {
+      if (window.SVLiveShell && window.SVLiveShell.tbarTo) window.SVLiveShell.tbarTo(step.value);
+      return;
+    }
     if (step.op === 'timeline') {
       const tp = window.SVTimelinePanel;
       if (!tp) return;
@@ -609,15 +979,27 @@
   }
 
   function onOsc(msg) {
+    const editor = window.SVTimelineTarget;
+    return editor ? editor.withManual(() => onOscManual(msg)) : onOscManual(msg);
+  }
+  function onOscManual(msg) {
     const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
     const last = messages[messages.length - 1] || {};
     const args = Array.isArray(last.args) ? last.args : [];
-    lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
-    const chip = document.getElementById('oscSignal');
-    if (chip) chip.textContent = lastSignal.osc;
+    /* MQTT (mqtt-bridge.js) ve telefon kumandası (main.js remoteOscMessage) komutları OSC ağacı
+       mesajı olarak gelir. İkisi de kendi izniyle: OSC girişi kapalıyken de uygulanır, OSC
+       göstergesine ve öğrenme moduna karışmaz. Kumandanınki yalnız sabit ağaçtır; öğrenilmiş
+       eşlemeleri sürmez. */
+    const fromRemote = !!(msg && msg.source === 'remote');
+    const fromMqtt = fromRemote || !!(msg && msg.source === 'mqtt');
+    if (!fromMqtt) {
+      lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
+      const chip = document.getElementById('oscSignal');
+      if (chip) chip.textContent = lastSignal.osc;
+    }
 
     const cfg = P().cfg();
-    if (learning && learning.surface === 'osc') {
+    if (learning && learning.surface === 'osc' && !fromMqtt) {
       const m = (cfg.control.osc.mappings || []).find((x) => x.id === learning.id);
       const heard = messages.find((one) => one && one.address);
       if (m && heard) {
@@ -629,7 +1011,7 @@
       return;
     }
 
-    if (!cfg.control.osc.enabled) return;
+    if (!cfg.control.osc.enabled && !fromMqtt) return;
     const tree = window.SVOscTree;
     const planned = tree && tree.plan ? tree.plan(messages, cfg) : { steps: [], consumed: [] };
     const consumed = new Set(planned.consumed || []);
@@ -646,7 +1028,7 @@
       if (step && step.op === 'scene') holdScene = true;
     }
     for (let i = 0; i < messages.length; i++) {
-      if (consumed.has(i) || !messages[i]) continue;
+      if (consumed.has(i) || !messages[i] || fromRemote) continue;
       applyLearned(cfg, messages[i]);
     }
     if (steps.length) {
@@ -691,7 +1073,8 @@
       const t = targetFor(m.target);
       const isLearning = learning && learning.surface === surface && learning.id === m.id;
 
-      const sourceLabel = surface === 'gamepad' ? GPM().label(m, !!(window.SVI18n && window.SVI18n.locale === 'en')) :
+      const sourceLabel = surface === 'artnet' ? (m.channel > 0 ? 'DMX ' + m.channel : '—') :
+        surface === 'gamepad' ? GPM().label(m, !!(window.SVI18n && window.SVI18n.locale === 'en')) :
         surface === 'midi'
           ? m.cc >= 0
             ? (m.kind === 'note' ? 'Nota ' : 'CC ') + m.cc + (m.channel ? ' · k' + m.channel : '')
@@ -711,7 +1094,13 @@
         },
       });
 
-      const srcNode = surface === 'osc'
+      const srcNode = surface === 'artnet'
+        ? el('input', {
+            class: 'p-in p-num', type: 'number', min: '1', max: '512', value: m.channel > 0 ? m.channel : '', placeholder: 'DMX',
+            'aria-label': T('DMX kanalı'),
+            onchange: (e) => { const n = parseInt(e.target.value, 10); m.channel = n >= 1 && n <= 512 ? n : 0; P().push(true); },
+          })
+        : surface === 'osc'
         ? el('input', {
             class: 'p-in', type: 'text', value: m.address, placeholder: '/adres/yolu',
             oninput: (e) => { m.address = e.target.value.slice(0, 120); P().push(true); },
@@ -720,6 +1109,7 @@
 
       const targetSel = el('select', {
         class: 'p-in',
+        'aria-label': T('Hedef'),
         onchange: (e) => { m.target = e.target.value; m.min = null; m.max = null; P().push(true); P().rerender(); },
       });
       allTargets().forEach((tt) => {
@@ -748,6 +1138,7 @@
         );
       }
 
+      const analogOpts = surface === 'gamepad' && t && !t.action && !t.steps ? gamepadOpts(m) : null;
       host.appendChild(
         el('div', { class: 'map-row' + (isLearning ? ' learning' : '') }, [
           learnBtn,
@@ -760,6 +1151,7 @@
           }),
         ])
       );
+      if (analogOpts) host.appendChild(analogOpts);
     });
 
     host.appendChild(
@@ -772,18 +1164,111 @@
     return host;
   }
 
+  /* Oyun kumandası eşlemesinin analog ayrıntısı: kip, eksen yarısı, ölü bölge, eğri, ters, yumuşatma, hız. */
+  function gamepadOpts(m) {
+    const el = P().el;
+    const o = GPM().opts(m);
+    const save = (k, v) => { m[k] = v; padVal.delete(m.id); P().push(true); };
+    const sel = (k, list, label) => {
+      const s = el('select', { class: 'p-in', 'aria-label': T(label), title: T(label), onchange: (e) => { save(k, e.target.value); P().rerender(); } });
+      for (const [v, text] of list) { const op = el('option', { value: v, text: T(text) }); if (o[k] === v) op.selected = true; s.appendChild(op); }
+      return s;
+    };
+    const num = (k, lo, hi, step, label) => el('label', { class: 'gp-opt' }, [
+      el('span', { text: T(label) }),
+      el('input', {
+        class: 'p-in p-num', type: 'number', min: lo, max: hi, step, value: o[k], 'aria-label': T(label),
+        onchange: (e) => { const n = parseFloat(e.target.value); save(k, Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : GPM().OPTS[k]); },
+      }),
+    ]);
+    const inv = el('input', { type: 'checkbox', onchange: (e) => save('invert', e.target.checked) });
+    inv.checked = o.invert;
+    const kids = [
+      sel('mode', [['abs', 'Mutlak'], ['rel', 'Göreli (artımlı)']], 'Kip'),
+    ];
+    if (m.kind === 'axis') {
+      kids.push(sel('range', [['full', 'Tam eksen'], ['pos', 'Yalnız + yön'], ['neg', 'Yalnız − yön']], 'Eksen aralığı'));
+      kids.push(num('deadzone', 0, 0.9, 0.01, 'Ölü bölge'));
+      kids.push(sel('curve', [['linear', 'Doğrusal'], ['expo', 'Üstel']], 'Tepki eğrisi'));
+      if (o.curve === 'expo') kids.push(num('expo', 1, 5, 0.1, 'Üs'));
+      kids.push(el('label', { class: 'gp-opt' }, [inv, el('span', { text: T('Ters çevir') })]));
+    }
+    if (o.mode === 'rel') kids.push(num('rate', 0.01, 10, 0.05, 'Hız (aralık/sn)'));
+    else kids.push(num('smooth', 0, 0.95, 0.05, 'Yumuşatma'));
+    return el('div', { class: 'map-row gp-opts' }, kids);
+  }
+
+  /* MIDI kartının ek bölümleri: LED geri bildirimi (MIDI çıkışı) ve hazır
+     denetleyici haritaları. Harita yalnız kullanıcı "Uygula" deyince eklenir. */
+  function midiExtraNodes(cfg) {
+    const el = P().el;
+    const midi = cfg.control.midi;
+    if (!midi.feedback) midi.feedback = { enabled: false, outputId: 'auto', onVelocity: 127, offVelocity: 0 };
+    const out = [];
+    out.push(el('div', { class: 'lighting-subtitle', text: 'LED Geri Bildirimi (MIDI Çıkışı)' }));
+    out.push(P().toggle('Değerleri Denetleyiciye Geri Yolla', 'control.midi.feedback.enabled', { rebuild: true }));
+    const outs = midiAccess && midiAccess.outputs ? Array.from(midiAccess.outputs.values()) : [];
+    const osel = el('select', {
+      'aria-label': T('MIDI Çıkışı'),
+      onchange: (e) => { midi.feedback.outputId = e.target.value; P().push(true); },
+    });
+    const autoOpt = el('option', { value: 'auto', text: T('Girişle aynı adlı aygıt') });
+    if ((midi.feedback.outputId || 'auto') === 'auto') autoOpt.selected = true;
+    osel.appendChild(autoOpt);
+    outs.forEach((o) => {
+      const op = el('option', { value: o.id, text: o.name || 'MIDI' });
+      if (midi.feedback.outputId === o.id) op.selected = true;
+      osel.appendChild(op);
+    });
+    out.push(P().row('MIDI Çıkışı', osel));
+    out.push(el('div', { class: 'note', text: 'Genel eşlemeler CC/nota olarak geri yollanır. Hazır haritalar yalnız belgelenmiş LED ve halkaları sürer; renkler aygıtın paletine göredir. Yalnız değişen değer yollanır.' }));
+
+    out.push(el('div', { class: 'lighting-subtitle', text: 'Hazır Denetleyici Haritası' }));
+    const C = CMAPS();
+    const names = midiInputs.filter((i) => (midi.deviceId || 'all') === 'all' || i.id === midi.deviceId).map((i) => i.name);
+    const detected = names.map((n) => C.matchDevice(n)).find(Boolean) || null;
+    let chosen = detected ? detected.id : C.TEMPLATES[0].id;
+    const tsel = el('select', { 'aria-label': T('Hazır Denetleyici Haritası'), onchange: (e) => { chosen = e.target.value; } });
+    C.TEMPLATES.forEach((t) => {
+      const op = el('option', { value: t.id, text: t.name });
+      if (t.id === chosen) op.selected = true;
+      tsel.appendChild(op);
+    });
+    const applyBtn = el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'plus', text: 'Haritayı Uygula',
+      onclick: () => {
+        const tpl = C.byId(chosen);
+        if (!tpl) return;
+        const list = midi.mappings || (midi.mappings = []);
+        const r = C.apply(list, tpl, { known: (k) => !!targetFor(k), deviceId: midi.deviceId === 'all' ? null : midi.deviceId });
+        P().push(true);
+        P().rerender();
+        P().toast(r.added + ' ' + T('eşleme eklendi') + (r.skipped ? ' · ' + r.skipped + ' ' + T('zaten vardı') : ''), r.added ? 'ok' : 'info');
+      },
+    });
+    out.push(P().row('Hazır Denetleyici Haritası', el('div', { class: 'map-row', style: 'gap:8px;align-items:center' }, [tsel, applyBtn])));
+    if (detected) out.push(el('div', { class: 'note', text: T('Tanınan aygıt') + ': ' + detected.name }));
+    out.push(el('div', { class: 'note', text: 'Harita mevcut eşlemelere eklenir. Launchpad için MIDI, Push 2 için User portunu seçin. Hazırlama düğmesi Programmer/User kipine geçirir (APC: Alternate Ableton). Normal kipe dönüş ayrı düğmedir; otomatik kip değişmez. Korg CC sahnesi kanal 1, fader 0–7, düğüm 16–23, Solo 32–39, Play/Stop 41/42, Marker 61/62, Track 58/59 olmalı; düğmeler anlık 0/127, LED Mode = External. Bunlar fabrika ayarı varsayımı değildir.' }));
+    out.push(el('div', { class: 'map-row' }, [
+      el('button', { class: 'btn ghost small', type: 'button', icon: 'sliders', text: 'Denetleyiciyi Hazırla', title: T('Yalnız seçili aygıtın geçici kipini değiştirir; sahne veya kalıcı ayar yazmaz.'), onclick: () => prepareController(chosen, false) }),
+      el('button', { class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Normal Kipe Dön', title: T('Launchpad/Push: Live; APC: Generic. Önceki özel kip geri yüklenmez.'), onclick: () => prepareController(chosen, true) }),
+    ]));
+    return out;
+  }
+
   function panel(surface) {
+    syncFeedback();
     const el = P().el;
     const cfg = P().cfg();
     const nodes = [];
 
     if (surface === 'midi') {
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: (e) => { cfg.control.midi.enabled = e.target.checked; P().push(true); if (e.target.checked) initMidi(); },
-      });
-      enable.checked = !!cfg.control.midi.enabled;
-      nodes.push(P().row('MIDI Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      nodes.push(P().moduleHead({
+        id: 'midi', title: 'MIDI', on: !!cfg.control.midi.enabled, error: !!midiError,
+        status: el('div', { class: 'studio-status', text: cfg.control.midi.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: (next) => { cfg.control.midi.enabled = next; P().push(true); if (next) initMidi(); P().rerender(); },
+      }));
 
       if (midiError) {
         nodes.push(el('div', { class: 'studio-status err', text: midiError }));
@@ -800,6 +1285,7 @@
           sel.appendChild(o);
         });
         nodes.push(P().row('Aygıt', sel));
+        midiExtraNodes(cfg).forEach((n) => nodes.push(n));
         const foundBox = el('label', { class: 'lbl' });
         if (midiInputs.length) {
           foundBox.appendChild(el('span', { class: 'st-num', text: midiInputs.length + ' ' }));
@@ -821,12 +1307,12 @@
       tempoNodes(cfg).forEach((n) => nodes.push(n));
     } else if (surface === 'gamepad') {
       const g = cfg.control.gamepad || (cfg.control.gamepad = { enabled: false, mappings: [] });
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: (e) => { g.enabled = e.target.checked; P().push(true); syncGamepad(); },
-      });
-      enable.checked = !!g.enabled;
-      nodes.push(P().row(T('Oyun Kumandası Etkin'), el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      nodes.push(P().moduleHead({
+        id: 'gamepad', title: T('Oyun Kumandası'), on: !!g.enabled,
+        status: el('div', { class: 'studio-status', text: g.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: (next) => { g.enabled = next; P().push(true); syncGamepad(); P().rerender(); },
+      }));
       if (!navigator.getGamepads) {
         nodes.push(el('div', { class: 'studio-status err', text: T('Bu ortamda Gamepad API kullanılamıyor.') }));
       } else {
@@ -835,23 +1321,30 @@
           el('label', { class: 'lbl', text: n ? n + ' ' + T('kumanda bağlı') : T('Kumanda bulunamadı (bir düğmeye basın)') }),
           el('span', { id: 'gamepadSignal', class: 'map-signal', text: lastSignal.gamepad || T('sinyal bekleniyor…') }),
         ])]));
+        // Canlı eksen göstergesi: eşleme yaparken hangi eksenin ne kadar oynadığı
+        nodes.push(el('div', { id: 'gamepadAxes', class: 'gp-axes', 'aria-live': 'off', 'aria-label': T('Canlı eksen değerleri') }));
+        setTimeout(syncGamepad, 0);
       }
       nodes.push(el('div', { class: 'note', text: T('Xbox, PlayStation ve genel USB/Bluetooth kumandalar çalışır (Windows, macOS, Linux). Kumanda yalnızca uygulama pencerelerinden biri öndeyken okunur; bu Chromium sınırıdır.') }));
       nodes.push(mappingRows('gamepad'));
+    } else if (surface === 'artnetin') {
+      artnetInNodes(cfg).forEach((n) => nodes.push(n));
+    } else if (surface === 'mtc') {
+      mtcNodes(cfg).forEach((n) => nodes.push(n));
     } else if (surface === 'oscout') {
       oscOutNodes(cfg).forEach((n) => nodes.push(n));
     } else {
-      const enable = el('input', {
-        type: 'checkbox',
-        onchange: async (e) => {
-          cfg.control.osc.enabled = e.target.checked;
+      nodes.push(P().moduleHead({
+        id: 'osc', title: 'OSC Girişi', on: !!cfg.control.osc.enabled,
+        status: el('div', { class: 'studio-status', text: cfg.control.osc.enabled ? 'Dinliyor' : 'Kapalı' }),
+        start: 'Dinlemeyi Başlat', stop: 'Dinlemeyi Durdur',
+        toggle: async (next) => {
+          cfg.control.osc.enabled = next;
           P().push(true);
           oscState = await window.api.oscSync();
           P().rerender();
         },
-      });
-      enable.checked = !!cfg.control.osc.enabled;
-      nodes.push(P().row('OSC Girişi Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      }));
       /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister, sunucu
          açılamaz. Windows'ta böyle bir sınır yok; orada 1'den başlar. */
       const oscMin = window.SV_PLATFORM && window.SV_PLATFORM.isWindows ? 1 : 1024;
@@ -931,7 +1424,7 @@
       nodes.push(
         el('div', { class: 'studio-note', text: 'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.' })
       );
-      nodes.push(P().slider('Ana Opaklık', 'master', { min: 0, max: 1, step: 0.01 }));
+      nodes.push(P().slider('Ana Opaklık', 'master', { step: 0.01 }));
       nodes.push(el('div', {
         class: 'studio-note',
         text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',
@@ -1003,7 +1496,12 @@
       },
     });
 
-    nodes.push(toggle('OSC Çıkışı Etkin', 'enabled'));
+    nodes.push(P().moduleHead({
+      id: 'oscout', title: 'OSC Çıkışı', on: !!o.enabled,
+      status: el('div', { class: 'studio-status', text: o.enabled ? 'Gönderiyor' : 'Kapalı' }),
+      start: 'Göndermeyi Başlat', stop: 'Göndermeyi Durdur',
+      toggle: (next) => { o.enabled = next; sync(); },
+    }));
     nodes.push(P().row('Hedef Adres', text(o.host, oscHostOk, (v) => {
       o.host = v.startsWith('[') && v.endsWith(']') ? v.slice(1, -1) : v;
     }, 'Adres bir IPv4, IPv6 ya da ana bilgisayar adı olmalı.')));
@@ -1111,6 +1609,7 @@
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
     else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
+    else if (cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) initMidi();
     if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
     syncGamepad();
     if (window.api.tempoSyncStatus) {
@@ -1124,6 +1623,14 @@
       });
     }
     window.api.onOscMessage(onOsc);
+    if (window.api.onArtnetIn) window.api.onArtnetIn(onArtnetIn);
+    if (window.api.onArtnetInStatus) window.api.onArtnetInStatus((s) => { if (s) artnetInState = s; });
+    if (window.api.artnetInStatus) window.api.artnetInStatus().then((s) => { if (s) artnetInState = s; }).catch(() => {});
+    if (cfg.control.mtc && cfg.control.mtc.enabled) {
+      const already = (cfg.control.midi && cfg.control.midi.enabled) || (cfg.tempoSync && cfg.tempoSync.source === 'midi');
+      if (!already) initMidi();
+      syncMtc();
+    }
     window.api.onOscStatus((s) => {
       oscState = s || oscState;
       const live = P().cfg();

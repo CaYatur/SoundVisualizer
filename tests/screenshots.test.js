@@ -86,7 +86,7 @@ test('tam koşu özenle üretilmiş iki MilkDrop görselini ezmiyor', () => {
 test('vitrin klibi (hero.webp) demo-visualizer.gif kayıtlarıyla başlıyor', () => {
   assert.match(SRC, /const HERO_LEAD = path\.join\(shotsDir, 'demo-visualizer\.gif'\);/);
   const at = SRC.indexOf('if (fs.existsSync(HERO_LEAD))');
-  assert.ok(at > 0 && at < SRC.indexOf('for (const [id, over] of HERO)'), 'kayıt sahnelerden önce');
+  assert.ok(at > 0 && at < SRC.indexOf('for (const [id, over, settle] of HERO)'), 'kayıt sahnelerden önce');
   assert.match(SRC, /sharp\(HERO_LEAD, \{ page: i \}\)\.resize\(800, 450, \{ fit: 'cover' \}\)/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'demo-visualizer.gif')));
   // Tek paletli GIF renkleri bozuyordu; klip WebP ve README onu gösteriyor
