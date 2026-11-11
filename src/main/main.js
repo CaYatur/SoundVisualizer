@@ -12766,11 +12766,12 @@ async function runShots() {
     ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
     ['studio', 'panel-studio.png', '.card[data-card="studio"]', "window.SVPanel.setSection('studio')"],
     ['studio', 'panel-mdedit.png', '.card[data-card="mdedit"]', "window.SVPanel.setSection('mdedit');document.querySelector('.card[data-card=\"mdedit\"] button').click()"],
-    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]'],
+    // Kurulum sayfaları ilk bölümleriyle açılıyor (Ses Kaynakları, MIDI): bölüm açıkça seçilir
+    ['audio', 'panel-analysis.png', '.card[data-card="deepanalysis"]', "window.SVPanel.setSection('deepanalysis')"],
     ['output', 'panel-mapping.png', '.card[data-card="mapping"]', "window.SVPanel.setSection('mapping')"],
     ['output', 'panel-record.png', '.card[data-card="record"]', "window.SVPanel.setSection('record')"],
     ['output', 'panel-output.png', '.card[data-card="stream"]', "window.SVPanel.setSection('stream')"],
-    ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
+    ['control', 'panel-control.png', '.card[data-card="oscOut"]', "window.SVPanel.setSection('oscOut')"],
     /* Canlı sayfası EN SONDA: örnek sahneler kuruluyor ve biri canlıya alınıyor, yani panelin
        katmanları şovdan sahneye dönüyor. Sekiz örnek sahne (ilk açılıştaki düğmenin kurduğu),
        MilkDrop Flow canlıda, Aurora sırada ve T-bar yarıda: iki sahnenin karışımı. Çubuk dış
