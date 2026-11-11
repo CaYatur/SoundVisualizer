@@ -306,6 +306,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
   MIDI clock.
+- **MIDI clock out** (#434, #1019). Control → Tempo sends the modulation tempo as MIDI clock: start
+  (`0xFA`) when switched on, 24 pulses per quarter note from the modulation BPM (120 when it is 0),
+  and one stop (`0xFC`) when switched off. Off by default. It goes to one chosen output or to every
+  connected one; the automatic choice leaves out the device being listened to, so an incoming clock
+  is not sent back. After a stall at most four pulses go out at once. Each byte is its own Web MIDI
+  message; sent together, Chromium rejects the packet and the start byte is lost.
+  `tests/live-sync-features.test.js`. Checked against the 120 BPM pulse spacing; not checked with
+  MIDI hardware.
 - **Gamepad control**: Xbox, PlayStation and generic gamepads map to settings and actions with the
   same learn/mapping engine as MIDI.
 - **Multi-instance remote**: commands from one instance's remote are forwarded to the other
