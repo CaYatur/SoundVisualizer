@@ -422,7 +422,15 @@ body[data-page='live'] .sv-live { display: grid; grid-template-columns: minmax(0
 .sv-tally { width: 8px; height: 8px; border-radius: 50%; background: var(--off); flex: none; }
 .sv-tally.on { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 .sv-tally.ok { background: var(--ok); }
-.sv-tbar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 0; }
+.sv-tbar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 0; padding: 6px 0; }
+/* T-bar (#905): dolgu karışımı, tutamak çubuğun yerini gösteriyor; geçiş sürerken vurgu rengiyle. */
+.sv-tlever-wrap { flex: 1 1 auto; min-height: 96px; max-height: 240px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sv-tlever { flex: 1 1 auto; width: 30px; border-radius: 10px; background: rgb(var(--fg-rgb) / .08); position: relative; cursor: ns-resize; touch-action: none; outline: none; }
+.sv-tlever:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.sv-tlever i { position: absolute; left: 0; right: 0; border-radius: 10px; background: linear-gradient(0deg, var(--accent), var(--accent2)); opacity: .55; }
+.sv-tlever.live i { opacity: 1; }
+.sv-tlever b { position: absolute; left: -7px; right: -7px; height: 14px; border-radius: 5px; background: var(--knob); box-shadow: 0 2px 8px rgb(var(--shadow-rgb) / .45); }
+.sv-tbar-pct { min-height: 15px; font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--muted2); }
 .sv-take { width: 62px; height: 62px; border: 0; border-radius: 50%; flex: none; font-weight: 700; color: var(--on-accent); cursor: pointer; background: linear-gradient(180deg, var(--accent-grad), var(--accent)); box-shadow: 0 8px 22px rgb(var(--accent-rgb) / .4), inset 0 1px 0 rgb(var(--fg-rgb) / .2); }
 .sv-take:hover { filter: brightness(1.1); }
 .sv-take:disabled { opacity: .4; cursor: default; filter: none; }

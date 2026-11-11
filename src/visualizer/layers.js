@@ -76,6 +76,10 @@
 
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
   const REVIVE_MS = 2000;
+  /* T-bar kurulumunun ömrü: panel kurup hemen sahneyi gönderiyor; bu sürede geçiş
+     başlamazsa (sahne aynıydı) kurulum sonraki, alakasız bir sahne değişimini yakalamasın. */
+  const MANUAL_ARM_MS = 3000;
+  const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 
   let layerIdSeq = 0;
   function newLayerId() {
@@ -1001,7 +1005,9 @@
       cfg.visualizer && cfg.visualizer.type === 'none' &&
       (!cfg.layers || cfg.layers.every((l) => !l.enabled))
     ))) ? 'blackout' : '';
-    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, black].join('|');
+    // Panelin elle sahne değişimi sayacı (admin.js applyScene): aynı yapılı sahneler de geçiş yapsın
+    const seq = cfg._sceneSeq == null ? '' : String(cfg._sceneSeq);
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, black, seq].join('|');
   }
 
   function bandValue(audio, band) {
@@ -1576,6 +1582,8 @@
             : (spec.params || {}),
           ease: isBlackoutTrans ? 'smooth' : (spec.ease || 'smooth'),
         }, wantedKeys);
+        // T-bar kurulduysa bu geçişi panel sürüyor (bkz. tbar)
+        this._claimManual(isBlackoutTrans);
       }
       this.lastSig = scnSig;
       this.prevCfg = cfg;
@@ -1978,13 +1986,88 @@
       this._flushHeldMedia();
     }
 
+    /* T-BAR (#905). Canlı sayfasındaki çubuk sahne geçişini elle sürüyor; ileti her çıkışa ve
+       panel önizlemesine aynı sırayla gidiyor.
+         arm    — sıradaki sahne geçişi elle sürülecek. Panel hemen ardından sahneyi gönderiyor;
+                  MANUAL_ARM_MS içinde geçiş başlamazsa kurulum düşüyor.
+         move   — ilerleme 0-1, doğrusal: çubuk nerede ise karışım orada. Bırakılan çubuk
+                  karışımı tutuyor (iki sahne yarı yarıya kalabiliyor).
+         end    — çubuk sona vardı: varış sahnesi canlı.
+         cancel — çubuk başa döndü: geçiş geri alınıyor (cancelTransition).
+       Elle sürülen geçiş kare saatiyle ilerlemiyor ve kendiliğinden bitmiyor. Dışa aktarım bu
+       iletiyi hiç almıyor; kaydedilen görüntü değişmiyor. */
+    tbar(m) {
+      const ph = m && m.phase;
+      if (ph === 'arm') { this._manualArm = nowMs(); return; }
+      const tr = this.trans;
+      if (!tr || !tr.manual) return;
+      if (ph === 'move') tr.manualP = Math.max(0, Math.min(1, Number(m.p) || 0));
+      else if (ph === 'end') this.endTransition();
+      else if (ph === 'cancel') this.cancelTransition();
+    }
+
+    /* Yeni başlayan geçiş T-bar'ın mı? Kurulum tek geçişlik: kullanılınca ya da süresi geçince
+       düşüyor. Karartma geçişi elle sürülmez (panik düğmesi her zaman kendi süresinde). */
+    _claimManual(blackout) {
+      const armed = this._manualArm;
+      this._manualArm = 0;
+      if (!armed || blackout || !this.trans) return false;
+      if (nowMs() - armed >= MANUAL_ARM_MS) return false;
+      this.trans.manual = true;
+      this.trans.manualP = 0;
+      return true;
+    }
+
+    /* Geçişi geri al: giden sahnenin örnekleri olduğu gibi canlıya dönüyor. Modlar yeniden
+       kurulmuyor (MilkDrop, parçacıklar, video kaldığı yerden sürüyor). İki sahnede de duran
+       katmanın örneği zaten tekti (vekil); varış sahnesine yeni kurulan örnekler atılıyor.
+       Sahne imzası giden sahneye dönüyor: panel eski görünümü yeniden gönderdiğinde yeni bir
+       geçiş başlamıyor, aynı anahtarlı örnekler kullanılıyor. */
+    cancelTransition() {
+      const tr = this.trans;
+      if (!tr) return false;
+      const out = tr.stack;
+      const kept = new Set();
+      const restored = out.entries.map((e) => {
+        if (e.proxyOf) { kept.add(e.proxyOf); return e.proxyOf; }
+        return e;
+      });
+      for (const e of this.entries) if (!kept.has(e)) this._disposeEntry(e);
+      /* Medya: giden sahnenin havuzu geri geliyor. Varış sahnesi için açılan oynatıcılar
+         kapanıyor; giden sahne çizdiği için bekletilenler yeniden canlı, bırakılmıyor. */
+      const oldPool = out._mediaPool;
+      if (this._mediaPool) {
+        const back = new Set(oldPool ? oldPool.values() : []);
+        for (const inst of this._mediaPool.values()) {
+          if (!back.has(inst)) { try { inst.dispose(); } catch { /* akış zaten kapalı */ } }
+        }
+      }
+      this._mediaPool = oldPool || null;
+      this._mediaByLayer = out._mediaByLayer || null;
+      this._mediaHold = [];
+      out.entries = [];
+      this.trans = null;
+      this.entries = restored;
+      this.signature = restored.map((e) => e.key).join(';');
+      this.prevCfg = tr.cfg;
+      this.lastSig = sceneSignature(tr.cfg);
+      if (this.container) {
+        restored.forEach((e, i) => {
+          if (!e.canvas) return;
+          e.canvas.style.zIndex = String(i + 1);
+          if (!e.canvas.parentNode) this.container.appendChild(e.canvas);
+        });
+      }
+      return true;
+    }
+
     /* Zaman çizelgesi geçişi (#957): geçiş çizelgedeki bir klibin penceresinde
        başladıysa ilerleme kare süresi biriktirilerek değil gösteri saatinden
        hesaplanır. Oynatıcı durdurulunca o kare kalır, geri/ileri sarınca o anın
        karesi çizilir; klibin süresi/türü/eğrisi değişince hemen yansır. */
     syncTimeline(tl, showT) {
       const tr = this.trans;
-      if (!tr || !tl || !Array.isArray(tl.tracks) || !(showT >= 0)) return;
+      if (!tr || tr.manual || !tl || !Array.isArray(tl.tracks) || !(showT >= 0)) return;
       const TL = window.SVTimeline;
       if (!TL || !TL.transitionAt) return;
       if (tr.sync === undefined) {
@@ -2008,6 +2091,8 @@
     _tickTransition(dt) {
       const tr = this.trans;
       if (!tr) return null;
+      // T-bar: ilerleme çubuktan; kare süresi eklenmez, geçiş kendiliğinden bitmez
+      if (tr.manual) return { p: Math.max(0, Math.min(1, tr.manualP || 0)), tr };
       // Çizelgeye bağlı geçişte süre saatten geldi; kare süresi eklenmez
       if (tr.synced) tr.synced = false;
       else tr.elapsed += Math.max(0, dt || 0);

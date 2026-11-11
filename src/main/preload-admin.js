@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('api', {
   allSections: process.argv.includes('--sv-all-sections'),
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
   sendMomentaryFx: (list) => ipcRenderer.send('momentary-fx', list),
+  sendTbar: (m) => ipcRenderer.send('tbar', m),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
   sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),

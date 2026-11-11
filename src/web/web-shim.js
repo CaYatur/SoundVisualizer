@@ -29,7 +29,7 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], live: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], tbar: [], live: [],
   };
   let lyricsLibItems = [];
   let lyricsLibSeen = false;
@@ -278,6 +278,8 @@
         handlers.lyricsClock.forEach((h) => h(lyricsClockAnchor));
       } else if (msg.type === 'momentary-fx') {
         handlers.momentaryFx.forEach((h) => h(msg.list));
+      } else if (msg.type === 'tbar') {
+        handlers.tbar.forEach((h) => h(msg.m));
       } else if (msg.type === 'show-clock') {
         handlers.showClock.forEach((h) => h(msg.anchor));
       } else if (msg.type === 'md-follow') {
@@ -374,6 +376,7 @@
     onPresetsDelta: (cb) => handlers.presetsDelta.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onMomentaryFx: (cb) => handlers.momentaryFx.push(cb),
+    onTbar: (cb) => handlers.tbar.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
     /* Kütüphane ve söz saati, dinleyici kurulmadan önce gelebilir.
        Son örnek abone olunca yeniden verilir. */
