@@ -14,7 +14,7 @@ still open is listed at the end.
 ## Where to find it
 
 Panel → **Audio** category → **Audio Bridge** card, below Audio Sources and Audio Analysis. It is not behind
-the Advanced toggle. The settings search finds it under "köprü" or "bridge", Settings → App has
+the Advanced toggle. The settings search finds it under "köprü" or "bridge", Settings → Application has
 an "Open Audio Bridge Settings" button. In bridge-only mode everything is also in the bridge's own
 window (see below), so the panel is not needed; "Advanced Settings (Panel)" in that window or the
 tray opens the panel on that card.
@@ -128,7 +128,7 @@ The Status tab shows:
 frees the window's renderer; the tray menu reopens it. Without a tray (stock GNOME) the window is
 the main UI, and closing it quits the bridge.
 
-`--bridge --hidden`, or Settings → "Do Not Open the Status Window at Start" (bridge-only), starts
+`--bridge --hidden`, or Settings → "Don't Open the Status Window at Start" (bridge-only), starts
 without the window, for autostart and headless use. Without a tray, `--hidden` is ignored so the
 bridge can always be stopped.
 

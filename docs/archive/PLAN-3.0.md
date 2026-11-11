@@ -1,12 +1,20 @@
-> **This is the plan of the 3.0 cycle, kept as a record.** The current release is v3.1.6; what shipped since v3.0 and what comes next (v3.1.7: the interface redesign, then the music video studio) is in [ROADMAP.md](../ROADMAP.md).
+> **Archive: the plan of the 3.0 cycle (August–September 2026).** It is not the current plan and its
+> boxes are no longer kept up to date. Several unticked tasks shipped later, for example the clip deck and
+> timeline (v3.1.0), Spout and Syphon output (v3.1.1), OSC output (v3.1.5) and MilkDrop preset
+> thumbnails (v3.1.5). Others are done on `main` for v4.0.0: Art-Net input, gamepad, MIDI clock input,
+> multi-pass Studio shaders, adaptive resolution and golden-frame tests. The GitHub issues named in each
+> task carry their current state.
+>
+> **Where things stand today:** the latest release is **v3.1.7** (2026-11-03). **v4.0.0** is on `main` as
+> 4.0.0-beta: built and tested, not released yet. See the README's "New in v4" section and
+> [ROADMAP.md](../../ROADMAP.md).
 
-> **131 / 227** tasks complete. Every unticked box now carries a milestone: the timeline and clip deck work moved to v3.1.0, and the rest to the backlog. The v3.0.0 milestone is closed with 150 issues.
+> At the time this plan was closed: **131 / 227** tasks complete; the timeline and clip deck work moved to
+> v3.1.0 and the rest to the backlog. The v3.0.0 milestone was closed with 150 issues.
 
 # CAYADEV Visualizer — 3.0 plan
 
-The full backlog for the 3.0 cycle: 18 epics and 227 tasks, derived from a review of projectM, Butterchurn, Resolume Arena, Synesthesia, Magic Music Visuals, VDMX, TouchDesigner, Notch, Plane9, Vizzy, Specterr and vimathic.
-
-Nothing here connects to any of those projects. The comparison is a reading of what a complete tool in this class does, not a dependency on one.
+The full backlog for the 3.0 cycle: 18 epics and 227 tasks, from a reading of what a complete tool in this class does.
 
 A box is only ticked when the feature works in the application **and** is covered by `npm test` or `npm start -- --smoke`.
 
@@ -301,7 +309,7 @@ The layer stack shipped in 2.1 needs the pieces that make it a compositor rather
 Trigger scenes like an instrument instead of editing them one at a time.
 
 - [ ] **Clip grid: decks, columns and rows**
-  <br><sub>A grid where each cell holds a scene, a Studio preset, a media file or a parameter snapshot. Columns fire together, rows are layers. The Resolume/Ableton interaction model, which is what performers already know.</sub>
+  <br><sub>A grid where each cell holds a scene, a Studio preset, a media file or a parameter snapshot. Columns fire together, rows are layers: the clip-launch model performers already know.</sub>
 - [ ] **Beat-quantised clip launching**
   <br><sub>Launch on the next beat, bar, or 2/4/8 bars rather than instantly, using the tempo engine's beat phase. Makes hand-triggered changes land musically.</sub>
 - [ ] **Keyboard and MIDI clip triggering**
@@ -325,7 +333,7 @@ Trigger scenes like an instrument instead of editing them one at a time.
 
 ## Projection mapping and output warping
 
-Send the output onto surfaces that are not flat rectangles — the feature that separates Resolume Arena from Avenue.
+Send the output onto surfaces that are not flat rectangles.
 
 - [x] **Corner pin (quad warp) per output window**
   <br><sub>Drag the four corners of an output to fit a surface, implemented as a homography in the shader so straight lines stay straight. Per display, saved with the settings.</sub>
@@ -412,7 +420,7 @@ Take the shader editor from single-pass GLSL to the full ISF feature set.
 
 ## Text, typography and lyrics
 
-Named as a gap against Vizzy and Specterr: animated text objects and synchronised lyrics.
+Animated text objects and synchronised lyrics.
 
 - [x] **Text layer with font, weight and layout controls**
   <br><sub>A first-class text layer: content, font family, weight, size, letter and line spacing, alignment, colour or palette, outline and shadow.</sub>

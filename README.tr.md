@@ -851,7 +851,7 @@ gösteriyi oynatıyor.
 
 - Sahne, şablon, palet, video, görsel, shader ve eylem için klip parçaları; herhangi bir ayar için
   eğrili **otomasyon şeritleri**; işaretler ve döngü.
-- **Tam bir düzenleyici**, Ableton'ın Arrangement View'ı örnek alınarak: aktarım,
+- **Tam bir düzenleyici**: aktarım,
   saat (zaman ve ölçü.vuruş), tempo, yakalama, döngü, izleme ve yakınlaştırmalı bir araç çubuğu; renk,
   sessiz, solo ve kilitli parça başlıkları; oynatma kafasında bölme, çoğaltma, kopyala-yapıştır, dürtme,
   100 adımlık geri alma; kutuyla çoklu seçim; sürüklenebilir döngü ayracı ve işaret bayrakları; klip
@@ -2156,8 +2156,10 @@ basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle M
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
 müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
 düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
-donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. Sırada ne olduğunu da yazıyor; neyin
-*yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
+donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. **v4.0.0** şu an `main` dalında
+4.0.0-beta olarak duruyor; derlendi ve sınandı ama henüz yayınlanmadı: [v4'te yeni](#v4te-yeni) altındaki
+her şey. Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
+de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
 ---

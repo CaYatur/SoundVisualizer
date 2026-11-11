@@ -154,7 +154,7 @@ priority.
 
 1. Same app version on both machines (Settings → Application).
 2. Pairing: backup shows "Following the primary", banner green on both.
-3. Show → Pre-Show Check: no red rows on either machine.
+3. Show → Pre-show Check: no red rows on either machine.
 4. Compare shows on the primary (Show Comparison: "Both machines run the same show"); request
    the package on the backup if not.
 5. Audio: both machines show level; with the bridge, "Audio from the bridge" in the pre-show check.

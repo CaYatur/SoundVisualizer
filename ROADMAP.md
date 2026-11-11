@@ -6,6 +6,11 @@ covered by a test or by the GPU self-test.
 
 **Current release: v3.1.7** (2026-11-03) · **Next release: v4.0.0**
 
+**Where things stand (11 November 2026):** v4.0.0 is on `main` as 4.0.0-beta: built and tested,
+but not released, so the installers on the Releases page are still v3.1.7. What v4
+adds is in the [v4.0.0 section](#v400--new-core-and-interface--in-testing-not-released) and in the
+README's "New in v4".
+
 v3.1.6 carried three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
 owner shipped them with video export rather than hold them back.
@@ -37,6 +42,9 @@ decision, moves after that.
 ---
 
 ## Status table
+
+Each column is a released version. What v4 adds on `main` is not in this table until it ships; see the
+v4.0.0 section.
 
 | Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | v3.1.5 | v3.1.6 | **v3.1.7** | Note |
 | --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | --- |
@@ -2996,7 +3004,7 @@ expects.
     cover the row name, a deck with no row-name map, and an empty deck list.
     All 8 fail on the old code.
 - **The timeline editor (#636, TL-1)** · done on `main`. It follows the
-  research table on #636, with Ableton's Arrangement View as the model.
+  research table on #636.
   - **Layout.**
     - A one-row toolbar holds the transport, a clock (time and bar.beat),
       tempo, snap, loop, follow, zoom (out / in / fit) and undo/redo.
@@ -3840,7 +3848,8 @@ identical to v3.1.6, frame by frame, with a control run of the same build also a
 
 ## v4.0.0 — New core and interface · in testing, not released
 
-Tracked in #905. Work happened on a separate `dev/v4` branch.
+Tracked in #905. Developed on `dev/v4`; since 11 November 2026 it is on `main` as 4.0.0-beta (built and
+tested, not released).
 
 ### Where it stands
 
@@ -3919,14 +3928,15 @@ frames from the live output). See "Not done, and why".
 
 ### Stages
 
-1. **Document and schema.** One model (scene, layer, source), where simple view is only a view of it. One
+1. **Document and schema** · done, with one gap. One model (scene, layer, source), where simple view is only a view of it. One
    settings schema that generates the panel, MCP, OSC and timeline targets. Behaviour tests come first.
-2. **Engine.** Engines owned by layers, one GL compositor in a worker, one analysis, a preset index. This
+   The schema sets the slider limits; the panel, MCP and OSC still declare their own controls.
+2. **Engine** · done without the worker compositor (see above). Engines owned by layers, one GL compositor in a worker, one analysis, a preset index. This
    is also where automatic preset changes per layer become possible across windows.
-3. **Interface.** The approved design: floating surfaces around the stage, a mode switch and screen picker
+3. **Interface** · done. The approved design: floating surfaces around the stage, a mode switch and screen picker
    in the top bar, every colour theme, conditional rows instead of long cards.
-4. **Outputs.** Windows, recording, Spout and Syphon, web output and redundancy on the new core.
-5. **Cross-platform check.** Windows, macOS and Linux, each on real hardware where available.
+4. **Outputs** · done on Windows. Windows, recording, Spout and Syphon, web output and redundancy on the new core.
+5. **Cross-platform check** · partly: Windows on real hardware, the Linux packages in WSL, macOS not run. Windows, macOS and Linux, each on real hardware where available.
 
 Afterwards comes the native output decision, then other requests from users.
 

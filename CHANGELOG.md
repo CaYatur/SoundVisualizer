@@ -305,6 +305,19 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **README: a "New in v4" section** (English and Turkish) with the Live page and T-bar, the phone remote, multi-pass shaders, video transport, adaptive resolution and the editing-speed work, each with its measurement. Corrected counts that had drifted from the code: 44 GPU effects (the effect list and two summaries said 40 and 42; Flash, Strobe, Tonemap and 3D LUT were missing from the list), 43 built-in shaders, 106 MCP tools (the table said 104). Quick start now names the panel as it is: **Library → Preset** and **Output → Streaming Output (OBS / Web)**. Adaptive resolution, which the README did not mention, is described under power and performance.
 - **A new showreel at the top** (`hero.webp`, 3.8 MB instead of 5.1 MB): the two newest CaYaDev MilkDrop presets, the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, the Lorenz attractor, synthwave and a broadcast card, after your own recording.
 - **ROADMAP** records what was added in November, with measurements, and what was deliberately not taken.
+- **The documents say where the project stands.** Readers and AI assistants were told the project was
+  still being planned, for two reasons.
+  - `docs/PLAN.md` opened with "the current release is v3.1.6; next comes v3.1.7" and listed 96 open
+    tasks, many of which shipped long ago. It is now `docs/archive/PLAN-3.0.md`, headed as an archive,
+    with the current state and examples of later-shipped tasks.
+  - The ROADMAP's v4 section said work happened "on a separate `dev/v4` branch" and listed its stages
+    as a plan. It now opens with where things stand (v4.0.0 on `main` as 4.0.0-beta, not released),
+    gives each stage its status, and says the status table only has released versions. The README's
+    roadmap section says the same.
+- **Fewer attributions to other products.** The archived plan no longer lists the products it was
+  compared with, and the timeline editor is no longer described as modelled on another program.
+- **Interface names match the app:** Pre-show Check, "Don't Open the Status Window at Start", and
+  Settings → Application.
 - **All twenty panel screenshots retaken on the current interface**, with three new ones: the Live
   page (example scenes on F1–F8 and a T-bar held at 45 %), the phone remote, and the Layout Editor.
   - The generator's demo show now includes the example scenes, an effect chain, named macros with
