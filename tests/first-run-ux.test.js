@@ -183,3 +183,10 @@ test('ESC notu en çok üç kez: aynalanmış projektörde seyirci hep görmesin
   assert.match(block, /if \(seen >= 3\) return;/);
   assert.match(block, /try \{ localStorage\.setItem\('sv-exit-hint-count', String\(seen \+ 1\)\); \} catch/);
 });
+
+test('kaynak satırındaki not ("6 süreç") soluk değil: her temada karşıtlık eşiği', () => {
+  const css = read('src/admin/studio.css');
+  const rule = /\n\.source-note \{([^}]+)\}/.exec(css);
+  assert.ok(rule, 'kural');
+  assert.doesNotMatch(rule[1], /opacity/, 'saydamlık --muted rengini eşiğin altına düşürüyordu (2,66–3,82 < 4,5)');
+});

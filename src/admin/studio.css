@@ -927,7 +927,10 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
    Sebep görünmezse kullanıcı ayarlarda boşuna dolaşır. */
 /* Kaynak satırındaki ek not: "3 süreç", "çalışmıyor" gibi. Satırın sağına
    yaslanır ki uygulama adları hizalı kalsın. */
-.source-note { margin-left: auto; font-size: 11px; opacity: 0.6; white-space: nowrap; }
+/* Saydamlık yok: --muted zaten ikincil renk; üstüne 0.6 saydamlık her temada karşıtlığı 2,7–3,8'e
+   düşürüyordu (eşik 4,5). Not yalnız çok süreçli bir uygulama ses çalarken çıktığı için öz test bunu
+   ancak öyle bir makinede yakaladı. */
+.source-note { margin-left: auto; font-size: 11px; white-space: nowrap; }
 
 .np-status { font-variant-numeric: tabular-nums; }
 .np-status.ok { color: var(--ok); }
