@@ -10,7 +10,7 @@
  *     değilse 1, kalınsa +1 (milkdropfs.cpp:2650-2654);
  *   - şekil kenarlığı: kalınsa 4 (milkdropfs.cpp:2371);
  *   - hareket vektörleri: tek LINELIST (milkdropfs.cpp:1301).
- * Referans çizicide (MilkDrop 2'nin D3D9 kaynağından derlenen) nokta kipindeki
+ * Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) nokta kipindeki
  * dalga bizde hiç görünmüyordu: LINE_VERT `gl_PointSize` yazmıyordu ve
  * WebGL'de yazılmayan nokta boyu tanımsız. */
 const test = require('node:test');

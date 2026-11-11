@@ -1,14 +1,14 @@
 'use strict';
-/* GENİŞLETİLMİŞ BİÇİM (#567): Otomatik / MilkDrop 2 / Genişletilmiş.
+/* MİLKDROP 3 BİÇİMİ (#567): Otomatik / MilkDrop 2 / MilkDrop 3.
  *
- * Tarif biçimin kendi açıklamasından: 16 özel dalga ve şekil,
+ * Tarif MilkDrop 3'ün kendi açıklamasından (README): 16 özel dalga ve şekil,
  * q1–q64, shader'da FFT ve fare, sert geçiş kipleri 1–7. Kodu herkese açık
  * değil (depodaki kaynak hâlâ MilkDrop 2.2 düzeyinde: NUM_Q_VAR 32, dörder
  * yuva) ve örnek presetleri yalnız bir yükleyicinin içinde; bu yüzden
  * burada yalnız açıklamanın sabitlediği davranış var.
  *
  * Korpusta ölçüldü (10.347 preset, depoya girmiyor): Otomatik kip hiçbirini
- * genişletilmiş biçim saymıyor; eski ve yeni motor, uyum açık ve kapalı, bütün
+ * MilkDrop 3 saymıyor; eski ve yeni motor, uyum açık ve kapalı, bütün
  * çıktılarda bit bit aynı — yalnız uyum kapalıyken 4 numaralı yuvayı açan 7
  * preset değişiyor: eski okuyucu MilkDrop 2'nin hiç okumadığı o yuvayı
  * çiziyordu.
@@ -57,7 +57,7 @@ const SLOT7 = milk([
   'wavecode_9_enabled=1', 'wave_9_per_point1=y = 0.1;',
 ]);
 
-test('genişletilmiş biçimde 16 yuva, MilkDrop 2\'de 4 — iki okuyucuda da', () => {
+test('MilkDrop 3 kurallarında 16 yuva, MilkDrop 2\'de 4 — iki okuyucuda da', () => {
   const idx = (p) => p.shapes.filter((s) => s.enabled).map((s) => s.index);
   for (const accurate of [true, false]) {
     const md3 = new M.Preset(SLOT7, { accurate, format: 'md3' });
@@ -69,7 +69,7 @@ test('genişletilmiş biçimde 16 yuva, MilkDrop 2\'de 4 — iki okuyucuda da', 
     assert.deepStrictEqual(idx(md2), [], 'MilkDrop 2 dördüncüden ötesini okumuyor (uyum ' + accurate + ')');
     assert.deepStrictEqual(md2.waves, []);
   }
-  // Otomatik: 7 ve 9 numara genişletilmiş biçim özelliği
+  // Otomatik: 7 ve 9 numara MilkDrop 3 uzantısı
   assert.strictEqual(new M.Preset(SLOT7, { format: 'auto' }).md3, true);
   const shape7 = new M.Preset(SLOT7, { format: 'md3' });
   const s = shape7.shapes.find((x) => x.index === 7);
@@ -82,7 +82,7 @@ const Q40 = milk([
   'wavecode_0_enabled=1', 'wave_0_per_frame1=r = q40 * 0.1;',
 ]);
 
-test('q33–q64 genişletilmiş biçimde kare denkleminden piksele ve dalgaya geçiyor, MilkDrop 2\'de geçmiyor', () => {
+test('q33–q64 MilkDrop 3\'te kare denkleminden piksele ve dalgaya geçiyor, MilkDrop 2\'de geçmiyor', () => {
   const run = (format) => {
     const p = new M.Preset(Q40, { format });
     p.frame({ time: 1, frame: 60, fps: 60, bass: 1, mid: 1, treb: 1 });
@@ -97,7 +97,7 @@ test('q33–q64 genişletilmiş biçimde kare denkleminden piksele ve dalgaya ge
   const b = run('md2');
   assert.ok(Math.abs(b.dx - 0.002) < 1e-12, 'yalnız q32: ' + b.dx);
   assert.strictEqual(b.r, 0, 'q40 dalgaya geçmiyor');
-  // Otomatik q40 görünce genişletilmiş biçim
+  // Otomatik q40 görünce MilkDrop 3
   assert.strictEqual(new M.Preset(Q40, {}).md3, true);
 });
 
@@ -156,7 +156,7 @@ test('motor: biçim değişip presetin kuralı değişince preset yeniden kurulu
   assert.strictEqual(m.preset, kept);
   assert.strictEqual(kept.format, 'md2');
   m._wantFmt = 'md3';
-  assert.strictEqual(m._syncReading(), true, 'genişletilmiş biçime zorlanınca yeniden kuruluyor');
+  assert.strictEqual(m._syncReading(), true, 'MilkDrop 3\'e zorlanınca yeniden kuruluyor');
   assert.strictEqual(m.preset.md3, true);
 });
 
@@ -172,7 +172,7 @@ test('görselleştirici biçimi ayardan alıyor', () => {
 const LIST = [{ id: 'a', source: '' }, { id: 'b', source: '' }, { id: 'c', source: '' }];
 const rel = (bass, treb) => ({ bass, mid: 1, treb });
 
-test('genişletilmiş biçim kipleri: eşik ve son değişimden bu yana en kısa süre', () => {
+test('MilkDrop 3 kipleri: eşik ve son değişimden bu yana en kısa süre', () => {
   const c = new C.Cycle(() => 0.5);
   const md = { hardCut: 'md3-2', format: 'auto' };
   const dt = 0.1;
@@ -201,7 +201,7 @@ test('4. kip: tiz 8\'i aşarsa 3 sn beklenmiyor; 1. kip basa bakıyor', () => {
   assert.strictEqual(b.step(0.3, { hardCut: 'md3-1' }, LIST, 'b', rel(1.4, 5)), null);
 });
 
-test('MilkDrop 2 biçiminde genişletilmiş biçim kipi MilkDrop 2\'ninkine dönüyor', () => {
+test('MilkDrop 2 biçiminde MilkDrop 3 kipi MilkDrop 2\'ninkine dönüyor', () => {
   assert.strictEqual(C.normalize({ hardCut: 'md3-3', format: 'md2' }).hardCut, 'md2');
   assert.strictEqual(C.normalize({ hardCut: 'md3-3', format: 'md3' }).hardCut, 'md3-3');
   assert.strictEqual(C.normalize({ hardCut: 'md3-3' }).hardCut, 'md3-3');
@@ -210,7 +210,7 @@ test('MilkDrop 2 biçiminde genişletilmiş biçim kipi MilkDrop 2\'ninkine dön
 
 // ------------------------------------------------------------ düzenleyici
 
-test('düzenleyici: genişletilmiş biçimde 16 yuva okunuyor, MilkDrop 2\'de öteki satırlar dokunulmadan kalıyor', () => {
+test('düzenleyici: MilkDrop 3 kuralında 16 yuva okunuyor, MilkDrop 2\'de öteki satırlar dokunulmadan kalıyor', () => {
   const r16 = E.read(SLOT7, 16);
   assert.deepStrictEqual(r16.blocks.shape_7_per_frame, ['x = 0.75;']);
   const r4 = E.read(SLOT7, 4);
@@ -221,7 +221,7 @@ test('düzenleyici: genişletilmiş biçimde 16 yuva okunuyor, MilkDrop 2\'de ö
     assert.ok(out.includes(l + '\r\n'), 'kayboldu: ' + l);
   }
   assert.ok(out.includes('per_frame_1=q1 = 1;\r\n'));
-  // Genişletilmiş biçimde 7 numaralı şekil düzenlenebiliyor
+  // MilkDrop 3 kuralında 7 numaralı şekil düzenlenebiliyor
   const out3 = E.write(SLOT7, Object.assign({}, r16.blocks, { shape_7_per_frame: ['x = 0.5;'] }), r16.values, 16);
   const p3 = new M.Preset(out3, { format: 'md3' });
   assert.strictEqual(p3.shapeFrame(p3.shapes.find((s) => s.index === 7), 0, {}).x, 0.5);

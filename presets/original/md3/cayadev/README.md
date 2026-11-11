@@ -1,6 +1,6 @@
-# CaYaDev presets — extended-format originals
+# CaYaDev presets — MilkDrop 3 originals
 
-This folder holds only the CaYaDev presets that need the extended format: more than four custom waves or
+This folder holds only the CaYaDev presets that need MilkDrop 3: more than four custom waves or
 shapes, or q33–q64. SoundVisualizer embeds these files unchanged. A MilkDrop 2 player loads only the
 first four waves and shapes, so the picture there is smaller.
 

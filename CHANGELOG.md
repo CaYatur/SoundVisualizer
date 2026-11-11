@@ -160,7 +160,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Drag an unselected clip in one gesture.** Pressing on a clip that wasn't selected selected it and opened the edit session, which rebuilt the timeline model under the drag, so the first press only selected and a second press was needed to move. The session now waits until the drag ends, the drag re-binds to its clips by id if the model is rebuilt, and a 4 px threshold keeps a plain click from nudging the clip. Group drags keep each clip on its own track. `tests/timeline-tl2.test.js`.
 - **Multi-track copy / paste keeps the layout.** Copied clips stored track offsets that counted automation tracks, and pasting dropped clips onto the anchor track whenever the offset landed on an automation, locked or missing track, so clips from three tracks could collapse onto one. Offsets now count clip tracks only, are ordered deterministically (track, then start), and a paste that runs past the last clip track appends new clip tracks at the end (it never clamps or reorders). If any target clip track is locked the paste is refused as a whole. Duplicate uses the same path. `tests/timeline-tl2.test.js`.
 - **Shelf highlight follows the selected layer.** The highlighted card was set only when a shelf was built, and the Visual and Ground shelves were not rebuilt when the selected layer's mode changed, so a lyrics layer drawing Chroma Wheel could still show Oscilloscope (XY) highlighted. One shared sync now runs after every paint and moves the highlight in place on all five shelves (Visual, Ground, MilkDrop, Template, Scene), whether the change came from the layer list, the inspector, MCP, undo or a selection change. The shelf is not rebuilt, so its scroll stays. `tests/shelf-current-sync.test.js`.
-- **MilkDrop in Add Layer.** A MilkDrop card next to Visualizer adds a visualizer layer in MilkDrop mode with a calm built-in extended-format preset (Twelve Moons), selects it and opens the MilkDrop shelf. If another layer already shows the shared preset, the new layer is Independent so the two don't draw the same picture. `tests/layer-tools-mcp.test.js`.
+- **MilkDrop in Add Layer.** A MilkDrop card next to Visualizer adds a visualizer layer in MilkDrop mode with a calm built-in MilkDrop 3 preset (Twelve Moons), selects it and opens the MilkDrop shelf. If another layer already shows the shared preset, the new layer is Independent so the two don't draw the same picture. `tests/layer-tools-mcp.test.js`.
 - **The MilkDrop picker only loads onto a MilkDrop layer.** Picking a preset in the list, Previous / Next, Random and Back to Default used to convert the first visualizer when the selected layer was something else. With a non-MilkDrop or locked layer selected the picker now refuses with a short note; with nothing selected it uses the shared MilkDrop layer or adds one. **Redirect Modes to a Matching Layer** brings back the old behaviour. MIDI / OSC / show-step mode changes now skip locked layers. `tests/milkdrop-guard.test.js`.
 
 - **Modes only change the layer you selected.** With a background layer selected, picking a visual mode used to switch the topmost visualizer layer instead (and the MilkDrop shelf converted the first visualizer). Shelves that don't fit the selected layer now stay visible behind a lock scrim with the reason and a way out (go to the matching shelf, clear the selection, or convert the layer to MilkDrop); with nothing selected a mode adds a new layer, as the shelf line already said. **Settings → Redirect Modes to a Matching Layer** (off by default) brings back the old behaviour. `tests/mode-target.test.js`.
@@ -231,7 +231,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **Timeline editing tools** (seven new, 104 in total): `sv_timeline_inspect` reads the whole model without the 40-item cut and can report what plays at a given time; `sv_timeline_edit_track`, `sv_timeline_edit_clip` (add / update / remove / split), `sv_timeline_set_keys`, `sv_timeline_edit_marker`, `sv_timeline_set_options` (tempo, loop, snap, fps, Use Timeline) and `sv_timeline_bank`. Editing uses the same permission as `timeline.*` in `sv_patch_config` (Full mode, off by default); locked tracks are respected. `tests/mcp-timeline-edit.test.js`.
 - **`sv_duplicate_layer` and `sv_lyrics_library`** (106 tools in total). `sv_duplicate_layer` copies a layer right above it with a new id, like the panel's Duplicate (Scene editing permission; a locked layer can be copied and the copy stays locked). `sv_lyrics_library` reads the lyrics library with list, search and get; it is Windows only and says so elsewhere. `tests/layer-tools-mcp.test.js`.
-- **`sv_add_layer` adds MilkDrop layers** with type `milkdrop` and an optional `presetId` (default: a built-in extended-format preset).
+- **`sv_add_layer` adds MilkDrop layers** with type `milkdrop` and an optional `presetId` (default: a built-in MilkDrop 3 preset).
 - **`sv_load_preset` takes `layerId` and the built-in MilkDrop presets.** A wrong-kind, locked or unknown layer returns a clear error and changes nothing; the result says which layers show the shared preset and warns when none does. `sv_list_presets` now lists the built-in MilkDrop presets too (they were in the panel but not reachable over MCP). `tests/milkdrop-guard.test.js`.
 - **`sv_set_visualizer_type` / `sv_set_background_type` take `layerId`** and return a clear error for a wrong-kind, locked or unknown layer, or when several layers could be meant, instead of silently changing the first one.
 
@@ -339,13 +339,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     as a plan. It now opens with where things stand (v4.0.0 on `main` as 4.0.0-beta, not released),
     gives each stage its status, and says the status table only has released versions. The README's
     roadmap section says the same.
-- **No names of other visualizer or VJ products.** The README, ROADMAP, CHANGELOG, the archived plan,
-  preset descriptions, code comments, tests and the interface no longer name or credit other
-  visualizers, VJ or video programs. In the app this shows as **Extended (16 slots)** for the MilkDrop
-  format setting and its hard-cut modes, "MilkDrop presets" for found preset folders in Import ("MilkDrop presetleri" in Turkish), and
-  generic wording in the OSC, Spout and texture-sharing notes. What stays is what the app has to
-  name: MilkDrop and its hosts, protocols and hardware (OBS, Spout, Syphon, NDI, Ableton Link, MIDI
-  controllers), the folders the importer looks in, and the `.milk2` file type.
+- **No comparisons with other products.** The archived plan no longer lists the products it was
+  compared with. The timeline editor, the clip deck and its launch modes are no longer described as
+  modelled on another program, the ROADMAP and code comments no longer point at other engines' open
+  issues, and the README keywords no longer call the app an alternative to another player. Product
+  names stay wherever they say what the app works with or reads: the MilkDrop 3 format and its hard
+  cuts, the folders the importer searches, the programs that Spout, Syphon, OSC and Art-Net connect
+  to, and the sources and preset collections the MilkDrop engine is measured against.
 - **Interface names match the app:** Pre-show Check, "Don't Open the Status Window at Start", and
   Settings → Application.
 - **All twenty panel screenshots retaken on the current interface**, with three new ones: the Live
@@ -410,12 +410,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   engine reads only Sensitivity there.
 - **Choosing a preset no longer changes another layer** (#909). With a bars layer above a MilkDrop layer,
   choosing a preset turned the bars into MilkDrop too.
-- **Nine CaYaDev presets are back to their extended-format originals in the app** (Harmonograph, Harp Strings,
+- **Nine CaYaDev presets are back to their MilkDrop 3 originals in the app** (Harmonograph, Harp Strings,
   Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons, Spectrum City).
   The MilkDrop 2 packing from #894 made them look worse in our own engine, where the originals always
   worked. The pack uses the originals again, unchanged.
 - **Preset folders match the preset version.** [`presets/original/md2/cayadev/`](presets/original/md2/cayadev/) holds the
-  MilkDrop 2 originals, [`presets/original/md3/cayadev/`](presets/original/md3/cayadev/) holds only the extended-format originals,
+  MilkDrop 2 originals, [`presets/original/md3/cayadev/`](presets/original/md3/cayadev/) holds only the MilkDrop 3 originals,
   and the app embeds both. Reduced copies for MilkDrop 2 players and older shader compilers stay in
   [`presets/compat/md/cayadev/`](presets/compat/md/cayadev/) and are not in the preset list. Those copies stay within MilkDrop 2
   limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers). `CaYaDev - Spectrum City Old Compiler.milk`
@@ -685,7 +685,7 @@ gets them as WebP frames over the stream server, which keeps transparency.
 
 ### CaYaDev MilkDrop Presets [825]
 
-- **Our own shader presets, built in.** 55 of them, ten in the extended format:
+- **Our own shader presets, built in.** 55 of them, ten for MilkDrop 3:
   - liquid: *Neon Monsoon*, *Oil Slick*, *Mercury Rain*, *Wax Lamp*, *Ocean Sunset* (a sunset sea with a path of glinting dashes);
   - tunnel: *Event Horizon*, *Data Corridor*, *Spiral Wormhole*, *Neon Arches*;
   - geometric: *Prism Lattice*, *Cymatics*, *Crystal Shards*, *Infinite Frame*, *Truchet Weave*, *Hex Reactor*;
@@ -704,7 +704,7 @@ gets them as WebP frames over the stream server, which keeps transparency.
     - *Laser Cathedral*, *Glitch Pulse*, *Plasma Globe*;
     - *Halo Spectrum*: a mirrored circular spectrum whose loud bars shed sparks;
   - fractal: *Julia Bloom*, *Mandala Mirror* (a feedback kaleidoscope), *Mandelbrot Dive*, *Apollonian Lace*;
-  - extended format:
+  - MilkDrop 3:
     - *Twelve Moons*, *Night Bloom*;
     - *Spectral Ridges*: twelve ridgelines that hide the ones behind them;
     - *Tesla Coil*: eight discharges and a beat-struck arc to a grounded sphere;
@@ -727,7 +727,7 @@ gets them as WebP frames over the stream server, which keeps transparency.
   - Per-frame additions scale with the frame rate.
   - Where the step of at least one per frame would eat a slow fade faster at 144 Hz, the step comes from a time tick in the frame code instead, a fixed number of 8-bit steps per second: *Mandala Mirror* went from −27% to +5%. The same tick lets *Vinyl Groove*'s grooves and *Harmonograph*'s figures stay on screen for a minute or more.
 
-  The MilkDrop 2 presets were also rendered by a reference build of MilkDrop 2 itself and show the same picture. Detail can differ where a preset grows from noise or chaotic feedback, because our noise textures are generated rather than MilkDrop's files. The extended-format presets were checked in our engine; for the newest seven, MilkDrop 2 was also checked to show the documented fallback (the first four figures, ribbons, discharges, swarms, strings, constellations or lantern shapes).
+  The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop) and show the same picture. Detail can differ where a preset grows from noise or chaotic feedback, because our noise textures are generated rather than MilkDrop's files. The MilkDrop 3 presets were checked in our engine; for the newest seven, MilkDrop 2 was also checked to show the documented fallback (the first four figures, ribbons, discharges, swarms, strings, constellations or lantern shapes).
 - **MilkDrop 2 rules the comparison caught, now enforced by tests.** Our engine accepted all of these; MilkDrop 2 did not:
   - MilkDrop 2 does not pass `aspectx`/`aspecty` to custom wave and shape code, so the presets carry them in q31/q32. Shapes use them to stay round; custom waves must not: MilkDrop already stretches a wave's y by the aspect, so its coordinates are square on screen. Five presets multiplied wave points by q31/q32 and drew their rings and figures 1.78 times too tall on a 16:9 screen (*Phosphor Scope*'s figure ran off the screen); fixed in *Neon Monsoon*, *Night Bloom*, *Phosphor Scope*, *Prism Lattice* and *Twelve Moons*, with their pictures redone, and a test now rejects it.
   - Prefixed noise samplers such as `sampler_pw_noise_lq` must be declared in the shader, or MilkDrop drops the comp shader.
@@ -1519,7 +1519,7 @@ Details and measurements: [docs/REDUNDANCY.md](docs/REDUNDANCY.md).
 - **Motion vectors can be drawn mirrored, as MilkDrop 2 draws them [750].**
   - MilkDrop 2 draws each vector in its place but reads its direction from the vertically
     mirrored row of the mesh. So motion a preset asks for in the top half shows in the bottom
-    half. The D3D9 version fixed this upstream after #750.
+    half. BeatDrop fixed this upstream after #750.
   - Our engine draws what the preset asks for, and that stays the default.
   - Settings → MilkDrop → Motion Vectors → "Mirrored, as in MilkDrop" gives MilkDrop's own
     picture for presets tuned against it. It applies while MilkDrop Fidelity is on.
@@ -1615,11 +1615,11 @@ added, 2999 in total.
 
 ### Highlights
 
-- **MilkDrop library, editor and extended-format presets** — import whole libraries, thumbnails,
+- **MilkDrop library, editor and MilkDrop 3 presets** — import whole libraries, thumbnails,
   favourites and tags, a preset editor, a preset generator, and show control on the bar.
 - **AI control over MCP** — 96 tools for Claude Desktop, Codex, Cursor and other agents, local only.
 - **OSC in and out** — a fixed address tree with OSCQuery and mDNS, and levels, hits, tempo and show
-  state out to lighting desks and VJ software.
+  state out to desks, Resolume and TouchDesigner.
 - **Timeline and Clip Deck rebuilt** for real shows.
 - **In-app updates**, with size and SHA-256 checks.
 - **60 visualizer modes, 43 backgrounds, 81 templates**, including Music Video cards.
@@ -1639,7 +1639,7 @@ added, 2999 in total.
 - An in-app preset editor (#578, #628).
 - A preset generator of our own, and mash-ups from the library (#579, #609, #610); five presets of
   our own ship with the app.
-- Extended format: `.milk2` double presets and an Automatic / MilkDrop 2 / Extended format (#567, #629,
+- MilkDrop 3: `.milk2` double presets and an Automatic / MilkDrop 2 / MilkDrop 3 format (#567, #629,
   #656).
 - Sprites from `milk_img.ini` (#577, #601); user textures load in the preview, the web overlay and
   export (#586).
