@@ -707,7 +707,7 @@
       const W = this.canvas.width;
       const H = this.canvas.height;
       const v = cfg.visualizer;
-      const step = Math.min(0.033, dt || 0.016);
+      const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
 
       const count = clamp(Math.round((v.barCount | 0) * 0.05), 3, 14);
@@ -730,46 +730,64 @@
       const hit = this.onset.push(audio.bass * sens, step);
       const minDim = Math.min(W, H);
 
+      /* SABİT ADIMLI FİZİK. Eskiden kare başına tek Verlet adımı ve üç kısıt turu vardı: ip
+         lastik gibi uzuyor, sarkma kare hızına bağlı kalıyordu. Ölçüldü (8 sn, örnek ses, üstteki
+         ipin ortası, yüksekliğe oranla): 1080p 60 fps'te 1,66, 30 fps dışa aktarımda 4,1, 144 fps'te
+         0,81; ipler ekranın dışına sarkıyor, yalnız iki kenardaki uçları görünüyordu. Şimdi en çok
+         1/120 sn'lik alt adımlar, her adımda gidiş-dönüş on altı kısıt turu ve açıklığın binde 4
+         fazlası ip boyu. Aynı ölçüm: 30, 60 fps ve 4K'da 0,31-0,32, 144 fps'te 0,27 (bağlantı
+         0,18'de): sarkma yüksekliğin ~%14'ü, en alttaki ip de ekranda kalıyor. Tekme ve titreşim
+         saniye başına ölçekli; alt adım sayısı değişince güçleri değişmiyor. */
+      const subs = Math.max(1, Math.ceil(step * 120 - 1e-6));
+      const h = step / subs;
+      const k60 = h * 60;
+      const grav = minDim * 1.5 * h * h;
+      const damp = Math.pow(0.4, h);
+      const rest = (W / (seg - 1)) * 1.004;
       for (let r = 0; r < count; r++) {
         const pts = this.ropes[r];
         const e = clamp(bars[r] * sens, 0, 1);
+        const y0 = H * (0.18 + 0.64 * (count === 1 ? 0.5 : r / (count - 1)));
         // Vuruşta rastgele bir noktadan tekme
         if (hit > 0) {
           const i = 1 + ((this.rand() * (seg - 2)) | 0);
-          pts[i].py += (this.rand() - 0.5) * minDim * 0.25 * hit;
+          pts[i].py += (this.rand() - 0.5) * minDim * 0.25 * hit * k60;
         }
         // Bant enerjisi ipi sürekli titretir
         for (let i = 1; i < seg - 1; i++) {
-          pts[i].py -= Math.sin(t * 6 + i * 0.4 + r) * e * minDim * 0.0016;
+          pts[i].py -= Math.sin(t * 6 + i * 0.4 + r) * e * minDim * 0.0016 * k60;
         }
-        // Verlet entegrasyonu + yerçekimi + sönüm
-        for (let i = 1; i < seg - 1; i++) {
-          const p = pts[i];
-          const vx = (p.x - p.px) * 0.985;
-          const vy = (p.y - p.py) * 0.985;
-          p.px = p.x;
-          p.py = p.y;
-          p.x += vx;
-          p.y += vy + minDim * 0.5 * step * step * 60;
-        }
-        // Mesafe kısıtları (birkaç yineleme yeterli)
-        const rest = W / (seg - 1);
-        for (let it = 0; it < 3; it++) {
-          for (let i = 0; i < seg - 1; i++) {
-            const a = pts[i];
-            const b = pts[i + 1];
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const d = Math.hypot(dx, dy) || 1;
-            const diff = (d - rest) / d * 0.5;
-            const ox = dx * diff;
-            const oy = dy * diff;
-            if (i > 0) { a.x += ox; a.y += oy; }
-            if (i + 1 < seg - 1) { b.x -= ox; b.y -= oy; }
+        for (let s = 0; s < subs; s++) {
+          // Verlet entegrasyonu + yerçekimi + sönüm
+          for (let i = 1; i < seg - 1; i++) {
+            const p = pts[i];
+            const vx = (p.x - p.px) * damp;
+            const vy = (p.y - p.py) * damp;
+            p.px = p.x;
+            p.py = p.y;
+            p.x += vx;
+            p.y += vy + grav;
           }
-          // Uçlar sabit
-          pts[0].x = 0; pts[0].y = H * (0.18 + 0.64 * (count === 1 ? 0.5 : r / (count - 1)));
-          pts[seg - 1].x = W; pts[seg - 1].y = pts[0].y;
+          // Uçlar sabit; kısıtlar sırayla bir baştan bir sondan (uzun zincirde çabuk yakınsıyor)
+          pts[0].x = 0; pts[0].y = y0;
+          pts[seg - 1].x = W; pts[seg - 1].y = y0;
+          for (let it = 0; it < 16; it++) {
+            const fwd = (it & 1) === 0;
+            for (let q = 0; q < seg - 1; q++) {
+              const i = fwd ? q : seg - 2 - q;
+              const a = pts[i];
+              const b = pts[i + 1];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const d = Math.hypot(dx, dy) || 1;
+              if (d <= rest) continue;
+              const diff = (d - rest) / d * 0.5;
+              const ox = dx * diff;
+              const oy = dy * diff;
+              if (i > 0) { a.x += ox; a.y += oy; } else { b.x -= ox; b.y -= oy; }
+              if (i + 1 < seg - 1) { b.x -= ox; b.y -= oy; } else { a.x += ox; a.y += oy; }
+            }
+          }
         }
 
         const c = tone(v, cfg, r / count, t);

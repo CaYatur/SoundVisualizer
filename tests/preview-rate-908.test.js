@@ -49,7 +49,7 @@ function panel(power) {
     ingestFrame() {}
     update() { seen.audio++; }
   };
-  win.SVDemoAudio = { SR: 48000, fill() {} };
+  win.SVDemoAudio = { SR: 48000, fill() {}, spectrum(t, out) { return out; } };
   const ctx = vm.createContext(win);
   vm.runInContext(read('src/admin/preview.js'), ctx, { filename: 'preview.js' });
   assert.strictEqual(win.SVPreview.init(), true);

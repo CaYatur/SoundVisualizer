@@ -34,7 +34,10 @@ const md = require('./milkdrop-thumbs');
 const RECIPE = Object.freeze({
   renderW: 480,
   renderH: 270,
-  frames: 45,
+  // 6 saniye çiziliyor; 2. saniyeden sonra her 0,2 saniyede bir aday, en dolusu kalıyor (src/thumbs/mode-thumbs.js)
+  frames: 180,
+  pickFrom: 60,
+  pickEvery: 6,
   fps: 30,
   thumbW: 240,
   thumbH: 135,
