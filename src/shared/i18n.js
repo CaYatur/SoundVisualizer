@@ -4334,7 +4334,7 @@
     'Opaklık': 'Opacity',
     'oynuyor': 'playing',
     'Bağlı İstemciler': 'Connected Clients',
-    'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.': 'The stream page uses the same engine as the desktop window; there is no separate render, so the two views never diverge. NDI and Spout output are not available in this version — the OBS browser source already provides the same result without a plugin.',
+    'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. OBS için tarayıcı kaynağı eklenti kurmadan çalışır; GPU dokusu paylaşmak için Spout / Syphon Çıkışı ayrı bölümde. NDI çıkışı bu sürümde yok.': 'The stream page uses the same engine as the desktop window; there is no separate render, so the two views never diverge. The OBS browser source works without a plugin; to share the GPU texture, use Spout / Syphon Output in its own section. NDI output is not available in this version.',
     'Bu port başka bir uygulama tarafından kullanılıyor. Başka bir port deneyin.': 'This port is already in use by another application. Try another port.',
     'Bu portu açma izni yok. 1024 üstü bir port deneyin.': 'Permission to open this port was denied. Try a port above 1024.',
     'Ağ adresi kullanılamıyor.': 'The network address is unavailable.',

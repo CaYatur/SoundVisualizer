@@ -132,3 +132,20 @@ test('İngilizce arayüz tek yazım kullanıyor: color (colour değil)', () => {
   const src = read('src/shared/i18n.js');
   assert.doesNotMatch(src, /colour/i, 'arayüzde 156 "color" varken 11 "colour" vardı; aynı kartta ikisi yan yana duruyordu');
 });
+
+test('otomasyon şeridinin hedefi İngilizcede Türkçe kalmıyor (tuvale çizilen metin, ui-audit görmüyor)', () => {
+  const tp = read('src/admin/timeline-panel.js');
+  assert.match(tp, /else tag = \(info\.group \? tt\(info\.group\) \+ ' · ' : ''\) \+ tt\(info\.label\)/);
+  assert.match(tp, /tt\(meta\.group\) \+ ' · ' \+ tt\(meta\.label\)/);
+  assert.match(tp, /const head = tt\(it\.group\) \+ \(it\.sub \? ' › ' \+ tt\(it\.sub\) : ''\);/);
+  global.window = global.window || {};
+  require('../src/shared/i18n.js');
+  const src = read('src/shared/i18n.js');
+  for (const k of ['Ses', 'Duyarlılık']) assert.ok(src.includes("    '" + k + "':"), 'parçanın çevirisi: ' + k);
+});
+
+test('Yayın Çıkışı notu var olan Spout çıkışını yok saymıyor', () => {
+  const st = read('src/admin/stream.js');
+  assert.doesNotMatch(st, /NDI ve Spout çıkışı bu sürümde yok/);
+  assert.match(st, /Spout \/ Syphon Çıkışı ayrı bölümde\. NDI çıkışı bu sürümde yok\./);
+});
