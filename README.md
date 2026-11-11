@@ -85,6 +85,13 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   [→ Layout editor](#broadcast-layout-editor)
 - **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
   presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
+- **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
+  so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
+
+<div align="center">
+<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
+</div>
 
 ---
 
@@ -784,6 +791,8 @@ ticker · karaoke highlighting.
 
 ### Broadcast layout editor
 
+![Layout Editor: the live preview framed as 16:9 with safe areas, the Now Playing card and the element list](docs/screenshots/panel-layout.png)
+
 The grid button above the live preview opens the **Layout Editor**: the same preview, large, framed
 as **16:9, 9:16 or 1:1**. It is not a second renderer, so what you place is what the screens, the
 OBS overlay and video export draw.
@@ -829,7 +838,8 @@ transition; the **T-bar** next to it mixes the cued scene in by hand: the mix fo
 releasing it halfway holds a blend of both scenes, the far end puts the scene live and pulling it
 back to the start undoes the change without restarting anything. Every output, the OBS overlay and
 the panel preview follow the bar, and `show/tbar` lets a hardware fader drive it over OSC or
-Companion.
+Companion. On a fresh install the empty grid offers **Add example scenes**: eight scenes built from
+the ready-made templates, without changing what is on screen.
 
 **Timeline.** Lay scenes and setting changes out along time, aligned to the bar or to the second;
 one playhead drives every screen together, and offline export plays the same show.

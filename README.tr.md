@@ -86,6 +86,13 @@ kontrolü**.
 - **Başlamak için daha çok şey.** 70 görselleştirici modu ve 51 arkaplan (18'i yeni), 60 CaYaDev
   MilkDrop preseti (4'ü yeni), 43 yerleşik GLSL shader; her mod seçicide gerçekten çizilmiş bir
   önizleme var.
+- **İlk açılışta hazır.** Boş Canlı sayfasındaki tek düğme sekiz örnek sahne kuruyor (F1–F8); siz
+  daha hiçbir şey kaydetmeden sahne ızgarası, AL, T-bar ve Otomatik VJ çalışıyor.
+
+<div align="center">
+<img src="docs/screenshots/panel-live.png" alt="Canlı sayfası: F1–F8'de sekiz örnek sahne, MilkDrop Flow canlıda, Aurora sırada, T-bar karışımın yarısında" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Telefon kumandası: telefonda Canlı sayfası; karartma, sahneler ve tempo" height="330" />
+</div>
 
 ---
 
@@ -787,6 +794,8 @@ haber bandı · karaoke vurgusu.
 
 ### Yayın düzeni editörü
 
+![Düzen Editörü: güvenli alanlarıyla 16:9 çerçevede canlı önizleme, Çalan Parça kartı ve öğe listesi](docs/screenshots/panel-layout.png)
+
 Canlı önizlemenin üstündeki ızgara düğmesi **Düzen Editörünü** açar: aynı önizleme, büyük ve
 **16:9, 9:16 ya da 1:1** çerçeveli. İkinci bir çizici değildir; yerleştirdiğiniz neyse ekranlar,
 OBS katmanı ve video dışa aktarımı onu çizer.
@@ -832,7 +841,9 @@ gösteriyor; hiç canlıya çıkmamış bir sahnede MilkDrop presetinin resmi ya
 alıyor; yanındaki **T-bar** sıradaki sahneyi elle karıştırıyor: karışım çubuğu izliyor, yarıda
 bırakınca iki sahnenin karışımı kalıyor, öbür uç sahneyi canlıya alıyor, başa döndürmek hiçbir şeyi
 baştan başlatmadan değişikliği geri alıyor. Her çıkış, OBS kaplaması ve panel önizlemesi çubuğu
-izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor.
+izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor. Yeni
+kurulumda boş ızgara **Örnek sahneleri ekle** düğmesini gösteriyor: hazır şablonlardan sekiz sahne,
+ekrandaki görüntüye dokunmadan.
 
 **Zaman çizelgesi.** Sahneleri ve ayar değişimlerini ölçüye ya da saniyeye hizalı biçimde zamana
 yayın; tek bir oynatma kafası bütün ekranları birlikte sürüyor, çevrimdışı dışa aktarma da aynı

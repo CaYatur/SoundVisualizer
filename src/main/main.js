@@ -12740,6 +12740,8 @@ async function runShots() {
     ['scene', 'panel-templates.png', '.card[data-card="templates"]', `${SHELL}.setShelf('templates')`],
     ['scene', 'panel-transition.png', '.card[data-card="transition"]', `${SHELL}.select('')`],
     ['scene', 'panel-geometry.png', '.card[data-card="geometry"]', `${SHELL}.select('ly_show_geo')`],
+    // Düzen editörü (#994): aynı önizleme büyük çerçevede, öğeler ve güvenli alanlar
+    ['scene', 'panel-layout.png', '#layTitle', `${SHELL}.select('ly_show_np');window.SVLayoutEditor.open()`, 'close-layout'],
     ['live', 'panel-clipdeck.png', '.card[data-card="clipdeck"]', "window.SVLiveShell.setLower('deck')"],
     ['time', 'panel-timeline.png', '.card[data-card="timeline"]'],
     ['studio', 'panel-studio.png', '.card[data-card="studio"]', "window.SVPanel.setSection('studio')"],
@@ -12749,13 +12751,23 @@ async function runShots() {
     ['output', 'panel-record.png', '.card[data-card="record"]', "window.SVPanel.setSection('record')"],
     ['output', 'panel-output.png', '.card[data-card="stream"]', "window.SVPanel.setSection('stream')"],
     ['control', 'panel-control.png', '.card[data-card="oscOut"]'],
+    /* Canlı sayfası EN SONDA: örnek sahneler kuruluyor ve biri canlıya alınıyor, yani panelin
+       katmanları şovdan sahneye dönüyor. Sekiz örnek sahne (ilk açılıştaki düğmenin kurduğu),
+       MilkDrop Flow canlıda, Aurora sırada ve T-bar yarıda: iki sahnenin karışımı. Çubuk dış
+       denetimde önce kendi ucunda "yakalanmalı" (live-shell tbarTo), o yüzden adım adım. */
+    ['live', 'panel-live.png', '#svLive .sv-tlever', [
+      "var P=window.SVPanel;window.SVLiveShell.setLower('scenes');if(!P.scenes().length)P.addStarterScenes();",
+      'var s=P.scenes();P.applyScene(s[0].id);',
+      "setTimeout(function(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'F3',bubbles:true}));},2600);",
+      'setTimeout(function(){var L=window.SVLiveShell;[0.01,0.1,0.2,0.3,0.4,0.45].forEach(function(v,i){setTimeout(function(){L.tbarTo(v);},i*120);});},4200);',
+    ].join(''), 'wait:7000'],
   ];
   const missing = [];
-  if (adminWin && !adminWin.isDestroyed() && PANELS.some((p) => want(p[1]))) {
+  if (adminWin && !adminWin.isDestroyed() && (PANELS.some((p) => want(p[1])) || want('panel-remote.png'))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
     await wait(1500);
-    for (const [page, name, need, prep] of PANELS) {
+    for (const [page, name, need, prep, after] of PANELS) {
       if (!want(name)) continue;
       try {
         await awc.executeJavaScript(`window.SVPanel.setCategory(${JSON.stringify(page)})`);
@@ -12764,6 +12776,8 @@ async function runShots() {
           await awc.executeJavaScript(`(function(){${prep}})()`);
           await wait(1200);
         }
+        // Hazırlığı zamanlayıcılarla süren görüntüler (Canlı: sahne, sıra, T-bar) kendi süresini bekler
+        if (after && /^wait:\d+$/.test(after)) await wait(Number(after.slice(5)));
         const found = await awc.executeJavaScript(
           `(function(){var c=document.querySelector(${JSON.stringify(need)});if(!c||!c.getClientRects().length)return false;` +
             "c.style.scrollMarginTop='96px';c.scrollIntoView({block:'start'});return true})()"
@@ -12771,8 +12785,42 @@ async function runShots() {
         if (!found) { missing.push(name + ' (' + need + ')'); continue; }
         await wait(1200);
         await save(adminWin, name);
+        if (after === 'close-layout') await awc.executeJavaScript('window.SVLayoutEditor && window.SVLayoutEditor.close()').catch(() => {});
       } catch (e) {
         missing.push(name + ': ' + (e && e.message));
+      }
+    }
+    /* TELEFON KUMANDASI (#995): uygulamanın kendi yayın sunucusundan, telefon boyutunda, şov
+       hâlâ panelde açıkken (sahneler ve canlı sahne kumandada da görünsün). Sunucu yalnız bu
+       görüntü için, yalnız bu makineye (127.0.0.1) ve boş bir kapıda açılıp kapanır. */
+    if (want('panel-remote.png')) {
+      const prevStream = currentConfig && currentConfig.stream;
+      let rw = null;
+      try {
+        const port = await new Promise((resolve, reject) => {
+          const s = require('net').createServer();
+          s.on('error', reject);
+          s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+        });
+        currentConfig.stream = Object.assign({}, prevStream, { enabled: true, port, lan: false, requireToken: false, remote: true });
+        const st = await syncStreamServer();
+        if (!st || !st.running) throw new Error('yayın sunucusu açılmadı');
+        rw = new BrowserWindow({ width: 430, height: 932, show: true, frame: false, backgroundColor: '#0b0910', webPreferences: { backgroundThrottling: false } });
+        await rw.loadURL('http://127.0.0.1:' + port + '/remote');
+        let ok = false;
+        for (let k = 0; k < 40 && !ok; k++) {
+          await wait(250);
+          ok = await rw.webContents.executeJavaScript("/Bağlı|Connected/.test((document.getElementById('statusText')||{}).textContent||'')").catch(() => false);
+        }
+        if (!ok) throw new Error('kumanda bağlanmadı');
+        await wait(2500);
+        await save(rw, 'panel-remote.png');
+      } catch (e) {
+        missing.push('panel-remote.png: ' + (e && e.message));
+      } finally {
+        if (rw && !rw.isDestroyed()) rw.destroy();
+        if (currentConfig) currentConfig.stream = prevStream;
+        await syncStreamServer().catch(() => {});
       }
     }
     awc.send('external-config', realCfg);
