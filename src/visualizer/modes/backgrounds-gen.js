@@ -726,7 +726,11 @@
       ctx.lineWidth = Math.max(1, Math.min(W, H) / 900);
       for (let d = this.hist.length - 1; d >= 0; d--) {
         const f = d / depth;
-        const y0 = H * (0.28 + 0.62 * f) * m.spacing;
+        /* En yeni satır (d = 0) önde: ekranın altında, en geniş genlikle ve en son çiziliyor;
+           eskiler geriye, yukarı doğru küçülerek gidiyor. Eskiden yerleşim tersti: en yeni satır
+           ekranın üstündeydi ve dolgusu öteki bütün satırları örtüyor, ekranda tek dalga kalıyordu
+           (Satır Sayısı neredeyse hiçbir şeyi değiştirmiyordu). Satır Aralığı yayılımı ölçekler. */
+        const y0 = H * (0.9 - 0.62 * f * m.spacing);
         const c = lerpColor(cfg, 1 - f);
         const r = this.hist[d];
         let ymax = -Infinity;
