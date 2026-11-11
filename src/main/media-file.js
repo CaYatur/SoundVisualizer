@@ -28,6 +28,42 @@ function withCors(headers) {
   return Object.assign({}, CORS, headers || {});
 }
 
+/* Range başlığı → sunulacak aralık. Uygulamanın kendi protokolü ve yayın
+   sunucusu AYNI kuralı kullanır; yayın sunucusunun eski kopyası "bytes=-500"
+   isteğine dosyanın sonu yerine başını veriyordu, dosya boyunu aşan bitişte
+   yanlış Content-Length yollayıp istemciyi bekletiyordu, ters aralıkta ise
+   fs.createReadStream eşzamanlı hata atıyordu (yanıt hiç gitmiyordu).
+
+   Dönen:
+     null                      aralık yok ya da anlaşılmadı: dosyanın tamamı (200)
+     { status: 416 }           karşılanamaz: başlangıç dosyanın dışında ya da ters
+     { status: 206, start, end }  bitiş dahil, dosya boyuna kırpılmış
+
+   Tek aralık desteklenir; çoklu aralık ("0-1,5-6") RFC 9110'a uygun biçimde
+   yok sayılır ve dosyanın tamamı gider. */
+function parseRange(header, size) {
+  if (header == null || header === '') return null;
+  const m = /^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i.exec(String(header));
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  const total = Math.max(0, Math.floor(Number(size) || 0));
+  let start;
+  let end;
+  if (m[1] === '') {
+    // "bytes=-500": son 500 bayt
+    const len = parseInt(m[2], 10);
+    if (!(len > 0) || total === 0) return { status: 416 };
+    start = Math.max(0, total - len);
+    end = total - 1;
+  } else {
+    start = parseInt(m[1], 10);
+    end = m[2] === '' ? total - 1 : parseInt(m[2], 10);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return { status: 416 };
+    if (start >= total || start > end) return { status: 416 };
+    end = Math.min(end, total - 1);
+  }
+  return { status: 206, start, end };
+}
+
 /* Video dosyasını Range destekleyerek servis eder.
 
    Range şart: <video> öğesi konum değiştirmek için parça isteği yapar ve
@@ -50,25 +86,15 @@ function serveMediaFile(file, rangeHeader) {
   const size = stat.size;
   const toWeb = (s) => Readable.toWeb(s);
 
-  const m = rangeHeader ? /bytes=(\d*)-(\d*)/.exec(String(rangeHeader)) : null;
-  if (m) {
-    let start = m[1] === '' ? NaN : parseInt(m[1], 10);
-    let end = m[2] === '' ? NaN : parseInt(m[2], 10);
-    // "bytes=-500" sondan 500 bayt demektir; "bytes=500-" sona kadar
-    if (Number.isNaN(start)) {
-      const len = Number.isNaN(end) ? 0 : end;
-      start = Math.max(0, size - len);
-      end = size - 1;
-    } else if (Number.isNaN(end)) {
-      end = size - 1;
-    }
-    if (start >= size || start > end) {
-      return new Response('range not satisfiable', {
-        status: 416,
-        headers: withCors({ 'Content-Range': 'bytes */' + size }),
-      });
-    }
-    end = Math.min(end, size - 1);
+  const r = parseRange(rangeHeader, size);
+  if (r && r.status === 416) {
+    return new Response('range not satisfiable', {
+      status: 416,
+      headers: withCors({ 'Content-Range': 'bytes */' + size }),
+    });
+  }
+  if (r) {
+    const { start, end } = r;
     return new Response(toWeb(fs.createReadStream(file, { start, end })), {
       status: 206,
       headers: withCors({
@@ -121,4 +147,4 @@ function isConfiguredMedia(cfg, raw, urlApi) {
   return false;
 }
 
-module.exports = { serveMediaFile, MEDIA_MIME, configuredMediaPaths, isConfiguredMedia };
+module.exports = { serveMediaFile, parseRange, MEDIA_MIME, configuredMediaPaths, isConfiguredMedia };
