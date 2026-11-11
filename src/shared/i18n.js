@@ -3404,6 +3404,9 @@
 
     // ---- Studio Shader Presets & Parameter Labels ----
     'Bulut Katmanları': 'Cloud Layers',
+    'Mürekkep Akışı': 'Ink Flow',
+    'Kalıcılık': 'Persistence',
+    'Çok geçişli: mürekkep bir akış alanında sürükleniyor, spektrumun üç bandı yeni renk bırakıyor.': 'Multi-pass: ink drifts through a flow field while three bands of the spectrum lay down new colour.',
     'Katmanlı fbm gürültüsü; bas alt katmanları şişirir.': 'Layered FBM noise; bass swells lower layers.',
     'Kıvrım Akışı': 'Curl Flow',
     'Curl gürültüsünde sürüklenen çizgiler.': 'Lines drifting through curl noise.',
@@ -3911,6 +3914,12 @@
     'İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.': 'Imported, but the shader does not compile. The error is shown in the editor.',
     'iChannel0 = spektrum, iChannel1 = dalga formu, iChannel2 = önceki kare, iChannel3 = medya katmanı olarak bağlandı.': 'iChannel0 = spectrum, iChannel1 = waveform, iChannel2 = previous frame, iChannel3 = media layer.',
     'Çok geçişli (PASSES) ISF shader\'ı tek geçişe indirgendi; sonuç farklı görünebilir.': 'The multi-pass (PASSES) ISF shader was reduced to a single pass; the result may look different.',
+    'Çok geçişli ISF shader\'ı: hedefler sırayla A, B, C, D tamponlarına bağlandı.': 'Multi-pass ISF shader: its targets were bound to buffers A, B, C and D in order.',
+    '// Çok geçiş: //@pass A … //@pass D tamponlar, //@pass image ekran; sv_bufA…sv_bufD': '// Multi-pass: //@pass A … //@pass D are buffers, //@pass image is the screen; sv_bufA…sv_bufD',
+    'Geçiş adı A, B, C, D ya da image olmalı.': 'A pass name must be A, B, C, D or image.',
+    'Aynı geçiş iki kez tanımlanmış.': 'The same pass is defined twice.',
+    'Bilinmeyen kanal; kullanılabilenler: spectrum, wave, prev, media, A, B, C, D.': 'Unknown channel; available: spectrum, wave, prev, media, A, B, C, D.',
+    'Görüntü geçişi yok: //@pass image bölümü ekleyin.': 'No image pass: add a //@pass image section.',
 
     // Sahne Üretici (SceneGen)
     'Tamamen bu bilgisayarda çalışır — hiçbir servise bağlanmaz. Yazdığınız metin enerji, sıcaklık, aydınlık ve doku eksenlerine çevrilir; sahne bu eksenlerden tohumlanmış deterministik bir üreticiyle kurulur. Beğendiğinizi sağdaki Sahneler bölümünden kaydedin.': 'Runs entirely on this computer — connects to no external service. Your text is translated into energy, temperature, brightness and texture axes; the scene is built with a deterministic generator seeded from these axes. Save the ones you like in the Scenes section on the right.',
