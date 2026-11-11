@@ -804,6 +804,45 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
   float a = line + fill;
   fragColor = vec4(col * (line * 1.4 + fill), min(1.0, a));
 }`),
+    // ===================== ÇOK GEÇİŞLİ (#905) =====================
+    /* İki geçiş: A tamponu önceki karesini gürültüden türeyen bir akışla taşıyor ve spektrumun
+       üç bandından mürekkep ekliyor (ondalıklı tampon, birikim taşmıyor); görüntü geçişi ton
+       eşleyip basıyor. Tek geçişli bir shader'ın yapamadığı: renk ekranda akıp kalıcı iz bırakıyor. */
+    SH('sh_ink_flow', 'Mürekkep Akışı', 'background',
+      'Çok geçişli: mürekkep bir akış alanında sürükleniyor, spektrumun üç bandı yeni renk bırakıyor.',
+      [s('uScale', 'Ölçek', 0.5, 6, 0.1, 2.2), s('uSpeed', 'Hız', 0, 2, 0.02, 0.4),
+        s('uFlow', 'Akış', 0, 3, 0.05, 1), s('uPersist', 'Kalıcılık', 0, 1, 0.01, 0.6),
+        s('uGain', 'Kazanç', 0.5, 2, 0.05, 1.2)],
+      `//@pass A
+void mainImage(out vec4 fragColor, in vec2 fragCoord){
+  vec2 res = sv_resolution;
+  vec2 uv = fragCoord / res;
+  float t = sv_time * uSpeed;
+  // Akış: gürültü alanının eğimine dik (dönen, kaynaksız) yön
+  vec2 p = uv * uScale;
+  float e = 0.02;
+  float nx = sv_fbm(p + vec2(e, 0.0) + t * 0.1) - sv_fbm(p - vec2(e, 0.0) + t * 0.1);
+  float ny = sv_fbm(p + vec2(0.0, e) + t * 0.1) - sv_fbm(p - vec2(0.0, e) + t * 0.1);
+  vec2 curl = vec2(ny, -nx) / (2.0 * e);
+  vec2 back = uv - curl * (0.0012 + sv_bass * 0.004) * uFlow;
+  vec3 prev = texture(sv_prev, back).rgb * (0.965 + 0.03 * uPersist);
+  // Yayıcılar: üç bant, üç nokta
+  vec3 add = vec3(0.0);
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    vec2 c = vec2(0.5 + 0.32 * sin(t * (0.7 + fi * 0.23) + fi * 2.1), 0.5 + 0.28 * cos(t * (0.5 + fi * 0.31) + fi));
+    float band = sv_spec(0.06 + fi * 0.18);
+    float d = length((uv - c) * vec2(res.x / res.y, 1.0));
+    add += sv_col(fract(fi * 0.33 + sv_time * 0.03)) * smoothstep(0.05 + band * 0.04, 0.0, d) * (0.08 + band * 0.9 + sv_beat * 0.3);
+  }
+  fragColor = vec4(prev + add, 1.0);
+}
+//@pass image
+void mainImage(out vec4 fragColor, in vec2 fragCoord){
+  vec3 c = texture(sv_bufA, fragCoord / sv_resolution).rgb;
+  c = c / (1.0 + c * 0.6);
+  fragColor = vec4(c * uGain, 1.0);
+}`),
   ];
 
   P.registerBuiltin(LIST.map((p) => Object.assign({ builtin: true, engine: 'shader', author: 'CAYADEV' }, p)));
