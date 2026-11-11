@@ -9,7 +9,7 @@
  *  - her preset warp ve comp shader'ı taşıyor ve motorda hatasız çevriliyor;
  *  - MilkDrop 2'nin kendisinin bildirmediği örnekleyiciler (sampler_pw_noise_lq
  *    gibi) shader'da bildirilmiş: bildirilmezse MilkDrop comp'u düşürüyor,
- *    bizim motor ise sessizce çalıştırıyor (MilkDrop 2 başvuru derlemesinde ölçüldü);
+ *    bizim motor ise sessizce çalıştırıyor (BeatDrop'ta ölçüldü);
  *  - dalga ve şekil kodu aspectx/aspecty okumuyor: MilkDrop 2 onları bu
  *    bloklara vermiyor (0 görünüyor), paket q31/q32 ile taşıyor; dalga
  *    koordinatı ise zaten eşit ölçekli (y en-boyla geriliyor), q31/q32 ile
@@ -97,7 +97,7 @@ test('her preset MilkDrop 2 başlığı, warp ve comp shader\'ı taşıyor ve ha
   }
 });
 
-test('genişletilmiş biçim işareti dosyanın kendisiyle tutarlı', () => {
+test('MilkDrop 3 işareti dosyanın kendisiyle tutarlı', () => {
   for (const p of PACK) {
     assert.strictEqual(MD.md3Auto(p.source), p.md3, p.name + ': md3 ' + MD.md3Features(p.source).join(','));
   }
@@ -202,9 +202,9 @@ test('her sayfa paketi presets-milkdrop.js\'ten ÖNCE yüklüyor; çeviri pakett
    uv_orig (comp'ta hue_shader). Bu adla bir değişken ya da parametre tanımlamak orada
    derlemeyi düşürüyor ("unexpected token '.'"); bizim motorda ise sıradan bir küresel.
    PSVERSION 3, MilkDrop'ta ps_3_0 değil ps_2_x demek: dinamik `break` yok ve döngüler
-   açılarak 512 komuta sığmalı. İkisi de MilkDrop 2 başvuru derlemesinde ve SDK derleyicisinde ölçüldü.
+   açılarak 512 komuta sığmalı. İkisi de BeatDrop'ta ve SDK derleyicisinde ölçüldü.
    PSVERSION 4'te (ps_3_0) `break` derleniyor ama MilkDrop 2 o aşamayı siyah çiziyor
-   (Mandelbrot Dive, başvuru derlemesiyle karşılaştırmada): break hiçbir presette yok. */
+   (Mandelbrot Dive, BeatDrop'la karşılaştırmada): break hiçbir presette yok. */
 test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   const macros = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'vol', 'bass_att', 'mid_att',
     'treb_att', 'vol_att', 'aspect', 'texsize', 'roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin',
@@ -245,7 +245,7 @@ function checkMd2(name, source) {
   assert.doesNotMatch(source, /\bsampler_pw_/, name + ': pw_ örnekleyicisi var');
 }
 
-test('md2 yalnız MilkDrop 2 asıllarını, md3 yalnız genişletilmiş biçim asıllarını tutar', () => {
+test('md2 yalnız MilkDrop 2 asıllarını, md3 yalnız MilkDrop 3 asıllarını tutar', () => {
   const milks = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.milk')).sort();
   assert.deepStrictEqual(milks(PP.MD2_DIR), PACK.filter((p) => !p.md3).map((p) => p.file).sort());
   assert.deepStrictEqual(milks(PP.MD3_DIR), PACK.filter((p) => p.md3).map((p) => p.file).sort());

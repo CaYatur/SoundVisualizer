@@ -1019,7 +1019,7 @@
     'anlık renk kabul etmiyor': 'does not accept direct color',
     'Ayrı çalışan OpenRGB sunucusuna bağlanır ve RGB aygıtlarını müzikle sürer. Windows, macOS ve Linux.': 'Connects to a separately running OpenRGB server and drives RGB devices with the music. Windows, macOS and Linux.',
     'Alıcı uygulamada yukarıdaki kaynak adını seçin. Görüntü, ana ekranınızın yapılandırmasıyla üretilir; ekranlarda pencere açık olmasa bile yayın sürer.': 'Pick the source name above inside the receiving application. The picture is produced from the configuration of your primary display, and sending continues even with no window open on any screen.',
-    'Açıldığında görüntü, aynı bilgisayardaki alıcı uygulamalara GPU üzerinden verilir: OBS, VJ ve video yazılımları ya da başka bir alıcı. Pencere yakalamaya, eklenti kurmaya ve CPU kopyasına gerek yok.': 'Once on, the picture is handed to receiving applications on this computer over the GPU: OBS, VJ and video software, or any other receiver. No window capture, no plugin install and no CPU copy.',
+    'Açıldığında görüntü, aynı bilgisayardaki alıcı uygulamalara GPU üzerinden verilir: Resolume, OBS, TouchDesigner veya başka bir alıcı. Pencere yakalamaya, eklenti kurmaya ve CPU kopyasına gerek yok.': 'Once on, the picture is handed to receiving applications on this computer over the GPU: Resolume, OBS, TouchDesigner or any other receiver. No window capture, no plugin install and no CPU copy.',
     'Spout bir Windows, Syphon bir macOS teknolojisidir; bu sistemde ikisi de yok ve yerleşik bir eşdeğeri bulunmuyor. Görüntüyü başka bir uygulamaya vermek için Çıkış bölümündeki OBS tarayıcı kaynağını kullanın — o her platformda çalışır.': 'Spout is a Windows technology and Syphon a macOS one; neither exists on this system and there is no built-in equivalent. To send the picture to another application, use the OBS browser source under Output — that works on every platform.',
     'bu uygulama': 'this application',
     'Kaynak Adı': 'Source Name',
@@ -1030,7 +1030,7 @@
     'kare': 'frames',
     'Syphon Çıkışı': 'Syphon Output',
     'Spout Çıkışı': 'Spout Output',
-    'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: OBS ya da bir VJ veya video yazılımı. Pencere yakalama ve eklenti gerekmez.': 'Sends the picture to another application on the same computer over the GPU: OBS, or VJ and video software. No window capture and no plugin needed.',
+    'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: Resolume, OBS, TouchDesigner. Pencere yakalama ve eklenti gerekmez.': 'Sends the picture to another application on the same computer over the GPU: Resolume, OBS, TouchDesigner. No window capture and no plugin needed.',
     'Spout / Syphon Çıkışı': 'Spout / Syphon Output',
     'Genişletilmiş Ayar Aralıkları': 'Extended Setting Ranges',
     'Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.': 'Raises the upper limit of the sliders 5×, letting you enter values far above the normal range. Extreme values may reduce performance.',
@@ -1648,7 +1648,7 @@
     'MIDI kumandanızın düğme ve faderlarını istediğiniz ayara bağlayın. Öğren düğmesine basıp denetleyiciyi oynatmanız yeterli.': 'Map the buttons and faders of your MIDI controller to any setting. Just press Learn and move the control.',
     'OSC': 'OSC',
     'OSC Girişi': 'OSC Input',
-    'Telefon kumanda uygulamaları, müzik ve gösteri yazılımları gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.': 'Map OSC messages from sources such as phone controller apps, music software and show-control software to settings.',
+    'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.': 'Map OSC messages from sources such as TouchOSC, Resolume, Ableton, or QLab to settings.',
     'Studio — Kendi Görselleştiricin': 'Studio — Your Own Visualizer',
     'Hazır bir modu kendine göre değiştir ya da sıfırdan shader yaz. Shadertoy, ISF ve MilkDrop dosyaları içe aktarılabilir.': 'Tweak a built-in mode to your taste or write a shader from scratch. Shadertoy, ISF, and MilkDrop files can be imported.',
     'Sahne Üretici': 'Scene Generator',
@@ -1814,8 +1814,8 @@
     'Harita mevcut eşlemelere eklenir. Launchpad için MIDI, Push 2 için User portunu seçin. Hazırlama düğmesi Programmer/User kipine geçirir (APC: Alternate Ableton). Normal kipe dönüş ayrı düğmedir; otomatik kip değişmez. Korg CC sahnesi kanal 1, fader 0–7, düğüm 16–23, Solo 32–39, Play/Stop 41/42, Marker 61/62, Track 58/59 olmalı; düğmeler anlık 0/127, LED Mode = External. Bunlar fabrika ayarı varsayımı değildir.': 'The map is added to existing mappings. Select the MIDI port for Launchpad and the User port for Push 2. Prepare switches to Programmer/User mode (APC: Alternate Ableton). Returning to normal mode is a separate button; modes never change automatically. Korg CC scene: channel 1; faders 0–7, knobs 16–23, Solo 32–39, Play/Stop 41/42, Marker 61/62, Track 58/59; momentary buttons 0/127, LED Mode = External. These are required assignments, not assumed factory defaults.',
     // OSC çıkışı (#437)
     'OSC Çıkışı': 'OSC Output', 'OSC Çıkışı Etkin': 'OSC Output Enabled',
-    'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: VJ ve görsel programlama yazılımları ya da bir ışık masası.':
-      'Send audio levels, drum hits, tempo and scene changes over OSC to other software: VJ and visual programming tools, or a lighting desk.',
+    'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.':
+      'Send audio levels, drum hits, tempo and scene changes over OSC to other software: Resolume, TouchDesigner, Max or a lighting desk.',
     'Hedef Port': 'Target Port', 'Seviye Gönderim Hızı (Hz)': 'Level Send Rate (Hz)', 'Adres Öneki': 'Address Prefix',
     'Ses Seviyeleri': 'Audio Levels', 'Davul Vuruşları': 'Drum Hits',
     'Tempo ve Vuruş Saati': 'Tempo and Beat Clock', 'Sahne ve Mod Değişimleri': 'Scene and Mode Changes',
@@ -2617,8 +2617,8 @@
     'Tam Ekran (Görev Çubuğu Dahil)': 'Full Display (Include Taskbar)',
     'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.':
       'When off, the visualizer stays outside the Windows taskbar (work area). When on, it covers the full display — including the taskbar. Only needed with a transparent background; opaque fullscreen already covers the taskbar. Applies live; windows are not recreated.',
-    'Şeffaf arkaplan açık: doku alfa kanalı ile gider. Alıcıda (ör. OBS Spout Kaynağı) ön-çarpımlı alfa / şeffaf zemin seçeneğini açın; aksi halde siyah zemin görünür.':
-      'Transparent background is on: the texture includes an alpha channel. In the receiver (for example the Spout source in OBS) enable premultiplied alpha / transparent background, otherwise you will see a black fill.',
+    'Şeffaf arkaplan açık: doku alfa kanalı ile gider. Alıcıda (OBS Spout Kaynağı, Resolume) ön-çarpımlı alfa / şeffaf zemin seçeneğini açın; aksi halde siyah zemin görünür.':
+      'Transparent background is on: the texture includes an alpha channel. In the receiver (OBS Spout Source, Resolume) enable premultiplied alpha / transparent background, otherwise you will see a black fill.',
     'Şeffaf arkaplan Spout/Syphon çıkışına uygulanmaz (GPU dokusu alfa taşımıyor). Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır; bu çıkış sahneyi opak basar.':
       'Transparent background is not applied to Spout/Syphon (the GPU texture cannot carry alpha). The local window and OBS browser source stay transparent; this output paints the scene opaque.',
     'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Yayın katmanı (OBS) ve Spout/Syphon aynı ayarı kullanır. Pencere şeffaflığı doğuşta kilitlendiği için açık görselleştirici pencereleri bu anahtarla yeniden kurulur.':
@@ -2896,26 +2896,25 @@
     'Rastgele Pay': 'Random Spread',
     'Sert Geçiş': 'Hard Cut',
     'MilkDrop 2 (ses yükselişi)': 'MilkDrop 2 (loudness jump)',
-    // Genişletilmiş preset biçimi ve sert geçiş kipleri (#567)
+    // MilkDrop 3 biçimi ve sert geçiş kipleri (#567)
     'Preset Biçimi': 'Preset Format',
     'Otomatik': 'Automatic',
-    'Genişletilmiş (16 yuva)': 'Extended (16 slots)',
-    'Genişletilmiş biçim 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa genişletilmiş biçimle okur. .milk2 çift presetleri okunuyor: iki preset dosyanın deseni ve noktasında karışık çizilir (sprite bölümleri henüz yok). Bu biçimin 8 yeni basit dalga biçimi, yeni geçişleri ve shader\'daki get_fft\'si henüz yok: hiçbir yerde tarif edilmiyorlar.':
-      'The extended format means 16 custom wave and shape slots and q1–q64; MilkDrop 2 has four slots each and q1–q32. Automatic inspects each preset as it loads and reads it in the extended format if it uses the 5th and later slots, q33–q64, or get_fft and mouse in a shader. .milk2 double presets are read: the two presets are drawn mixed with the file’s pattern and at the file’s point (sprite sections are not yet supported). The format’s 8 new simple waveforms, new transitions and get_fft in shaders are not here yet: nothing describes them.',
-    'Seçili preset genişletilmiş biçim özelliği kullanıyor': 'The selected preset uses extended-format features',
+    'MilkDrop 3 kuralları 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa MilkDrop 3 kurallarıyla okur. MilkDrop 3\'ün .milk2 çift presetleri okunuyor: iki preset dosyanın deseni ve noktasında karışık çizilir (sprite bölümleri henüz yok). 8 yeni basit dalga biçimi, yeni geçişleri ve shader\'daki get_fft henüz yok: hiçbir yerde tarif edilmiyorlar.':
+      'MilkDrop 3 rules mean 16 custom wave and shape slots and q1–q64; MilkDrop 2 has four slots each and q1–q32. Automatic inspects each preset as it loads and reads it with MilkDrop 3 rules if it uses the 5th and later slots, q33–q64, or get_fft and mouse in a shader. MilkDrop 3’s .milk2 double presets are read: the two presets are drawn mixed with the file’s pattern and at the file’s point (sprite sections are not yet supported). The 8 new simple waveforms, new transitions and get_fft in shaders are not here yet: nothing describes them.',
+    'Seçili preset MilkDrop 3 uzantısı kullanıyor': 'The selected preset uses MilkDrop 3 extensions',
     '5.–16. dalga/şekil yuvası': '5th–16th wave/shape slot',
     '5. yuva (MilkDrop 2 yok sayar)': '5th slot (MilkDrop 2 ignores it)',
     'dalga kipi 8 ve üstü (MilkDrop 2 kalanı alır)': 'wave mode 8 and above (MilkDrop 2 takes the remainder)',
     'shader\'da get_fft': 'get_fft in a shader',
     'shader\'da mouse': 'mouse in a shader',
-    'Kip 1 · bas > 1,5, en az 0,2 sn': 'Mode 1 · bass > 1.5, at least 0.2 s',
-    'Kip 2 · tiz > 2,9, en az 0,5 sn': 'Mode 2 · treble > 2.9, at least 0.5 s',
-    'Kip 3 · tiz > 2,9, en az 1 sn': 'Mode 3 · treble > 2.9, at least 1 s',
-    'Kip 4 · tiz > 2,9, en az 3 sn; tiz > 8 hemen': 'Mode 4 · treble > 2.9, at least 3 s; treble > 8 at once',
-    'Kip 5 · tiz > 2,9, en az 5 sn': 'Mode 5 · treble > 2.9, at least 5 s',
-    'Kip 6 · bas > 1,5': 'Mode 6 · bass > 1.5',
-    'Bu kiplerde bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.':
-      'In these modes, when bass or treble, each against its own long average, crosses the threshold and at least that long has passed since the last change, the next preset loads without a blend. Mode 6 loading a particular preset on very loud bass and mode 7 adding an effect are not here, as neither is described.',
+    'MilkDrop 3 · 1: bas > 1,5, en az 0,2 sn': 'MilkDrop 3 · 1: bass > 1.5, at least 0.2 s',
+    'MilkDrop 3 · 2: tiz > 2,9, en az 0,5 sn': 'MilkDrop 3 · 2: treble > 2.9, at least 0.5 s',
+    'MilkDrop 3 · 3: tiz > 2,9, en az 1 sn': 'MilkDrop 3 · 3: treble > 2.9, at least 1 s',
+    'MilkDrop 3 · 4: tiz > 2,9, en az 3 sn; tiz > 8 hemen': 'MilkDrop 3 · 4: treble > 2.9, at least 3 s; treble > 8 at once',
+    'MilkDrop 3 · 5: tiz > 2,9, en az 5 sn': 'MilkDrop 3 · 5: treble > 2.9, at least 5 s',
+    'MilkDrop 3 · 6: bas > 1,5': 'MilkDrop 3 · 6: bass > 1.5',
+    'MilkDrop 3\'ün kipleri: bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. Eşik ve gecikmeler MilkDrop 3\'ün açıklamasından. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.':
+      'MilkDrop 3’s modes: when bass or treble, each against its own long average, crosses the threshold and at least that long has passed since the last change, the next preset loads without a blend. Thresholds and delays come from MilkDrop 3’s own description. Mode 6 loading a particular preset on very loud bass and mode 7 adding an effect are not here, as neither is described.',
     'Sert Geçiş Eşiği': 'Hard Cut Threshold',
     'Eşik Toparlanması': 'Threshold Recovery',
     'Bas, orta ve tiz, her biri kendi uzun ortalamasına göre, birlikte eşiğin üç katını aşınca karışmadan yeni presete geçilir. Eşik her kesimde iki katına çıkar ve sonra tabanına döner: arka arkaya patlamalar arka arkaya kesim yapmaz. Kural ve varsayılanlar MilkDrop 2\'nin (2,5 ve 60 sn); oradaki gibi, toparlanma süresi sonunda eşiğin fazlası dörtte bire iner.':
@@ -3097,8 +3096,8 @@
     'Kaydediliyor: {a}/{b}': 'Saving: {a}/{b}',
     'Dokular: {a}/{b}': 'Textures: {a}/{b}',
     '“{label}”: {p} preset, {t} doku, {mb} MB.': '“{label}”: {p} presets, {t} textures, {mb} MB.',
-    '{n} .milk2 dosyası (çift preset) desteklenmiyor, atlanacak.':
-      '{n} .milk2 files (double presets) are not supported and will be skipped.',
+    '{n} .milk2 dosyası (MilkDrop 3 çift preseti) desteklenmiyor, atlanacak.':
+      '{n} .milk2 files (MilkDrop 3 double presets) are not supported and will be skipped.',
     '{n} dosya boyut sınırını aşıyor, atlanacak.': '{n} files exceed the size limit and will be skipped.',
     '{n} şifreli ya da desteklenmeyen ZIP girdisi atlanacak.': '{n} encrypted or unsupported ZIP entries will be skipped.',
     'Tarama yarıda kesildi: çok fazla dosya var; bulunanlar alınır.': 'The scan stopped early: too many files; what was found will be imported.',
@@ -3111,9 +3110,8 @@
     '{s} doku zaten vardı.': '{s} textures were already there.',
     '{k} doku adı var olan başka bir dokuyla çakıştı; var olan kaldı.':
       '{k} texture names clashed with a different existing texture; the existing one was kept.',
-    '{n} .milk2 dosyası atlandı (çift preset).': '{n} .milk2 files were skipped (double presets).',
+    '{n} .milk2 dosyası atlandı (MilkDrop 3 çift preseti).': '{n} .milk2 files were skipped (MilkDrop 3 double presets).',
     'Bu kaynakta MilkDrop preseti yok.': 'There are no MilkDrop presets in this source.',
-    'MilkDrop presetleri': 'MilkDrop presets',
     'ZIP okunamadı: bozuk ya da ZIP değil.': 'The ZIP could not be read: it is damaged or not a ZIP.',
     'ZIP çok fazla girdi içeriyor.': 'The ZIP has too many entries.',
     'Kaynak çok büyük (2 GB üstü).': 'The source is too large (over 2 GB).',
@@ -3138,8 +3136,8 @@
     'Küçük resim çizilemedi': 'The thumbnail could not be drawn',
     'Küçük resim, presetin ilk iki saniyesi: örnek sesle, siyah bir ekrandan başlanarak çiziliyor. Her preset bir kez çiziliyor ve saklanıyor; preset değişince yeniden çiziliyor.':
       'A thumbnail shows the first two seconds of a preset, drawn with the demo sound from a black screen. Each preset is drawn once and kept, and drawn again when it changes.',
-    'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (çift preset) dosyaları da eklenir.':
-      'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (double preset) files are added too.',
+    'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.':
+      'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double preset) files are added too.',
     'Sil': 'Delete',
     
     
@@ -4592,7 +4590,7 @@
     'Saydamlığı Koru': 'Keep Transparency',
     'Göndericinin saydamlık kanalını kullan. Görüntü hiç görünmüyorsa kapalı bırakın.': 'Use the sender\'s alpha channel. Leave it off if the picture does not show at all.',
     'Kesilince Son Kareyi Tut': 'Hold Last Frame When Lost',
-    'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (VJ ve video yazılımları, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.': 'Shows the picture of another app on this computer as a layer (VJ and video software, OBS, camera apps). It goes to the screens, the panel preview, the Spout/Syphon output and the OBS stream page. If the sender closes, the layer waits for it to come back.',
+    'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (TouchDesigner, Resolume, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.': 'Shows the picture of another app on this computer as a layer (TouchDesigner, Resolume, OBS, camera apps). It goes to the screens, the panel preview, the Spout/Syphon output and the OBS stream page. If the sender closes, the layer waits for it to come back.',
     'Web Adresi': 'Web Address',
     'Bir web adresi yazın (https://…).': 'Type a web address (https://…).',
     'Yerel adres: bu katman yalnız bu kökene erişebilir.': 'Local address: this layer can reach only this origin.',

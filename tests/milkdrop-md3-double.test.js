@@ -1,7 +1,7 @@
 'use strict';
-/* Çift preset (.milk2, #567).
+/* MilkDrop 3 çift preseti (.milk2, #567).
  *
- * Biçim gerçek .milk2 dosyalarından okundu (depoda değiller; kaynak
+ * Biçim gerçek MilkDrop 3.x dosyalarından okundu (depoda değiller; kaynak
  * ve lisans notu proje belleğinde). Buradaki örnek aynı yapıda, küçük.
  * Motor tarafı tarayıcı ister; yol kaynak düzeyinde korunuyor, davranışı
  * perf-tools/milk2probe.js uygulamada ölçüyor (2. aşama 3. karede, geçiş
@@ -15,7 +15,7 @@ const M = require('../src/shared/milkdrop.js');
 
 const P1 = 'NAME=Birinci\nMILKDROP_PRESET_VERSION=201\n[preset00]\nfDecay=0.98\nper_frame_1=zoom = 1.01;\n';
 const P2 = 'NAME=İkinci\nMILKDROP_PRESET_VERSION=201\n[preset00]\nfDecay=0.95\nper_frame_1=rot = 0.02;\n';
-const DOUBLE = 'sprite=1\nblending_pattern=side\nblending_progress=0.55\nblending_direction=-1\n' +
+const DOUBLE = 'Created with MILKDROP 3.33\n\nsprite=1\nblending_pattern=side\nblending_progress=0.55\nblending_direction=-1\n' +
   'random_1=0.25\nrandom_2=0.5\nrandom_3=0.75\nrandom_4=1\nrandom_5=0\n\n' +
   '[PRESET1_BEGIN]\n' + P1 + '[PRESET1_END]\n\n[PRESET2_BEGIN]\n' + P2 + '[PRESET2_END]\n\n' +
   '[SPRITE1_BEGIN]\nSpriteName=sprites\\a.png\n[SPRITE1_END]\n';

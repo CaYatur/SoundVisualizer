@@ -2943,7 +2943,7 @@
         icon: 'tv',
         wide: true,
         title: 'Spout / Syphon Çıkışı',
-        desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: OBS ya da bir VJ veya video yazılımı. Pencere yakalama ve eklenti gerekmez.',
+        desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: Resolume, OBS, TouchDesigner. Pencere yakalama ve eklenti gerekmez.',
         controls: [{ type: 'texturepanel' }],
       },
       {
@@ -3025,7 +3025,7 @@
         icon: 'share',
         wide: true,
         title: 'OSC Girişi',
-        desc: 'Telefon kumanda uygulamaları, müzik ve gösteri yazılımları gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
+        desc: 'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },
       {
@@ -3034,7 +3034,7 @@
         icon: 'share',
         wide: true,
         title: 'OSC Çıkışı',
-        desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: VJ ve görsel programlama yazılımları ya da bir ışık masası.',
+        desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.',
         roots: ['oscOut'],
         controls: [{ type: 'controlpanel', surface: 'oscout' }],
       },

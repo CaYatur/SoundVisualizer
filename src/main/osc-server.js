@@ -7,7 +7,7 @@
 'use strict';
 /* OSC (Open Sound Control) alıcısı — UDP.
 
-   Telefon kumandaları, müzik ve gösteri yazılımları gibi kaynaklardan gelen mesajlar dinlenir
+   TouchOSC, Resolume, Ableton, QLab gibi kaynaklardan gelen mesajlar dinlenir
    ve yönetici paneline iletilir; eşleme (hangi adres hangi ayarı sürer) orada
    uygulanır. Böylece yapılandırmanın tek bir sahibi kalır.
 

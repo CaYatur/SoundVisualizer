@@ -8,6 +8,8 @@
 /* Segment Barlar: klasik LED ekolayzır. Her sütun ayrık bloklara bölünür,
    seviye yükseldikçe bloklar sırayla yanar. Tepe bloğu bir süre asılı kalır. */
 (function () {
+  const OFF = 'rgba(255,255,255,0.06)';
+
   class BlocksMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -17,6 +19,34 @@
       this.peakVel = null;
     }
     resize() {}
+
+    /* Hücre renkleri. Tema: her (bar, blok) için ayrı renk; gökkuşağı: blok yüksekliğine göre.
+       Anahtar değişmedikçe (kip, bar ve blok sayısı, tema renkleri) aynı dizi döner. */
+    _palette(cfg, mode, count, segs) {
+      if (mode === 'custom') return null;
+      const cols = mode === 'theme' ? window.SV.resolveBackgroundColors(cfg).join(',') : '';
+      const key = mode + '|' + count + '|' + segs + '|' + cols;
+      if (this._palKey === key) return this._pal;
+      const on = [];
+      const off = [];
+      for (let s = 0; s < segs; s++) {
+        const ratio = s / (segs - 1);
+        if (mode === 'rainbow') {
+          // Yükseklikle yeşil -> sarı -> kırmızı (klasik VU renklendirmesi)
+          const hue = 130 - ratio * 130;
+          on.push(`hsl(${hue}, 90%, ${52 + ratio * 10}%)`);
+          off.push(`hsla(${hue}, 45%, 26%, 0.20)`);
+        }
+      }
+      if (mode === 'theme') {
+        for (let i = 0; i < count; i++) {
+          for (let s = 0; s < segs; s++) on.push(window.SV.sampleThemeColor(cfg, (i / count) * 0.7 + (s / (segs - 1)) * 0.3));
+        }
+      }
+      this._palKey = key;
+      this._pal = { on, off };
+      return this._pal;
+    }
 
     _ensure(n) {
       if (!this.peaks || this.peaks.length !== n) {
@@ -46,28 +76,26 @@
       const blockH = Math.max(1, segH - segGap);
       const baseY = H;
 
+      /* RENKLER ÖNBELLEKTE. Varsayılanlarla (160 bar, tema rengi) karede 160 × 40 = 6400 hücre
+         var. Eskiden her hücre için tema rengi baştan örnekleniyordu: renk listesi kopyalanıyor,
+         iki onaltılık renk ayrıştırılıyor, yeni bir dize kuruluyordu. Aynı hücrenin rengi bar
+         sayısı, blok sayısı ve tema değişmedikçe aynı: dizeler bir kez kurulup tekrar kullanılıyor.
+         Çizim sırası ve her hücrenin rengi eskisiyle birebir aynı. */
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      const pal = this._palette(cfg, colorMode, count, segs);
+
       ctx.save();
       for (let i = 0; i < count; i++) {
         const val = Math.min(1, bars[i] * (v.sensitivity || 1));
         const lit = Math.round(val * segs);
         const x = i * slot + (slot - bw) / 2;
+        const row = i * segs;
 
         for (let s = 0; s < segs; s++) {
-          const ratio = s / (segs - 1);
           const on = s < lit;
-          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
-          if (colorMode === 'theme') {
-            const themeCol = window.SV.sampleThemeColor(cfg, (i / count) * 0.7 + ratio * 0.3);
-            ctx.fillStyle = on ? themeCol : 'rgba(255,255,255,0.06)';
-          } else if (colorMode === 'rainbow') {
-            // Yükseklikle yeşil -> sarı -> kırmızı (klasik VU renklendirmesi)
-            const hue = 130 - ratio * 130;
-            ctx.fillStyle = on
-              ? `hsl(${hue}, 90%, ${52 + ratio * 10}%)`
-              : `hsla(${hue}, 45%, 26%, 0.20)`;
-          } else {
-            ctx.fillStyle = on ? v.color : 'rgba(255,255,255,0.06)';
-          }
+          if (colorMode === 'theme') ctx.fillStyle = on ? pal.on[row + s] : OFF;
+          else if (colorMode === 'rainbow') ctx.fillStyle = on ? pal.on[s] : pal.off[s];
+          else ctx.fillStyle = on ? v.color : OFF;
           const y = baseY - (s + 1) * segH + segGap * 0.5;
           ctx.fillRect(x, y, bw, blockH);
         }
@@ -83,7 +111,6 @@
         }
         const ps = Math.min(segs - 1, Math.max(0, Math.floor(this.peaks[i])));
         if (this.peaks[i] > 0.4) {
-          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
           ctx.fillStyle = (colorMode === 'rainbow' || colorMode === 'theme') ? '#ffffff' : lighten(v.color);
           const py = baseY - (ps + 1) * segH + segGap * 0.5;
           ctx.fillRect(x, py, bw, Math.max(1.5, blockH * 0.28));

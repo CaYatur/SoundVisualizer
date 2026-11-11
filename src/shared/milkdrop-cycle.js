@@ -58,8 +58,8 @@
      (modes/milkdrop.js BLEND_MAX), burada da aynı sınır. */
   const MAX_BLEND = 5;
   const HARD_CUTS = ['off', 'md2', 'md3-1', 'md3-2', 'md3-3', 'md3-4', 'md3-5', 'md3-6'];
-  /* GENİŞLETİLMİŞ BİÇİMİN SERT GEÇİŞ KİPLERİ (#567), biçimin
-     tarif edilen eşik ve en kısa gecikmesiyle: bas ya da tiz,
+  /* MİLKDROP 3'ÜN SERT GEÇİŞ KİPLERİ (#567), MilkDrop 3'ün kendi
+     açıklamasındaki (README) eşik ve en kısa gecikmeyle: bas ya da tiz,
      uzun ortalamasına göre (MilkDrop'un `bass`/`treb` değişkeni), eşiği
      aşınca ve son geçişten bu yana en az `min` saniye geçtiyse. 4'te tiz
      8'i aşarsa gecikme beklenmiyor. İki sayı tarif edilmemiş ve BİZİM
@@ -142,7 +142,7 @@
       spread: isFinite(r) && r > 0 ? Math.min(MAX_SPREAD, r) : 0,
       blend: isFinite(b) && b > 0 ? Math.min(MAX_BLEND, b) : 0,
       locked: m.locked === true,
-      /* Genişletilmiş biçimin kipleri MilkDrop 2 biçiminde yok (#567): seçili kalmışsa
+      /* MilkDrop 3'ün kipleri MilkDrop 2 biçiminde yok (#567): seçili kalmışsa
          MilkDrop 2'ninki. */
       hardCut: HARD_CUTS.indexOf(m.hardCut) < 0 ? 'off'
         : (m.format === 'md2' && MD3_CUTS[m.hardCut] ? 'md2' : m.hardCut),
@@ -231,7 +231,7 @@
       this.jitter = null;
       /* Sert geçiş eşiği. null = daha kurulmadı. */
       this.thresh = null;
-      /* Son preset değişiminden bu yana geçen süre (genişletilmiş biçimin sert geçiş
+      /* Son preset değişiminden bu yana geçen süre (MilkDrop 3'ün sert geçiş
          kiplerinin en kısa gecikmesi, #567). Başta sonsuz: ilk vuruş geçebilir. */
       this.sinceChange = Infinity;
       /* Son dönen seçim sert geçiş miydi. Motor geçiş süresini buna göre
@@ -252,7 +252,7 @@
       this.jitter = null;
       this.barCount = 0;
       this.next = null;
-      // Elle seçim de bir değişim: genişletilmiş biçim kiplerinin gecikmesi ondan sayılıyor
+      // Elle seçim de bir değişim: MilkDrop 3 kiplerinin gecikmesi ondan sayılıyor
       this.sinceChange = 0;
     }
 
