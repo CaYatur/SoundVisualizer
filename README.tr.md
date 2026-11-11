@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4421%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4425%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -914,7 +914,10 @@ olamayacağını söyleyen bir durum satırını okuyun.
 İsteğe bağlı denetleyici LED geri bildirimi ve hazır haritalar varsayılan kapalıdır. Port/kip koşulları, Korg CC sahne ayarı ve gerçek donanım testi sınırları için [denetleyici kurulumuna ve üretici protokol incelemesine](docs/midi-controllers.md) bakın.
 
 **MIDI.** Bir denetimi öğretin, sonra herhangi bir CC'yi ya da notayı herhangi bir ayara ya da eyleme
-eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil.
+eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil. Modülasyon saati
+bir MIDI saatini ya da Ableton Link oturumunu izleyebiliyor ve **temposunu MIDI saati olarak**
+(çeyrek nota başına 24 darbe, başlat ve durdur) bir MIDI çıkışına ya da hepsine **yollayabiliyor**.
+Varsayılan kapalı; dinlenen aygıt dışarıda bırakılıyor, saat geri yankılanmıyor.
 
 **OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
 için.
@@ -2084,7 +2087,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4421 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4425 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
