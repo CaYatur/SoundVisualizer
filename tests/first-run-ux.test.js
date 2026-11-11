@@ -120,3 +120,15 @@ test('T-bar karışımı tutulurken ızgarada canlı rozeti eski sahnede, gelen 
   assert.match(css, /\.sv-screen \{ mix-blend-mode: screen; \}/);
   assert.match(css, /\.sv-scell \.sv-th img\.sv-mode-img \{ position: absolute; inset: 0; \}/);
 });
+
+test('katman satırları ve faderler görselleştirici ve zeminde modun çizilmiş resmini gösteriyor', () => {
+  const ss = read('src/admin/scene-shell.js');
+  assert.match(ss, /const modeId = \(l\.kind === 'visualizer' \|\| l\.kind === 'background'\) && l\.type && !\/\^\(none\|milkdrop\|custom\)\$\/\.test\(l\.type\)/);
+  assert.match(ss, /if \(modeId && !modeThumbUrls\.has\(modeId\)\) queueRowThumb\(modeId, box\);/);
+  assert.match(ss, /api\.modeThumbs\(items\)\.then/);
+});
+
+test('İngilizce arayüz tek yazım kullanıyor: color (colour değil)', () => {
+  const src = read('src/shared/i18n.js');
+  assert.doesNotMatch(src, /colour/i, 'arayüzde 156 "color" varken 11 "colour" vardı; aynı kartta ikisi yan yana duruyordu');
+});

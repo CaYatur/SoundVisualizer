@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4399%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4401%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -400,7 +400,7 @@ stand on a baseline above the bottom edge can cast a **floor reflection** that f
 - **Fluid** — Fluid Gradient (an audio-reactive mesh gradient with flow, wander, orbit, swirl, warp,
   grain and audio hue shift) · Ink (liquid blobs that swirl as they flow) · Nebula (soft gas clouds)
   · Wave Layers (crests that swell with the audio) · Northern Lights (undulating curtains) · Lava
-  Lamp · Underwater · Colour Cloud (large, slow colour blobs: a calm ground for text) · Silk
+  Lamp · Underwater · Color Cloud (large, slow colour blobs: a calm ground for text) · Silk
 - **Geometric** — Retro Grid (a perspective grid to the horizon) · Honeycomb Grid (cells lit by a
   wave from the centre and by the spectrum) · Mosaic (a cell per frequency band) · Corridor (rings
   or polygons coming toward you) · Spiral · Pulse Rings (extra rings on bass hits) · Network
@@ -2028,7 +2028,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4399 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4401 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

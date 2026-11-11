@@ -88,6 +88,6 @@ test('timeline context: bileşik geçiş satırları İngilizcede Türkçe kalm�
   assert.strictEqual(type, 'Transition type: scene default …');
   assert.strictEqual(ease, 'Transition ease: Use scene default …');
   assert.ok(!TR_CHARS.test(type) && !TR_CHARS.test(ease));
-  assert.strictEqual(en('Rengi parçadan al'), 'Use track colour');
+  assert.strictEqual(en('Rengi parçadan al'), 'Use track color');
   assert.strictEqual(en('Kafada klip ekle'), 'Add clip at playhead');
 });
