@@ -213,7 +213,6 @@
     '8 vuruş (2 ölçü)': '8 beats (2 bars)',
     '16 vuruş (4 ölçü)': '16 beats (4 bars)',
     'Vuruşa kilitli döngü, bölümü uygulamanın temposuna göre her N vuruşta baştan başlatır; konum kaydırıcısı videoyu canlıda sarar, kaydedilmez.': 'The beat-locked loop restarts the section every N beats of the app tempo; the position slider scrubs the video live and is not saved.',
-    'Konum': 'Position',
     'Ken Burns Döngüsü': 'Ken Burns Cycle',
     'Vuruşta Nabız': 'Beat Pulse',
     'Yansıma Boyu': 'Reflection Length',
