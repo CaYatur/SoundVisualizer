@@ -5,7 +5,7 @@
  * (shared/milkdrop.js `parseMilkMd2`, `readMilk`); kapalıyken eski
  * ayrıştırıcı. Kurallar Nullsoft'un kodundan (jecassis/foo_vis_milk2
  * 5b44cea, state.cpp _GetLineByName, GetFastInt/Float/String, ReadCode,
- * CState::Import; D3D9 sürümü aynı):
+ * CState::Import; BeatDrop'un D3D9 hâli aynı):
  *  - satırın adı ilk `=`ye, boşluğa ya da satır sonuna kadar;
  *  - anahtar büyük/küçük harfe duyarlı, MilkDrop'un sırasıyla aranıyor:
  *    önce bir önceki okumanın ardındaki satır, o değilse ilk geçiş;

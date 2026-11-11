@@ -1,8 +1,7 @@
 'use strict';
 /* FLAŞ SINIRLAMA — nöbet riski taşıyan yanıp sönmeyi kesmek.
  *
- * MilkDrop'ta yok; bilinçli bir ekleme. Başka MilkDrop motorlarında da aynı
- * şeyi yıllardır açık tutuyor. Korpusta "Definitly Not For The Epileptic"
+ * MilkDrop'ta yok; bilinçli bir ekleme. Korpusta "Definitly Not For The Epileptic"
  * ve "Seizure-Inducing ... RMX" gibi adlar var; yazarları ne yaptıklarını
  * biliyor, izleyen herkes bilmiyor.
  *

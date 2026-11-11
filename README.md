@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4428%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4429%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -37,6 +37,22 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 ---
 
+<div align="center">
+
+### The Scene page
+
+<img src="docs/screenshots/showcase-scene.webp" alt="The Scene page with a demo scene: the layer list on the left (Track Info, Spectrum, MilkDrop, Night Sky), the live preview in the middle with the Hologram Globe MilkDrop preset, rainbow spectrum bars and a Now Playing card, the MilkDrop layer's settings on the right and MilkDrop preset thumbnails below" width="900" />
+
+Layers on the left, the live preview in the middle, the selected layer's settings on the right,<br />
+and presets, images, backgrounds, templates and saved scenes one click away below.
+[→ The control panel](#the-control-panel)
+
+<sub>The v4 interface, which runs [from source](#run-from-source) until its release; the installers are v3.1.7.</sub>
+
+</div>
+
+---
+
 ## At a glance
 
 <div align="center">
@@ -46,6 +62,67 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 | **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
+
+</div>
+
+---
+
+## Gallery
+
+<div align="center">
+
+| | |
+|:---:|:---:|
+| ![MilkDrop preset Aurora](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
+| ![Lorenz attractor in 3D](docs/screenshots/scene-lorenz.png) | ![Plasma](docs/screenshots/scene-plasma.png) |
+| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein bottle](docs/screenshots/scene-klein.png) |
+| ![Music video layout: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Now Playing with album art](docs/screenshots/scene-nowplaying.png) |
+
+| Hyper Tunnel | 3D attractor |
+|:---:|:---:|
+| ![Tunnel](docs/screenshots/demo-tunnel.gif) | ![Geometry](docs/screenshots/demo-geometry.gif) |
+| **Drum & Bass** | **MilkDrop feedback** |
+| ![Drum and bass template](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
+
+</div>
+
+### Classic looks
+
+The spectrum bars, waves and rings the application started with — still one click away, on
+fluid gradient backgrounds that move with the music.
+
+<div align="center">
+
+| Layered scene | Frequency bars | Circular |
+|:---:|:---:|:---:|
+| ![Rainbow centre bars around a logo on a cyan and violet gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
+| **Mirrored bars** | **Wave** | **Sunset wave** |
+| ![Mirrored bars on an ocean gradient](docs/screenshots/demo-mirror.gif) | ![Rainbow waveform on a night gradient](docs/screenshots/demo-wave.gif) | ![Warm mirrored waveform on a sunset gradient](docs/screenshots/demo-sunset.gif) |
+
+</div>
+
+> Every scene image and clip on this page is rendered by the application itself with
+> `npm start -- --shots`, driven by a synthetic 120 BPM signal. With real audio the visuals follow
+> the music instead.
+
+---
+
+## Inside the app
+
+<div align="center">
+
+<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
+<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
+
+**Live** — scenes on the F keys, Next and Live monitors and a T-bar · **Phone remote** — the same show over Wi-Fi
+
+| **Timeline** — scenes, palettes and automation on the bar | **Clip deck** — beat-quantised launching |
+|:---:|:---:|
+| [![Timeline editor with scene, broadcast and palette tracks, an automation lane and markers](docs/screenshots/panel-timeline.png)](#show-control-timeline-clip-deck-auto-vj-midi-and-osc) | [![Clip deck with named rows and columns on the Live page](docs/screenshots/panel-clipdeck.png)](#show-control-timeline-clip-deck-auto-vj-midi-and-osc) |
+| **Studio** — write your own GLSL shader | **MilkDrop editor** — change a preset while it runs |
+| [![Studio: shader code, parameters and a live preview](docs/screenshots/panel-studio.png)](#studio--write-your-own-shader) | [![MilkDrop preset editor with per-frame equations and the live preview](docs/screenshots/panel-mdedit.png)](#milkdrop) |
+| **Layout Editor** — place the broadcast frame by hand | **Recording and export** — 12 formats, one-click profiles |
+| [![Layout Editor: the preview framed as 16:9 with safe areas and the element list](docs/screenshots/panel-layout.png)](#broadcast-layout-editor) | [![Recording and export with YouTube, Shorts and Spotify Canvas profiles](docs/screenshots/panel-record.png)](#recording-and-video-export) |
 
 </div>
 
@@ -88,11 +165,6 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
   so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
 
-<div align="center">
-<img src="docs/screenshots/panel-live.png" alt="Live page: eight example scenes on F1–F8, MilkDrop Flow live, Aurora cued, and the T-bar halfway through the mix" height="330" />
-<img src="docs/screenshots/panel-remote.png" alt="Phone remote: the Live page on a phone, with blackout, scenes and tempo" height="330" />
-</div>
-
 ---
 
 ## Why CAYADEV Visualizer
@@ -102,7 +174,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   application only**, so the visuals follow Spotify and ignore the game and the voice chat.
   Per-application capture works on Linux too. [→ Audio](#audio-capture-and-analysis)
 - **Every screen, one engine.** Full-screen windows on every display you pick, a transparent
-  **OBS browser source**, **Spout / Syphon** for VJ, mapping and video software, and a
+  **OBS browser source**, **Spout / Syphon** for Resolume, TouchDesigner and MadMapper, and a
   **phone remote** — all drawing the same picture. [→ Outputs](#outputs-screens-obs-spout-and-syphon)
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
@@ -112,7 +184,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
   crossfader, 44 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
-- **Bring other apps and the web in.** A **Spout / Syphon input** puts another app, OBS
+- **Bring other apps and the web in.** A **Spout / Syphon input** puts TouchDesigner, Resolume, OBS
   or a camera app on a layer over the GPU, and a **web page layer** adds alerts, chat, a scoreboard or
   a clock — sandboxed, and on every output. [→ Media layer](#logo-images-and-the-media-layer)
 - **Built for live shows.** A **timeline** with automation lanes, a **clip deck** with beat-quantised
@@ -146,46 +218,6 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
   makes on its own is GitHub's latest-release check, and you can switch it off.
   [→ Privacy](#privacy-and-security)
-
----
-
-## Gallery
-
-<div align="center">
-
-| | |
-|:---:|:---:|
-| ![MilkDrop preset Aurora](docs/screenshots/scene-milkdrop.png) | ![Hyper Tunnel](docs/screenshots/scene-tunnel.png) |
-| ![Lorenz attractor in 3D](docs/screenshots/scene-lorenz.png) | ![Plasma](docs/screenshots/scene-plasma.png) |
-| ![Synthwave](docs/screenshots/scene-synthwave.png) | ![Klein bottle](docs/screenshots/scene-klein.png) |
-| ![Music video layout: Label Card](docs/screenshots/scene-broadcast-label.png) | ![Now Playing with album art](docs/screenshots/scene-nowplaying.png) |
-
-| Hyper Tunnel | 3D attractor |
-|:---:|:---:|
-| ![Tunnel](docs/screenshots/demo-tunnel.gif) | ![Geometry](docs/screenshots/demo-geometry.gif) |
-| **Drum & Bass** | **MilkDrop feedback** |
-| ![Drum and bass template](docs/screenshots/demo-dnb.gif) | ![MilkDrop](docs/screenshots/demo-milkdrop.gif) |
-
-</div>
-
-### Classic looks
-
-The spectrum bars, waves and rings the application started with — still one click away, on
-fluid gradient backgrounds that move with the music.
-
-<div align="center">
-
-| Layered scene | Frequency bars | Circular |
-|:---:|:---:|:---:|
-| ![Rainbow centre bars around a logo on a cyan and violet gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
-| **Mirrored bars** | **Wave** | **Sunset wave** |
-| ![Mirrored bars on an ocean gradient](docs/screenshots/demo-mirror.gif) | ![Rainbow waveform on a night gradient](docs/screenshots/demo-wave.gif) | ![Warm mirrored waveform on a sunset gradient](docs/screenshots/demo-sunset.gif) |
-
-</div>
-
-> Every scene image and clip on this page is rendered by the application itself with
-> `npm start -- --shots`, driven by a synthetic 120 BPM signal. With real audio the visuals follow
-> the music instead.
 
 ---
 
@@ -240,7 +272,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | You are… | What you get |
 |---|---|
 | **A streamer** | A transparent overlay for OBS as a browser source, a Now Playing card with album art, lyrics, a web page layer for alerts and chat, and a phone remote to change scenes mid-stream. Runs on one PC while OBS runs on another. |
-| **A VJ or live performer** | A timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI and OSC control, blackout, Spout/Syphon in and out with other VJ software, and full-screen output on every projector. |
+| **A VJ or live performer** | A timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI and OSC control, blackout, Spout/Syphon in and out with Resolume or TouchDesigner, and full-screen output on every projector. |
 | **A music producer or label** | Frame-exact video export from your track in 12 formats, one-click profiles for YouTube, Shorts and Spotify Canvas, restrained music-video layouts with your logo and the track title, a layout editor to place them, Title and End Cards, YouTube chapters and a thumbnail, and a recorder for the live output. |
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
@@ -439,15 +471,15 @@ bloom and blur glow over empty pixels without turning the window into a black re
 
 </div>
 
-A MilkDrop engine written for this application — it does not embed MilkDrop's or any other player's code.
+A MilkDrop engine written for this application — it does not embed projectM or MilkDrop's code.
 The preset language runs for real: a tokeniser, a parser and compilation to JavaScript closures;
 `per_frame` and `per_pixel` equations drive a warp mesh with feedback; the HLSL warp and composite
 shaders are translated to GLSL and run on the GPU.
 
-- **Measured, not claimed.** Over a 10,347-preset corpus from two large public
-  preset collections, every preset loads and runs, all 16,346 shader stages compile, and about
+- **Measured, not claimed.** Over a 10,347-preset corpus from the projectM original and
+  cream-of-the-crop packs, every preset loads and runs, all 16,346 shader stages compile, and about
   98% produce a live image. Fidelity is checked frame by frame against a reference renderer built
-  from MilkDrop 2's own D3D9 source. Both harnesses are in `scripts/`, so the numbers can be reproduced.
+  from BeatDrop's MilkDrop 2 sources. Both harnesses are in `scripts/`, so the numbers can be reproduced.
 - **A MilkDrop Fidelity switch** follows MilkDrop 2's own rules — its compiler, its audio chain, its
   mesh transform, its default values and its fixed-function pipeline. The details are in
   [MilkDrop engine notes](#milkdrop-engine-notes) at the end of this page.
@@ -458,15 +490,15 @@ shaders are translated to GLSL and run on the GPU.
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
   [`presets`](presets/README.md) (with a picture of each) or as the zip on each release. MilkDrop 2 originals are in
-  [`presets/original/md2/cayadev`](presets/original/md2/cayadev), extended-format originals in
+  [`presets/original/md2/cayadev`](presets/original/md2/cayadev), MilkDrop 3 originals in
   [`presets/original/md3/cayadev`](presets/original/md3/cayadev). The app embeds those originals.
   Older-compiler copies are in [`presets/compat/md/cayadev`](presets/compat/md/cayadev).
 - **Import a whole library** — from a ZIP pack, a folder, or by searching this
-  computer (Winamp, foobar2000 and other players' preset folders, Downloads, Desktop, Music, Documents). You see
+  computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
   names can become tags. A 9,795-preset folder imports in about six seconds.
-- **`.milk` and `.milk2`** — `.milk2` double presets load as a frozen blend of
-  their two presets, and a *Preset Format* setting reads files with MilkDrop 2 rules or the extended format
+- **`.milk` and `.milk2`** — MilkDrop 3's double presets load as a frozen blend of
+  their two presets, and a *Preset Format* setting reads files with MilkDrop 2 or MilkDrop 3 rules
   (16 custom waves and shapes, `q1`–`q64`), or picks automatically.
 - **Thumbnails** — a *Grid* layout shows each preset as a small picture, drawn once
   in the background and redrawn only when the preset or a texture it uses changes.
@@ -767,9 +799,11 @@ ticker · karaoke highlighting.
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
   A video file has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** of 1–16 beats
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
-  the same formula frame by frame.
+  the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
+  or bright side of the picture transparent, with threshold and softness, so the layer underneath
+  shows through.
 - **Spout / Syphon input layer** — the picture of another application on the same
-  machine (VJ or video software, OBS, a camera app) as a layer, over the GPU with no CPU copy.
+  machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
   itself. Fit, mirror, flip, keep or drop the sender's alpha, and hold the last frame when the
   sender stops. Place and size it on the card or by dragging in the Layout Editor. A sender that starts after the app, restarts, or comes back with a `_1` suffix
@@ -874,9 +908,12 @@ says what changed, what comes next, and why nothing can happen when a source is 
 Optional controller LED feedback and built-in maps are off by default. See the [controller setup and vendor protocol audit](docs/midi-controllers.md) for port/mode requirements, explicit Korg CC setup and hardware-test limitations.
 
 **MIDI.** Learn a control, then map any CC or note to any setting or action — including MilkDrop's
-next, previous, random, cut, lock and rating.
+next, previous, random, cut, lock and rating. The modulation clock can follow a MIDI clock or an
+Ableton Link session, and **send its tempo as MIDI clock** (24 pulses per quarter note, start and
+stop) to one MIDI output or all of them; it is off by default, and the device being listened to is
+left out so a clock is not echoed back.
 
-**OSC.** A UDP listener with a hand-written OSC 1.0 parser, for phone controller apps, music software and show-control software.
+**OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 
 **OSC output**. The other direction. It is off by default, sends to this computer
 until you set another target, and refuses to send to its own OSC input, which would loop. Extra
@@ -1001,8 +1038,8 @@ application serves an overlay page.
 **GPU output — Spout and Syphon.** The picture can be handed to another application on the same
 machine over the GPU: no window capture, no CPU copy.
 
-- **Spout** on Windows, **Syphon** on macOS. Receivers include OBS and VJ, mapping
-  and video software — anything that speaks either protocol.
+- **Spout** on Windows, **Syphon** on macOS. Receivers include Resolume, OBS, TouchDesigner and
+  MadMapper — anything that speaks either protocol.
 - Pick the **source name**, resolution and frame rate.
 - It renders in its own hidden window, so the feed keeps running even when no visualization window
   is open.
@@ -1288,7 +1325,7 @@ Creates and edits.
   `sv_delete_scene` removes.
 - Layers: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
   `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `sv_add_layer` with type
-  `milkdrop` adds a ready MilkDrop layer with a preset (`presetId`, or a built-in extended-format
+  `milkdrop` adds a ready MilkDrop layer with a preset (`presetId`, or a built-in MilkDrop 3
   preset); when another layer already shows the shared preset the new one is Independent.
   `sv_duplicate_layer` puts a copy with a new id right above the source, like the panel's
   Duplicate; a locked layer can be copied and the copy stays locked. A layer carries kind, type, preset, opacity, blend,
@@ -1523,13 +1560,13 @@ can run on a different computer on the same network. Spout (Windows) and Syphon 
 GPU sharing as well.
 
 **Can it load my MilkDrop presets?**
-Yes: single `.milk` files, `.milk2` double presets, ZIP packs, folders, or
+Yes: single `.milk` files, MilkDrop 3 `.milk2` double presets, ZIP packs, folders, or
 a search of your computer. Point the app at a MilkDrop `textures` folder for presets that use images.
 No third-party preset pack is bundled; five original presets are.
 
-**Is it a Winamp plugin?**
+**Is it a Winamp or projectM plugin?**
 No. It is a standalone application with its own MilkDrop-compatible engine in WebGL2. It does not
-embed MilkDrop or another player.
+embed projectM or MilkDrop.
 
 **Does it support several monitors and projectors?**
 Yes — a full-screen window on every selected display, plus projection mapping, edge blending and
@@ -1575,7 +1612,7 @@ it off restores the engine's earlier look.
 - **The preset language actually runs** — tokeniser, parser, and compilation to JavaScript
   closures. `per_frame` and `per_pixel` equations drive a real warp mesh with feedback, including
   `megabuf`/`gmegabuf`, `loop`, `while`, `exec2`/`exec3` and compound assignment.
-- **Measured against 10,347 real presets** from two large public preset collections:
+- **Measured against 10,347 real presets** from the projectM original and cream-of-the-crop packs:
   every one loads and runs, 10,344 of them with no skipped statement at all.
 - **`.milk` import**, including multi-file packs with per-file compile errors reported.
 - **Five presets of our own ship with the application.** *Kutup Işığı* (a flowing nebula),
@@ -1584,7 +1621,7 @@ it off restores the engine's earlier look.
   here, so the engine shows what it does before you import a pack of your own. They join auto
   advance like any other preset. The two pictures on this page are rendered from them.
 - **The CaYaDev MilkDrop Presets** ([`presets/original`](presets/original), CC BY 4.0) are built in next to
-  them: shader presets written from scratch, MilkDrop 2 and extended format. The folder README lists the checks each
+  them: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
   one passed; the zip on each release holds the same files.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
@@ -1751,12 +1788,12 @@ it off restores the engine's earlier look.
 - **Import a whole MilkDrop library.** *Import from ZIP Pack*, *Import from Folder* and *Search This
   Computer* in the MilkDrop panel bring in a library in one go: nested folders, the pack's
   textures, and — if you want — the pack's category folders as tags. Nothing is copied until you
-  have seen what will be added (presets, textures, MB, and what will be skipped:
-  oversized files and encrypted ZIP entries) and confirmed. Presets with the
+  have seen what will be added (presets, textures, MB, and what will be skipped: MilkDrop 3's
+  `.milk2` double presets, oversized files, encrypted ZIP entries) and confirmed. Presets with the
   same name and content are skipped, so importing a pack twice adds nothing. Textures go into the
   app's own folder and are looked up after the texture folder you chose, so a pack's
   `sampler_worms` works without choosing a folder. The search looks in the usual Winamp,
-  foobar2000 and other players' preset folders and in Downloads, Desktop, Music and Documents, wherever the
+  foobar2000 and projectM folders and in Downloads, Desktop, Music and Documents, wherever the
   system keeps them, and stops after a few seconds; a library it could not finish counting is
   scanned in full before you are asked. No preset pack ships with the app. Measured with real
   packs: a 9,795-preset folder was scanned in 1.1 s and imported in 6.2 s, and importing it again
@@ -1798,12 +1835,12 @@ it off restores the engine's earlier look.
   compiled as you type. Sliders for zoom, warp, rotation, decay and echo say when the preset's
   equations rewrite the value every frame. The original is never changed: *Save as a New Preset*
   keeps your version, and only what you changed is written — the rest of the file keeps its bytes.
-- **MilkDrop 2 rules and the extended format.** A *Preset Format* setting — Automatic, MilkDrop 2 or
-  Extended — picks the file rules a preset is read with: the extended format's 16 custom waves and shapes
-  and q1–q64, or MilkDrop 2's four and q1–q32. Automatic reads a preset in the extended format when
-  it uses those features, and the panel names them. The format's hard-cut modes 1–6 are offered
-  with their thresholds and delays. `.milk2` double presets load as a frozen blend of their two
-  presets. The format's new waveforms, new transitions and `get_fft` in shaders are not here yet: nothing
+- **MilkDrop 2 and MilkDrop 3 rules.** A *Preset Format* setting — Automatic, MilkDrop 2 or
+  MilkDrop 3 — picks whose file rules a preset is read with: MilkDrop 3's 16 custom waves and shapes
+  and q1–q64, or MilkDrop 2's four and q1–q32. Automatic reads a preset with MilkDrop 3 rules when
+  it uses those extensions, and the panel names them. MilkDrop 3's hard-cut modes 1–6 are offered
+  with its thresholds and delays. Its `.milk2` double presets load as a frozen blend of their two
+  presets. Its new waveforms, new transitions and `get_fft` in shaders are not here yet: nothing
   describes how they behave.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
@@ -2026,7 +2063,9 @@ from a synthetic signal. It never captures real audio, never opens the camera, n
 settings, and uses typed-in track details rather than whatever is playing. `--only=<name>` limits it
 to matching files (`--only=panel-` for the panel pages). The panel pages show a demo show: the eight
 example scenes, a timeline, a clip deck, an effect chain and named macros; the phone remote is
-captured from the app's own streaming server. Panel PNGs are palette-quantized with dithering
+captured from the app's own streaming server. The Scene page clip at the top (`showcase-scene.webp`)
+has a demo scene of its own and is recorded from the panel's paint stream once the preset thumbnails
+on the shelf are drawn. Panel PNGs are palette-quantized with dithering
 (about a quarter of the size, mean difference under 3 levels).
 
 ---
@@ -2041,7 +2080,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4428 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4429 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

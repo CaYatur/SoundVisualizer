@@ -97,3 +97,30 @@ test('vitrin klibi (hero.webp) demo-visualizer.gif kayıtlarıyla başlıyor', (
   }
   assert.ok(!fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'hero.gif')));
 });
+
+/* Sahne sayfası vitrini (12.11): README'de tanıtım klibinin hemen altında, uygulamanın ana sayfası
+   demo bir sahneyle. Boş raf ya da yanıp sönen bir preset README'nin en üstüne çıkmasın. */
+test('Sahne sayfası vitrini: iki README de gösteriyor, çekim boş rafı ve aygıt adını beklemiyor', () => {
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'showcase-scene.webp')));
+  for (const f of ['README.md', 'README.tr.md']) {
+    const md = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    const hero = md.indexOf('docs/screenshots/hero.webp');
+    const show = md.indexOf('<img src="docs/screenshots/showcase-scene.webp"');
+    assert.ok(hero > 0 && show > hero, f + ': vitrin tanıtım klibinin altında');
+    assert.ok(show < md.indexOf('\n## '), f + ': vitrin ilk bölümden önce');
+  }
+  // Panel bloğu yalnız vitrin istendiğinde de çalışıyor (--only=showcase boş dönmesin)
+  assert.match(SRC, /want\('panel-remote\.png'\) \|\| want\(SHOWCASE_NAME\)\)\)/);
+  // Raftaki küçük resimler yüklenmeden ve aygıt adı denetlenmeden kare yok
+  const at = SRC.indexOf('if (want(SHOWCASE_NAME)) {');
+  const body = SRC.slice(at, SRC.indexOf('/* Şovda sahneler de olsun:', at));
+  assert.ok(at > 0 && body.length > 0, 'vitrin çekimi bulunamadı');
+  assert.match(body, /if \(!ready\) throw new Error/);
+  assert.ok(body.indexOf('await assertNoDevice(adminWin)') < body.indexOf('beginFrameSubscription'), 'aygıt denetimi kareden önce');
+  assert.ok(body.lastIndexOf('await assertNoDevice(adminWin)') > body.indexOf('beginFrameSubscription'), 'aygıt denetimi kareden sonra da');
+  assert.match(body, /awc\.send\('external-config', Object\.assign\(\{\}, realCfg, SHOW\)\);/);
+  // Seçilen preset yanıp sönen türden değil
+  const id = /const SHOWCASE_MD = MD_PRESETS\.find\(\(x\) => x\.id === '([a-z_]+)'\)/.exec(SRC);
+  assert.ok(id, 'vitrin preseti yok');
+  assert.ok(!/strobe|flash|glitch/.test(id[1]), id[1]);
+});

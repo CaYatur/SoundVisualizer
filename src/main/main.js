@@ -12594,6 +12594,11 @@ async function runShots() {
   fs.mkdirSync(shotsDir, { recursive: true });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  const assertNoDevice = async (win) => {
+    const text = await win.webContents.executeJavaScript('document.body.innerText').catch(() => '');
+    const leak = realDevices.find((n) => text.includes(n));
+    if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
+  };
   const save = async (win, name) => {
     /* capturePage son SUNULAN kareyi verir. İki rAF bekleyip taze kareyi
        zorluyoruz; pencere örtülüyse rAF hiç çalışmayacağı için zamanlayıcıyla
@@ -12604,9 +12609,7 @@ async function runShots() {
           'requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(d);r();});});})'
       );
     } catch (e) { /* pencere kapanmış olabilir */ }
-    const text = await win.webContents.executeJavaScript('document.body.innerText').catch(() => '');
-    const leak = realDevices.find((n) => text.includes(n));
-    if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
+    await assertNoDevice(win);
     const img = await win.webContents.capturePage();
     let png = img.toPNG();
     /* Panel görüntüleri paletle (libimagequant, dither'lı). Canlı önizlemeden beslenen ortam ışığı
@@ -12716,6 +12719,18 @@ async function runShots() {
 
   const want = (name) => !SHOTS_ONLY || String(name).toLowerCase().includes(SHOTS_ONLY);
 
+  /* Çalan Parça katmanı, kartlar ve vitrin: elle yazılan kaynak ve üretilmiş bir
+     kapak. Sistem kaynağı KULLANILMAZ — o an bilgisayarda ne çalıyorsa (kullanıcının kendi
+     müziği) README'ye girerdi. */
+  const SHOT_COVER = 'data:image/svg+xml;base64,' + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d95"/>' +
+    '<stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
+    '<rect width="512" height="512" fill="url(#g)"/>' +
+    '<circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="10"/>' +
+    '<circle cx="256" cy="256" r="96" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="6"/>' +
+    '<circle cx="256" cy="256" r="18" fill="#fff"/></svg>'
+  ).toString('base64');
   /* Gösterilmelik şov: boş bir zaman çizelgesi ya da klip destesi kartın ne
      yaptığını anlatmıyor. Panele kaydedilmeyen bir yapılandırma veriliyor
      (`external-config`, MCP ve telefonun yolu); ayarlar yukarıda donduruldu,
@@ -12800,6 +12815,35 @@ async function runShots() {
       }],
     },
   };
+  /* VİTRİN (README'nin başı, 12.11): uygulamanın ana sayfası olan Sahne sayfası, demo bir
+     sahneyle ve hareket hâlinde. Şovun önizlemesi panel kartları için dolu ama kalabalık (üç
+     görsel üst üste); burada tek bir CaYaDev MilkDrop preseti, gece göğü, gökkuşağı barlar ve
+     kapaklı Çalan Parça kartı. Klip sayfanın en üstünde döndüğü için yanıp sönen bir preset
+     seçilmiyor (vitrin klibinin kuralı). Ayrı yapılandırma; çekimden sonra şov geri veriliyor. */
+  const SHOWCASE_NAME = 'showcase-scene.webp';
+  const SHOWCASE_MD = MD_PRESETS.find((x) => x.id === 'md_caya_hologram_globe') || MD_PRESETS[0];
+  const SHOWCASE = {
+    layerStack: { enabled: true },
+    layers: [
+      { id: 'ly_sc_bg', name: 'Night Sky', kind: 'background', type: 'nightsky', enabled: true, settings: {} },
+      { id: 'ly_sc_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop', enabled: true, blend: 'screen', opacity: 1, settings: {} },
+      { id: 'ly_sc_bars', name: 'Spectrum', kind: 'visualizer', type: 'bars', enabled: true, blend: 'screen', opacity: 0.9,
+        settings: { visualizer: { position: 'bottom', colorMode: 'rainbow', rainbow: true, barCount: 72, gap: 0.3, cap: true, glow: 0.5 } } },
+      { id: 'ly_sc_np', name: 'Track Info', kind: 'nowplaying', type: 'nowplaying', enabled: true, settings: { nowplaying: {
+        source: 'manual', style: 'modern', coverOverlay: true, coverSource: 'manual', coverSide: 'left',
+        coverSize: 0.24, coverGap: 0.14, coverRadius: 0.08, mode: 'always', animation: 'none',
+        align: 'left', x: 0.17, y: 0.13, size: 0.045,
+        manual: { title: 'Midnight Signal', artist: 'CAYADEV & Aurora', album: 'Night Drive', duration: 214, artwork: SHOT_COVER },
+        show: { title: true, artist: true, album: false, total: false },
+      } } },
+    ],
+    visualizer: { type: 'milkdrop' },
+    postfx: [
+      { id: 'fx_sc_bloom', type: 'bloom', enabled: true, opacity: 1, params: { threshold: 0.45, intensity: 1.1, radius: 3 } },
+      { id: 'fx_sc_vignette', type: 'vignette', enabled: true, opacity: 1, params: { amount: 0.3 } },
+    ],
+    milkdrop: { presetId: SHOWCASE_MD.id, name: SHOWCASE_MD.name, source: SHOWCASE_MD.source },
+  };
   /* Panel görüntüleri, hepsi şov yapılandırmasında. [sayfa, dosya, görünmesi gereken öğe,
      hazırlık]. Sayfanın düzeni değişince eski adres sessizce başka bir ekranı kaydederdi:
      öğe yoksa görüntü YAZILMAZ ve koşu başarısız biter. MCP kartı bilerek yok: açıkken kurulum
@@ -12838,7 +12882,7 @@ async function runShots() {
     ].join(''), 'wait:7000'],
   ];
   const missing = [];
-  if (adminWin && !adminWin.isDestroyed() && (PANELS.some((p) => want(p[1])) || want('panel-remote.png'))) {
+  if (adminWin && !adminWin.isDestroyed() && (PANELS.some((p) => want(p[1])) || want('panel-remote.png') || want(SHOWCASE_NAME))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
     /* Panel görüntüleri boyunca da sentetik ses: üreticide gerçek yakalama kapalı, önizleme demo
@@ -12849,6 +12893,74 @@ async function runShots() {
       if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('native-audio', makeFrame((Date.now() - pt0) / 1000));
     }, 25);
     await wait(1500);
+    if (want(SHOWCASE_NAME)) {
+      let sharp = null;
+      try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, atlandı: ' + SHOWCASE_NAME); }
+      if (sharp) {
+        try {
+          awc.send('external-config', Object.assign({}, realCfg, SHOWCASE));
+          await wait(1500);
+          await awc.executeJavaScript("window.SVPanel.setCategory('scene')");
+          await wait(900);
+          await awc.executeJavaScript(`(function(){${SHELL}.select('ly_sc_md');${SHELL}.setShelf('milkdrop')})()`);
+          /* Raftaki küçük resimler arka planda çiziliyor; yeni bir profilde ilk koşu birkaç
+             dakika sürebilir. Boş kutularla klip yazılmaz. */
+          let ready = false;
+          for (let k = 0; k < 480 && !ready; k++) {
+            await wait(500);
+            ready = await awc.executeJavaScript(
+              "(function(){var b=[].slice.call(document.querySelectorAll('.md-grid .md-thumb-box img')).slice(0,12);" +
+                'return b.length>=8&&b.every(function(i){return i.complete&&i.naturalWidth>0;});})()'
+            ).catch(() => false);
+          }
+          if (!ready) throw new Error('raftaki küçük resimler çizilmedi');
+          await wait(3000);
+          await assertNoDevice(adminWin);
+          /* Kareler boyama aboneliğinden: capturePage bu pencerede kare başına ~360 ms sürüyordu
+             (klip saniyede 3 kare). Abonelik ham BGRA bitmap veriyor; PNG'ye çeviri çekimden sonra.
+             Kare süreleri gerçek aralıklar, klip gerçek hızında oynuyor. */
+          const raw = await new Promise((resolve) => {
+            const wc = adminWin.webContents;
+            const got = [];
+            let last = 0;
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              try { wc.endFrameSubscription(); } catch (e) { /* kapanmış */ }
+              resolve(got);
+            };
+            wc.beginFrameSubscription(false, (image) => {
+              const now = Date.now();
+              if (done || now - last < 75) return;
+              last = now;
+              const sz = image.getSize();
+              got.push({ buf: Buffer.from(image.toBitmap()), w: sz.width, h: sz.height, t: now });
+              if (got.length >= 56) finish();
+            });
+            setTimeout(finish, 20000);
+          });
+          await assertNoDevice(adminWin);
+          const frames = raw.filter((f) => raw.length && f.w === raw[0].w && f.h === raw[0].h);
+          if (frames.length < 24) throw new Error('kare aboneliği az kare verdi: ' + frames.length);
+          const bufs = [];
+          for (const f of frames) {
+            for (let i = 0; i < f.buf.length; i += 4) { const b = f.buf[i]; f.buf[i] = f.buf[i + 2]; f.buf[i + 2] = b; }
+            bufs.push(await sharp(f.buf, { raw: { width: f.w, height: f.h, channels: 4 } }).png().toBuffer());
+          }
+          const delays = frames.map((f, i) => (i + 1 < frames.length ? frames[i + 1].t - f.t : 80));
+          await sharp(bufs, { join: { animated: true } })
+            .webp({ loop: 0, delay: delays, quality: 90, effort: 6, smartSubsample: true })
+            .toFile(path.join(shotsDir, SHOWCASE_NAME));
+          console.log('[SHOTS] saved ' + SHOWCASE_NAME + ' (' + bufs.length + ' kare, ' +
+            Math.round((frames[frames.length - 1].t - frames[0].t) / Math.max(1, frames.length - 1)) + ' ms)');
+        } catch (e) {
+          missing.push(SHOWCASE_NAME + ': ' + (e && e.message));
+        }
+        awc.send('external-config', Object.assign({}, realCfg, SHOW));
+        await wait(1500);
+      }
+    }
     /* Şovda sahneler de olsun: ilk açılıştaki "Örnek sahneleri ekle" düğmesinin kurduğu sekiz sahne.
        Zaman sayfasının Sahneler listesi ve raftaki Sahne sekmesi boş görünmesin. Düğmenin bildirimi
        ilk görüntüye girmesin diye gizlenir. */
@@ -13024,18 +13136,6 @@ async function runShots() {
   /* Kart şablonları parça bilgisini ve kapağı "Çalan Parça" katmanından
      çiziyor; katman sistemden okuyor ve üretim sırasında çalan parça yok.
      Görüntü için katmanlar elle yazılan parçaya ve kapağa çevrilir. */
-  /* Çalan Parça katmanı ve kartlar: elle yazılan kaynak ve üretilmiş bir
-     kapak. Sistem kaynağı KULLANILMAZ — o an bilgisayarda ne çalıyorsa (kullanıcının kendi
-     müziği) README'ye girerdi. */
-  const SHOT_COVER = 'data:image/svg+xml;base64,' + Buffer.from(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d95"/>' +
-    '<stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
-    '<rect width="512" height="512" fill="url(#g)"/>' +
-    '<circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="10"/>' +
-    '<circle cx="256" cy="256" r="96" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="6"/>' +
-    '<circle cx="256" cy="256" r="18" fill="#fff"/></svg>'
-  ).toString('base64');
   const NP_TRACK = { title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA', album: '', artwork: SHOT_COVER };
   /* Cover Ring kapağı logo katmanından alıyor: genel `nowplaying.manual`
      kapağı da yazılır, logo katmanı onu parça resmi olarak gösterir. */

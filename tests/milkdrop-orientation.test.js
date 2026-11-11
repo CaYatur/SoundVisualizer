@@ -3,7 +3,7 @@
  *
  * MilkDrop 2 Direct3D'de çiziyor: dokunun satır 0'ı görüntünün ÜSTÜ. Motor
  * GL düzeninde (satır 0 altta) tutuyordu. Kaynağa bakarak çözülemedi;
- * MilkDrop 2'nin D3D9 kaynağından (BSD-3) derlenen MilkDrop 2
+ * BeatDrop'tan (mvsoft74/BeatDrop 53d83ee, BSD-3) derlenen MilkDrop 2
  * referans çizicisiyle aynı preset, aynı ses, aynı kare karşılaştırıldı
  * (araç depoda değil, milkdrop-tools/mdref). Ölçülen:
  *   - per_pixel hareketi (x, y, dx, dy) iki motorda aynıydı;

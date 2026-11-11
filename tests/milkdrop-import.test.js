@@ -51,8 +51,8 @@ const LAYOUT = {
   'Dans/Flexi - C.jpg': 'ÖNİZLEME', // gevşek, hiçbir preset istemiyor: doku değil
   'Dans/worms.jpg': 'SOLUCAN', // gevşek, A istiyor: doku
   'textures/clouds.png': 'BULUT', // doku klasörü: hep
-  'sprites/logo.png': 'LOGO', // genişletilmiş biçimde sprites da doku klasörü
-  // çift preset (.milk2, #567): artık preset olarak ekleniyor
+  'sprites/logo.png': 'LOGO', // MilkDrop 3'te sprites da doku klasörü
+  // MilkDrop 3 çift preseti (#567): artık preset olarak ekleniyor
   'cift.milk2': 'blending_pattern=plasma\nblending_progress=0.5\n[PRESET1_BEGIN]\n' + MILK_A + '[PRESET1_END]\n[PRESET2_BEGIN]\n' + MILK_B + '[PRESET2_END]\n',
   'buyuk.milk': 'x'.repeat(I.PRESET_MAX_BYTES + 1),
   'node_modules/gizli.milk': MILK_B,
@@ -249,10 +249,10 @@ test('makinede arama: bilinen yer, kullanıcı klasörleri, ZIP; boş olan liste
   fs.writeFileSync(path.join(home, 'Downloads', 'bozuk.zip'), 'ZIP değil');
   const r = await I.discover({ platform: 'linux', home });
   assert.strictEqual(r.complete, true, 'bütün adaylara bakıldı');
-  // Yalnız bu testin ev klasörü: CI makinesinde başka bir oynatıcı kurulu olsa da sonuç değişmesin
+  // Yalnız bu testin ev klasörü: CI makinesinde projectM kurulu olsa da sonuç değişmesin
   const rows = r.libraries.filter((p) => path.resolve(p.source).indexOf(path.resolve(home)) === 0)
     .map((p) => [p.label, p.kind, p.presets.length, !!p.searchCut]);
-  assert.deepStrictEqual(rows.sort(), [['MilkDrop presetleri', 'folder', 1, false], ['cream-master', 'folder', 1, false], ['paket.zip', 'zip', 1, false]]);
+  assert.deepStrictEqual(rows.sort(), [['cream-master', 'folder', 1, false], ['paket.zip', 'zip', 1, false], ['projectM', 'folder', 1, false]]);
   // Bütçe biterse yarıda kalıyor ve bunu söylüyor
   const cut = await I.scanFolder(path.join(home, 'Downloads'), { budget: { files: 2, deadline: Infinity } });
   assert.strictEqual(cut.complete, false);
@@ -268,7 +268,7 @@ test('makinede arama: genişlik öncelikli — dev bir komşu küçük paketi gi
   const extra = tmpDir();
   put(extra, 'deneme/C - D.milk', MILK_C);
   /* Sistem klasörü adayı yok (Program Files verilmedi): CI makinesinde
-     başka bir oynatıcı kurulu olsa bile bütçeden yemesin, sonuç makineye bağlı olmasın */
+     projectM kurulu olsa bile bütçeden yemesin, sonuç makineye bağlı olmasın */
   const r = await I.discover({ platform: 'win32', home }, { maxFiles: 100, roots: [extra] });
   const labels = r.libraries.map((p) => p.label);
   assert.deepStrictEqual(labels, ['deneme', 'zzz-paket'], 'açıkça verilen kök önce, komşusunun dibine inilmeden bulundu');

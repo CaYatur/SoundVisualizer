@@ -518,7 +518,7 @@
        duruyor, çünkü korpus dışında bir preset 2B sampler geçirirse eskiden
        derlenen shader birden derlenmez olurdu. */
     /* Dört köşe renginin çift doğrusal karışımı, MilkDrop'un ağırlıklarıyla
-       (milkdropfs.cpp:4146-4160; D3D9 sürümü aynı): köşe 0 x·y,
+       (milkdropfs.cpp:4146-4160; BeatDrop'un D3D9 hâli aynı): köşe 0 x·y,
        1 (1−x)·y, 2 x·(1−y), 3 (1−x)·(1−y). x ve y birleştirme ağının
        EKRAN konumundan geliyor ve y ekranın ÜSTÜNDE 1 — ağ `sy`yi üst
        satırda +1 kuruyor (plugin.cpp:1475-1490) — yani 0 üst-sağ, 1 üst-sol,
