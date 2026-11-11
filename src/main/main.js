@@ -3327,6 +3327,14 @@ ipcMain.on('tbar', (e, m) => {
   if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'tbar', m: msg }, 'overlay');
 });
 
+/* Video sarma (#905): paneldeki konum kaydırıcısı. Ayara yazılmaz; her çıkış penceresine. */
+ipcMain.on('media-scrub', (e, m) => {
+  if (!m || typeof m !== 'object') return;
+  const frac = Math.max(0, Math.min(1, Number(m.frac) || 0));
+  const layerId = typeof m.layerId === 'string' ? m.layerId.slice(0, 64) : '';
+  sendToVisualizers('media-scrub', { layerId, frac });
+});
+
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);

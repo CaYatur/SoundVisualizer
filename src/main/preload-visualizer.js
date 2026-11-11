@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('api', {
      karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
   onMomentaryFx: (cb) => ipcRenderer.on('momentary-fx', (e, list) => cb(list)),
+  onMediaScrub: (cb) => ipcRenderer.on('media-scrub', (e, m) => cb(m)),
   // T-bar (#905): Canlı sayfasındaki çubuk sahne geçişini elle sürüyor
   onTbar: (cb) => ipcRenderer.on('tbar', (e, m) => cb(m)),
   // Yedeklilik (#544): iki makinede ortak oturum saati (modülasyon evresi)

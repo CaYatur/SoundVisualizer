@@ -1977,6 +1977,16 @@
       };
     }
 
+    /* Panelden video sarma (#905): katmanın oynatıcısı (yoksa hepsi) verilen orana. */
+    scrubMedia(layerId, frac) {
+      if (!this._mediaPool) return;
+      const key = layerId && this._mediaByLayer ? this._mediaByLayer.get(layerId) : null;
+      for (const [k, inst] of this._mediaPool) {
+        if (key && k !== key) continue;
+        if (inst && inst.scrub) inst.scrub(frac);
+      }
+    }
+
     endTransition() {
       if (!this.trans) return;
       const out = this.trans.stack;

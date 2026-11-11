@@ -1270,6 +1270,11 @@
       kenBurns: 0, // yavaş yakınlaşma ve kayma 0..1 (#841); 0 = kapalı
       kenBurnsPeriod: 20, // bir döngü, saniye
       beatPulse: 0, // vuruşta kısa yakınlaşma 0..1 (#841)
+      // Video taşıma (#905): hız, bölge (sn; 0 = baş/son) ve vuruşa kilitli döngü (vuruş; 0 = kapalı)
+      speed: 1,
+      inPoint: 0,
+      outPoint: 0,
+      loopBeats: 0,
     },
 
     // ------------------------------------------------------------------
