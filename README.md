@@ -53,6 +53,9 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 ## New in v4
 
+> **v4 is not released yet.** Everything below is on `main` and runs [from source](#run-from-source)
+> today; the installers under [Download](#download) are the latest release (v3.1.7) until v4 ships.
+
 - **A Live page built like a vision mixer.** A scene grid with banks and F-keys, Cued and Live
   monitors, and a **T-bar**: drag it to mix the next scene in by hand, stop halfway to hold a blend
   of two scenes for as long as you like, pull it back to undo the change without restarting
@@ -184,6 +187,8 @@ fluid gradient backgrounds that move with the music.
 ### Download
 
 Get the latest build from **[Releases](https://github.com/CaYatur/SoundVisualizer/releases/latest)**.
+The newest release is v3.1.7; the [v4 features](#new-in-v4) arrive with the next release or can be
+[run from source](#run-from-source) now.
 
 | Platform | File | Notes |
 |---|---|---|

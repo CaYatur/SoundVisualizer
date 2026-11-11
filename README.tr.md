@@ -54,6 +54,10 @@ kontrolü**.
 
 ## v4'te yeni
 
+> **v4 henüz yayınlanmadı.** Aşağıdakilerin hepsi `main` dalında ve bugün
+> [kaynaktan](#kaynaktan-çalıştırma) çalışıyor; [Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest) sayfasındaki kurulum dosyaları v4 çıkana
+> dek son sürüm olan v3.1.7.
+
 - **Görüntü mikseri gibi kurulmuş bir Canlı sayfası.** Bankalı ve F tuşlu sahne ızgarası, Sırada
   ve Canlı ekranları ve bir **T-bar**: çekerek sıradaki sahneyi elle karıştırın, yarıda bırakıp iki
   sahnenin karışımını istediğiniz kadar tutun, başa döndürüp hiçbir şeyi baştan başlatmadan
@@ -184,6 +188,8 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 ### İndir
 
 Son derlemeyi **[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest)** sayfasından alın.
+En yeni sürüm v3.1.7; [v4'teki yenilikler](#v4te-yeni) bir sonraki sürümle geliyor, şimdiden
+[kaynaktan](#kaynaktan-çalıştırma) çalıştırılabiliyor.
 
 | Platform | Dosya | Not |
 |---|---|---|
