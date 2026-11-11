@@ -13007,13 +13007,28 @@ async function runShots() {
      sınırlı palet ve hafif titreme. MilkDrop sahnesi kendi presetimizle.
      Çakar ışık (club-strobe) bilerek yok: sayfanın en üstünde yanıp sönen
      bir görüntü ışığa duyarlı okuyucuya zarar verebilir. */
+  /* v4 vitrini (#905): en yeni CaYaDev MilkDrop presetleri, çok geçişli Studio zemini (Mürekkep
+     Akışı) üstünde yeni bir mod, yeni Korona, sonra 3B, synthwave ve yayın kartı. Üçüncü öğe
+     bekleme süresi: mürekkep birikerek doluyor. */
+  const mdOver = (name) => {
+    const p = MD_PRESETS.find((x) => x.name === name) || MD_PRESETS[0];
+    return { milkdrop: { presetId: p.id, name: p.name, source: p.source } };
+  };
+  const heroLayers = (bg, vis, extra) => Object.assign({
+    layerStack: { enabled: true },
+    layers: [
+      { id: 'ly_hero_bg', name: 'Background', kind: 'background', type: bg, enabled: true, opacity: 1, blend: 'normal', settings: {} },
+      { id: 'ly_hero_vis', name: 'Visualizer', kind: 'visualizer', type: vis, enabled: true, opacity: 1, blend: 'normal', settings: {} },
+    ],
+  }, extra || {});
   const HERO = [
-    ['club-milkdrop', { milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source } }],
-    ['club-tunnel'],
+    ['club-milkdrop', mdOver('Hologram Globe')],
+    ['club-milkdrop', heroLayers('custom', 'liquidspectrum', { custom: { backgroundId: 'sh_ink_flow' } }), 3200],
+    ['club-milkdrop', mdOver('Stained Glass')],
+    ['club-milkdrop', heroLayers('nightsky', 'corona')],
     ['geo-lorenz'],
-    ['bc-label', NOW_PLAYING],
     ['gen-synthwave'],
-    ['gen-dnb'],
+    ['bc-label', NOW_PLAYING],
   ];
   /* Klibin başı kullanıcının kendi kaydı (demo-visualizer.gif, 10.10):
      degrade üzerinde logolu gökkuşağı barlar. Uygulamadan üretilmiyor, elle
@@ -13039,9 +13054,9 @@ async function runShots() {
           bufs.push(await sharp(HERO_LEAD, { page: i }).resize(800, 450, { fit: 'cover' }).png().toBuffer());
         }
       }
-      for (const [id, over] of HERO) {
+      for (const [id, over, settle] of HERO) {
         if (!(await applyTemplate(id, over, postFor(over)))) continue;
-        await wait(1500);
+        await wait(settle || 1500);
         for (let k = 0; k < 14; k++) {
           const img = await vw.webContents.capturePage();
           bufs.push(await sharp(img.toPNG()).resize(800).png().toBuffer());

@@ -3869,6 +3869,28 @@ What changed from the plan:
 - **Stage 4 and 5 are partly done.** See the v4 notes in #905 for what ran on real hardware. macOS has not
   been run at all.
 
+### Added in November (#994 onward)
+
+Closing gaps against other VJ and music-visualizer software, and the slowdowns reported in daily use. Every row was
+measured in the real application; the numbers are from the development machine.
+
+| Area | What | Measured |
+|---|---|---|
+| Live | T-bar on the Live page: hand-mixed scene transition, held blend, undo by pulling back; `show/tbar` for OSC / Companion | Output colour followed the bar: 30 % → 184/0/71, 70 % → 76/1/181, back to start → first scene unchanged |
+| Live | Scenes with the same layers now transition (manual scene changes counted) | Previously a cut |
+| Studio | Multi-pass shaders (buffers A–D), ISF `PASSES` imported as passes, Ink Flow | Golden: 83/83 templates unchanged |
+| Media | Video speed, in/out points, beat-locked loop, live scrub | 2× → +0.51 s per 250 ms; 4-beat loop at 120 BPM restarts every 2 s |
+| Remote | Phone remote rebuilt in the panel's design; protocol documented (`docs/REMOTE-PROTOCOL.md`) | LAN with a required token: page 401 without, 200 with; commands applied |
+| Performance | Adaptive resolution | Eight-layer scene, 2560×1600, 75 Hz: 56.4 → 72.4 fps |
+| Performance | Panel stalls while editing removed | Slider drag 33.6 → 59.6 fps, opacity drag 37 → 74 fps, layer clicks 52 → 64 fps |
+| Performance | MilkDrop no longer dims at a resolution step (flash limiter's previous frame carried) | 68 → 10…75 before, 73.3 → 73.7 after |
+| Performance | Galaxy colours per ring | 3.0 → 0.41 ms per frame at 1080p |
+| Content | 10 visualizer modes, 8 backgrounds, 4 MilkDrop presets; mode previews no longer empty | — |
+
+Not taken, on purpose: NDI (licence decision), a central preset store (the app contacts no server), WebGPU (a
+rewrite for no visible gain) and a continuously rendered Cued monitor (a second engine on the same GPU takes
+frames from the live output). See "Not done, and why".
+
 ### What the review found
 
 - **Electron is not the main cost.** Pure GPU work ran at the same speed in a native D3D11 test and in

@@ -224,6 +224,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   existing attempts. Where the old arguments pass, they are kept. H.265 is unchanged, because on that
   machine `hevc_qsv` with low power failed and VA-API already works.
 
+### Documentation
+
+- **README: a "New in v4" section** (English and Turkish) with the Live page and T-bar, the phone remote, multi-pass shaders, video transport, adaptive resolution and the editing-speed work, each with its measurement. Corrected counts that had drifted from the code: 44 GPU effects (the effect list and two summaries said 40 and 42; Flash, Strobe, Tonemap and 3D LUT were missing from the list), 43 built-in shaders, 106 MCP tools (the table said 104). Quick start now names the panel as it is: **Library → Preset** and **Output → Streaming Output (OBS / Web)**. Adaptive resolution, which the README did not mention, is described under power and performance.
+- **A new showreel at the top** (`hero.webp`, 3.8 MB instead of 5.1 MB): the two newest CaYaDev MilkDrop presets, the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, the Lorenz attractor, synthwave and a broadcast card, after your own recording.
+- **ROADMAP** records what was added in November, with measurements, and what was deliberately not taken.
+
 ## v3.1.7 — 2026-11-03
 
 ### Performance
