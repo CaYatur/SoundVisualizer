@@ -3316,6 +3316,16 @@ ipcMain.on('momentary-fx', (e, list) => {
   sendToVisualizers('momentary-fx', held);
   if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'momentary-fx', list: held }, 'overlay');
 });
+/* T-bar (#905): elle sürülen sahne geçişi. Ayara ve kayda yazılmaz; sahnenin kendisi her
+   zamanki yapılandırma yoluyla gidiyor, bu ileti yalnız geçişin ilerlemesini taşıyor. Sıra
+   korunuyor: kurulum, sahneden önce her pencereye ulaşıyor. */
+const TBAR_PHASES = new Set(['arm', 'move', 'end', 'cancel']);
+ipcMain.on('tbar', (e, m) => {
+  if (!m || !TBAR_PHASES.has(m.phase)) return;
+  const msg = { phase: m.phase, p: Math.max(0, Math.min(1, Number(m.p) || 0)) };
+  sendToVisualizers('tbar', msg);
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'tbar', m: msg }, 'overlay');
+});
 
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;

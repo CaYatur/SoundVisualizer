@@ -111,6 +111,7 @@ that does not exist is dropped. Values are clamped to the same ranges as the pan
 | `show/palette` | `["theme" \| "solid" \| "rainbow"]` | Background colour mode |
 | `show/brightness` | `[number]` | Background brightness |
 | `show/transition` | `["<id>"]` | Scene transition type |
+| `show/tbar` | `[0–1]` | T-bar position. The bar rests at one end; moving it towards the other end mixes in the cued scene, reaching that end puts it live, coming back to the resting end undoes the change. Ignored until the controller has been at the resting end once |
 | `crossfade` | `[0–1]` | A/B crossfade |
 | `scene` | `["<name>"]` | Applies a scene by name |
 | `visualizer` | `["<id>"]` | Visualizer mode |

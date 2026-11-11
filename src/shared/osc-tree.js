@@ -212,6 +212,12 @@ function match(parts, args, cfg, opt) {
     if (v == null) return null;
     return { kind: 'set', path: 'autovj.enabled', value: v };
   }
+  if (key === 'show/tbar') {
+    // Canlı sayfasının T-bar'ı: mutlak konum (src/admin/live-shell.js tbarTo)
+    const n = finite(args[0]);
+    if (n == null) return null;
+    return { kind: 'op', op: 'tbar', value: clamp(n, 0, 1) };
+  }
   if (key === 'crossfade') {
     const n = finite(args[0]);
     if (n == null) return null;
@@ -358,6 +364,7 @@ function leaves(cfg, opt) {
   add('show/opacity', leaf(pre + '/show/opacity', 'f', 3, clamp(master, 0, 1), [{ MIN: 0, MAX: 1 }], 'Master opacity'));
   add('show/transition', leaf(pre + '/show/transition', 's', 3, getPath(cfg, 'transition.type') || '', null, 'Transition id'));
   add('show/autovj', leaf(pre + '/show/autovj', 'i', 3, cfg && cfg.autovj && cfg.autovj.enabled ? 1 : 0, [{ MIN: 0, MAX: 1 }], 'Auto VJ'));
+  add('show/tbar', leaf(pre + '/show/tbar', 'f', 2, undefined, [{ MIN: 0, MAX: 1 }], 'T-bar position'));
   add('crossfade', leaf(pre + '/crossfade', 'f', 3, cfg && cfg.crossfade && Number.isFinite(cfg.crossfade.value) ? cfg.crossfade.value : 0, [{ MIN: 0, MAX: 1 }], 'A/B crossfader'));
   add('scene', leaf(pre + '/scene', 's', 3, sceneName(cfg), null, 'Scene name, UTF-8'));
   add('visualizer', leaf(pre + '/visualizer', 's', 3, getPath(cfg, 'visualizer.type') || '', null, 'Visualizer id'));

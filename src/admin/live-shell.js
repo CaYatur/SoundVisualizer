@@ -27,10 +27,178 @@
   const sceneById = (id) => scenes().find((s) => s && s.id === id) || null;
 
   function takeCue() {
+    if (tb.live) { tbarFinish(); return; }
     if (!cue || !sceneById(cue)) return;
     const id = cue;
     cue = '';
     P().applyScene(id);
+  }
+
+  /* T-BAR (#905). AL düğmesi geçişi ayarlanan sürede kendisi yapıyor; çubuk aynı geçişi elle
+     sürüyor. Çubuk bir uçta duruyor (`rest`); öbür uca giderken sıradaki sahne karışıyor, uca
+     varınca canlı oluyor ve çubuk orada kalıyor (sonraki geçiş ters yönde). Yolda bırakılırsa
+     karışım tutuluyor; başa dönerse geçiş geri alınıyor ve eski sahne olduğu gibi canlı kalıyor.
+     İleti çıkış pencerelerine, OBS kaplamasına ve panel önizlemesine aynı sırayla gidiyor
+     (src/visualizer/layers.js `tbar`). Çubuk tutulurken sayfa yeniden kurulmuyor: kurulsa
+     sürükleme kopardı; bırakınca bir kez kuruluyor. */
+  const tb = { rest: 0, v: 0, p: 0, live: false, snap: null, id: '', drag: false, dirty: false, raf: 0, ext: false };
+  const TB_END = 0.995;
+  const TB_START = 0.005;
+  function tbarSend(m) {
+    if (window.api && window.api.sendTbar) window.api.sendTbar(m);
+    if (window.SVPreview && window.SVPreview.tbar) window.SVPreview.tbar(m);
+  }
+  function tbarFlush() {
+    if (tb.raf) { cancelAnimationFrame(tb.raf); tb.raf = 0; }
+    if (tb.live) tbarSend({ phase: 'move', p: tb.p });
+  }
+  function tbarReset() {
+    tb.live = false;
+    tb.snap = null;
+    tb.id = '';
+    tb.v = tb.rest;
+    tb.p = 0;
+  }
+  // Sıra boşsa bir sonraki sahne sırada: AL ve çubuk her zaman bir yere gidiyor
+  function ensureCue() {
+    const all = scenes();
+    if (sceneById(cue) || !all.length) return;
+    const live = sceneById(P().activeSceneId());
+    const at = live ? all.indexOf(live) : -1;
+    cue = all[(at + 1) % all.length].id;
+    if (cue === P().activeSceneId()) cue = '';
+  }
+  // Çubuk konumu (0 alt, 1 üst) → karışım
+  function tbarSet(v) {
+    tb.v = Math.max(0, Math.min(1, v));
+    const p = tb.rest === 0 ? tb.v : 1 - tb.v;
+    if (!tb.live) {
+      if (p <= TB_START) { tb.p = 0; return; }
+      ensureCue();
+      if (!cue || !sceneById(cue) || P().isBlackedOut()) { tb.v = tb.rest; tb.p = 0; return; }
+      tbarSend({ phase: 'arm' });
+      const snap = P().tbarStart(cue);
+      if (!snap) { tb.v = tb.rest; tb.p = 0; return; }
+      tb.live = true;
+      tb.snap = snap;
+      tb.id = cue;
+    }
+    tb.p = p;
+    if (!tb.raf) tb.raf = requestAnimationFrame(() => { tb.raf = 0; if (tb.live) tbarSend({ phase: 'move', p: tb.p }); });
+  }
+  function tbarFinish() {
+    if (!tb.live) return;
+    tb.p = 1;
+    tbarFlush();
+    tbarSend({ phase: 'end' });
+    tb.rest = 1 - tb.rest;
+    cue = '';
+    tbarReset();
+    paint();
+    if (P().renderScenes) P().renderScenes({ selectionOnly: true });
+  }
+  function tbarCancel() {
+    if (!tb.live) return;
+    const snap = tb.snap;
+    tbarFlush();
+    tbarSend({ phase: 'cancel' });
+    tbarReset();
+    P().tbarRestore(snap);
+    paint();
+  }
+  // Bırakınca: uçtaysa bitir ya da geri al, yoldaysa karışımı tut
+  function tbarRelease() {
+    if (!tb.live) { tb.v = tb.rest; return; }
+    if (tb.p >= TB_END) tbarFinish();
+    else if (tb.p <= TB_START) tbarCancel();
+    else { tbarFlush(); paintSoon(); } // tutulan karışım: canlı yazısı iki sahneyi ve oranı göstersin
+  }
+  // Dış faderden saniyede onlarca ileti gelebiliyor: sayfa en çok ~7 kez kuruluyor
+  let paintTimer = 0;
+  function paintSoon() {
+    if (paintTimer) return;
+    paintTimer = setTimeout(() => { paintTimer = 0; paint(); }, 150);
+  }
+  /* Dış fader (OSC, MIDI eşlemesi, Companion): konum mutlak, bırakma olayı yok; her ileti bir
+     sürükleme ve bırakma. YAKALAMA: fader çubuğun durduğu uçta değilse oraya gelene dek yok
+     sayılıyor. Açılışta öbür uçta duran bir fader ilk iletisiyle sahneyi canlıya almasın; panel
+     çubuğu kullanılınca yakalama yeniden isteniyor. */
+  function tbarTo(v) {
+    const x = Math.max(0, Math.min(1, Number(v) || 0));
+    if (!tb.live && !tb.ext) {
+      if (Math.abs(x - tb.rest) > 0.05) return;
+      tb.ext = true;
+    }
+    tbarSet(x);
+    tbarRelease();
+  }
+
+  function tbarLever() {
+    const el = P().el;
+    const fill = el('i');
+    const knob = el('b');
+    const lever = el('div', {
+      class: 'sv-tlever' + (tb.live ? ' live' : ''), role: 'slider', tabindex: '0', 'aria-label': tr('T-bar'),
+      'aria-valuemin': '0', 'aria-valuemax': '100', title: tr('Sürükle: sıradaki sahneyi elle karıştır. Uca varınca canlıya geçer, başa dönünce geri alınır.'),
+    }, [fill, knob]);
+    const pct = el('small', { class: 'sv-tbar-pct' });
+    const show = () => {
+      const pos = Math.round(tb.v * 100);
+      knob.style.bottom = 'calc(' + pos + '% - ' + Math.round(pos / 100 * 14) + 'px)';
+      // Dolgu karışımı gösteriyor: çubuğun bulunduğu uçtan öbür uca doğru büyüyor
+      fill.style.height = Math.round(tb.p * 100) + '%';
+      fill.style.top = tb.rest === 0 ? 'auto' : '0';
+      fill.style.bottom = tb.rest === 0 ? '0' : 'auto';
+      lever.setAttribute('aria-valuenow', String(Math.round(tb.p * 100)));
+      lever.classList.toggle('live', tb.live);
+      pct.textContent = tb.live ? Math.round(tb.p * 100) + '%' : '';
+    };
+    show();
+    const at = (e) => {
+      const r = lever.getBoundingClientRect();
+      tbarSet(1 - (e.clientY - r.top) / Math.max(1, r.height));
+      show();
+    };
+    lever.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      lever.focus();
+      lever.setPointerCapture(e.pointerId);
+      tb.drag = true;
+      tb.ext = false;
+      const end = () => {
+        lever.removeEventListener('pointermove', at);
+        lever.removeEventListener('pointerup', end);
+        lever.removeEventListener('pointercancel', end);
+        tb.drag = false;
+        tbarRelease();
+        show();
+        if (tb.dirty) { tb.dirty = false; paint(); }
+      };
+      lever.addEventListener('pointermove', at);
+      lever.addEventListener('pointerup', end);
+      lever.addEventListener('pointercancel', end);
+      at(e);
+    });
+    lever.addEventListener('keydown', (e) => {
+      const step = { ArrowUp: 0.05, ArrowDown: -0.05, PageUp: 0.25, PageDown: -0.25 }[e.key];
+      let v = null;
+      if (step != null) v = tb.v + step;
+      else if (e.key === 'Home') v = 0;
+      else if (e.key === 'End') v = 1;
+      if (v == null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      tbarSet(v);
+      tbarRelease();
+      show();
+      // Uca varınca sayfa yeniden kuruluyor: klavye odağı yeni çubukta kalsın
+      if (!lever.isConnected) {
+        const next = document.querySelector('#svLive .sv-tlever');
+        if (next) next.focus();
+      }
+    });
+    return el('div', { class: 'sv-tlever-wrap' }, [lever, pct]);
   }
 
   function cell(sc, i) {
@@ -238,6 +406,11 @@
   function paint() {
     const host = document.getElementById('svLive');
     if (!host) return;
+    // Çubuk tutuluyor: bırakınca kurulacak
+    if (tb.drag) { tb.dirty = true; return; }
+    /* Karışım tutulurken başka bir yol (Otomatik VJ, kumanda, MIDI) sahneyi değiştirdiyse çıkış
+       o geçişe geçti; çubuğun geçişi bitmiş sayılıyor. */
+    if (tb.live && P().activeSceneId() !== tb.id) { tb.rest = tb.p >= 0.5 ? 1 - tb.rest : tb.rest; tbarReset(); }
     const prevRail = host.querySelector('.sv-rail .sv-cbody');
     const prevLower = host.querySelector('.sv-scenes-card .sv-cbody');
     if (prevRail) railScroll = prevRail.scrollTop;
@@ -246,12 +419,7 @@
     const all = scenes();
     if (bank * PER_BANK >= Math.max(all.length, 1)) bank = 0;
     const live = sceneById(P().activeSceneId());
-    /* Sıra boşsa bir sonraki sahne sırada: AL her zaman bir yere gidiyor, gösteri elle ilerletilebiliyor. */
-    if (!sceneById(cue) && all.length) {
-      const at = live ? all.indexOf(live) : -1;
-      cue = all[(at + 1) % all.length].id;
-      if (cue === P().activeSceneId()) cue = '';
-    }
+    ensureCue();
     const cued = sceneById(cue);
 
     const pvwFrame = el('div', { class: 'sv-m169' });
@@ -264,12 +432,18 @@
       pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: tr('Izgaradan bir sahne seçin; AL ile canlıya geçer.') }));
     }
     const pgmFrame = el('div', { class: 'sv-m169', id: 'svPgmFrame' });
+    /* Karışım tutulurken canlı yazısı iki sahneyi de söylüyor: çıkışta ikisi birden var. */
+    const from = tb.live && tb.snap ? sceneById(tb.snap.active) : null;
+    const pgmSub = tb.live && live
+      ? (from ? tr(from.name || 'Sahne') + ' → ' : '→ ') + tr(live.name || 'Sahne') + ' · ' + Math.round(tb.p * 100) + '%'
+      : (live ? tr(live.name || 'Sahne') : '');
     const mons = el('div', { class: 'sv-mons' }, [
       monitor('pvw', 'Sırada', cued ? tr(cued.name || 'Sahne') : '', pvwFrame),
       el('div', { class: 'sv-tbar' }, [
-        el('button', { class: 'sv-take', type: 'button', text: tr('AL'), title: tr('Sıradaki sahneyi canlıya al'), disabled: !cued, onclick: takeCue }),
+        tbarLever(),
+        el('button', { class: 'sv-take', type: 'button', text: tr('AL'), title: tr(tb.live ? 'Karışımı tamamla' : 'Sıradaki sahneyi canlıya al'), disabled: !cued && !tb.live, onclick: takeCue }),
       ]),
-      monitor('pgm', 'Canlı', live ? tr(live.name || 'Sahne') : '', pgmFrame),
+      monitor('pgm', 'Canlı', pgmSub, pgmFrame),
     ]);
 
     const tabs = el('div', { class: 'sv-tabs', role: 'tablist' }, [
@@ -320,5 +494,5 @@
     if (e.key === 'Enter' && cue) { e.preventDefault(); takeCue(); }
   });
 
-  window.SVLiveShell = { paint, setLower: (v) => { lower = v === 'deck' ? 'deck' : 'scenes'; paint(); } };
+  window.SVLiveShell = { paint, tbarTo, setLower: (v) => { lower = v === 'deck' ? 'deck' : 'scenes'; paint(); } };
 })();
