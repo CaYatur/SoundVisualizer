@@ -712,6 +712,8 @@
        Karartma açıkken kopyanın sahneyi doğrudan yazması, sahnedeki
        karartmayı kaldırırdı. */
     applyScene: (id, opts) => actions.applyScene(id, opts),
+    tbarStart: (id) => actions.tbarStart(id),
+    tbarRestore: (snap) => actions.tbarRestore(snap),
     /* Sahne uygulaması push sırasında vurguyu silmesin diye açılan bayrak. */
     releaseSceneAction: () => { sceneActionInFlight = false; },
     get: (p) => getPath(cfg, p),
@@ -6389,6 +6391,13 @@
       }
     }
     const restoreTransition = () => { if (keepTransition) { cfg.transition = keepTransition; keepTransition = null; } };
+    /* SAHNE SAYACI (#905). Çıkış sahne değişimini katman yapısından anlıyor (sceneSignature):
+       aynı katmanlı, yalnız rengi ya da ayarı farklı iki sahne arasında geçiş olmuyor, kesme
+       yapılıyordu. Elle sahne değişiminde (AL, ızgara, F tuşları, Otomatik VJ, deste, kumanda)
+       sayaç artıyor ve imzaya giriyor. Zaman çizelgesi (light) kendi geçişini yönetiyor,
+       saymıyor: canlı ve dışa aktarım aynı kalıyor. Etkin sahneyi yeniden uygulamak da saymıyor:
+       ayarları geri alır, motorları yeniden kurmaz. */
+    if (!(opts && opts.light) && cfg._activeSceneId !== id) cfg._sceneSeq = ((cfg._sceneSeq | 0) + 1) % 1000000000;
     sceneActionInFlight = true;
     activeSceneId = id;
     cfg._activeSceneId = id;
@@ -6410,6 +6419,42 @@
       renderScenes({ selectionOnly: true });
       return;
     }
+    // T-bar: çubuk tutulurken sayfa yeniden kurulmuyor; kurulsa sürükleme kopardı
+    if (opts && opts.noRender) return;
+    render();
+    renderScenes({ selectionOnly: true });
+  };
+
+  /* T-BAR (#905). Canlı sayfasındaki çubuk sıradaki sahneyi elle karıştırıyor.
+     Başlarken sahne her zamanki yoldan uygulanıyor (karartma koruması, katman eşitlemesi,
+     çizelge notu aynı); yalnız bu gönderimde geçiş açık ve kesme değil, çünkü çubuğun
+     sürebileceği bir geçiş olmalı. Dönen kayıtla çubuk başa dönerse eski görünüm, geçiş ayarı
+     ve etkin sahne geri yazılıyor; çıkışlar giden sahneyi zaten geri almış oluyor
+     (LayerStack.cancelTransition), aynı imzalı görünüm yeni geçiş başlatmıyor. */
+  actions.tbarStart = (id) => {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc || !sc.data || isBlackedOut()) return null;
+    const snap = { data: snapshotScene(), active: activeSceneId, activeCfg: cfg._activeSceneId, seq: cfg._sceneSeq, transition: window.SV.clone(cfg.transition) };
+    const t = cfg.transition || {};
+    actions.applyScene(id, { transition: { type: t.type && t.type !== 'cut' ? t.type : 'crossfade', duration: 1 }, noRender: true });
+    return snap;
+  };
+  actions.tbarRestore = (snap) => {
+    if (!snap || !snap.data) return;
+    SCENE_KEYS.forEach((k) => {
+      if (snap.data[k] !== undefined) cfg[k] = window.SV.clone(snap.data[k]);
+      else delete cfg[k];
+    });
+    if (snap.transition) cfg.transition = window.SV.clone(snap.transition);
+    if (window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(cfg);
+    // Sayaç da geri: çıkış giden sahnenin imzasına döndü, aynı görünüm yeni geçiş başlatmasın
+    if (snap.seq === undefined) delete cfg._sceneSeq;
+    else cfg._sceneSeq = snap.seq;
+    sceneActionInFlight = true;
+    activeSceneId = snap.active || null;
+    cfg._activeSceneId = snap.activeCfg;
+    push(true);
+    sceneActionInFlight = false;
     render();
     renderScenes({ selectionOnly: true });
   };

@@ -965,6 +965,10 @@
       runAction('deckStopAll', cfg);
       return;
     }
+    if (step.op === 'tbar') {
+      if (window.SVLiveShell && window.SVLiveShell.tbarTo) window.SVLiveShell.tbarTo(step.value);
+      return;
+    }
     if (step.op === 'timeline') {
       const tp = window.SVTimelinePanel;
       if (!tp) return;

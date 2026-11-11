@@ -422,6 +422,8 @@
     // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
     audioEngine: () => audio,
     stack: () => stack,
+    // T-bar (#905): panel önizlemesi de çıkışlarla aynı karışımı gösteriyor
+    tbar: (m) => { if (stack) stack.tbar(m); },
     onFrame: (fn) => { frameTap = fn; },
     nextFrame: (fn) => { nextTaps.push(fn); },
     ingest,
