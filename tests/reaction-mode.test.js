@@ -112,13 +112,20 @@ test('generative.js reaction atar, katalog Üretken Sistemler grubunda listeler'
   const MC = require('../src/shared/mode-catalog.js');
   const m = MC.VISUALIZERS.find((x) => x.id === 'reaction');
   assert.ok(m, 'katalogda yok');
-  assert.strictEqual(m.label, 'Reaksiyon Deseni');
+  assert.strictEqual(m.label, 'Reaksiyon-Difüzyon');
+  // Studio'daki aynı adlı arkaplan shader'ıyla karışmasın
+  global.window = global.window || {};
+  require('../src/shared/presets.js');
+  require('../src/shared/presets-shaders.js');
+  const builtins = global.window.SVPresets.all().filter((x) => x.builtin);
+  assert.ok(builtins.some((p) => p.id === 'sh_reactiondiff' && p.name === 'Reaksiyon Deseni'), 'dayanak: aynı adlı shader');
+  assert.ok(!builtins.some((p) => p.name === m.label), 'Studio shader adıyla çakışıyor');
   assert.strictEqual(m.group, 'Üretken Sistemler');
   const groups = MC.options('visualizer').filter((o) => o.group).map((o) => o.group);
   assert.strictEqual(new Set(groups).size, groups.length, 'grup bölünmüş');
 });
 
-test('sözlükte Reaksiyon Deseni var', () => {
+test('sözlükte Reaksiyon-Difüzyon var', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src/shared/i18n.js'), 'utf8');
-  assert.ok(src.includes("'Reaksiyon Deseni':"));
+  assert.ok(src.includes("'Reaksiyon-Difüzyon': 'Reaction-Diffusion'"));
 });

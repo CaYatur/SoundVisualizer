@@ -1407,7 +1407,7 @@
   }
 
   // ==========================================================================
-  // REAKSİYON DESENİ — iki kimyasal ızgarada yayılır, besleme ve tüketim desen üretir
+  // REAKSİYON-DİFÜZYON — iki kimyasal ızgarada yayılır, besleme ve tüketim desen üretir
   // ==========================================================================
   /* İki alan var. Birincisi sürekli beslenir; ikincisi komşulara daha yavaş yayılır
      ve birincisini tüketerek çoğalır. Her adımda yalnız komşu hücreler karışır, sonra
