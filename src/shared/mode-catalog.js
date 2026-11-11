@@ -102,6 +102,9 @@
     V('attractorfield', 'Çekici Alanı', 'Üretken Sistemler'),
     V('pendulum', 'Sarkaç Dalgası', 'Üretken Sistemler', { bands: true, wave: true, thick: true, color2: true }),
     V('cardioid', 'Kardioid', 'Üretken Sistemler', { wave: true, color2: true }),
+    /* Adı Studio'daki 'Reaksiyon Deseni' arkaplan shader'ından (sh_reactiondiff) ayrı:
+       aramada ve listelerde iki ayrı şey aynı adla görünmesin. */
+    V('reaction', 'Reaksiyon-Difüzyon', 'Üretken Sistemler'),
 
     V('text', 'Metin / Şarkı Sözü', 'Metin', { cycle: false }),
     V('nowplaying', 'Çalan Parça', 'Metin', { cycle: false }),

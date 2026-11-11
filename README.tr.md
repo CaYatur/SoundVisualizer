@@ -8,7 +8,7 @@
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
 da on ekranda sese tepki veren görsellere dönüştürür. **60 kendi presetiyle** gerçek bir
-**MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **44 GPU efekti**, bir **OBS
+**MilkDrop** motoru, **71 görselleştirici modu**, katmanlar ve **44 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
 **yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4451%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4455%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -58,7 +58,7 @@ altta presetler, görseller, arkaplanlar, şablonlar ve kayıtlı sahneler tek t
 
 <div align="center">
 
-| **70** görselleştirici modu | **51** arkaplan | **44** GPU efekti | **18** sahne geçişi |
+| **71** görselleştirici modu | **51** arkaplan | **44** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **43** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **106** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
@@ -159,7 +159,7 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 - **Baştan yazılan Düzen Editörü.** Çalışan geri alma, çoklu seçim, hizalama ve dağıtma, öğe
   listesinden kilitleme ve gizleme, Shift ile tek eksende sürükleme ve F1'de kısayol listesi.
   [→ Düzen editörü](#yayın-düzeni-editörü)
-- **Başlamak için daha çok şey.** 70 görselleştirici modu ve 51 arkaplan (18'i yeni), 60 CaYaDev
+- **Başlamak için daha çok şey.** 71 görselleştirici modu ve 51 arkaplan (19'u yeni), 60 CaYaDev
   MilkDrop preseti (4'ü yeni), 43 yerleşik GLSL shader; her mod seçicide gerçekten çizilmiş bir
   önizleme var.
 - **İlk açılışta hazır.** Boş Canlı sayfasındaki tek düğme sekiz örnek sahne kuruyor (F1–F8); siz
@@ -388,7 +388,7 @@ paylaştığı bir BPM kilidiyle.
 
 <div align="center">
 
-**70 görselleştirici modunun hepsi**
+**71 görselleştirici modunun hepsi**
 
 ![Tüm görselleştirici modları](docs/screenshots/modes-visualizer.jpg)
 
@@ -2094,7 +2094,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4451 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4455 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

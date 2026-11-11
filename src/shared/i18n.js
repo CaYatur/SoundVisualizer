@@ -4323,6 +4323,7 @@
     'En Düşük Çözünürlük': 'Lowest Resolution',
     // Yeni görselleştirici modları ve arkaplanlar (#905)
     'Kapsül Dalga': 'Capsule Wave',
+    'Reaksiyon-Difüzyon': 'Reaction-Diffusion',
     'Sahne Ekolayzeri': 'Stage Equalizer',
     'Altıgen Tayf': 'Hex Spectrum',
     'Sıvı Tayf': 'Liquid Spectrum',
