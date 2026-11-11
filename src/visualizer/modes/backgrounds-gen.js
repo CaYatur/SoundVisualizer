@@ -713,25 +713,50 @@
       this.hist.unshift(row);
       if (this.hist.length > depth) this.hist.length = depth;
 
+      /* Her katman dalganın altını ekranın dibine kadar dolduruyor. Bu dolgu tek bir yol
+         olarak çizildiğinde tuval onu yolun kapladığı kutunun tamamı kadar (ekranın çoğu)
+         işliyordu: 26 katmanla 1080p'de kare başına ~13 ms, sahne 39 fps'te kalıyordu. Şimdi
+         yol yalnız dalga bandını kapsıyor (en alçak noktasının bir piksel altına, tam sayı
+         satıra kadar) ve altı düz bir dikdörtgen: ikisi aynı tam sayı satırda birleştiği için
+         ne boşluk ne üst üste binme var, dolgu aynı. Çizgi de yalnız dalganın kendisini
+         çiziyor: eskiden kapalı yolun kenarlarını da çizdiği için ekranın sol, sağ ve alt
+         kenarında 26 katmanın üst üste bindiği ince parlak bir çerçeve kalıyordu. */
       const amp = H * 0.13 * m.amp;
+      const ys = this.ys && this.ys.length === n ? this.ys : (this.ys = new Float32Array(n));
+      ctx.lineWidth = Math.max(1, Math.min(W, H) / 900);
       for (let d = this.hist.length - 1; d >= 0; d--) {
         const f = d / depth;
-        const y0 = H * (0.28 + 0.62 * f) * m.spacing;
+        /* En yeni satır (d = 0) önde: ekranın altında, en geniş genlikle ve en son çiziliyor;
+           eskiler geriye, yukarı doğru küçülerek gidiyor. Eskiden yerleşim tersti: en yeni satır
+           ekranın üstündeydi ve dolgusu öteki bütün satırları örtüyor, ekranda tek dalga kalıyordu
+           (Satır Sayısı neredeyse hiçbir şeyi değiştirmiyordu). Satır Aralığı yayılımı ölçekler. */
+        const y0 = H * (0.9 - 0.62 * f * m.spacing);
         const c = lerpColor(cfg, 1 - f);
         const r = this.hist[d];
+        let ymax = -Infinity;
+        for (let i = 0; i < n; i++) {
+          const y = y0 - r[i] * amp * (1 - f * 0.6) * g.react;
+          ys[i] = y;
+          if (y > ymax) ymax = y;
+        }
+        const yb = Math.max(0, Math.min(H, Math.ceil(ymax) + 1));
         ctx.beginPath();
         for (let i = 0; i < n; i++) {
           const x = (W * i) / (n - 1);
-          const y = y0 - r[i] * amp * (1 - f * 0.6) * g.react;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          if (i === 0) ctx.moveTo(x, ys[i]); else ctx.lineTo(x, ys[i]);
         }
-        ctx.lineTo(W, H);
-        ctx.lineTo(0, H);
+        ctx.lineTo(W, yb);
+        ctx.lineTo(0, yb);
         ctx.closePath();
         ctx.fillStyle = rgba([c[0] * 0.28 | 0, c[1] * 0.28 | 0, c[2] * 0.28 | 0], 0.9 * g.bright);
         ctx.fill();
+        if (yb < H) ctx.fillRect(0, yb, W, H - yb);
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const x = (W * i) / (n - 1);
+          if (i === 0) ctx.moveTo(x, ys[i]); else ctx.lineTo(x, ys[i]);
+        }
         ctx.strokeStyle = rgba(c, (0.25 + (1 - f) * 0.55) * g.bright);
-        ctx.lineWidth = Math.max(1, Math.min(W, H) / 900);
         ctx.stroke();
       }
       vignette(ctx, W, H, g.vignette);

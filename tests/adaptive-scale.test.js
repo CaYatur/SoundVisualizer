@@ -75,7 +75,7 @@ test('çıkış penceresi: ölçek kullanıcının ölçeğiyle çarpılır, kap
   const v = read('src/visualizer/visualizer.js');
   assert.match(v, /const rs = clamp\(clamp\(cfg\.power\.renderScale, 0\.4, 1\) \* autoScale, 0\.4, 1\);/);
   assert.match(v, /if \(cfg\.power\.adaptiveScale === false\) \{\s*if \(autoScale !== 1\) \{ adaptive\.reset\(\); autoScale = 1; resize\(\); \}/);
-  assert.match(v, /const next = adaptive\.tick\(rafDt\);\s*if \(next != null\) \{ autoScale = next; resize\(\); \}/);
+  assert.match(v, /adaptiveOpts\.minPeriod = cap > 0 \? 1000 \/ cap : 0;\s*adaptiveOpts\.floor = cfg\.power\.adaptiveFloor;\s*const next = adaptive\.tick\(rafDt, adaptiveOpts\);\s*if \(next != null\) \{ autoScale = next; resize\(\); \}/);
   for (const page of ['src/visualizer/index.html', 'src/web/overlay.html']) {
     const html = read(page);
     assert.ok(html.indexOf('adaptive-scale.js') > 0 && html.indexOf('adaptive-scale.js') < html.lastIndexOf('visualizer.js'), page);
@@ -91,4 +91,48 @@ test('çıkış penceresi: ölçek kullanıcının ölçeğiyle çarpılır, kap
   require('../src/shared/defaults.js');
   assert.strictEqual(global.window.SV.defaultConfig().power.adaptiveScale, true);
   assert.ok(read('src/shared/i18n.js').includes("'Uyarlanır Çözünürlük': 'Adaptive Resolution'"));
+});
+
+test('kare hızı sınırı varken hedef o sınır: sınırı tutturan sahne bulanmıyor (#453)', () => {
+  // 75 Hz ekran, 30 FPS sınırı: çizilen karenin ardındaki rAF aralığı ~26 ms (13,3 + 13 ms çizim)
+  const tickAll = (opts) => {
+    const a = A.create();
+    const out = [];
+    for (let i = 0; i < 6000; i++) {
+      const d = i % 5 === 0 ? 26 : 1000 / 75;
+      const r = a.tick(d, opts);
+      if (r != null) out.push(r);
+    }
+    return out;
+  };
+  assert.ok(tickAll(null).length > 0, 'eskiden (hedef ekran) bu sahne düşüyordu');
+  assert.deepStrictEqual(tickAll({ minPeriod: 1000 / 30 }), [], 'hedef 30 FPS: kare kaçmıyor');
+  // Sınırı da tutturamayan sahne yine düşer
+  const a = A.create();
+  let dropped = false;
+  for (let i = 0; i < 3000 && !dropped; i++) dropped = a.tick(i % 2 ? 70 : 1000 / 75, { minPeriod: 1000 / 30 }) != null;
+  assert.ok(dropped, '70 ms aralık 30 FPS hedefini kaçırıyor');
+});
+
+test('alt sınır kullanıcı ayarı: oraya kadar iner, yükseltilince hemen çıkar (#453)', () => {
+  const a = A.create();
+  const opts = { floor: 0.8 };
+  const seen = [];
+  for (let i = 0; i < 20000; i++) {
+    const r = a.tick(i % 3 === 0 ? 40 : 1000 / 75, opts);
+    if (r != null) seen.push(r);
+  }
+  assert.strictEqual(a.scale(), 0.8, 'tabanda');
+  assert.ok(seen.every((s) => s >= 0.8), seen.join(','));
+  assert.strictEqual(a.tick(1000 / 75, { floor: 0.9 }), 0.9, 'taban yükselince ölçek hemen ona');
+  assert.strictEqual(a.tick(1000 / 75, { floor: 0.05 }), null, 'anlamsız taban 0,2 ile sınırlı, ölçek değişmez');
+});
+
+test('panelde alt sınır kaydırıcısı ve şemada aralığı (#453)', () => {
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /type: 'slider', path: 'power\.adaptiveFloor', label: 'En Düşük Çözünürlük', step: 0\.05, percent: true,\s*show: \(\) => cfg\.power\.adaptiveScale !== false,/);
+  const Schema = require('../src/shared/schema.js');
+  const r = Schema.rangeFor('power.adaptiveFloor');
+  assert.ok(r && r.min === 0.3 && r.max === 0.9, JSON.stringify(r));
+  assert.ok(read('src/shared/i18n.js').includes("'En Düşük Çözünürlük': 'Lowest Resolution'"));
 });

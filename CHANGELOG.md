@@ -36,9 +36,33 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   browser closes. Checked in a real browser at phone size: tokened address connected, then the bare
   `/remote` connected.
 
+### Testing and release checks
+
+- **`npm run smoke:packaged`** (#466). Runs the self-test, with export, inside the packaged app after
+  `npm run pack:dir`, from the archive, with a temporary profile. It first checks that the pages are
+  served from `app.asar` and not from a loose `resources/app` folder. It replaces a step that was done
+  by hand before every release. Run on this machine's build: archive check and self-test pass.
+- **`npm run golden -- --repeat`** (#467). Each case is exported twice in the same run and the frames
+  are compared byte for byte, so a template with modulation, transitions and effects must give the
+  same video every time. Checked with the software renderer.
+- **How to accept an intended golden difference** (#461) is now written in the script and in
+  CONTRIBUTING: review the videos with `--keep`, say so in the PR, then use the new `golden.json` as
+  the baseline.
+- **`--only` in `npm run golden` and `engine-parity` works on a Turkish system.** The filter lowercased
+  names with the system locale, which turns a capital I into a dotless ı: `--only=template:interference`
+  matched nothing because the name became `template:ınterference`. Names are now lowercased without a
+  locale (reproduced and checked on the same tree: 0 cases before, 1 after).
+
 ### Performance
 
 - **Galaxy draws seven times faster.** It computed a colour, built an rgba string and made the canvas parse it for each of its 2,600 stars on every frame, the most expensive mode in the output profile of a real scene. Stars are now sorted once into 48 rings by their fixed radius and the colour is set once per ring; 48 is a multiple of the 16 bands, so the stars of a ring share their band and size, and additive blending does not depend on order. Measured at 1920×1080: 3.0 ms → 0.41 ms per frame (five runs, twice). The colour along the radius now moves in 48 steps: mean difference 0.036 / 255 per channel against the previous frame, not visible side by side.
+- **The six slowest scenes now keep up with the display** (#905). Measured with `npm run bench` at 1920×1080 on a 75 Hz output, two alternating runs against the previous build; "frame time" is from `--uncapped`, over the default background.
+  - **Wave Field** 33.5–39.0 fps (4–28 % of frames over 33 ms) → 75 fps, none over 33 ms. Each of its 26 layers filled the area under its wave down to the bottom of the screen as one path, and the canvas processed such a path over its whole bounding box. The path now covers only the wave's band, down to a whole pixel row below its lowest point, and the rest is a plain rectangle starting on that row, so nothing overlaps and nothing is left open. The outline is drawn along the wave only: before, it also traced the sides and bottom of the closed shape, and the 26 layers stacked into a bright one-pixel frame on the left, right and bottom edges of the screen (brightness 89 against 38–42 next to it). That frame is gone; checked on the old layout, elsewhere 5 of 230,400 sampled pixels differ, by at most 3 / 255. **The rows were also stacked the wrong way round:** the newest row, which has the widest wave and is drawn last, sat at the top of the screen, and its fill covered the other 25 rows, so Wave Field showed a single wave and Row Count changed almost nothing. The newest row is now at the front, near the bottom, and older rows recede upwards as their waves shrink, which is what the shrinking was for; Row Spacing scales how far they spread. The new layout also holds 75 fps (frame time 24.9 → 7.7 ms).
+  - **Pulse Rings** 56.6–66.5 fps → 75 fps. The rings were drawn with round line caps, which the canvas cannot draw as a plain circle, so each ring became a screen-sized path. A full circle's caps fall inside the line, so they are now flat; side by side the rings look the same (edge pixels differ by at most 16 / 255).
+  - **Voronoi** 71.6 fps (up to 1.1 % of frames over 33 ms) → 75 fps; frame time 13.5–14.1 → 0.94–0.99 ms. A cell's colour depends only on its nearest seed, so it is worked out once per seed (26) instead of once per cell (about 14,000 at 1080p), and the cells are written into a small image drawn once, scaled up without smoothing. Neighbouring cells used to overlap by a pixel, which drew a faint grid over the picture (opacity 118–130 on the cell boundaries against 88 inside the cells); the grid is gone and the cells themselves are unchanged (all 10,981 cell centres identical in a 1080p frame).
+  - **Wave Interference** frame time 11.0–11.3 → 4.4 ms. The sine of every pixel and source (about 400,000 per frame) comes from a 4,096-step table with interpolation (error 3·10⁻⁷) instead of `Math.sin`, and a silent band is skipped. A precomputed per-pixel table was faster (2.7 ms) but took 24–95 ms to rebuild on every size or Thickness change and 3–13 MB of memory, so it was not kept. In a video export, 47 of 60 frames are byte-identical, and across the whole video the mean difference is 0.003 / 255 per channel.
+  - **Blocks** 4.9–5.3 → 3.6 ms and **Dot Matrix** 4.65 → 3.9 ms. With the theme colour, each of up to 6,400 cells sampled the palette and built a new colour string on every frame. The strings are built once and reused until the bar count, the size or the theme changes. Exports are byte-identical (Strobe Wall, Dubstep, Lower Third, Chiptune: 60 of 60 frames each).
+  - `tests/mode-draw-cache.test.js` checks each against the previous formula or drawing.
 - **No more panel stalls while dragging or clicking through layers** (#905). Measured on a real seven-layer scene with the output window open, back to back against the previous build (two runs each). Dragging an inspector slider: panel 33.6 → 59.6 fps, frames over 33 ms 122 → 3–4, and twice as many input events handled. Dragging layer opacity: 37 → 74 fps, frames over 33 ms 72 → 0. Clicking through layers: 52 → 64 fps, frames over 33 ms 30 → 3. The causes, all found by profiling:
   - Every setting change rebuilt the page tabs in the top bar, and the top bar re-measured itself at up to six compaction levels (2 of every 6 seconds of panel time during an opacity drag). The tabs and the setup tree are now rebuilt only when their content changes, and the top bar starts from its current level (one or two measurements instead of up to six). A button turning disabled no longer triggers a measurement.
   - Refreshing the "changed from default" marks read the layout twice on every change, even when no mark changed (1.7 of 6 seconds). It now works out what changes first and reads the layout only when something does.
@@ -51,6 +75,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **A resolution step no longer restarts the picture.** Measured after #997: when adaptive resolution changed size, MilkDrop rebuilt its feedback buffers and the frame went nearly black (mean brightness 13 → 7) before the preset built up again; Flow Field re-seeded its particles and dropped its trails; Confetti, Flock and Ropes reset. MilkDrop and the shader host now copy their feedback buffers to the new size, trail buffers are scaled across, and particle and rope positions are scaled instead of re-seeded. Checked by capturing output frames on both sides of a forced step: the step frame now differs from its neighbour no more than two ordinary frames do.
 - **Adaptive resolution** (#453, on by default). When the output window cannot keep up with the display, the drawing resolution drops one step (0.1) at a time, to half at most, and rises again after the scene has been calm for ten seconds. A step that does not hold doubles the wait before the next try, so a scene on the edge does not blur and sharpen every few seconds. It multiplies the Background Resolution setting, can be turned off under Performance, and never applies to video export, the OBS overlay or the measuring tools. Measured on an eight-layer scene at 2560×1600 on a 75 Hz output: 57 fps before, 72.5 fps with it on (30 s average, including the seconds it takes to settle).
+- **Adaptive resolution has a floor you can set and follows the frame cap** (#453). **Power / Performance → Lowest Resolution** (30–90 %, default 50 %) is how far it may step down; raising it above the current scale applies at once. With a frame cap (Frame Rate (FPS)) the target is the cap, not the display: a scene capped at 30 fps on a 144 Hz display no longer counts every frame as late and drops resolution for nothing. `tests/adaptive-scale.test.js`.
 
 ### Visuals
 
@@ -103,14 +128,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its background and top visual together (the visual's preview is laid over the background's with screen blending, close to how the layers combine on screen; at first only the top layer was used, so Aurora showed as a wave on black). No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
 - **Layer rows and Live faders show the mode they draw.** Only MilkDrop layers had a picture; visualizer and background layers showed a generic icon. They now show the same rendered preview as the library shelf. Text, logo, Now Playing and media layers keep their icon.
 - **Automation lanes no longer show Turkish in the English interface.** A lane's target was drawn on the timeline canvas as "group · name" built from the Turkish catalogue, so the English UI read "Ses · Duyarlılık [0..4]"; the target button and the picker's group headings did the same. Each part is now translated. Canvas text is invisible to the UI audit, which is how it slipped through; found in the README screenshots.
-- **"Deep Analysis" in the English menu.** The Audio setup page had two entries both called Audio
-  Analysis: the sensitivity settings and the key / chord / loudness meters. The second is now Deep
-  Analysis, as the README already called it.
-- **Scenes whose MilkDrop layer uses the default preset show a picture.** With no preset chosen, the
-  engine draws the first built-in preset, but the panel asked for no thumbnail at all. MilkDrop Flow,
-  for example, was a "2 Layers" caption on the Cued monitor. The panel now uses the preset the
-  engine actually draws. A preset that arrives later now also reaches the Cued monitor, not only the
-  grid cards.
+- **"Deep Analysis" in the English menu.** The Audio setup page had two entries both called Audio
+  Analysis: the sensitivity settings and the key / chord / loudness meters. The second is now Deep
+  Analysis, as the README already called it.
+- **Scenes whose MilkDrop layer uses the default preset show a picture.** With no preset chosen, the
+  engine draws the first built-in preset, but the panel asked for no thumbnail at all. MilkDrop Flow,
+  for example, was a "2 Layers" caption on the Cued monitor. The panel now uses the preset the
+  engine actually draws. A preset that arrives later now also reaches the Cued monitor, not only the
+  grid cards.
 - **The Streaming Output note said Spout output was not available.** It is, under Spout / Syphon Output. The note now points there; NDI is still not available.
 - **One spelling in the English interface.** Nine strings said "colour" while about 150 said "color", sometimes on the same card (Color Theme next to Colour Preset). They now all say "color"; the background mode is Color Cloud.
 - **Scene grid cards show what the scene looks like.** Scenes that had never been live were a colour gradient on the Live page. They now use the same rendered previews as the Cued monitor.
@@ -305,6 +330,24 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **README: a "New in v4" section** (English and Turkish) with the Live page and T-bar, the phone remote, multi-pass shaders, video transport, adaptive resolution and the editing-speed work, each with its measurement. Corrected counts that had drifted from the code: 44 GPU effects (the effect list and two summaries said 40 and 42; Flash, Strobe, Tonemap and 3D LUT were missing from the list), 43 built-in shaders, 106 MCP tools (the table said 104). Quick start now names the panel as it is: **Library → Preset** and **Output → Streaming Output (OBS / Web)**. Adaptive resolution, which the README did not mention, is described under power and performance.
 - **A new showreel at the top** (`hero.webp`, 3.8 MB instead of 5.1 MB): the two newest CaYaDev MilkDrop presets, the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, the Lorenz attractor, synthwave and a broadcast card, after your own recording.
 - **ROADMAP** records what was added in November, with measurements, and what was deliberately not taken.
+- **The documents say where the project stands.** Readers and AI assistants were told the project was
+  still being planned, for two reasons.
+  - `docs/PLAN.md` opened with "the current release is v3.1.6; next comes v3.1.7" and listed 96 open
+    tasks, many of which shipped long ago. It is now `docs/archive/PLAN-3.0.md`, headed as an archive,
+    with the current state and examples of later-shipped tasks.
+  - The ROADMAP's v4 section said work happened "on a separate `dev/v4` branch" and listed its stages
+    as a plan. It now opens with where things stand (v4.0.0 on `main` as 4.0.0-beta, not released),
+    gives each stage its status, and says the status table only has released versions. The README's
+    roadmap section says the same.
+- **No comparisons with other products.** The archived plan no longer lists the products it was
+  compared with. The timeline editor, the clip deck and its launch modes are no longer described as
+  modelled on another program, the ROADMAP and code comments no longer point at other engines' open
+  issues, and the README keywords no longer call the app an alternative to another player. Product
+  names stay wherever they say what the app works with or reads: the MilkDrop 3 format and its hard
+  cuts, the folders the importer searches, the programs that Spout, Syphon, OSC and Art-Net connect
+  to, and the sources and preset collections the MilkDrop engine is measured against.
+- **Interface names match the app:** Pre-show Check, "Don't Open the Status Window at Start", and
+  Settings → Application.
 - **All twenty panel screenshots retaken on the current interface**, with three new ones: the Live
   page (example scenes on F1–F8 and a T-bar held at 45 %), the phone remote, and the Layout Editor.
   - The generator's demo show now includes the example scenes, an effect chain, named macros with

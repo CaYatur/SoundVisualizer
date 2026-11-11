@@ -64,8 +64,9 @@ These run the real app with a temporary profile and do not touch your settings.
 | `npm run ui-walk` | Clicks through the panel: layers, undo, search, pages, sections, momentary effects |
 | `npm run ui-audit` | Visits every page, shelf tab, layer kind, inspector tab and layer source in both languages, and reports Turkish text in the English interface, clipped labels and console errors |
 | `npm run ui-layout` | Measures every page, section and layer tab: text or controls too close to a surface edge, anything spilling out, rows in a section that do not start on the same left edge, old-style borders, words broken across lines. `--size=1000x560` checks another window size |
-| `npm run golden -- --software --baseline=<file>` | Compares 107 scenes and templates frame by frame with a saved baseline |
+| `npm run golden -- --software --baseline=<file>` | Compares 107 scenes and templates frame by frame with a saved baseline. If a difference is intended, look at it with `--keep` (writes the videos), say so in the PR, and use the new `golden.json` as the baseline from then on. `--repeat` renders every case twice in one run and fails if the two differ byte for byte |
 | `npm run perf` | Frame times, CPU and memory in a real scene. `--low` slows the page and `--config-send` measures settings sends |
+| `npm run smoke:packaged` | After `npm run pack:dir`: runs the self-test (with export) in the packaged app, from the archive, with a temporary profile. Run it before a release |
 
 Measure before and after on the same machine, in turn, and look at the process list as well as the
 averages. `--low` starts throttling after the window has begun loading, so it says little about how

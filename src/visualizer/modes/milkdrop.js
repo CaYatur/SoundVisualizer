@@ -226,8 +226,7 @@ void main(){
 
   /* FLAŞ SINIRLAMA — nöbet riski taşıyan yanıp sönmeyi kesmek.
 
-     MilkDrop'ta yok; bilinçli bir ekleme. projectM'in #947 ve #742'si aynı
-     şeyi yıllardır açık tutuyor ve hiçbir motor çözmüş değil. Korpusta
+     MilkDrop'ta yok; bilinçli bir ekleme. Korpusta
      "Definitly Not For The Epileptic" ve "Seizure-Inducing ... RMX" gibi
      adlar var; yazarları ne yaptıklarını biliyor, izleyen herkes bilmiyor.
 
@@ -1438,7 +1437,7 @@ void main(){
        RGB10_A2 normalize edilmiş: MilkDrop gibi kenetliyor, ama kanal
        başına 8 değil 10 bit veriyor — yani MilkDrop'un dört katı
        hassasiyet. Bantlanma gerekçesi karşılanıyor, kenetleme semantiği
-       geri geliyor. projectM'in #895'i tam olarak bunu istiyor.
+       geri geliyor.
 
        ALFA 2 BİT ve bu sorun değil: karışım işlevlerimiz kaynak alfasını
        kullanıyor (`SRC_ALPHA`), hedefinkini değil. Tamponun alfa kanalını
@@ -5245,8 +5244,8 @@ void main(){
        gerçek bir pencerede hiç tutmuyor: kaynağın "alfa sabit ve SOLUK"
        diye tarif ettiği kip 2 (2749) tam opak çiziliyor. Dal, MilkDrop 2
        tam boy dokuya geçerken ölmüş. Aralığa çevirince tarifteki niyet
-       geri geliyor; projectM de aynı yolu seçmiş (Waveform.cpp,
-       MaximizeColors). 2048'in üstü için onun değerleri alındı.
+       geri geliyor. 2048'in üstü için projectM'in değerleri alındı
+       (Waveform.cpp, MaximizeColors).
 
        Kip 3'te çarpma değil ATAMA var: o 392 preset (%3,8) için wave_a'nın
        hükmü kalmıyor, MilkDrop'ta da kalmıyor. Tizle çarpan `treble_rel`
@@ -6306,8 +6305,7 @@ void main(){
        Preset dili kare başına yazılabilen bir `monitor` değişkeni
        tanımlıyor; render girdisi DEĞİL, yalnızca yazarın bakması için.
        Motor değeri havuzda tutuyordu ama hiçbir yere çıkarmıyordu, yani
-       korpustaki 4.489 presetin (%43,4) o satırları ölüydü. projectM'in
-       #664'ü aynı isteği yıllardır açık tutuyor.
+       korpustaki 4.489 presetin (%43,4) o satırları ölüydü.
 
        Preset yoksa ya da `monitor` hiç yazılmamışsa `null` dönüyor —
        0 dönmek "preset sıfır yazdı" ile "kimse yazmadı"yı aynı gösterirdi

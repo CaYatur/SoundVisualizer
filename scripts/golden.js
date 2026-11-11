@@ -21,6 +21,16 @@
      npm run golden -- --out=<klasör> --baseline=<önceki golden.json>
      npm run golden -- --out=<klasör> --only=<ad parçası> --keep
      npm run golden -- --out=<klasör> --software
+     npm run golden -- --out=<klasör> --software --repeat   (her durum iki kez: belirlenimcilik, #467)
+
+   KABUL ETME: koşu `<klasör>/golden.json` yazar. Bir fark bilerek yapıldıysa (şablon ya da
+   görüntü kasıtlı değişti) `--keep` ile videolar da yazılır, gözle bakılır ve yeni golden.json
+   bundan sonra `--baseline` olur; kararı PR'da yazın. Kasıtsız fark hatadır.
+
+   --repeat: her durum aynı koşuda ikinci kez dışa aktarılır ve kareler bayt bayt karşılaştırılır.
+   Modülasyon, geçiş ve efektler açıkken aynı iş aynı videoyu vermeli; vermeyen durum adıyla
+   yazılır ve çıkış kodu 1 olur. Donanımda Lorenz gibi büyük nokta bulutları ±1 oynayabilir:
+   belirlenimcilik `--software` ile ölçülür.
 
    --software: yazılım çizici. Donanımda Lorenz şablonu (90.000 nokta) koşudan koşuya
    birkaç baytta ±1 oynuyor; aynı dışa aktarım yazılım çizicide birebir aynı çıkıyor.
@@ -37,7 +47,8 @@ const arg = (k, d) => { const a = argv.find((x) => x.startsWith('--' + k + '='))
 const REPO = path.join(__dirname, '..');
 const OUT = arg('out');
 if (!OUT) { console.error('--out=<klasör> gerekli'); process.exit(2); }
-const ONLY = (arg('only', '') || '').toLocaleLowerCase();
+const ONLY = (arg('only', '') || '').toLowerCase();
+const REPEAT = argv.includes('--repeat');
 const PORT = +arg('port', 9721);
 const SOFTWARE = argv.includes('--software');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -149,19 +160,30 @@ async function main() {
   })()`);
   const all = JSON.parse(await a.ev(`JSON.stringify(window.SVTemplates.TEMPLATES.map((t) => ({ kind: 'template', id: t.id, name: t.name }))
     .concat((window.SVPanel.cfg().scenes || []).map((s) => ({ kind: 'scene', id: s.id, name: s.name }))))`));
-  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLocaleLowerCase().includes(ONLY));
+  const cases = all.filter((c) => !ONLY || (c.kind + ':' + c.name).toLowerCase().includes(ONLY));
   const run = { when: new Date().toISOString(), version: require('../package.json').version, software: SOFTWARE, cases: {} };
-  console.log(cases.length + ' durum');
+  console.log(cases.length + ' durum' + (REPEAT ? ', her biri iki kez' : ''));
   let n = 0;
+  const unstable = [];
+  const exportTo = async (file) => JSON.parse(await a.ev(`(async () => { window.__done = null; const s = await window.api.startExport({ audioPath: ${JSON.stringify(wav)}, outputPath: ${JSON.stringify(file)}, format: 'mp4-h264', resolution: '720p', fps: 30, encoder: 'cpu', quality: 'high', speed: 'fast' }); if (!s || !s.ok) return JSON.stringify({ start: s }); for (let i = 0; i < 900 && !window.__done; i++) await new Promise((r) => setTimeout(r, 200)); return JSON.stringify(window.__done || { timeout: true }); })()`));
   for (const c of cases) {
     n++;
     const key = c.kind + ':' + c.name;
     await a.ev(SET_CASE(c));
     await sleep(900);
     const file = path.join(work, 'c' + n + '.mp4');
-    const st = JSON.parse(await a.ev(`(async () => { window.__done = null; const s = await window.api.startExport({ audioPath: ${JSON.stringify(wav)}, outputPath: ${JSON.stringify(file)}, format: 'mp4-h264', resolution: '720p', fps: 30, encoder: 'cpu', quality: 'high', speed: 'fast' }); if (!s || !s.ok) return JSON.stringify({ start: s }); for (let i = 0; i < 900 && !window.__done; i++) await new Promise((r) => setTimeout(r, 200)); return JSON.stringify(window.__done || { timeout: true }); })()`));
+    const st = await exportTo(file);
     if (st.status !== 'done') { run.cases[key] = { error: JSON.stringify(st).slice(0, 200), frames: [] }; console.log(key, 'HATA', run.cases[key].error); continue; }
     run.cases[key] = { frames: frameHashes(file) };
+    if (REPEAT) {
+      // Aynı durum, aynı koşuda yeniden: kareler bayt bayt aynı olmalı (#467)
+      const again = path.join(work, 'c' + n + 'b.mp4');
+      const st2 = await exportTo(again);
+      const r = st2.status === 'done' ? G.repeatCheck(run.cases[key].frames, frameHashes(again)) : { same: false, diff: -1, frames: 0 };
+      run.cases[key].repeat = r;
+      if (!r.same) unstable.push(key + ': ' + (r.diff < 0 ? 'ikinci dışa aktarım başarısız' : r.diff + '/' + r.frames + ' kare farklı'));
+      try { fs.unlinkSync(again); } catch { /* yoksa geç */ }
+    }
     console.log(String(n).padStart(3), key.slice(0, 50));
     // --keep: kareler incelensin diye dosya çıktı klasörüne
     try {
@@ -170,6 +192,11 @@ async function main() {
     } catch { /* yoksa geç */ }
   }
   fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(run));
+  if (REPEAT) {
+    console.log('iki kez: aynı ' + (cases.length - unstable.length) + ', farklı ' + unstable.length);
+    unstable.forEach((u) => console.log('  ' + u));
+    if (unstable.length) process.exitCode = 1;
+  }
   if (arg('baseline')) {
     const before = JSON.parse(fs.readFileSync(arg('baseline'), 'utf8'));
     if (!!before.software !== SOFTWARE) console.log('UYARI: önceki koşu ' + (before.software ? 'yazılım' : 'donanım') + ' çiziciyle alınmış, karşılaştırma anlamsız');
@@ -177,7 +204,7 @@ async function main() {
     console.log('öncekiyle: aynı ' + cmp.same + ', değişen ' + cmp.changed.length + ', eşsiz ' + cmp.missing.length);
     cmp.changed.forEach((c) => console.log('  ' + c.name + ': ' + c.diff + '/' + c.frames + ' kare'));
     cmp.missing.forEach((c) => console.log('  ' + c.name + ': ' + c.in));
-    process.exitCode = cmp.changed.length || cmp.missing.length ? 1 : 0;
+    if (cmp.changed.length || cmp.missing.length) process.exitCode = 1;
   }
   a.ws.onclose = null;
   try { a.ws.close(); } catch { /* kapanıyor */ }

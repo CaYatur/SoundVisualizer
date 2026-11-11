@@ -46,7 +46,7 @@ test('panel kaydırıcıları aralığı şemadan alıyor, kopya kalmadı', () =
     seen++;
     assert.doesNotMatch(m[0], /\b(min|max|noExtend):/, m[1]);
   }
-  assert.strictEqual(seen, 18);
+  assert.strictEqual(seen, 19);
   assert.match(admin, /const known = window\.SVSchema\.rangeFor\(def\.path\);/);
   assert.match(admin, /def\.min = known\.min;/);
   assert.doesNotMatch(admin, /RANGE_FACTOR/);
@@ -67,7 +67,7 @@ test('şema satırları: aralık düzgün, varsayılan aralıkta, yol yinelenmiy
   const get = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const rows = Schema.SLIDERS.concat(Schema.RANGES);
   assert.strictEqual(new Set(rows.map((x) => x.path)).size, rows.length);
-  assert.strictEqual(rows.length, 123);
+  assert.strictEqual(rows.length, 124);
   for (const r of rows) {
     if (r.steps) continue;
     assert.ok(r.min < r.max, r.path);

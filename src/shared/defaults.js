@@ -381,6 +381,7 @@
       lowPower: 'off',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       adaptiveScale: true, // kare kaçıyorsa çözünürlüğü kendiliğinden düşür (#453)
+      adaptiveFloor: 0.5, // uyarlanır çözünürlüğün inebileceği en düşük ölçek
       pauseOnSilence: false,
       hideCursor: true,
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.

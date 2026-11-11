@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4407%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4420%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -851,7 +851,7 @@ gösteriyi oynatıyor.
 
 - Sahne, şablon, palet, video, görsel, shader ve eylem için klip parçaları; herhangi bir ayar için
   eğrili **otomasyon şeritleri**; işaretler ve döngü.
-- **Tam bir düzenleyici**, Ableton'ın Arrangement View'ı örnek alınarak: aktarım,
+- **Tam bir düzenleyici**: aktarım,
   saat (zaman ve ölçü.vuruş), tempo, yakalama, döngü, izleme ve yakınlaştırmalı bir araç çubuğu; renk,
   sessiz, solo ve kilitli parça başlıkları; oynatma kafasında bölme, çoğaltma, kopyala-yapıştır, dürtme,
   100 adımlık geri alma; kutuyla çoklu seçim; sürüklenebilir döngü ayracı ve işaret bayrakları; klip
@@ -2051,7 +2051,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4407 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4420 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2156,8 +2156,10 @@ basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle M
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
 müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
 düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
-donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. Sırada ne olduğunu da yazıyor; neyin
-*yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
+donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. **v4.0.0** şu an `main` dalında
+4.0.0-beta olarak duruyor; derlendi ve sınandı ama henüz yayınlanmadı: [v4'te yeni](#v4te-yeni) altındaki
+her şey. Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
+de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
 ---
@@ -2175,6 +2177,6 @@ MIT — bkz. [LICENSE](LICENSE). Telif hakkı (c) 2026 Çağan Turgut ([CaYatur]
 
 **[cayadev.com](https://cayadev.com)**
 
-<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · projectM alternatifi · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
+<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · MilkDrop presetleri · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
 
 </div>
