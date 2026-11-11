@@ -766,7 +766,11 @@
     _keyed(pic, vw, vh, m) {
       const K = typeof window !== 'undefined' && window.SVMediaKey;
       if (!K || !K.active(m) || !vw || !vh) return null;
-      if (typeof document === 'undefined' || !document.createElement) return null;
+      if (typeof document === 'undefined') return null;
+      let c = this._keyCanvas;
+      if (!c) {
+        try { c = this._keyCanvas = document.createElement('canvas'); } catch { return null; }
+      }
       const MAX = 960;
       let dw = vw;
       let dh = vh;
@@ -776,7 +780,6 @@
         dw = Math.max(1, Math.round(vw * s));
         dh = Math.max(1, Math.round(vh * s));
       }
-      const c = this._keyCanvas || (this._keyCanvas = document.createElement('canvas'));
       if (c.width !== dw || c.height !== dh) { c.width = dw; c.height = dh; }
       const g = c.getContext('2d', { willReadFrequently: true });
       if (!g) return null;
