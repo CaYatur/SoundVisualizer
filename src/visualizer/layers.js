@@ -1977,6 +1977,16 @@
       };
     }
 
+    /* Panelden video sarma (#905): katmanın oynatıcısı (yoksa hepsi) verilen orana. */
+    scrubMedia(layerId, frac) {
+      if (!this._mediaPool) return;
+      const key = layerId && this._mediaByLayer ? this._mediaByLayer.get(layerId) : null;
+      for (const [k, inst] of this._mediaPool) {
+        if (key && k !== key) continue;
+        if (inst && inst.scrub) inst.scrub(frac);
+      }
+    }
+
     /* Giden sahnenin örnekleri KAREDEN SONRA, birer birer atılıyor (#905). Geçiş çizimin içinde
        bitiyor; atma eşzamanlıydı ve WebGL'li her mod bağlamını kapatıyordu (gradyanda ~11 ms):
        sahne değişiminin son karesi uzuyordu. Tuvaller geçişin başında DOM'dan zaten söküldü,
