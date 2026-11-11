@@ -3878,6 +3878,7 @@ measured in the real application; the numbers are from the development machine.
 |---|---|---|
 | Live | T-bar on the Live page: hand-mixed scene transition, held blend, undo by pulling back; `show/tbar` for OSC / Companion | Output colour followed the bar: 30 % → 184/0/71, 70 % → 76/1/181, back to start → first scene unchanged |
 | Live | Scenes with the same layers now transition (manual scene changes counted) | Previously a cut |
+| Live | Cued monitor shows a picture for a scene that has never been live: its MilkDrop preset's, or a rendered preview of its top layer | Previously only a text summary |
 | Studio | Multi-pass shaders (buffers A–D), ISF `PASSES` imported as passes, Ink Flow | Golden: 83/83 templates unchanged |
 | Media | Video speed, in/out points, beat-locked loop, live scrub | 2× → +0.51 s per 250 ms; 4-beat loop at 120 BPM restarts every 2 s |
 | Remote | Phone remote rebuilt in the panel's design; protocol documented (`docs/REMOTE-PROTOCOL.md`) | LAN with a required token: page 401 without, 200 with; commands applied |

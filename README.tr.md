@@ -820,7 +820,9 @@ OBS katmanı ve video dışa aktarımı onu çizer.
 </div>
 
 **Canlı sayfası ve T-bar.** Bankalı ve F tuşlu sahne ızgarası, Sırada ve Canlı ekranları, Otomatik
-VJ, anlık efektler ve katman faderleri tek sayfada. **AL** sıradaki sahneyi kendi geçişiyle canlıya
+VJ, anlık efektler ve katman faderleri tek sayfada. Sırada ekranı sahnenin çıkıştaki son karesini
+gösteriyor; hiç canlıya çıkmamış bir sahnede MilkDrop presetinin resmi ya da en üst katmanının
+çizilmiş önizlemesi geliyor, bunun için GPU'da ikinci bir motor çalışmıyor. **AL** sıradaki sahneyi kendi geçişiyle canlıya
 alıyor; yanındaki **T-bar** sıradaki sahneyi elle karıştırıyor: karışım çubuğu izliyor, yarıda
 bırakınca iki sahnenin karışımı kalıyor, öbür uç sahneyi canlıya alıyor, başa döndürmek hiçbir şeyi
 baştan başlatmadan değişikliği geri alıyor. Her çıkış, OBS kaplaması ve panel önizlemesi çubuğu

@@ -817,7 +817,9 @@ OBS overlay and video export draw.
 </div>
 
 **Live page and T-bar.** A scene grid with banks and F-keys, Cued and Live monitors, Auto VJ,
-momentary effects and layer faders on one page. **TAKE** puts the cued scene live with its
+momentary effects and layer faders on one page. The Cued monitor shows the scene's last frame from the
+output; a scene that has never been live shows its MilkDrop preset's picture or a rendered preview
+of its top layer, without starting a second engine on the GPU. **TAKE** puts the cued scene live with its
 transition; the **T-bar** next to it mixes the cued scene in by hand: the mix follows the bar,
 releasing it halfway holds a blend of both scenes, the far end puts the scene live and pulling it
 back to the start undoes the change without restarting anything. Every output, the OBS overlay and
