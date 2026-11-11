@@ -156,7 +156,9 @@
     MP.pickFor(l && MP.isOwnLayer(l) ? l.id : '');
   }
 
-  // Küçük resim: MilkDrop'ta o an seçili presetin karesi, ötekilerde tür simgesi
+  /* Küçük resim: MilkDrop'ta o an seçili presetin karesi; görselleştirici ve zeminde modun
+     çizilmiş resmi (rafla ve Canlı ızgarasıyla aynı, uygulamayla gelen dosyalar); ötekilerde
+     (metin, logo, çalan parça, medya) tür simgesi. Eskiden yalnız MilkDrop satırı resimliydi. */
   function thumbOf(l) {
     const el = P().el;
     const box = el('span', { class: 'sv-th' });
@@ -169,8 +171,41 @@
       if (src.presetId) box.setAttribute('data-thumb-for', src.presetId);
       if (url) { box.appendChild(el('img', { src: url, alt: '', loading: 'lazy', onerror: (e) => { e.target.remove(); } })); return box; }
     }
+    const modeId = (l.kind === 'visualizer' || l.kind === 'background') && l.type && !/^(none|milkdrop|custom)$/.test(l.type)
+      ? (l.kind === 'visualizer' ? 'vis:' : 'bg:') + l.type : '';
+    const known = modeId ? modeThumbUrls.get(modeId) : '';
+    if (known) { box.appendChild(el('img', { src: known, alt: '', loading: 'lazy', onerror: (e) => { e.target.remove(); } })); return box; }
     box.appendChild(el('span', { icon: KIND_ICON[l.kind] || 'layers' }));
+    if (modeId && !modeThumbUrls.has(modeId)) queueRowThumb(modeId, box);
     return box;
+  }
+  /* Satır resimleri toplu sorulur: bir çizimdeki bütün satırlar tek istekte. */
+  const rowThumbWait = new Map(); // mod kimliği → bekleyen kutular
+  let rowThumbTimer = 0;
+  function queueRowThumb(id, box) {
+    if (!rowThumbWait.has(id)) rowThumbWait.set(id, []);
+    rowThumbWait.get(id).push(box);
+    if (rowThumbTimer) return;
+    rowThumbTimer = setTimeout(() => {
+      rowThumbTimer = 0;
+      const api = window.api;
+      const waiting = new Map(rowThumbWait);
+      rowThumbWait.clear();
+      if (!api || typeof api.modeThumbs !== 'function') return;
+      const items = Array.from(waiting.keys()).map((id) => ({ id, kind: id.slice(0, id.indexOf(':')), type: id.slice(id.indexOf(':') + 1) }));
+      api.modeThumbs(items).then((r) => {
+        const ready = (r && r.ready) || {};
+        for (const [id, boxes] of waiting) {
+          if (!Object.prototype.hasOwnProperty.call(ready, id)) continue;
+          modeThumbUrls.set(id, ready[id] || '');
+          if (!ready[id]) continue;
+          for (const b of boxes) {
+            if (!b.isConnected || b.querySelector('img')) continue;
+            b.replaceChildren(P().el('img', { src: ready[id], alt: '', loading: 'lazy', onerror: (e) => { e.target.remove(); } }));
+          }
+        }
+      }, () => {});
+    }, 0);
   }
 
   /* Sahnenin küçük resmi: üstteki MilkDrop katmanının presetinden, yoksa boş (renk özeti kalır). */
