@@ -13,3 +13,4 @@ native/smtc-helper/obj/
 native/app-audio-helper/bin/
 native/app-audio-helper/obj/
 src/visualizer/*.gen.*
+packaged-smoke.log
