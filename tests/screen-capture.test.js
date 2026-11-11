@@ -155,7 +155,7 @@ test('çeviri yeni cümleleri içeriyor', () => {
     'Ekran Kaynağı',
     'Ekranları Yenile',
     'Bir ekran veya pencere seçin.',
-    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.',
+    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa, önizlemeye ve bağlı bir yayın sayfasına (OBS) gider. Düşük yenileme hızı yakalama yükünü azaltır. Wayland oturumunda bir X11 ekranı gerekir.',
   ]) {
     assert.ok(i18n.includes("'" + s + "':"), 'çevirisi yok: ' + s);
   }
