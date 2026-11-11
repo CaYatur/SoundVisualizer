@@ -175,3 +175,11 @@ test('İngilizce menüde iki ayrı "Audio Analysis" yok', () => {
   assert.match(src, /'Ses Analizi': 'Audio Analysis',/);
   assert.match(src, /'Ses Çözümlemesi': 'Deep Analysis',/);
 });
+
+test('ESC notu en çok üç kez: aynalanmış projektörde seyirci hep görmesin', () => {
+  const vis = read('src/visualizer/visualizer.js');
+  const block = vis.slice(vis.indexOf('window.api.onExitHint'), vis.indexOf('window.api.onExitHint') + 1600);
+  assert.match(block, /localStorage\.getItem\('sv-exit-hint-count'\)/);
+  assert.match(block, /if \(seen >= 3\) return;/);
+  assert.match(block, /try \{ localStorage\.setItem\('sv-exit-hint-count', String\(seen \+ 1\)\); \} catch/);
+});
