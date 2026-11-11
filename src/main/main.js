@@ -43,6 +43,8 @@ const lyricsLibrary = require('./lyrics-library');
 const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
 const uiScale = require('../shared/ui-scale');
+const appMenu = require('./app-menu');
+const hotkeys = require('../shared/hotkeys');
 const mcpServer = require('./mcp-server');
 const mqttLite = require('./mqtt-lite');
 const mqttBridge = require('./mqtt-bridge');
@@ -686,6 +688,9 @@ function installSignalHandlers() {
 }
 installSignalHandlers();
 app.whenReady().then(() => { installSignalHandlers(); setTimeout(installSignalHandlers, 1000); });
+/* Electron'un varsayılan menüsü kaldırılır: Ctrl+R paneli ve çıkışı yeniden yüklüyor, Alt panelde
+   genel bir menü çubuğu gösteriyordu (bkz. app-menu.js). */
+app.whenReady().then(() => { appMenu.install(require('electron').Menu, process.platform, process.argv.includes('--dev')); });
 // "Cihaz varsayılanı" teması: sistem açık/koyu değişince pencere zemini de (#770)
 app.whenReady().then(() => { nativeTheme.on('updated', syncAdminBackground); });
 
@@ -1260,6 +1265,16 @@ function createVisualizerWindow(display) {
     if (isRescue) {
       event.preventDefault();
       closeVisualizer();
+      return;
+    }
+
+    /* Gösteri kısayolları (shared/hotkeys.js): Boşluk karartır, Ctrl+S anlık görüntü alır,
+       Ctrl+R kaydı başlatır ya da durdurur. Gösteride odak bu penceredeyken de çalışmalı;
+       işi panel yapar (karartma, kayıt ve anlık görüntü onun). Basılı tutma yinelemez. */
+    const hot = hotkeys.match(input);
+    if (hot) {
+      event.preventDefault();
+      if (!input.isAutoRepeat) notifyAdmin('hotkey', hot);
       return;
     }
 

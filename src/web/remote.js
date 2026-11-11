@@ -244,11 +244,12 @@
   document.querySelectorAll('#lookTabs [data-look]').forEach((b) => b.addEventListener('click', () => setLook(b.dataset.look)));
 
   // Arama: görünen adın (çevrilmiş) içinde, büyük-küçük harf ayırmadan
+  const fold = (s) => (window.SVText ? window.SVText.fold(s) : String(s || '').trim().toLowerCase());
   function matches(node, q) {
-    return !q || (node.textContent || '').toLocaleLowerCase().indexOf(q) >= 0;
+    return !q || fold(node.textContent).indexOf(q) >= 0;
   }
   function filterLook() {
-    const q = $('lookSearch').value.trim().toLocaleLowerCase();
+    const q = fold($('lookSearch').value);
     document.querySelectorAll('[data-look-body]:not([hidden]) > *').forEach((n) => { n.hidden = !matches(n, q); });
   }
   $('lookSearch').addEventListener('input', filterLook);
@@ -313,12 +314,12 @@
     if (!list.length) sub.appendChild(h('span', { text: 'sahne yok' }));
     else sub.textContent = active >= 0 ? (active + 1) + ' / ' + list.length : String(list.length);
 
-    const q = $('sceneSearch').value.trim().toLocaleLowerCase();
+    const q = fold($('sceneSearch').value);
     host.textContent = '';
     $('scenesEmpty').hidden = list.length > 0;
     list.forEach((s, i) => {
       const name = s.name || '';
-      if (q && name.toLocaleLowerCase().indexOf(q) < 0) return;
+      if (q && fold(name).indexOf(q) < 0) return;
       const pic = h('span', { class: 'pic' });
       const g = gradient(sceneColors(s));
       if (g) pic.style.backgroundImage = g;

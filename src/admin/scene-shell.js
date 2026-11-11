@@ -751,12 +751,15 @@
   function modeGallery(kind) {
     const el = P().el;
     const MC = window.SVModeCatalog;
-    const q = query.toLocaleLowerCase();
+    /* Ortak arama anahtarı (shared/text-fold.js): Türkçe yerelde "I" yazınca "ı" aranıyor,
+       "MILKDROP" ya da "izgara" hiçbir şey bulmuyordu. Kaynak ad ve çeviri birlikte aranır. */
+    const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+    const q = F(query);
     const entries = (kind === 'bg' ? MC.BACKGROUNDS : MC.VISUALIZERS) || [];
     const groups = new Map();
     entries.forEach((m) => {
       const label = tr(m.label || m.id);
-      if (q && label.toLocaleLowerCase().indexOf(q) < 0) return;
+      if (q && F(label + ' ' + (m.label || '') + ' ' + tr(m.group || '')).indexOf(q) < 0) return;
       const g = tr(m.group || '');
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push({ id: m.id, label });

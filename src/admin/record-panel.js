@@ -485,7 +485,7 @@
 
   // Kayıt sürüyor mu: önizleme yüzeyi kayda gidiyor (medya hata yazısı gizlenir)
   window.SVRecordPanel = {
-    panel: panel, start: start, stop: stop, isRecording: () => pumpRaf !== 0,
+    panel: panel, start: start, stop: stop, snap: snap, isRecording: () => pumpRaf !== 0,
     followDecision: followDecision, ensureFollow: ensureFollow,
   };
 })();

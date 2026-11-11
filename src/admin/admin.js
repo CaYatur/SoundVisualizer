@@ -4875,6 +4875,11 @@
     if (!lbl) return;
     ctrl.querySelectorAll(':scope > .studio-note.dim-hint').forEach((n) => {
       if (n.id || n.children.length) return;
+      /* Bir başlığın hemen altındaki not o başlığın İÇERİĞİ (boş durum, "kullanılamıyor"):
+         katlanırsa başlık altı boş kalır ve sebep başka bir etiketin ipucuna gömülür.
+         Ses Kaynakları'nda "Uygulama Sesi" böyle boş görünüyordu. */
+      const prev = n.previousElementSibling;
+      if (prev && prev !== lbl && prev.matches && prev.matches('label.lbl')) return;
       const text = n.textContent;
       if (!text) return;
       lbl.appendChild(el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': tr(text) }));
@@ -5084,7 +5089,7 @@
         sectionId: sec.id,
         path: null,
         advanced: false,
-        keywords: sec.keywords || [],
+        keywords: (sec.keywords || []).concat(ALIASES.sections[sec.id] || []),
       });
       sec.controls.forEach((def) => {
         if (!def.label || !def.path) return;
@@ -5102,7 +5107,28 @@
         });
       });
     });
-    return out.concat(layerSearchEntries(), shelfSearchEntries());
+    return out.concat(layerSearchEntries(), shelfSearchEntries(), actionSearchEntries());
+  }
+
+  /* Eş anlamlılar (search-aliases.js): bölümlere, katman ayarlarına ve ayar olmayan eylemlere
+     insanların yazdığı sözcükler. Dosya yüklenmediyse arama eskisi gibi yalnız adlarla çalışır. */
+  const ALIASES = window.SVSearchAliases || { sections: {}, labels: {}, actions: [] };
+  function actionSearchEntries() {
+    return (ALIASES.actions || []).map((a) => ({
+      kind: 'action', icon: a.icon, label: a.label, category: null, categoryTitle: a.category, section: a.section,
+      sectionId: null, path: null, advanced: false, keywords: a.keywords || [], run: a.run,
+    }));
+  }
+  function runSearchAction(name) {
+    if (name === 'shortcuts') { if (window.SVShortcutsHelp) window.SVShortcutsHelp.open(); return; }
+    const btn = name === 'blackout-button' ? $('blackoutBtn') : name === 'open-button' ? $('openBtn') : null;
+    if (!btn) return;
+    // Düğmeye basılmaz: kullanıcı yerini görsün, basıp basmamak onun kararı
+    btn.focus();
+    btn.classList.remove('flash');
+    void btn.offsetWidth;
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 1800);
   }
 
   /* Efekt ve mod adları ayar değil, rafta duruyor: "bloom" yazan kullanıcı "bulunamadı" görmesin.
@@ -5147,7 +5173,7 @@
         taken.add(f.label);
         out.push(Object.assign({
           kind: 'control', icon: 'layers', label: f.label, category: 'scene', categoryTitle: 'Sahne',
-          sectionId: null, path: null, anchor: f.label, tab: f.tab, advanced: f.advanced, keywords: [],
+          sectionId: null, path: null, anchor: f.label, tab: f.tab, advanced: f.advanced, keywords: ALIASES.labels[f.label] || [],
         }, fill));
       });
     };
@@ -5165,20 +5191,38 @@
     return out;
   }
 
+  /* Eşleştirme shared/text-fold.js ile: büyük/küçük harf, Türkçe I/ı ve aksan farkı yok. Önceden
+     `toLocaleLowerCase('tr')` "MIDI"yi "mıdı" yapıyor, "midi" yazan hiçbir şey bulamıyordu.
+     Üç harf ve altındaki sorgu yalnız sözcük başında aranır: "ndi" "Kendi"yi, "lut" "Bulutsu"yu
+     bulmasın. Uzun sorguda sözcük ortası da geçerli ama sözcük başının arkasında sıralanır. */
+  const foldCache = new Map();
+  function foldOf(s) {
+    if (!s) return '';
+    let f = foldCache.get(s);
+    if (f === undefined) {
+      if (foldCache.size > 6000) foldCache.clear();
+      f = window.SVText.fold(s);
+      foldCache.set(s, f);
+    }
+    return f;
+  }
   function searchEntries(query) {
-    const q = query.trim().toLocaleLowerCase('tr');
+    const T = window.SVText;
+    const q = T.fold(query);
     if (!q) return [];
+    const strict = q.length <= 3;
     const score = (e) => {
       // Hem Türkçe anahtar hem de görüntülenen çeviri üzerinde eşleşme aranır
       const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)].concat(e.keywords || []);
       let best = -1;
       hay.forEach((h, i) => {
-        const idx = (h || '').toLocaleLowerCase('tr').indexOf(q);
-        if (idx < 0) return;
+        const m = T.find(foldOf(h), q);
+        if (!m || (strict && !m.start)) return;
         // Etiket eşleşmesi bölüm/kategori eşleşmesinden değerli, baştan eşleşme daha da değerli
         // Anahtar sözcükler (6+) bölüm adı kadar değerli
         const weight = i < 2 ? 0 : i < 4 || i >= 6 ? 40 : 80;
-        const s = weight + idx;
+        // Tam eşleşen ad ya da eş anlamlı ("dil", "midi") en üste çıkar
+        const s = foldOf(h) === q ? (i < 2 ? 0 : 1) : weight + (m.start ? 0 : 20) + Math.min(m.at, 19) + 2;
         if (best < 0 || s < best) best = s;
       });
       return best;
@@ -5224,6 +5268,7 @@
     const input = $('searchInput');
     if (input) input.value = '';
     $('searchResults').classList.add('hidden');
+    if (entry.run) { runSearchAction(entry.run); return; }
 
     if (entry.advanced && !advancedOn) {
       advancedOn = true;
@@ -7322,6 +7367,42 @@
         svToast(tr('Beklenmedik bir hata oldu; uygulama çalışmaya devam ediyor.') + what, 'warn');
       });
     }
+    /* GÖSTERİ KISAYOLLARI (shared/hotkeys.js): Boşluk karartır, Ctrl+S anlık görüntü alır,
+       Ctrl+R kaydı başlatır ya da durdurur. Çıkış penceresinde basılanı ana süreç buraya yollar;
+       panelde basılan aynı işleve gelir. Zaman sayfasında Boşluk çizelgenin oynat tuşu. */
+    const runHotkey = (action) => {
+      const R = window.SVRecordPanel;
+      if (action === 'blackout') { toggleBlackout(); return; }
+      if (!R) return;
+      if (action === 'snapshot') {
+        if (R.isRecording()) { svToast(tr('Kayıt sürerken anlık görüntü alınamıyor.'), 'warn'); return; }
+        svToast(tr('Anlık görüntü alınıyor…'), 'ok');
+        R.snap(cfg, false);
+      } else if (action === 'record') {
+        if (R.isRecording()) { R.stop(); svToast(tr('Kayıt durduruldu; dosya yazılıyor.'), 'ok'); }
+        else { R.start(cfg); svToast(tr('Kayıt başladı. Durdurmak için Ctrl+R.'), 'ok'); }
+      }
+    };
+    if (window.api.onHotkey) window.api.onHotkey(runHotkey);
+    const keysBtn = $('keysBtn');
+    if (keysBtn) keysBtn.addEventListener('click', () => { if (window.SVShortcutsHelp) window.SVShortcutsHelp.open(); });
+    document.addEventListener('keydown', (e) => {
+      const HK = window.SVHotkeys;
+      if (!HK || e.defaultPrevented) return;
+      if (document.querySelector('.ask-backdrop')) return;
+      const t = e.target;
+      // "?" kısayol listesini açar (Zaman sayfasının kendi listesi var)
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && activeCategory !== 'time' && HK.panelAllows('snapshot', t)) {
+        e.preventDefault();
+        if (window.SVShortcutsHelp) window.SVShortcutsHelp.open();
+        return;
+      }
+      const action = HK.match(HK.fromEvent(e));
+      if (!action || !HK.panelAllows(action, t)) return;
+      if (action === 'blackout' && (activeCategory === 'time' || activeCategory === 'studio')) return;
+      e.preventDefault();
+      if (!e.repeat) runHotkey(action);
+    });
     // Telefondan gelen eylemler paneldeki gerçek uygulamayı çağırır
     if (window.api.onRemoteAction) {
       window.api.onRemoteAction((action) => {
