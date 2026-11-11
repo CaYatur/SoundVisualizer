@@ -304,8 +304,11 @@
       if (strength > 0 && this.parts.length < 2600) {
         const cx = W * (0.18 + this.rand() * 0.64);
         const cy = H * (0.2 + this.rand() * 0.4);
-        const n = Math.round(50 + strength * 130 * v.sensitivity);
-        const speed = Math.min(W, H) * (0.22 + strength * 0.5);
+        /* Taban hız ve sayı yüksek: algılayıcının vuruş gücü en çok 0,55 (src/shared/onset.js);
+           örnek seste ilk vuruşlardan sonra 0,18-0,23. Patlamanın boyu çoğunlukla tabandan
+           geliyor, eski taban (0,22) küçük bir halka veriyordu. */
+        const n = Math.round(80 + strength * 140 * v.sensitivity);
+        const speed = Math.min(W, H) * (0.4 + strength * 0.45);
         const hue = this.rand() * 360;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2 + this.rand() * 0.2;
@@ -320,15 +323,20 @@
       }
 
       const grav = H * 0.28;
-      const drag = Math.pow(0.86, step * 60);
+      /* Sürtünme: 1/60 sn'de hızın %5'i gidiyor. Eskiden %14'ü gidiyordu; kıvılcımın alabileceği
+         en uzun yol hız / 9 sn'ydi. Ölçüldü (960x540, vuruştan sonraki 2 sn, düşüş dahil):
+         kıvılcımların %90'ı merkezden kısa kenarın %7-10'u kadar uzakta kalıyordu, havai fişek
+         değil nokta. Şimdi yol hız / 3 sn ve taban hız yüksek: %26-34.
+         Kıvılcım izi: son 45 ms'lik yol çiziliyor. Eskiden yalnız son karenin yolu çiziliyordu;
+         144 Hz'de iz 60 Hz'dekinin yarısıydı, yavaşlayan kıvılcım noktaya dönüyordu. */
+      const drag = Math.pow(0.95, step * 60);
+      const STREAK = 0.045;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.lineCap = 'round';
       const lw = Math.max(1, v.lineWidth * (Math.min(W, H) / 900) * 1.6);
       for (let i = this.parts.length - 1; i >= 0; i--) {
         const p = this.parts[i];
-        const px = p.x;
-        const py = p.y;
         p.vy += grav * step;
         p.vx *= drag;
         p.vy *= drag;
@@ -346,7 +354,7 @@
         ctx.globalAlpha = Math.min(1, p.life);
         ctx.lineWidth = lw * (0.4 + p.life * 0.9);
         ctx.beginPath();
-        ctx.moveTo(px, py);
+        ctx.moveTo(p.x - p.vx * STREAK, p.y - p.vy * STREAK);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
       }
@@ -655,6 +663,14 @@
       const amp = Math.min(W, H) * 0.05 * (0.4 + v.thickness);
       const dotR = Math.max(1, Math.min(dx, dy) * 0.16 * (1 - Math.min(0.7, v.gap)));
 
+      /* HALKA TEPESİ CEPHEDE. Eskiden yer değiştirme sin((d - r) * 0,02) idi: cephede (d = r)
+         sıfır, tepe cepheden 78 piksel ötede; bant ise uzun kenarın %9'unda bitiyordu. 960
+         genişlikte tepe bandın %9'una düşüyor, küçük önizlemede hiç kalmıyordu: ızgara vuruşta
+         kıpırdamıyor, yalnız soluk noktalar görünüyordu. Şimdi şekil bant genişliğine göre:
+         cephede tepe, arkasında bir çukur; her çözünürlükte aynı oran. Vuruş gücü 0,55'in altına
+         düşmüyor (zayıf vuruş da görünür bir halka), halka büyüdükçe sönüyor. */
+      const bw = Math.max(W, H) * 0.09;
+      const far = Math.max(W, H) * 1.2;
       ctx.save();
       for (let r = 0; r <= rows; r++) {
         for (let c = 0; c <= cols; c++) {
@@ -662,9 +678,10 @@
           const y = r * dy;
           let off = 0;
           for (const w of this.waves) {
-            const d = Math.hypot(x - w.x, y - w.y);
-            const band = Math.max(0, 1 - Math.abs(d - w.r) / (Math.max(W, H) * 0.09));
-            off += Math.sin((d - w.r) * 0.02) * band * w.s;
+            const u = (Math.hypot(x - w.x, y - w.y) - w.r) / bw;
+            if (u <= -1 || u >= 1) continue;
+            const fall = 1 - Math.abs(u);
+            off += Math.cos(u * Math.PI * 1.5) * fall * fall * Math.max(0.55, Math.min(1, w.s)) * (1 - w.r / far);
           }
           const level = Math.min(1, Math.abs(off));
           const yy = y + off * amp;
