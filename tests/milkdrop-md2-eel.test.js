@@ -2,7 +2,7 @@
 /* MILKDROP 2'NİN İFADE DERLEYİCİSİ (#580).
  *
  * Uyum açıkken denklemler MilkDrop 2'nin ifade derleyicisinin kurallarıyla
- * koşuyor. Kaynak Nullsoft'un ns-eel2'si (BeatDrop kopyası 53d83ee):
+ * koşuyor. Kaynak Nullsoft'un ns-eel2'si (ns-eel2 kaynağı):
  *  - işleçlerin iç adları (nseel-compiler.c fnTable1, ad çevirisi
  *    nseel-eval.c): `_aboeq(a, b)` `a >= b`, `_and` kısa devreli `&&` …;
  *  - doğruluk ve eşitlik sınamalarında 0,00001'lik yakınlık payı

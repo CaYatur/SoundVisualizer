@@ -58,7 +58,7 @@
      adı onun kendi adı, arayüz metni değil. */
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
-  // MilkDrop 3 uzantılarının adları (shared/milkdrop.js `md3Features`, #567)
+  // Genişletilmiş biçim özelliklerinin adları (shared/milkdrop.js `md3Features`, #567)
   const FMT_LABELS = {
     slots: '5.–16. dalga/şekil yuvası',
     slot4: '5. yuva (MilkDrop 2 yok sayar)',
@@ -67,14 +67,14 @@
     fft: 'shader\'da get_fft',
     mouse: 'shader\'da mouse',
   };
-  // MilkDrop 3'ün sert geçiş kipleri (README; eşik ve gecikme oradan)
+  // Genişletilmiş biçimin sert geçiş kipleri (eşik ve en kısa gecikme)
   const MD3_CUTS = [
-    ['md3-1', 'MilkDrop 3 · 1: bas > 1,5, en az 0,2 sn'],
-    ['md3-2', 'MilkDrop 3 · 2: tiz > 2,9, en az 0,5 sn'],
-    ['md3-3', 'MilkDrop 3 · 3: tiz > 2,9, en az 1 sn'],
-    ['md3-4', 'MilkDrop 3 · 4: tiz > 2,9, en az 3 sn; tiz > 8 hemen'],
-    ['md3-5', 'MilkDrop 3 · 5: tiz > 2,9, en az 5 sn'],
-    ['md3-6', 'MilkDrop 3 · 6: bas > 1,5'],
+    ['md3-1', 'Kip 1 · bas > 1,5, en az 0,2 sn'],
+    ['md3-2', 'Kip 2 · tiz > 2,9, en az 0,5 sn'],
+    ['md3-3', 'Kip 3 · tiz > 2,9, en az 1 sn'],
+    ['md3-4', 'Kip 4 · tiz > 2,9, en az 3 sn; tiz > 8 hemen'],
+    ['md3-5', 'Kip 5 · tiz > 2,9, en az 5 sn'],
+    ['md3-6', 'Kip 6 · bas > 1,5'],
   ];
 
   /* Panel liste gelmeden çizildiyse, liste gelince yeniden çizilmeli.
@@ -227,10 +227,10 @@
 
   // Onaydan önce gösterilen özet: ne eklenecek, neler atlanacak
   function libSummaryText(s) {
-    const lines = [fmt('“{label}”: {p} preset, {t} doku, {mb} MB.', { label: s.label, p: s.presets, t: s.textures, mb: mb(s.bytes) })];
+    const lines = [fmt('“{label}”: {p} preset, {t} doku, {mb} MB.', { label: tr(s.label), p: s.presets, t: s.textures, mb: mb(s.bytes) })];
     if (s.loose) lines.push(fmt('Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.', { n: s.loose }));
     const k = s.skipped || {};
-    if (k.milk2) lines.push(fmt('{n} .milk2 dosyası (MilkDrop 3 çift preseti) desteklenmiyor, atlanacak.', { n: k.milk2 }));
+    if (k.milk2) lines.push(fmt('{n} .milk2 dosyası (çift preset) desteklenmiyor, atlanacak.', { n: k.milk2 }));
     if (k.tooLarge || k.textureTooLarge) lines.push(fmt('{n} dosya boyut sınırını aşıyor, atlanacak.', { n: (k.tooLarge || 0) + (k.textureTooLarge || 0) }));
     if (k.encrypted || k.unsupported) lines.push(fmt('{n} şifreli ya da desteklenmeyen ZIP girdisi atlanacak.', { n: (k.encrypted || 0) + (k.unsupported || 0) }));
     if (k.empty) lines.push(fmt('{n} boş preset dosyası atlanacak.', { n: k.empty }));
@@ -247,7 +247,7 @@
     if (t.copied) lines.push(fmt('{c} doku kopyalandı.', { c: t.copied }));
     if (t.same) lines.push(fmt('{s} doku zaten vardı.', { s: t.same }));
     if (t.conflicts) lines.push(fmt('{k} doku adı var olan başka bir dokuyla çakıştı; var olan kaldı.', { k: t.conflicts }));
-    if (r.skipped && r.skipped.milk2) lines.push(fmt('{n} .milk2 dosyası atlandı (MilkDrop 3 çift preseti).', { n: r.skipped.milk2 }));
+    if (r.skipped && r.skipped.milk2) lines.push(fmt('{n} .milk2 dosyası atlandı (çift preset).', { n: r.skipped.milk2 }));
     if (r.skipped && r.skipped.empty) lines.push(fmt('{n} boş preset dosyası atlandı.', { n: r.skipped.empty }));
     if (r.skipped && r.skipped.invalid) lines.push(fmt('{n} dosya MilkDrop preseti değil; atlandı.', { n: r.skipped.invalid }));
     return lines.join(' ');
@@ -1490,12 +1490,12 @@
     }));
 
     /* BİÇİM (#567). Uyumdan ayrı eksen: hangi MilkDrop'un dosya kuralları.
-       MilkDrop 2'ye geçilince MilkDrop 3'ün sert geçiş kipleri gizleniyor;
+       MilkDrop 2'ye geçilince genişletilmiş biçimin sert geçiş kipleri gizleniyor;
        seçili olan varsa MilkDrop 2'ninkine dönüyor. */
     nodes.push(P().row('Preset Biçimi', selOf([
       ['auto', 'Otomatik'],
       ['md2', 'MilkDrop 2'],
-      ['md3', 'MilkDrop 3'],
+      ['md3', 'Genişletilmiş (16 yuva)'],
     ], md.format === 'md2' || md.format === 'md3' ? md.format : 'auto', (v) => {
       md.format = String(v);
       if (md.format === 'md2' && /^md3-/.test(md.hardCut || '')) md.hardCut = 'md2';
@@ -1508,12 +1508,12 @@
     })();
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'MilkDrop 3 kuralları 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa MilkDrop 3 kurallarıyla okur. MilkDrop 3\'ün .milk2 çift presetleri okunuyor: iki preset dosyanın deseni ve noktasında karışık çizilir (sprite bölümleri henüz yok). 8 yeni basit dalga biçimi, yeni geçişleri ve shader\'daki get_fft henüz yok: hiçbir yerde tarif edilmiyorlar.',
+      text: 'Genişletilmiş biçim 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa genişletilmiş biçimle okur. .milk2 çift presetleri okunuyor: iki preset dosyanın deseni ve noktasında karışık çizilir (sprite bölümleri henüz yok). Bu biçimin 8 yeni basit dalga biçimi, yeni geçişleri ve shader\'daki get_fft\'si henüz yok: hiçbir yerde tarif edilmiyorlar.',
     }));
     if (liveFmt.length) {
       nodes.push(el('div', {
         class: 'studio-note',
-        text: tr('Seçili preset MilkDrop 3 uzantısı kullanıyor') + ': ' + liveFmt.map((f) => tr(FMT_LABELS[f] || f)).join(', '),
+        text: tr('Seçili preset genişletilmiş biçim özelliği kullanıyor') + ': ' + liveFmt.map((f) => tr(FMT_LABELS[f] || f)).join(', '),
       }));
     }
 
@@ -1771,7 +1771,7 @@
           const count = !s.searchCut ? fmt('{p} preset · {t} doku · {mb} MB', vars)
             : s.presets ? fmt('{p}+ preset · {t}+ doku · {mb}+ MB', vars) : tr('sayılmadı');
           box.appendChild(el('div', { class: 'md-lib' }, [
-            el('span', { class: 'md-lib-name', text: s.label, title: s.where || '' }),
+            el('span', { class: 'md-lib-name', text: tr(s.label), title: s.where || '' }),
             el('span', { class: 'md-lib-count', text: count }),
             el('button', {
               class: 'btn ghost tiny', type: 'button', text: tr('İçe Aktar'), disabled: !!libBusy,
@@ -1796,7 +1796,7 @@
     }
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.',
+      text: 'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (çift preset) dosyaları da eklenir.',
     }));
 
     // Arama
@@ -2133,7 +2133,7 @@
       }
       /* SERT GEÇİŞ (#568). Sesin ani yükselişinde karışmadan yeni preset.
          MilkDrop 2'nin kuralı ve varsayılanları; orada da KAPALI başlıyor. */
-      /* MilkDrop 3'ün kipleri (#567) MilkDrop 2 biçiminde gizli. */
+      /* Genişletilmiş biçimin kipleri (#567) MilkDrop 2 biçiminde gizli. */
       const cuts = [['off', 'Kapalı'], ['md2', 'MilkDrop 2 (ses yükselişi)']]
         .concat(md.format === 'md2' ? [] : MD3_CUTS);
       const cutNow = cuts.some((c) => c[0] === md.hardCut) ? md.hardCut : 'off';
@@ -2141,7 +2141,7 @@
       if (/^md3-/.test(cutNow)) {
         nodes.push(el('div', {
           class: 'studio-note dim-hint',
-          text: 'MilkDrop 3\'ün kipleri: bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. Eşik ve gecikmeler MilkDrop 3\'ün açıklamasından. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.',
+          text: 'Bu kiplerde bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.',
         }));
       }
       if (md.hardCut === 'md2') {

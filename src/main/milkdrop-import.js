@@ -8,7 +8,7 @@
 /* MILKDROP KÜTÜPHANESİ İÇE AKTARIMI (#574).
 
    Preset paketleri ZIP olarak dolaşıyor ve birçok kişinin makinesinde
-   Winamp'tan, MilkDrop 3'ten, BeatDrop'tan ya da projectM'den kalma bir
+   Winamp'tan ya da başka bir MilkDrop oynatıcısından kalma bir
    kütüphane zaten var. Bu modül ikisini de alıyor. Electron'a bağlı değil:
    klasörler ve dosyalar parametre, testler gerçek dosyalarla koşuyor.
 
@@ -19,12 +19,12 @@
    NE ALINIYOR
      - `.milk` dosyaları, iç içe klasörler dahil. Ad dosyanın adı.
      - Dokular: `textures` ya da `sprites` adlı klasörlerdeki görseller
-       (MilkDrop 3 ikisini aynı sayıyor) ve bir presetin `sampler_<ad>` ile
+       (genişletilmiş biçim ikisini aynı sayıyor) ve bir presetin `sampler_<ad>` ile
        istediği, presetlerle aynı klasörde duran görseller — MilkDrop dokuyu
        bulamayınca presetin klasörüne de bakıyor. Ötekiler (önizleme ekran
        görüntüleri gibi) doku sayılmıyor.
    NE ALINMIYOR (sayılıp raporlanıyor)
-     - `.milk2` (MilkDrop 3'ün çift preseti) artık preset olarak ekleniyor;
+     - `.milk2` (çift preset) artık preset olarak ekleniyor;
        motor içeriğinden tanıyıp iki preseti karıştırıyor (#567).
      - Sınırı aşan preset ve doku, şifreli ya da desteklenmeyen ZIP girdisi.
      - Aynı ad ve aynı içerikte zaten var olan preset (tekrar).
@@ -351,7 +351,7 @@ async function runImport(plan, deps) {
 }
 
 /* MAKİNEDE ARAMA. Her aday bir kütüphane adayı: bilinen kurulum klasörleri
-   (Winamp, foobar2000, projectM) ve taşınabilir kurulumların açıldığı
+   (Winamp, foobar2000 ve başka MilkDrop oynatıcıları) ve taşınabilir kurulumların açıldığı
    kullanıcı klasörlerinin (İndirilenler, Masaüstü, Müzik, Belgeler) her alt
    klasörü ve yanlarındaki her ZIP. Kullanıcı klasörünün kendisinde tek tek
    duran presetler de bir aday; onun alt klasörlerine inilmiyor (onlar zaten
@@ -389,21 +389,21 @@ function candidates(env) {
     for (const pf of [e.programFiles, e.programFilesX86]) {
       if (!pf) continue;
       add('Winamp (MilkDrop 2)', path.join(pf, 'Winamp', 'Plugins', 'Milkdrop2'));
-      add('projectM', path.join(pf, 'projectM', 'presets'));
+      add('MilkDrop presetleri', path.join(pf, 'projectM', 'presets'));
     }
     if (e.appData) {
       add('foobar2000 (MilkDrop 2)', path.join(e.appData, 'foobar2000-v2', 'milkdrop2'));
       add('foobar2000 (MilkDrop 2)', path.join(e.appData, 'foobar2000', 'milkdrop2'));
     }
   } else if (e.platform === 'darwin') {
-    add('projectM', '/Applications/projectM.app/Contents/Resources/presets');
-    if (e.home) add('projectM', path.join(e.home, 'Library', 'Application Support', 'projectM', 'presets'));
+    add('MilkDrop presetleri', '/Applications/projectM.app/Contents/Resources/presets');
+    if (e.home) add('MilkDrop presetleri', path.join(e.home, 'Library', 'Application Support', 'projectM', 'presets'));
   } else {
-    add('projectM', '/usr/share/projectM/presets');
-    add('projectM', '/usr/local/share/projectM/presets');
+    add('MilkDrop presetleri', '/usr/share/projectM/presets');
+    add('MilkDrop presetleri', '/usr/local/share/projectM/presets');
     if (e.home) {
-      add('projectM', path.join(e.home, '.projectM', 'presets'));
-      add('projectM', path.join(e.home, '.local', 'share', 'projectM', 'presets'));
+      add('MilkDrop presetleri', path.join(e.home, '.projectM', 'presets'));
+      add('MilkDrop presetleri', path.join(e.home, '.local', 'share', 'projectM', 'presets'));
     }
   }
   return out;
@@ -423,7 +423,7 @@ function homeRoots(env) {
 
 const FIND_SHARE = 0.6;
 /* Adayın İÇİNDE inilmeyen klasörler, yalnız ada bakılarak; adayın kendi
-   yolu denetlenmiyor (~/.projectM/presets gizli bir klasörün altında). */
+   yolu denetlenmiyor (bazı oynatıcıların preset klasörü gizli bir klasörün altında). */
 const skipDirName = (n) => n === '__MACOSX' || n === 'node_modules' || n[0] === '.';
 const isPresetFile = (n) => (extOf(n) === '.milk' || extOf(n) === '.milk2') && n.indexOf('._') !== 0;
 const tick = () => new Promise((r) => setImmediate(r));

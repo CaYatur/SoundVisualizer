@@ -700,7 +700,7 @@
 
   /* HAZIR MILKDROP KATMANI. Eskiden MilkDrop için önce Görselleştirici eklenip türü
      değiştiriliyor, sonra raftan preset seçiliyordu. Kart katmanı MilkDrop kipinde ve gömülü
-     paketten bir MilkDrop 3 presetiyle ekliyor (layers.js makeMilkdropLayer: ortak preseti
+     paketten genişletilmiş biçimde bir presetle ekliyor (layers.js makeMilkdropLayer: ortak preseti
      çizen başka katman varsa yeni katman kendi presetini alır), seçiyor ve MilkDrop rafını
      açıyor. */
   function milkdropPreset(id) {
@@ -1396,7 +1396,7 @@
         out.push(miniToggle('Kesilince Son Kareyi Tut', () => s.hold, (v) => { s.hold = v; l.settings.input = s; }, null, { def: true }));
         out.push(el('div', {
           class: 'studio-note dim-hint',
-          text: 'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (TouchDesigner, Resolume, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.',
+          text: 'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (VJ ve video yazılımları, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.',
         }));
         return out;
       }

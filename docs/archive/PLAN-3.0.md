@@ -135,7 +135,7 @@ Each mode is its own issue so it can be picked up, drawn and verified independen
 - [ ] **Mode: Delaunay mesh**
   <br><sub>A triangulated point cloud where vertices are displaced by band energy. Renders as filled facets with per-face shading or as a wireframe. The dual of the Voronoi mode and shares its point generator.</sub>
 - [ ] **Mode: Fluid simulation (stable fluids)**
-  <br><sub>A GPU advection/diffusion solver with dye injection on beats and velocity impulses from the bands. The single most "expensive-looking" effect in this class and a direct answer to TouchDesigner demos.</sub>
+  <br><sub>A GPU advection/diffusion solver with dye injection on beats and velocity impulses from the bands. The single most "expensive-looking" effect in this class.</sub>
 - [x] **Mode: Mandelbrot / Julia zoom**
   <br><sub>A continuously zooming escape-time fractal with smooth iteration colouring from the palette. Bass drives zoom speed, treble drives the Julia constant. Includes a Burning Ship variant.</sub>
 - [x] **Mode: Mandelbulb ray-marcher**
