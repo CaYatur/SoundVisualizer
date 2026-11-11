@@ -792,7 +792,7 @@ ticker · karaoke highlighting.
   a scene.
 - **Visual objects** — image sprites in front of or behind the visualizer, with count, size, drift,
   rotation and audio response.
-- **Media layer** — a webcam or a video file, in front of or behind the visualizer, with fit (cover,
+- **Media layer** — a webcam, a video file, or a **screen or window** of this computer, in front of or behind the visualizer, with fit (cover,
   contain, stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode,
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. A slow **Ken Burns** zoom and pan (strength and cycle length) and a
@@ -801,7 +801,9 @@ ticker · karaoke highlighting.
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
   the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
   or bright side of the picture transparent, with threshold and softness, so the layer underneath
-  shows through.
+  shows through. Screen and window capture works on Windows and macOS (macOS asks for Screen
+  Recording permission) and on Linux with an X11 display; a Wayland session without one says so
+  instead. Like a webcam, it is not sent to the OBS browser source and stays empty in a video export.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into

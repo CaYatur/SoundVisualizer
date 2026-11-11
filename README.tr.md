@@ -794,7 +794,7 @@ haber bandı · karaoke vurgusu.
   kopyalanıp kimlikle anılıyor; ayar dosyası küçük kalıyor ve taşınan bir özgün dosya sahneyi bozmuyor.
 - **Görsel nesneler** — görselleştiricinin önünde ya da arkasında görsel sprite'lar; sayı, boyut,
   sürüklenme, dönme ve ses tepkisiyle.
-- **Medya katmanı** — bir web kamerası ya da video dosyası, görselleştiricinin önünde ya da arkasında;
+- **Medya katmanı** — bir web kamerası, video dosyası ya da bu bilgisayarın bir **ekranı veya penceresi**, görselleştiricinin önünde ya da arkasında;
   sığdırma (kapla, sığdır, uzat), ayna, 3–12 dilimli kaleydoskop, ton kayması, doygunluk, karışım kipi,
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor. Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
@@ -803,6 +803,9 @@ haber bandı · karaoke vurgusu.
   vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
   formülü kare kare izliyor. **Renk anahtarı** seçilen bir rengi (yeşil perde) ya da görüntünün karanlık
   veya aydınlık tarafını eşik ve yumuşaklıkla saydam yapıyor; alttaki katman delikten görünüyor.
+  Ekran ve pencere yakalama Windows ve macOS'ta (macOS ekran kaydı izni ister) ve Linux'ta bir X11
+  ekranıyla çalışıyor; X11'siz bir Wayland oturumunda bunu söylüyor. Web kamerası gibi OBS tarayıcı
+  kaynağına gitmiyor ve video dışa aktarımında boş kalıyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
