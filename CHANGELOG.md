@@ -356,6 +356,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   - Two setup pages are now opened on the right section; their pictures had not been taken.
   - Panel PNGs are palette-quantized with dithering. The twenty come to 5.8 MB, against 10.2 MB for
     the old set and 22 MB unquantized; the mean channel difference is 0.5–2.5 levels.
+- **The README opens with pictures.** Under the showreel comes the Scene page in motion with a demo
+  scene (`showcase-scene.webp`), then the numbers, the gallery and an *Inside the app* grid: Live and
+  the phone remote, the timeline, the clip deck, Studio, the MilkDrop editor, the Layout Editor and
+  Recording. *New in v4* and *Why* follow as text. The same order in Turkish.
+  - The clip is recorded from the panel's paint stream, about 10 frames a second; `capturePage`
+    took about 360 ms a frame on this window. It is written only once the shelf's preset
+    thumbnails have loaded, and the device-name check runs before and after the frames.
 
 ## v3.1.7 — 2026-11-03
 
