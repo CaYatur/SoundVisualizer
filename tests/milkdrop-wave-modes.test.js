@@ -359,7 +359,7 @@ test('renk kırmızı, yeşil, mavi sırasında kalıyor — kaynaktaki yer değ
      yani o çatal gerçekten yer değiştirmiş çiziyor.
      MilkDrop 2 ise çizmiyor. O çatal D3D11'e aktarılmış; aktardığı D3D9
      kodu rengi tek satırda kuruyor: `v1[0].Diffuse =
-     D3DCOLOR_RGBA_01(cr, cg, cb, alpha1);` (MilkDrop 2 D3D9 kaynağı,
+     D3DCOLOR_RGBA_01(cr, cg, cb, alpha1);` (mvsoft74/BeatDrop 53d83ee,
      milkdropfs.cpp:3225). Çatalın kendi dosyası da her kipte o dönemin
      satırını yorum olarak taşıyor: `//color = D3DCOLOR_RGBA_01(cr, cg, cb,
      alpha);` (2697, 2734, 2764 …). Diğer bütün renk yerleri (şekil, özel
@@ -386,7 +386,7 @@ test('kanal okumaları kaynakta da kipe göre ayrışıyor', () => {
 });
 
 /* SON ÇEVİRME (#580). İç tampon MilkDrop yönüne geçti (satır 0 üstte); orada
-   MilkDrop'un kendi çevirmesi gerekiyor. Referans çizicide (MilkDrop 2'nin D3D9 kaynağından
+   MilkDrop'un kendi çevirmesi gerekiyor. Referans çizicide (BeatDrop'tan
    derlenen MilkDrop 2) dalga kipi 7'nin iki çizgisi bu çevirme olmadan
    ekranın öbür yarısına düşüyordu. */
 test('bütün noktaların y\'si çizimden önce ters çevriliyor (kip 0 ve 6)', () => {

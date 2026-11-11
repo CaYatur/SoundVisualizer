@@ -9,7 +9,7 @@
 
    İki katman türü görüntüyü uygulamanın DIŞINDAN alır:
      - `input`: aynı makinedeki bir Spout (Windows) ya da Syphon (macOS)
-       göndericisi. VJ ve video yazılımları, OBS, bir kamera uygulaması.
+       göndericisi. TouchDesigner, Resolume, OBS, bir kamera uygulaması.
      - `web`: bir web sayfası. Ana süreç sayfayı görünmez bir pencerede
        çizer; kareler katmana GPU dokusu olarak gelir.
 
