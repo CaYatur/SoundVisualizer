@@ -908,7 +908,10 @@ says what changed, what comes next, and why nothing can happen when a source is 
 Optional controller LED feedback and built-in maps are off by default. See the [controller setup and vendor protocol audit](docs/midi-controllers.md) for port/mode requirements, explicit Korg CC setup and hardware-test limitations.
 
 **MIDI.** Learn a control, then map any CC or note to any setting or action — including MilkDrop's
-next, previous, random, cut, lock and rating.
+next, previous, random, cut, lock and rating. The modulation clock can follow a MIDI clock or an
+Ableton Link session, and **send its tempo as MIDI clock** (24 pulses per quarter note, start and
+stop) to one MIDI output or all of them; it is off by default, and the device being listened to is
+left out so a clock is not echoed back.
 
 **OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 

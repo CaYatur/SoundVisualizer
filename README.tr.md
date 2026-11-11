@@ -915,7 +915,10 @@ olamayacağını söyleyen bir durum satırını okuyun.
 İsteğe bağlı denetleyici LED geri bildirimi ve hazır haritalar varsayılan kapalıdır. Port/kip koşulları, Korg CC sahne ayarı ve gerçek donanım testi sınırları için [denetleyici kurulumuna ve üretici protokol incelemesine](docs/midi-controllers.md) bakın.
 
 **MIDI.** Bir denetimi öğretin, sonra herhangi bir CC'yi ya da notayı herhangi bir ayara ya da eyleme
-eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil.
+eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil. Modülasyon saati
+bir MIDI saatini ya da Ableton Link oturumunu izleyebiliyor ve **temposunu MIDI saati olarak**
+(çeyrek nota başına 24 darbe, başlat ve durdur) bir MIDI çıkışına ya da hepsine **yollayabiliyor**.
+Varsayılan kapalı; dinlenen aygıt dışarıda bırakılıyor, saat geri yankılanmıyor.
 
 **OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
 için.
