@@ -37,20 +37,7 @@
     const time = new Uint8Array(LEN);
     const left = new Uint8Array(LEN);
     const right = new Uint8Array(LEN);
-    const kick = Math.pow(1 - ((t * 2) % 1), 3.2);
-    const hat = Math.pow(1 - ((t * 4) % 1), 9) * 0.55;
-    const swell = 0.5 + 0.5 * Math.sin(t * 0.55);
-    for (let i = 0; i < BINS; i++) {
-      const n = i / BINS;
-      let v = Math.pow(1 - n, 2.6) * 0.85;
-      v += kick * Math.pow(1 - n * 7, 6) * 0.9;
-      v += hat * Math.pow(n, 1.4) * 0.5;
-      v += 0.30 * swell * Math.exp(-Math.pow((n - (0.13 + 0.05 * Math.sin(t * 0.9))) * 26, 2));
-      v += 0.22 * Math.exp(-Math.pow((n - (0.26 + 0.07 * Math.sin(t * 0.63 + 2))) * 30, 2));
-      v += 0.14 * Math.exp(-Math.pow((n - (0.44 + 0.06 * Math.sin(t * 1.27 + 1))) * 34, 2));
-      v *= 0.86 + 0.14 * Math.sin(i * 12.9898 + t * 3.1);
-      freq[i] = Math.max(0, Math.min(255, v * 255)) | 0;
-    }
+    DEMO.spectrum(t, freq);
     DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
     return { freq, time, left, right, sampleRate: 48000 };
   }
@@ -69,7 +56,59 @@
     if (cfg.logo) cfg.logo.enabled = false;
     if (cfg.timeline) cfg.timeline.enabled = false;
     if (cfg[want]) cfg[want].type = type;
+    /* Kendi başına boş kalan iki mod. Studio seçili shader yokken bir şey çizmiyor: türünün ilk
+       yerleşik shader'ı gösteriliyor. Çalan Parça sistemden parça bilgisi bekliyor: elle yazılmış
+       örnek bir parça. Adlar iki dilde de aynı okunuyor; resim dilden bağımsız kalıyor. */
+    if (type === 'custom' && window.SVPresets) {
+      const first = (window.SVPresets.BUILTIN || []).find((p) => p && p.engine === 'shader' && p.kind === want);
+      if (first) {
+        layer.presetId = first.id;
+        cfg.custom = Object.assign({}, cfg.custom, want === 'background' ? { backgroundId: first.id } : { visualizerId: first.id });
+      }
+    }
+    if (type === 'nowplaying') {
+      cfg.nowplaying = SV.deepMerge(cfg.nowplaying || {}, {
+        source: 'manual',
+        manual: { title: 'Midnight Signal', artist: 'CaYaDev', album: 'Live Set', duration: 214 },
+      });
+    }
     return cfg;
+  }
+
+  /* KARE SEÇİMİ. Tek bir an her modu anlatmıyor: havai fişek ve şimşek vuruşta patlıyor, tayf
+     şeridi ve DJ dalgası soldan sağa doluyor, parçacıklar zamanla birikiyor. 1,5 saniyedeki tek
+     kare bunların çoğunda boş ya da yarım çıkıyordu. Isınmadan sonra aralıklı adaylar ölçülüyor,
+     en dolu olan saklanıyor. Ölçü: küçültülmüş karede yanan piksel oranı; patlamış (beyaza
+     doymuş) piksel iki kat düşülüyor, flaş karesi seçilmesin. Kare indisine bağlı: aynı mod
+     her seferinde aynı kareyi seçiyor. */
+  const probe = document.createElement('canvas');
+  probe.width = 64;
+  probe.height = 36;
+  function fullness(src) {
+    const p = probe.getContext('2d', { willReadFrequently: true });
+    p.fillStyle = '#000';
+    p.fillRect(0, 0, probe.width, probe.height);
+    p.drawImage(src, 0, 0, probe.width, probe.height);
+    const d = p.getImageData(0, 0, probe.width, probe.height).data;
+    let lit = 0;
+    let blown = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const y = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      if (y > 18) lit++;
+      if (y > 245) blown++;
+    }
+    return (lit - 2 * blown) / (d.length / 4);
+  }
+
+  function keep(R) {
+    out.width = R.thumbW;
+    out.height = R.thumbH;
+    const c = out.getContext('2d');
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    c.fillStyle = '#000';
+    c.fillRect(0, 0, R.thumbW, R.thumbH);
+    c.drawImage(comp, 0, 0, R.thumbW, R.thumbH);
   }
 
   async function run(job) {
@@ -86,22 +125,23 @@
       stack.setConfig(cfg);
       if (!stack.entries.length || !stack.entries[0].mode) return { ok: false, error: 'NO_MODE' };
       const dt = 1 / R.fps;
+      // Seçim yoksa eski davranış: son kare
+      const from = Math.max(1, Math.min(R.frames, R.pickFrom || R.frames));
+      const every = Math.max(1, R.pickEvery || 1);
+      let best = -Infinity;
       for (let i = 0; i < R.frames; i++) {
         const t = i * dt;
         audio.ingestFrame(frameAt(t));
         audio.update(dt);
         stack.composeTo(ctx, audio, cfg, t, dt, false);
+        const n = i + 1;
+        if (n >= from && ((n - from) % every === 0 || n === R.frames)) {
+          const s = fullness(comp);
+          if (s > best) { best = s; keep(R); }
+        }
         // Ana iş parçacığı nefes alsın: pencere gizli de olsa tek seferde uzun görev olmasın
         if (i % 10 === 9) await new Promise((r) => setTimeout(r, 0));
       }
-      out.width = R.thumbW;
-      out.height = R.thumbH;
-      const c = out.getContext('2d');
-      c.imageSmoothingEnabled = true;
-      c.imageSmoothingQuality = 'high';
-      c.fillStyle = '#000';
-      c.fillRect(0, 0, R.thumbW, R.thumbH);
-      c.drawImage(comp, 0, 0, R.thumbW, R.thumbH);
       const blob = await new Promise((res) => out.toBlob(res, 'image/webp', R.quality));
       if (!blob) return { ok: false, error: 'ENCODE' };
       return { ok: true, bytes: new Uint8Array(await blob.arrayBuffer()) };

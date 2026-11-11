@@ -42,7 +42,8 @@ app.whenReady().then(async () => {
   for (const j of spec.jobs) {
     const r = await new Promise((resolve) => {
       pending = { key: j.key, resolve };
-      setTimeout(() => resolve({ ok: false, error: 'TIMEOUT' }), 30000);
+      // Yazılım GL'de 6 saniyelik çizim bazı zeminlerde 30 sn'yi aşıyor (Yarım Ton ölçüldü)
+      setTimeout(() => resolve({ ok: false, error: 'TIMEOUT' }), 120000);
       win.webContents.send('thumbs:job', { key: j.key, kind: j.kind, type: j.type, recipe: M.RECIPE });
     });
     if (r && r.ok && r.bytes) { md.writeAtomic(path.join(spec.dir, j.key + '.webp'), Buffer.from(r.bytes)); ok++; }

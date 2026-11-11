@@ -68,25 +68,10 @@
   // Demo sinyali — 120 BPM civarı, bas vuruşu + hareketli orta/tiz içerik
   // --------------------------------------------------------------------------
   function buildSyntheticFrame(t) {
-    const beatPhase = (t * 2) % 1; // saniyede 2 vuruş
-    const kick = Math.pow(1 - beatPhase, 3.2); // keskin iniş
-    const halfPhase = (t * 4) % 1;
-    const hat = Math.pow(1 - halfPhase, 9) * 0.55;
-    const swell = 0.5 + 0.5 * Math.sin(t * 0.55);
-
-    for (let i = 0; i < BINS; i++) {
-      const n = i / BINS;
-      // Gerçekçi spektrum eğrisi: bas ağır, tizler zayıf
-      let v = Math.pow(1 - n, 2.6) * 0.85;
-      v += kick * Math.pow(1 - n * 7, 6) * 0.9; // bas vuruşu (0..140 Hz)
-      v += hat * Math.pow(n, 1.4) * 0.5; // hi-hat parlaklığı
-      // gezinen melodik tepe noktaları
-      v += 0.30 * swell * Math.exp(-Math.pow((n - (0.13 + 0.05 * Math.sin(t * 0.9))) * 26, 2));
-      v += 0.22 * Math.exp(-Math.pow((n - (0.26 + 0.07 * Math.sin(t * 0.63 + 2))) * 30, 2));
-      v += 0.14 * Math.exp(-Math.pow((n - (0.44 + 0.06 * Math.sin(t * 1.27 + 1))) * 34, 2));
-      v *= 0.86 + 0.14 * Math.sin(i * 12.9898 + t * 3.1); // hafif doku
-      synthFreq[i] = Math.max(0, Math.min(255, v * 255)) | 0;
-    }
+    const D = window.SVDemoAudio;
+    /* Tayf da örnek sesten (src/shared/demo-audio.js `spectrum`): mod küçük resimleri aynı
+       eğriyi kullanıyor. Eski eğride bas hep tavandaydı, vuruşla çalışan modlar demoda boştu. */
+    D.spectrum(t, synthFreq);
 
     /* ZAMAN VERİSİ ve iki kanal src/shared/demo-audio.js'ten: MilkDrop render
        ölçümünün her kareye verdiği sesin aynısı. MilkDrop'un bantları ve
@@ -94,10 +79,9 @@
        hesaplıyor. Buradaki eski üç alçak sinüs (2048 örnekte 3, 7 ve 17
        devir, ~70-398 Hz) orta ve tiz banda yalnız nicemleme gürültüsü
        düşürüyordu: 45 FPS'te `mid` 0,64-1,38, `treb` 0,66-1,30 arasında
-       kalıyordu; bu seste 0,38-10,5 ve 0,25-11,4. Tayf eğrisi değişmedi,
-       vuruşu ve hi-hat'i bu sesle aynı ızgarada. Kanallar ayrı: gonyometre
+       kalıyordu; bu seste 0,38-10,5 ve 0,25-11,4. Tayfın vuruşu ve
+       hi-hat'i bu sesle aynı ızgarada. Kanallar ayrı: gonyometre
        demoda da bir alan çiziyor. */
-    const D = window.SVDemoAudio;
     D.fill(Math.floor(t * D.SR), synthTime, synthLeft, synthRight);
     return synthFrame;
   }
