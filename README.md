@@ -8,7 +8,7 @@
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
 audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **60 presets of our
-own**, **70 visualizer modes**, layers and **42 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+own**, **70 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -31,7 +31,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 **[FAQ](#faq)** ·
 **[Türkçe](README.tr.md)**
 
-<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, two of the newest CaYaDev MilkDrop presets (Hologram Globe and Stained Glass), the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, a 3D Lorenz attractor, synthwave and a broadcast title card, all reacting to music" width="800" />
 
 </div>
 
@@ -41,13 +41,47 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 
 <div align="center">
 
-| **70** visualizer modes | **51** backgrounds | **42** GPU effects | **18** scene transitions |
+| **70** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
-| **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
-| **10,347** MilkDrop presets tested | **104** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
+| **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
+| **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 | **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
+
+---
+
+## New in v4
+
+- **A Live page built like a vision mixer.** A scene grid with banks and F-keys, Cued and Live
+  monitors, and a **T-bar**: drag it to mix the next scene in by hand, stop halfway to hold a blend
+  of two scenes for as long as you like, pull it back to undo the change without restarting
+  anything. TAKE does the same on its own clock. The bar can also be a hardware fader over
+  **OSC / Companion** (`show/tbar`). [→ Show control](#show-control-timeline-clip-deck-auto-vj-midi-and-osc)
+- **A phone remote that looks like the app.** Five pages — Live, Scenes, Layers, Appearance and
+  Audio — in the panel's own theme, over Wi-Fi with a token of its own. Blackout is one tap away on
+  every page. The protocol is documented for anyone who wants to write their own controller.
+  [→ Outputs](#outputs-screens-obs-spout-and-syphon)
+- **Multi-pass Studio shaders.** Split a shader into buffers A–D and an image pass with
+  `//@pass` markers; buffers keep their previous frame, hold values above 1, and survive a resolution
+  change. Multi-buffer shader code can be pasted pass by pass, ISF files with `PASSES` import as
+  real passes, and the built-in **Ink Flow** shows what a single pass cannot do.
+  [→ Studio](#studio--write-your-own-shader)
+- **Video that plays to the beat.** A video layer has speed (0.25–4×), in and out points, a
+  **beat-locked loop** of 1–16 beats and a position slider that scrubs every output live. Exports
+  stay frame-exact. [→ Media layer](#logo-images-and-the-media-layer)
+- **Adaptive resolution.** When a heavy scene cannot keep up with the display, the drawing
+  resolution steps down a little and comes back when there is headroom. Measured on an eight-layer
+  scene at 2560×1600 on a 75 Hz display: **56.4 fps off, 72.4 fps on**. MilkDrop, trails and
+  particles carry across a step instead of restarting. [→ Power and performance](#reliability-power-and-updates)
+- **A panel that stays smooth while you work.** Dragging a setting, an opacity or clicking through
+  layers no longer stalls the panel: on a seven-layer scene, slider drags went from 33.6 to 59.6 fps
+  and opacity drags from 37 to 74 fps, measured against the previous build.
+- **A rebuilt Layout Editor.** Undo that works, multi-select, align and distribute, lock and hide
+  from the element list, Shift-constrained drags and a shortcut list on F1.
+  [→ Layout editor](#broadcast-layout-editor)
+- **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
+  presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
 
 ---
 
@@ -66,7 +100,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
   or generate new ones. **60 CaYaDev presets** of our own are built in, free for any MilkDrop player
   under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
-  crossfader, 42 GPU effects per layer or on the whole frame, and a modulation matrix that routes
+  crossfader, 44 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
 - **Bring other apps and the web in.** A **Spout / Syphon input** puts TouchDesigner, Resolume, OBS
   or a camera app on a layer over the GPU, and a **web page layer** adds alerts, chat, a scoreboard or
@@ -166,8 +200,8 @@ Nothing else needs to be installed: the audio helper runs on the application's o
    **audio sources** under **Audio**.
 2. Click **Open Visualizer**. The visual opens full-screen on every selected display.
 3. Change anything on the right — it applies immediately and saves itself.
-4. Or start from a finished look: **Library → Templates** has 83 of them.
-5. For streaming, turn on **Output → Streaming Output** and paste the address into an OBS
+4. Or start from a finished look: **Library → Preset** holds the 83 ready-made templates.
+5. For streaming, turn on **Output → Streaming Output (OBS / Web)** and paste the address into an OBS
    **Browser Source**.
 6. Press **ESC** on any visualization window to close them all.
 
@@ -474,7 +508,7 @@ decay sliders, four wave styles, and bass-driven zoom and rotation for the class
 - **One broken layer no longer takes the frame with it**, and layers hidden under
   an opaque MilkDrop layer are not drawn at all.
 
-**Post-processing — 40 GPU effects**, orderable, each with its own opacity, toggleable, and
+**Post-processing — 44 GPU effects**, orderable, each with its own opacity, toggleable, and
 available per layer as well as on the composite. An effect on a single layer keeps that layer's
 transparency, so the layers below stay visible.
 
@@ -487,7 +521,9 @@ transparency, so the layers below stay visible.
   · Datamosh (Block Shift) · Bad Signal · Chromatic Aberration
 - **Distortion** — Lens Distortion · Twirl · Polar Transform · Ripple Distortion · Slit-Scan ·
   Kaleidoscope · Mirror
-- **Colour and light** — Gradient Map · Levels & Curve · God Rays · Star Filter
+- **Colour and light** — Gradient Map · Levels & Curve · God Rays · Star Filter · Tonemap (ACES /
+  AgX) · 3D LUT (.cube)
+- **Live hits** — Flash · Strobe (also as momentary effects held from the Live page)
 
 Any parameter of any effect can be driven by the modulation matrix.
 
@@ -565,12 +601,17 @@ Any parameter of any effect can be driven by the modulation matrix.
 - Shaders receive `sv_resolution`, `sv_time`, `sv_level`, `sv_bass`, `sv_mid`, `sv_treble`,
   `sv_beat`, `sv_spec(x)`, `sv_waveAt(x)`, `sv_col(x)` for the scene palette, and `sv_media` for the
   camera or video layer.
-- **42 built-in shaders**, all compiled on a real GPU by the self-test:
-  - **Backgrounds (25)** — Cloud Layers · Curl Flow · Lava Lamp · Ink Bleed · Smoke Rings · Hex Flow
+- **Multi-pass shaders.** Split the code with `//@pass A` … `//@pass D` (buffers, drawn in order,
+  each keeping its previous frame) and `//@pass image`; `//@common` is shared. A pass reads the
+  current frame of the buffers drawn before it (`sv_bufA`…`sv_bufD`) and `channels=` wires
+  `iChannel0`–`3`, so multi-buffer code can be pasted pass by pass. Buffers are half-float where the
+  GPU allows and survive a resolution change. ISF `PASSES` import as real passes.
+- **43 built-in shaders**, all compiled on a real GPU by the self-test:
+  - **Backgrounds (26)** — Cloud Layers · Curl Flow · Lava Lamp · Ink Bleed · Smoke Rings · Hex Flow
     · Warped Grid · Truchet Weave · Moiré Interference · Crystal Cave · Mandelbrot Zoom · Julia Set ·
     Burning Ship · Apollonian Gasket · Kaleidoscopic IFS · Menger Sponge · Mandelbulb · Light Tunnel
     · Star Warp · Aurora Curtain · Liquid Metal · Neon Rain · Reaction Pattern · Water Caustics ·
-    Prism Glow
+    Prism Glow · Ink Flow (two passes)
   - **Visualizers (11)** — Glowing Bars · Spectrum Ring · Wave Field · Beat Burst · Glowing
     Oscilloscope · Frequency Mesh · Note Ring · Particle Flow · Kaleidoscope Spectrum · Pulse Grid ·
     Liquid Bars
@@ -712,6 +753,9 @@ ticker · karaoke highlighting.
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
+  A video file has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** of 1–16 beats
+  on the app's tempo, and a **position** slider that scrubs every output live; the export follows
+  the same formula frame by frame.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -771,6 +815,16 @@ OBS overlay and video export draw.
 | ![Timeline editor](docs/screenshots/panel-timeline.png) | ![Clip deck](docs/screenshots/panel-clipdeck.png) |
 
 </div>
+
+**Live page and T-bar.** A scene grid with banks and F-keys, Cued and Live monitors, Auto VJ,
+momentary effects and layer faders on one page. The Cued monitor shows the scene's last frame from the
+output; a scene that has never been live shows its MilkDrop preset's picture or a rendered preview
+of its top layer, without starting a second engine on the GPU. **TAKE** puts the cued scene live with its
+transition; the **T-bar** next to it mixes the cued scene in by hand: the mix follows the bar,
+releasing it halfway holds a blend of both scenes, the far end puts the scene live and pulling it
+back to the start undoes the change without restarting anything. Every output, the OBS overlay and
+the panel preview follow the bar, and `show/tbar` lets a hardware fader drive it over OSC or
+Companion.
 
 **Timeline.** Lay scenes and setting changes out along time, aligned to the bar or to the second;
 one playhead drives every screen together, and offline export plays the same show.
@@ -1362,6 +1416,11 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   mode, always or only on battery, limits the frame rate to 30, turns effects off and lowers MilkDrop
   and background resolution; exports and the OBS source do not change. The panel preview draws less
   while an output is open.
+- **Adaptive resolution** — when a heavy scene cannot keep up with the display, the output's
+  drawing resolution drops a step (to half at most) and rises again after ten calm seconds; MilkDrop,
+  trails and particles carry across a step instead of restarting. Measured on an eight-layer scene at
+  2560×1600 on a 75 Hz display: 56.4 fps off, 72.4 fps on. On by default, off under Performance;
+  never applied to video export or the OBS source.
 
 ---
 

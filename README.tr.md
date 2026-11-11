@@ -8,7 +8,7 @@
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
 da on ekranda sese tepki veren görsellere dönüştürür. **60 kendi presetiyle** gerçek bir
-**MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **42 GPU efekti**, bir **OBS
+**MilkDrop** motoru, **70 görselleştirici modu**, katmanlar ve **44 GPU efekti**, bir **OBS
 katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
 canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
 **yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
@@ -32,7 +32,7 @@ kontrolü**.
 **[SSS](#sss)** ·
 **[English](README.md)**
 
-<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, bir MilkDrop preseti, bir tünel, 3B Lorenz çekicisi, bir müzik videosu düzeni, synthwave ve bir drum &amp; bass peteği, hepsi müziğe tepki veriyor" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, en yeni iki CaYaDev MilkDrop preseti (Hologram Globe ve Stained Glass), çok geçişli Mürekkep Akışı shader'ı üstünde Sıvı Spektrum, gece göğü üstünde Korona, 3B Lorenz çekicisi, synthwave ve bir yayın başlık kartı, hepsi müziğe tepki veriyor" width="800" />
 
 </div>
 
@@ -42,13 +42,46 @@ kontrolü**.
 
 <div align="center">
 
-| **70** görselleştirici modu | **51** arkaplan | **42** GPU efekti | **18** sahne geçişi |
+| **70** görselleştirici modu | **51** arkaplan | **44** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
-| **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
-| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **104** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
+| **83** hazır sahne | **98** formül + **13** 3B katı cisim | **43** yerleşik GLSL shader | **58** renk paleti |
+| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **106** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
 | **12** video dışa aktarma biçimi | **60** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
+
+---
+
+## v4'te yeni
+
+- **Görüntü mikseri gibi kurulmuş bir Canlı sayfası.** Bankalı ve F tuşlu sahne ızgarası, Sırada
+  ve Canlı ekranları ve bir **T-bar**: çekerek sıradaki sahneyi elle karıştırın, yarıda bırakıp iki
+  sahnenin karışımını istediğiniz kadar tutun, başa döndürüp hiçbir şeyi baştan başlatmadan
+  değişikliği geri alın. AL düğmesi aynı geçişi kendi süresinde yapıyor. Çubuk **OSC / Companion**
+  üzerinden bir donanım fader'ı da olabiliyor (`show/tbar`). [→ Gösteri denetimi](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
+- **Uygulamaya benzeyen telefon kumandası.** Beş sayfa — Canlı, Sahneler, Katmanlar, Görünüm ve
+  Ses — panelin kendi temasında, kendi jetonuyla Wi-Fi üzerinden. Karartma her sayfada tek dokunuş.
+  Kendi kumandasını yazmak isteyen için protokol belgelendi. [→ Çıkışlar](#çıkışlar-ekranlar-obs-spout-ve-syphon)
+- **Çok geçişli Studio shader'ları.** Bir shader'ı `//@pass` işaretleriyle A–D tamponlarına ve bir
+  görüntü geçişine bölün; tamponlar önceki karelerini saklıyor, 1'in üstündeki değerleri tutuyor ve
+  çözünürlük değişiminden etkilenmiyor. Çok tamponlu shader kodu geçiş geçiş yapıştırılabiliyor,
+  `PASSES` içeren ISF dosyaları gerçek geçişler olarak geliyor; yerleşik **Mürekkep Akışı** tek
+  geçişin yapamadığını gösteriyor. [→ Studio](#studio--kendi-shaderınızı-yazın)
+- **Vuruşa göre oynayan video.** Video katmanında hız (0,25–4×), giriş ve çıkış noktaları, 1–16
+  vuruşluk **vuruşa kilitli döngü** ve her çıkışta canlı sarma yapan konum kaydırıcısı var. Dışa
+  aktarım kare kare aynı kalıyor. [→ Medya katmanı](#logo-görseller-ve-medya-katmanı)
+- **Uyarlanır çözünürlük.** Ağır bir sahne ekrana yetişemeyince çizim çözünürlüğü biraz iniyor,
+  pay olunca geri çıkıyor. Ölçüldü (sekiz katmanlı sahne, 2560×1600, 75 Hz ekran): **kapalı 56,4 fps,
+  açık 72,4 fps**. MilkDrop, izler ve parçacıklar basamakta baştan başlamıyor. [→ Güç ve performans](#güvenilirlik-güç-ve-güncellemeler)
+- **Çalışırken akıcı kalan panel.** Ayar, opaklık sürüklemek ya da katmanlar arasında gezinmek paneli
+  artık takmıyor: yedi katmanlı sahnede kaydırıcı sürüklerken 33,6 → 59,6 fps, opaklık sürüklerken
+  37 → 74 fps, bir önceki sürümle karşılaştırıldı.
+- **Baştan yazılan Düzen Editörü.** Çalışan geri alma, çoklu seçim, hizalama ve dağıtma, öğe
+  listesinden kilitleme ve gizleme, Shift ile tek eksende sürükleme ve F1'de kısayol listesi.
+  [→ Düzen editörü](#yayın-düzeni-editörü)
+- **Başlamak için daha çok şey.** 70 görselleştirici modu ve 51 arkaplan (18'i yeni), 60 CaYaDev
+  MilkDrop preseti (4'ü yeni), 43 yerleşik GLSL shader; her mod seçicide gerçekten çizilmiş bir
+  önizleme var.
 
 ---
 
@@ -67,7 +100,7 @@ kontrolü**.
   düzenleyin ya da yenilerini üretin. Kendi yaptığımız **60 CaYaDev preseti** yerleşik geliyor;
   CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
-  geçiş sürgüsü, katman başına ya da tüm kareye 42 GPU efekti, ve LFO'ları, zarfları ve canlı ses
+  geçiş sürgüsü, katman başına ya da tüm kareye 44 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
   [→ Katmanlar](#katmanlar-maskeler-ve-efektler)
 - **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** TouchDesigner, Resolume, OBS
@@ -167,8 +200,8 @@ Başka hiçbir şey kurmanız gerekmiyor: ses yardımcısı uygulamanın kendi i
    fazla **ses kaynağı** seçin.
 2. **Görselleştirmeyi Aç**'a tıklayın. Görüntü seçili her ekranda tam ekran açılır.
 3. Sağdaki her şeyi değiştirin — anında uygulanır ve kendini kaydeder.
-4. Ya da hazır bir görünümden başlayın: **Kitaplık → Hazır Şablonlar**'da 83 tane var.
-5. Yayın için **Çıkış → Yayın Çıkışı**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
+4. Ya da hazır bir görünümden başlayın: **Kitaplık → Şablon**'da 83 hazır şablon var.
+5. Yayın için **Çıkış → Yayın Çıkışı (OBS / Web)**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
 6. Tüm pencereleri kapatmak için herhangi bir görselleştirme penceresinde **ESC**'ye basın.
 
 ### Kaynaktan çalıştırma
@@ -478,7 +511,7 @@ sürgüleri, dört dalga biçimi, ve klasik sonsuz tünel için basla sürülen 
 - **Bozuk bir katman artık bütün kareyi götürmüyor**, ve opak bir MilkDrop katmanının
   altında kalan katmanlar hiç çizilmiyor.
 
-**Son işlem — 42 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
+**Son işlem — 44 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
 katman başına hem de birleştirilmiş görüntüde kullanılabilir. Tek bir katmandaki efekt o katmanın
 saydamlığını koruyor; alttaki katmanlar görünür kalıyor.
 
@@ -491,7 +524,9 @@ saydamlığını koruyor; alttaki katmanlar görünür kalıyor.
   · Datamosh (Blok Kayması) · Bozuk Sinyal · Renk Sapması (Kromatik)
 - **Bozulma** — Lens Bozunumu · Burgu · Kutupsal Dönüşüm · Dalga Bozulması · Yarık Tarama ·
   Kaleydoskop · Ayna
-- **Renk ve ışık** — Gradyan Eşleme · Seviyeler ve Eğri · Işık Huzmeleri · Yıldız Süzgeci
+- **Renk ve ışık** — Gradyan Eşleme · Seviyeler ve Eğri · Işık Huzmeleri · Yıldız Süzgeci · Ton
+  Eşleme (ACES / AgX) · 3B LUT (.cube)
+- **Canlı vuruşlar** — Flaş · Strobe (Canlı sayfasından basılı tutulan anlık efekt olarak da)
 
 Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 
@@ -569,12 +604,17 @@ Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 - Shader'lar `sv_resolution`, `sv_time`, `sv_level`, `sv_bass`, `sv_mid`, `sv_treble`, `sv_beat`,
   `sv_spec(x)`, `sv_waveAt(x)`, sahne paleti için `sv_col(x)`, kamera ya da video katmanı için
   `sv_media` alıyor.
-- **42 yerleşik shader**, hepsi öz testte gerçek GPU'da derleniyor:
-  - **Arkaplanlar (25)** — Bulut Katmanları · Kıvrım Akışı · Lav Lambası · Mürekkep Yayılması · Duman
+- **Çok geçişli shader'lar.** Kodu `//@pass A` … `//@pass D` (sırayla çizilen, önceki karesini
+  saklayan tamponlar) ve `//@pass image` ile bölün; `//@common` ortak. Bir geçiş kendinden önce
+  çizilen tamponların bu karesini okuyor (`sv_bufA`…`sv_bufD`), `channels=` `iChannel0`–`3`'ü bağlıyor;
+  çok tamponlu kod geçiş geçiş yapıştırılabiliyor. Tamponlar GPU izin veriyorsa yarım kayan noktalı
+  ve çözünürlük değişiminde korunuyor. ISF `PASSES` gerçek geçişler olarak geliyor.
+- **43 yerleşik shader**, hepsi öz testte gerçek GPU'da derleniyor:
+  - **Arkaplanlar (26)** — Bulut Katmanları · Kıvrım Akışı · Lav Lambası · Mürekkep Yayılması · Duman
     Halkaları · Petek Akışı · Bükülmüş Izgara · Truchet Örgü · Moiré Girişimi · Kristal Mağara ·
     Mandelbrot Yakınlaşması · Julia Kümesi · Yanan Gemi · Apollonius Çemberleri · Kaleydoskopik IFS ·
     Menger Süngeri · Mandelbulb · Işık Tüneli · Yıldız Sıçraması · Kutup Perdesi · Sıvı Metal · Neon
-    Yağmur · Reaksiyon Deseni · Su Kostikleri · Prizma Işıması
+    Yağmur · Reaksiyon Deseni · Su Kostikleri · Prizma Işıması · Mürekkep Akışı (iki geçiş)
   - **Görselleştiriciler (11)** — Işıyan Barlar · Spektrum Halkası · Dalga Alanı · Vuruş Patlaması ·
     Parlayan Osiloskop · Frekans Ağı · Nota Çemberi · Parçacık Akışı · Kaleydoskop Spektrum · Nabız
     Izgarası · Sıvı Barlar
@@ -714,6 +754,9 @@ haber bandı · karaoke vurgusu.
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor. Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
   kısa bir **vuruşta nabız** çizim saatine bağlı; dışa aktarım ekrandaki hareketin aynısını gösteriyor.
+  Video dosyasında **hız** (0,25–4×), **giriş ve çıkış noktaları**, uygulamanın temposuna kilitli 1–16
+  vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
+  formülü kare kare izliyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
@@ -775,6 +818,15 @@ OBS katmanı ve video dışa aktarımı onu çizer.
 | ![Zaman çizelgesi düzenleyicisi](docs/screenshots/panel-timeline.png) | ![Klip destesi](docs/screenshots/panel-clipdeck.png) |
 
 </div>
+
+**Canlı sayfası ve T-bar.** Bankalı ve F tuşlu sahne ızgarası, Sırada ve Canlı ekranları, Otomatik
+VJ, anlık efektler ve katman faderleri tek sayfada. Sırada ekranı sahnenin çıkıştaki son karesini
+gösteriyor; hiç canlıya çıkmamış bir sahnede MilkDrop presetinin resmi ya da en üst katmanının
+çizilmiş önizlemesi geliyor, bunun için GPU'da ikinci bir motor çalışmıyor. **AL** sıradaki sahneyi kendi geçişiyle canlıya
+alıyor; yanındaki **T-bar** sıradaki sahneyi elle karıştırıyor: karışım çubuğu izliyor, yarıda
+bırakınca iki sahnenin karışımı kalıyor, öbür uç sahneyi canlıya alıyor, başa döndürmek hiçbir şeyi
+baştan başlatmadan değişikliği geri alıyor. Her çıkış, OBS kaplaması ve panel önizlemesi çubuğu
+izliyor; `show/tbar` ile bir donanım fader'ı OSC ya da Companion üzerinden çubuğu sürebiliyor.
 
 **Zaman çizelgesi.** Sahneleri ve ayar değişimlerini ölçüye ya da saniyeye hizalı biçimde zamana
 yayın; tek bir oynatma kafası bütün ekranları birlikte sürüyor, çevrimdışı dışa aktarma da aynı
@@ -1373,6 +1425,11 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   Düşük güç kipi, her zaman ya da yalnız pildeyken, kare hızını 30 ile sınırlıyor, efektleri kapatıyor,
   MilkDrop ve arkaplan çözünürlüğünü düşürüyor; dışa aktarım ve OBS kaynağı değişmiyor. Çıkış açıkken
   panel önizlemesi daha seyrek çiziyor.
+- **Uyarlanır çözünürlük** — ağır bir sahne ekrana yetişemeyince çıkışın çizim çözünürlüğü bir
+  basamak (en çok yarıya) iniyor, on sakin saniyeden sonra geri çıkıyor; MilkDrop, izler ve
+  parçacıklar basamakta baştan başlamıyor. Ölçüldü (sekiz katmanlı sahne, 2560×1600, 75 Hz ekran):
+  kapalı 56,4 fps, açık 72,4 fps. Varsayılan açık, Performans altında kapatılabiliyor; video dışa
+  aktarma ve OBS kaynağına hiç uygulanmıyor.
 
 ---
 
