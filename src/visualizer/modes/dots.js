@@ -8,6 +8,8 @@
 /* Nokta Matris: sütun başına bir frekans bandı, satırlar seviye kademesi.
    Yanan noktalar dolu ve parlak, sönükler soluk bir ızgara bırakır. */
 (function () {
+  const OFF = 'rgba(255,255,255,0.06)';
+
   class DotsMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -16,6 +18,21 @@
       this.peaks = null;
     }
     resize() {}
+
+    /* Tema renginde her (sütun, satır) noktasının rengi sabit: sütun ve satır sayısı ya da
+       tema değişmedikçe aynı dizeler tekrar kullanılır (bkz. blocks.js). */
+    _themeColors(cfg, cols, rows) {
+      const list = window.SV.resolveBackgroundColors(cfg).join(',');
+      const key = cols + '|' + rows + '|' + list;
+      if (this._palKey === key) return this._pal;
+      const out = [];
+      for (let i = 0; i < cols; i++) {
+        for (let s = 0; s < rows; s++) out.push(window.SV.sampleThemeColor(cfg, (i / cols) * 0.7 + (s / (rows - 1)) * 0.3));
+      }
+      this._palKey = key;
+      this._pal = out;
+      return out;
+    }
 
     draw(audio, cfg, t) {
       const ctx = this.ctx;
@@ -33,28 +50,27 @@
       const r = Math.max(1, Math.min(slotX, slotY) * 0.5 * (1 - Math.min(0.8, v.gap)));
       const baseY = H * 0.97;
 
+      /* Renk dizeleri hücre başına baştan kurulmuyor: tema renkleri önbellekte, gökkuşağının
+         sönük rengi sütun başına bir kez. Çizim sırası ve renkler eskisiyle aynı. */
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      const pal = colorMode === 'theme' ? this._themeColors(cfg, cols, rows) : null;
+
       ctx.save();
       for (let i = 0; i < cols; i++) {
         const val = Math.min(1, bars[i] * (v.sensitivity || 1));
         const lit = val * rows;
         const cx = i * slotX + slotX / 2;
+        const hue = colorMode === 'rainbow' ? ((i / cols) * 300 + t * 14) % 360 : 0;
+        const dim = colorMode === 'rainbow' ? `hsla(${hue}, 40%, 30%, 0.16)` : OFF;
+        const row = i * rows;
 
         for (let s = 0; s < rows; s++) {
           const on = s < lit;
-          const ratio = s / (rows - 1);
           const cy = baseY - (s + 0.5) * slotY;
-          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
-          if (colorMode === 'theme') {
-            const themeCol = window.SV.sampleThemeColor(cfg, (i / cols) * 0.7 + ratio * 0.3);
-            ctx.fillStyle = on ? themeCol : 'rgba(255,255,255,0.06)';
-          } else if (colorMode === 'rainbow') {
-            const hue = ((i / cols) * 300 + t * 14) % 360;
-            ctx.fillStyle = on
-              ? `hsl(${hue}, 90%, ${52 + ratio * 14}%)`
-              : `hsla(${hue}, 40%, 30%, 0.16)`;
-          } else {
-            ctx.fillStyle = on ? v.color : 'rgba(255,255,255,0.06)';
-          }
+          if (!on) ctx.fillStyle = dim;
+          else if (colorMode === 'theme') ctx.fillStyle = pal[row + s];
+          else if (colorMode === 'rainbow') ctx.fillStyle = `hsl(${hue}, 90%, ${52 + (s / (rows - 1)) * 14}%)`;
+          else ctx.fillStyle = v.color;
           ctx.beginPath();
           ctx.arc(cx, cy, r, 0, Math.PI * 2);
           ctx.fill();
