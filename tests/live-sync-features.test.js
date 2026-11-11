@@ -59,8 +59,10 @@ test('MIDI saati çıkışı varsayılan kapalı', () => {
   global.window = global.window || {};
   require('../src/shared/defaults.js');
   const ts = global.window.SV.defaultConfig().tempoSync;
-  assert.strictEqual(ts.clockOut, false);
-  assert.strictEqual(ts.clockOutDevice, 'auto');
+  // Alan defaults.js'te değil: o dosya mod küçük resmi anahtarına giriyor,
+  // saat ayarı resmi değiştirmez. Yokluk kapalı demektir; kayıtlı anahtar kalır.
+  assert.ok(!ts.clockOut);
+  assert.strictEqual(ts.clockOutDevice, undefined);
   assert.strictEqual(ts.source, 'off');
 });
 
