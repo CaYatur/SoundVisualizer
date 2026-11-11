@@ -306,6 +306,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
   MIDI clock.
+- **Matrix colour source for network lights** (#1023). Art-Net, sACN and WLED (DDP) can drive the
+  fixtures as a row-major grid: each column has its own hue, and the audio level lights the bottom
+  row fully and each row above it less. Columns and rows come from the settings when they are whole
+  numbers of at least 1, otherwise from the fixture count as a near-square; cells past the count are
+  not read. The three outputs share one colour function, and the strip modes send the same bytes
+  as before. Rows are wired left to right on every row (no serpentine option yet).
+  `tests/led-matrix.test.js`.
 - **MIDI clock out** (#434, #1019). Control → Tempo sends the modulation tempo as MIDI clock: start
   (`0xFA`) when switched on, 24 pulses per quarter note from the modulation BPM (120 when it is 0),
   and one stop (`0xFC`) when switched off. Off by default. It goes to one chosen output or to every

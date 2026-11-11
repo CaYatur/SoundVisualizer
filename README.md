@@ -1102,7 +1102,9 @@ another machine. Every device OpenRGB exposes, per-LED where the hardware allows
 modes and colour maths** as Dynamic Lighting.
 
 **Art-Net / DMX.** ArtDMX output to fixtures and lighting desks; the packet layout is tested byte by
-byte.
+byte. Art-Net, sACN and WLED (DDP) can also treat the fixtures as a **matrix**, row by row from the
+top left: each column has its own hue, the bottom row is as bright as the music and the rows above it
+fall off. Columns and rows are set by hand or chosen as a near-square from the fixture count.
 
 **Colour sources.** The lights can follow the background, the theme, or the **live MilkDrop
 picture** — sampled about 30 times a second into eight slices from left to right, so

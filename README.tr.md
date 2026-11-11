@@ -1107,6 +1107,9 @@ makinede olabilir. OpenRGB'nin sunduğu her aygıt, donanımın izin verdiği ye
 Lighting ile **aynı kipler ve aynı renk matematiğiyle**.
 
 **Art-Net / DMX.** Armatürlere ve ışık masalarına ArtDMX çıkışı; paket düzeni bayt bayt sınanıyor.
+Art-Net, sACN ve WLED (DDP) armatürleri bir **matris** olarak da sürebiliyor; sol üstten satır satır:
+her sütunun kendi tonu var, alt satır müzik kadar parlak, üstteki satırlar giderek sönüyor. Sütun ve
+satır elle verilir ya da armatür sayısından kareye yakın seçilir.
 
 **Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
 izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
