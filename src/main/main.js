@@ -1114,6 +1114,25 @@ function visualizerPage() {
   return use ? gen : path.join(__dirname, '..', 'visualizer', 'index.html');
 }
 
+/* "Panele dönmek için ESC": panelle aynı ekranda açılan tam ekranda kısa not.
+   Kural ve gerekçe src/main/exit-hint.js'te. */
+const exitHint = require('./exit-hint').create();
+function maybeExitHint(win) {
+  if (!win || win.isDestroyed() || !adminWin || adminWin.isDestroyed()) return;
+  let outId = null;
+  let panelId = null;
+  try {
+    outId = screen.getDisplayMatching(win.getBounds()).id;
+    panelId = screen.getDisplayMatching(adminWin.getBounds()).id;
+  } catch { return; }
+  if (!exitHint.wanted(outId, panelId, Date.now(), { automation: AUTOMATION_RUN, escLocked: escapeLocked() })) return;
+  // Sayfa ilk kareyi çizsin: not boş siyah ekranda değil görüntünün üstünde belirsin
+  setTimeout(() => {
+    if (win.isDestroyed()) return;
+    win.webContents.send('exit-hint', { text: trUi('Panele dönmek için ESC', 'Press ESC to return to the panel'), ms: 3500 });
+  }, 600);
+}
+
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = visualizerRect(display);
@@ -1211,6 +1230,7 @@ function createVisualizerWindow(display) {
        bir guncelliyor; beklersek yeni acilan ekran o kadar sure bos kalirdi. */
     if (shownNowPlaying().has) win.webContents.send('now-playing', shownNowPlaying());
     win.webContents.send('lyrics-lib', lyricsSnapshot());
+    maybeExitHint(win);
   });
 
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki

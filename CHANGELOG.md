@@ -64,6 +64,28 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **Example scenes on first launch.** A new user had no saved scenes, so the Live page's scene
+  grid, F-keys, TAKE, the T-bar and Auto VJ (scene source) did nothing until they saved one
+  themselves. The empty grid, and the empty scene lists on the Time page and in the Library, now
+  offer **Add example scenes**. It builds eight scenes from the ready-made templates (MilkDrop Flow,
+  Hyper Tunnel, Aurora, Galaxy, Fireworks, Synthwave, Stained Glass, Lorenz) on F1–F8, the same way
+  applying a template and pressing Save would, without changing the live picture. Checked in the
+  app: each scene's layers match what applying the same template from the Library produces, and
+  each one draws.
+- **"Press ESC to return to the panel."** On a one-screen computer, Open Visualizer covers the whole
+  panel, and the only hint on how to get back was the panel's own footer.
+  - A short note now appears at the bottom of the output for three and a half seconds, but only
+    when the output opens on the same screen as the panel. It never shows on a projector or second
+    screen, nor while Escape is locked, nor in automated runs.
+  - It is drawn on the page, not on the canvas, so Spout, the overlay and exports never carry it.
+- **Setting labels wrap instead of being cut off.** At 1280×720 (a 1080p laptop at 150 % scaling)
+  labels such as Blackout Duration, Beats per Bar, Floating Window Opacity and Enable Dynamic Colour
+  Theme ended in "…". They now take a second line before they shorten.
+- **Application audio shows program names, not paths.** Some processes appeared as
+  `C:\Windows\System32\cmd.exe`; the list now shows `cmd.exe`, and capture still matches the full
+  path.
+- **The colour presets hint pointed at colours "below"** that are not on that page any more. It now
+  says to set the background colours on the Scene page.
 - **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its top visual or background mode. No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
 - **T-bar on the Live page** (#905). Between the Cued and Live monitors there is now a bar, as on a vision mixer. Dragging it from its resting end towards the other mixes the cued scene in with the scene's own transition type (crossfade if the transition is set to cut); the mix follows the bar, not a clock. Reaching the far end puts the scene live and the bar stays there for the next change, which runs the other way. Releasing it on the way holds the mix (two scenes half and half, as long as you like); bringing it back to the resting end undoes the change: the outgoing scene's layers were never torn down, so MilkDrop, particles and video carry on where they were instead of restarting. TAKE still runs the transition by itself and, during a held mix, completes it. Every output window, the OBS overlay and the panel preview follow the same bar. Keyboard: arrows, Page Up/Down, Home/End. Measured on two solid-colour scenes in the output window: 30 % gave 184/0/71 (red/green/blue), 70 % gave 76/1/181, 50 % held at 124/4/126, back to the start returned pure red with the first scene live again.
 - **`show/tbar` on the control tree.** OSC, Companion and the remote protocol can drive the bar with an absolute position 0–1. A controller is ignored until it has been at the bar's resting end once, so a hardware fader left at the other end does not take a scene with its first message.

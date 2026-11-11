@@ -814,12 +814,17 @@ body[data-page='live'] #svStageTools { display: none; }
 
 /* Ayar satırı ızgarası (#957): [nokta][etiket][sıfırla] sabit yuvalarda. Sıfırlama
    düğmesi eskiden etiketin sağına mutlak konumla biniyordu ve uzun etiketin son
-   harflerini örtüyordu ("Yatay Konum (X)"). Artık akışta, yeri hep ayrılmış;
-   etiket sığmazsa üç noktayla kısalır, tam adı ipucunda. */
+   harflerini örtüyordu ("Yatay Konum (X)"). Artık akışta, yeri hep ayrılmış.
+   Etiket sığmazsa İKİ SATIRA iner, ondan da uzunsa üç noktayla kısalır (tam adı ipucunda).
+   Eskiden tek satırda kesiliyordu: 1280×720'de (1080p dizüstü, %150 ölçek) "Karartma Süresi",
+   "Ölçüdeki Vuruş", "Yüzen Pencere Saydamlığı" ve "Dinamik Renk Temasını Etkinleştir" okunmuyordu. */
 .ctrl label.lbl { min-width: 0; flex: 0 1 auto; }
 .ctrl > .row > label.lbl { flex: 1 1 auto; }
 .ctrl > .row > .val { flex: none; }
-.ctrl label.lbl > .lbl-t { display: block; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctrl label.lbl > .lbl-t {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  flex: 0 1 auto; overflow: hidden; white-space: normal; overflow-wrap: break-word; line-height: 1.25;
+}
 .ctrl label.lbl > .lbl-t:has(> :not(.svi)) { display: inline-flex; }
 /* Değişiklik noktası kenar boşluğunda asılı durur, kendi sütununu ayırmaz: etiket, not, düğme ve
    bölüm başlığı tek sol kenarda başlar. Eskiden nokta 11 px'lik bir sütun tutuyor, etiketler aynı
