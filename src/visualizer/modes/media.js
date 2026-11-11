@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* Medya katmanı: web kamerası veya video dosyası sahneye katman olarak girer.
+/* Medya katmanı: web kamerası, ekran veya video dosyası sahneye katman olarak girer.
 
    Kendi <video> öğesini yönetir, kareyi verilen 2D bağlama çizer ve sese göre
    yakınlaşma/saydamlık nabzı, ayna, kaleydoskop, renk kayması uygular. Aynı
@@ -32,6 +32,23 @@
     if (name === 'AbortError') return 'Kamera açılışı yarıda kesildi. Yeniden deneyin.';
     if (!msg) return 'Kamera açılamadı.';
     return 'Kamera açılamadı: ' + msg;
+  }
+
+  /* Ekran kaynağının cümleleri src/shared/screen-capture.js ile aynıdır.
+     Sayfa o modülü yüklemediyse (dışa aktarım, test, yayın sayfası) yine
+     de fırlatmadan aynı metin yazılır. */
+  function screenFaultText(reason) {
+    const M = typeof window !== 'undefined' ? window.SVScreenCapture : null;
+    if (M && typeof M.faultText === 'function') {
+      try { return M.faultText(reason); } catch { /* metin yedeği */ }
+    }
+    if (reason === 'wayland') {
+      return 'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.';
+    }
+    if (reason === 'permission') {
+      return 'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.';
+    }
+    return 'Bu ortamda ekran yakalama çalışmıyor.';
   }
 
   /* Video dosyası hatası. Uygulama videoyu varsayılan olarak yazılımla
@@ -195,7 +212,7 @@
     let err = '';
     let ready = false;
     for (const st of mediaReports.values()) {
-      if (st.source === 'file') continue;
+      if (st.source === 'file' || st.source === 'screen') continue;
       if ((st.deviceId || '') !== id) continue;
       if (st.ready) ready = true;
       else if (st.error) err = st.error;
@@ -261,11 +278,11 @@
     apply(m) {
       const cfg = m || {};
       this._m = cfg;
-      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.loop ? 1 : 0].join('|');
+      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.screenId || '', cfg.loop ? 1 : 0].join('|');
       if (key === this.key) return;
       this.key = key;
-      this._source = cfg.source === 'file' ? 'file' : 'webcam';
-      this._deviceId = this._source === 'file' ? (cfg.file || '') : (cfg.deviceId || '');
+      this._source = cfg.source === 'file' ? 'file' : (cfg.source === 'screen' ? 'screen' : 'webcam');
+      this._deviceId = this._source === 'file' ? (cfg.file || '') : (this._source === 'screen' ? (cfg.screenId || '') : (cfg.deviceId || ''));
       this.stop();
       if (!cfg.enabled) return;
 
@@ -286,6 +303,10 @@
           this.video.onerror = () => { this._fail(key, this.video.error); done(false); };
         });
         this.video.src = this._sourceUrl(cfg.file);
+        return;
+      }
+      if (cfg.source === 'screen') {
+        this._openScreen(key, cfg);
         return;
       }
       if (this.offline) return;
@@ -312,8 +333,7 @@
           return;
         }
         const constraints = { audio: false, video: cfg.deviceId ? { deviceId: { exact: cfg.deviceId } } : true };
-        navigator.mediaDevices
-          .getUserMedia(constraints)
+        userMedia(constraints)
           .then((stream) => {
             if (this.key !== key) {
               if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -337,6 +357,67 @@
 
     _webPage() {
       return typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
+    }
+
+    /* Ekran veya pencere. Web kamerasının getUserMedia({ video: true })
+       yolu buradan geçmez. API yoksa (dışa aktarım, test, yayın sayfası)
+       hata metni yazılır, fırlatılmaz. */
+    _openScreen(key, cfg) {
+      const api = typeof window !== 'undefined' ? window.api : null;
+      const fail = (reason) => {
+        if (this.key !== key) return;
+        this.ready = false;
+        this.error = screenFaultText(reason);
+        this._publish();
+      };
+      if (this.offline || !api || typeof api.screenSources !== 'function') {
+        fail('platform');
+        return;
+      }
+      let pending;
+      try { pending = api.screenSources(); } catch { fail('permission'); return; }
+      Promise.resolve(pending).then((res) => {
+        if (this.key !== key) return null;
+        if (!res || res.ok === false) {
+          fail((res && res.reason) || 'permission');
+          return null;
+        }
+        const want = String((cfg && cfg.screenId) || '');
+        if (!want) {
+          this.ready = false;
+          this.error = 'Bir ekran veya pencere seçin.';
+          this._publish();
+          return null;
+        }
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+          fail('platform');
+          return null;
+        }
+        const desktop = {
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: want,
+            },
+          },
+        };
+        return userMedia(desktop).then((stream) => {
+          if (this.key !== key) {
+            if (stream && stream.getTracks) stream.getTracks().forEach((t) => t.stop());
+            return false;
+          }
+          this.stream = stream;
+          this.video.src = '';
+          this.video.srcObject = stream;
+          return this.video.play().then(() => true);
+        });
+      }).then((ok) => {
+        if (!ok || this.key !== key) return;
+        this.ready = true;
+        this.error = null;
+        this._publish();
+      }).catch(() => { fail('permission'); });
     }
 
     /* Yayın sayfası getUserMedia çağırmaz. Kare uygulama penceresinden gelir. */
@@ -488,7 +569,7 @@
       try {
         if (window.api && typeof window.api.sendMessage === 'function') window.api.sendMessage(payload);
       } catch { /* yönetim penceresinde bu kanal yok */ }
-      if (!this._webPage() && this._source !== 'file' && window.api && typeof window.api.sendCamStatus === 'function') {
+      if (!this._webPage() && this._source !== 'file' && this._source !== 'screen' && window.api && typeof window.api.sendCamStatus === 'function') {
         try {
           window.api.sendCamStatus({
             key: this._deviceId || '',
@@ -812,6 +893,10 @@
       this._keySig = '';
       this.key = '';
     }
+  }
+
+  function userMedia(constraints) {
+    return navigator.mediaDevices.getUserMedia(constraints);
   }
 
   const KEY_MAX = 255 * Math.sqrt(3);

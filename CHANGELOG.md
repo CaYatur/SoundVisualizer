@@ -80,6 +80,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Screen and window source on the media layer** (#421, #1024). Next to a webcam and a video file, a
+  media layer can show one of this computer's screens or windows, picked from a list the main process
+  reads. Windows and macOS are supported (a macOS Screen Recording refusal shows as a message); Linux
+  only with an X11 display (`DISPLAY` set or an x11 session, XWayland included), and a Wayland session
+  without one gets a reason instead of an attempt. Web page layers still cannot capture the screen.
+  Like a webcam, the source is not relayed to the OBS browser source and is empty in a video export.
+  Checked in the app on Windows with an isolated profile: a 1920×1080 screen and a single window both
+  opened and drew a picture, no selection showed "Choose a screen or a window.", and closing the layer
+  stopped the stream. `tests/screen-capture.test.js`.
 - **Color key on the media layer** (#419, #1022). A media layer can make a chosen color (a green
   screen) or the dark or bright side of the picture transparent, with threshold and softness; the
   layer underneath shows through the hole. It works on the source frame before fit, kaleidoscope and

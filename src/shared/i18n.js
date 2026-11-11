@@ -1859,6 +1859,19 @@
     'Bu katmanın kamerasıdır. İkinci bir medya katmanı başka bir kamerayı aynı anda açar. OBS yayın katmanı kamerayı tarayıcıdan açmaz; görüntü bu uygulamadan gider. Adlar, kameraya izin verilince dolar.':
       'This is this layer\'s camera. A second media layer opens another camera at the same time. The OBS web layer does not open a browser camera; the picture comes from this application. Names fill in after permission is granted.',
     'Video Dosyası': 'Video File', 'Video Seç': 'Choose Video',
+    'Ekran Kaynağı': 'Screen Source',
+    'Ekran seçin': 'Choose a screen',
+    'Açık ekran yok': 'No screen is open',
+    'Kayıtlı ekran': 'Saved screen',
+    'Ekranları Yenile': 'Refresh Screens',
+    'Bir ekran veya pencere seçin.': 'Choose a screen or a window.',
+    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.':
+      'The chosen screen or window is drawn on this layer. The picture goes to the output and the preview. A Wayland session needs an X11 display.',
+    'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.':
+      'This session is Wayland and there is no X11 display. Screen capture only works on an X11 display.',
+    'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.':
+      'Screen recording permission was denied. Allow it in system settings.',
+    'Bu ortamda ekran yakalama çalışmıyor.': 'Screen capture does not work in this environment.',
     'seçildi': 'selected', 'seçilmedi': 'not selected', 'Döngüde Oynat': 'Loop Playback',
     'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
     'Çarpma': 'Multiply', 'Aynala': 'Mirror',
