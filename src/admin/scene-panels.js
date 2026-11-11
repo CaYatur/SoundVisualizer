@@ -3258,11 +3258,25 @@
   // ==========================================================================
   // ART-NET / DMX
   // ==========================================================================
+  // Matris ölçüleri şemada yok: boş değer yakına kare demektir (artnet.matrixGrid).
+  function matrixDimSliders(obj, count) {
+    const n = Math.max(1, count | 0 || 1);
+    const whole = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 0);
+    const colsNow = () => whole(obj.matrixCols) || Math.ceil(Math.sqrt(n));
+    const rowsNow = () => whole(obj.matrixRows) || Math.ceil(n / colsNow());
+    const opt = { min: 1, max: Math.max(n, 64), step: 1, fmt: (v) => String(Math.round(v)) };
+    return [
+      miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
+      miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+    ];
+  }
+
   const ARTNET_MODES = [
     ['palette', 'Sahne Paleti'],
     ['bands', 'Frekans Bantları'],
     ['spectrum', 'Kayan Spektrum'],
     ['single', 'Tek Renk'],
+    ['matrix', 'Matris'],
   ];
 
   let artnetState = { running: false, error: null, packets: 0 };
@@ -3332,6 +3346,10 @@
       );
       nodes.push(miniSelect('Renk Kaynağı', ARTNET_MODES, () => a.mode, (v) => { a.mode = v; }, () => P().rerender()));
       if (a.mode === 'single') nodes.push(P().color('Renk', 'artnet.color'));
+      if (a.mode === 'matrix') {
+        const n = Math.max(1, Math.min(170, a.fixtures | 0 || 8));
+        matrixDimSliders(a, n).forEach((node) => nodes.push(node));
+      }
       nodes.push(P().slider('Parlaklık', 'artnet.brightness', { step: 0.02, percent: true }));
       nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
       nodes.push(
@@ -3351,6 +3369,7 @@
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
+    matrixDimSliders,
     isWindows: isWindowsPlatform, parseClock, formatClock,
     sourceStatusText, layerSummary, layerFields, openLayerTab, LAYER_KIND_LABELS, typeOptionsFor, addMilkdropLayer,
   };

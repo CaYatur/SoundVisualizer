@@ -2082,6 +2082,8 @@
     'Renk Kaynağı': 'Color Source',
     'Sahne Paleti': 'Scene Palette', 'Frekans Bantları': 'Frequency Bands',
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
+    'Matris Sütunu': 'Matrix Columns',
+    'Matris Satırı': 'Matrix Rows',
 
     // ---- Ağ LED çıkışları: sACN, WLED (DDP), WLED ses senkronu ----
     'sACN (E1.31) Çıkışı': 'sACN (E1.31) Output',
