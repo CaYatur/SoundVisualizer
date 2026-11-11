@@ -13,6 +13,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   With Token protection on nothing changes: a foreign site does not know the token, and a dashboard
   that embeds the tokened address keeps working. The overlay page has no controls and stays
   embeddable.
+- **The page token cookie is HttpOnly and is not accepted inside a frame.** `SameSite` is per site, not
+  per port: on `127.0.0.1` or the LAN address, another web server on the same computer (a dev
+  server, another app's web UI) counts as the same site and receives the cookie. Such a page could
+  have read the cookie with script, or framed the remote with the cookie. Now the cookie cannot be
+  read by script, and a frame, embed or object load (`Sec-Fetch-Dest`) needs the token in the
+  address; a dashboard that embeds the tokened address still works, and clients that send no
+  `Sec-Fetch-Dest` (OBS, older browsers) are unchanged.
 - **Video ranges from the streaming server follow the same rules as the app's own player.** The
   server had its own copy of the `Range` parser:
   - `bytes=-500` returned the start of the file instead of the last 500 bytes;
@@ -78,6 +85,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     when the output opens on the same screen as the panel. It never shows on a projector or second
     screen, nor while Escape is locked, nor in automated runs.
   - It is drawn on the page, not on the canvas, so Spout, the overlay and exports never carry it.
+  - The note appears at most three times per profile. A laptop mirrored to a projector is one screen
+    to the app, so without a limit the audience would see it every time the output opens.
 - **Setting labels wrap instead of being cut off.** At 1280×720 (a 1080p laptop at 150 % scaling)
   labels such as Blackout Duration, Beats per Bar, Floating Window Opacity and Enable Dynamic Colour
   Theme ended in "…". They now take a second line before they shorten.

@@ -610,8 +610,14 @@ function handleRequest(req, res) {
      ekrandaki kumanda hep 401 veriyordu. Çerez SameSite=Strict: başka bir
      sitenin çerçevesinde ya da bağlantısında gönderilmez, yani yabancı site
      yine jetonu bilmeden sayfayı açamaz. */
+  /* Ama SameSite SİTE bazında, kapı bazında değil: 127.0.0.1 ya da LAN adresinde aynı makinedeki
+     başka bir sunucu (geliştirme sunucusu, başka bir uygulamanın web arayüzü) "aynı site" sayılıyor
+     ve çerez ona da gidiyor. O sayfa kumandayı çerçeveleyip çerezle açabilirdi. Çerçeve, gömme ve
+     nesne yüklemelerinde (Sec-Fetch-Dest) yalnız URL'deki jeton geçer; başlığı yollamayan eski
+     tarayıcı ve OBS çerezle açılmaya devam eder. Çerez ayrıca HttpOnly (sendPage). */
+  const framed = /^(iframe|frame|embed|object)$/i.test(String(hdrs['sec-fetch-dest'] || ''));
   const pageTokenOk = (expected, cookieName) => !!expected && (safeCompare(urlToken, expected)
-    || safeCompare(extractCookieToken(hdrs['cookie'], cookieName), expected));
+    || (!framed && safeCompare(extractCookieToken(hdrs['cookie'], cookieName), expected)));
 
   if (p === '/' || p === '/overlay' || p === '/overlay.html') {
     const expected = state.token;
@@ -798,7 +804,7 @@ function sendPage(res, file, cookieName, tokenVal, extraHeaders) {
       /* 30 gün: oturum çerezi telefon tarayıcısı kapanınca siliniyor, ana
          ekrandaki kumanda ertesi gün yine jetonsuz kalıyordu. Jeton yenilenince
          eski çerez kendiliğinden geçersiz. */
-      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; Max-Age=2592000; SameSite=Strict`;
+      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Strict`;
     }
     if (extraHeaders) Object.assign(respHeaders, extraHeaders);
     res.writeHead(200, respHeaders);

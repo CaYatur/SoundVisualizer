@@ -130,9 +130,14 @@ test('kumanda sayfası yalnız Token Koruması kapalıyken çerçevelenemez; yay
     /* Ana ekrana eklenen kumanda bildirimdeki start_url (/remote) ile jetonsuz
        açılır; ilk ziyarette yazılan çerez onu taşımalı. Eskiden 401. */
     const cookie = String((remote.headers['set-cookie'] || [])[0] || '');
-    assert.match(cookie, /^sv_remote_token=[^;]+; Path=\/; Max-Age=\d+; SameSite=Strict$/);
+    assert.match(cookie, /^sv_remote_token=[^;]+; Path=\/; Max-Age=\d+; HttpOnly; SameSite=Strict$/, 'sayfanın betikleri çerezi okumuyor; aynı makinedeki başka bir sayfanın betiği de okuyamasın');
     const launched = await request(port, '/remote', { Cookie: cookie.split(';')[0] });
     assert.strictEqual(launched.status, 200, 'çerezle açılan kumanda');
+    /* Aynı makinedeki başka bir yerel sunucu "aynı site": çerez ona da gidiyor. Çerçevede çerez
+       yetmez, yalnız URL'deki jeton; başlığı yollamayan istemci (OBS, eski tarayıcı) etkilenmez. */
+    assert.strictEqual((await request(port, '/remote', { Cookie: cookie.split(';')[0], 'Sec-Fetch-Dest': 'iframe' })).status, 401, 'çerezle çerçeve');
+    assert.strictEqual((await request(port, '/remote?token=' + encodeURIComponent(tok), { 'Sec-Fetch-Dest': 'iframe' })).status, 200, 'jetonlu gömme (pano)');
+    assert.strictEqual((await request(port, '/remote', { Cookie: cookie.split(';')[0], 'Sec-Fetch-Dest': 'document' })).status, 200, 'ana ekrandan açılış');
     // Yanlış çerez ya da öbür sayfanın çerezi geçmez
     assert.strictEqual((await request(port, '/remote', { Cookie: 'sv_remote_token=' + 'c'.repeat(32) })).status, 401);
     assert.strictEqual((await request(port, '/remote', { Cookie: 'sv_token=' + 'a'.repeat(32) })).status, 401);

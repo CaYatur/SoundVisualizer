@@ -958,6 +958,13 @@
     if (window.api.onExitHint) window.api.onExitHint((m) => {
       const text = m && typeof m.text === 'string' ? m.text : '';
       if (!text) return;
+      /* En çok üç kez. Projektöre AYNALANMIŞ bir dizüstü Electron için tek ekran: ana süreç notu
+         "panelle aynı ekran" sanıp yollar ve seyirci de görürdü. Yeni kullanıcı notu görür,
+         düzenli çalan kullanıcı bir süre sonra görmez. Depo yoksa (gizli kip) not yine çıkar. */
+      let seen = 0;
+      try { seen = Number(localStorage.getItem('sv-exit-hint-count')) || 0; } catch (e) { seen = 0; }
+      if (seen >= 3) return;
+      try { localStorage.setItem('sv-exit-hint-count', String(seen + 1)); } catch (e) { /* depo kapalı */ }
       let n = document.getElementById('svExitHint');
       if (!n) {
         n = document.createElement('div');
