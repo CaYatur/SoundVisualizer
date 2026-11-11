@@ -683,9 +683,10 @@
       if (m.saturate != null && m.saturate !== 1) filters.push(`saturate(${m.saturate})`);
       if (filters.length) ctx.filter = filters.join(' ');
 
+      const frame = this._keyed(pic, vw, vh, m) || pic;
       const slices = Math.max(0, Math.min(12, m.kaleido | 0));
-      if (slices >= 3) this._drawKaleido(ctx, pic, W, H, vw, vh, slices, zoom, t);
-      else this._drawFit(ctx, pic, W, H, vw, vh, m.fit, zoom, !!m.mirror, kb.x * W, kb.y * H);
+      if (slices >= 3) this._drawKaleido(ctx, frame, W, H, vw, vh, slices, zoom, t);
+      else this._drawFit(ctx, frame, W, H, vw, vh, m.fit, zoom, !!m.mirror, kb.x * W, kb.y * H);
 
       ctx.restore();
     }
@@ -758,13 +759,103 @@
       }
     }
 
+    /* Renk / parlaklık anahtarı. Kaynak karesinin üstünde, renk filtresinden
+       ve sığdırmadan önce: delik kaynak alfası olarak kalır, alttaki katman
+       görünür. Kapalıyken tuval açılmaz. Uzun kenar 960 ile sınırlı; 4K
+       karenin tamamı her kare okunmaz. */
+    _keyed(pic, vw, vh, m) {
+      const K = typeof window !== 'undefined' && window.SVMediaKey;
+      if (!K || !K.active(m) || !vw || !vh) return null;
+      if (typeof document === 'undefined' || !document.createElement) return null;
+      const MAX = 960;
+      let dw = vw;
+      let dh = vh;
+      const long = Math.max(vw, vh);
+      if (long > MAX) {
+        const s = MAX / long;
+        dw = Math.max(1, Math.round(vw * s));
+        dh = Math.max(1, Math.round(vh * s));
+      }
+      const c = this._keyCanvas || (this._keyCanvas = document.createElement('canvas'));
+      if (c.width !== dw || c.height !== dh) { c.width = dw; c.height = dh; }
+      const g = c.getContext('2d', { willReadFrequently: true });
+      if (!g) return null;
+      g.clearRect(0, 0, dw, dh);
+      g.drawImage(pic, 0, 0, dw, dh);
+      let img;
+      try { img = g.getImageData(0, 0, dw, dh); } catch { return null; }
+      K.apply(img.data, {
+        mode: m.keyMode,
+        color: m.keyColor || '#00ff00',
+        threshold: m.keyAmount == null ? 0.3 : m.keyAmount,
+        softness: m.keySoft == null ? 0.08 : m.keySoft,
+        invert: !!m.keyInvert,
+      });
+      g.putImageData(img, 0, 0);
+      return c;
+    }
+
     dispose() {
       this.stop();
+      this._keyCanvas = null;
       this.key = '';
     }
   }
 
+  const KEY_MAX = 255 * Math.sqrt(3);
+  function keyClamp(v) {
+    const n = Number(v);
+    if (!(n > 0)) return 0;
+    return n > 1 ? 1 : n;
+  }
+  function keyRgb(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    const n = m ? parseInt(m[1], 16) : 0x00ff00;
+    return [(n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+  }
+  function keyActive(m) {
+    const mode = m && m.keyMode;
+    return mode === 'chroma' || mode === 'luma';
+  }
+  /* data: RGBA. Renkte eşik, anahtara olan uzaklığın tam ölçeğe oranıdır
+     (0 yalnız aynı renk, 1 neredeyse her şey). Parlaklıkta eşik 0..1
+     kesittir; invert aydınlık tarafı saydam yapar, değilse karanlık tarafı.
+     Yumuşaklık o kesitten sonraki geçiş payıdır. Var olan alfa çarpılır. */
+  function keyApply(data, opts) {
+    const o = opts || {};
+    const mode = o.mode;
+    if ((mode !== 'chroma' && mode !== 'luma') || !data || !data.length) return 0;
+    const thr = keyClamp(o.threshold == null ? 0.3 : o.threshold);
+    const soft = keyClamp(o.softness == null ? 0.08 : o.softness);
+    let n = 0;
+    if (mode === 'chroma') {
+      const rgb = keyRgb(o.color);
+      const cut = thr * KEY_MAX;
+      const fade = soft * KEY_MAX;
+      for (let i = 0; i < data.length; i += 4) {
+        const dist = Math.hypot(data[i] - rgb[0], data[i + 1] - rgb[1], data[i + 2] - rgb[2]);
+        let keep = 1;
+        if (dist <= cut) keep = 0;
+        else if (fade > 0 && dist < cut + fade) keep = (dist - cut) / fade;
+        if (keep < 1) { data[i + 3] = Math.round(data[i + 3] * keep); n++; }
+      }
+      return n;
+    }
+    const invert = !!o.invert;
+    for (let i = 0; i < data.length; i += 4) {
+      const y = (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+      const side = invert ? (y - thr) : (thr - y);
+      let keep = 1;
+      if (soft === 0) keep = side > 0 ? 0 : 1;
+      else if (side >= soft) keep = 0;
+      else if (side > 0) keep = 1 - side / soft;
+      if (keep < 1) { data[i + 3] = Math.round(data[i + 3] * keep); n++; }
+    }
+    return n;
+  }
+
   window.SVMedia = MediaLayer;
+  window.SVMediaKey = { active: keyActive, apply: keyApply };
   window.SVMediaTransport = { transportTime, transportOn, tempoOf };
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;

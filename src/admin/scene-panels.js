@@ -1332,6 +1332,22 @@
       out.push(mediaSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, { step: 0.02, percent: true }));
       out.push(mediaSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 20, { step: 1, fmt: (v) => Math.round(v) + ' ' + tr('sn') }));
       out.push(mediaSlider('Vuruşta Nabız', 'beatPulse', 0, { step: 0.02, percent: true }));
+      out.push(miniSelect('Renk Anahtarı', [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']],
+        () => m.keyMode || 'off', (v) => { m.keyMode = v; }, rerender));
+      if ((m.keyMode || 'off') === 'chroma') {
+        out.push(miniColor('Anahtar Rengi', () => m.keyColor || '#00ff00', (v) => { m.keyColor = v; }, '#00ff00'));
+      }
+      if ((m.keyMode || 'off') === 'luma') {
+        out.push(miniSelect('Saydam Kalan', [['dark', 'Karanlık'], ['bright', 'Aydınlık']],
+          () => (m.keyInvert ? 'bright' : 'dark'), (v) => { m.keyInvert = v === 'bright'; }));
+      }
+      if ((m.keyMode || 'off') !== 'off') {
+        out.push(miniSlider('Anahtar Eşiği', () => (m.keyAmount == null ? 0.3 : m.keyAmount), (v) => { m.keyAmount = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.3 }));
+        out.push(miniSlider('Anahtar Yumuşaklığı', () => (m.keySoft == null ? 0.08 : m.keySoft), (v) => { m.keySoft = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.08 }));
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.' }));
+      }
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
       }
