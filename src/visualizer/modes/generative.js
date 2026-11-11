@@ -825,6 +825,21 @@
         this.ang[i] = r() * 0.9;
         this.jit[i] = (r() - 0.5) * 0.28;
       }
+      /* HALKA SIRASI (#905). Renk ve saydamlık yıldızın yarıçapına ve bandına bağlı; yarıçap
+         sabit. Eskiden her karede 2600 yıldızın her biri için renk hesaplanıyor, rgba metni
+         kuruluyor ve tuval o metni yeniden çözüyordu (çıkış profilinde en pahalı mod). Yıldızlar
+         bir kez 48 halkaya diziliyor; renk halka başına bir kez. 48 halka 16 bandın tam katı:
+         bir halkadaki yıldızların bandı aynı, boyutları da. Toplamalı karışım sıradan
+         bağımsız, konumlar yıldızın kendi yarıçapından. */
+      const B = Galaxy.RINGS;
+      const ring = (i) => Math.min(B - 1, (this.rad[i] * B) | 0);
+      const idx = Array.from({ length: this.N }, (_, i) => i).sort((a, b) => ring(a) - ring(b) || a - b);
+      this.order = Uint16Array.from(idx);
+      this.ringStart = new Uint16Array(B + 1);
+      for (let k = 0, i = 0; k <= B; k++) {
+        while (i < this.N && ring(this.order[i]) < k) i++;
+        this.ringStart[k] = i;
+      }
     }
     resize() {}
     draw(audio, cfg, t) {
@@ -851,27 +866,32 @@
       ctx.fillRect(0, 0, W, H);
 
       ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < this.N; i++) {
-        const rr = this.rad[i];
-        // Diferansiyel dönme: içeri hızlı, dışarı yavaş
-        const spin = t * (0.5 / (0.25 + rr)) * 0.5;
-        const armOff = this.arm[i] * Math.PI;
-        const a = this.ang[i] + armOff + rr * 5.2 + spin;
-        const band = bars[Math.min(15, (rr * 16) | 0)];
-        const e = clamp(band * sens, 0, 1);
-        const rad = rr * R * (1 + this.jit[i] * 0.35 + e * 0.05);
-        const x = cx + Math.cos(a) * rad;
-        const y = cy + Math.sin(a) * rad * 0.42;
-        const c = tone(v, cfg, rr, t);
+      const B = Galaxy.RINGS;
+      for (let k = 0; k < B; k++) {
+        const lo = this.ringStart[k];
+        const hi = this.ringStart[k + 1];
+        if (lo === hi) continue;
+        const rc = (k + 0.5) / B;
+        const e = clamp(bars[Math.min(15, (k * 16 / B) | 0)] * sens, 0, 1);
         const s = Math.max(0.7, minDim * 0.0016 * (0.5 + v.thickness) * (0.6 + e));
-        ctx.fillStyle = rgba(c, (0.15 + e * 0.6) * (1 - rr * 0.4));
-        ctx.fillRect(x, y, s, s);
+        ctx.fillStyle = rgba(tone(v, cfg, rc, t), (0.15 + e * 0.6) * (1 - rc * 0.4));
+        for (let j = lo; j < hi; j++) {
+          const i = this.order[j];
+          const rr = this.rad[i];
+          // Diferansiyel dönme: içeri hızlı, dışarı yavaş
+          const spin = t * (0.5 / (0.25 + rr)) * 0.5;
+          const a = this.ang[i] + this.arm[i] * Math.PI + rr * 5.2 + spin;
+          const rad = rr * R * (1 + this.jit[i] * 0.35 + e * 0.05);
+          ctx.fillRect(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad * 0.42, s, s);
+        }
       }
       ctx.globalCompositeOperation = 'source-over';
       this.glow.apply(this.canvas, v.glow, 0.9);
     }
     dispose() {}
   }
+
+  Galaxy.RINGS = 48;
 
   // ==========================================================================
   // DNA SARMALI
