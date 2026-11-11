@@ -36,6 +36,19 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   browser closes. Checked in a real browser at phone size: tokened address connected, then the bare
   `/remote` connected.
 
+### Testing and release checks
+
+- **`npm run smoke:packaged`** (#466). Runs the self-test, with export, inside the packaged app after
+  `npm run pack:dir`, from the archive, with a temporary profile. It first checks that the pages are
+  served from `app.asar` and not from a loose `resources/app` folder. It replaces a step that was done
+  by hand before every release. Run on this machine's build: archive check and self-test pass.
+- **`npm run golden -- --repeat`** (#467). Each case is exported twice in the same run and the frames
+  are compared byte for byte, so a template with modulation, transitions and effects must give the
+  same video every time. Checked with the software renderer.
+- **How to accept an intended golden difference** (#461) is now written in the script and in
+  CONTRIBUTING: review the videos with `--keep`, say so in the PR, then use the new `golden.json` as
+  the baseline.
+
 ### Performance
 
 - **Galaxy draws seven times faster.** It computed a colour, built an rgba string and made the canvas parse it for each of its 2,600 stars on every frame, the most expensive mode in the output profile of a real scene. Stars are now sorted once into 48 rings by their fixed radius and the colour is set once per ring; 48 is a multiple of the 16 bands, so the stars of a ring share their band and size, and additive blending does not depend on order. Measured at 1920×1080: 3.0 ms → 0.41 ms per frame (five runs, twice). The colour along the radius now moves in 48 steps: mean difference 0.036 / 255 per channel against the previous frame, not visible side by side.

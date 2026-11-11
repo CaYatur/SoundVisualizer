@@ -43,4 +43,10 @@ function compareRuns(base, next) {
   return out;
 }
 
-module.exports = { diffFrames, compareRuns };
+/* Aynı durumun iki dışa aktarımı (#467, --repeat): kare sayısı ve her karenin özeti aynı mı. */
+function repeatCheck(first, second) {
+  const d = diffFrames(first, second);
+  return { same: !d.diff, diff: d.diff, frames: d.frames };
+}
+
+module.exports = { diffFrames, compareRuns, repeatCheck };
