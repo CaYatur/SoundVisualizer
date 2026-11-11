@@ -121,7 +121,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **Ready for the stage.** Projection mapping with corner pin, mesh warp and soft-edge blending
   for multi-projector rigs, plus **aspect correction** for LED walls whose pixels are not square.
   [→ Stage](#stage-projection-mapping-and-aspect-correction)
-- **A show that keeps running.** A **Pre-Show Check** before the doors open, and a second machine
+- **A show that keeps running.** A **Pre-show Check** before the doors open, and a second machine
   as a **hot standby** that draws the same picture and takes over 0.4–0.5 s after the primary
   crashes, with only one machine driving the lights. An **audio bridge** feeds both from one capture.
   [→ Show safety](#show-safety-pre-show-check-redundancy-and-the-audio-bridge)
@@ -846,7 +846,7 @@ one playhead drives every screen together, and offline export plays the same sho
 
 - Clip tracks for scenes, templates, palettes, video, images, shaders and actions; **automation
   lanes** for any setting, with curves; markers and a loop.
-- **A full editor**, modelled on Ableton's Arrangement View: a toolbar with
+- **A full editor**: a toolbar with
   transport, clock (time and bar.beat), tempo, snap, loop, follow and zoom; track headers with
   colour, mute, solo and lock; split at the playhead, duplicate, copy and paste, nudge, 100-step
   undo; multi-select with box selection; a draggable loop brace and marker flags; per-clip
@@ -1441,7 +1441,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 
 ### Show safety: pre-show check, redundancy and the audio bridge
 
-- **Pre-Show Check** (Show category) — displays, audio, each output's frame rate
+- **Pre-show Check** (Show category) — displays, audio, each output's frame rate
   against its refresh rate, the files the scene uses (with where they are used and a fix), the
   backup, authority and disk space, refreshed every 3 seconds.
 - **Hot standby with two machines** — the backup draws the same picture all the
@@ -2145,8 +2145,9 @@ the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, a
 and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a far broader and much
 faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
 and the CaYaDev presets, and in v3.1.7 half the memory, no more garbage collection freezes, low-power
-mode and a preset per MilkDrop layer. It also says what comes next and keeps an honest list of
-what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
+mode and a preset per MilkDrop layer. **v4.0.0** is on `main` now as 4.0.0-beta, built and tested but not
+released yet: everything under [New in v4](#new-in-v4). After it comes the music video studio. The
+roadmap also keeps an honest list of what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 
 ---
