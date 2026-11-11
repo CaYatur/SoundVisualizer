@@ -1351,6 +1351,226 @@
   }
 
   // ==========================================================================
+  // REAKSİYON DESENİ — iki kimyasal ızgarada yayılır, besleme ve tüketim desen üretir
+  // ==========================================================================
+  /* İki alan var. Birincisi sürekli beslenir; ikincisi komşulara daha yavaş yayılır
+     ve birincisini tüketerek çoğalır. Her adımda yalnız komşu hücreler karışır, sonra
+     besleme ve tüketim kuralı uygulanır. Varsayılan oranlar boşluğa ya da düz dolguya
+     kaçmaz: kıvrımlı bir yapı büyür. Bas, besleme hızını bu bölgenin içinde hafifçe
+     kaydırır (yaklaşık 0,050–0,060; tüketim 0,062). Dışarı çıkınca alan ya solar ya
+     da tek renge dolar.
+
+     Izgara boyutu değişmeden durum korunur. Tuvalin oranı ızgarayı değiştirirse
+     alan yeniden tohumlanır; her karede değil. Tohum sabittir, Math.random yok:
+     aynı kare dizisi aynı görüntüyü verir. */
+  const REACTION_FEED = 0.055;
+  const REACTION_KILL = 0.062;
+  const REACTION_CAP = 96;
+
+  function reactionFeedFor(bass) {
+    let b = typeof bass === 'number' ? bass : 0;
+    if (b !== b) b = 0;
+    if (b < 0) b = 0;
+    else if (b > 1.2) b = 1.2;
+    return REACTION_FEED + (b - 0.4) * 0.006;
+  }
+
+  function reactionGridSize(canvasW, canvasH) {
+    let W = canvasW | 0;
+    let H = canvasH | 0;
+    if (W < 2) W = 2;
+    if (H < 2) H = 2;
+    const long = W > H ? W : H;
+    const scale = long > REACTION_CAP ? REACTION_CAP / long : 1;
+    let gw = Math.round(W * scale);
+    let gh = Math.round(H * scale);
+    if (gw < 2) gw = 2;
+    if (gh < 2) gh = 2;
+    if (gw > REACTION_CAP) gw = REACTION_CAP;
+    if (gh > REACTION_CAP) gh = REACTION_CAP;
+    return [gw, gh];
+  }
+
+  function reactionSeed(a, b, w, h) {
+    a.fill(1);
+    b.fill(0);
+    const rand = rng(0x51a7c3);
+    for (let s = 0; s < 6; s++) {
+      const cx = (0.18 + rand() * 0.64) * (w - 1);
+      const cy = (0.18 + rand() * 0.64) * (h - 1);
+      const rad = 3.2 + rand() * 2.3;
+      const r2 = rad * rad;
+      const x0 = Math.max(0, Math.floor(cx - rad));
+      const x1 = Math.min(w - 1, Math.ceil(cx + rad));
+      const y0 = Math.max(0, Math.floor(cy - rad));
+      const y1 = Math.min(h - 1, Math.ceil(cy + rad));
+      for (let y = y0; y <= y1; y++) {
+        const row = y * w;
+        for (let x = x0; x <= x1; x++) {
+          const dx = x - cx;
+          const dy = y - cy;
+          if (dx * dx + dy * dy <= r2) {
+            a[row + x] = 0.5;
+            b[row + x] = 0.25;
+          }
+        }
+      }
+    }
+  }
+
+  /* Bir adım. a ve b uzunluğu w*h olan alanlar. outA/outB verilirse sonuç oraya
+     yazılır (kare içinde yeniden ayırmamak için); verilmezse a ve b yerinde güncellenir. */
+  function reactionStep(a, b, w, h, feed, outA, outB) {
+    const n = w * h;
+    const writeBack = !outA || !outB || outA.length !== n || outB.length !== n;
+    const na = writeBack ? new Float32Array(n) : outA;
+    const nb = writeBack ? new Float32Array(n) : outB;
+    const F = typeof feed === 'number' && feed === feed ? feed : REACTION_FEED;
+    const K = REACTION_KILL;
+    const Du = 1;
+    const Dv = 0.5;
+    for (let y = 0; y < h; y++) {
+      const ym = (y === 0 ? h - 1 : y - 1) * w;
+      const yp = (y === h - 1 ? 0 : y + 1) * w;
+      const yw = y * w;
+      for (let x = 0; x < w; x++) {
+        const xm = x === 0 ? w - 1 : x - 1;
+        const xp = x === w - 1 ? 0 : x + 1;
+        const c = yw + x;
+        const lapA =
+          a[ym + xm] * 0.05 + a[ym + x] * 0.2 + a[ym + xp] * 0.05 +
+          a[yw + xm] * 0.2 - a[c] + a[yw + xp] * 0.2 +
+          a[yp + xm] * 0.05 + a[yp + x] * 0.2 + a[yp + xp] * 0.05;
+        const lapB =
+          b[ym + xm] * 0.05 + b[ym + x] * 0.2 + b[ym + xp] * 0.05 +
+          b[yw + xm] * 0.2 - b[c] + b[yw + xp] * 0.2 +
+          b[yp + xm] * 0.05 + b[yp + x] * 0.2 + b[yp + xp] * 0.05;
+        const u = a[c];
+        const v = b[c];
+        const uvv = u * v * v;
+        let nu = u + Du * lapA - uvv + F * (1 - u);
+        let nv = v + Dv * lapB + uvv - (F + K) * v;
+        if (nu < 0) nu = 0;
+        else if (nu > 1) nu = 1;
+        if (nv < 0) nv = 0;
+        else if (nv > 1) nv = 1;
+        na[c] = nu;
+        nb[c] = nv;
+      }
+    }
+    if (writeBack) {
+      a.set(na);
+      b.set(nb);
+    }
+  }
+
+  function reactionSubsteps(dt) {
+    const raw = dt > 0 ? dt : 0.016;
+    const capped = raw > 0.05 ? 0.05 : raw;
+    const n = Math.round(capped * 240);
+    if (n < 1) return 1;
+    if (n > 12) return 12;
+    return n;
+  }
+
+  class Reaction {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.w = 0;
+      this.h = 0;
+      this.a = null;
+      this.b = null;
+      this.na = null;
+      this.nb = null;
+      this.buf = null;
+      this.bctx = null;
+      this.data = null;
+      this._cols = new Array(24);
+    }
+    resize() {}
+    _reset(w, h) {
+      const n = w * h;
+      this.w = w;
+      this.h = h;
+      this.a = new Float32Array(n);
+      this.b = new Float32Array(n);
+      this.na = new Float32Array(n);
+      this.nb = new Float32Array(n);
+      reactionSeed(this.a, this.b, w, h);
+      this.buf = document.createElement('canvas');
+      this.buf.width = w;
+      this.buf.height = h;
+      this.bctx = this.buf.getContext('2d');
+      this.data = this.bctx.createImageData(w, h);
+    }
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = (cfg && cfg.visualizer) || {};
+      const size = reactionGridSize(W, H);
+      if (size[0] !== this.w || size[1] !== this.h) this._reset(size[0], size[1]);
+
+      const sens = v.sensitivity == null ? 1 : v.sensitivity;
+      const bass = audio && typeof audio.bass === 'number' ? audio.bass : 0;
+      const feed = reactionFeedFor(bass * sens);
+      const nstep = reactionSubsteps(dt);
+      for (let s = 0; s < nstep; s++) {
+        reactionStep(this.a, this.b, this.w, this.h, feed, this.na, this.nb);
+        const ta = this.a;
+        this.a = this.na;
+        this.na = ta;
+        const tb = this.b;
+        this.b = this.nb;
+        this.nb = tb;
+      }
+
+      const G = window.SVGenUtil;
+      const cols = this._cols;
+      const nCol = cols.length;
+      for (let i = 0; i < nCol; i++) cols[i] = G.tone(v, cfg, i / (nCol - 1), t || 0);
+      const pix = this.data.data;
+      const field = this.b;
+      for (let i = 0, p = 0; i < field.length; i++, p += 4) {
+        let e = (field[i] - 0.05) * (1 / 0.32);
+        if (e < 0) e = 0;
+        else if (e > 1) e = 1;
+        e = e * e * (3 - 2 * e);
+        const c = cols[(e * (nCol - 1)) | 0];
+        pix[p] = c[0];
+        pix[p + 1] = c[1];
+        pix[p + 2] = c[2];
+        pix[p + 3] = (e * 255) | 0;
+      }
+      this.bctx.putImageData(this.data, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.buf, 0, 0, W, H);
+    }
+    dispose() {
+      this.a = null;
+      this.b = null;
+      this.na = null;
+      this.nb = null;
+      this.buf = null;
+      this.bctx = null;
+      this.data = null;
+      this.w = 0;
+      this.h = 0;
+    }
+  }
+
+  window.SVReaction = {
+    FEED: REACTION_FEED,
+    KILL: REACTION_KILL,
+    CAP: REACTION_CAP,
+    feedFor: reactionFeedFor,
+    seed: reactionSeed,
+    step: reactionStep,
+  };
+
+  // ==========================================================================
   /* Ortak yardımcılar: generative2.js ve sonraki üretken modlar aynı renk,
      gürültü ve vuruş kurallarını kullansın. */
   window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail, sizeTrail, rescale };
@@ -1371,5 +1591,6 @@
     goniometer: Goniometer,
     chromawheel: ChromaWheel,
     attractorfield: AttractorField,
+    reaction: Reaction,
   });
 })();
