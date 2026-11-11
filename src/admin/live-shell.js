@@ -201,6 +201,20 @@
     return el('div', { class: 'sv-tlever-wrap' }, [lever, pct]);
   }
 
+  // Sahnenin en üstteki açık görselinin (yoksa zemininin) mod resmi kimliği
+  function topModeOf(sc) {
+    const ls = (sc && sc.data && Array.isArray(sc.data.layers)) ? sc.data.layers : [];
+    for (const want of ['visualizer', 'background']) {
+      for (let i = ls.length - 1; i >= 0; i--) {
+        const l = ls[i];
+        if (!l || l.enabled === false || l.kind !== want || !l.type || l.type === 'none' || l.type === 'milkdrop' || l.type === 'custom') continue;
+        const kind = want === 'visualizer' ? 'vis' : 'bg';
+        return { id: kind + ':' + l.type, kind, type: l.type };
+      }
+    }
+    return null;
+  }
+
   function cell(sc, i) {
     const el = P().el;
     const live = sc.id === P().activeSceneId();
@@ -426,8 +440,21 @@
     if (cued) {
       pvwFrame.style.background = P().sceneGradient(cued);
       const shot = P().sceneThumbShot ? P().sceneThumbShot(cued.id) : '';
-      if (shot) pvwFrame.appendChild(el('img', { class: 'sv-pvw-img', src: shot, alt: '' }));
-      else pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) }));
+      /* Sahne hiç canlıya çıkmadıysa çıkıştan alınmış karesi yok (#905): MilkDrop'luysa presetin
+         karesi, değilse en üstteki görselin ya da zeminin çizilmiş mod resmi. Sürekli ikinci bir
+         çizim yok: aynı GPU'da ikinci motor çıkışın karesinden alırdı. */
+      const md = !shot && window.SVSceneShell && window.SVSceneShell.sceneThumb ? window.SVSceneShell.sceneThumb(cued) : null;
+      if (shot || (md && md.url)) pvwFrame.appendChild(el('img', { class: 'sv-pvw-img', src: shot || md.url, alt: '' }));
+      else {
+        pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) }));
+        const top = topModeOf(cued);
+        if (top && window.api && window.api.modeThumbs) {
+          window.api.modeThumbs([top]).then((r) => {
+            const url = r && r.ready && r.ready[top.id];
+            if (url && pvwFrame.isConnected) pvwFrame.replaceChildren(el('img', { class: 'sv-pvw-img', src: url, alt: '' }));
+          }, () => {});
+        }
+      }
     } else {
       pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: tr('Izgaradan bir sahne seçin; AL ile canlıya geçer.') }));
     }
