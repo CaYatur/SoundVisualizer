@@ -202,23 +202,63 @@
   }
 
   // Sahnenin en üstteki açık görselinin (yoksa zemininin) mod resmi kimliği
-  function topModeOf(sc) {
+  /* SAHNENİN ÇİZİLMİŞ GÖRÜNÜMÜ, çıkıştan karesi yokken. En üstteki açık zeminin mod resmi altta,
+     en üstteki görselleştiricinin resmi üstte `screen` karışımıyla. Görselleştirici resimleri
+     siyah zeminli, screen siyahı saydam sayıyor: sonuç katmanların ekrandaki bileşimine yakın.
+     Eskiden yalnız en üstteki katman çiziliyordu (Aurora sahnesi siyah üstünde bir dalgaydı) ve
+     ızgaradaki kartlar yalnız renk geçişiydi. MilkDrop ve Studio katmanı mod resmi değil:
+     MilkDrop'un preset resmi (sceneThumb) ayrıca. İkinci bir çizim motoru yok. */
+  const modeUrls = new Map(); // 'vis:wave' → adres ('' = resmi yok)
+  function sceneModes(sc) {
     const ls = (sc && sc.data && Array.isArray(sc.data.layers)) ? sc.data.layers : [];
-    for (const want of ['visualizer', 'background']) {
+    const pick = (want) => {
       for (let i = ls.length - 1; i >= 0; i--) {
         const l = ls[i];
         if (!l || l.enabled === false || l.kind !== want || !l.type || l.type === 'none' || l.type === 'milkdrop' || l.type === 'custom') continue;
         const kind = want === 'visualizer' ? 'vis' : 'bg';
         return { id: kind + ':' + l.type, kind, type: l.type };
       }
-    }
-    return null;
+      return null;
+    };
+    return [pick('background'), pick('visualizer')].filter(Boolean);
+  }
+  /* host'a resimleri koyar. Hepsi önbellekteyse hemen (yeniden çizimde titreme yok), değilse
+     uygulamayla gelen resimler sorulur; gelince yerleştirilir. Bir şey koyunca onDrawn. */
+  function fillModes(host, sc, cls, onDrawn) {
+    const modes = sceneModes(sc);
+    if (!modes.length) return false;
+    const put = () => {
+      const el = P().el;
+      const imgs = modes.map((m, i) => {
+        const u = modeUrls.get(m.id);
+        return u ? el('img', { class: cls + (i > 0 ? ' sv-screen' : ''), src: u, alt: '', onerror: (e) => { e.target.remove(); } }) : null;
+      }).filter(Boolean);
+      if (!imgs.length) return false;
+      if (onDrawn) onDrawn();
+      imgs.forEach((im) => host.appendChild(im));
+      return true;
+    };
+    const missing = modes.filter((m) => !modeUrls.has(m.id));
+    if (!missing.length) return put();
+    if (!window.api || typeof window.api.modeThumbs !== 'function') return false;
+    window.api.modeThumbs(missing).then((r) => {
+      const ready = (r && r.ready) || {};
+      // Yanıtta olmayan (çalışma anında çiziliyor) önbelleğe girmez: sonraki çizimde yine sorulur
+      for (const m of missing) if (Object.prototype.hasOwnProperty.call(ready, m.id)) modeUrls.set(m.id, ready[m.id] || '');
+      if (host.isConnected && !host.querySelector('img')) put();
+    }, () => {});
+    return false;
   }
 
   function cell(sc, i) {
     const el = P().el;
-    const live = sc.id === P().activeSceneId();
-    const armed = sc.id === cue;
+    /* T-bar karışımı tutulurken panel gelen sahneyi zaten uygulamış oluyor (activeSceneId), ama
+       ÇIKIŞTA canlı olan hâlâ eski sahne: görüntü mikserindeki gibi canlı rozeti geçiş bitene dek
+       onda, gelen sahne sırada. Eskiden rozet gelen sahneye geçiyor, eski sahne hiç
+       işaretlenmiyordu (Canlı ekranı ise doğru "eski → yeni · %" yazıyordu). */
+    const mixing = tb.live && tb.snap && tb.snap.active;
+    const live = sc.id === (mixing ? tb.snap.active : P().activeSceneId());
+    const armed = mixing ? sc.id === tb.id : sc.id === cue;
     const box = el('button', {
       class: 'sv-scell' + (live ? ' pgm' : '') + (armed ? ' pvw' : ''), type: 'button',
       title: tr('Tıkla: sıraya al. Çift tıkla: hemen al.'),
@@ -232,6 +272,8 @@
     if (shot && shot.id) th.setAttribute('data-thumb-for', shot.id);
     const url = own || (shot && shot.url);
     if (url) th.appendChild(el('img', { src: url, alt: '', onerror: (e) => { e.target.remove(); } }));
+    // MilkDrop'suz ve hiç canlıya çıkmamış sahne: zemin + görsel mod resimleri
+    else if (!(shot && shot.id)) fillModes(th, sc, 'sv-mode-img');
     box.appendChild(th);
     if (live) box.appendChild(el('span', { class: 'sv-st', text: tr('Canlı') }));
     else if (armed) box.appendChild(el('span', { class: 'sv-st', text: tr('Sırada') }));
@@ -452,14 +494,10 @@
       const md = !shot && window.SVSceneShell && window.SVSceneShell.sceneThumb ? window.SVSceneShell.sceneThumb(cued) : null;
       if (shot || (md && md.url)) pvwFrame.appendChild(el('img', { class: 'sv-pvw-img', src: shot || md.url, alt: '' }));
       else {
-        pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) }));
-        const top = topModeOf(cued);
-        if (top && window.api && window.api.modeThumbs) {
-          window.api.modeThumbs([top]).then((r) => {
-            const url = r && r.ready && r.ready[top.id];
-            if (url && pvwFrame.isConnected) pvwFrame.replaceChildren(el('img', { class: 'sv-pvw-img', src: url, alt: '' }));
-          }, () => {});
-        }
+        const note = el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) });
+        pvwFrame.appendChild(note);
+        // Zemin + görsel mod resimleri (fillModes); gelince katman özeti kalkar
+        fillModes(pvwFrame, cued, 'sv-pvw-img', () => { note.remove(); });
       }
     } else {
       pvwFrame.appendChild(el('span', { class: 'sv-mon-note', text: tr('Izgaradan bir sahne seçin; AL ile canlıya geçer.') }));

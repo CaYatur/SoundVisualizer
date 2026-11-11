@@ -109,3 +109,14 @@ test('uygulama sesi listesinde tam yol değil dosya adı görünür; eşleşme a
   assert.strictEqual(rows.find((r) => r.match === 'Discord.exe').label, 'Discord');
   assert.strictEqual(rows.find((r) => r.match === '/usr/bin/mpv').label, 'mpv');
 });
+
+test('T-bar karışımı tutulurken ızgarada canlı rozeti eski sahnede, gelen sahne sırada', () => {
+  const ls = read('src/admin/live-shell.js');
+  assert.match(ls, /const mixing = tb\.live && tb\.snap && tb\.snap\.active;/);
+  assert.match(ls, /const live = sc\.id === \(mixing \? tb\.snap\.active : P\(\)\.activeSceneId\(\)\);/);
+  assert.match(ls, /const armed = mixing \? sc\.id === tb\.id : sc\.id === cue;/);
+  // Kartlarda zemin ve görsel resmi üst üste: ikinci resim screen ile karışıyor
+  const css = read('src/admin/pages.css');
+  assert.match(css, /\.sv-screen \{ mix-blend-mode: screen; \}/);
+  assert.match(css, /\.sv-scell \.sv-th img\.sv-mode-img \{ position: absolute; inset: 0; \}/);
+});
