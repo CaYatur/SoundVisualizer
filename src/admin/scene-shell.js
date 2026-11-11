@@ -853,6 +853,7 @@
     if (l.kind === 'visualizer') return l.type === 'milkdrop' ? 'milkdrop' : 'vis';
     return '';
   }
+  const lockName = (l) => tr('Seçili katman bu rafa uymuyor') + ': ' + tr(l.name || l.kind);
   function lockOverlay(lock) {
     const el = P().el;
     const l = lock.layer;
@@ -862,7 +863,8 @@
       btns.push(el('button', {
         class: 'btn primary small', type: 'button', text: tr("Katmanı MilkDrop'a çevir"),
         onclick: () => {
-          const x = byId(l.id);
+          // Kart seçim değişince yeniden kurulmuyor: o anda seçili katman
+          const x = selected();
           if (!x || x.locked) return;
           window.SVLayers.setLayerMode(P().cfg(), x, { type: 'milkdrop' });
           P().apply();
@@ -870,17 +872,44 @@
       }));
     }
     if (go && go !== shelfTab && lock.why !== 'locked') {
-      btns.push(el('button', { class: 'btn small', type: 'button', text: tr('Uygun rafa geç'), onclick: () => setShelf(go) }));
+      btns.push(el('button', { class: 'btn small', type: 'button', text: tr('Uygun rafa geç'), onclick: () => setShelf(shelfFor(selected()) || go) }));
     }
     btns.push(el('button', { class: 'btn small', type: 'button', text: tr('Seçimi kaldır'), onclick: () => select('') }));
     return el('div', { class: 'sv-shelf-lock', role: 'note', 'data-shelf-lock': lock.why }, [
       el('span', { icon: 'lock' }),
       el('div', { class: 'sv-shelf-lock-text' }, [
-        el('strong', { text: tr('Seçili katman bu rafa uymuyor') + ': ' + tr(l.name || l.kind) }),
+        el('strong', { class: 'sv-shelf-lock-name', text: lockName(l) }),
         el('span', { text: tr(lockText(lock.why === 'locked' ? 'locked' : 'kind', lock.want)) }),
       ]),
       el('div', { class: 'sv-shelf-lock-actions' }, btns),
     ]);
+  }
+
+  /* KİLİT YERİNDE (#905). Hedef satırı dışındaki içerik kilit kabına taşınıyor (yeniden
+     kurulmuyor), üstüne neden ve çıkış yolu. Kilit kalkınca içerik kaptan geri çıkıyor. Kart
+     yalnız kilidin kendisi (neden, katman, raf) değişince değişiyor. */
+  function applyLock(body, lock) {
+    if (!body || !body.querySelector) return;
+    const key = lock ? [shelfTab, lock.why, lock.want, lock.layer.id, lock.layer.name || ''].join('') : '';
+    if ((body._svLockKey || '') === key) return;
+    body._svLockKey = key;
+    const old = body.querySelector(':scope > .sv-shelf-lock');
+    if (old) old.remove();
+    let wrap = body.querySelector(':scope > .sv-shelf-locked');
+    if (!lock) {
+      if (wrap) wrap.replaceWith(...Array.from(wrap.childNodes));
+      return;
+    }
+    if (!wrap) {
+      const line = body.querySelector(':scope > .sv-target');
+      const content = Array.from(body.children).filter((n) => n !== line);
+      if (!content.length) return;
+      wrap = P().el('div', { class: 'sv-shelf-locked', 'aria-disabled': 'true' }, content);
+      wrap.inert = true;
+      if (typeof wrap.setAttribute === 'function') wrap.setAttribute('inert', '');
+      body.appendChild(wrap);
+    }
+    body.insertBefore(lockOverlay(lock), wrap);
   }
 
   /* Sahne rafı: yan raftaki listenin kendisi. Kaydetme, yeniden adlandırma, sıralama, silme ve
@@ -928,9 +957,12 @@
        kaydırması sahne uygulanınca başa sıçrıyordu. Sekme/sorgu imzası
        aynıysa raf yerinde kalsın; MilkDrop'ta preset değişince yenilensin. */
     if (!shelfOpen) return 'closed:' + shelfTab;
-    /* Hedef satırı ve kilit seçili katmana bağlı: seçim değişince raf da yenilensin */
-    const lk = shelfLock();
-    const lockSig = lk ? lk.why + ':' + lk.layer.id + ':' + (lk.layer.name || '') : '';
+    /* Kilit imzada DEĞİL (#905): kilit kartı ve kilit kabı applyLock ile yerinde takılıp
+       çıkarılıyor, kitaplık içeriği yeniden kurulmuyor. Eskiden imzada kilitli katmanın kimliği
+       ve adı vardı: MilkDrop rafı açıkken MilkDrop olmayan katmanlar arasında her seçim rafı
+       baştan kuruyordu (ölçüldü: 38 seçimde 727 ms, seçim başına ~19 ms ve bir zorunlu
+       yerleşim). */
+    const lockSig = '';
     /* Seçili katman ve türü imzada değil: vurgu ve hedef satırı syncShelf ile yerinde
        güncelleniyor (raf yeniden kurulmuyor, kaydırma kaybolmuyor). Kilit kartı yapıyı
        değiştirdiği için imzada. */
@@ -1008,6 +1040,8 @@
       const text = targetLine();
       if (text && line.textContent !== text) line.textContent = text;
     }
+    // Kilit kartı ve kabı seçime bağlı: yerinde takılıp çıkarılıyor (testte kaynak tek başına)
+    if (typeof applyLock === 'function') applyLock(host.querySelector('[data-shelf-body]'), shelfLock());
     return changed;
   }
   /* Raf kartı boş kaldı mı? Sahne dışı bir sayfaya geçince render() #svShelf'i
@@ -1086,16 +1120,9 @@
     } else if (tab.id === 'scenes') {
       kids.push(sceneShelf());
     }
-    const lock = shelfLock();
-    if (lock && kids.length > (line ? 1 : 0)) {
-      // Hedef satırı dışındaki içerik kilit kabına; üstüne neden ve çıkış yolu
-      const content = kids.splice(line ? 1 : 0);
-      const wrap = el('div', { class: 'sv-shelf-locked', 'aria-disabled': 'true' }, content);
-      wrap.inert = true;
-      if (typeof wrap.setAttribute === 'function') wrap.setAttribute('inert', '');
-      kids.push(lockOverlay(lock), wrap);
-    }
     body.replaceChildren(...kids);
+    body._svLockKey = '';
+    applyLock(body, shelfLock());
     body.scrollTop = scrollOf.shelf;
     body.onscroll = () => { scrollOf.shelf = body.scrollTop; };
   }
