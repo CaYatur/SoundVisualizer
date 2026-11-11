@@ -647,7 +647,8 @@
        { name, url: 'https://example.com/api/get?artist={artist}&title={title}',
          format: 'lrc' | 'json', path: 'syncedLyrics', enabled } */
     // Dış tempo: 'off' | 'link' (Ableton Link, yalnız dinleme) | 'midi' (MIDI saati)
-    tempoSync: { source: 'off', midiDevice: 'all' },
+    // clockOut: modülasyon temposunu MIDI saati olarak yollar. Varsayılan kapalı.
+    tempoSync: { source: 'off', midiDevice: 'all', clockOut: false, clockOutDevice: 'auto' },
     // Oturum kurtarma: userData/recovery altında dönen anlık kopyalar
     recovery: { enabled: true, intervalSec: 120 },
     // Boşta ekran koruyucu: sessizlikte karart, gezinen saat göster

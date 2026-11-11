@@ -78,7 +78,64 @@
     }
   }
 
-  const api = { create, shouldApply, switchSource, PPQN };
+  /* MIDI saati ÇIKIŞI. Zaman damgası dışarıdan gelir; donanım yoktur.
+     Açılınca 0xFA, her vuruşta 24 adet 0xF8, kapanınca bir kez 0xFC.
+     Uzun bir duraklama birikmiş darbeleri yığmaz: çağrı başına en çok
+     dört darbe, gerisi atlanır. */
+  const BURST = 4;
+  function createOut() {
+    let running = false;
+    let nextAt = 0;
+    return {
+      pull(now, bpm, enabled) {
+        const out = [];
+        const t = Number(now) || 0;
+        const ok = !!enabled && bpm >= 20 && bpm <= 999;
+        if (!ok) {
+          if (running) { out.push(0xfc); running = false; }
+          return out;
+        }
+        const interval = 60000 / (bpm * PPQN);
+        if (!running) {
+          out.push(0xfa);
+          running = true;
+          nextAt = t;
+        }
+        let n = 0;
+        while (t + 1e-9 >= nextAt && n < BURST) {
+          out.push(0xf8);
+          nextAt += interval;
+          n++;
+        }
+        if (t - nextAt > interval) nextAt = t + interval;
+        return out;
+      },
+      running() { return running; },
+      reset() { running = false; nextAt = 0; },
+    };
+  }
+
+  /* Çıkış seçimi. 'auto' veya boş: kopmamış bütün çıkışlar, exclude
+     adları hariç (dinlenen aygıtın yankısı). Belirli kimlik yalnız onu. */
+  function pickOut(outputs, deviceId, excludeNames) {
+    const skip = new Set((excludeNames || []).map((n) => String(n || '').trim().toLowerCase()).filter(Boolean));
+    const list = outputs && typeof outputs.values === 'function' ? outputs.values() : (outputs || []);
+    const specific = !!(deviceId && deviceId !== 'auto');
+    const out = [];
+    for (const x of list) {
+      if (!x || x.state === 'disconnected') continue;
+      if (specific) {
+        if (x.id === deviceId) out.push(x);
+        continue;
+      }
+      const name = String(x.name || '').trim().toLowerCase();
+      if (name && skip.has(name)) continue;
+      out.push(x);
+    }
+    return out;
+  }
+
+  const api = { create, createOut, pickOut, shouldApply, switchSource, PPQN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMidiClock = api;
 })();

@@ -26,6 +26,44 @@ test('MIDI saati: 24 ppqn darbeden BPM', () => {
   assert.strictEqual(MC.shouldApply(120, 128), true);
 });
 
+test('MIDI saati çıkışı: 120 BPM 24 darbe, durunca bir kez durdur', () => {
+  const o = MC.createOut();
+  const iv = 60000 / (120 * MC.PPQN);
+  assert.deepStrictEqual(o.pull(0, 120, true), [0xfa, 0xf8]);
+  assert.deepStrictEqual(o.pull(iv - 0.01, 120, true), []);
+  assert.deepStrictEqual(o.pull(iv, 120, true), [0xf8]);
+  assert.deepStrictEqual(o.pull(iv * 3, 120, true), [0xf8, 0xf8]);
+  assert.strictEqual(o.running(), true);
+  assert.deepStrictEqual(o.pull(iv * 3, 120, false), [0xfc]);
+  assert.deepStrictEqual(o.pull(iv * 4, 0, false), []);
+  assert.strictEqual(o.running(), false);
+  // Birikmiş duraklama en çok 4 darbe yollar
+  const late = MC.createOut();
+  late.pull(0, 120, true);
+  const burst = late.pull(iv * 100, 120, true).filter((b) => b === 0xf8);
+  assert.ok(burst.length > 0 && burst.length <= 4, 'yığılma: ' + burst.length);
+});
+
+test('MIDI saati çıkışı: otomatik seçim dinlenen adı atlar, kimlik seçilirse onu yollar', () => {
+  const outs = [
+    { id: 'a', name: 'Launchpad', state: 'connected' },
+    { id: 'b', name: 'IAC', state: 'connected' },
+    { id: 'c', name: 'Gone', state: 'disconnected' },
+  ];
+  assert.deepStrictEqual(MC.pickOut(outs, 'auto', ['IAC']).map((x) => x.id), ['a']);
+  assert.deepStrictEqual(MC.pickOut(outs, 'b', ['IAC']).map((x) => x.id), ['b']);
+  assert.deepStrictEqual(MC.pickOut(outs, 'missing', []), []);
+});
+
+test('MIDI saati çıkışı varsayılan kapalı', () => {
+  global.window = global.window || {};
+  require('../src/shared/defaults.js');
+  const ts = global.window.SV.defaultConfig().tempoSync;
+  assert.strictEqual(ts.clockOut, false);
+  assert.strictEqual(ts.clockOutDevice, 'auto');
+  assert.strictEqual(ts.source, 'off');
+});
+
 function linkPacket(type, bpm) {
   const head = Buffer.concat([LT.MAGIC, Buffer.from([type, 5, 0, 0]), Buffer.from('0102030405060708', 'hex')]);
   const v = Buffer.alloc(24);
