@@ -458,7 +458,75 @@
     nodes.push(el('div', { class: 'note', text: T(ts.source === 'link'
       ? 'Link oturumu yalnızca dinlenir: ağdaki Ableton Live, Traktor ya da Rekordbox temposu modülasyon saatine yazılır; uygulama tempo yayınlamaz. Tüm sistemlerde çalışır; güvenlik duvarı UDP 20808 çok noktaya yayını engellememeli.'
       : 'Dış kaynak seçilince modülasyon saatinin BPM değeri ondan gelir. MIDI saati Web MIDI ile okunur (Windows, macOS ve Linux).') }));
+    const clockBox = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        ts.clockOut = !!e.target.checked;
+        P().push(true);
+        if (ts.clockOut && !midiAccess) await initMidi();
+        syncClockOut();
+        P().rerender();
+      },
+    });
+    clockBox.checked = !!ts.clockOut;
+    nodes.push(P().row(T('MIDI Saati Gönder'), el('label', { class: 'switch' }, [clockBox, el('span', { class: 'track' })])));
+    if (ts.clockOut) {
+      const dev = el('select', {
+        onchange: (e) => { ts.clockOutDevice = e.target.value; P().push(true); },
+      });
+      const outs = midiAccess ? Array.from(midiAccess.outputs.values()) : [];
+      const auto = el('option', { value: 'auto', text: T('Otomatik (bütün çıkışlar)') });
+      if ((ts.clockOutDevice || 'auto') === 'auto') auto.selected = true;
+      dev.appendChild(auto);
+      outs.forEach((o) => {
+        const opt = el('option', { value: o.id, text: o.name || 'MIDI' });
+        if (ts.clockOutDevice === o.id) opt.selected = true;
+        dev.appendChild(opt);
+      });
+      nodes.push(P().row(T('Saat Çıkışı'), dev));
+      nodes.push(el('div', { class: 'note', text: T('Modülasyon temposunu MIDI saati olarak yollar: çeyrek nota başına 24 darbe, başlat ve durdur. BPM 0 ise iç saat 120 kabul edilir. Varsayılan kapalıdır. Dinlenen aygıt otomatik çıkışta dışarıda bırakılır.') }));
+    }
     return nodes;
+  }
+
+  // Modülasyon temposunu MIDI saati olarak yollar. Varsayılan kapalı.
+  let clockOutGen = null;
+  let clockTimer = null;
+  function clockBpm(cfg) {
+    const set = cfg && cfg.modulation && Number(cfg.modulation.bpm);
+    return set > 0 ? set : 120;
+  }
+  function clockExclude(cfg) {
+    const ts = cfg.tempoSync || {};
+    if (ts.source !== 'midi' || !midiInputs.length) return [];
+    const want = ts.midiDevice || 'all';
+    return midiInputs.filter((i) => want === 'all' || i.id === want).map((i) => i.name || '');
+  }
+  function sendClock(bytes) {
+    if (!bytes || !bytes.length || !midiAccess) return;
+    const cfg = P().cfg();
+    const ts = cfg.tempoSync || {};
+    const outs = MCK().pickOut(midiAccess.outputs, ts.clockOutDevice || 'auto', clockExclude(cfg));
+    for (let i = 0; i < outs.length; i++) MCK().sendRealtime(outs[i], bytes);
+  }
+  function clockOutTick() {
+    const cfg = P() && P().cfg();
+    if (!cfg || !cfg.tempoSync || !cfg.tempoSync.clockOut || !midiAccess) { syncClockOut(); return; }
+    if (!clockOutGen) clockOutGen = MCK().createOut();
+    sendClock(clockOutGen.pull((typeof performance !== 'undefined' ? performance.now() : Date.now()), clockBpm(cfg), true));
+  }
+  function syncClockOut() {
+    const cfg = P() && P().cfg();
+    const on = !!(midiAccess && cfg && cfg.tempoSync && cfg.tempoSync.clockOut);
+    if (on && !clockTimer) {
+      if (!clockOutGen) clockOutGen = MCK().createOut();
+      clockTimer = setInterval(clockOutTick, 4);
+    } else if (!on) {
+      if (clockOutGen && clockOutGen.running()) sendClock(clockOutGen.pull(0, 0, false));
+      if (clockTimer) clearInterval(clockTimer);
+      clockTimer = null;
+      if (clockOutGen) clockOutGen.reset();
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -715,9 +783,10 @@
       // Tam kare MTC, SysEx izni ister; MTC kapalıyken eski MIDI izni değişmez.
       const cfg = P().cfg();
       midiAccess = await navigator.requestMIDIAccess({ sysex: wantSysex === true || !!(midiAccess && midiAccess.sysexEnabled) || !!(cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) });
-      midiAccess.onstatechange = () => { fbSenders.clear(); bindMidiInputs(); syncFeedback(); P().rerender(); };
+      midiAccess.onstatechange = () => { fbSenders.clear(); bindMidiInputs(); syncFeedback(); syncClockOut(); P().rerender(); };
       bindMidiInputs();
       syncFeedback();
+      syncClockOut();
     } catch (e) {
       if (wantSysex === true) P().toast(T('SysEx izni verilmedi; aygıt kipi değiştirilmedi.'), 'warn');
       midiError = 'MIDI erişimi reddedildi: ' + (e && e.message ? e.message : e);
@@ -1608,7 +1677,7 @@
     started = true;
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
-    else if (cfg.tempoSync && cfg.tempoSync.source === 'midi') initMidi();
+    else if (cfg.tempoSync && (cfg.tempoSync.source === 'midi' || cfg.tempoSync.clockOut)) initMidi();
     else if (cfg.control && cfg.control.mtc && cfg.control.mtc.enabled) initMidi();
     if (!cfg.control.gamepad) cfg.control.gamepad = { enabled: false, mappings: [] };
     syncGamepad();

@@ -1124,6 +1124,43 @@
     }).catch(() => { mediaCameras = []; });
   }
 
+  /* Ekran kaynağı listesi. Destek yoksa liste boş kalır ve nedeni yazılır. */
+  let screenSources = null;
+  let screenFault = '';
+  function screenFaultText(reason) {
+    const M = window.SVScreenCapture;
+    if (M && typeof M.faultText === 'function') {
+      try { return M.faultText(reason); } catch { /* metin yedeği */ }
+    }
+    if (reason === 'wayland') {
+      return 'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.';
+    }
+    if (reason === 'permission') {
+      return 'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.';
+    }
+    return 'Bu ortamda ekran yakalama çalışmıyor.';
+  }
+  function refreshScreenSources() {
+    const api = window.api;
+    if (!api || typeof api.screenSources !== 'function') {
+      screenSources = [];
+      screenFault = screenFaultText('platform');
+      return Promise.resolve();
+    }
+    return api.screenSources().then((res) => {
+      if (!res || res.ok === false) {
+        screenSources = [];
+        screenFault = screenFaultText((res && res.reason) || 'platform');
+        return;
+      }
+      screenSources = (Array.isArray(res.sources) ? res.sources : []).filter((s) => s && s.id);
+      screenFault = '';
+    }).catch(() => {
+      screenSources = [];
+      screenFault = screenFaultText('permission');
+    });
+  }
+
   /* Bir katmanın kendi kaynağına ait ayarlar.
 
      Her katman eklenen modun (Barlar, Dalga, Çember, Gradyan vb.) kendine
@@ -1180,10 +1217,47 @@
       l.settings = l.settings || {};
       const defMedia = def.media || { source: 'webcam', fit: 'cover', loop: true, mirror: false };
       const m = (l.settings.media = l.settings.media || (l.id === 'ly_media' && cfg.media ? Object.assign({}, cfg.media, { enabled: true }) : Object.assign({}, defMedia, { enabled: true })));
-      out.push(miniSelect('Medya Kaynağı', [['webcam', 'Web Kamerası'], ['file', 'Video Dosyası']],
-        () => m.source || 'webcam', (v) => { m.source = v; }, rerender));
+      out.push(miniSelect('Medya Kaynağı', [
+        ['webcam', 'Web Kamerası'],
+        ['file', 'Video Dosyası'],
+        ['screen',
+          'Ekran'],
+      ],
+        () => m.source || 'webcam', (v) => {
+          /* Havuz anahtarı `cam|` + deviceId. Ekran kimliği oraya da yazılır;
+             yoksa ekran, varsayılan kamerayla aynı oynatıcıyı paylaşır. */
+          if (v === 'screen') m.deviceId = m.screenId || 'screen:';
+          else if (m.source === 'screen' && (m.deviceId === m.screenId || m.deviceId === 'screen:')) m.deviceId = '';
+          m.source = v;
+        }, rerender));
 
-      if ((m.source || 'webcam') !== 'file') {
+      if ((m.source || 'webcam') === 'screen') {
+        const opts = [['', (screenSources && screenSources.length) ? 'Ekran seçin' : 'Açık ekran yok']];
+        (screenSources || []).forEach((s) => {
+          opts.push([s.id, s.name || s.id]);
+        });
+        if (m.screenId && !opts.some((o) => o[0] === m.screenId)) opts.push([m.screenId, 'Kayıtlı ekran']);
+        out.push(miniSelect('Ekran Kaynağı', opts, () => m.screenId || '', (v) => {
+          m.screenId = v;
+          m.deviceId = v || 'screen:';
+          if (v) m.enabled = true;
+        }, rerender, ''));
+        if (screenFault) out.push(el('div', { class: 'studio-note media-fault', text: screenFault }));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Ekranları Yenile',
+            onclick: async () => { await refreshScreenSources(); rerender(); },
+          }),
+        ]));
+        out.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.',
+        }));
+        if (screenSources == null) {
+          screenSources = [];
+          refreshScreenSources().then(() => rerender());
+        }
+      } else if ((m.source || 'webcam') !== 'file') {
         const opts = [['', 'Varsayılan kamera']];
         (mediaCameras || []).forEach((c, i) => {
           if (c && c.id) opts.push([c.id, c.label || ('Kamera ' + (i + 1))]);
@@ -1332,6 +1406,22 @@
       out.push(mediaSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, { step: 0.02, percent: true }));
       out.push(mediaSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 20, { step: 1, fmt: (v) => Math.round(v) + ' ' + tr('sn') }));
       out.push(mediaSlider('Vuruşta Nabız', 'beatPulse', 0, { step: 0.02, percent: true }));
+      out.push(miniSelect('Renk Anahtarı', [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']],
+        () => m.keyMode || 'off', (v) => { m.keyMode = v; }, rerender));
+      if ((m.keyMode || 'off') === 'chroma') {
+        out.push(miniColor('Anahtar Rengi', () => m.keyColor || '#00ff00', (v) => { m.keyColor = v; }, '#00ff00'));
+      }
+      if ((m.keyMode || 'off') === 'luma') {
+        out.push(miniSelect('Saydam Kalan', [['dark', 'Karanlık'], ['bright', 'Aydınlık']],
+          () => (m.keyInvert ? 'bright' : 'dark'), (v) => { m.keyInvert = v === 'bright'; }));
+      }
+      if ((m.keyMode || 'off') !== 'off') {
+        out.push(miniSlider('Anahtar Eşiği', () => (m.keyAmount == null ? 0.3 : m.keyAmount), (v) => { m.keyAmount = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.3 }));
+        out.push(miniSlider('Anahtar Yumuşaklığı', () => (m.keySoft == null ? 0.08 : m.keySoft), (v) => { m.keySoft = v; },
+          { min: 0, max: 1, step: 0.01, percent: true, def: 0.08 }));
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.' }));
+      }
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
       }
@@ -3168,11 +3258,25 @@
   // ==========================================================================
   // ART-NET / DMX
   // ==========================================================================
+  // Matris ölçüleri şemada yok: boş değer yakına kare demektir (artnet.matrixGrid).
+  function matrixDimSliders(obj, count) {
+    const n = Math.max(1, count | 0 || 1);
+    const whole = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 0);
+    const colsNow = () => whole(obj.matrixCols) || Math.ceil(Math.sqrt(n));
+    const rowsNow = () => whole(obj.matrixRows) || Math.ceil(n / colsNow());
+    const opt = { min: 1, max: Math.max(n, 64), step: 1, fmt: (v) => String(Math.round(v)) };
+    return [
+      miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
+      miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+    ];
+  }
+
   const ARTNET_MODES = [
     ['palette', 'Sahne Paleti'],
     ['bands', 'Frekans Bantları'],
     ['spectrum', 'Kayan Spektrum'],
     ['single', 'Tek Renk'],
+    ['matrix', 'Matris'],
   ];
 
   let artnetState = { running: false, error: null, packets: 0 };
@@ -3242,6 +3346,10 @@
       );
       nodes.push(miniSelect('Renk Kaynağı', ARTNET_MODES, () => a.mode, (v) => { a.mode = v; }, () => P().rerender()));
       if (a.mode === 'single') nodes.push(P().color('Renk', 'artnet.color'));
+      if (a.mode === 'matrix') {
+        const n = Math.max(1, Math.min(170, a.fixtures | 0 || 8));
+        matrixDimSliders(a, n).forEach((node) => nodes.push(node));
+      }
       nodes.push(P().slider('Parlaklık', 'artnet.brightness', { step: 0.02, percent: true }));
       nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
       nodes.push(
@@ -3261,6 +3369,7 @@
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
+    matrixDimSliders,
     isWindows: isWindowsPlatform, parseClock, formatClock,
     sourceStatusText, layerSummary, layerFields, openLayerTab, LAYER_KIND_LABELS, typeOptionsFor, addMilkdropLayer,
   };

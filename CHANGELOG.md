@@ -80,6 +80,24 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Screen and window source on the media layer** (#421, #1024). Next to a webcam and a video file, a
+  media layer can show one of this computer's screens or windows, picked from a list the main process
+  reads. Windows and macOS are supported (a macOS Screen Recording refusal shows as a message); Linux
+  only with an X11 display (`DISPLAY` set or an x11 session, XWayland included), and a Wayland session
+  without one gets a reason instead of an attempt. Web page layers still cannot capture the screen.
+  Like a webcam, the source is not relayed to the OBS browser source and is empty in a video export.
+  Checked in the app on Windows with an isolated profile: a 1920×1080 screen and a single window both
+  opened and drew a picture, no selection showed "Choose a screen or a window.", and closing the layer
+  stopped the stream. `tests/screen-capture.test.js`.
+- **Color key on the media layer** (#419, #1022). A media layer can make a chosen color (a green
+  screen) or the dark or bright side of the picture transparent, with threshold and softness; the
+  layer underneath shows through the hole. It works on the source frame before fit, kaleidoscope and
+  colour filters, at most 960 px on the long edge, and is off until a layer turns it on. A paused
+  video is not keyed again until its frame or the settings change. The per-pixel test compares
+  squared distances and takes a square root only inside the soft edge: on a 960×540 frame the colour
+  key went from 7.0 to 1.6 ms and the brightness key from 2.2 to 1.2 ms (Node, one machine), with
+  identical output. `tests/media-key.test.js` checks it against the plain formula on 240 setting
+  combinations.
 - **Ink Flow**, a built-in two-pass Studio background: ink drifts through a flow field and three bands of the spectrum lay down new colour, something a single-pass shader cannot do.
 - **Video layer transport** (#905). A video file on a media layer now has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** (1, 2, 4, 8 or 16 beats, restarted on the app's tempo grid, the same one the LFOs use) and a **position** slider that scrubs the video live on every output and the panel preview without saving anything. The live player, timeline clips and video export use one formula, so an export with these settings is frame-exact like any other; with the defaults the formula is the old one. Measured in the output window on a 10 s test video: normal speed advanced 0.25 s per 250 ms, 2× advanced 0.51 s; a 2–4 s region wrapped from 3.73 back to 2.04; a 4-beat loop at 120 BPM restarted every 2 s (1.87 → 0.14); scrubbing to 70 % landed on 7.15 s.
 - **No more empty mode previews.** Fireworks, Lightning, Attractor Field, Now Playing and Studio showed a black card in the mode picker, and Spectrogram, DJ Waveform, Lissajous, Confetti and Particles a half-drawn one. Three causes, all measured:
@@ -90,6 +108,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Ripple Grid rings are visible.** The ripple's crest sat 78 px behind the wave front while the ring faded out after 9 % of the width, so at small sizes the grid barely moved on a beat. The ring shape now scales with the ring width, with the crest on the front.
 - **Fireworks open up.** Drag stopped each burst early: measured over the two seconds after a beat, 90 % of the sparks stayed within 7–10 % of the short side from the centre. With lower drag and a stronger base speed that is now 26–34 %. Each spark draws the last 45 ms of its path instead of the last frame's, so trails no longer shrink at high refresh rates.
 - **Four new CaYaDev MilkDrop presets** (60 in the pack): Stained Glass, Thunderhead, Hologram Globe and Double Helix. Each compiles in MilkDrop 2 (checked with the SDK compiler), was run for 90 seconds without fading out, blowing out or freezing, and was compared frame by frame with MilkDrop 2 itself; they draw in 6.5–7 ms a frame at 1080p on the development machine.
+- **Reaction-Diffusion**, a new visualizer mode in Generative Systems (#1025). Two chemicals on a small grid (at most 96 cells on the long edge, drawn scaled to the canvas): each step the neighbours diffuse and a feed/kill rule grows coral-like structure. The bass moves the feed rate a little around the value that keeps a pattern alive (about 0.050–0.060, kill 0.062), so the grid neither empties nor fills solid. The seed is fixed, so the same frames give the same picture, and the canvas stays transparent outside the pattern. 0.44 ms a frame at 1920×1080 with `npm run bench -- --uncapped`. Named apart from the Studio background shader "Reaksiyon Deseni". `tests/reaction-mode.test.js`.
 - **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.
 - **Eight new backgrounds**: Color Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
 - Measured with `npm run bench` at 1920×1080 on the development machine: all eighteen held the display rate with no frame over 33 ms. That is one machine with a discrete GPU; nothing slower was measured.
@@ -306,6 +325,21 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
   MIDI clock.
+- **Matrix colour source for network lights** (#1023). Art-Net, sACN and WLED (DDP) can drive the
+  fixtures as a row-major grid: each column has its own hue, and the audio level lights the bottom
+  row fully and each row above it less. Columns and rows come from the settings when they are whole
+  numbers of at least 1, otherwise from the fixture count as a near-square; cells past the count are
+  not read. The three outputs share one colour function, and the strip modes send the same bytes
+  as before. Rows are wired left to right on every row (no serpentine option yet).
+  `tests/led-matrix.test.js`.
+- **MIDI clock out** (#434, #1019). Control → Tempo sends the modulation tempo as MIDI clock: start
+  (`0xFA`) when switched on, 24 pulses per quarter note from the modulation BPM (120 when it is 0),
+  and one stop (`0xFC`) when switched off. Off by default. It goes to one chosen output or to every
+  connected one; the automatic choice leaves out the device being listened to, so an incoming clock
+  is not sent back. After a stall at most four pulses go out at once. Each byte is its own Web MIDI
+  message; sent together, Chromium rejects the packet and the start byte is lost.
+  `tests/live-sync-features.test.js`. Checked against the 120 BPM pulse spacing; not checked with
+  MIDI hardware.
 - **Gamepad control**: Xbox, PlayStation and generic gamepads map to settings and actions with the
   same learn/mapping engine as MIDI.
 - **Multi-instance remote**: commands from one instance's remote are forwarded to the other

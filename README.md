@@ -8,7 +8,7 @@
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
 audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **60 presets of our
-own**, **70 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+own**, **71 visualizer modes**, layers and **44 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
 **AI control over MCP**.
@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4421%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4455%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -57,7 +57,7 @@ and presets, images, backgrounds, templates and saved scenes one click away belo
 
 <div align="center">
 
-| **70** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
+| **71** visualizer modes | **51** backgrounds | **44** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **43** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **106** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
@@ -160,7 +160,7 @@ fluid gradient backgrounds that move with the music.
 - **A rebuilt Layout Editor.** Undo that works, multi-select, align and distribute, lock and hide
   from the element list, Shift-constrained drags and a shortcut list on F1.
   [→ Layout editor](#broadcast-layout-editor)
-- **More to start from.** 70 visualizer modes and 51 backgrounds (18 new), 60 CaYaDev MilkDrop
+- **More to start from.** 71 visualizer modes and 51 backgrounds (19 new), 60 CaYaDev MilkDrop
   presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
 - **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
   so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
@@ -386,7 +386,7 @@ and 174 BPM signals), with tap tempo and a BPM lock shared by Auto VJ, the clip 
 
 <div align="center">
 
-**All 70 visualizer modes**
+**All 71 visualizer modes**
 
 ![Every visualizer mode](docs/screenshots/modes-visualizer.jpg)
 
@@ -792,14 +792,18 @@ ticker · karaoke highlighting.
   a scene.
 - **Visual objects** — image sprites in front of or behind the visualizer, with count, size, drift,
   rotation and audio response.
-- **Media layer** — a webcam or a video file, in front of or behind the visualizer, with fit (cover,
+- **Media layer** — a webcam, a video file, or a **screen or window** of this computer, in front of or behind the visualizer, with fit (cover,
   contain, stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode,
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
   A video file has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** of 1–16 beats
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
-  the same formula frame by frame.
+  the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
+  or bright side of the picture transparent, with threshold and softness, so the layer underneath
+  shows through. Screen and window capture works on Windows and macOS (macOS asks for Screen
+  Recording permission) and on Linux with an X11 display; a Wayland session without one says so
+  instead. Like a webcam, it is not sent to the OBS browser source and stays empty in a video export.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -906,7 +910,10 @@ says what changed, what comes next, and why nothing can happen when a source is 
 Optional controller LED feedback and built-in maps are off by default. See the [controller setup and vendor protocol audit](docs/midi-controllers.md) for port/mode requirements, explicit Korg CC setup and hardware-test limitations.
 
 **MIDI.** Learn a control, then map any CC or note to any setting or action — including MilkDrop's
-next, previous, random, cut, lock and rating.
+next, previous, random, cut, lock and rating. The modulation clock can follow a MIDI clock or an
+Ableton Link session, and **send its tempo as MIDI clock** (24 pulses per quarter note, start and
+stop) to one MIDI output or all of them; it is off by default, and the device being listened to is
+left out so a clock is not echoed back.
 
 **OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 
@@ -1099,7 +1106,9 @@ another machine. Every device OpenRGB exposes, per-LED where the hardware allows
 modes and colour maths** as Dynamic Lighting.
 
 **Art-Net / DMX.** ArtDMX output to fixtures and lighting desks; the packet layout is tested byte by
-byte.
+byte. Art-Net, sACN and WLED (DDP) can also treat the fixtures as a **matrix**, row by row from the
+top left: each column has its own hue, the bottom row is as bright as the music and the rows above it
+fall off. Columns and rows are set by hand or chosen as a near-square from the fixture count.
 
 **Colour sources.** The lights can follow the background, the theme, or the **live MilkDrop
 picture** — sampled about 30 times a second into eight slices from left to right, so
@@ -2075,7 +2084,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4421 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4455 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

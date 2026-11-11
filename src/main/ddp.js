@@ -8,8 +8,8 @@
 /* WLED'i doğrudan sürme: DDP (Distributed Display Protocol), UDP 4048.
 
    WLED her DDP paketini gerçek zamanlı kipte piksellere yazar; Art-Net
-   evren/kanal ayarı gerekmez. Renkler Art-Net ile AYNI renk mantığından
-   (artnet.fixtureColor) LED sayısı kadar üretilir.
+   evren/kanal ayarı gerekmez. Renkler Art-Net ile AYNI renk üreticisinden
+   (artnet.colorAt) LED sayısı kadar üretilir.
 
    Başlık 10 bayt:
      0  bayraklar: 0x40 (sürüm 1) | 0x01 (PUSH, karenin son paketi)
@@ -50,8 +50,7 @@ function renderPixels(cfg, frame) {
   const brightness = Math.max(0, Math.min(1, c.brightness == null ? 1 : c.brightness));
   const out = Buffer.alloc(n * 3);
   for (let i = 0; i < n; i++) {
-    const f = n > 1 ? i / (n - 1) : 0;
-    const rgb = artnet.fixtureColor(c, frame, f);
+    const rgb = artnet.colorAt(c, frame, i, n);
     out[i * 3] = artnet.clamp255(rgb[0] * 255 * brightness);
     out[i * 3 + 1] = artnet.clamp255(rgb[1] * 255 * brightness);
     out[i * 3 + 2] = artnet.clamp255(rgb[2] * 255 * brightness);

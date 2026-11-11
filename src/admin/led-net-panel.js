@@ -17,6 +17,7 @@
     { value: 'bands', label: 'Frekans Bantları' },
     { value: 'spectrum', label: 'Kayan Spektrum' },
     { value: 'single', label: 'Tek Renk' },
+    { value: 'matrix', label: 'Matris' },
   ];
 
   let st = { sacn: {}, wled: {}, wledSync: {} };
@@ -87,6 +88,12 @@
   function colorRows(nodes, prefix, obj) {
     nodes.push(P().segment('Renk Kaynağı', prefix + '.mode', MODES, { rebuild: true }));
     if (obj.mode === 'single') nodes.push(P().color('Renk', prefix + '.color'));
+    if (obj.mode === 'matrix' && window.SVScenePanels && window.SVScenePanels.matrixDimSliders) {
+      const n = prefix === 'wled'
+        ? Math.max(1, Math.min(4096, obj.ledCount | 0 || 60))
+        : Math.max(1, Math.min(170, obj.fixtures | 0 || 8));
+      window.SVScenePanels.matrixDimSliders(obj, n).forEach((node) => nodes.push(node));
+    }
     nodes.push(P().slider('Parlaklık', prefix + '.brightness', { step: 0.02, percent: true }));
   }
 

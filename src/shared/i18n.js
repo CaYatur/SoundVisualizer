@@ -1742,6 +1742,10 @@
     'Gelen Tempo': 'Incoming Tempo',
     'Kapalı (ses analizi)': 'Off (audio analysis)',
     'MIDI Saati': 'MIDI Clock',
+    'MIDI Saati Gönder': 'Send MIDI Clock',
+    'Saat Çıkışı': 'Clock Output',
+    'Otomatik (bütün çıkışlar)': 'Automatic (all outputs)',
+    'Modülasyon temposunu MIDI saati olarak yollar: çeyrek nota başına 24 darbe, başlat ve durdur. BPM 0 ise iç saat 120 kabul edilir. Varsayılan kapalıdır. Dinlenen aygıt otomatik çıkışta dışarıda bırakılır.': 'Sends the modulation tempo as MIDI clock: 24 pulses per quarter note, plus start and stop. A BPM of 0 uses the internal clock of 120. Off by default. The device being listened to is left out of the automatic output.',
     'Link eşi bekleniyor…': 'Waiting for a Link peer…',
     'Saat bekleniyor…': 'Waiting for clock…',
     'eş': 'peers',
@@ -1855,10 +1859,30 @@
     'Bu katmanın kamerasıdır. İkinci bir medya katmanı başka bir kamerayı aynı anda açar. OBS yayın katmanı kamerayı tarayıcıdan açmaz; görüntü bu uygulamadan gider. Adlar, kameraya izin verilince dolar.':
       'This is this layer\'s camera. A second media layer opens another camera at the same time. The OBS web layer does not open a browser camera; the picture comes from this application. Names fill in after permission is granted.',
     'Video Dosyası': 'Video File', 'Video Seç': 'Choose Video',
+    'Ekran Kaynağı': 'Screen Source',
+    'Ekran seçin': 'Choose a screen',
+    'Açık ekran yok': 'No screen is open',
+    'Kayıtlı ekran': 'Saved screen',
+    'Ekranları Yenile': 'Refresh Screens',
+    'Bir ekran veya pencere seçin.': 'Choose a screen or a window.',
+    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.':
+      'The chosen screen or window is drawn on this layer. The picture goes to the output and the preview. A Wayland session needs an X11 display.',
+    'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.':
+      'This session is Wayland and there is no X11 display. Screen capture only works on an X11 display.',
+    'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.':
+      'Screen recording permission was denied. Allow it in system settings.',
+    'Bu ortamda ekran yakalama çalışmıyor.': 'Screen capture does not work in this environment.',
     'seçildi': 'selected', 'seçilmedi': 'not selected', 'Döngüde Oynat': 'Loop Playback',
     'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
     'Çarpma': 'Multiply', 'Aynala': 'Mirror',
     'Kaleydoskop Dilimi': 'Kaleidoscope Slices',
+    'Renk Anahtarı': 'Color Key',
+    'Seçilen Renk': 'Chosen Color',
+    'Anahtar Rengi': 'Key Color',
+    'Saydam Kalan': 'Transparent Side',
+    'Anahtar Eşiği': 'Key Threshold',
+    'Anahtar Yumuşaklığı': 'Key Softness',
+    'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.': 'Pixels that match the chosen color or brightness become transparent, so the layer underneath shows through.',
     'Bas → Saydamlık': 'Bass → Opacity',
     'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.': 'Place an image or GIF on the scene; it pulses with the audio. Choosing a GIF unlocks playback and audio controls.',
     'Ara…': 'Search…',
@@ -2058,6 +2082,8 @@
     'Renk Kaynağı': 'Color Source',
     'Sahne Paleti': 'Scene Palette', 'Frekans Bantları': 'Frequency Bands',
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
+    'Matris Sütunu': 'Matrix Columns',
+    'Matris Satırı': 'Matrix Rows',
 
     // ---- Ağ LED çıkışları: sACN, WLED (DDP), WLED ses senkronu ----
     'sACN (E1.31) Çıkışı': 'sACN (E1.31) Output',
@@ -4297,6 +4323,7 @@
     'En Düşük Çözünürlük': 'Lowest Resolution',
     // Yeni görselleştirici modları ve arkaplanlar (#905)
     'Kapsül Dalga': 'Capsule Wave',
+    'Reaksiyon-Difüzyon': 'Reaction-Diffusion',
     'Sahne Ekolayzeri': 'Stage Equalizer',
     'Altıgen Tayf': 'Hex Spectrum',
     'Sıvı Tayf': 'Liquid Spectrum',
