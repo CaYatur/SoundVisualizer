@@ -90,6 +90,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Setting labels wrap instead of being cut off.** At 1280×720 (a 1080p laptop at 150 % scaling)
   labels such as Blackout Duration, Beats per Bar, Floating Window Opacity and Enable Dynamic Colour
   Theme ended in "…". They now take a second line before they shorten.
+- **The process count in the audio source list is readable in every theme.** "6 processes" was
+  drawn at 60 % opacity on top of the secondary text colour: contrast 2.6–3.6 against a 4.5
+  threshold (5.8 in High Contrast against 7). It now uses the secondary colour as is: 5.8–13.8.
+  The note only appears while a multi-process program plays sound, so the self-test caught it
+  only on such a machine.
 - **Application audio shows program names, not paths.** Some processes appeared as
   `C:\Windows\System32\cmd.exe`; the list now shows `cmd.exe`, and capture still matches the full
   path.
