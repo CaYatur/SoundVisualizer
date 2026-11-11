@@ -2,7 +2,7 @@
 /* MilkDrop 2'nin sabit birleştirmesi, aşama seçimi ve varsayılanları (#580).
  *
  * Birincil kaynak jecassis/foo_vis_milk2 5b44cea (Nullsoft'un kodu); sabit
- * yolun harmanlama geçişleri BeatDrop 53d83ee'deki D3D9 hâliyle de
+ * yolun harmanlama geçişleri MilkDrop 2'nin D3D9 kaynağıyla da
  * karşılaştırıldı. Buradaki beklentiler o koddan okunan KURALLAR:
  *  - aşama SÜRÜMDEN seçiliyor, metinden değil (state.cpp:1328-1348);
  *  - sürümü olup metni olmayan aşamaya MilkDrop yüklemede, dosyadaki
@@ -238,7 +238,7 @@ const MD2_SHAPE_KEYS = ['enabled', 'sides', 'additive', 'thickOutline', 'texture
   'x', 'y', 'rad', 'ang', 'tex_ang', 'tex_zoom', 'r', 'g', 'b', 'a', 'r2', 'g2', 'b2', 'a2',
   'border_r', 'border_g', 'border_b', 'border_a'];
 const MD2_CODE = /^(per_frame_init_|per_frame_|per_pixel_|warp_|comp_|wave_[0-3]_(?:init|per_frame|per_point)|shape_[0-3]_(?:init|per_frame))([1-9]\d*)$/;
-/* MilkDrop 3 presetleri (paketteki `md3`) 16 dalga ve şekil yuvası okuyor. */
+/* Genişletilmiş biçimdeki presetler (paketteki `md3`) 16 dalga ve şekil yuvası okuyor. */
 const MD3_SLOT = /^(?:wave_|shape_|wavecode_|shapecode_)(?:[4-9]|1[0-5])_/;
 const MD3_CODE = /^(wave_\d+_(?:init|per_frame|per_point)|shape_\d+_(?:init|per_frame))([1-9]\d*)$/;
 function md2Reads(key, md3) {
@@ -261,8 +261,8 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
     texts.push([r.code, r.source]);
   }
   // Karışımlar: satırlar vericilerden olduğu gibi, sürüm satırları yeniden
-  /* Vericiler MilkDrop 2 presetleri: MilkDrop 3 vericisinin 5. ve sonraki yuvaları karışıma
-     olduğu gibi geçer ve karışım da MilkDrop 3 olur (motor onu öyle tanır). */
+  /* Vericiler MilkDrop 2 presetleri: genişletilmiş biçimdeki vericinin 5. ve sonraki yuvaları karışıma
+     olduğu gibi geçer ve karışım da genişletilmiş biçimde olur (motor onu öyle tanır). */
   const donors = texts.filter((t) => !t[2]);
   for (let i = 0; i < 30; i++) {
     const d = {};
@@ -291,7 +291,7 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
       sorted.forEach((n, k) => assert.strictEqual(n, k + 1, id + ': ' + prefix + ' numarasında boşluk'));
     }
     /* İki okuyuş kendi presetlerimizde aynı: uyum anahtarı onları değiştirmiyor.
-       MilkDrop 3 presetinde ayrışmak doğru: MilkDrop 2 okuyuşu dört yuvada duruyor. */
+       Genişletilmiş biçimdeki presette ayrışmak doğru: MilkDrop 2 okuyuşu dört yuvada duruyor. */
     if (!md3) assert.strictEqual(M.readingsDiffer(text), false, id + ': iki okuyuş ayrışıyor');
   }
   assert.ok(texts.length === B.length + 64 + 30 && checked > 10000, 'yeterince satır denetlendi: ' + checked);

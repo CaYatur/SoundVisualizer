@@ -4,7 +4,7 @@
  * Preset dili kare başına yazılabilen bir `monitor` değişkeni tanımlıyor ve
  * tek işi bu: yazarın kendi denklemine koyup değerine bakması. Render
  * girdisi değil, yani okunmadığı sürece o satırlar ölü. Korpusta 4.489
- * preset (%43,4) yazıyor. projectM'in #664'ü aynı isteği yıllardır açık
+ * preset (%43,4) yazıyor. Başka motorlarda da aynı istek yıllardır açık
  * tutuyor; bir preset editörünün ihtiyaç duyduğu tek şey de bu.
  *
  * Yol: motor -> katman yığını -> ses ölçer mesajı -> panel. Yeni bir IPC

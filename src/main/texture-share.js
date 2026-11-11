@@ -8,7 +8,7 @@
 /* Spout (Windows) ve Syphon (macOS) çıkışı.
  *
  * Görüntüyü aynı makinedeki başka bir uygulamaya GPU üzerinden verir:
- * Resolume, OBS, TouchDesigner ya da herhangi bir Spout/Syphon alıcısı.
+ * OBS, VJ ve video yazılımları ya da herhangi bir Spout/Syphon alıcısı.
  * Pencere yakalama yok, eklenti kurulumu yok, CPU kopyası yok.
  *
  * Nasıl: gizli bir offscreen pencere görselleştirici sayfasını yükler ve

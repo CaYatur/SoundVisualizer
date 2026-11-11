@@ -158,7 +158,7 @@ void main(){
      burada TEK KEZ çevriliyor: üst düğüm satır 0'a yazıyor ve v ≈ 0'dan
      okuyor. Böylece presetin gördüğü uv MilkDrop'unkiyle aynı sayı (üstte
      0), şekil ve dalgalar MilkDrop'un kendi formülüyle (y·−2+1) doğru yere
-     düşüyor. Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) ölçüldü. */
+     düşüyor. Referans çizicide (MilkDrop 2'nin D3D9 kaynağından derlenen) ölçüldü. */
   vUV = vec2(aUV.x, 1.0 - aUV.y);
   vUVOrig = vec2(aUVOrig.x, 1.0 - aUVOrig.y);
   vRad = aRad;
@@ -226,8 +226,8 @@ void main(){
 
   /* FLAŞ SINIRLAMA — nöbet riski taşıyan yanıp sönmeyi kesmek.
 
-     MilkDrop'ta yok; bilinçli bir ekleme. projectM'in #947 ve #742'si aynı
-     şeyi yıllardır açık tutuyor ve hiçbir motor çözmüş değil. Korpusta
+     MilkDrop'ta yok; bilinçli bir ekleme. Başka MilkDrop motorlarında da
+     yıllardır istenen ve çözülmemiş bir şey. Korpusta
      "Definitly Not For The Epileptic" ve "Seizure-Inducing ... RMX" gibi
      adlar var; yazarları ne yaptıklarını biliyor, izleyen herkes bilmiyor.
 
@@ -337,7 +337,7 @@ void main(){
      o presetler yazarinin istedigi kontrasti hic gostermiyordu.
 
      MilkDrop 2'NIN SABIT YOLU bunlari beyaz bir dortgenin HARMANLAMA
-     gecisleriyle yapiyor (milkdropfs.cpp:4010-4080, BeatDrop'un D3D9
+     gecisleriyle yapiyor (milkdropfs.cpp:4010-4080, D3D9
      hali 4200-4285 ile ayni): parlatma once ters cevirip kareliyor ve
      yine ceviriyor, yani 1-(1-c)^2 — karekok DEGIL, o shader yolunun
      bicimi; solarize d(1-d) sonra kendisini ekliyor, yani 2c(1-c) — 4c(1-c)
@@ -1438,7 +1438,7 @@ void main(){
        RGB10_A2 normalize edilmiş: MilkDrop gibi kenetliyor, ama kanal
        başına 8 değil 10 bit veriyor — yani MilkDrop'un dört katı
        hassasiyet. Bantlanma gerekçesi karşılanıyor, kenetleme semantiği
-       geri geliyor. projectM'in #895'i tam olarak bunu istiyor.
+       geri geliyor.
 
        ALFA 2 BİT ve bu sorun değil: karışım işlevlerimiz kaynak alfasını
        kullanıyor (`SRC_ALPHA`), hedefinkini değil. Tamponun alfa kanalını
@@ -2277,7 +2277,7 @@ void main(){
       const baseKey = a
         ? (a.id + '|' + (a.source || '').length + '#' + tagOf('a', a.source))
         : (man + '#' + tagOf('m', c.source));
-      /* MILKDROP 3 ÇİFT PRESETİ (.milk2, #567): iki aşamada yükleniyor.
+      /* ÇİFT PRESET (.milk2, #567): iki aşamada yükleniyor.
          1. aşama birinci preseti sert geçişle kuruyor; 2. aşama ikinciye
          GEÇİŞ başlatıyor ve geçiş dosyanın söylediği yerde donduruluyor.
          Böylece iki presetin derlenmesi, iki saat ve düğüm başına karışım
@@ -2693,7 +2693,7 @@ void main(){
     }
 
     /* SABİT BİRLEŞTİRMENİN GİRDİLERİ, MilkDrop 2'nin kuralıyla (#580;
-       milkdropfs.cpp:3885-4010, BeatDrop 4064-4175 aynı):
+       milkdropfs.cpp:3885-4010, D3D9 sürümünde 4064-4175 aynı):
        - gama ve yankı yakınlaşması dosyada yoksa MilkDrop'un varsayılanı
          2,0 (CState::Default); bizde 1'e düşüyordu, yani gamasız bir
          preset yarı parlaklıkta çıkıyordu (varsayılan artık kare başı
@@ -2880,7 +2880,7 @@ void main(){
        yolda (4122-4140) aynı formül — ve rengi beyaza doğru `amt` oranıyla
        karıştırıyor. Oranı ÇAĞIRAN veriyor, çünkü iki yol ayrı:
        - shader'lı yol HER ZAMAN 1: MilkDrop "shader kullanıyor mu
-         bilmiyoruz" diye `hue_shader`a tam rengi veriyor (4122, BeatDrop
+         bilmiyoruz" diye `hue_shader`a tam rengi veriyor (4122, D3D9 sürümü
          4318); `fShader` yalnız kendi yazdığı birleştirme metninde çarpan.
          52c7391 (#560) oranı buraya da uyguluyordu ve `fShader`ı 0 olan
          914 preset rengini kaybediyordu (#580);
@@ -2896,11 +2896,11 @@ void main(){
 
        RASTGELE FAZ YOK (#580). Formüldeki `m_fRandStart[]` MilkDrop'ta hiç
        atanmıyor: birincil kaynakta onu dolduracak `Randomize()` bile yok,
-       BeatDrop'ta tanımlı ama hiç çağrılmıyor; küresel `CPlugin`te dört
+       D3D9 sürümünde tanımlı ama hiç çağrılmıyor; küresel `CPlugin`te dört
        sayı da 0. Renkler yalnız oturumun saatine bağlı. Burada presetin
        rastgele sayıları faz olarak ekleniyordu: renk MilkDrop'unkini hiç
        tutmuyordu ve 0..1 aralığı döngünün yalnız bir radyanını geziyordu.
-       Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) ölçüldü. */
+       Referans çizicide (MilkDrop 2'nin D3D9 kaynağından derlenen) ölçüldü. */
     _hueCorners(amt, t) {
       const accurate = this._wantAcc !== false;
       const rs = HUE_RAND_START;
@@ -4184,7 +4184,7 @@ void main(){
         /* UYUM AÇIKKEN MILKDROP'UN İZİ, çizgi biçimi ne olursa olsun (#752).
            MilkDrop vektörleri KALINLAŞTIRMIYOR (milkdropfs.cpp:1314, tek bir
            LINELIST çizimi) ve tamponu pencere boyunda: `nTexSize` varsayılanı
-           -1, yani "pencere kadar" (BeatDrop plugin.cpp:949, MilkDrop 2.25
+           -1, yani "pencere kadar" (plugin.cpp:949, MilkDrop 2.25
            plugin.cpp:498). Bir teksel orada da bir piksel. Eski `smooth`
            şişirmesi çizgiyi 1440 genişlikte 4,5 teksele çıkarıyordu; vektörler
            artık warp'ın kaynağına çizildiği için o ışık geri beslemeye de
@@ -4220,7 +4220,7 @@ void main(){
           /* MİLKDROP'TAKİ GİBİ AYNALI (#750, seçenek). MilkDrop vektörü
              ekrandaki yerine çiziyor ama `ReversePropagatePoint`'i ağın
              aynalanmış satırında (`1 - y`) okuyor ve dikey farkı ters
-             uyguluyor (milkdropfs.cpp ~1537; BeatDrop bunu 14.10'da
+             uyguluyor (milkdropfs.cpp ~1537; D3D9 sürümü bunu sonradan
              düzeltti). Konum aynı, yalnız yön başka satırdan geliyor. */
           const mir = acc && this._mvMirror;
           const ys = mir ? 1 - y : y;
@@ -4548,7 +4548,7 @@ void main(){
       /* Çift presette (#567) desen dosyadan: side = yönlü silme, plasma =
          plazma, radial/circle/zoom = dairesel. Desenin ilk parametreleri
          dosyanın rastgele sayılarından sırayla, gerisi tohumdan. Hangi
-         sayının neye gittiği kendi yorumumuz (MilkDrop 3 kaynağı yok). */
+         sayının neye gittiği kendi yorumumuz (biçimin kaynağı yayında değil). */
       const F = this._blendForced;
       const seeded = seededRandom(this._blendSeed || 1);
       let fi = 0;
@@ -5245,8 +5245,8 @@ void main(){
        gerçek bir pencerede hiç tutmuyor: kaynağın "alfa sabit ve SOLUK"
        diye tarif ettiği kip 2 (2749) tam opak çiziliyor. Dal, MilkDrop 2
        tam boy dokuya geçerken ölmüş. Aralığa çevirince tarifteki niyet
-       geri geliyor; projectM de aynı yolu seçmiş (Waveform.cpp,
-       MaximizeColors). 2048'in üstü için onun değerleri alındı.
+       geri geliyor. 2048'in üstü için bu aralığın en büyük
+       değerleri kullanılıyor.
 
        Kip 3'te çarpma değil ATAMA var: o 392 preset (%3,8) için wave_a'nın
        hükmü kalmıyor, MilkDrop'ta da kalmıyor. Tizle çarpan `treble_rel`
@@ -5351,7 +5351,7 @@ void main(){
        çizgi, 5 döndürülmüş sekiz, 6/7 açılı çift çizgi. Tek biçim çizmek,
        presetlerin çoğunu yazarının çizdiğinden bambaşka gösteriyordu.
 
-       Formüller BeatDrop/MilkDrop2'nin DrawWave'inden alındı; sabitler
+       Formüller MilkDrop 2'nin DrawWave'inden alındı; sabitler
        (0.4, 0.53, 1.57, 2.3 ...) oradaki değerlerin aynısı — yuvarlarsak
        biçim gözle görülür şekilde kayıyor. */
     _drawWaveModes(gl, GW, GH) {
@@ -5595,7 +5595,7 @@ void main(){
          aktardığı D3D9 kodu `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` diyor;
          yer değiştirme aktarımda girmiş, MilkDrop 2'de yok. */
       /* Y'LER TERS ÇEVRİLİYOR — MilkDrop da burada çeviriyor, "VMS öncesi
-         MilkDrop'la tutarlı kalmak için" (milkdropfs.cpp:3223-3230, BeatDrop
+         MilkDrop'la tutarlı kalmak için" (milkdropfs.cpp:3223-3230, D3D9
          D3D9). İç tampon MilkDrop yönüne geçene kadar (#580) bu çevirme
          yoktu ve tamponun kendi aynalaması onu telafi ediyordu; referans
          çizicide dalga kipi 7 ile ölçüldü. Yumuşatma doğrusal, sırası fark
@@ -6306,8 +6306,7 @@ void main(){
        Preset dili kare başına yazılabilen bir `monitor` değişkeni
        tanımlıyor; render girdisi DEĞİL, yalnızca yazarın bakması için.
        Motor değeri havuzda tutuyordu ama hiçbir yere çıkarmıyordu, yani
-       korpustaki 4.489 presetin (%43,4) o satırları ölüydü. projectM'in
-       #664'ü aynı isteği yıllardır açık tutuyor.
+       korpustaki 4.489 presetin (%43,4) o satırları ölüydü.
 
        Preset yoksa ya da `monitor` hiç yazılmamışsa `null` dönüyor —
        0 dönmek "preset sıfır yazdı" ile "kimse yazmadı"yı aynı gösterirdi

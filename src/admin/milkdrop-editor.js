@@ -83,7 +83,7 @@
 
   // ------------------------------------------------------------------ oturum
 
-  /* Kaç dalga/şekil yuvası (#567): preset MilkDrop 3 kurallarıyla mı
+  /* Kaç dalga/şekil yuvası (#567): preset genişletilmiş biçimle mi
      okunuyor — motorun kararıyla aynı (biçim ayarı ve metin). */
   function slotsFor(source) {
     const m = M();

@@ -1183,7 +1183,7 @@
         opacity: sp('number', 'Opacity.', { minimum: 0, maximum: 1 }),
         blend: sp('string', 'Blend mode (sv_list_modes blendModes).'),
         layer: sp('object', 'A whole layer object; the fields above override it.'),
-        presetId: sp('string', 'type milkdrop only: MilkDrop preset id (sv_list_presets). Default: a built-in MilkDrop 3 preset. If another layer already draws the shared preset, the new layer gets its own.'),
+        presetId: sp('string', 'type milkdrop only: MilkDrop preset id (sv_list_presets). Default: a built-in extended-format preset. If another layer already draws the shared preset, the new layer gets its own.'),
       },
     },
     sv_update_layer: {

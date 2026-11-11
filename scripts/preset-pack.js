@@ -8,7 +8,7 @@
 /* CaYaDev MilkDrop preset paketi (#825).
  *
  * Kaynak asıllar: `presets/original/md2/cayadev/` (MilkDrop 2) ve
- * `presets/original/md3/cayadev/` (MilkDrop 3). Kimlik ve açıklamalar
+ * `presets/original/md3/cayadev/` (genişletilmiş biçim). Kimlik ve açıklamalar
  * `presets/original/pack.json` içindedir. Uygulama bu asılları gömer;
  * `presets/compat/` uyumluluk kopyaları pakete girmez. Dosya okumadan
  * çalışan sayfalar (yayın katmanı, dışa aktarıcı) da presetleri gördüğü
@@ -90,7 +90,7 @@ function render(list) {
     "'use strict';",
     '/* OTOMATİK ÜRETİLDİ: scripts/preset-pack.js (#825). Elle düzenlemeyin. Kaynak',
     '   asıllar presets/original/md2/cayadev/ (MilkDrop 2) ve presets/original/md3/cayadev/',
-    '   (MilkDrop 3). Uyumluluk kopyaları (presets/compat/) gömülmez. Liste',
+    '   (genişletilmiş biçim). Uyumluluk kopyaları (presets/compat/) gömülmez. Liste',
     '   shared/presets-milkdrop.js üzerinden yerleşik havuza giriyor; sayfada bu dosya',
     '   ondan ÖNCE yükleniyor. */',
     '(function () {',
@@ -109,7 +109,7 @@ function gallery(list) {
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(milkRel(p.md3) + p.file) + '"><img src="' + p.preview +
     '" width="100%" alt="' + esc(p.name + (/^[aeiou]/.test(p.category) ? ', an ' : ', a ') + p.category + ' MilkDrop preset by CaYaDev. ' + p.description.en) + '"></a><br><b>' +
-    esc(p.name) + '</b><br><sub>' + p.category + ' · ' + (p.md3 ? 'MilkDrop 3' : 'MilkDrop 2') + '</sub></td>';
+    esc(p.name) + '</b><br><sub>' + p.category + ' · ' + (p.md3 ? 'extended format (16 slots)' : 'MilkDrop 2') + '</sub></td>';
   const out = [GALLERY[0], '<table>'];
   for (let i = 0; i < list.length; i += 3) out.push('<tr>', ...list.slice(i, i + 3).map(cell), '</tr>');
   return out.concat(['</table>', GALLERY[1]]);

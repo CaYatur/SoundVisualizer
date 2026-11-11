@@ -7,8 +7,8 @@
 'use strict';
 /* OSC (Open Sound Control) ÇIKIŞI — UDP (#437).
 
-   Görselleştiricinin ölçtüğünü başka yazılımlara yollar: Resolume,
-   TouchDesigner, Max/MSP, ışık masaları. Uygulama böylece bir çözümleme
+   Görselleştiricinin ölçtüğünü başka yazılımlara yollar: VJ ve
+   görsel programlama yazılımları, ışık masaları. Uygulama böylece bir çözümleme
    kaynağı olur; OSC girişinin (osc-server.js) tersi.
 
    Adres ağacı README'de, türü ve aralığıyla. Önek varsayılan /cayadev.

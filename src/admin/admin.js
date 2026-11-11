@@ -2943,7 +2943,7 @@
         icon: 'tv',
         wide: true,
         title: 'Spout / Syphon Çıkışı',
-        desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: Resolume, OBS, TouchDesigner. Pencere yakalama ve eklenti gerekmez.',
+        desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: OBS ya da bir VJ veya video yazılımı. Pencere yakalama ve eklenti gerekmez.',
         controls: [{ type: 'texturepanel' }],
       },
       {
@@ -3025,7 +3025,7 @@
         icon: 'share',
         wide: true,
         title: 'OSC Girişi',
-        desc: 'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
+        desc: 'Telefon kumanda uygulamaları, müzik ve gösteri yazılımları gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },
       {
@@ -3034,7 +3034,7 @@
         icon: 'share',
         wide: true,
         title: 'OSC Çıkışı',
-        desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.',
+        desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: VJ ve görsel programlama yazılımları ya da bir ışık masası.',
         roots: ['oscOut'],
         controls: [{ type: 'controlpanel', surface: 'oscout' }],
       },
@@ -3232,8 +3232,12 @@
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', step: 0.05, percent: true },
           { type: 'toggle', path: 'power.adaptiveScale', label: 'Uyarlanır Çözünürlük' },
           {
+            type: 'slider', path: 'power.adaptiveFloor', label: 'En Düşük Çözünürlük', step: 0.05, percent: true,
+            show: () => cfg.power.adaptiveScale !== false,
+          },
+          {
             type: 'note',
-            text: 'Uyarlanır Çözünürlük açıkken sahne ekranın yenileme hızına yetişemezse çizim çözünürlüğü basamak basamak düşer (en az yarıya), sahne hafifleyince geri yükselir. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.',
+            text: 'Uyarlanır Çözünürlük açıkken sahne hedef kare hızına yetişemezse çizim çözünürlüğü basamak basamak düşer, en çok En Düşük Çözünürlük kadar; sahne hafifleyince geri yükselir. Hedef, Kare Hızı (FPS) ayarı bir sınırsa o, Ekranla Eşitle\'de ekranın yenileme hızıdır. Takılma yerine hafif bir yumuşama görürsünüz. Video dışa aktarımı etkilenmez.',
           },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
