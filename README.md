@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4421%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4425%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -799,7 +799,9 @@ ticker · karaoke highlighting.
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
   A video file has **speed** (0.25–4×), **in and out points**, a **beat-locked loop** of 1–16 beats
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
-  the same formula frame by frame.
+  the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
+  or bright side of the picture transparent, with threshold and softness, so the layer underneath
+  shows through.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -2075,7 +2077,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4421 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4425 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

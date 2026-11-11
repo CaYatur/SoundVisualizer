@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4421%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4425%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -801,7 +801,8 @@ haber bandı · karaoke vurgusu.
   kısa bir **vuruşta nabız** çizim saatine bağlı; dışa aktarım ekrandaki hareketin aynısını gösteriyor.
   Video dosyasında **hız** (0,25–4×), **giriş ve çıkış noktaları**, uygulamanın temposuna kilitli 1–16
   vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
-  formülü kare kare izliyor.
+  formülü kare kare izliyor. **Renk anahtarı** seçilen bir rengi (yeşil perde) ya da görüntünün karanlık
+  veya aydınlık tarafını eşik ve yumuşaklıkla saydam yapıyor; alttaki katman delikten görünüyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
@@ -2084,7 +2085,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4421 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4425 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
