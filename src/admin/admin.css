@@ -885,6 +885,9 @@ video.logo-lib-thumb { pointer-events: none; }
   display: flex; flex-direction: column; gap: 6px;
 }
 .scene-empty { font-size: 11px; color: var(--muted2); line-height: 1.55; padding: 10px 2px; }
+/* Boş sahne listesinde "Örnek sahneleri ekle": metnin altında, ızgara hücresine gerilmeden */
+.scene-empty .sv-starter { margin-top: 10px; width: auto; max-width: 100%; }
+.sv-scenes > .scene-empty { grid-column: 1 / -1; }
 /* Sürükle tutamağı (sahne ve renk şablonu listeleri).
    Sürüklenebilir olan satırın tamamı değil bu tutamak: satırlardaki ad
    kutularında metin seçilebilir kalsın diye. Aynı öğe bir düğme olduğu

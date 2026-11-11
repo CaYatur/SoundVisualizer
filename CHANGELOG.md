@@ -59,12 +59,40 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Fireworks open up.** Drag stopped each burst early: measured over the two seconds after a beat, 90 % of the sparks stayed within 7–10 % of the short side from the centre. With lower drag and a stronger base speed that is now 26–34 %. Each spark draws the last 45 ms of its path instead of the last frame's, so trails no longer shrink at high refresh rates.
 - **Four new CaYaDev MilkDrop presets** (60 in the pack): Stained Glass, Thunderhead, Hologram Globe and Double Helix. Each compiles in MilkDrop 2 (checked with the SDK compiler), was run for 90 seconds without fading out, blowing out or freezing, and was compared frame by frame with MilkDrop 2 itself; they draw in 6.5–7 ms a frame at 1080p on the development machine.
 - **Ten new visualizer modes** (#905): Capsule Wave, Stage Equalizer, Hex Spectrum, Liquid Spectrum, Dot Wave, Neon Rings, Corona, Spiral Spectrum, Star Warp and Orbitals. They read the same colour, bar-count, gap, thickness and glow settings as the existing modes and keep the canvas transparent.
-- **Eight new backgrounds**: Colour Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
+- **Eight new backgrounds**: Color Cloud, Silk, Paper Layers, Diagonal Stripes, Dot Pattern, Neon Sunset, Dunes and Night Sky, each with five settings of its own. The first five are calm grounds meant to sit behind text and a logo.
 - Measured with `npm run bench` at 1920×1080 on the development machine: all eighteen held the display rate with no frame over 33 ms. That is one machine with a discrete GPU; nothing slower was measured.
 
 ### Interface
 
-- **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its top visual or background mode. No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
+- **Example scenes on first launch.** A new user had no saved scenes, so the Live page's scene
+  grid, F-keys, TAKE, the T-bar and Auto VJ (scene source) did nothing until they saved one
+  themselves. The empty grid, and the empty scene lists on the Time page and in the Library, now
+  offer **Add example scenes**. It builds eight scenes from the ready-made templates (MilkDrop Flow,
+  Hyper Tunnel, Aurora, Galaxy, Fireworks, Synthwave, Stained Glass, Lorenz) on F1–F8, the same way
+  applying a template and pressing Save would, without changing the live picture. Checked in the
+  app: each scene's layers match what applying the same template from the Library produces, and
+  each one draws.
+- **"Press ESC to return to the panel."** On a one-screen computer, Open Visualizer covers the whole
+  panel, and the only hint on how to get back was the panel's own footer.
+  - A short note now appears at the bottom of the output for three and a half seconds, but only
+    when the output opens on the same screen as the panel. It never shows on a projector or second
+    screen, nor while Escape is locked, nor in automated runs.
+  - It is drawn on the page, not on the canvas, so Spout, the overlay and exports never carry it.
+- **Setting labels wrap instead of being cut off.** At 1280×720 (a 1080p laptop at 150 % scaling)
+  labels such as Blackout Duration, Beats per Bar, Floating Window Opacity and Enable Dynamic Colour
+  Theme ended in "…". They now take a second line before they shorten.
+- **Application audio shows program names, not paths.** Some processes appeared as
+  `C:\Windows\System32\cmd.exe`; the list now shows `cmd.exe`, and capture still matches the full
+  path.
+- **The colour presets hint pointed at colours "below"** that are not on that page any more. It now
+  says to set the background colours on the Scene page.
+- **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its background and top visual together (the visual's preview is laid over the background's with screen blending, close to how the layers combine on screen; at first only the top layer was used, so Aurora showed as a wave on black). No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
+- **Layer rows and Live faders show the mode they draw.** Only MilkDrop layers had a picture; visualizer and background layers showed a generic icon. They now show the same rendered preview as the library shelf. Text, logo, Now Playing and media layers keep their icon.
+- **Automation lanes no longer show Turkish in the English interface.** A lane's target was drawn on the timeline canvas as "group · name" built from the Turkish catalogue, so the English UI read "Ses · Duyarlılık [0..4]"; the target button and the picker's group headings did the same. Each part is now translated. Canvas text is invisible to the UI audit, which is how it slipped through; found in the README screenshots.
+- **The Streaming Output note said Spout output was not available.** It is, under Spout / Syphon Output. The note now points there; NDI is still not available.
+- **One spelling in the English interface.** Nine strings said "colour" while about 150 said "color", sometimes on the same card (Color Theme next to Colour Preset). They now all say "color"; the background mode is Color Cloud.
+- **Scene grid cards show what the scene looks like.** Scenes that had never been live were a colour gradient on the Live page. They now use the same rendered previews as the Cued monitor.
+- **During a held T-bar mix the grid marks the right scenes.** The panel applies the incoming scene when the mix starts, so the grid's Live badge jumped to it and the outgoing scene, still on screen, had no mark. As on a vision mixer, the outgoing scene now keeps the Live badge until the transition completes, and the incoming one shows as Cued. The Live monitor already read "old → new · %".
 - **T-bar on the Live page** (#905). Between the Cued and Live monitors there is now a bar, as on a vision mixer. Dragging it from its resting end towards the other mixes the cued scene in with the scene's own transition type (crossfade if the transition is set to cut); the mix follows the bar, not a clock. Reaching the far end puts the scene live and the bar stays there for the next change, which runs the other way. Releasing it on the way holds the mix (two scenes half and half, as long as you like); bringing it back to the resting end undoes the change: the outgoing scene's layers were never torn down, so MilkDrop, particles and video carry on where they were instead of restarting. TAKE still runs the transition by itself and, during a held mix, completes it. Every output window, the OBS overlay and the panel preview follow the same bar. Keyboard: arrows, Page Up/Down, Home/End. Measured on two solid-colour scenes in the output window: 30 % gave 184/0/71 (red/green/blue), 70 % gave 76/1/181, 50 % held at 124/4/126, back to the start returned pure red with the first scene live again.
 - **`show/tbar` on the control tree.** OSC, Companion and the remote protocol can drive the bar with an absolute position 0–1. A controller is ignored until it has been at the bar's resting end once, so a hardware fader left at the other end does not take a scene with its first message.
 - **Scenes with the same layers now transition.** The output decided that a scene had changed from its layer structure alone, so two scenes with the same layers and different colours or settings switched with a cut even with a transition set. A manual scene change (TAKE, the grid, F keys, Auto VJ, the clip deck, MIDI/OSC, the remote) now counts as a change; dragging a setting still does not, the timeline keeps its own transitions, and re-applying the active scene restores its settings without restarting anything.
