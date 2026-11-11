@@ -1124,6 +1124,43 @@
     }).catch(() => { mediaCameras = []; });
   }
 
+  /* Ekran kaynağı listesi. Destek yoksa liste boş kalır ve nedeni yazılır. */
+  let screenSources = null;
+  let screenFault = '';
+  function screenFaultText(reason) {
+    const M = window.SVScreenCapture;
+    if (M && typeof M.faultText === 'function') {
+      try { return M.faultText(reason); } catch { /* metin yedeği */ }
+    }
+    if (reason === 'wayland') {
+      return 'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.';
+    }
+    if (reason === 'permission') {
+      return 'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.';
+    }
+    return 'Bu ortamda ekran yakalama çalışmıyor.';
+  }
+  function refreshScreenSources() {
+    const api = window.api;
+    if (!api || typeof api.screenSources !== 'function') {
+      screenSources = [];
+      screenFault = screenFaultText('platform');
+      return Promise.resolve();
+    }
+    return api.screenSources().then((res) => {
+      if (!res || res.ok === false) {
+        screenSources = [];
+        screenFault = screenFaultText((res && res.reason) || 'platform');
+        return;
+      }
+      screenSources = (Array.isArray(res.sources) ? res.sources : []).filter((s) => s && s.id);
+      screenFault = '';
+    }).catch(() => {
+      screenSources = [];
+      screenFault = screenFaultText('permission');
+    });
+  }
+
   /* Bir katmanın kendi kaynağına ait ayarlar.
 
      Her katman eklenen modun (Barlar, Dalga, Çember, Gradyan vb.) kendine
@@ -1180,10 +1217,47 @@
       l.settings = l.settings || {};
       const defMedia = def.media || { source: 'webcam', fit: 'cover', loop: true, mirror: false };
       const m = (l.settings.media = l.settings.media || (l.id === 'ly_media' && cfg.media ? Object.assign({}, cfg.media, { enabled: true }) : Object.assign({}, defMedia, { enabled: true })));
-      out.push(miniSelect('Medya Kaynağı', [['webcam', 'Web Kamerası'], ['file', 'Video Dosyası']],
-        () => m.source || 'webcam', (v) => { m.source = v; }, rerender));
+      out.push(miniSelect('Medya Kaynağı', [
+        ['webcam', 'Web Kamerası'],
+        ['file', 'Video Dosyası'],
+        ['screen',
+          'Ekran'],
+      ],
+        () => m.source || 'webcam', (v) => {
+          /* Havuz anahtarı `cam|` + deviceId. Ekran kimliği oraya da yazılır;
+             yoksa ekran, varsayılan kamerayla aynı oynatıcıyı paylaşır. */
+          if (v === 'screen') m.deviceId = m.screenId || 'screen:';
+          else if (m.source === 'screen' && (m.deviceId === m.screenId || m.deviceId === 'screen:')) m.deviceId = '';
+          m.source = v;
+        }, rerender));
 
-      if ((m.source || 'webcam') !== 'file') {
+      if ((m.source || 'webcam') === 'screen') {
+        const opts = [['', (screenSources && screenSources.length) ? 'Ekran seçin' : 'Açık ekran yok']];
+        (screenSources || []).forEach((s) => {
+          opts.push([s.id, s.name || s.id]);
+        });
+        if (m.screenId && !opts.some((o) => o[0] === m.screenId)) opts.push([m.screenId, 'Kayıtlı ekran']);
+        out.push(miniSelect('Ekran Kaynağı', opts, () => m.screenId || '', (v) => {
+          m.screenId = v;
+          m.deviceId = v || 'screen:';
+          if (v) m.enabled = true;
+        }, rerender, ''));
+        if (screenFault) out.push(el('div', { class: 'studio-note media-fault', text: screenFault }));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Ekranları Yenile',
+            onclick: async () => { await refreshScreenSources(); rerender(); },
+          }),
+        ]));
+        out.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.',
+        }));
+        if (screenSources == null) {
+          screenSources = [];
+          refreshScreenSources().then(() => rerender());
+        }
+      } else if ((m.source || 'webcam') !== 'file') {
         const opts = [['', 'Varsayılan kamera']];
         (mediaCameras || []).forEach((c, i) => {
           if (c && c.id) opts.push([c.id, c.label || ('Kamera ' + (i + 1))]);

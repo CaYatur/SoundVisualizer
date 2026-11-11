@@ -31,6 +31,7 @@ const layerSourcesLib = require('./layer-sources');
 let layerSources = null; // Spout/Syphon girişi ve web katmanı (app hazır olunca)
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
+const screenCapture = require('../shared/screen-capture.js');
 const { serveMediaFile, isConfiguredMedia } = require('./media-file');
 const { MediaSession } = require('./media-session');
 const appCapture = require('./app-capture');
@@ -8128,6 +8129,32 @@ ipcMain.handle('media:pick-video', async () => {
     url: mediaUrl.toMediaUrl(r.filePaths[0]),
     name: path.basename(r.filePaths[0]),
   };
+});
+
+/* Ekran kaynağı: pencere ve ekran listesi. Web katmanı bu yolu kullanamaz;
+   onun oturumu ekran paylaşımını boş yanıtla reddeder (web-layer-guard). */
+ipcMain.handle('media:screen-sources', async () => {
+  const sup = screenCapture.support({
+    platform: process.platform,
+    display: process.env.DISPLAY,
+    session: process.env.XDG_SESSION_TYPE,
+    wayland: process.env.WAYLAND_DISPLAY,
+  });
+  if (!sup.ok) return { ok: false, reason: sup.reason || 'platform' };
+  try {
+    const list = await require('electron').desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    const sources = [];
+    for (const s of list || []) {
+      if (!s || s.id == null) continue;
+      sources.push({ id: String(s.id), name: s.name == null ? '' : String(s.name) });
+    }
+    return { ok: true, sources };
+  } catch {
+    return { ok: false, reason: 'permission' };
+  }
 });
 
 // Kamera listesi renderer'dan gelir (enumerateDevices)

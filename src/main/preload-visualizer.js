@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('api', {
   releaseCamRelay: (key) => ipcRenderer.send('cam-relay-release', key),
   sendCamFrame: (msg) => ipcRenderer.send('cam-frame', msg),
   sendCamStatus: (msg) => ipcRenderer.send('cam-status', msg),
+  screenSources: () => ipcRenderer.invoke('media:screen-sources'),
   // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
   getPresets: () => ipcRenderer.invoke('presets:list'),
   milkdropPresetSource: (id) => ipcRenderer.invoke('presets:source', id),

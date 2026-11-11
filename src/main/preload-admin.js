@@ -282,6 +282,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Medya katmanı
   pickVideo: () => ipcRenderer.invoke('media:pick-video'),
+  screenSources: () => ipcRenderer.invoke('media:screen-sources'),
   /* Dış kaynak katmanları (layer-sources.js): Spout/Syphon girişi ve web
      sayfası. Durum, gönderici listesi ve web sayfasının düğmeleri. */
   sourcesStatus: () => ipcRenderer.invoke('sources:status'),
