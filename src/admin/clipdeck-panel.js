@@ -16,8 +16,8 @@
  * sınırlı, buna karşılık her hücrenin odaklanabilir bir düğme olması gerekiyor —
  * klavyeyle gezinme ve MIDI öğrenme bunu şart koşuyor.
  *
- * PERFORMANS YÜZEYİ (#637). Resolume'un klip ızgarası ve Ableton'un Session
- * görünümü örnek alındı: adlandırılmış sütunlar, ölçü/vuruş göstergesi ve
+ * PERFORMANS YÜZEYİ (#637). Sahnede çalanların alıştığı klip ızgarası
+ * düzeni: adlandırılmış sütunlar, ölçü/vuruş göstergesi ve
  * genel niceleme; hücrede renk, tür, çalma ilerlemesi ve bekleyen yuvanın
  * geri sayımı; boş hücrede "+" ve tek tıkla tür seçimi.
  */
@@ -998,8 +998,8 @@
     return cell;
   }
 
-  /* Deste sekmeleri (#637 CD-2): birden çok deste, Resolume'daki
-     kompozisyon sayfaları gibi. Çalan yuvalar deste değişince durmuyor;
+  /* Deste sekmeleri (#637 CD-2): birden çok deste, ayrı
+     sayfalar gibi. Çalan yuvalar deste değişince durmuyor;
      her destenin sütunları ayrı. */
   function deckTabs() {
     const p = P();

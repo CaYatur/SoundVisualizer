@@ -9,7 +9,7 @@
 
    Sahne renklerini profesyonel ışık dünyasının standart protokolüyle yayar:
    herhangi bir Art-Net düğümü, DMX arayüzü ya da yazılım konsolu (QLC+,
-   Resolume, grandMA) bu paketleri doğrudan alır.
+   VJ yazılımları, ışık masaları) bu paketleri doğrudan alır.
 
    Windows Dynamic Lighting'in tamamlayıcısıdır, yerine geçmez: o klavye/fare
    gibi tüketici aygıtlarını, bu sahne ışıklarını sürer.

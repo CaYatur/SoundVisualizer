@@ -156,7 +156,7 @@ test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
 });
 
 /* Formüldeki faz `m_fRandStart[]` MilkDrop'ta HİÇ ATANMIYOR (#580): birincil
-   kaynakta onu dolduracak `Randomize()` yok, BeatDrop'ta tanımlı ama
+   kaynakta onu dolduracak `Randomize()` yok, D3D9 sürümünde tanımlı ama
    çağrılmıyor; küresel `CPlugin`te dördü de 0. Buradaki eski test tersini
    varsayıyordu ("preset başına dört rastgele sayı") ve motor presetin
    rastgele sayılarını faz olarak ekliyordu. Referans çizicide ölçüldü:

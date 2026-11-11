@@ -1,7 +1,7 @@
 'use strict';
 /* MilkDrop hareket vektörleri: "MilkDrop'taki gibi aynalı" seçeneği (#750).
    MilkDrop 2 vektörün yönünü ağın dikey aynalanmış satırından okuyor;
-   BeatDrop bunu 14.10'da düzeltti. Varsayılan düzeltilmiş alan kalıyor,
+   D3D9 sürümü bunu sonradan düzeltti. Varsayılan düzeltilmiş alan kalıyor,
    aynalı hâl ek seçenek. Ölçüldü (960x720, kare 59, kaba fark 0..255):
    aynalı kip stok MilkDrop'a Align 1,66 / Sun Above Sea 0,53 / Y slide 0,95,
    düzeltilmiş kip yamalı MilkDrop'a 0,82 / 1,73 / 0,92; çapraz eşleşmeler

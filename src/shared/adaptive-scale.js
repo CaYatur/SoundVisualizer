@@ -55,14 +55,23 @@
       scale = 1; acc = 0; frames = 0; missed = 0; skip = 0; calm = 0; raiseAfter = RAISE_AFTER; sinceRaise = -1;
     }
 
-    /* dt: iki animasyon karesi arası (ms). Dönen: ölçek değiştiyse yeni değer, yoksa null. */
-    function tick(dt) {
+    /* dt: iki animasyon karesi arası (ms). Dönen: ölçek değiştiyse yeni değer, yoksa null.
+       t (isteğe bağlı, her karede verilebilir):
+         minPeriod  hedef kare aralığı (ms). Kare hızı sınırı varken (ör. 30 FPS) hedef o
+                    sınırdır, ekranın yenileme hızı değil: sınırı tutturan bir sahne 75 Hz'e
+                    göre "kare kaçırıyor" sayılıp boşuna bulanıyordu (#453).
+         floor      en düşük ölçek; kullanıcı ayarı (power.adaptiveFloor). */
+    function tick(dt, t) {
       if (!(dt > 2) || dt > 500) return null;
+      const lim = t && t.floor > 0 ? Math.min(1, Math.max(0.2, t.floor)) : floor;
+      // Alt sınır yükseltildiyse ölçek hemen ona çıkar
+      if (scale < lim - 1e-6) { scale = round(lim); skip = 1; acc = 0; frames = 0; missed = 0; return scale; }
       // En kısa aralık yenileme süresidir; yavaşça yukarı sızar ki ekran değişince yeniden öğrenilsin
       period = period ? Math.min(dt, period * 1.0005) : dt;
+      const want = Math.max(period, t && t.minPeriod > 0 ? t.minPeriod : 0);
       acc += dt;
       frames++;
-      if (dt > period * MISS_FACTOR) missed += Math.max(1, Math.round(dt / period) - 1);
+      if (dt > want * MISS_FACTOR) missed += Math.max(1, Math.round(dt / want) - 1);
       if (acc < WINDOW_MS) return null;
       const ratio = missed / Math.max(1, frames + missed);
       acc = 0; frames = 0; missed = 0;
@@ -73,8 +82,8 @@
         // Yükseltmenin hemen ardından düşüş: bu sahne o basamağı taşımıyor, daha uzun bekle
         if (sinceRaise >= 0 && sinceRaise <= 2) raiseAfter = Math.min(RAISE_MAX, raiseAfter * 2);
         sinceRaise = -1;
-        if (scale <= floor + 1e-6) return null;
-        scale = round(Math.max(floor, scale - STEP));
+        if (scale <= lim + 1e-6) return null;
+        scale = round(Math.max(lim, scale - STEP));
         skip = 1;
         return scale;
       }

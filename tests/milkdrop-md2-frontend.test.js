@@ -3,7 +3,7 @@
  *
  * Uyum açıkken denklemler MilkDrop 2'nin derleyicisinin (Nullsoft ns-eel2)
  * okuduğu gibi okunuyor ve hesaplanıyor. Buradaki HER beklenen değer, aynı
- * ifadenin ns-eel2'nin derlenmiş hâlinde (milkdrop-tools/eelref; BeatDrop
+ * ifadenin ns-eel2'nin derlenmiş hâlinde (milkdrop-tools/eelref;
  * 53d83ee kaynağı, 32 bit MSVC) verdiği sonuç. Depoya girmeyen o araçla
  * korpusun 10.757 tekil bloğu iki motorda derlendi (derlenip derlenmeme
  * hepsinde aynı) ve dört kare koşturuldu (rand kullanmayan 9.486 bloğun

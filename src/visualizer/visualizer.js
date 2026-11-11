@@ -194,6 +194,7 @@
      katmanında kapalı. */
   const adaptiveHere = typeof location !== 'undefined' && /(?:\?|&)svAdaptive=1(?:&|$)/.test(location.search);
   const adaptive = adaptiveHere && window.SVAdaptiveScale ? window.SVAdaptiveScale.create() : null;
+  const adaptiveOpts = { minPeriod: 0, floor: 0 };
   let autoScale = 1;
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
@@ -543,7 +544,11 @@
       if (cfg.power.adaptiveScale === false) {
         if (autoScale !== 1) { adaptive.reset(); autoScale = 1; resize(); }
       } else {
-        const next = adaptive.tick(rafDt);
+        // Hedef: kare hızı sınırı varsa o, yoksa ekran; alt sınır kullanıcı ayarı (#453).
+        // Nesne her karede yeniden kurulmuyor: çıkış penceresinde kare başına çöp bırakmasın
+        adaptiveOpts.minPeriod = cap > 0 ? 1000 / cap : 0;
+        adaptiveOpts.floor = cfg.power.adaptiveFloor;
+        const next = adaptive.tick(rafDt, adaptiveOpts);
         if (next != null) { autoScale = next; resize(); }
       }
     }

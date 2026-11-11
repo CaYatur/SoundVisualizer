@@ -100,6 +100,7 @@
     { path: 'logo.x', min: 0, max: 1 },
     { path: 'logo.y', min: 0, max: 1 },
     { path: 'power.renderScale', min: 0.4, max: 1, noExtend: true },
+    { path: 'power.adaptiveFloor', min: 0.3, max: 0.9, noExtend: true },
     { path: 'visualizer.barCenterX', min: 0, max: 1 },
     { path: 'visualizer.barHeight', min: 0.05, max: 1 },
     { path: 'visualizer.barRadius', min: 0, max: 0.5 },

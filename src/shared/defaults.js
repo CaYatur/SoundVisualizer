@@ -381,6 +381,7 @@
       lowPower: 'off',
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       adaptiveScale: true, // kare kaçıyorsa çözünürlüğü kendiliğinden düşür (#453)
+      adaptiveFloor: 0.5, // uyarlanır çözünürlüğün inebileceği en düşük ölçek
       pauseOnSilence: false,
       hideCursor: true,
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.
@@ -876,9 +877,9 @@
          yuzeyi kaliyor — iki ayri boru hatti bakim maliyetini ikiye
          katlardi. */
       accurate: true,
-      /* BİÇİM (#567): 'auto' | 'md2' | 'md3'. MilkDrop 3 kuralları 16 dalga
+      /* BİÇİM (#567): 'auto' | 'md2' | 'md3'. Genişletilmiş biçim 16 dalga
          ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32.
-         Otomatik her preseti yüklenirken inceliyor ve MilkDrop 3
+         Otomatik her preseti yüklenirken inceliyor ve genişletilmiş
          uzantısı kullanıyorsa onun kurallarıyla okuyor. Uyumdan ayrı bir
          eksen: uyum MilkDrop'un değerlerini, biçim hangi MilkDrop'un dosya
          kurallarını seçiyor. */
@@ -1127,7 +1128,7 @@
     // aygıtlarını, bu sahne ışıklarını sürer.
     // ------------------------------------------------------------------
     // Spout (Windows) / Syphon (macOS): görüntüyü aynı makinedeki başka bir
-    // uygulamaya GPU üzerinden verir — Resolume, OBS, TouchDesigner. Pencere
+    // uygulamaya GPU üzerinden verir — OBS, VJ ve video yazılımları. Pencere
     // yakalama yok, eklenti yok, CPU kopyası yok. Linux'ta YOKTUR: Spout bir
     // Windows, Syphon bir macOS teknolojisi ve Linux'ta yerleşik eşdeğeri yok.
     textureShare: {
@@ -1209,7 +1210,7 @@
 
     // ------------------------------------------------------------------
     // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
-    // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
+    // değişimleri başka yazılımlara (VJ yazılımları, ışık masası).
     // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
     // ------------------------------------------------------------------
     oscOut: {

@@ -37,7 +37,7 @@
   ];
   const WAVE_PARTS = ['init', 'per_frame', 'per_point'];
   const SHAPE_PARTS = ['init', 'per_frame'];
-  /* Tanınan yuva: MilkDrop 3 kurallarında 16 (#567). Bir dosya kaç yuvayla
+  /* Tanınan yuva: genişletilmiş biçimde 16 (#567). Bir dosya kaç yuvayla
      OKUNUYOR ayrı soru — `read` ve `write`ın `slots`u: MilkDrop 2 kuralında
      4, ve 4'ün ötesindeki satırlara dokunulmuyor. */
   const SLOTS = 16;

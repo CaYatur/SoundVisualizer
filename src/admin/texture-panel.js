@@ -108,7 +108,7 @@
     if (!t.enabled) {
       nodes.push(el('div', {
         class: 'settings-io-note',
-        text: 'Açıldığında görüntü, aynı bilgisayardaki alıcı uygulamalara GPU üzerinden verilir: Resolume, OBS, TouchDesigner veya başka bir alıcı. Pencere yakalamaya, eklenti kurmaya ve CPU kopyasına gerek yok.',
+        text: 'Açıldığında görüntü, aynı bilgisayardaki alıcı uygulamalara GPU üzerinden verilir: OBS, VJ ve video yazılımları ya da başka bir alıcı. Pencere yakalamaya, eklenti kurmaya ve CPU kopyasına gerek yok.',
       }));
       return el('div', { class: 'texture-panel' }, nodes);
     }

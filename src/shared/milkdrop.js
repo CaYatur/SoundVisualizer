@@ -224,11 +224,11 @@
   };
 
   /* MilkDrop 2'NİN İÇ İŞLEVLERİ (#580). MilkDrop 2'nin ifade derleyicisi
-     (Nullsoft'un ns-eel2'si; BeatDrop kopyasında nseel-compiler.c fnTable1,
+     (Nullsoft'un ns-eel2'si; nseel-compiler.c fnTable1,
      ad çevirisi nseel-eval.c) işleçleri adlı işlevler olarak da
      çağrılabilir tutuyor: `_aboeq(a, b)` `a >= b` demek. Korpusta üç preset
      `_aboeq` çağırıyor ve motor onları "bilinmeyen işlev" diye atlıyordu.
-     D3D11 çatalı (jecassis) ifadeleri projectM'in yeniden yazdığı
+     D3D11 sürümü ifadeleri yeniden yazılmış başka bir
      kütüphaneyle değerlendiriyor; burada presetlerin yazıldığı Nullsoft
      derleyicisi izleniyor. Yalnız uyum açıkken derleniyor — kapalıyken eski
      davranış (bilinmeyen işlev) duruyor.
@@ -471,7 +471,7 @@
   // MILKDROP 2'NİN İFADE ÖN UCU (#580)
   //
   // Uyum açıkken denklemler MilkDrop 2'nin derleyicisinin (Nullsoft ns-eel2;
-  // BeatDrop kopyası 53d83ee, nseel-compiler.c preprocessCode, nseel-eval.c,
+  // ns-eel2: nseel-compiler.c preprocessCode, nseel-eval.c,
   // nseel-lextab.c) okuduğu gibi okunuyor. Aşağısı onun DAVRANIŞININ bizim
   // kodumuzla kurulmuş hâli; her kural derlenmiş gerçeğiyle karşılaştırılarak
   // doğrulandı (milkdrop-tools/eelref: aynı ifade, iki motor):
@@ -1727,7 +1727,7 @@
      okunuyor (`readMilk`); kapalıyken yukarıdaki `parseMilk` duruyor.
 
      MilkDrop dosyayı önce satır satır bir dizine çeviriyor (state.cpp
-     _GetLineByName; BeatDrop'un D3D9 hâli aynı): satırın ADI ilk `=`ye, ilk
+     _GetLineByName; D3D9 sürümü aynı): satırın ADI ilk `=`ye, ilk
      boşluğa ya da satır sonuna kadar olan kısım, DEĞERİ ondan sonrası.
      Sonra anahtarları KENDİ sırasıyla arıyor (CState::Import, CWave::Import,
      CShape::Import): önce bir önceki okumanın hemen ardındaki satıra
@@ -1836,7 +1836,7 @@
      yinelenen numaralarda hangisini seçtiği aramanın sırasına bağlı. */
   function parseMilkMd2(text, seen, raw, slots) {
     /* Dalga ve şekil yuvası: MilkDrop 2'de 4 (md_defines.h
-       MAX_CUSTOM_WAVES/SHAPES), MilkDrop 3 kipinde 16 (#567). 4'te okuma
+       MAX_CUSTOM_WAVES/SHAPES), genişletilmiş biçimde 16 (#567). 4'te okuma
        sırası ve arama konumu eskisinin aynısı. */
     const SLOTS = slots === 16 ? 16 : 4;
     const ix = md2Index(text);
@@ -1921,16 +1921,16 @@
   // Uyum anahtarına göre okuyuş: açıkken MilkDrop'unki, kapalıyken eski ayrıştırıcı
   const readMilk = (text, accurate, slots) => (accurate === false ? parseMilk(text) : parseMilkMd2(text, null, null, slots));
 
-  /* MİLKDROP 3 UZANTILARI (#567). Bir presetin hangi MilkDrop 3 uzantısını
+  /* GENİŞLETİLMİŞ BİÇİM ÖZELLİKLERİ (#567). Bir presetin hangi genişletilmiş biçim özelliğini
      kullandığı: 'slots' (5.–16. dalga ya da şekil yuvası etkin ya da kodlu),
      'slot4' (yalnız 5. yuva, yani 4 numara), 'q64' (denklemlerde q33–q64),
      'wavemode' (nWaveMode 8 ve üstü), 'fft' ve 'mouse' (shader'da get_fft,
-     get_fft_hz, mouse.x…). Tarif MilkDrop 3'ün kendi açıklamasından
+     get_fft_hz, mouse.x…). Tarif biçimin kendi açıklamasından
      (README): 16 şekil ve dalga, q1–q64, 16 basit dalga biçimi, shader'da
      FFT ve fare; o özelliklerin koduna erişim yok, yalnız adları.
 
-     Otomatik kip (`md3Auto`) yalnız 'slots', 'q64', 'fft' ve 'mouse'u MD3
-     sayıyor. Korpusun 10.347 presetinden 14'ü öbür ikisine takılıyor ve
+     Otomatik kip (`md3Auto`) yalnız 'slots', 'q64', 'fft' ve 'mouse'u genişletilmiş biçime
+     ait sayıyor. Korpusun 10.347 presetinden 14'ü öbür ikisine takılıyor ve
      hepsi MilkDrop 2 dönemi dosyası: 7'si 4 numaralı yuvayı açık ya da
      kodlu yazıyor (162 dosya o yuvanın anahtarını taşıyor), 5'i 8 ve üstü
      dalga kipi yazıyor. MilkDrop 2 ikisini de yok sayıyordu (yuva 4'ün
@@ -1958,7 +1958,7 @@
     return Array.from(out);
   }
   const md3Auto = (text) => md3Features(text).some((f) => MD3_AUTO.indexOf(f) >= 0);
-  // Biçim ayarı ve metin → bu preset MilkDrop 3 kurallarıyla mı okunuyor
+  // Biçim ayarı ve metin → bu preset genişletilmiş biçimle mi okunuyor
   function isMd3(format, text) {
     if (format === 'md3') return true;
     if (format === 'md2') return false;
@@ -2155,7 +2155,7 @@
      `wave_r/g/b/x/y` yazılmamışsa 0, CState::Default'un 1 ve 0,5'i DEĞİL:
      Import onları varsayılan olarak `rot`un o anki değeriyle okuyor
      (`GetFastFloat("wave_r", m_fRot.eval(-1), f)`, state.cpp:1389-1393;
-     BeatDrop'un D3D9 hâli 1368-1372 aynı) ve `rot` henüz okunmadığı için
+     D3D9 sürümü 1368-1372 aynı) ve `rot` henüz okunmadığı için
      o değer Default'un 0'ı. Yani bu anahtarları yazmayan bir dosyanın
      dalgası MilkDrop'ta siyah ve köşede. Korpusta hiçbir dosya onları
      atlamıyor, yerleşiklerimiz ve üreticimiz de yazıyor (#580).
@@ -2312,7 +2312,7 @@
       this.accurate = o.accurate !== false;
       this.readAcc = this.accurate;
       /* BİÇİM (#567): 'md2' | 'md3' | 'auto'. Uyumdan (`accurate`) ayrı bir
-         eksen: MilkDrop 3 kurallarında 16 dalga ve şekil yuvası ve q1–q64.
+         eksen: genişletilmiş biçimde 16 dalga ve şekil yuvası ve q1–q64.
          Otomatikte preset metninden (`md3Auto`). Kurulumda bir kez; ayar
          değişince görselleştirici preseti yeniden kuruyor. */
       this.format = o.format === 'md2' || o.format === 'md3' ? o.format : 'auto';
@@ -2475,7 +2475,7 @@
         const i = +m[1];
         if (!byIdx.has(i)) byIdx.set(i, { index: i });
       }
-      /* Yuva sayısının ötesi yok (#567): MilkDrop 2'de 4, MilkDrop 3
+      /* Yuva sayısının ötesi yok (#567): MilkDrop 2'de 4, genişletilmiş biçimde
          kurallarında 16. Eski okuyucu (uyum kapalı) bütün numaraları
          topluyordu ve 4 numaralı yuvayı açan 7 korpus presetinde MilkDrop'un
          hiç çizmediği bir şekil ya da dalga çiziliyordu. */
@@ -2939,7 +2939,7 @@
   // MilkDrop 2'nin aşama seçimi ve sabit yol ayrıntıları (#580)
   // ==========================================================================
   /* Birincil kaynak: jecassis/foo_vis_milk2 5b44cea (Nullsoft'un kodu),
-     sabit yol için BeatDrop 53d83ee'deki D3D9 hâliyle de karşılaştırıldı.
+     sabit yol için MilkDrop 2'nin D3D9 kaynağıyla da karşılaştırıldı.
      Buradakiler kaynaktan öğrenilen KURALLAR; kod bizim.
 
      AŞAMA SÜRÜMDEN SEÇİLİYOR, METİNDEN DEĞİL (state.cpp:1328-1348,
@@ -3029,7 +3029,7 @@
     return out.join('\n');
   }
 
-  /* Sabit yolun yankı yönü (milkdropfs.cpp:3888, BeatDrop 4066):
+  /* Sabit yolun yankı yönü (milkdropfs.cpp:3888; D3D9 sürümünde 4066):
      `(int)echo_orient % 4` — C'de sıfıra doğru kırpılıyor ve kalan
      bölünenin işaretini alıyor; x ekseni `% 2` sıfır değilse, y ekseni
      değer 2 ya da üstüyse çevriliyor. Yani -1 x'i çeviriyor, 5 de 1 gibi.
@@ -3040,7 +3040,7 @@
   }
 
   /* SABİT BİRLEŞTİRMENİN KÖŞE AĞIRLIKLARI (#580; milkdropfs.cpp:3907-4003,
-     BeatDrop'un D3D9 hâli 4090-4180 aynı).
+     D3D9 sürümü 4090-4180 aynı).
 
      MilkDrop sabit yolda görüntüyü dokulu bir dörtgenle BİRKAÇ KEZ
      çiziyor: ilki yazıyor, gerisi üstüne ekliyor. Her çizimin köşe rengi
@@ -3101,13 +3101,13 @@
     return { main, echo, echoOn };
   }
 
-  /* MilkDrop 3 ÇİFT PRESETİ (.milk2, #567).
+  /* ÇİFT PRESET (.milk2, #567).
 
      Dosya iki tam preset taşıyor ([PRESET1_BEGIN]..[PRESET1_END] ve 2) ve
      başında ikisinin nasıl karıştırılacağı: desen (blending_pattern: side,
      plasma...), karışımın durduğu yer (blending_progress 0..1), yön ve beş
      rastgele sayı. Sonrasında isteğe bağlı sprite bölümleri. Biçim gerçek
-     MilkDrop 3.x dosyalarından okundu; MilkDrop 3'ün kaynağı yayında değil,
+     .milk2 dosyalarından okundu; biçimi yazan oynatıcının kaynağı yayında değil,
      yani karışımın ANLAMI (hangi rastgele sayı neye gidiyor) kendi
      yorumumuz: MilkDrop 2'nin geçiş desenleri (RandomizeBlendPattern) bu
      sayılarla sabitlenip geçiş o noktada durduruluyor.
@@ -3147,7 +3147,7 @@
       random,
       presets: [p1, p2],
       names: [nameOf(p1), nameOf(p2)],
-      // Sprite bölümleri MilkDrop 3'ün kendi resim klasörüne bağlı; şimdilik yalnız sayılıyor
+      // Sprite bölümleri yazan oynatıcının kendi resim klasörüne bağlı; şimdilik yalnız sayılıyor
       sprites: (s.match(/\[SPRITE\d+_BEGIN\]/g) || []).length,
     };
   }

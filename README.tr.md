@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4411%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4414%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -103,7 +103,7 @@ kontrolü**.
   uygulamadan**: görseller Spotify'ı izler, oyunu ve sesli sohbeti duymaz. Uygulama başına yakalama
   Linux'ta da çalışıyor. [→ Ses](#ses-yakalama-ve-çözümleme)
 - **Her ekran, tek motor.** Seçtiğiniz her ekranda tam ekran pencere, saydam bir **OBS tarayıcı
-  kaynağı**, Resolume, TouchDesigner ve MadMapper için **Spout / Syphon**, ve bir **telefon
+  kaynağı**, VJ, haritalama ve video yazılımları için **Spout / Syphon**, ve bir **telefon
   kumandası** — hepsi aynı görüntüyü çiziyor. [→ Çıkışlar](#çıkışlar-ekranlar-obs-spout-ve-syphon)
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
@@ -114,7 +114,7 @@ kontrolü**.
   geçiş sürgüsü, katman başına ya da tüm kareye 44 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
   [→ Katmanlar](#katmanlar-maskeler-ve-efektler)
-- **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** TouchDesigner, Resolume, OBS
+- **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** başka bir uygulamanın, OBS'in
   ya da bir kamera uygulamasının görüntüsünü GPU üzerinden bir katmana koyar; **web sayfası katmanı**
   uyarıları, sohbeti, bir skor tabelasını ya da saati ekler — yalıtılmış olarak ve her çıkışta.
   [→ Medya katmanı](#logo-görseller-ve-medya-katmanı)
@@ -241,7 +241,7 @@ npm start
 | Siz… | Elde ettiğiniz |
 |---|---|
 | **Yayıncıysanız** | OBS'e tarayıcı kaynağı olarak saydam bir katman, albüm kapaklı Çalan Parça kartı, şarkı sözleri, uyarılar ve sohbet için bir web sayfası katmanı, ve yayının ortasında sahne değiştirmek için bir telefon kumandası. OBS başka bir bilgisayardayken de çalışır. |
-| **VJ ya da sahne sanatçısıysanız** | Zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, MIDI ve OSC kontrolü, karartma, Resolume ya da TouchDesigner ile iki yönlü Spout/Syphon, ve her projektörde tam ekran çıkış. |
+| **VJ ya da sahne sanatçısıysanız** | Zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, MIDI ve OSC kontrolü, karartma, başka VJ yazılımlarıyla iki yönlü Spout/Syphon, ve her projektörde tam ekran çıkış. |
 | **Müzik yapımcısı ya da plak şirketiyseniz** | Parçanızdan 12 biçimde kare kare video dışa aktarma, YouTube, Shorts ve Spotify Canvas için tek tıkla profiller, logonuz ve parça adıyla sade müzik videosu düzenleri, onları yerleştirmek için bir düzen editörü, Başlık ve Kapanış Kartları, YouTube bölümleri ve küçük resim, ve canlı çıkış için bir kayıt aracı. |
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
@@ -439,14 +439,14 @@ dikdörtgene çevirmeden boş piksellerin üzerinde parlar.
 
 </div>
 
-Bu uygulama için yazılmış bir MilkDrop motoru — projectM'in ya da MilkDrop'un kodunu içermiyor. Preset
+Bu uygulama için yazılmış bir MilkDrop motoru — MilkDrop'un ya da başka bir oynatıcının kodunu içermiyor. Preset
 dili gerçekten çalışıyor: bir sözcük çözümleyici, bir ayrıştırıcı ve JavaScript kapanışlarına
 derleme; `per_frame` ve `per_pixel` denklemleri geri beslemeli bir warp ağını sürüyor; HLSL warp ve
 composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 
-- **İddia değil, ölçüm.** projectM'in özgün ve cream-of-the-crop paketlerinden 10.347 presetlik bir
+- **İddia değil, ölçüm.** İki büyük herkese açık preset koleksiyonundan 10.347 presetlik bir
   derlemde her preset yükleniyor ve çalışıyor, 16.346 shader aşamasının hepsi derleniyor ve yaklaşık
-  %98'i canlı bir görüntü veriyor. Uyum, BeatDrop'un MilkDrop 2 kaynaklarından kurulmuş bir başvuru
+  %98'i canlı bir görüntü veriyor. Uyum, MilkDrop 2'nin kendi D3D9 kaynağından kurulmuş bir başvuru
   çiziciye karşı kare kare denetleniyor. İki ölçüm aracı da `scripts/` altında; sayılar yeniden
   üretilebilir.
 - **MilkDrop Uyumu anahtarı** MilkDrop 2'nin kendi kurallarını izliyor — derleyicisini, ses zincirini,
@@ -460,17 +460,17 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
   ücretsiz kullanılabilirler: [`presets`](presets/README.md) klasöründen (her birinin görseliyle) ya da
   her sürümdeki zip'ten indirebilirsiniz. MilkDrop 2 asılları
-  [`presets/original/md2/cayadev`](presets/original/md2/cayadev), MilkDrop 3 asılları
+  [`presets/original/md2/cayadev`](presets/original/md2/cayadev), genişletilmiş biçim asılları
   [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
   Eski derleyiciler için indirgenmiş kopyalar
   [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır.
 - **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
-  bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,
+  bilgisayarı arayarak (Winamp, foobar2000 ve başka oynatıcıların preset klasörleri, İndirilenler, Masaüstü, Müzik,
   Belgeler). Bir şey kopyalanmadan önce ne ekleneceğini görüyorsunuz; aynıları atlanıyor; dokular da
   geliyor; klasör adları etikete dönüşebiliyor. 9.795 presetlik bir klasör yaklaşık altı saniyede içe
   aktarılıyor.
-- **`.milk` ve `.milk2`** — MilkDrop 3'ün çift presetleri iki presetlerinin donmuş bir
-  karışımı olarak yükleniyor; *Preset Biçimi* ayarı dosyaları MilkDrop 2 ya da MilkDrop 3 kurallarıyla
+- **`.milk` ve `.milk2`** — `.milk2` çift presetleri iki presetlerinin donmuş bir
+  karışımı olarak yükleniyor; *Preset Biçimi* ayarı dosyaları MilkDrop 2 kurallarıyla ya da genişletilmiş biçimle
   (16 özel dalga ve şekil, `q1`–`q64`) okuyor ya da kendisi seçiyor.
 - **Küçük resimler** — *Izgara* düzeninde her preset küçük bir resim olarak görünüyor;
   arka planda bir kez çiziliyor, yalnız preset ya da kullandığı bir doku değişince yeniden çiziliyor.
@@ -771,7 +771,7 @@ haber bandı · karaoke vurgusu.
   vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
   formülü kare kare izliyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
-  görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
+  görüntüsü (VJ ya da video yazılımı, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
   kendi içine dönemez. Sığdırma, ayna, dikey çevirme, göndericinin saydamlığını koruma ya da atma
   ve gönderici durunca son kareyi tutma. Kartta ya da Düzen Editöründe sürükleyerek yerleştirip
@@ -884,8 +884,8 @@ olamayacağını söyleyen bir durum satırını okuyun.
 **MIDI.** Bir denetimi öğretin, sonra herhangi bir CC'yi ya da notayı herhangi bir ayara ya da eyleme
 eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil.
 
-**OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
-için.
+**OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; telefon kumanda uygulamaları, müzik ve
+gösteri yazılımları için.
 
 **OSC çıkışı**. Öbür yön. Varsayılan kapalı; başka bir hedef girilene kadar bu
 bilgisayara gönderir ve geri besleme olmasın diye kendi OSC girişine göndermez. Ek hedefler satır
@@ -1008,8 +1008,8 @@ sunar.
 **GPU çıkışı — Spout ve Syphon.** Görüntü aynı makinedeki başka bir uygulamaya GPU üzerinden
 verilebiliyor: pencere yakalama yok, CPU kopyası yok.
 
-- Windows'ta **Spout**, macOS'ta **Syphon**. Alıcılar arasında Resolume, OBS, TouchDesigner ve
-  MadMapper var — iki protokolden birini konuşan her şey.
+- Windows'ta **Spout**, macOS'ta **Syphon**. Alıcılar arasında OBS ve VJ, haritalama
+  ve video yazılımları var — iki protokolden birini konuşan her şey.
 - **Kaynak adını**, çözünürlüğü ve kare hızını seçin.
 - Kendi gizli penceresinde çiziliyor; hiçbir görselleştirme penceresi açık değilken de akış sürüyor.
 - Spout ve Syphon opak kalıyor: paylaşılan bir GPU dokusu göndereni düşürmeden alfa taşıyamıyor.
@@ -1294,7 +1294,7 @@ Oluşturur ve düzenler.
   `sv_delete_scene` siler.
 - Katmanlar: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
   `sv_remove_layer`, `sv_duplicate_layer`, `sv_reorder_layers`. `milkdrop` türüyle `sv_add_layer`
-  presetiyle hazır bir MilkDrop katmanı ekler (`presetId` ya da yerleşik bir MilkDrop 3 preseti);
+  presetiyle hazır bir MilkDrop katmanı ekler (`presetId` ya da genişletilmiş biçimde yerleşik bir preset);
   ortak preseti gösteren başka bir katman varsa yenisi Bağımsız olur. `sv_duplicate_layer` paneldeki
   Çoğalt gibi kaynağın hemen üstüne yeni kimlikli bir kopya koyar; kilitli katman kopyalanabilir,
   kopya da kilitli kalır. Bir katman tür, görselleştirici tipi, preset, opaklık,
@@ -1533,13 +1533,13 @@ Evet. Yayın Çıkışı'nı açın ve adresi bir Tarayıcı Kaynağı olarak ek
 aynı ağdaki başka bir bilgisayarda olabilir. GPU paylaşımı için Spout (Windows) ve Syphon (macOS) da var.
 
 **MilkDrop presetlerimi yükleyebilir mi?**
-Evet: tek `.milk` dosyaları, MilkDrop 3 `.milk2` çift presetleri, ZIP paketleri,
+Evet: tek `.milk` dosyaları, `.milk2` çift presetleri, ZIP paketleri,
 klasörler ya da bilgisayarınızda bir arama. Görsel kullanan presetler için uygulamayı bir MilkDrop
 `textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; beş özgün preset geliyor.
 
-**Bir Winamp ya da projectM eklentisi mi?**
-Hayır. WebGL2'de kendi MilkDrop uyumlu motoru olan bağımsız bir uygulama. projectM'i ya da MilkDrop'u
-içermiyor.
+**Bir Winamp eklentisi mi?**
+Hayır. WebGL2'de kendi MilkDrop uyumlu motoru olan bağımsız bir uygulama. MilkDrop'u ya da başka bir
+oynatıcıyı içermiyor.
 
 **Birkaç monitörü ve projektörü destekliyor mu?**
 Evet — seçilen her ekranda tam ekran bir pencere, artı projektörler ve LED duvarlar için projeksiyon
@@ -1585,7 +1585,7 @@ kapatmak motorun önceki görünümünü geri getiriyor.
 
 - **Preset dili gerçekten çalışıyor** — sözcük çözümleyici, ayrıştırıcı ve JavaScript kapanışlarına
   derleme. `per_frame` ve `per_pixel` denklemleri gerçek bir warp ağını geri beslemeyle sürüyor.
-- **10.347 gerçek preset üzerinde ölçüldü**, projectM'in özgün ve cream-of-the-crop paketlerinden:
+- **10.347 gerçek preset üzerinde ölçüldü**, iki büyük herkese açık preset koleksiyonundan:
   hepsi yükleniyor ve çalışıyor, 10.344'ünde tek bir deyim bile atlanmıyor.
 - **`.milk` içe aktarma**, çok dosyalı paketler dahil; derleme hataları dosya dosya bildiriliyor.
 - **Uygulama kendi beş presetiyle geliyor.** *Kutup Işığı* (akışkan bir bulutsu), *Erimiş Altın*
@@ -1595,7 +1595,7 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
 - **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) onların yanında gömülü
   geliyor: sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
-  MilkDrop 3 asılları [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
+  genişletilmiş biçim asılları [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
   Eski oynatıcılar için indirgenmiş kopyalar [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır ve pakete girmez.
   Her birinin geçtiği denetimler klasörün README'sinde; her sürümdeki zip aynı asıl dosyaları taşır.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
@@ -1761,11 +1761,11 @@ kapatmak motorun önceki görünümünü geri getiriyor.
 - **Bütün bir MilkDrop kütüphanesini içe aktarın.** MilkDrop panelindeki *ZIP Paketinden İçe
   Aktar*, *Klasörden İçe Aktar* ve *Makinede Ara* bir kütüphaneyi tek seferde alıyor: iç içe
   klasörler, paketin dokuları ve istenirse paketin kategori klasörleri etiket olarak. Neyin
-  ekleneceğini (preset, doku, MB ve neyin atlanacağı: MilkDrop 3'ün `.milk2` çift presetleri, sınırı
+  ekleneceğini (preset, doku, MB ve neyin atlanacağı: sınırı
   aşan dosyalar, şifreli ZIP girdileri) görüp onaylamadan hiçbir şey kopyalanmıyor. Aynı ad ve
   içerikteki presetler atlanıyor, yani bir paketi iki kez almak bir şey eklemiyor. Dokular
   uygulamanın kendi klasörüne gidiyor ve seçtiğiniz doku klasöründen sonra aranıyor; paketin
-  `sampler_worms`'u klasör seçmeden de çalışıyor. Arama bilinen Winamp, foobar2000 ve projectM
+  `sampler_worms`'u klasör seçmeden de çalışıyor. Arama bilinen Winamp, foobar2000 ve başka oynatıcıların preset
   klasörlerine ve İndirilenler, Masaüstü, Müzik, Belgeler'e — sistem onları nerede tutuyorsa —
   bakıyor ve birkaç saniyede duruyor; sayımını bitiremediği bir kütüphane size sorulmadan önce
   baştan taranıyor. Uygulamayla hiçbir preset paketi gelmiyor. Gerçek paketlerle ölçüldü: 9.795
@@ -1810,10 +1810,10 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   her karede yeniden yazıyorsa bunu söylüyor. Asıl preset hiç değişmiyor: *Yeni Preset Olarak
   Kaydet* sizin sürümünüzü saklıyor ve yalnız değiştirdiğiniz yazılıyor — dosyanın geri kalanı
   baytı baytına aynı.
-- **MilkDrop 2 ve MilkDrop 3 kuralları.** *Preset Biçimi* ayarı — Otomatik, MilkDrop 2 ya da
-  MilkDrop 3 — presetin kimin dosya kurallarıyla okunacağını seçiyor: MilkDrop 3'ün 16 özel dalgası
-  ve şekli ve q1–q64'ü ya da MilkDrop 2'nin dördü ve q1–q32'si. Otomatik, bu uzantıları kullanan
-  preseti MilkDrop 3 kurallarıyla okuyor ve panel hangilerini kullandığını söylüyor. MilkDrop 3'ün
+- **MilkDrop 2 kuralları ve genişletilmiş biçim.** *Preset Biçimi* ayarı — Otomatik, MilkDrop 2 ya da
+  Genişletilmiş — presetin hangi dosya kurallarıyla okunacağını seçiyor: genişletilmiş biçimin 16 özel dalgası
+  ve şekli ve q1–q64'ü ya da MilkDrop 2'nin dördü ve q1–q32'si. Otomatik, bu özellikleri kullanan
+  preseti genişletilmiş biçimle okuyor ve panel hangilerini kullandığını söylüyor. Biçimin
   1–6 numaralı sert geçiş kipleri kendi eşik ve gecikmeleriyle seçilebiliyor. `.milk2` çift presetleri,
   iki presetinin donmuş bir karışımı olarak yükleniyor. Yeni dalga biçimleri, yeni geçişleri ve
   shader'da `get_fft` henüz yok: nasıl davrandıklarını tarif eden bir kaynak yok.
@@ -2051,7 +2051,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4411 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4414 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2177,6 +2177,6 @@ MIT — bkz. [LICENSE](LICENSE). Telif hakkı (c) 2026 Çağan Turgut ([CaYatur]
 
 **[cayadev.com](https://cayadev.com)**
 
-<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · projectM alternatifi · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
+<sub>Anahtar sözcükler: müzik görselleştirici · ses görselleştirici · VJ yazılımı · MilkDrop · MilkDrop presetleri · OBS katmanı · Spotify görselleştirici · masaüstü görselleştirici · çoklu monitör · projeksiyon haritalama · Spout · Syphon · WebGL · Electron · MCP · music visualizer · audio visualizer</sub>
 
 </div>

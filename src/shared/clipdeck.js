@@ -53,8 +53,8 @@
     bar4: null,
   };
   const QUANTIZE_IDS = ['off', 'frame', 'quarter', 'half', 'beat', 'bar', 'bar2', 'bar4'];
-  /* 'global' (#637): yuva destenin genel nicelemesini izliyor (Resolume'daki
-     kompozisyon ayarı gibi). Çalıştırıcı ateşlerken onu gerçek bir kipe
+  /* 'global' (#637): yuva destenin genel nicelemesini izliyor (destenin
+     genel ayarı). Çalıştırıcı ateşlerken onu gerçek bir kipe
      çeviriyor; genel ayar değişince bütün bu yuvalar birlikte değişiyor. */
   const SLOT_QUANTIZE_IDS = ['global'].concat(QUANTIZE_IDS);
 
@@ -101,7 +101,7 @@
 
   const FOLLOW_ACTIONS = ['stop', 'loop', 'next', 'random', 'goto', 'none'];
 
-  /* Ateşleme kipi (#637 CD-2), Resolume ve Ableton'daki gibi:
+  /* Ateşleme kipi (#637 CD-2), klip ızgaralarındaki alışılmış kipler:
        trigger  her basış ateşler (varsayılan, eski davranış)
        toggle   çalarken ya da hazırlanırken basmak durdurur
        gate     basılı tutulduğu sürece çalar; bırakınca sütunda ondan

@@ -69,7 +69,7 @@ test('ayarlar: geçersiz her alan güvenli varsayılana düşer', () => {
   for (const host of ['evil host', 'a/b', '', 5, '-x.com', 'a'.repeat(254), '::1%eth0']) {
     assert.strictEqual(on({ host }).host, '127.0.0.1', 'adres ' + host);
   }
-  for (const host of ['192.168.1.20', 'resolume-pc.local', 'localhost', '::1', '[::1]', '2001:db8::20']) {
+  for (const host of ['192.168.1.20', 'vj-pc.local', 'localhost', '::1', '[::1]', '2001:db8::20']) {
     assert.strictEqual(on({ host }).host, host.replace(/^\[|\]$/g, ''), 'adres ' + host);
   }
   assert.strictEqual(on({ latencyMs: 80 }).latencyMs, 80);
