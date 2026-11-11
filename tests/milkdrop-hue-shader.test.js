@@ -5,7 +5,7 @@
  * yolda iki ayrı şekilde kullanıyor:
  *  - SHADER'LI YOL: `hue_shader`a HER ZAMAN tam renk gidiyor, `fShader` ne
  *    olursa olsun ("shader kullanıyor mu bilmiyoruz", milkdropfs.cpp:4122;
- *    D3D9 sürümü 4318 aynı). `fShader` yalnız MilkDrop'un kendi
+ *    BeatDrop'un D3D9 hâli 4318 aynı). `fShader` yalnız MilkDrop'un kendi
  *    yazdığı birleştirme metninde çarpan.
  *  - SABİT YOL: renk beyaza doğru presetin `fShader` oranıyla karışıyor ve
  *    oran 0,001'in altındaysa hiç hesaplanmıyor — köşeler beyaz

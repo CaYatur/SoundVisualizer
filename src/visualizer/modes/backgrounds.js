@@ -595,7 +595,10 @@
       if (this.rings.length > 60) this.rings.splice(0, this.rings.length - 60);
 
       const grow = (0.18 + g.speed * 0.35) * m.speed * (1 + audio.level * g.react * 0.7);
-      ctx.lineCap = 'round';
+      /* Düz uç: halka tam bir daire, uçları çizginin kendi içinde kalıyor. Yuvarlak uç
+         görüntüyü değiştirmiyor ama tuvalin hızlı daire çizimini devre dışı bırakıyordu:
+         her halka ekran boyu bir yol olarak işleniyor, 1080p'de sahne ~60 fps'te kalıyordu. */
+      ctx.lineCap = 'butt';
       for (let i = this.rings.length - 1; i >= 0; i--) {
         const ring = this.rings[i];
         ring.r += step * grow;

@@ -769,7 +769,7 @@
     }
     return { create: true };
   }
-  /* Gömülü pakette genişletilmiş biçimde, sakin başlayan bir preset: "MilkDrop" kartıyla
+  /* Gömülü pakette MilkDrop 3 biçiminde, sakin başlayan bir preset: "MilkDrop" kartıyla
      eklenen katman boş ekranla açılmasın. */
   const MD_DEFAULT_PRESET = 'md_caya_twelve_moons';
   /* Hazır MilkDrop katmanı (Katman Ekle > MilkDrop, MCP sv_add_layer). Ortak preseti çizen
