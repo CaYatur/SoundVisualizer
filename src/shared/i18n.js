@@ -4186,7 +4186,8 @@
     // Arama & Navigasyon
     'Ses Analizi': 'Audio Analysis',
     'Ses Kaynakları': 'Audio Sources',
-    'Ses Çözümlemesi': 'Audio Analysis',
+    // "Ses Analizi" de Audio Analysis; aynı menüde iki aynı ad olmasın (README: Deep analysis)
+    'Ses Çözümlemesi': 'Deep Analysis',
     'Aktif Kaynaklar': 'Active Sources',
     'Art-Net / DMX Output': 'Art-Net / DMX Output',
     'Güç / Performans': 'Power / Performance',

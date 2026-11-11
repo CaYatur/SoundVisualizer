@@ -12581,7 +12581,15 @@ async function runShots() {
     const leak = realDevices.find((n) => text.includes(n));
     if (leak) throw new Error('gerçek ses aygıtı adı görünüyor');
     const img = await win.webContents.capturePage();
-    fs.writeFileSync(path.join(shotsDir, name), img.toPNG());
+    let png = img.toPNG();
+    /* Panel görüntüleri paletle (libimagequant, dither'lı). Canlı önizlemeden beslenen ortam ışığı
+       PNG'de kötü sıkışıyor: 20 görüntü 22 MB'tı, böyle ~6 MB. Ölçüldü: ortalama kanal farkı
+       0,7–2,3 seviye, yazılar ve arayüz aynı. Sahne çizimlerine (renk geçişleri) uygulanmıyor. */
+    if (/^panel-.*\.png$/.test(name)) {
+      try { png = await require('sharp')(png).png({ palette: true, quality: 92, effort: 10, dither: 1.0, compressionLevel: 9 }).toBuffer(); }
+      catch (e) { /* sharp yok: özgün PNG */ }
+    }
+    fs.writeFileSync(path.join(shotsDir, name), png);
     console.log('[SHOTS] saved ' + name);
   };
 
@@ -12700,6 +12708,25 @@ async function runShots() {
       { id: 'ly_show_np', name: 'Track Info', kind: 'nowplaying', type: 'nowplaying', enabled: true, settings: {} },
     ],
     visualizer: { type: 'milkdrop' },
+    /* Efekt zinciri boş olunca README'nin efekt görseli "Add effect…" diyen boş bir kart gösteriyordu. */
+    postfx: [
+      { id: 'fx_show_bloom', type: 'bloom', enabled: true, opacity: 1, params: { threshold: 0.4, intensity: 1.3, radius: 3 } },
+      { id: 'fx_show_chroma', type: 'chroma', enabled: true, opacity: 1, params: { amount: 0.004 } },
+      { id: 'fx_show_vignette', type: 'vignette', enabled: true, opacity: 1, params: { amount: 0.35 } },
+    ],
+    /* Modülasyon görseli: adlı makrolar ve sesten gelen birkaç bağlantı. Boşken sekiz adsız %0 makro
+       görünüyordu. Hedefler şovun kendi ayarları (efekt zinciri, katman saydamlığı). */
+    modulation: Object.assign({}, realCfg.modulation || {}, {
+      enabled: true,
+      macros: [['Energy', 0.72], ['Glow', 0.55], ['Motion', 0.4], ['Color Drift', 0.3], ['Strobe', 0], ['Warp', 0.2], ['', 0], ['', 0]]
+        .map(([name, value]) => ({ name, value })),
+      routes: [
+        { id: 'show_r1', enabled: true, source: 'anKick', target: 'postfx.0.params.intensity', min: 0.8, max: 2.4, mode: 'set', curve: 'exp', amount: 1 },
+        { id: 'show_r2', enabled: true, source: 'bass', target: 'postfx.1.params.amount', min: 0, max: 0.012, mode: 'set', curve: 'linear', amount: 1 },
+        { id: 'show_r3', enabled: true, source: 'lfo1', target: 'postfx.2.params.amount', min: 0.2, max: 0.5, mode: 'set', curve: 'linear', amount: 1 },
+        { id: 'show_r4', enabled: true, source: 'macro2', target: 'postfx.0.params.radius', min: 1, max: 5, mode: 'set', curve: 'linear', amount: 1 },
+      ],
+    }),
     milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
     timeline: {
       enabled: true,
@@ -12787,7 +12814,22 @@ async function runShots() {
   if (adminWin && !adminWin.isDestroyed() && (PANELS.some((p) => want(p[1])) || want('panel-remote.png'))) {
     const awc = adminWin.webContents;
     awc.send('external-config', Object.assign({}, realCfg, SHOW));
+    /* Panel görüntüleri boyunca da sentetik ses: üreticide gerçek yakalama kapalı, önizleme demo
+       sinyalinde kalıyor ve Ses Çözümlemesi (yalnız gerçek karede ölçüyor) bütün değerleri "—" ve
+       "silent" gösteriyordu. Sahnelerin pompasıyla aynı kare. */
+    const pt0 = Date.now();
+    const panelPump = setInterval(() => {
+      if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('native-audio', makeFrame((Date.now() - pt0) / 1000));
+    }, 25);
     await wait(1500);
+    /* Şovda sahneler de olsun: ilk açılıştaki "Örnek sahneleri ekle" düğmesinin kurduğu sekiz sahne.
+       Zaman sayfasının Sahneler listesi ve raftaki Sahne sekmesi boş görünmesin. Düğmenin bildirimi
+       ilk görüntüye girmesin diye gizlenir. */
+    await awc.executeJavaScript(
+      "(function(){var P=window.SVPanel;if(P&&P.addStarterScenes&&!P.scenes().length)P.addStarterScenes();" +
+        "setTimeout(function(){document.querySelectorAll('.toast').forEach(function(t){t.classList.add('hidden');});},300);})()"
+    ).catch(() => {});
+    await wait(1200);
     for (const [page, name, need, prep, after] of PANELS) {
       if (!want(name)) continue;
       try {
@@ -12844,6 +12886,7 @@ async function runShots() {
         await syncStreamServer().catch(() => {});
       }
     }
+    clearInterval(panelPump);
     awc.send('external-config', realCfg);
     await wait(600);
   }

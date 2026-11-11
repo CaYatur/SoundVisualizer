@@ -168,7 +168,8 @@
       const cfg = P().cfg();
       const src = own && own.independent ? own : (cfg.milkdrop || {});
       const url = md.thumbFor(src);
-      if (src.presetId) box.setAttribute('data-thumb-for', src.presetId);
+      const did = md.drawnId ? md.drawnId(src) : src.presetId;
+      if (did) box.setAttribute('data-thumb-for', did);
       if (url) { box.appendChild(el('img', { src: url, alt: '', loading: 'lazy', onerror: (e) => { e.target.remove(); } })); return box; }
     }
     const modeId = (l.kind === 'visualizer' || l.kind === 'background') && l.type && !/^(none|milkdrop|custom)$/.test(l.type)
@@ -219,7 +220,9 @@
       if (!l || l.kind !== 'visualizer' || l.type !== 'milkdrop' || l.enabled === false) continue;
       const own = l.settings && l.settings.milkdrop;
       const src = own && own.independent ? own : (data.milkdrop || {});
-      if (src.presetId) return { id: src.presetId, url: md.thumbFor(src) };
+      // Preset seçilmemişse motorun çizdiği varsayılan preset (milkdrop-panel drawnId)
+      const id = md.drawnId ? md.drawnId(src) : src.presetId;
+      if (id) return { id, url: md.thumbFor(src) };
     }
     return null;
   }
@@ -1297,11 +1300,15 @@
     }
   }
 
-  // Küçük resim sonradan çizildi: bekleyen kutulara yerleştir
+  /* Küçük resim sonradan çizildi: bekleyen kutulara yerleştir. Kutu resmin sınıfını
+     `data-thumb-class` ile verebilir (Canlı'daki Sırada ekranı: tam kaplayan resim). */
   function thumbReady(id, url) {
     document.querySelectorAll('[data-thumb-for]').forEach((box) => {
       if (box.getAttribute('data-thumb-for') !== id || box.querySelector('img')) return;
-      box.replaceChildren(P().el('img', { src: url, alt: '' }));
+      const props = { src: url, alt: '' };
+      const cls = box.getAttribute('data-thumb-class');
+      if (cls) props.class = cls;
+      box.replaceChildren(P().el('img', props));
     });
   }
 

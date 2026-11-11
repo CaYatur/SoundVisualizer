@@ -149,3 +149,29 @@ test('Yayın Çıkışı notu var olan Spout çıkışını yok saymıyor', () =
   assert.doesNotMatch(st, /NDI ve Spout çıkışı bu sürümde yok/);
   assert.match(st, /Spout \/ Syphon Çıkışı ayrı bölümde\. NDI çıkışı bu sürümde yok\./);
 });
+
+test('preset seçilmemiş MilkDrop katmanı motorun çizdiği varsayılan presetin resmini alıyor', () => {
+  global.window = global.window || {};
+  window.SVMilkdropBuiltins = [{ id: 'md_first', source: 'x' }, { id: 'md_second', source: 'y' }];
+  const mp = read('src/admin/milkdrop-panel.js');
+  const body = /function drawnId\(md\) \{([\s\S]*?)\n  \}/.exec(mp);
+  assert.ok(body, 'drawnId');
+  // eslint-disable-next-line no-new-func
+  const drawnId = new Function('md', body[1]);
+  assert.strictEqual(drawnId({ presetId: 'md_x' }), 'md_x');
+  assert.strictEqual(drawnId({ presetId: '', source: '' }), 'md_first', 'motor kitaplığın ilkini çiziyor (milkdrop.js defaultSource)');
+  assert.strictEqual(drawnId({}), 'md_first');
+  assert.strictEqual(drawnId({ presetId: '', source: 'per_frame_1=...' }), '', 'yapıştırılmış kaynağın resmi yok');
+  assert.match(read('src/visualizer/modes/milkdrop.js'), /return \(Array\.isArray\(L\) && L\[0\] && L\[0\]\.source\) \|\| DEFAULT_PRESET;/);
+  const ss = read('src/admin/scene-shell.js');
+  assert.match(ss, /const id = md\.drawnId \? md\.drawnId\(src\) : src\.presetId;/);
+  // Sırada ekranı geç gelen preset resmini de alıyor, tam kaplayan sınıfla
+  assert.match(read('src/admin/live-shell.js'), /pvwFrame\.setAttribute\('data-thumb-class', 'sv-pvw-img'\)/);
+  assert.match(ss, /const cls = box\.getAttribute\('data-thumb-class'\);/);
+});
+
+test('İngilizce menüde iki ayrı "Audio Analysis" yok', () => {
+  const src = read('src/shared/i18n.js');
+  assert.match(src, /'Ses Analizi': 'Audio Analysis',/);
+  assert.match(src, /'Ses Çözümlemesi': 'Deep Analysis',/);
+});

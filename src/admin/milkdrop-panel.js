@@ -357,8 +357,18 @@
   const thumbUrl = (key) => 'sv-thumb://t/' + key + '.webp';
 
   // Denetçideki ve katman satırındaki resim: anahtar henüz yoksa bir sonraki çizimde
+  /* Ekranda çizilen presetin kimliği. Hiç preset seçilmemişse (presetId ve kaynak boş) motor
+     yerleşik kitaplığın ilkini çiziyor (milkdrop.js defaultSource); resmi de onunki. Eskiden boş
+     kimlik "resim yok" sayılıyordu: MilkDrop Flow gibi preset seçmeyen sahneler Canlı'daki Sırada
+     ekranında yalnız "2 Katman" yazısıydı. Elle yapıştırılmış (kimliksiz kaynaklı) preset için yok. */
+  function drawnId(md) {
+    if (md && md.presetId) return md.presetId;
+    if (md && md.source) return '';
+    const L = window.SVMilkdropBuiltins;
+    return (Array.isArray(L) && L[0] && L[0].id) || '';
+  }
   function thumbFor(md) {
-    const id = md && md.presetId;
+    const id = drawnId(md);
     if (!id) return '';
     const key = thumbKeys.get(id);
     if (key) return thumbUrl(key);
@@ -2221,7 +2231,7 @@
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, pickBlocked, uiPickOk, currentPick, noteLive, liveId, history, act, fillStars,
     spriteTargets, preview, previewEdit, adopt, visibleList, presetSource: sourceOf, presetById: byId, presetByName: byName, go,
-    isOwnLayer, setLayerOwn, setLayerAuto, setPart, thumbFor, pickFor: (id) => { pickFor = id || ''; },
+    isOwnLayer, setLayerOwn, setLayerAuto, setPart, thumbFor, drawnId, pickFor: (id) => { pickFor = id || ''; },
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

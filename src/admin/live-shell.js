@@ -496,6 +496,9 @@
       else {
         const note = el('span', { class: 'sv-mon-note', text: P().sceneSummary(cued) });
         pvwFrame.appendChild(note);
+        /* MilkDrop'lu sahnenin preset resmi henüz çizilmemiş olabilir (yeni profil, kuyruk): gelince
+           ızgara kartlarıyla aynı yoldan buraya da gelsin. Eskiden ekran "2 Katman" yazısıyla kalıyordu. */
+        if (md && md.id) { pvwFrame.setAttribute('data-thumb-for', md.id); pvwFrame.setAttribute('data-thumb-class', 'sv-pvw-img'); }
         // Zemin + görsel mod resimleri (fillModes); gelince katman özeti kalkar
         fillModes(pvwFrame, cued, 'sv-pvw-img', () => { note.remove(); });
       }
