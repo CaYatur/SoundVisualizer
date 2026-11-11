@@ -5,6 +5,30 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Security
+
+- **The remote page can no longer be framed by another website while Token protection is off.**
+  In that mode `/remote` opens without a token, so any site you visited could load it in a hidden
+  frame and get you to press Blackout or a scene. It is now sent with `frame-ancestors 'none'`.
+  With Token protection on nothing changes: a foreign site does not know the token, and a dashboard
+  that embeds the tokened address keeps working. The overlay page has no controls and stays
+  embeddable.
+- **Video ranges from the streaming server follow the same rules as the app's own player.** The
+  server had its own copy of the `Range` parser:
+  - `bytes=-500` returned the start of the file instead of the last 500 bytes;
+  - an end past the file sent a wrong `Content-Length` and left the client waiting;
+  - an inverted range threw inside the request handler, so no reply was sent and the panel showed
+    an error.
+  Both paths now share one parser, which answers with 206 or 416. A read error mid-file closes that
+  one connection.
+- **A phone remote added to the home screen opens with Token protection on.** The installed remote
+  starts at `/remote` without the token. The page only looked at the address, so it answered 401,
+  even though the first visit had stored the token in a cookie (the WebSocket already accepted that
+  cookie). The overlay and remote pages now accept their own `SameSite=Strict` cookie, which another
+  site's frame or link never sends. The cookie lasts 30 days instead of ending when the phone
+  browser closes. Checked in a real browser at phone size: tokened address connected, then the bare
+  `/remote` connected.
+
 ### Performance
 
 - **Galaxy draws seven times faster.** It computed a colour, built an rgba string and made the canvas parse it for each of its 2,600 stars on every frame, the most expensive mode in the output profile of a real scene. Stars are now sorted once into 48 rings by their fixed radius and the colour is set once per ring; 48 is a multiple of the 16 bands, so the stars of a ring share their band and size, and additive blending does not depend on order. Measured at 1920×1080: 3.0 ms → 0.41 ms per frame (five runs, twice). The colour along the radius now moves in 48 steps: mean difference 0.036 / 255 per channel against the previous frame, not visible side by side.
