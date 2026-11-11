@@ -43,6 +43,7 @@
     '//   sv_waveAt(x) -> dalga formu (-1..1)',
     '//   sv_col(x)    -> senin 5 renkli paletinden renk',
     '//   sv_prev      -> bir önceki kare (geri besleme), sv_media -> kamera/video',
+    '// Çok geçiş: //@pass A … //@pass D tamponlar, //@pass image ekran; sv_bufA…sv_bufD',
     '// Aşağıya kendi kaydırıcılarını da ekleyebilirsin (Parametreler bölümü).',
   ];
   const STARTER_BODY = `void mainImage(out vec4 fragColor, in vec2 fragCoord) {

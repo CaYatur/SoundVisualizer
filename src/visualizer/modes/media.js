@@ -203,6 +203,34 @@
     return ready ? '' : err;
   }
 
+  /* VİDEO TAŞIMA (#905): hız, giriş/çıkış noktası ve vuruşa kilitli döngü. Saatten (saniye)
+     videonun konumunu veren saf işlev; canlı oynatıcı, zaman çizelgesi klibi ve dışa aktarım
+     aynı formülü kullanıyor. Varsayılanlarla (hız 1, bölge yok, vuruş döngüsü yok) eski formülün
+     aynısı: döngüde `s % süre`, değilse son kare. Vuruş döngüsü N vuruşluk bölümü uygulamanın
+     tempo ızgarasına (cfg.modulation.bpm, yoksa 120; LFO'larla aynı) kilitliyor: bölüm her N
+     vuruşta baştan başlıyor. */
+  function transportTime(sec, dur, m, bpm) {
+    const d = dur > 0 && isFinite(dur) ? dur : 0;
+    if (!d) return 0;
+    const o = m || {};
+    const speed = Math.max(0.1, Math.min(4, Number(o.speed) > 0 ? Number(o.speed) : 1));
+    let a = Math.max(0, Math.min(d, Number(o.inPoint) || 0));
+    let b = Number(o.outPoint) > 0 ? Math.max(0, Math.min(d, Number(o.outPoint))) : d;
+    if (b - a < 0.05) { a = 0; b = d; }
+    const span = b - a;
+    const s = Math.max(0, Number(sec) || 0) * speed;
+    const beats = Math.max(0, Math.round(Number(o.loopBeats) || 0));
+    if (beats > 0 && bpm > 0) return a + (s % Math.min(span, (beats * 60 / bpm) * speed));
+    if (o.loop === false) return Math.min(a + s, b - 0.001);
+    return a + (s % span);
+  }
+  // Taşıma ayarı açık mı (yoksa canlı oynatıcı eskisi gibi kendi başına oynuyor)
+  function transportOn(m) {
+    const o = m || {};
+    return (Number(o.speed) > 0 && Number(o.speed) !== 1) || Number(o.inPoint) > 0 || Number(o.outPoint) > 0 || Number(o.loopBeats) > 0;
+  }
+  const tempoOf = (cfg) => (cfg && cfg.modulation && cfg.modulation.bpm > 0 ? cfg.modulation.bpm : 120);
+
   class MediaLayer {
     constructor() {
       this.video = document.createElement('video');
@@ -232,6 +260,7 @@
     // tekrar çağrılması ucuzdur: anahtar değişmediyse hiçbir şey yapmaz.
     apply(m) {
       const cfg = m || {};
+      this._m = cfg;
       const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.loop ? 1 : 0].join('|');
       if (key === this.key) return;
       this.key = key;
@@ -516,11 +545,11 @@
        Sarma/duraklatma videoyu serbest duvar saatinde bırakmaz. */
     seekTimeline(sec) {
       if (this.offline || this._source !== 'file') return;
+      this._tlDriven = true;
       const v = this.video, d = v.duration;
       if (!(d > 0) || !isFinite(d)) return;
       v.pause();
-      const s = Math.max(0, Number(sec) || 0);
-      const target = v.loop ? s % d : Math.min(s, Math.max(0, d - 0.001));
+      const target = transportTime(sec, d, Object.assign({}, this._m, { loop: v.loop }), this._bpm || 0);
       if (!v.seeking && Math.abs(v.currentTime - target) > 1 / 120) {
         try { v.currentTime = target; } catch { /* dosya henüz hazır değil */ }
       }
@@ -534,8 +563,7 @@
       const v = this.video;
       const d = v.duration;
       if (!(d > 0) || !isFinite(d)) return false;
-      const s = Math.max(0, Number(sec) || 0);
-      const target = v.loop ? s % d : Math.min(s, Math.max(0, d - 0.001));
+      const target = transportTime(sec, d, Object.assign({}, this._m, { loop: v.loop }), this._bpm || 0);
       if (Math.abs(v.currentTime - target) < 1e-6 && !v.seeking && v.readyState >= 2) return true;
       return new Promise((resolve) => {
         let timer = null;
@@ -560,9 +588,53 @@
     }
 
     // Kareyi hedef bağlama çizer
+    /* Canlı oynatıcıyı taşıma ayarına göre sürer: hız oynatma hızına yazılıyor, bölge dışına
+       çıkınca başa (döngü) ya da sona (döngü yok) alınıyor. Vuruş döngüsünde konum saatten
+       hesaplanıyor ve kayma 0,15 sn'yi geçince düzeltiliyor; aradaki kareler video kendi
+       hızında akıyor (her karede sarmak takılırdı). Zaman çizelgesi klibi kendi saatini veriyor
+       (seekTimeline); o zaman burası karışmıyor. */
+    _steer(m, t) {
+      const v = this.video;
+      const d = v.duration;
+      if (!(d > 0) || !isFinite(d) || v.readyState < 2 || this._tlDriven) return;
+      const speed = Math.max(0.1, Math.min(4, Number(m.speed) > 0 ? Number(m.speed) : 1));
+      if (Math.abs(v.playbackRate - speed) > 1e-3) v.playbackRate = speed;
+      if (Number(m.loopBeats) > 0) {
+        const want = transportTime(t, d, m, this._bpm || 120);
+        if (!v.seeking && Math.abs(v.currentTime - want) > 0.15) { try { v.currentTime = want; } catch { /* hazır değil */ } }
+        if (v.paused) v.play().catch(() => {});
+        return;
+      }
+      let a = Math.max(0, Math.min(d, Number(m.inPoint) || 0));
+      let b = Number(m.outPoint) > 0 ? Math.max(0, Math.min(d, Number(m.outPoint))) : d;
+      if (b - a < 0.05) { a = 0; b = d; }
+      if (v.seeking) return;
+      if (v.currentTime < a - 0.05 || v.currentTime >= b - 0.02) {
+        if (m.loop === false && v.currentTime >= b - 0.02) { if (!v.paused) v.pause(); return; }
+        try { v.currentTime = a; } catch { /* hazır değil */ }
+        if (v.paused && m.loop !== false) v.play().catch(() => {});
+      }
+    }
+
+    // Panelden elle sarma (konum kaydırıcısı): oranla, 0..1
+    scrub(frac) {
+      if (this.offline || this._source !== 'file') return;
+      const v = this.video;
+      const d = v.duration;
+      if (!(d > 0) || !isFinite(d)) return;
+      const m = this._m || {};
+      let a = Math.max(0, Math.min(d, Number(m.inPoint) || 0));
+      let b = Number(m.outPoint) > 0 ? Math.max(0, Math.min(d, Number(m.outPoint))) : d;
+      if (b - a < 0.05) { a = 0; b = d; }
+      try { v.currentTime = a + Math.max(0, Math.min(1, Number(frac) || 0)) * (b - a - 0.001); } catch { /* hazır değil */ }
+    }
+
     draw(ctx, audio, cfg, W, H, t) {
       const m = cfg.media || {};
       if (!m.enabled) return;
+      this._bpm = tempoOf(cfg);
+      if (this._source === 'file' && !this.offline && !this._relay && transportOn(m)) this._steer(m, t);
+      else if (this._source === 'file' && !this.offline && this.video.playbackRate !== 1) this.video.playbackRate = 1;
       if (!this.hasFrame()) {
         /* Hata yazısı yalnız yönetici panelinin önizlemesinde. Çıkış,
            yüzen pencere ve yayın sayfası seyirciye gider: kamera yokken
@@ -693,6 +765,7 @@
   }
 
   window.SVMedia = MediaLayer;
+  window.SVMediaTransport = { transportTime, transportOn, tempoOf };
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;
   window.SVMissingVideo = missingVideoText;

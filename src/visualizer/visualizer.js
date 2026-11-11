@@ -950,6 +950,7 @@
     }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
     if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
+    if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
     if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
     /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki

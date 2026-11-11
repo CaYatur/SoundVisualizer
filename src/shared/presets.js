@@ -398,8 +398,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         controls.push({ name: inp.NAME + '_y', label: label + ' Y', type: 'slider', min: 0, max: 1, step: 0.01, default: +d[1] });
       }
     }
-    if (arr(meta.PASSES).length > 1) {
+    /* ÇOK GEÇİŞ (#905): PASSES listesindeki hedefler (TARGET) A–D tamponlarına eşleniyor, her
+       geçiş aynı gövdeyle kendi PASSINDEX değeriyle derleniyor, hedef adları tampon
+       örnekleyicilerine bağlanıyor. Hedefsiz son geçiş ekrana gidiyor. Eşlenemeyen düzen (dörtten
+       çok hedef ya da sonda olmayan hedefsiz geçiş) eskisi gibi tek geçişe iniyor. */
+    const passes = arr(meta.PASSES);
+    const targets = passes.slice(0, -1).map((x) => x && x.TARGET);
+    const lastTarget = passes.length ? passes[passes.length - 1] && passes[passes.length - 1].TARGET : null;
+    const mappable = passes.length > 1 && targets.length <= 4 && !lastTarget &&
+      targets.every((t) => typeof t === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(t));
+    if (passes.length > 1 && !mappable) {
       notes.push('Çok geçişli (PASSES) ISF shader\'ı tek geçişe indirgendi; sonuç farklı görünebilir.');
+    } else if (mappable) {
+      notes.push('Çok geçişli ISF shader\'ı: hedefler sırayla A, B, C, D tamponlarına bağlandı.');
     }
 
     // main() -> isf_main(); gl_FragColor bizim çıkışımıza yönlendirilir
@@ -409,14 +420,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
       .map((i) => `vec2 ${i.NAME} = vec2(${i.NAME}_x, ${i.NAME}_y);`)
       .join('\n');
 
-    const wrapped = `// --- ISF uyumluluk katmanı (CAYADEV Studio) ---
+    const wrap = (index, targetDefs) => `// --- ISF uyumluluk katmanı (CAYADEV Studio) ---
 vec4 sv_isfOut = vec4(0.0);
 #define gl_FragColor sv_isfOut
 #define RENDERSIZE sv_resolution
 #define TIME sv_time
 #define TIMEDELTA iTimeDelta
 #define FRAMEINDEX iFrame
-#define PASSINDEX 0
+#define PASSINDEX ${index}
+${targetDefs}
 #define isf_FragNormCoord (gl_FragCoord.xy / sv_resolution)
 #define IMG_NORM_PIXEL(img, uv) texture(img, uv)
 #define IMG_PIXEL(img, p) texture(img, (p) / sv_resolution)
@@ -429,6 +441,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
   isf_main();
   fragColor = sv_isfOut;
 }`;
+    let wrapped;
+    if (mappable) {
+      const defs = targets.map((t, i) => '#define ' + t + ' sv_buf' + 'ABCD'[i]).join('\n');
+      wrapped = passes.map((x, i) => (i < passes.length - 1 ? '//@pass ' + 'ABCD'[i] : '//@pass image') + '\n' + wrap(i, defs)).join('\n');
+    } else {
+      wrapped = wrap(0, '');
+    }
 
     return {
       ok: true,

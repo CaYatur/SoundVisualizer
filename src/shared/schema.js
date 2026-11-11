@@ -152,6 +152,9 @@
     { path: 'media.kenBurns', min: 0, max: 1, noExtend: true },
     { path: 'media.kenBurnsPeriod', min: 4, max: 60 },
     { path: 'media.saturate', min: 0, max: 3 },
+    { path: 'media.speed', min: 0.25, max: 4, noExtend: true },
+    { path: 'media.inPoint', min: 0, max: 600 },
+    { path: 'media.outPoint', min: 0, max: 600 },
     { path: 'stream.overlayFps', min: 24, max: 120 },
     { path: 'stream.quality', min: 0.4, max: 1, noExtend: true },
   ];
