@@ -1969,13 +1969,28 @@
       };
     }
 
+    /* Giden sahnenin örnekleri KAREDEN SONRA, birer birer atılıyor (#905). Geçiş çizimin içinde
+       bitiyor; atma eşzamanlıydı ve WebGL'li her mod bağlamını kapatıyordu (gradyanda ~11 ms):
+       sahne değişiminin son karesi uzuyordu. Tuvaller geçişin başında DOM'dan zaten söküldü,
+       artık çizilmiyorlar; kapsayıcısız yığında (dışa aktarım, testler, bileşim) eskisi gibi
+       hemen. */
     endTransition() {
       if (!this.trans) return;
       const out = this.trans.stack;
-      for (const e of out.entries) if (!e.proxyOf) out._disposeEntry(e);
+      const gone = out.entries.filter((e) => !e.proxyOf);
       out.entries = [];
       this.trans = null;
       this._flushHeldMedia();
+      if (this.container && gone.length && typeof setTimeout === 'function') {
+        const next = () => {
+          const e = gone.shift();
+          if (e) out._disposeEntry(e);
+          if (gone.length) setTimeout(next, 0);
+        };
+        setTimeout(next, 0);
+      } else {
+        for (const e of gone) out._disposeEntry(e);
+      }
     }
 
     /* Zaman çizelgesi geçişi (#957): geçiş çizelgedeki bir klibin penceresinde

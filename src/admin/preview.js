@@ -89,11 +89,22 @@
   // --------------------------------------------------------------------------
   // Boyutlandırma — sahne kutusuna göre (pencereye göre değil)
   // --------------------------------------------------------------------------
-  function resize(force) {
+  /* `known`: kutunun boyu ölçülmeden son bilinen değer kullanılıyor (#905). setConfig her
+     ayar değişiminde buraya geliyordu ve kutuyu ölçmek, kaydırıcının yeni değer yazısı yüzünden
+     kirlenmiş yerleşimi zorla hesaplatıyordu: kaydırıcı sürüklerken 6 sn'lik panel profilinde
+     3,5 sn. Kutunun boyu değişince ResizeObserver zaten ölçüyor. */
+  function resize(force, known) {
     if (!stage || !stack) return;
-    const rect = stage.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width));
-    const h = Math.max(1, Math.round(rect.height));
+    let w;
+    let h;
+    if (known && lastW > 0 && lastH > 0) {
+      w = lastW;
+      h = lastH;
+    } else {
+      const rect = stage.getBoundingClientRect();
+      w = Math.max(1, Math.round(rect.width));
+      h = Math.max(1, Math.round(rect.height));
+    }
     // Boyut değişmediyse tuvalleri yeniden ayırma (kaydırıcı sürüklerken önemli)
     if (!force && w === lastW && h === lastH) {
       layoutLogo(w, h);
@@ -364,7 +375,7 @@
     if (window.SVLowPower) cfg = window.SVLowPower.apply(cfg, onBattery);
     if (!stack) return;
     // Önizleme Hızı değişince çizim boyu da değişiyor
-    if (wasFull !== !!(cfg.power && cfg.power.previewRate === 'full')) resize(true);
+    if (wasFull !== !!(cfg.power && cfg.power.previewRate === 'full')) resize(true, true);
     applyMedia();
     if (window.SVTimelineCompose) window.SVTimelineCompose.resetLive(tlLive);
     stack.setConfig(cfg);
@@ -378,7 +389,7 @@
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);
-    resize(true);
+    resize(true, true);
     drawOnce();
   }
 

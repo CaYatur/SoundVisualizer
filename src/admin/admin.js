@@ -3797,10 +3797,20 @@
   // --------------------------------------------------------------------------
   // Sol kategori rayı
   // --------------------------------------------------------------------------
+  /* SEKMELER VE AĞAÇ YALNIZ DEĞİŞİNCE KURULUYOR (#905). renderNav her push'ta (ayar işaretleri)
+     çağrılıyor. Sayfa sekmeleri üst çubukta: her seferinde baştan kurulmaları üst çubuğu
+     sığdırma ölçümünü tetikliyordu (topbar-fit, düzey başına bir zorunlu yerleşim). Ölçüldü:
+     opaklık sürüklerken 6 sn'lik panel profilinde 2 sn bu ölçümde. İçerik imzası aynıysa
+     dokunulmuyor. */
+  let navTabsSig = '';
+  let navRailSig = '';
   function renderNav() {
     const tabs = $('pageTabs');
-    if (tabs) {
-      tabs.replaceChildren(...CATEGORIES.filter((c) => !c.setup).map((cat) => {
+    const tabCats = CATEGORIES.filter((c) => !c.setup);
+    const tabsSig = activeCategory + '|' + tabCats.map((c) => c.id + ':' + tr(c.title) + ':' + tr(c.desc) + ':' + (c.adv ? 1 : 0)).join('|');
+    if (tabs && (tabsSig !== navTabsSig || tabs.childElementCount !== tabCats.length)) {
+      navTabsSig = tabsSig;
+      tabs.replaceChildren(...tabCats.map((cat) => {
         return el('button', {
           class: 'nav-item' + (cat.id === activeCategory ? ' on' : '') + (cat.adv ? ' sv-adv' : ''), type: 'button', role: 'tab',
           // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
@@ -3827,17 +3837,27 @@
       return false;
     };
     // Kurulum ağacı yalnız o sayfada görünüyor; başka sayfada şemayı boşuna kurmuyor
-    if (pageOf(activeCategory) !== 'setup' && !(window.api && window.api.allSections)) return;
+    if (pageOf(activeCategory) !== 'setup' && !(window.api && window.api.allSections)) { navRailSig = ''; return; }
     const rail = $('navRail');
-    const top = rail.scrollTop;
-    rail.innerHTML = '';
-    rail.appendChild(el('div', { class: 'sv-tree-head', text: tr('Kurulum') }));
+    // Önce model: ağaçta görünen her şey (ad, açık mı, çalışıyor mu, rozet); imza aynıysa dokunma
     const schema = sectionSchema();
+    const model = [];
     CATEGORIES.filter((c) => c.setup).forEach((cat) => {
       const secs = schema.filter((s) => s.category === cat.id && (!s.show || s.show()));
       if (!secs.length) return;
       const open = cat.id === activeCategory;
-      const total = secs.reduce((a, s) => a + (sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0), 0);
+      const counts = secs.map((s) => (sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0));
+      const running = secs.map((s) => serviceRunning(s.id));
+      model.push({ cat, secs, open, counts, running, total: counts.reduce((a, n) => a + n, 0), want: open ? selectedSection(cat.id) : '' });
+    });
+    const railSig = tr('Kurulum') + '|' + model.map((m) => [m.cat.id, tr(m.cat.title), m.open ? 1 : 0, m.total, m.want,
+      m.secs.map((s, i) => s.id + ':' + tr(s.title) + ':' + m.counts[i] + ':' + (m.running[i] ? 1 : 0)).join(',')].join(';')).join('|');
+    if (railSig === navRailSig && rail.childElementCount) return;
+    navRailSig = railSig;
+    const top = rail.scrollTop;
+    rail.innerHTML = '';
+    rail.appendChild(el('div', { class: 'sv-tree-head', text: tr('Kurulum') }));
+    model.forEach(({ cat, secs, open, counts, total }) => {
       rail.appendChild(el('button', { class: 'sv-tree-group' + (open ? ' open' : ''), type: 'button', 'data-cat': cat.id, title: tr(cat.desc), 'aria-expanded': open ? 'true' : 'false', onclick: () => setCategory(cat.id) }, [
         el('span', { icon: cat.icon }), el('span', { class: 'sv-tree-name', text: tr(cat.title) }),
         !open && secs.some((s) => serviceRunning(s.id)) ? el('span', { class: 'sv-led on', title: tr('Çalışıyor') }) : null,
@@ -3847,8 +3867,8 @@
       // Öz test bütün bölümleri sırayla geziyor: orada ağaç açık kalıyor
       if (!open && !(window.api && window.api.allSections)) return;
       const want = open ? (secs.find((s) => s.id === selectedSection(cat.id)) || secs[0]) : null;
-      secs.forEach((s) => {
-        const n = sectionShowsResetChrome(s) ? countModified(sectionPaths(s)) : 0;
+      secs.forEach((s, i) => {
+        const n = counts[i];
         rail.appendChild(el('button', {
           class: 'nav-item sv-tree-item' + (s === want ? ' on' : ''), type: 'button', 'data-cat': cat.id, 'data-sec': s.id,
           title: tr(s.desc || cat.desc), onclick: () => setSection(s.id),
@@ -4891,23 +4911,30 @@
     const page = document.body ? document.body.getAttribute('data-page') : '';
     const root = page === 'scene' ? $('svScene') : page === 'live' ? $('svLive') : $('sections');
     if (!root) return;
-    parkResetFocus(root);
-    const pin = pinElement(root);
-    const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+    /* ÖNCE HESAP, SONRA YAZMA (#905). Eskiden her push'ta önce sabitleme öğesinin konumu okunuyor,
+       rozet metinleri aynı değerle yeniden yazılıyor, konum yeniden okunuyordu: kaydırıcı
+       sürüklerken her olayda iki zorunlu yerleşim. Ölçüldü (7 katmanlı sahne, opaklık sürüklerken
+       6 sn'lik panel profili): 1,7 sn bu işte, panel 11 fps. Şimdi önce neyin değişeceği yalnız
+       sınıf ve metin okunarak bulunuyor; değişen yoksa (sürüklemenin neredeyse tamamı) yerleşim
+       hiç okunmuyor. */
+    const writes = [];
     /* Otomasyonla sürülen ayar işaretli (#957): kırmızı kaydırıcı ve öncelik
        ipucu. Çalan otomasyon elle/MIDI/oyun kolu değerini ezer. */
     const autoP = window.SVTimelinePanel && window.SVTimelinePanel.automatedPaths ? window.SVTimelinePanel.automatedPaths() : null;
     const autoTip = tr('Otomasyon bu ayarı sürüyor: oynarken elle, MIDI ve oyun kolu değerini geçersiz kılar; modülatörler üstüne uygulanır.');
     root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
       const path = node.getAttribute('data-path');
-      node.classList.toggle('modified', isModified(path));
+      const mod = isModified(path);
+      if (node.classList.contains('modified') !== mod) writes.push(() => node.classList.toggle('modified', mod));
       const on = !!(autoP && autoP.has(path));
-      node.classList.toggle('sv-automated', on);
-      if (on) node.title = autoTip; else if (node.title === autoTip) node.title = '';
+      if (node.classList.contains('sv-automated') !== on) writes.push(() => node.classList.toggle('sv-automated', on));
+      if (on && node.title !== autoTip) writes.push(() => { node.title = autoTip; });
+      else if (!on && node.title === autoTip) writes.push(() => { node.title = ''; });
     });
     /* Layer-internal (attachDefault) controls: no config path; get/defVal
        live on _svSyncModified. Path-based refresh does not touch them;
-       this keeps per-control reset visibility instant on change. */
+       this keeps per-control reset visibility instant on change. Their toggles
+       write only when the state changes (classList.toggle with force). */
     root.querySelectorAll('.ctrl[data-sv-local-def]').forEach((node) => {
       if (typeof node._svSyncModified === 'function') node._svSyncModified();
     });
@@ -4925,28 +4952,36 @@
       if (acts && !chip) chip = acts.querySelector('.chip-mod');
       if (n > 0 && !chip && acts) {
         // Kart sıfırdan değişikliğe geçtiyse rozet ve sıfırlama düğmesi belirir
-        acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı' }));
-        acts.appendChild(
-          el('button', {
-            class: 'icon-btn small', type: 'button', icon: 'reset',
-            title: 'Bu bölümü varsayılana döndür',
-            onclick: () => resetSection(sec),
-          })
-        );
-        chip = acts.querySelector('.chip-mod');
+        writes.push(() => {
+          acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı', text: String(n) }));
+          acts.appendChild(
+            el('button', {
+              class: 'icon-btn small', type: 'button', icon: 'reset',
+              title: 'Bu bölümü varsayılana döndür',
+              onclick: () => resetSection(sec),
+            })
+          );
+        });
+        return;
       }
       if (chip) {
-        chip.textContent = String(n);
-        chip.classList.toggle('hidden', n === 0);
+        if (chip.textContent !== String(n)) writes.push(() => { chip.textContent = String(n); });
+        if (chip.classList.contains('hidden') !== (n === 0)) writes.push(() => chip.classList.toggle('hidden', n === 0));
         const btn = acts && acts.querySelector('.icon-btn');
-        if (btn) btn.classList.toggle('hidden', n === 0);
+        if (btn && btn.classList.contains('hidden') !== (n === 0)) writes.push(() => btn.classList.toggle('hidden', n === 0));
       }
     });
 
     renderNav();
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     const catBtn = $('catResetBtn');
-    if (catBtn) catBtn.classList.toggle('hidden', !resettable || document.body.hasAttribute('data-single'));
+    const catHide = !resettable || document.body.hasAttribute('data-single');
+    if (catBtn && catBtn.classList.contains('hidden') !== catHide) writes.push(() => catBtn.classList.toggle('hidden', catHide));
+    if (!writes.length) return;
+    parkResetFocus(root);
+    const pin = pinElement(root);
+    const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+    for (const w of writes) w();
     nudgeScroll(root, pin, before);
   }
 
