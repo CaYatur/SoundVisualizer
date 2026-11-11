@@ -89,6 +89,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The Cued monitor shows a picture for every scene.** A scene that had never been live showed only its colours and a list of its layers. It now shows the rendered preview of its MilkDrop preset, or of its background and top visual together (the visual's preview is laid over the background's with screen blending, close to how the layers combine on screen; at first only the top layer was used, so Aurora showed as a wave on black). No second renderer runs for it: a continuous preview of the cued scene would take its frames from the live output on the same GPU.
 - **Layer rows and Live faders show the mode they draw.** Only MilkDrop layers had a picture; visualizer and background layers showed a generic icon. They now show the same rendered preview as the library shelf. Text, logo, Now Playing and media layers keep their icon.
 - **Automation lanes no longer show Turkish in the English interface.** A lane's target was drawn on the timeline canvas as "group · name" built from the Turkish catalogue, so the English UI read "Ses · Duyarlılık [0..4]"; the target button and the picker's group headings did the same. Each part is now translated. Canvas text is invisible to the UI audit, which is how it slipped through; found in the README screenshots.
+- **"Deep Analysis" in the English menu.** The Audio setup page had two entries both called Audio
+  Analysis: the sensitivity settings and the key / chord / loudness meters. The second is now Deep
+  Analysis, as the README already called it.
+- **Scenes whose MilkDrop layer uses the default preset show a picture.** With no preset chosen, the
+  engine draws the first built-in preset, but the panel asked for no thumbnail at all. MilkDrop Flow,
+  for example, was a "2 Layers" caption on the Cued monitor. The panel now uses the preset the
+  engine actually draws. A preset that arrives later now also reaches the Cued monitor, not only the
+  grid cards.
 - **The Streaming Output note said Spout output was not available.** It is, under Spout / Syphon Output. The note now points there; NDI is still not available.
 - **One spelling in the English interface.** Nine strings said "colour" while about 150 said "color", sometimes on the same card (Color Theme next to Colour Preset). They now all say "color"; the background mode is Color Cloud.
 - **Scene grid cards show what the scene looks like.** Scenes that had never been live were a colour gradient on the Live page. They now use the same rendered previews as the Cued monitor.
@@ -283,6 +291,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **README: a "New in v4" section** (English and Turkish) with the Live page and T-bar, the phone remote, multi-pass shaders, video transport, adaptive resolution and the editing-speed work, each with its measurement. Corrected counts that had drifted from the code: 44 GPU effects (the effect list and two summaries said 40 and 42; Flash, Strobe, Tonemap and 3D LUT were missing from the list), 43 built-in shaders, 106 MCP tools (the table said 104). Quick start now names the panel as it is: **Library → Preset** and **Output → Streaming Output (OBS / Web)**. Adaptive resolution, which the README did not mention, is described under power and performance.
 - **A new showreel at the top** (`hero.webp`, 3.8 MB instead of 5.1 MB): the two newest CaYaDev MilkDrop presets, the multi-pass Ink Flow shader under Liquid Spectrum, Corona over a night sky, the Lorenz attractor, synthwave and a broadcast card, after your own recording.
 - **ROADMAP** records what was added in November, with measurements, and what was deliberately not taken.
+- **All twenty panel screenshots retaken on the current interface**, with three new ones: the Live
+  page (example scenes on F1–F8 and a T-bar held at 45 %), the phone remote, and the Layout Editor.
+  - The generator's demo show now includes the example scenes, an effect chain, named macros with
+    modulation routes, and synthetic audio for the panel itself. Before, the effects card was empty,
+    the macros were eight unnamed knobs at 0 %, and Deep Analysis read "silent".
+  - Two setup pages are now opened on the right section; their pictures had not been taken.
+  - Panel PNGs are palette-quantized with dithering. The twenty come to 5.8 MB, against 10.2 MB for
+    the old set and 22 MB unquantized; the mean channel difference is 0.5–2.5 levels.
 
 ## v3.1.7 — 2026-11-03
 
