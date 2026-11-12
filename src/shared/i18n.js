@@ -1596,6 +1596,7 @@
     'Ayar': 'Setting',
     'Preset': 'Preset',
     'Video dosyası': 'Video file',
+    'MilkDrop dokusu': 'MilkDrop texture',
     'Uygulama sürümü': 'Application version',
     'yedekte yok': 'missing on the backup',
     'farklı': 'different',

@@ -360,7 +360,7 @@
     done: 'Paket doğrulandı ve yerine kondu',
     error: 'Kopyalama durdu',
   };
-  const PKG_KIND_TEXT = { presets: 'Preset', logos: 'Logo', media: 'Video dosyası', preset: 'Preset', logo: 'Logo' };
+  const PKG_KIND_TEXT = { presets: 'Preset', logos: 'Logo', media: 'Video dosyası', textures: 'MilkDrop dokusu', preset: 'Preset', logo: 'Logo' };
   const PARITY_TEXT = { missing: 'birincilin preseti bu makinede yok', different: 'bu makinedeki preset farklı' };
 
   // Açılır liste: başlık sayıyla, içerik yalnız açılınca görünür (uzun listeler sayfayı kaplamasın)
@@ -476,7 +476,7 @@
     if (pk.state === 'error' && pk.error) nodes.push(el('div', { class: 'br-err' }, [el('span', { text: 'Kopyalama durdu' }), sep(), el('span', { class: 'st-num', text: pk.error })]));
     if (pk.summary) {
       const t = [];
-      for (const k of ['presets', 'logos', 'media']) {
+      for (const k of ['presets', 'logos', 'textures', 'media']) {
         const g = pk.summary[k];
         if (!g || !g.n) continue;
         t.push(tile('pk-' + k, PKG_KIND_TEXT[k], String(g.n), { note: bytes(g.bytes) }));

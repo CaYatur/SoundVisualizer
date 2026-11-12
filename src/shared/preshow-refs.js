@@ -35,7 +35,8 @@
 
   /* Bir sahnenin (canlı ya da kayıtlı) bütün başvuru yuvaları. Her yuva
      okunabilir (`get`) ve yazılabilir (`set`, null = başvuruyu kaldır). */
-  function slots(c) {
+  function slots(c, opts) {
+    const all = !!(opts && opts.all);
     const out = [];
     if (!c || typeof c !== 'object') return out;
     const cu = c.custom;
@@ -61,9 +62,11 @@
       if (isUserPreset(l.presetId)) out.push({ kind: 'preset', id: l.presetId, layer, field: 'presetId', set: (v) => { l.presetId = v; } });
       const st = l.settings && typeof l.settings === 'object' ? l.settings : null;
       if (st) logoSlots(st.logo, layer, 'settings.logo');
-      /* Video: yalnız çizilen katman — export-media.mediaFiles ile aynı
-         koşul (kapalı ya da susturulmuş katmanın dosyası yokken sorun yok). */
-      if (l.kind === 'media' && l.enabled !== false && !l.muted) {
+      /* Video: denetim için yalnız çizilen katman — export-media.mediaFiles
+         ile aynı koşul (kapalı ya da susturulmuş katmanın dosyası yokken
+         sorun yok). `all` ise kapalı katmanlar da: yedek makineye giden paket
+         ve tam yedek, gösteride açılabilecek her videoyu taşımalı. */
+      if (l.kind === 'media' && (all || (l.enabled !== false && !l.muted))) {
         const own = st && st.media && typeof st.media === 'object' ? st.media : null;
         const merged = Object.assign({}, c.media || {}, own || {});
         if (merged.source === 'file' && isStr(merged.file)) {
@@ -90,11 +93,12 @@
 
   /* Başvurular, öğe başına bir kayıt:
      [{ kind, id, where: [{ scene, layer, field }] }]
-     Sıra: önce canlı sahnede geçenler, sonra kayıtlı sahnelerdekiler. */
-  function collect(cfg) {
+     Sıra: önce canlı sahnede geçenler, sonra kayıtlı sahnelerdekiler.
+     `opts.all`: kapalı ve susturulmuş video katmanları da sayılır. */
+  function collect(cfg, opts) {
     const map = new Map();
     for (const sc of scopes(cfg)) {
-      for (const s of slots(sc.data)) {
+      for (const s of slots(sc.data, opts)) {
         const key = s.kind + '\u0000' + s.id;
         let r = map.get(key);
         if (!r) { r = { kind: s.kind, id: s.id, where: [] }; map.set(key, r); }
