@@ -170,7 +170,7 @@ it on the strength of an argument.
 
 ## Use cases
 
-What people use the application for, and what each use is built from. The README sells these as
+What people use the application for, and what each use is built from. The README presents these as
 features; this table keeps them honest: the release each part arrived in, and what has not been
 checked on real hardware.
 
