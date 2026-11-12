@@ -86,6 +86,10 @@ karışımı görünür.
 
 Raftaki ikinci simge onu araçlara çevirir: **Efekt Zinciri**, **Modülasyon** ve **Gruplar**.
 
+Panellerin boyunu değiştirmek için rafın üstündeki ya da yan sütunların yanındaki ayracı sürükleyin.
+Boyutlar pencereyle orantılı kalır; ayraca çift tıklamak onu, **Ayarlar → Uygulama → Panel
+Boyutlarını Sıfırla** hepsini varsayılana döndürür.
+
 İlk deneme için:
 
 1. **Şablon**'dan istediğinize yakın bir sahne seçin.
