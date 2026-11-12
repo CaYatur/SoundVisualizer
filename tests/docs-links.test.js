@@ -88,6 +88,8 @@ test('kılavuzun alıntıladığı arayüz adları sözlükte aynı', () => {
     ['Ayarları Yedekle / Geri Yükle', 'Back Up / Restore Settings'], ['Uyarlanır Çözünürlük', 'Adaptive Resolution'],
     ['Yayın Çıkışı (OBS / Web)', 'Streaming Output (OBS / Web)'], ['Kayıt ve Anlık Görüntü', 'Recording & Snapshot'],
     ['Video Dışa Aktar', 'Video Export'], ['MIDI Denetleyici', 'MIDI Controller'], ['Öğren', 'Learn'], ['Dosyaya', 'To a File'],
+    ['Tam Yedek Al', 'Create Full Backup'], ['Tam Yedekten Geri Yükle', 'Restore from Full Backup'],
+    ['Videoları Dahil Et', 'Include Videos'], ['Yalnız Ayarlar', 'Settings Only'],
   ];
   const flat = (rel) => read(rel).replace(/\s+/g, ' ');
   const en = flat('docs/GUIDE.md');

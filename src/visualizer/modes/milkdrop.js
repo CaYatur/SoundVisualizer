@@ -894,6 +894,14 @@ void main(){
     ['sampler_noisevol_hq', 9],
   ];
 
+  /* Doku listesinin dönemi: ana süreç liste değişti derse (yedekte
+     birincilin paketindeki dokular) her örnek listeyi yeniden ister. Ayar
+     anahtarı (klasör + sayaç) değişmeden de. */
+  let texEpoch = 0;
+  if (typeof window !== 'undefined' && window.api && window.api.onMilkdropTexturesChanged) {
+    window.api.onMilkdropTexturesChanged(() => { texEpoch++; });
+  }
+
   class MilkdropMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -3128,7 +3136,7 @@ void main(){
          klasöründe; her içe aktarım sayacı artırıyor ve liste yeniden
          isteniyor. Klasör seçilmemiş olsa da o dokular kullanılıyor. */
       const rev = (cfg.milkdropLibrary && +cfg.milkdropLibrary.textureRev) || 0;
-      const key = dir + '#' + rev;
+      const key = dir + '#' + rev + '#' + texEpoch;
       if (key === this._texDir) return;
       this._texDir = key;
       this._texNames = [];
@@ -3141,7 +3149,7 @@ void main(){
       this._texWanted = null;
       this._texListing = false;
       const api = typeof window !== 'undefined' ? window.api : null;
-      if ((!dir && !rev) || !api || !api.milkdropTextures) return;
+      if ((!dir && !rev && !texEpoch) || !api || !api.milkdropTextures) return;
       this._texListing = true;
       this._texBusy(1);
       Promise.resolve(api.milkdropTextures()).then((r) => {

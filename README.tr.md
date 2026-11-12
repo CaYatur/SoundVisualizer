@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4501%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4519%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1485,9 +1485,12 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   gösteriyor ve bir sürümü atlamanıza izin veriyor. Windows kurulumu ve AppImage yerinde indirip
   kuruyor; boyut ve SHA-256 tam uyuşmadıkça hiçbir şey çalışmıyor. Kapalı, haber ver (varsayılan) ya da
   otomatik.
-- **Ayar yedeği ve geri yükleme** — her ayar tek bir JSON dosyasında; paletlerin ve sahnelerin kendi
-  dışa aktarımı var ve içe aktarmadan sağ çıkıyorlar. 1.3 ve 2.0 sürümlerinin yazdığı dosyalar tek bir
-  değer kaybetmeden açılıyor.
+- **Tam yedek ve geri yükleme** — ayarlar, sahneler, renk şablonları ve sahnelerin kullandığı her
+  dosya (kullanıcı presetleri, logolar, videolar, sözler, MilkDrop dokuları) tek bir `.svbackup`
+  dosyasında, videolar isteğe bağlı. Başka bir bilgisayarda geri yükleme dosyaları yerine koyar ve
+  sahneleri onlara bağlar; yedekte olmayan öğeler kalır. Yalnız ayarları taşıyan JSON dosyası da
+  duruyor: paletlerin ve sahnelerin kendi dışa aktarımı var ve onun içe aktarmasından sağ çıkıyorlar;
+  1.3 ve 2.0 sürümlerinin yazdığı dosyalar tek bir değer kaybetmeden açılıyor.
 - **Güç ve performans** — *Ekranla Eşitle* kare hızı ya da 120, 60 veya 30 FPS sınırı, arkaplan
   çözünürlük ölçeği, sessizlikte duraklatma, imleci gizleme, her zaman üstte, ve görev çubuğunu örtme.
   Düşük güç kipi, her zaman ya da yalnız pildeyken, kare hızını 30 ile sınırlıyor, efektleri kapatıyor,
@@ -2103,7 +2106,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4501 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4519 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

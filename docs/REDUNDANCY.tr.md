@@ -72,10 +72,15 @@ daha bağlanabilir; gösteri öncesi denetim "Eski eşleşme" uyarısı verir.
 
 - Yedek, birincilin kopyasını ayrı bir alanda tutar (`<userData>/redundancy`); kendi gösterisi hiç
   ezilmez ve rol kapatılınca olduğu gibi geri gelir.
-- **Gösteri paketi** (Gösteri Verisi → Birincilden Paket İste): presetler, logolar ve yalnız
-  işaretlerseniz video dosyaları. Parça parça, özetle denetlenerek, kopunca kaldığı yerden; hiçbir
-  şey doğrulanmadan yerine geçmez. Dosyalar içerikleriyle adlandırılır: yeni paket oynayan bir
-  videoya dokunmaz.
+- **Gösteri paketi** (Gösteri Verisi → Birincilden Paket İste): presetler, logolar, MilkDrop
+  dokuları ve yalnız işaretlerseniz video dosyaları. Parça parça, özetle denetlenerek, kopunca
+  kaldığı yerden; hiçbir şey doğrulanmadan yerine geçmez. Dosyalar içerikleriyle adlandırılır: yeni
+  paket oynayan bir videoya dokunmaz.
+  - Videolar: bir sahnenin gösterebileceği her video, kapalı ya da susturulmuş katmanlarınkiler de;
+    devralmada katmanı açınca dosyası yerinde olur.
+  - Dokular: MilkDrop paketleriyle içe aktarılanların hepsi, ayrıca birincilin doku klasöründen
+    kullanıcı presetlerinin adıyla istedikleri. Yedek önce kendi doku klasörlerine bakar.
+  - Eski sürümdeki bir yedek yalnız tanıdığı türleri alır (preset, logo, video).
 - **Kopyalanmış Videoları Kaldır** yeri geri açar; presetler ve logolar kalır.
 
 ## 5. Yetki ve çıkışlar

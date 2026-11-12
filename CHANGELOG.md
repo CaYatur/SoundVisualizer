@@ -418,6 +418,43 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Control and show
 
+- **Full backup and restore.** Back Up / Restore Settings wrote only the settings: saved scenes and
+  color presets were left out, and so were the files the scenes use, so a setup moved to another
+  computer opened with empty layers. **Create Full Backup** writes one `.svbackup` file:
+  - the settings, scenes and color presets;
+  - the user presets (Studio and MilkDrop);
+  - the logo, video and lyrics libraries;
+  - the MilkDrop textures (the same choice as the show package);
+  - the videos the scenes use from outside the library, including layers that are switched off.
+
+  Videos are optional; the card says how many the scenes use and how large they are.
+  **Restore from Full Backup** shows what the file holds before anything is written. It adds library
+  items under their own ids, so the scenes still find them, and the backup's version wins where an
+  id already exists; nothing that is missing from the backup is deleted. Videos from outside the
+  library go to a `restored-media` folder and the scenes are pointed there. On the same computer,
+  where the original files still exist, the paths are left as they are. The archive is read as
+  untrusted: ids, names and extensions are checked before anything is written, large files are
+  copied without loading them into memory, and every file is checked against its CRC.
+  An entry that cannot be written (a name Windows refuses, a locked file) is skipped and counted;
+  the settings still come back.
+  Checked in the app with two profiles: a backup from one, restored into an empty one with the first
+  one's folders removed, brought back the scene, preset, logo, texture and both videos. The videos
+  pointed into the new profile and played (HTTP 206), and Pre-show Check reported the scene's files
+  in place. The settings-only JSON file is still there as **Settings Only**.
+- **The backup machine gets every file a show can use.** The show package skipped the video of a
+  layer that was switched off or muted, so turning that layer on after a takeover showed nothing.
+  It now carries every video a scene can show, from the live scene and every saved scene: the same
+  slots Pre-show Check reads. Video export still opens only the layers that are drawn.
+- **MilkDrop textures travel with the show package.** Imported presets reached the backup, but the
+  textures imported with them stayed on the primary, so a preset that draws a texture looked
+  different on the backup. The package now carries the textures imported with MilkDrop packs and
+  the ones user presets ask for by name from the primary's texture folder. The backup looks in its
+  own folders first and then in the package, by the original file name; open windows reload the
+  list when a package arrives or the role ends. A backup also used the primary's texture folder
+  path, which does not exist on that machine; it now uses its own. A backup on an older version
+  asks without a list of kinds and gets only presets, logos and videos, instead of rejecting the
+  whole package.
+- **The settings backup file records the real version.** It always wrote `1.3.1`.
 - **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
   MIDI clock.
 - **Matrix colour source for network lights** (#1023). Art-Net, sACN and WLED (DDP) can drive the
