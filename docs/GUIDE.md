@@ -17,8 +17,9 @@ for which system.
 
 The panel opens on the **Scene** page with a starter scene: a bar visualizer over a gradient. The
 preview in the middle is the picture your screens will show. A **Demo** badge on the preview means
-no sound is reaching the app yet and a built-in test signal is driving the visuals, so you can try
-everything before any audio is set up.
+a built-in sample signal is driving it, so you can try everything before any audio is set up. Click
+the badge and it turns to **Live**: the preview then follows your real audio. It also switches by
+itself while a visualization window is open.
 
 Five pages sit in the capsule at the top:
 
@@ -53,9 +54,9 @@ Click the speaker chip at the top left, or open **Setup → Audio → Audio Sour
   that program (for example the music player and not the game). Play something, then press
   **Refresh Devices** if the program is not listed.
 
-When sound arrives, the **Demo** badge disappears and the small meter next to the tempo starts to
-move. If the visuals look too calm or too wild, **Setup → Audio → Audio Analysis** has sensitivity
-and smoothing.
+To see your music in the preview, click its **Demo** badge so it reads **Live**; the small meter
+next to the tempo starts to move with the sound. If the visuals look too calm or too wild,
+**Setup → Audio → Audio Analysis** has sensitivity and smoothing.
 
 On macOS, system audio needs a virtual device; on Linux, PulseAudio or PipeWire. The
 [audio section](../README.md#audio-capture-and-analysis) of the README has the details.
