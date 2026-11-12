@@ -435,6 +435,8 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   where the original files still exist, the paths are left as they are. The archive is read as
   untrusted: ids, names and extensions are checked before anything is written, large files are
   copied without loading them into memory, and every file is checked against its CRC.
+  An entry that cannot be written (a name Windows refuses, a locked file) is skipped and counted;
+  the settings still come back.
   Checked in the app with two profiles: a backup from one, restored into an empty one with the first
   one's folders removed, brought back the scene, preset, logo, texture and both videos. The videos
   pointed into the new profile and played (HTTP 206), and Pre-show Check reported the scene's files
