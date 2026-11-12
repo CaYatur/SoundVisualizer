@@ -15,9 +15,10 @@ indirip çalıştırın. Başka bir şey kurmanız gerekmez. Hangi dosyanın han
 README'deki [Hızlı başlangıç](../README.tr.md#hızlı-başlangıç) tablosunda yazar.
 
 Panel **Sahne** sayfasında, hazır bir sahneyle açılır: gradyan üstünde bir bar görselleştirici.
-Ortadaki önizleme, ekranlarınızın göstereceği görüntüdür. Önizlemedeki **Demo** rozeti, uygulamaya
-henüz ses gelmediğini ve görselleri yerleşik bir deneme sinyalinin sürdüğünü söyler; ses ayarı
-yapmadan her şeyi deneyebilirsiniz.
+Ortadaki önizleme, ekranlarınızın göstereceği görüntüdür. Önizlemedeki **Demo** rozeti, önizlemeyi
+yerleşik bir örnek sinyalin sürdüğünü söyler; ses ayarı yapmadan her şeyi deneyebilirsiniz. Rozete
+tıklayınca **Canlı** olur: önizleme gerçek sesinizi izler. Bir görselleştirme penceresi açıkken de
+kendiliğinden geçer.
 
 Üstteki kapsülde beş sayfa var:
 
@@ -53,9 +54,9 @@ Sol üstteki hoparlör düğmesine tıklayın ya da **Kurulum → Ses → Ses Ka
   işaretleyin (örneğin oyunu değil müzik çaları). Program listede yoksa bir şey çaldırıp
   **Aygıtları Yenile**'ye basın.
 
-Ses geldiğinde **Demo** rozeti kaybolur ve temponun yanındaki küçük gösterge oynamaya başlar.
-Görseller fazla sakin ya da fazla hareketliyse **Kurulum → Ses → Ses Analizi**'nde hassasiyet ve
-yumuşatma var.
+Müziğinizi önizlemede görmek için **Demo** rozetine tıklayıp **Canlı** yapın; temponun yanındaki
+küçük gösterge sesle birlikte oynamaya başlar. Görseller fazla sakin ya da fazla hareketliyse
+**Kurulum → Ses → Ses Analizi**'nde hassasiyet ve yumuşatma var.
 
 macOS'ta sistem sesi için sanal bir aygıt, Linux'ta PulseAudio ya da PipeWire gerekir. Ayrıntısı
 README'nin [ses bölümünde](../README.tr.md#ses-yakalama-ve-çözümleme).
