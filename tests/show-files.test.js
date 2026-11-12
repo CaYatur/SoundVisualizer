@@ -35,7 +35,10 @@ test('video listesi: denetim yalnız çizilen katmanı, paket kapalı katmanlar�
 
 test('ana süreç: paketin ve envanterin video listesi kapalı katmanları da alıyor', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /function showMediaPaths\(cfg\) \{[\s\S]{0,200}PreshowRefs\.collect\(cfg, \{ all: true \}\)/);
+  assert.match(main, /function showMediaRefs\(cfg\) \{[\s\S]{0,120}PreshowRefs\.collect\(cfg, \{ all: true \}\)/);
+  assert.match(main, /function showMediaPaths\(cfg\) \{\s*const files = new Set\(showMediaRefs\(cfg\)\);/);
+  // Tam yedek de aynı listeyi kullanıyor
+  assert.match(main, /media: showMediaRefs\(settings\)\.map\(\(u\) => mediaUrl\.fromMediaUrl\(u\)\)/);
   // Video dışa aktarımı yine yalnız çizilen katmanları açıyor
   assert.match(read('src/main/export-media.js'), /l\.enabled === false \|\| l\.muted/);
 });

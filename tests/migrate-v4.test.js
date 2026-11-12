@@ -87,7 +87,10 @@ test('yeni kurulum çevrilmiyor; ana süreç önce yedekliyor ve yedeğin üstü
   assert.ok(html.indexOf('../visualizer/layers.js') < html.indexOf('../shared/migrate-v4.js'));
   const admin = read('src/admin/admin.js');
   assert.match(admin, /SVMigrateV4\.migrateScene\(s\.data\)/);
-  assert.match(admin, /SVMigrateV4\.migrate\(sanitized\)/);
+  // Ayar yedeği ve tam yedek aynı yoldan: önce çevrilir, sonra varsayılanlarla birleşir
+  assert.match(admin, /function adoptImportedSettings\(incoming, keep\) \{\s*window\.SVMigrateV4\.migrate\(incoming\);/);
+  assert.match(admin, /adoptImportedSettings\(cloneWithoutUserContent\(incoming\),/);
+  assert.match(admin, /adoptImportedSettings\(incoming, null\)/);
 });
 
 test('görüntü taşımayan seyrek dosya boş listeye çevrilmez', () => {

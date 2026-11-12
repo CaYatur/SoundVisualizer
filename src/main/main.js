@@ -6232,13 +6232,19 @@ const PreshowRefs = require('../shared/preshow-refs');
 const presetFpCache = new Map();
 let localInvBusy = null;
 
+// Sahnelerin başvurduğu video adresleri (kapalı katmanlar dahil)
+function showMediaRefs(cfg) {
+  const out = [];
+  for (const r of PreshowRefs.collect(cfg, { all: true })) if (r.kind === 'media' && out.indexOf(r.id) < 0) out.push(r.id);
+  return out;
+}
+
 /* Sahnenin ve kayıtlı sahnelerin video dosyaları (yol → parmak izi).
    Kapalı ya da susturulmuş katmanlar da: yedeğe geçen operatör o katmanı
    açınca video orada olmalı. Liste gösteri öncesi denetimin gezdiği
    yuvalarla aynı (preshow-refs). */
 function showMediaPaths(cfg) {
-  const files = new Set();
-  for (const r of PreshowRefs.collect(cfg, { all: true })) if (r.kind === 'media') files.add(r.id);
+  const files = new Set(showMediaRefs(cfg));
   const out = {};
   for (const f of files) {
     const raw = mediaUrl.fromMediaUrl(f);
@@ -8211,6 +8217,137 @@ ipcMain.handle('media-lib:import', async () => {
     tallyImport(one, added, tally);
   }
   return importResult(added, tally);
+});
+
+// ----------------------------------------------------------------------------
+// Tam yedek (full-backup.js): ayarlar, sahneler ve kullandıkları dosyalar
+// ----------------------------------------------------------------------------
+const fullBackup = require('./full-backup');
+const backupOpened = new Map(); // jeton -> seçilen arşivin yolu (panel yol veremez)
+let backupBusy = false;
+
+/* Bu makinenin gösterisi: yedek rolünde birincilin kopyası çiziliyorsa
+   diskteki (yerel) görünüm; yoksa o anki yapılandırma. */
+function backupConfig() {
+  let cfg = currentConfig || {};
+  if (red.isolated && red.source === 'primary') {
+    try { cfg = redSpace().forDisk(cfg); } catch { /* yerel gösteri okunamadı: o anki */ }
+  }
+  return JSON.parse(JSON.stringify(cfg));
+}
+
+/* `light`: yalnız boyut tahmini (kart her çizildiğinde). Doku seçimi bütün
+   presetleri okur; büyük MilkDrop kitaplığında pahalı, tahmine gerekmiyor. */
+async function backupSource(includeVideos, light) {
+  const settings = backupConfig();
+  const items = (lib, dir) => lib.loadManifest(dir).items.filter((it) => it && it.id).map((it) => {
+    const info = lib.fileInfo ? lib.fileInfo(dir, it.id) : lib.resolveId(dir, it.id);
+    return info && info.file ? Object.assign({}, it, { src: info.file }) : null;
+  }).filter(Boolean);
+  return {
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    settings,
+    eachPreset: (fn) => presetsStore.eachFull(fn),
+    libraries: [
+      { key: 'logos', dir: logoLibDir(), items: items(logoLibrary, logoLibDir()) },
+      { key: 'media', dir: mediaLibDir(), items: items(mediaLibrary, mediaLibDir()) },
+      { key: 'lyrics', dir: lyricsLibDir(), items: items(lyricsLibrary, lyricsLibDir()) },
+    ],
+    textures: light ? [] : await showTextureFiles(),
+    media: showMediaRefs(settings).map((u) => mediaUrl.fromMediaUrl(u)).filter(Boolean),
+    includeVideos: !!includeVideos,
+    caseInsensitive: process.platform === 'win32',
+  };
+}
+
+function backupProgress(p) {
+  notifyAdmin('backup-progress', p);
+}
+
+// Panel videoların sayısını ve boyutunu önceden göstersin
+ipcMain.handle('backup:plan', async () => {
+  try {
+    const p = await fullBackup.plan(await backupSource(true, true));
+    return { ok: true, videoBytes: p.videoBytes, videos: p.videos };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err).slice(0, 160) };
+  }
+});
+
+ipcMain.handle('backup:export', async (e, opts) => {
+  if (backupBusy) return { ok: false, error: 'BUSY' };
+  const stamp = new Date().toISOString().slice(0, 10);
+  const r = await dialog.showSaveDialog(adminWin, {
+    title: trUi('Tam Yedek Al', 'Create Full Backup'),
+    defaultPath: 'soundvisualizer-yedek-' + stamp + fullBackup.EXT,
+    filters: [{ name: trUi('SoundVisualizer Yedeği', 'SoundVisualizer Backup'), extensions: [fullBackup.EXT.slice(1)] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+  backupBusy = true;
+  try {
+    if (saveQueued) flushSettings();
+    const src = await backupSource(!!(opts && opts.includeVideos));
+    const res = await fullBackup.writeBackup(r.filePath, src, backupProgress);
+    return Object.assign({ ok: true, path: r.filePath }, res);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err).slice(0, 160) };
+  } finally {
+    backupBusy = false;
+  }
+});
+
+// Arşivi seçer ve ne geri yükleneceğini söyler; hiçbir şey yazılmaz
+ipcMain.handle('backup:open', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Tam Yedekten Geri Yükle', 'Restore from Full Backup'),
+    properties: ['openFile'],
+    filters: [{ name: trUi('SoundVisualizer Yedeği', 'SoundVisualizer Backup'), extensions: [fullBackup.EXT.slice(1), 'zip'] }],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    const summary = fullBackup.inspect(r.filePaths[0]);
+    const token = require('crypto').randomBytes(12).toString('hex');
+    backupOpened.clear();
+    backupOpened.set(token, r.filePaths[0]);
+    return { ok: true, token, name: path.basename(r.filePaths[0]), summary };
+  } catch (err) {
+    return { ok: false, error: (err && err.code) || 'NOT_BACKUP' };
+  }
+});
+
+ipcMain.handle('backup:restore', async (e, token) => {
+  const file = backupOpened.get(String(token || ''));
+  if (!file) return { ok: false, error: 'NO_FILE' };
+  // Yedek rolünde ayarlar birincilin gösterisiyle karışırdı
+  if (red.isolated) return { ok: false, error: 'REDUNDANCY_ROLE' };
+  if (backupBusy) return { ok: false, error: 'BUSY' };
+  backupBusy = true;
+  try {
+    const lib = (l, extra) => Object.assign({ invalidateCache: l.invalidateCache }, extra);
+    const res = await fullBackup.restore(file, {
+      savePresets: async (list) => {
+        const saved = await presetsStore.saveManyAsync(list);
+        broadcastPresetDelta(saved, []);
+        return saved;
+      },
+      libraries: {
+        logos: { dir: logoLibDir(), lib: lib(logoLibrary, { isFile: logoLibrary.isFile }) },
+        media: { dir: mediaLibDir(), lib: lib(mediaLibrary, { isFile: mediaLibrary.isFile }) },
+        lyrics: { dir: lyricsLibDir(), lib: lib(lyricsLibrary, { isFile: lyricsLibrary.isLyricFile }) },
+      },
+      textureDir: managedTextureDir(),
+      restoredMediaDir: path.join(app.getPath('userData'), 'restored-media'),
+      caseInsensitive: process.platform === 'win32',
+    }, backupProgress);
+    backupOpened.delete(String(token));
+    publishLyricsLib();
+    return { ok: true, settings: res.settings, counts: res.counts, summary: res.summary };
+  } catch (err) {
+    return { ok: false, error: (err && err.code) || String(err && err.message || err).slice(0, 160) };
+  } finally {
+    backupBusy = false;
+  }
 });
 
 // ----------------------------------------------------------------------------

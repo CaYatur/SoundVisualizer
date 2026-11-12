@@ -1429,12 +1429,53 @@
     ]);
   }
 
-  // --- Tüm ayarları içe/dışa aktarma (renk şablonları hariç) ---
+  // --- Tam yedek + yalnız ayarlar ---
+  function backupBytes(n) {
+    const v = Number(n) || 0;
+    if (v >= 1024 * 1024 * 1024) return (v / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    if (v >= 1024 * 1024) return (v / (1024 * 1024)).toFixed(v >= 100 * 1024 * 1024 ? 0 : 1) + ' MB';
+    return Math.max(1, Math.round(v / 1024)) + ' KB';
+  }
   function settingsIoCtrl() {
+    /* Tam yedek (full-backup.js): ayarlar, sahneler, renk şablonları ve
+       sahnelerin kullandığı dosyalar tek arşivde. Videolar büyük olabilir;
+       boyutları önceden yazılır, seçim bu bilgisayarda hatırlanır. */
+    let withVideos = true;
+    try { withVideos = localStorage.getItem('sv-backup-videos') !== '0'; } catch (e) { /* depolama yok */ }
+    const vidInput = el('input', {
+      type: 'checkbox',
+      onchange: (e) => {
+        try { localStorage.setItem('sv-backup-videos', e.target.checked ? '1' : '0'); } catch (err) { /* depolama yok */ }
+      },
+    });
+    vidInput.checked = withVideos;
+    const vidInfo = el('div', { class: 'studio-note dim-hint', style: 'margin-top:4px;' });
+    const status = el('div', { class: 'settings-io-note backup-status', 'aria-live': 'polite' });
+    const fullBtn = el('button', { class: 'btn small', icon: 'save', text: 'Tam Yedek Al', onclick: () => actions.exportFullBackup(vidInput.checked, status) });
+    const restBtn = el('button', { class: 'btn ghost small', icon: 'import', text: 'Tam Yedekten Geri Yükle', onclick: () => actions.restoreFullBackup(status) });
+    if (window.api && window.api.backupPlan) {
+      window.api.backupPlan().then((p) => {
+        if (!p || !p.ok) return;
+        vidInfo.textContent = p.videos
+          ? tr('Sahnelerde {n} video var, toplam {s}. Videosuz yedek küçük olur ama başka bir bilgisayarda o videolar eksik kalır.')
+            .replace('{n}', String(p.videos)).replace('{s}', backupBytes(p.videoBytes))
+          : tr('Sahnelerde video dosyası yok.');
+      }).catch(() => {});
+    }
     const expBtn = el('button', { class: 'btn ghost small', icon: 'export', text: 'Tüm Ayarları Dışa Aktar', onclick: () => actions.exportAllSettings() });
     const impBtn = el('button', { class: 'btn ghost small', icon: 'import', text: 'Ayarları İçe Aktar', onclick: () => actions.importAllSettings() });
     return el('div', { class: 'ctrl settings-io-panel' }, [
-      el('div', { class: 'settings-io-note', text: 'Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler ve video dışa aktarma ayarlarını JSON dosyasına kaydeder. Renk şablonlarınız ve sahneleriniz dosyaya dahil edilmez ve içe aktarma sırasında korunur; onların kendi dışa aktarma düğmeleri vardır.' }),
+      el('div', { class: 'lbl backup-head', text: 'Tam Yedek' }),
+      el('div', { class: 'settings-io-note', text: 'Ayarları, sahneleri, renk şablonlarını ve sahnelerin kullandığı dosyaları (presetler, logolar, videolar, sözler, MilkDrop dokuları) tek dosyaya yazar. Gösteriden önce saklamak ya da kurulumu başka bir bilgisayara taşımak için bunu kullanın.' }),
+      el('div', { class: 'row', style: 'margin-top:8px;' }, [
+        el('label', { class: 'lbl', text: 'Videoları Dahil Et' }),
+        el('label', { class: 'switch' }, [vidInput, el('span', { class: 'track' })]),
+      ]),
+      vidInfo,
+      el('div', { class: 'up-toolbar' }, [fullBtn, restBtn]),
+      status,
+      el('div', { class: 'lbl backup-head', text: 'Yalnız Ayarlar', style: 'margin-top:14px;' }),
+      el('div', { class: 'settings-io-note', text: 'Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler ve video dışa aktarma ayarlarını JSON dosyasına kaydeder. Renk şablonlarınız, sahneleriniz ve kitaplık dosyaları bu dosyaya girmez ve içe aktarma sırasında korunur.' }),
       el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
     ]);
   }
@@ -3256,7 +3297,7 @@
         category: 'library',
         icon: 'save',
         title: 'Ayarları Yedekle / Geri Yükle',
-        desc: 'Renk şablonları hariç tüm uygulama ayarlarını tek JSON dosyasında taşıyın.',
+        desc: 'Ayarları, sahneleri ve kullandıkları dosyaları tek dosyada saklayın ya da başka bir bilgisayara taşıyın.',
         controls: [{ type: 'settingsio' }],
       },
       {
@@ -6783,17 +6824,26 @@
     if (!proceed) return;
 
     // Kullanıcı içeriğini yedekten bağımsız olarak koru
-    const preservedPresets = Array.isArray(cfg.userPresets) ? cfg.userPresets : [];
-    const preservedScenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
-    const sanitized = cloneWithoutUserContent(incoming);
-    window.SVMigrateV4.migrate(sanitized);
-    const imported = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
+    adoptImportedSettings(cloneWithoutUserContent(incoming), {
+      userPresets: Array.isArray(cfg.userPresets) ? cfg.userPresets : [],
+      scenes: Array.isArray(cfg.scenes) ? cfg.scenes : [],
+    });
+    svToast('Ayarlar başarıyla içe aktarıldı. Renk şablonlarınız ve sahneleriniz değiştirilmedi.', 'ok');
+  };
+
+  /* Yedekten gelen yapılandırmayı uygular. `keep`: yedekten bağımsız korunan
+     kullanıcı içeriği (yalnız ayarlar); tam yedekte yok, sahneler yedekten. */
+  function adoptImportedSettings(incoming, keep) {
+    window.SVMigrateV4.migrate(incoming);
+    const imported = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
     cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(imported, cfg) : imported;
     window.SVLayers.ensureStack(cfg);
     // Başka makineden gelen yedek bu makinede çalışmayan kaynak taşıyabilir
     platformAdjust(cfg);
-    cfg.userPresets = preservedPresets;
-    cfg.scenes = preservedScenes;
+    if (keep) {
+      cfg.userPresets = keep.userPresets;
+      cfg.scenes = keep.scenes;
+    }
     if (cfg.images && Array.isArray(cfg.images.items)) {
       cfg.images.items = cfg.images.items.map((item) => window.SV.normalizeImageItem(item));
     }
@@ -6802,7 +6852,82 @@
     push(true);
     render();
     renderScenes();
-    svToast('Ayarlar başarıyla içe aktarıldı. Renk şablonlarınız ve sahneleriniz değiştirilmedi.', 'ok');
+  }
+
+  // --------------------------------------------------------------------------
+  // Tam yedek (full-backup.js)
+  // --------------------------------------------------------------------------
+  const BACKUP_ERRORS = {
+    NOT_BACKUP: 'Bu dosya bir SoundVisualizer tam yedeği değil.',
+    FORMAT: 'Bu yedek daha yeni bir sürümle alınmış. Önce uygulamayı güncelleyin.',
+    REDUNDANCY_ROLE: 'Bu makine yedek rolündeyken geri yükleme yapılamaz. Önce Yedeklilik rolünü kapatın.',
+    BUSY: 'Başka bir yedekleme işi sürüyor.',
+    NO_FILE: 'Yedek dosyası yeniden seçilmeli.',
+  };
+  const BACKUP_PHASES = {
+    presets: 'Presetler', logos: 'Logolar', media: 'Videolar', lyrics: 'Sözler', textures: 'MilkDrop dokuları', settings: 'Ayarlar',
+  };
+  let backupStatusEl = null;
+  if (window.api && window.api.onBackupProgress) {
+    window.api.onBackupProgress((p) => {
+      if (!backupStatusEl || !backupStatusEl.isConnected || !p || p.phase === 'done') return;
+      const pct = p.total > 0 ? Math.min(100, Math.floor((p.done / p.total) * 100)) : 0;
+      backupStatusEl.textContent = tr(BACKUP_PHASES[p.phase] || 'Yazılıyor') + ' · %' + pct
+        + (p.total > 0 ? ' · ' + backupBytes(p.done) + ' / ' + backupBytes(p.total) : '');
+    });
+  }
+  const backupError = (code) => (BACKUP_ERRORS[code] ? tr(BACKUP_ERRORS[code]) : tr('İşlem tamamlanamadı') + ': ' + String(code || '?'));
+
+  actions.exportFullBackup = async (includeVideos, statusEl) => {
+    backupStatusEl = statusEl || null;
+    if (statusEl) statusEl.textContent = '';
+    const r = await window.api.backupExport({ includeVideos: !!includeVideos });
+    if (!r || r.canceled) { if (statusEl) statusEl.textContent = ''; return; }
+    if (!r.ok) {
+      if (statusEl) statusEl.textContent = '';
+      svToast(tr('Tam yedek alınamadı') + ': ' + backupError(r.error), 'err');
+      return;
+    }
+    const line = tr('{s} sahne, {p} preset, {l} logo, {v} video, {y} söz, {t} doku · {b}')
+      .replace('{s}', String(r.scenes)).replace('{p}', String(r.presets)).replace('{l}', String(r.logos))
+      .replace('{v}', String(r.videos)).replace('{y}', String(r.lyrics)).replace('{t}', String(r.textures)).replace('{b}', backupBytes(r.bytes));
+    if (statusEl) statusEl.textContent = line;
+    svToast(tr('Tam yedek kaydedildi.') + (r.videosLeftOut ? ' ' + tr('{n} video yedeğe alınmadı.').replace('{n}', String(r.videosLeftOut)) : ''), 'ok');
+  };
+
+  actions.restoreFullBackup = async (statusEl) => {
+    backupStatusEl = statusEl || null;
+    const o = await window.api.backupOpen();
+    if (!o || o.canceled) return;
+    if (!o.ok) { svToast(backupError(o.error), 'err'); return; }
+    const sm = o.summary || {};
+    const when = sm.createdAt ? new Date(sm.createdAt) : null;
+    const parts = [
+      tr('Yedek: {d}, sürüm {v}.').replace('{d}', when && !isNaN(when) ? when.toLocaleString() : '?').replace('{v}', sm.appVersion || '?'),
+      tr('{s} sahne, {c} renk şablonu, {p} preset, {l} logo, {v} video, {y} söz, {t} doku.')
+        .replace('{s}', String(sm.scenes || 0)).replace('{c}', String(sm.colorPresets || 0)).replace('{p}', String(sm.presets || 0))
+        .replace('{l}', String(sm.logos || 0)).replace('{v}', String(sm.videos || 0)).replace('{y}', String(sm.lyrics || 0)).replace('{t}', String(sm.textures || 0)),
+      tr('Ayarlarınız, sahneleriniz ve renk şablonlarınız yedektekiyle değiştirilir. Kitaplıklara yedekteki öğeler eklenir: aynı öğe varsa yedekteki geçerli olur, yedekte olmayan öğeleriniz silinmez.'),
+    ];
+    if (sm.videosLeftOut) parts.push(tr('Bu yedek videosuz alınmış: {n} video bu bilgisayarda yoksa sahnelerde eksik kalır.').replace('{n}', String(sm.videosLeftOut)));
+    const ok = await svConfirm(parts.join(' '), { okText: tr('Geri Yükle'), title: tr('Tam Yedekten Geri Yükle'), danger: true });
+    if (!ok) return;
+    if (statusEl) statusEl.textContent = '';
+    const r = await window.api.backupRestore(o.token);
+    if (!r || !r.ok) {
+      if (statusEl) statusEl.textContent = '';
+      svToast(tr('Geri yüklenemedi') + ': ' + backupError(r && r.error), 'err');
+      return;
+    }
+    const incoming = r.settings && typeof r.settings === 'object' ? r.settings : {};
+    // Dokular uygulamanın klasörüne yazıldı: pencereler listeyi yeniden istesin
+    if (r.counts && r.counts.textures) {
+      incoming.milkdropLibrary = incoming.milkdropLibrary && typeof incoming.milkdropLibrary === 'object' ? incoming.milkdropLibrary : {};
+      incoming.milkdropLibrary.textureRev = Math.max(+incoming.milkdropLibrary.textureRev || 0, +((cfg.milkdropLibrary || {}).textureRev) || 0) + 1;
+    }
+    adoptImportedSettings(incoming, null);
+    if (statusEl) statusEl.textContent = '';
+    svToast(tr('Tam yedek geri yüklendi.') + (r.counts && r.counts.skipped ? ' ' + tr('{n} öğe okunamadı ve atlandı.').replace('{n}', String(r.counts.skipped)) : ''), 'ok');
   };
 
   // --------------------------------------------------------------------------
