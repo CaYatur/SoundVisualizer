@@ -207,10 +207,13 @@ test('tam yedek: başka makineye geri yükleme her şeyi getiriyor, videolar yen
     assert.deepStrictEqual(s.userPresets, [{ name: 'Mavi' }]);
     assert.deepStrictEqual(out.counts, { presets: 1, logos: 1, media: 1, lyrics: 1, textures: 1, videos: 2, skipped: 0 });
 
+    // Aynı kimlik, aynı boyut, farklı içerik: yedekteki geçerli
+    fs.writeFileSync(path.join(b.logos, 'logo_a.png'), 'XXXXXXX');
     // İkinci kez: aynı dosyalar yeniden yazılmıyor, sonuç aynı
     const again = await Backup.restore(file, Object.assign(targetOf(b), { exists }));
     assert.strictEqual(mediaUrl.fromMediaUrl(again.settings.layers[1].settings.media.file), ext);
     assert.strictEqual(libItems(b.logos).length, 2);
+    assert.strictEqual(fs.readFileSync(path.join(b.logos, 'logo_a.png'), 'utf8'), 'PNGDATA');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

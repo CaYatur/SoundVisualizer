@@ -267,10 +267,20 @@ function upsertManifest(dir, items, lib) {
   if (lib && typeof lib.invalidateCache === 'function') lib.invalidateCache(dir);
 }
 
-// Var olan aynı boyutlu dosya yeniden yazılmaz (oynayan video kilitli olabilir)
+/* Var olan aynı dosya yeniden yazılmaz: oynayan video kilitli olabilir.
+   Küçük dosyada (logo, söz, doku) içerik CRC ile karşılaştırılır, aynı boyutlu
+   farklı dosya yedektekiyle değişir; büyük dosyada (video, kimliği benzersiz)
+   boyut yeter. */
+const SAME_BY_CRC_MAX = 16 * 1024 * 1024;
 async function extract(b, entry, dest, onBytes) {
   const have = await statSize(dest);
-  if (have === entry.size) { onBytes(entry.size); return false; }
+  if (have === entry.size) {
+    let same = entry.size > SAME_BY_CRC_MAX;
+    if (!same) {
+      try { same = ZipReader.crc32(await fs.promises.readFile(dest)) === entry.crc; } catch { same = false; }
+    }
+    if (same) { onBytes(entry.size); return false; }
+  }
   const tmp = dest + '.restore-' + crypto.randomBytes(3).toString('hex');
   await b.zr.copyTo(entry, tmp, undefined, onBytes);
   try {
