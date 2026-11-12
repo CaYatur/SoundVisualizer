@@ -38,11 +38,15 @@
 
     function renderCards() {
       grid.innerHTML = '';
-      const q = search.trim().toLowerCase();
+      /* Arama ortak anahtarla (shared/text-fold.js) ve GÖRÜNEN adla da: İngilizce arayüzde
+         kullanıcı çevrilmiş adı yazıyor, yalnız Türkçe kaynak adına bakılınca bulamıyordu. */
+      const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+      const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s) || s;
+      const q = F(search);
       const list = T.TEMPLATES.filter((t) => {
         if (group !== '*' && t.group !== group) return false;
         if (!q) return true;
-        return (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(q);
+        return F(t.name + ' ' + t.desc + ' ' + t.group + ' ' + tt(t.name) + ' ' + tt(t.desc) + ' ' + tt(t.group)).includes(q);
       });
 
       for (const t of list) {

@@ -137,8 +137,9 @@
   function visible(cfg) {
     const L = LB();
     if (!L) {
-      const f = filter.trim().toLowerCase();
-      return f ? presets.filter((p) => (p.name || '').toLowerCase().includes(f)) : presets;
+      const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+      const f = F(filter);
+      return f ? presets.filter((p) => F(p.name).includes(f)) : presets;
     }
     const tag = showSel.indexOf('tag:') === 0 ? showSel.slice(4) : '';
     return L.filter(presets, {

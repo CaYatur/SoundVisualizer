@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4467%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4482%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -2097,7 +2097,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4467 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4482 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2180,16 +2180,27 @@ Ortak motorlar DOM'suz, GPU'suz ve ses aygıtsız düz aritmetik; testleri Node'
 
 | Tuş | Eylem |
 |-----|-------|
-| `ESC` | Bütün görselleştirme pencerelerini kapat |
-| `F11` | Tam ekranı aç/kapat |
-| `Space` | Karartma |
-| `Ctrl` + `S` | PNG anlık görüntü |
-| `Ctrl` + `R` | Kaydı başlat / durdur |
+| `Space` | Karartma; tekrar basınca sahne geri gelir (panel ve çıkış penceresi) |
+| `Ctrl` + `S` | PNG anlık görüntü (panel ve çıkış penceresi) |
+| `Ctrl` + `R` | Kaydı başlat / durdur (panel ve çıkış penceresi) |
 | `Ctrl` + `K` | Bütün ayarlarda ara (panel) |
+| `Alt` + `1`–`5` | Sayfa değiştir: Sahne, Canlı, Zaman, Stüdyo, Çıktı (panel) |
+| `Ctrl` + `Z` / `Ctrl` + `Y` | Geri al / yinele (panel) |
+| `Ctrl` + `+` / `-` | Arayüzü büyüt ya da küçült (panel) |
+| `?` | Kısayol listesini aç (panel) |
+| `F1`–`F12` | Sahneyi sıraya al (Canlı sayfası) |
+| `Enter` | Sıradaki sahneyi canlıya al (Canlı sayfası) |
+| `ESC` | Bütün görselleştirme pencerelerini kapat |
+| `F11` | Tam ekranı aç/kapat (çıkış penceresi) |
 | `Ctrl` + `Shift` + `Q` | ESC kilidi açıkken görselleştiriciyi kapat |
-| `K` + iki rakam | Bir MilkDrop sprite'ı başlat (görselleştirici penceresi) |
+| `K` + iki rakam | Bir MilkDrop sprite'ı başlat (çıkış penceresi) |
 
-Zaman çizelgesi düzenleyicisinin ve klip destesinin kendi kısayolları var; panellerinde listeleniyor.
+Aynı liste uygulamanın içinde `?` ile, arama kutusundan ya da Kurulum'un altındaki **Kısayollar**
+düğmesinden açılıyor. Panelde `Space` yalnız odak bir denetimde değilken karartıyor; Zaman
+sayfasında çizelgenin oynat tuşu olarak kalıyor. Zaman çizelgesi düzenleyicisinin, klip destesinin
+ve düzen editörünün kendi kısayolları var; panellerinde listeleniyor. Windows ve Linux'ta
+uygulamanın menü çubuğu yok: `Ctrl` + `R` hiçbir pencereyi yeniden yüklemiyor, `Ctrl` + `W`
+kapatmıyor.
 
 ---
 

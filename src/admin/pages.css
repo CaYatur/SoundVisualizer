@@ -1005,3 +1005,19 @@ body[data-page='live'] #svStageTools { display: none; }
   .lay-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 38%); }
   .lay-hint, .lay-info { display: none; }
 }
+
+/* Klavye kısayolları penceresi (shortcuts-help.js) */
+.keys-help { width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.keys-help-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.keys-help-head .ask-title { margin: 0; }
+.keys-help-body { overflow: auto; min-height: 0; padding-right: 4px; }
+.keys-help-group { margin: 14px 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted2); }
+.keys-help-list { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 7px 16px; align-items: baseline; }
+.keys-help-combo { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.keys-help-plus { font-size: 11px; color: var(--muted2); }
+.keys-help kbd {
+  display: inline-block; min-width: 20px; padding: 2px 7px; border-radius: 6px; background: var(--sv-fill);
+  font-family: var(--sv-mono); font-size: 11.5px; line-height: 16px; text-align: center; color: var(--text);
+}
+.keys-help-text { font-size: 12.5px; color: var(--text); line-height: 1.45; }
+.keys-help-more { margin-top: 14px; }

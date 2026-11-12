@@ -80,6 +80,35 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **The documented show shortcuts now exist, and `Ctrl` + `R` no longer reloads the app.** The README
+  has listed `Space` (blackout), `Ctrl` + `S` (snapshot) and `Ctrl` + `R` (record) since v3, but no
+  code handled them. Worse, the app never set a menu, so Electron installed its default one: with
+  the bar hidden its accelerators still worked, and `Ctrl` + `R` **reloaded** the panel or the output
+  window, `Ctrl` + `W` closed the focused window, `Ctrl` + `Shift` + `I` opened the developer tools
+  and `Alt` showed a generic File / Edit / View bar in the panel. Now:
+  - Windows and Linux have no application menu; macOS keeps the app, Edit and Window menus (copy,
+    paste and quit come from there) without View. `--dev` keeps reload on `F5` and the tools on `F12`.
+  - The three shortcuts work in the panel and in the output window, where the focus is during a
+    show. In the panel `Space` only acts while no control has the focus, and stays the play key on
+    the Time page. Holding a key does not repeat.
+  - Checked in the app with real keystrokes and an isolated profile: `Space` blacked out and
+    restored from both windows, `Ctrl` + `R` started a recording from both, neither window reloaded,
+    and `Ctrl` + `W` and `Ctrl` + `Shift` + `I` did nothing.
+- **A shortcut list inside the app.** `?`, the search box ("shortcut") or the Shortcuts button at the
+  bottom of Setup open one list for the panel, the Live page and the output window. The README table
+  is the same list; it had been missing the page keys, undo and the Live page keys.
+- **Search finds what people type.** The panel lowered text with the Turkish locale, which turns
+  "MIDI" into "mıdı" and "GIF" into "gıf": typing "midi" or "gif" found nothing. Every search box
+  (settings, modes, templates, logos, MilkDrop, the phone remote) now compares through one key that
+  ignores case, the Turkish I/ı pair and accents, so "sarki sozu" finds "Şarkı Sözü". Sections and
+  layer settings also carry the words people use for them, in both languages: microphone, phone,
+  green screen, webcam, export, language, projector, shortcut. Of 69 everyday words tried in the app,
+  29 found nothing before and 4 after (those four name things the app does not have). A query of three letters or fewer only matches at the start of a word,
+  so "ndi" no longer returns "Kendi" and "lut" no longer returns "Bulutsu". The template search also
+  looks at the translated names, which the English interface could not search before.
+- **"Application audio" no longer looks empty.** In Audio Sources, the line that says no application
+  is playing, or that per-application capture is unavailable, was folded into the info button of a
+  different label, leaving a bare heading. A note directly under a heading now stays there.
 - **Screen source: refresh rate and OBS** (#421). A screen or window on a media layer now has a
   **refresh rate**: 5, 15, 30 or 60 fps. Without a limit Chromium captures at 30 fps (measured), so
   that is the default; a lower rate reduces the capture load for slides or a chat window. The screen
