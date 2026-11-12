@@ -234,3 +234,25 @@ test('README kısayol tablosu uygulamadaki listeyle aynı tuşları yazar', () =
     for (const k of ['`Ctrl` + `S`', '`Ctrl` + `R`', '`Ctrl` + `K`', '`Alt` + `1`–`5`', '`F1`–`F12`', '`?`']) assert.ok(md.includes(k), f + ': ' + k);
   }
 });
+
+test('zaman çizelgesinin kısayol penceresi panelin ortak pencere kabuğunda', () => {
+  const tl = read('src/admin/timeline-panel.js');
+  assert.match(tl, /class: 'tl-keys-dlg ask-backdrop', role: 'dialog', 'aria-modal': 'true'/);
+  assert.match(tl, /class: 'tl-keys-card ask-panel keys-help'/);
+  const css = read('src/admin/admin.css');
+  assert.match(css, /\.ask-backdrop \{\s*position: fixed;/);
+  assert.ok(!/\.tl-keys-dlg \{ max-width/.test(css), 'kabuğu daraltan eski kural kalmadı');
+  assert.match(read('src/admin/pages.css'), /\.keys-help \{[^}]*max-height: calc\(100vh - 40px\)/);
+});
+
+test('depo kökünde güvenlik politikası ve davranış kuralları var', () => {
+  const sec = read('SECURITY.md');
+  assert.match(sec, /Report a vulnerability/);
+  assert.match(sec, /github\.com\/CaYatur\/SoundVisualizer\/security/);
+  assert.match(sec, /README\.md#privacy-and-security/);
+  assert.ok(read('README.md').includes('### Privacy and security'), 'bağlanan başlık duruyor');
+  const coc = read('CODE_OF_CONDUCT.md');
+  assert.match(coc, /SECURITY\.md/);
+  assert.match(coc, /contact@cayadev\.com/);
+  assert.ok(read('package.json').includes('contact@cayadev.com'), 'adres paket bilgisindekiyle aynı');
+});

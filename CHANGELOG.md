@@ -80,6 +80,18 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Serpentine wiring for the LED matrix** (#1023). Most ready-made LED panels and folded strips
+  double back at the end of each row. Driven row by row from the left, every second row came out
+  mirrored. A **Serpentine Layout** switch next to the matrix columns and rows counts odd rows right
+  to left, for Art-Net, sACN and WLED alike. Off by default, so existing setups send the same bytes.
+  `tests/led-matrix.test.js`.
+- **The timeline's shortcut list opens as a dialog.** Pressing `?` on the Time page appended the list
+  to the page with no position and no background: it pushed the whole page down and ran along the
+  left edge. Its styles had never been written. It now uses the panel's dialog shell, scrolls when
+  it is taller than the window, and closes with Esc, `?` or a click outside. Checked in the app.
+- **A security policy and a code of conduct** in the repository root (`SECURITY.md`,
+  `CODE_OF_CONDUCT.md`): how to report a vulnerability privately, what is in scope, and what the
+  app opens on the network and when.
 - **The documented show shortcuts now exist, and `Ctrl` + `R` no longer reloads the app.** The README
   has listed `Space` (blackout), `Ctrl` + `S` (snapshot) and `Ctrl` + `R` (record) since v3, but no
   code handled them. Worse, the app never set a menu, so Electron installed its default one: with
@@ -376,7 +388,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   row fully and each row above it less. Columns and rows come from the settings when they are whole
   numbers of at least 1, otherwise from the fixture count as a near-square; cells past the count are
   not read. The three outputs share one colour function, and the strip modes send the same bytes
-  as before. Rows are wired left to right on every row (no serpentine option yet).
+  as before. Rows are wired left to right on every row; a serpentine option came later (see above).
   `tests/led-matrix.test.js`.
 - **MIDI clock out** (#434, #1019). Control → Tempo sends the modulation tempo as MIDI clock: start
   (`0xFA`) when switched on, 24 pulses per quarter note from the modulation BPM (120 when it is 0),

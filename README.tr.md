@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4482%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4486%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1116,7 +1116,8 @@ Lighting ile **aynı kipler ve aynı renk matematiğiyle**.
 **Art-Net / DMX.** Armatürlere ve ışık masalarına ArtDMX çıkışı; paket düzeni bayt bayt sınanıyor.
 Art-Net, sACN ve WLED (DDP) armatürleri bir **matris** olarak da sürebiliyor; sol üstten satır satır:
 her sütunun kendi tonu var, alt satır müzik kadar parlak, üstteki satırlar giderek sönüyor. Sütun ve
-satır elle verilir ya da armatür sayısından kareye yakın seçilir.
+satır elle verilir ya da armatür sayısından kareye yakın seçilir; **yılan dizilim** anahtarı, zigzag
+kablolanmış panolar ve katlanmış şeritler için her ikinci satırı ters çevirir.
 
 **Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
 izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
@@ -2097,7 +2098,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4482 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4486 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
