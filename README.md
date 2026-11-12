@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4519%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4530%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -64,6 +64,48 @@ and presets, images, backgrounds, templates and saved scenes one click away belo
 | **12** video export formats | **60** CaYaDev MilkDrop presets | **7** interface themes | **0.4–0.5 s** hot-standby takeover after a crash |
 
 </div>
+
+---
+
+## Use cases
+
+Each of these is a workflow the app covers on its own. The one add-on is the Companion module for
+Stream Deck, which installs into Companion.
+
+<table>
+<tr>
+<td width="50%" valign="top"><b>Live VJ sets and club nights</b><br />Scenes on the F keys, a T-bar to mix by hand, a beat-quantised clip deck, Auto VJ on the bar, momentary flash and strobe, and controller maps with LED feedback. <a href="#show-control-timeline-clip-deck-auto-vj-midi-and-osc">&rarr;&nbsp;Show control</a></td>
+<td width="50%" valign="top"><b>Stream overlays</b><br />A transparent OBS browser source with no plugin, a Now Playing card with album art, synced lyrics, a web page layer for alerts and chat, and visuals that follow one application instead of the game. <a href="#outputs-screens-obs-spout-and-syphon">&rarr;&nbsp;Outputs</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Music videos for your releases</b><br />Frame-exact export from the audio file in 12 formats up to 4K, music video layouts with your logo and the track title, title and end cards, YouTube chapters and a thumbnail. <a href="#recording-and-video-export">&rarr;&nbsp;Export</a></td>
+<td width="50%" valign="top"><b>Spotify Canvas, Reels and Shorts</b><br />One-click vertical profiles and seamless loops whose last frame flows into the first, even with feedback and MilkDrop. A batch queue renders one scene across many songs. <a href="#recording-and-video-export">&rarr;&nbsp;Export</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Lyric and karaoke screens</b><br />LRC and SRT with word timing, a karaoke fill that follows each word, held syllables, a timing editor, and a lyrics library that follows the playing track on Windows. <a href="#text-lyrics-and-now-playing">&rarr;&nbsp;Lyrics</a></td>
+<td width="50%" valign="top"><b>Concerts, theatre and timecode shows</b><br />A timeline with automation lanes, cue markers with GO, MIDI Time Code chase, Art-Net input from a lighting desk, OSC, and a pre-show check before the doors open. <a href="#show-control-timeline-clip-deck-auto-vj-midi-and-osc">&rarr;&nbsp;Show control</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Projection mapping and LED walls</b><br />Corner pin, mesh warp and soft-edge blending across several projectors, and aspect correction for LED panels whose pixels are not square. <a href="#stage-projection-mapping-and-aspect-correction">&rarr;&nbsp;Stage</a></td>
+<td width="50%" valign="top"><b>LED strips and matrices</b><br />WLED over DDP with discovery, WLED Audio Sync, sACN and Art-Net, a matrix mode with serpentine wiring, and colours sampled from the MilkDrop picture. <a href="#rgb-lighting-dynamic-lighting-openrgb-and-art-net">&rarr;&nbsp;Lighting</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Desk and room RGB</b><br />Keyboards, mice, fans and strips through Windows Dynamic Lighting and OpenRGB, with the same colour modes on every device. <a href="#rgb-lighting-dynamic-lighting-openrgb-and-art-net">&rarr;&nbsp;Lighting</a></td>
+<td width="50%" valign="top"><b>Smart home and button decks</b><br />MQTT with Home Assistant discovery, a Bitfocus Companion module for Stream Deck, an OpenAPI HTTP API and a phone remote. <a href="#mqtt--home-assistant">&rarr;&nbsp;MQTT</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Events that must not go dark</b><br />A second machine as a hot standby that takes over in about half a second, one machine driving the lights, an audio bridge, and a full backup that moves the whole show. <a href="#show-safety-pre-show-check-redundancy-and-the-audio-bridge">&rarr;&nbsp;Show safety</a></td>
+<td width="50%" valign="top"><b>Lounges, shops and waiting rooms</b><br />Calm backgrounds made to sit behind text and a logo, an idle screensaver after silence, low-power mode on battery, and a display that does not go to sleep. <a href="#reliability-power-and-updates">&rarr;&nbsp;Reliability</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>A MilkDrop player on every desktop</b><br />.milk and .milk2 presets, library import with thumbnails, favourites and ratings, a live editor, and 60 presets of our own, on Windows, macOS and Linux. <a href="#milkdrop">&rarr;&nbsp;MilkDrop</a></td>
+<td width="50%" valign="top"><b>Green screen and video mixing</b><br />A webcam, video files, a screen or window, and other applications over Spout or Syphon as layers, with a colour key, spill suppression and beat-locked video loops. <a href="#logo-images-and-the-media-layer">&rarr;&nbsp;Media layer</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Shader sketching</b><br />GLSL with a live preview, multi-pass buffers, and Shadertoy and ISF import. What you write becomes a layer you can use in a show. <a href="#studio--write-your-own-shader">&rarr;&nbsp;Studio</a></td>
+<td width="50%" valign="top"><b>Shows built by an AI agent</b><br />An MCP server with 106 tools lets Claude, Codex, Cursor and other agents read the show, build scenes and run the outputs, behind permission levels. <a href="#mcp--control-from-an-ai-agent">&rarr;&nbsp;MCP</a></td>
+</tr>
+</table>
 
 ---
 
@@ -133,6 +175,11 @@ fluid gradient backgrounds that move with the music.
 > **v4 is not released yet.** Everything below is on `main` and runs [from source](#run-from-source)
 > today; the installers under [Download](#download) are the latest release (v3.1.7) until v4 ships.
 
+- **One model and a new panel.** Every scene, template and saved look is now a list of layers, and
+  the panel is rebuilt around the picture: Scene, Live, Time, Studio and Output pages, an inspector
+  that shows only what the selected layer reads, undo and redo for the whole scene, search that finds
+  layer settings, a shortcut list on <kbd>?</kbd>, and panels you can resize. Settings from v3 are
+  converted once on the first start, with a backup copy. [→ The control panel](#the-control-panel)
 - **A Live page built like a vision mixer.** A scene grid with banks and F-keys, Cued and Live
   monitors, and a **T-bar**: drag it to mix the next scene in by hand, stop halfway to hold a blend
   of two scenes for as long as you like, pull it back to undo the change without restarting
@@ -164,6 +211,37 @@ fluid gradient backgrounds that move with the music.
   presets (4 new), 43 built-in GLSL shaders, and every mode picker shows a real rendered preview.
 - **Ready on first launch.** One button on the empty Live page sets up eight example scenes (F1–F8),
   so the scene grid, TAKE, the T-bar and Auto VJ work before you have saved anything.
+- **MilkDrop layers that run on their own.** Each MilkDrop layer can keep its own preset and advance
+  on its own clock, in seconds or bars, while the others keep theirs. Every screen, Spout/Syphon and
+  the backup machine show the same choice per layer. [→ MilkDrop](#milkdrop)
+- **A timeline for shows.** Several timelines in tabs, a **Use Timeline** switch whose clips never
+  change your saved scenes, cue markers that hold until you press **GO**, and a chase of incoming
+  **MIDI Time Code**. [→ Show control](#show-control-timeline-clip-deck-auto-vj-midi-and-osc)
+- **Green screen and screen capture on the media layer.** A colour key with spill suppression and
+  edge feather, and a screen or window of this computer as a source, at a refresh rate you choose and
+  relayed to the OBS overlay. [→ Media layer](#logo-images-and-the-media-layer)
+- **LED strips, matrices and lighting desks.** **sACN** and **WLED** (DDP with discovery, and WLED
+  Audio Sync) next to Art-Net, a matrix mode with serpentine wiring, and **Art-Net input** so a
+  lighting desk can drive the app. [→ Lighting](#rgb-lighting-dynamic-lighting-openrgb-and-art-net)
+- **Hooks into the rest of the rig.** MQTT with Home Assistant discovery, an OpenAPI HTTP API, a
+  Bitfocus Companion module, controller maps with LED feedback for the APC40 mkII, Launchpad,
+  nanoKONTROL2 and Push 2, MIDI clock out, tempo from Ableton Link or a MIDI clock, and gamepads.
+  [→ MQTT](#mqtt--home-assistant)
+- **Grading and measuring.** Tonemap (ACES / AgX) and 3D LUT (`.cube`) effects, a LUFS meter
+  (BS.1770) that is also a modulation source, two step sequencers, and Reaction-Diffusion among the
+  11 new visualizer modes. [→ Effects](#layers-masks-and-effects)
+- **Lyrics that keep time by the word.** A karaoke fill across each word, held syllables, timing
+  tools in the editor, and an optional lookup that tries a file next to the song and its own tags
+  before any provider you add. [→ Lyrics](#text-lyrics-and-now-playing)
+- **A show you can move and recover.** A **full backup** (`.svbackup`) with the scenes and every file
+  they use, a backup machine that receives every video and MilkDrop texture a show can use, rotating
+  settings snapshots that repair a damaged file after a crash, and an idle screensaver.
+  [→ Show safety](#show-safety-pre-show-check-redundancy-and-the-audio-bridge)
+- **Safer by default.** Another website cannot frame the remote page, the page cookie is HttpOnly,
+  and the streaming server answers video ranges with the same rules as the app's own player.
+
+Every change since v3.1.7, grouped by area and with its pull request, is in the
+[ROADMAP's v4.0.0 section](ROADMAP.md#what-changed-since-v317) and in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -276,13 +354,13 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 
 | You are… | What you get |
 |---|---|
-| **A streamer** | A transparent overlay for OBS as a browser source, a Now Playing card with album art, lyrics, a web page layer for alerts and chat, and a phone remote to change scenes mid-stream. Runs on one PC while OBS runs on another. |
-| **A VJ or live performer** | A timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI and OSC control, blackout, Spout/Syphon in and out with Resolume or TouchDesigner, and full-screen output on every projector. |
+| **A streamer** | A transparent overlay for OBS as a browser source, a Now Playing card with album art, lyrics, a web page layer for alerts and chat, a phone remote and a Stream Deck module (Bitfocus Companion) to change scenes mid-stream. Runs on one PC while OBS runs on another. |
+| **A VJ or live performer** | A T-bar on the Live page, a timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI controller maps with LED feedback, OSC, blackout, Spout/Syphon in and out with Resolume or TouchDesigner, and full-screen output on every projector. |
 | **A music producer or label** | Frame-exact video export from your track in 12 formats, one-click profiles for YouTube, Shorts and Spotify Canvas, restrained music-video layouts with your logo and the track title, a layout editor to place them, Title and End Cards, YouTube chapters and a thumbnail, and a recorder for the live output. |
-| **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
-| **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
-| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 56 CaYaDev presets of our own. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 106 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
+| **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, cue markers with GO and MIDI Time Code, Art-Net input from the lighting desk, a pre-show check, a second machine as a hot standby, a full backup of the show, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
+| **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB, WLED, sACN and Art-Net/DMX driven by the music, MQTT for Home Assistant, and a screen-saver-style template group for background visuals. |
+| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 60 CaYaDev presets of our own. |
+| **A developer or AI tinkerer** | A GLSL editor with multi-pass buffers and Shadertoy and ISF import, an MCP server with 106 tools, an OpenAPI HTTP API, a documented remote protocol and config, and 4,500+ tests that check answers rather than lines. |
 
 ---
 
@@ -380,6 +458,9 @@ reads the device — WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio 
 - **Harmonic / percussive separation**, and per-band onset detectors for kick, snare and hat.
 - **Spectral descriptors** — centroid, rolloff, flatness, crest.
 - **Loudness, dynamics, true peak, stereo width, correlation and mid/side bands.**
+- **A LUFS meter** (ITU-R BS.1770 / EBU R128): momentary, short-term and gated integrated loudness,
+  with momentary loudness as a modulation source. It reads the app's preview frames, so it is a
+  monitoring meter, not a certified one.
 - Silence detection, auto-gain, and a rolling spectral history buffer.
 
 **Tempo.** BPM is estimated from a period histogram (tested to ±0.5 BPM against 90, 120, 128, 140
@@ -405,7 +486,7 @@ These two sheets are generated from the mode catalogue itself, so a new mode app
 next time the screenshots are rendered. Any visualizer can sit on any background, and with layers
 you can stack as many of each as you like.
 
-**Visualizer modes — 70**
+**Visualizer modes — 71**
 
 - **Basic** — Bars · Center · Blocks (LED equaliser) · Dot Matrix · City Skyline (buildings with lit
   windows) · Capsule Wave (rounded bars opening from the centre, for speech and podcasts) · Stage
@@ -426,7 +507,8 @@ you can stack as many of each as you like.
 - **Generative systems** — Flow Field (particles steered by a noise field) · Flock (boids driven by
   the spectrum) · Voronoi · Truchet · Moiré · Wave Interference · Ropes (verlet physics kicked by
   onsets) · Galaxy · DNA Helix · Isometric City · Attractor Field (discrete maps from the formula
-  library with two parameters bound to audio) · Pendulum Wave · Cardioid
+  library with two parameters bound to audio) · Pendulum Wave · Cardioid · Reaction-Diffusion
+  (coral-like growth on a small grid, fed by the bass)
 - **Text** — Text / Lyrics · Now Playing
 - **Metering** — Oscilloscope (XY) · Goniometer (stereo phase scope) · Chroma Wheel (pitch classes in
   circle-of-fifths order, highlighting the detected chord root) · VU Meter · Level Meter (PPM)
@@ -552,8 +634,8 @@ decay sliders, four wave styles, and bass-driven zoom and rotation for the class
 - **Groups** with a single fader, and an **A/B crossfader** on an equal-power curve.
 - **Solo, mute and lock** — solo isolates a layer reversibly, mute hides one without losing its
   settings, lock prevents accidental edits.
-- Copy, paste and duplicate layers across scenes. The whole stack can be switched off, returning
-  to the plain Background plus Visualizer setup without losing the list.
+- Copy, paste and duplicate layers across scenes. Every scene, template and saved look is a layer
+  list; v3 settings are converted once on the first v4 start and kept as `settings.v3-backup.json`.
 - **One broken layer no longer takes the frame with it**, and layers hidden under
   an opaque MilkDrop layer are not drawn at all.
 
@@ -590,8 +672,11 @@ Any parameter of any effect can be driven by the modulation matrix.
   tree of the current settings.
 - **Sources** — bass, mid, treble, level, onset envelope and onset trigger · eight spectrum bands ·
   four custom bands with your own Hz range and dB window ·
-  LFOs · envelope followers · sample-and-hold · random · the beat clock · macro knobs · and every
-  deep-analysis measurement (key, chord, pitch, loudness, drum bands…).
+  LFOs · envelope followers · sample-and-hold · random · the beat clock · macro knobs · two **step
+  sequencers** (4, 8 or 16 steps on a note division, with glide) · and every deep-analysis
+  measurement (key, chord, pitch, loudness and LUFS, drum bands…).
+- **An outside tempo** — the beat clock can follow an Ableton Link session (listen-only) or a MIDI
+  clock instead of the detected tempo.
 - **Eight LFO shapes** — sine, triangle, saw up, saw down, square, pulse, random ramp and noise —
   with rate in Hz or in beat divisions (1/16 up to 8 bars) locked to the detected tempo, plus phase
   offset and pulse width.
@@ -783,7 +868,17 @@ ticker · karaoke highlighting.
   session and moves with seek and pause. **Exact Match** or **Partial Match** for small spelling
   differences; timed lyrics from the player are used when the library has no match. Files open in a
   tall editor with colouring for timestamps, word times and tags; removing one asks first. Nothing
-  is fetched from the network.
+  is fetched from the network unless you add a lookup provider.
+- **Karaoke by the word** — word end times (including A2 end tags) give a fill that runs across each
+  word as it is sung, in the output and in exports. An optional stretch repeats a held vowel, so a
+  long "love" reads "loooove".
+- **Timing tools** in the editor (Windows, with the library): nudge the selected lines by ±0.1 s or
+  ±1 s, and stamp the lyrics clock on a line (<kbd>Alt</kbd> + <kbd>Enter</kbd>) or a word
+  (<kbd>Alt</kbd> + <kbd>.</kbd>).
+- **Automatic lookup** (off by default, Windows) — for the playing track it tries a `.lrc` or `.srt`
+  next to the audio file, then the file's own lyrics tags (ID3, Vorbis, MP4), then a local cache,
+  then the providers you define with a URL template. The provider list starts empty, so nothing goes
+  to the network until you add one, and a slow provider never holds up the show.
 
 ---
 
@@ -896,6 +991,13 @@ one playhead drives every screen together, and offline export plays the same sho
   undo; multi-select with box selection; a draggable loop brace and marker flags; per-clip
   transition handles; **tempo changes on the ruler**; adjustable lane height and a full-window mode;
   and keyboard shortcuts that only act while the editor has focus.
+- **Several timelines** in tabs; one can be set passive without deleting it. **Use Timeline** puts
+  the output on the timeline at the playhead: each clip composes its own layers for its own time and
+  never changes your saved scenes, and switching it off leaves the output exactly as it was.
+- **Cue markers with GO** — a marker set to hold stops playback there on every screen at the same
+  moment; **GO** (or <kbd>Enter</kbd>) runs on to the next cue. Exports ignore holds.
+- **MIDI Time Code chase** — the timeline follows incoming MTC at 24, 25, 29.97 drop-frame and
+  30 fps, with an offset for a show that starts at 01:00:00:00.
 
 **Clip Deck.** Place scenes, templates, palettes and media on a grid and fire them on the beat.
 
@@ -915,13 +1017,24 @@ modes or colours by itself, aligned to the bar. Pick exactly which scenes, modes
 (or leave it empty for all), give each visualizer layer its own mode, and read a status line that
 says what changed, what comes next, and why nothing can happen when a source is empty.
 
-Optional controller LED feedback and built-in maps are off by default. See the [controller setup and vendor protocol audit](docs/midi-controllers.md) for port/mode requirements, explicit Korg CC setup and hardware-test limitations.
-
 **MIDI.** Learn a control, then map any CC or note to any setting or action — including MilkDrop's
 next, previous, random, cut, lock and rating. The modulation clock can follow a MIDI clock or an
 Ableton Link session, and **send its tempo as MIDI clock** (24 pulses per quarter note, start and
 stop) to one MIDI output or all of them; it is off by default, and the device being listened to is
 left out so a clock is not echoed back.
+
+**Controller maps with LED feedback.** Built-in maps for the Akai APC40 mkII, Novation Launchpad
+Mini MK3, X and Pro MK3, Korg nanoKONTROL2 and Ableton Push 2 add bindings without overwriting yours,
+and the pads and rings light up with what they control. Off by default. The maps follow each vendor's
+protocol document and have not been run on the hardware here; see the
+[controller setup](docs/midi-controllers.md) for the port and mode each one needs.
+
+**Art-Net input.** A lighting desk can drive the app: the DMX channels of one universe map to any
+slider or action, with Learn. Off by default, it listens on `127.0.0.1` until you choose another
+address, and it refuses the universe the app itself sends on.
+
+**Gamepad.** Xbox, PlayStation and generic gamepads map to settings and actions with the same learn
+engine as MIDI, while an app window has the focus.
 
 **OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 
@@ -1009,7 +1122,9 @@ layer), **Appearance** (visual and background modes with thumbnails, colour pres
 presets) and **Audio**. The header shows the playing track, tempo and a three-band level.
 Commands go through the same fixed control tree as OSC and MQTT and are checked in the main
 process before they are applied. The messages are documented in
-[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) for anyone writing their own controller.
+[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) for anyone writing their own controller. With
+**Multi-Instance Remote**, a command from one copy's remote also reaches the other copies you list,
+without loops.
 
 **Blackout** on <kbd>Space</kbd> or from any controller, with its own transition, leaving the stored
 scene untouched.
@@ -1118,6 +1233,15 @@ byte. Art-Net, sACN and WLED (DDP) can also treat the fixtures as a **matrix**, 
 top left: each column has its own hue, the bottom row is as bright as the music and the rows above it
 fall off. Columns and rows are set by hand or chosen as a near-square from the fixture count, and a
 **serpentine** switch reverses every second row for panels and folded strips wired in a zigzag.
+
+**sACN (E1.31).** The same fixtures and colour modes as Art-Net, sent to the universe's multicast
+address or to one host, with priority and a source name.
+
+**WLED.** Pixels go to a WLED controller over DDP (UDP `4048`) with the LED count you set. **Find WLED
+on Network** and **Get LED Count** touch the network only when you press them. **WLED Audio Sync**
+broadcasts the level, the beat and 16 bands, so WLED's own sound-reactive effects follow the app.
+
+On a redundant pair, only the machine with output authority sends Art-Net, sACN and WLED.
 
 **Colour sources.** The lights can follow the background, the theme, or the **live MilkDrop
 picture** — sampled about 30 times a second into eight slices from left to right, so
@@ -1432,7 +1556,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Five pages on top** — Scene, Live, Time, Studio and Output — and Audio, Lighting, Show, Control,
   Library and Settings behind the gear (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> switches pages).
 - **Scene** is a layer list, a large preview, an inspector for the selected layer and a shelf of
-  presets, templates, effects and modulation. **Live** has Next and Live monitors with TAKE, a scene
+  presets, templates, effects and modulation. **Live** has Cued and Live monitors with TAKE and a T-bar, a scene
   grid on the F keys, layer faders and the clip deck. **Time** puts the preview above a full-width timeline.
   **Output** and **Studio** show one section at a time.
 - **Momentary effects** on Live: flash, strobe, blur, kaleidoscope, glitch and negative while you hold
@@ -1442,7 +1566,12 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Live everywhere** — every change reaches the output windows immediately and saves itself.
 - **A live preview** with its own demo signal, audio meters and saved scenes beside every page.
 - **Modified badges** on each card and page, with a reset for the section or the whole page.
-- **Search** across every setting on every page (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- **Search** across every setting on every page, including layer settings, in both languages and
+  with the words people type ("green screen", "projector") (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- **Resizable panels** on the Scene page: drag a divider to give the shelf or a side panel more
+  room. The sizes follow the window; **Settings → Application → Reset Panel Sizes** brings them back.
+- **A shortcut list** on <kbd>?</kbd>, and a **Simple** switch in the top bar that hides what you
+  rarely use.
 - **Advanced** toggles hide rarely used controls until you want them; **extended ranges** raise the
   slider limits 5×.
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is
@@ -1474,6 +1603,11 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Updates** — *Settings → Updates* checks GitHub Releases, shows the notes, and
   lets you skip a version. The Windows installer and the AppImage download and install in place;
   nothing runs unless the size and the SHA-256 match exactly. Off, notify (default) or automatic.
+- **Session recovery** — the settings are kept as rotating snapshots (every two minutes, five
+  kept); after a crash a damaged settings file is restored from the newest healthy snapshot and the
+  panel says so.
+- **Idle screensaver** (off by default) — after a silence you choose, the output dims and shows a
+  drifting clock and your text.
 - **Full backup and restore** — the settings, scenes, color presets and every file the scenes use
   (user presets, logos, videos, lyrics, MilkDrop textures) in one `.svbackup` file, videos optional.
   Restoring on another computer puts the files in place and points the scenes at them; items that
@@ -1502,8 +1636,10 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   time and takes over in about 0.4–0.5 s when the primary's process dies, or after the loss limit (1.5 s) when
   it hangs or the network drops. The screen never goes black; your video switcher picks the output.
   - The backup keeps its own show: the primary's copy lives in a separate area, presets and logos
-    are imported one by one, and a versioned **show package** copies presets, logos and (if you tick
-    them) videos — chunked, checksummed, resumable and verified before it is swapped in.
+    are imported one by one, and a versioned **show package** copies presets, logos, MilkDrop
+    textures and (if you tick them) every video a scene can show, including layers that are
+    switched off — chunked, checksummed, resumable and verified before it is swapped in.
+  - Machines on different major versions refuse to pair, so a v3 backup never mirrors a v4 show.
   - **Only the machine with authority drives lights and OSC** (Art-Net, OSC output, OpenRGB,
     Dynamic Lighting); terms that survive a restart, a fenced restart, a red **two masters** alarm,
     a guarded **hand back to primary**, and two-way control with a live preview of the other machine.
@@ -1547,8 +1683,18 @@ and checks takeover, output authority, hand-back, a network cut, a hung primary 
     pairing secret never travels on the network. The optional Art-Net witness listens on UDP `6454`.
   - **Audio bridge**: TCP `8741` (audio, analysis, track) and a signed UDP beacon on `8742`, both
     paired with an HMAC secret in both directions.
+  - **HTTP API**: on the MCP server (`127.0.0.1`, the same token and permission mode).
+  - **MQTT** connects to the broker you name; commands from it are ignored unless *Accept commands*
+    is on.
+  - **sACN** sends to the universe's multicast address or the host you set. **WLED** sends to the
+    host you set, **WLED Audio Sync** to `239.0.0.1:11988`, and the mDNS search for WLED runs only
+    when you press its button.
+  - **Art-Net input** listens on `127.0.0.1` unless you choose another address. **Ableton Link** is
+    read from its multicast group and never steers the session.
+  - **Multi-Instance Remote** forwards commands only to the copies you list.
+  - **Lyrics lookup** asks only the providers you add; the list starts empty.
 - **Converters and generators run offline** — Shadertoy and ISF import, the scene generator, the
-  MilkDrop preset generator, lyrics.
+  MilkDrop preset generator, lyrics files.
 - **The camera is never opened by automation.** MilkDrop presets are compiled without `eval` or
   generated source, and injection tests with known attack strings and malformed files check that
   preset text cannot reach JavaScript.
@@ -2097,7 +2243,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4519 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4530 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
@@ -2212,7 +2358,8 @@ and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a fa
 faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
 and the CaYaDev presets, and in v3.1.7 half the memory, no more garbage collection freezes, low-power
 mode and a preset per MilkDrop layer. **v4.0.0** is on `main` now as 4.0.0-beta, built and tested but not
-released yet: everything under [New in v4](#new-in-v4). After it comes the music video studio. The
+released yet: everything under [New in v4](#new-in-v4), and every change since v3.1.7 in the
+roadmap's [v4.0.0 section](ROADMAP.md#what-changed-since-v317). After it comes the music video studio. The
 roadmap also keeps an honest list of what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 
