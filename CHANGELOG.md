@@ -86,6 +86,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   preview to live audio; the badge still switches it back. Checked in the app: the badge read Demo,
   and Live after ticking a source.
 - **The Add Layer menu has an icon per layer type.** All twelve buttons carried the same plus sign.
+- **Electron 44.11.1** (from 44.9.0), the current patch release of the same major, for its Chromium
+  security fixes. The self-test passed on it with an isolated profile, and MilkDrop and five heavy
+  scenes still hold the 75 Hz refresh rate at 1920×1080. `follow-redirects`, a build-time
+  dependency, moved to 1.16.3 for an advisory; the remaining `npm audit` findings are in `tar`
+  under the native audio module's build tool, which is not shipped in the installer.
 - **Adding a modulation route shows the route.** On the Scene page's shelf, **+ Add Route** added
   the route to the settings but the panel did not redraw: it kept saying "No routing yet", and the
   routes only appeared after switching to another tab and back. Undo did not update the shelf
