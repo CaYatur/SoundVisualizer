@@ -80,12 +80,29 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Screen source: refresh rate and OBS** (#421). A screen or window on a media layer now has a
+  **refresh rate**: 5, 15, 30 or 60 fps. Without a limit Chromium captures at 30 fps (measured), so
+  that is the default; a lower rate reduces the capture load for slides or a chat window. The screen
+  also reaches a connected OBS browser source the way a webcam does: the app relays JPEG frames
+  (about 12 a second, at most 960 px on the long edge), and only while a stream page is connected.
+  Checked in the app on Windows with an isolated profile: 15 and 5 fps requests measured 15 and 5
+  frames a second, a stream client received 71 frames in 6 seconds under the screen's key, and
+  encoding stopped when it disconnected. The layer is still empty in a video export.
+- **Color key: spill suppression and edge feather** (#419). Two more settings on the media layer's
+  color key. **Spill suppression** (chosen color only) lowers the key's dominant channel on the
+  pixels that stay visible, where it exceeds the larger of the other two channels: the green cast a
+  screen leaves on hair and shoulders. A key color with no clear dominant channel (gray, yellow) is
+  left alone. **Edge feather** (0–12 px) blurs the matte with a box average and never raises alpha,
+  so the cut softens inwards and the screen color does not come back at the edge. On a 960×540 frame
+  the key costs 2.1 ms, spill adds 0.1 ms and the feather 2.3 ms (Node, same machine); both are off
+  by default, and with them off the output is unchanged. `tests/media-key-edges.test.js`.
 - **Screen and window source on the media layer** (#421, #1024). Next to a webcam and a video file, a
   media layer can show one of this computer's screens or windows, picked from a list the main process
   reads. Windows and macOS are supported (a macOS Screen Recording refusal shows as a message); Linux
   only with an X11 display (`DISPLAY` set or an x11 session, XWayland included), and a Wayland session
   without one gets a reason instead of an attempt. Web page layers still cannot capture the screen.
-  Like a webcam, the source is not relayed to the OBS browser source and is empty in a video export.
+  At that point the source was not relayed to the OBS browser source (see the entry above); it is
+  empty in a video export.
   Checked in the app on Windows with an isolated profile: a 1920×1080 screen and a single window both
   opened and drew a picture, no selection showed "Choose a screen or a window.", and closing the layer
   stopped the stream. `tests/screen-capture.test.js`.

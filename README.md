@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4455%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4467%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -801,9 +801,12 @@ ticker · karaoke highlighting.
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
   the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
   or bright side of the picture transparent, with threshold and softness, so the layer underneath
-  shows through. Screen and window capture works on Windows and macOS (macOS asks for Screen
-  Recording permission) and on Linux with an X11 display; a Wayland session without one says so
-  instead. Like a webcam, it is not sent to the OBS browser source and stays empty in a video export.
+  shows through; **spill suppression** reduces the screen color left on hair and edges, and an
+  **edge feather** of up to 12 px softens the cut inwards. Screen and window capture works on
+  Windows and macOS (macOS asks for Screen Recording permission) and on Linux with an X11 display;
+  a Wayland session without one says so instead. Its **refresh rate** can be 5, 15, 30 (the default)
+  or 60 fps. Like a webcam, the screen reaches a connected OBS browser source as relayed frames
+  (about 12 a second, 960 px on the long edge) and stays empty in a video export.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -2084,7 +2087,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4455 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4467 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

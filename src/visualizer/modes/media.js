@@ -278,7 +278,7 @@
     apply(m) {
       const cfg = m || {};
       this._m = cfg;
-      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.screenId || '', cfg.loop ? 1 : 0].join('|');
+      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.screenId || '', cfg.screenFps || '', cfg.loop ? 1 : 0].join('|');
       if (key === this.key) return;
       this.key = key;
       this._source = cfg.source === 'file' ? 'file' : (cfg.source === 'screen' ? 'screen' : 'webcam');
@@ -306,7 +306,14 @@
         return;
       }
       if (cfg.source === 'screen') {
-        this._openScreen(key, cfg);
+        /* Yayın sayfası ekranı kendisi yakalayamaz: kare, kamerada olduğu gibi
+           uygulama penceresinden gelir (#421). */
+        if (!this.offline && this._webPage()) {
+          this._relay = true;
+          this._armRelay(key);
+        } else {
+          this._openScreen(key, cfg);
+        }
         return;
       }
       if (this.offline) return;
@@ -393,15 +400,12 @@
           fail('platform');
           return null;
         }
-        const desktop = {
-          audio: false,
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: want,
-            },
-          },
-        };
+        const mandatory = { chromeMediaSource: 'desktop', chromeMediaSourceId: want };
+        /* Yenileme hızı (#421): sınır verilmezse Chromium 30 fps yakalar (ölçüldü); 60 istenebilir.
+           Düşük sınır yakalama ve kopyalama yükünü azaltır (slayt, belge, sohbet penceresi). */
+        const fps = screenFps(cfg && cfg.screenFps);
+        if (fps) mandatory.maxFrameRate = fps;
+        const desktop = { audio: false, video: { mandatory } };
         return userMedia(desktop).then((stream) => {
           if (this.key !== key) {
             if (stream && stream.getTracks) stream.getTracks().forEach((t) => t.stop());
@@ -417,6 +421,7 @@
         this.ready = true;
         this.error = null;
         this._publish();
+        this._startRelayPump(key);
       }).catch(() => { fail('permission'); });
     }
 
@@ -434,7 +439,8 @@
             this._publish();
           }
         } else {
-          const err = (slot && slot.remoteError) || 'Kamera görüntüsü uygulamadan bekleniyor.';
+          const err = (slot && slot.remoteError) ||
+            (this._source === 'screen' ? 'Ekran görüntüsü uygulamadan bekleniyor.' : 'Kamera görüntüsü uygulamadan bekleniyor.');
           if (this.ready || this.error !== err) {
             this.ready = false;
             this.error = err;
@@ -569,7 +575,7 @@
       try {
         if (window.api && typeof window.api.sendMessage === 'function') window.api.sendMessage(payload);
       } catch { /* yönetim penceresinde bu kanal yok */ }
-      if (!this._webPage() && this._source !== 'file' && this._source !== 'screen' && window.api && typeof window.api.sendCamStatus === 'function') {
+      if (!this._webPage() && this._source !== 'file' && window.api && typeof window.api.sendCamStatus === 'function') {
         try {
           window.api.sendCamStatus({
             key: this._deviceId || '',
@@ -865,7 +871,7 @@
       }
       const stamp = pic === this.video && typeof pic.currentTime === 'number' ? pic.currentTime : NaN;
       const sig = this.key + '|' + m.keyMode + '|' + (m.keyColor || '') + '|' + m.keyAmount + '|' + m.keySoft + '|' +
-        !!m.keyInvert + '|' + dw + 'x' + dh;
+        !!m.keyInvert + '|' + (m.keySpill || 0) + '|' + (m.keyFeather || 0) + '|' + dw + 'x' + dh;
       if (stamp === this._keyStamp && sig === this._keySig) return c;
       if (c.width !== dw || c.height !== dh) { c.width = dw; c.height = dh; }
       const g = c.getContext('2d', { willReadFrequently: true });
@@ -880,6 +886,12 @@
         threshold: m.keyAmount == null ? 0.3 : m.keyAmount,
         softness: m.keySoft == null ? 0.08 : m.keySoft,
         invert: !!m.keyInvert,
+        spill: m.keySpill || 0,
+        /* Yumuşatma yarıçapı 960 piksellik uzun kenara göre verilir; küçük karede
+           aynı görünsün diye ölçeklenir. */
+        feather: (m.keyFeather || 0) * Math.max(dw, dh) / MAX,
+        width: dw,
+        height: dh,
       });
       g.putImageData(img, 0, 0);
       this._keyStamp = stamp;
@@ -899,6 +911,13 @@
     return navigator.mediaDevices.getUserMedia(constraints);
   }
 
+  // Ekran kaynağının kare hızı sınırı: 0 (Chromium varsayılanı, 30 fps) ya da 5..60
+  function screenFps(v) {
+    const n = Math.round(Number(v));
+    if (!(n > 0)) return 0;
+    return Math.max(5, Math.min(60, n));
+  }
+
   const KEY_MAX = 255 * Math.sqrt(3);
   function keyClamp(v) {
     const n = Number(v);
@@ -914,13 +933,79 @@
     const mode = m && m.keyMode;
     return mode === 'chroma' || mode === 'luma';
   }
+  /* Anahtar renginin baskın kanalı (0 kırmızı, 1 yeşil, 2 mavi). Renk belirgin değilse -1:
+     gri ya da iki kanalı birbirine yakın bir anahtarda hangi kanalın kısılacağı belli olmaz. */
+  function keySpillChannel(rgb) {
+    let k = 0;
+    if (rgb[1] > rgb[k]) k = 1;
+    if (rgb[2] > rgb[k]) k = 2;
+    const others = Math.max(rgb[(k + 1) % 3], rgb[(k + 2) % 3]);
+    return rgb[k] - others >= 48 ? k : -1;
+  }
+
+  /* KENAR YUMUŞATMA (#419): alfa kanalı `radius` piksellik kutu ortalamasıyla (yatay, sonra
+     dikey) bulanıklaştırılır ve sonuç özgün alfayı AŞAMAZ. Kenar içe doğru yumuşar; dışarıda
+     saydam kalmış pikseller yeniden görünür olmaz, yani perdenin rengi kenara geri gelmez.
+     Tamponlar çağrılar arasında yeniden kullanılır. */
+  let featherA = null;
+  let featherB = null;
+  function keyFeather(data, w, h, radius) {
+    const r = Math.max(0, Math.min(12, Math.round(Number(radius) || 0)));
+    const n = w * h;
+    if (!r || !(n > 0) || !data || data.length < n * 4) return false;
+    if (!featherA || featherA.length < n) {
+      featherA = new Uint8Array(n);
+      featherB = new Uint8Array(n);
+    }
+    const a = featherA;
+    const b = featherB;
+    for (let i = 0, p = 3; i < n; i++, p += 4) a[i] = data[p];
+    const win = 2 * r + 1;
+    const half = win >> 1;
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      let sum = 0;
+      for (let k = -r; k <= r; k++) sum += a[row + (k < 0 ? 0 : k >= w ? w - 1 : k)];
+      for (let x = 0; x < w; x++) {
+        b[row + x] = ((sum + half) / win) | 0;
+        const add = x + r + 1;
+        const sub = x - r;
+        sum += a[row + (add < w ? add : w - 1)] - a[row + (sub > 0 ? sub : 0)];
+      }
+    }
+    // Dikey geçiş sütun toplamlarıyla satır satır ilerler: bellek sırayla okunur
+    if (!keyFeather.col || keyFeather.col.length < w) keyFeather.col = new Uint32Array(w);
+    const col = keyFeather.col;
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) sum += b[(k < 0 ? 0 : k >= h ? h - 1 : k) * w + x];
+      col[x] = sum;
+    }
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      const add = (y + r + 1 < h ? y + r + 1 : h - 1) * w;
+      const sub = (y - r > 0 ? y - r : 0) * w;
+      for (let x = 0; x < w; x++) {
+        const v = ((col[x] + half) / win) | 0;
+        const p = (row + x) * 4 + 3;
+        if (v < data[p]) data[p] = v;
+        col[x] += b[add + x] - b[sub + x];
+      }
+    }
+    return true;
+  }
+
   /* data: RGBA. Renkte eşik, anahtara olan uzaklığın tam ölçeğe oranıdır
      (0 yalnız aynı renk, 1 neredeyse her şey). Parlaklıkta eşik 0..1
      kesittir; invert aydınlık tarafı saydam yapar, değilse karanlık tarafı.
      Yumuşaklık o kesitten sonraki geçiş payıdır. Var olan alfa çarpılır.
      Hız: uzaklık karesiyle karşılaştırılıyor, karekök yalnız geçiş payındaki
      piksellerde alınıyor. 960x540 karede renk 7,0 -> 1,6 ms, parlaklık 2,2 -> 1,2 ms
-     (Node, aynı makine); çıktı birebir aynı. */
+     (Node, aynı makine); çıktı birebir aynı.
+     Taşma bastırma (spill, 0..1, yalnız renk anahtarı): görünür kalan pikselde anahtarın
+     baskın kanalı öteki iki kanalın büyüğünü aşıyorsa aşan pay bu oranda kısılır (yeşil
+     perdede saçta ve omuzda kalan yeşil yansıma). Uzaklık, kısılmadan önceki renkten ölçülür.
+     Yumuşatma (feather, piksel) için width ve height verilmelidir; bkz. keyFeather. */
   function keyApply(data, opts) {
     const o = opts || {};
     const mode = o.mode;
@@ -937,16 +1022,28 @@
       const fade = soft * KEY_MAX;
       const cut2 = cut * cut;
       const end2 = fade > 0 ? (cut + fade) * (cut + fade) : cut2;
+      const sp = keyClamp(o.spill);
+      const kc = sp > 0 ? keySpillChannel(rgb) : -1;
+      const ka = (kc + 1) % 3;
+      const kb2 = (kc + 2) % 3;
       for (let i = 0; i < data.length; i += 4) {
         const dr = data[i] - r0;
         const dg = data[i + 1] - g0;
         const db = data[i + 2] - b0;
         const d2 = dr * dr + dg * dg + db * db;
-        if (d2 > cut2 && d2 >= end2) continue;
-        const keep = d2 <= cut2 ? 0 : (Math.sqrt(d2) - cut) / fade;
-        data[i + 3] = Math.round(data[i + 3] * keep);
-        n++;
+        if (d2 > cut2 && d2 >= end2) {
+          if (kc < 0) continue;
+        } else {
+          const keep = d2 <= cut2 ? 0 : (Math.sqrt(d2) - cut) / fade;
+          data[i + 3] = Math.round(data[i + 3] * keep);
+          n++;
+          if (kc < 0 || keep === 0) continue;
+        }
+        const v = data[i + kc];
+        const lim = data[i + ka] > data[i + kb2] ? data[i + ka] : data[i + kb2];
+        if (v > lim) data[i + kc] = Math.round(v - (v - lim) * sp);
       }
+      if (o.feather > 0 && o.width > 0 && o.height > 0) keyFeather(data, o.width, o.height, o.feather);
       return n;
     }
     const sign = o.invert ? 1 : -1;
@@ -960,11 +1057,13 @@
       data[i + 3] = Math.round(data[i + 3] * keep);
       n++;
     }
+    if (o.feather > 0 && o.width > 0 && o.height > 0) keyFeather(data, o.width, o.height, o.feather);
     return n;
   }
 
   window.SVMedia = MediaLayer;
-  window.SVMediaKey = { active: keyActive, apply: keyApply };
+  window.SVMediaKey = { active: keyActive, apply: keyApply, feather: keyFeather, spillChannel: keySpillChannel };
+  window.SVScreenFps = screenFps;
   window.SVMediaTransport = { transportTime, transportOn, tempoOf };
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;

@@ -1865,8 +1865,11 @@
     'Kayıtlı ekran': 'Saved screen',
     'Ekranları Yenile': 'Refresh Screens',
     'Bir ekran veya pencere seçin.': 'Choose a screen or a window.',
-    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.':
-      'The chosen screen or window is drawn on this layer. The picture goes to the output and the preview. A Wayland session needs an X11 display.',
+    'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa, önizlemeye ve bağlı bir yayın sayfasına (OBS) gider. Düşük yenileme hızı yakalama yükünü azaltır. Wayland oturumunda bir X11 ekranı gerekir.':
+      'The chosen screen or window is drawn on this layer. The picture goes to the output, the preview and a connected stream page (OBS). A lower refresh rate reduces the capture load. A Wayland session needs an X11 display.',
+    'Yenileme Hızı': 'Refresh Rate',
+    'Varsayılan (30 fps)': 'Default (30 fps)',
+    'Ekran görüntüsü uygulamadan bekleniyor.': 'Waiting for the screen picture from the application.',
     'Bu oturum Wayland ve X11 ekranı yok. Ekran yakalama yalnız X11 ekranında çalışır.':
       'This session is Wayland and there is no X11 display. Screen capture only works on an X11 display.',
     'Ekran kaydı izni verilmedi. Sistem ayarlarından izin verin.':
@@ -1882,7 +1885,9 @@
     'Saydam Kalan': 'Transparent Side',
     'Anahtar Eşiği': 'Key Threshold',
     'Anahtar Yumuşaklığı': 'Key Softness',
-    'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.': 'Pixels that match the chosen color or brightness become transparent, so the layer underneath shows through.',
+    'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür. Taşma bastırma, kenarda ve saçta kalan perde rengini kısar; kenar yumuşatma kesimi içe doğru yumuşatır.': 'Pixels that match the chosen color or brightness become transparent, so the layer underneath shows through. Spill suppression reduces the screen color left on edges and hair; edge feather softens the cut inwards.',
+    'Renk Taşmasını Bastır': 'Spill Suppression',
+    'Anahtar Kenar Yumuşatma': 'Key Edge Feather',
     'Bas → Saydamlık': 'Bass → Opacity',
     'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.': 'Place an image or GIF on the scene; it pulses with the audio. Choosing a GIF unlocks playback and audio controls.',
     'Ara…': 'Search…',

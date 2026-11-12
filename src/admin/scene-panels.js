@@ -1243,6 +1243,8 @@
           if (v) m.enabled = true;
         }, rerender, ''));
         if (screenFault) out.push(el('div', { class: 'studio-note media-fault', text: screenFault }));
+        out.push(miniSelect('Yenileme Hızı', [['0', 'Varsayılan (30 fps)'], ['60', '60 fps'], ['15', '15 fps'], ['5', '5 fps']],
+          () => String(m.screenFps || 0), (v) => { m.screenFps = Number(v) || 0; }, rerender, '0'));
         out.push(el('div', { class: 'row' }, [
           el('button', {
             class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Ekranları Yenile',
@@ -1251,7 +1253,7 @@
         ]));
         out.push(el('div', {
           class: 'studio-note dim-hint',
-          text: 'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa ve önizlemeye gider. Wayland oturumunda bir X11 ekranı gerekir.',
+          text: 'Seçilen ekran veya pencere bu katmana çizilir. Görüntü çıkışa, önizlemeye ve bağlı bir yayın sayfasına (OBS) gider. Düşük yenileme hızı yakalama yükünü azaltır. Wayland oturumunda bir X11 ekranı gerekir.',
         }));
         if (screenSources == null) {
           screenSources = [];
@@ -1420,7 +1422,13 @@
           { min: 0, max: 1, step: 0.01, percent: true, def: 0.3 }));
         out.push(miniSlider('Anahtar Yumuşaklığı', () => (m.keySoft == null ? 0.08 : m.keySoft), (v) => { m.keySoft = v; },
           { min: 0, max: 1, step: 0.01, percent: true, def: 0.08 }));
-        out.push(el('div', { class: 'studio-note dim-hint', text: 'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür.' }));
+        if (m.keyMode === 'chroma') {
+          out.push(miniSlider('Renk Taşmasını Bastır', () => m.keySpill || 0, (v) => { m.keySpill = v; },
+            { min: 0, max: 1, step: 0.01, percent: true, def: 0 }));
+        }
+        out.push(miniSlider('Anahtar Kenar Yumuşatma', () => m.keyFeather || 0, (v) => { m.keyFeather = v; },
+          { min: 0, max: 12, step: 1, def: 0, fmt: (v) => (v < 1 ? tr('kapalı') : Math.round(v) + ' px') }));
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Seçilen renge ya da parlaklığa uyan pikseller saydam olur; alttaki katman delikten görünür. Taşma bastırma, kenarda ve saçta kalan perde rengini kısar; kenar yumuşatma kesimi içe doğru yumuşatır.' }));
       }
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
