@@ -573,8 +573,18 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     with the current state and examples of later-shipped tasks.
   - The ROADMAP's v4 section said work happened "on a separate `dev/v4` branch" and listed its stages
     as a plan. It now opens with where things stand (v4.0.0 on `main` as 4.0.0-beta, not released),
-    gives each stage its status, and says the status table only has released versions. The README's
-    roadmap section says the same.
+    gives each stage its status, and keeps the status table to released versions. The README's
+    roadmap section says the same. (Release preparation later added one marked **v4.0.0 (beta)**
+    column; see the next entry.)
+- **Use cases, and everything since v3.1.7.** The README (English and Turkish) has a **Use cases**
+  section with sixteen workflows, each linked to its feature section, and **New in v4** now covers
+  every area. Feature sections describe what had only been in the changelog: the LUFS meter, step
+  sequencers, word karaoke and lyrics lookup, several timelines and Use Timeline, cue markers, MTC,
+  controller maps, Art-Net input, sACN, WLED, session recovery and the screensaver; the privacy list
+  names what each new network feature opens. The ROADMAP lists every change since v3.1.7 by area
+  with its pull request, says what has not run against real devices, and its status table has a
+  **v4.0.0 (beta)** column. Stale text fixed along the way: the mode list said 70 (it is 71), the
+  layer stack could no longer be switched off in v4, and the README still said 56 CaYaDev presets.
 - **No comparisons with other products.** The archived plan no longer lists the products it was
   compared with. The timeline editor, the clip deck and its launch modes are no longer described as
   modelled on another program, the ROADMAP and code comments no longer point at other engines' open

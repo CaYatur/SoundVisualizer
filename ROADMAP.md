@@ -128,8 +128,10 @@ Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 ### Not shipped yet
 
 Kept separate from the table above on purpose: that one records what has
-actually been released, this one records intent. Nothing here is in a user’s
-hands, and a row only moves up once it ships.
+actually been released, plus one **v4.0.0 (beta)** column for what `main` holds
+for the next release; this one records intent. Nothing here, and nothing that
+is only in the beta column, is in a user’s hands yet. A row moves up only once
+it is built and tested on `main`.
 
 | Feature | Target | State today |
 |---|:--:|---|

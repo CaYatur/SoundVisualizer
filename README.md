@@ -69,7 +69,8 @@ and presets, images, backgrounds, templates and saved scenes one click away belo
 
 ## Use cases
 
-Each of these is a complete workflow in the app, not a plugin or a script you add.
+Each of these is a workflow the app covers on its own. The one add-on is the Companion module for
+Stream Deck, which installs into Companion.
 
 <table>
 <tr>

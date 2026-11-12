@@ -70,7 +70,8 @@ altta presetler, görseller, arkaplanlar, şablonlar ve kayıtlı sahneler tek t
 
 ## Kullanım alanları
 
-Bunların her biri uygulamanın içinde baştan sona hazır bir iş akışı; eklenti ya da sonradan yazılan bir betik değil.
+Bunların her biri uygulamanın kendi başına karşıladığı bir iş akışı. Tek ek parça, Stream Deck için
+Companion'a kurulan Companion modülü.
 
 <table>
 <tr>
