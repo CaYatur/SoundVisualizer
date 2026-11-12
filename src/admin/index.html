@@ -185,8 +185,12 @@
                 <span id="hudFps"></span>
               </div>
             </div>
+            <!-- Panel ayraçları (panel-splits.js): aradaki 10 px boşluğun üstünde duruyorlar -->
+            <div class="sv-split y" data-split="shelf" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Raf yüksekliği" title="Raf yüksekliği (çift tık: varsayılan)"></div>
           </div>
           <section id="svShelf" class="sv-card sv-shelf" aria-label="Raf"></section>
+          <div class="sv-split x l" data-split="left" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Katmanlar paneli genişliği" title="Katmanlar paneli genişliği (çift tık: varsayılan)"></div>
+          <div class="sv-split x r" data-split="right" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Denetçi paneli genişliği" title="Denetçi paneli genişliği (çift tık: varsayılan)"></div>
         </div>
         <section id="svInspector" class="sv-card" aria-label="Denetçi"></section>
       </div>
@@ -379,6 +383,7 @@
     <script src="../visualizer/modes/geometry3d.js"></script>
     <script src="undo.js"></script>
     <script src="pointer-guard.js"></script>
+    <script src="panel-splits.js"></script>
     <script src="scene-shell.js"></script>
     <script src="live-shell.js"></script>
     <script src="preview.js"></script>

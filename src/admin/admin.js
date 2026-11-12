@@ -923,6 +923,8 @@
         return uiThemeCtrl();
       case 'extendedrange':
         return extendedRangeCtrl();
+      case 'panelsizes':
+        return panelSizesCtrl();
       case 'grouppanel':
         return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
       case 'note': {
@@ -1424,6 +1426,33 @@
       el('div', {
         class: 'studio-note dim-hint',
         text: tr('Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.'),
+        style: 'margin-top:4px;',
+      }),
+    ]);
+  }
+
+  // --- Panel boyutları (panel-splits.js; localStorage, cfg yolu yok) ---
+  function panelSizesCtrl() {
+    const S = window.SVPanelSplits;
+    if (!S) return null;
+    const btn = el('button', {
+      class: 'btn small', type: 'button', icon: 'reset', text: tr('Panel Boyutlarını Sıfırla'),
+      onclick: () => {
+        S.reset();
+        svToast(tr('Panel boyutları varsayılana döndü.'));
+      },
+    });
+    const sync = () => { btn.disabled = !S.customized(); };
+    sync();
+    const off = S.onChange(() => { if (!btn.isConnected) { off(); return; } sync(); });
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: tr('Panel Boyutları') }),
+        btn,
+      ]),
+      el('div', {
+        class: 'studio-note dim-hint',
+        text: tr('Sahne sayfasında rafın yüksekliğini ve yan panellerin genişliğini aradaki ayracı sürükleyerek değiştirebilirsiniz; boyutlar pencereyle orantılı büyüyüp küçülür. Ayraca çift tıklamak yalnız onu varsayılana döndürür.'),
         style: 'margin-top:4px;',
       }),
     ]);
@@ -3311,7 +3340,8 @@
         desc: '',
         roots: ['ui.theme', 'ui.scale', 'ui.reduceMotion', 'ui.modeTargetAuto', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         keywords: ['erişilebilirlik', 'okunabilirlik', 'yazı boyutu', 'büyüt', 'yakınlaştır', 'karşıtlık', 'kontrast', 'tema',
-          'accessibility', 'readability', 'text size', 'font size', 'zoom', 'contrast', 'theme'],
+          'accessibility', 'readability', 'text size', 'font size', 'zoom', 'contrast', 'theme',
+          'panel boyutu', 'raf yüksekliği', 'ayraç', 'panel size', 'shelf height', 'splitter', 'resize'],
         controls: [
           { type: 'language', group: 'Dil' },
           { type: 'uitheme', group: 'Arayüz Teması' },
@@ -3377,6 +3407,8 @@
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
           { type: 'extendedrange', group: 'Panel' },
+          // Ayraçla değişen raf yüksekliği ve yan panel genişlikleri (panel-splits.js)
+          { type: 'panelsizes', group: 'Panel' },
           { type: 'sectionlink', group: 'Ses Köprüsü', category: 'audio', section: 'Ses Köprüsü', text: 'Ses Köprüsü Ayarlarını Aç',
             hint: 'Ses köprüsü Ses kategorisinde, Ses Kaynakları ve Ses Analizi kartlarının altında.' },
         ],

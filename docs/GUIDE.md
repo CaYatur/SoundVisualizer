@@ -88,6 +88,10 @@ shows that layer's mode, size, position, colors and blending.
 The second icon on the shelf switches it to the tools: **Effect Chain**, **Modulation** and
 **Groups**.
 
+To resize the panels, drag the divider above the shelf or beside either side column. The sizes
+follow the window; double-click a divider to reset it, or use **Settings → Application → Reset Panel
+Sizes** to reset them all.
+
 A good first exercise:
 
 1. Pick a preset from **Preset** that is close to what you want.

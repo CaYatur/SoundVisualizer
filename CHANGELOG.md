@@ -210,6 +210,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **Resizable Scene page panels.** The library shelf under the preview had a fixed height, so on a
+  wide window it shrank to one row of cards. Drag the divider between the preview and the shelf, or
+  between the side panels (Layers, Inspector) and the centre, to resize them.
+  - Sizes are kept as a share of the window, not in pixels: a larger shelf stays larger by the same
+    share when the window grows or shrinks. The preview and the shelf never get smaller than 150 px,
+    and the centre column keeps at least 420 px.
+  - Double-click a divider to reset it. Settings → Application → Panel → **Reset Panel Sizes**
+    resets all of them. Dividers also move with the arrow keys.
+  - Sizes are saved on this computer only: not in the settings file, the full backup or the
+    redundancy backup.
 - **Example scenes on first launch.** A new user had no saved scenes, so the Live page's scene
   grid, F-keys, TAKE, the T-bar and Auto VJ (scene source) did nothing until they saved one
   themselves. The empty grid, and the empty scene lists on the Time page and in the Library, now
