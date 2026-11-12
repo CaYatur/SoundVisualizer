@@ -2643,15 +2643,18 @@
     const el = p.el;
     const close = () => { dlg.remove(); document.removeEventListener('keydown', onEsc, true); };
     const onEsc = (e) => { if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); e.stopPropagation(); close(); } };
-    const list = el('div', { class: 'tl-keys-list' });
+    const list = el('div', { class: 'tl-keys-list keys-help-body' });
     for (const [k, d] of SHORTCUTS) {
       list.appendChild(el('kbd', { text: k }));
       list.appendChild(el('span', { text: d }));
     }
-    const dlg = el('div', { class: 'tl-keys-dlg', role: 'dialog', 'aria-label': tt('Klavye kısayolları') }, [
-      el('div', { class: 'tl-keys-card' }, [
-        el('div', { class: 'tl-keys-head' }, [
-          el('h3', { text: 'Klavye kısayolları' }),
+    /* Pencere panelin ortak kabuğunda (ask-backdrop + ask-panel). Kendi sınıflarının konumu ve
+       zemini hiç tanımlanmamıştı: liste sayfanın sol kenarına, saydam zeminle dökülüyor ve
+       sayfayı aşağı itiyordu. */
+    const dlg = el('div', { class: 'tl-keys-dlg ask-backdrop', role: 'dialog', 'aria-modal': 'true', 'aria-label': tt('Klavye kısayolları') }, [
+      el('div', { class: 'tl-keys-card ask-panel keys-help' }, [
+        el('div', { class: 'tl-keys-head keys-help-head' }, [
+          el('div', { class: 'ask-title', text: 'Klavye kısayolları' }),
           el('button', { class: 'btn small', type: 'button', icon: 'x', title: 'Kapat (Esc)', onclick: close }),
         ]),
         list,

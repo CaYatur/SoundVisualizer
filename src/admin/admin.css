@@ -1258,10 +1258,8 @@ input.num:focus { border-color: var(--accent); }
 .tl-target-lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tl-target-head { position: sticky; top: 0; z-index: 1; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--muted2); background: var(--popover); }
 .tl-target-empty { padding: 8px 10px; opacity: .7; }
-.tl-keys-dlg { max-width: 560px; }
-.tl-keys-dlg table { width: 100%; border-collapse: collapse; }
-.tl-keys-dlg td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
-.tl-keys-dlg kbd { font: 500 12px ui-monospace, monospace; }
+.tl-keys-dlg .tl-keys-list { gap: 7px 16px; align-items: baseline; font-size: 12.5px; }
+.tl-keys-dlg kbd { justify-self: start; }
 .tl-tog.rec.on { background: var(--danger); color: var(--on-solid); }
 input[type=range].sv-automated { accent-color: var(--danger); }
 /* Tam pencere düzenleyici (#636 TL-2): panel ekranı kaplar, düzenleme alanı
