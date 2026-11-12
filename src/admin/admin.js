@@ -5143,8 +5143,8 @@
     if (FX && FX.EFFECT_IDS) FX.EFFECT_IDS.forEach((id) => { const d = FX.EFFECTS[id]; if (d) out.push(entry(d.label, 'Efekt Zinciri', 'effects', '')); });
     const MC = window.SVModeCatalog;
     if (MC) {
-      (MC.VISUALIZERS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Görsel', 'vis', m.label)); });
-      (MC.BACKGROUNDS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Zemin', 'bg', m.label)); });
+      (MC.VISUALIZERS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Görselleştirici', 'vis', m.label)); });
+      (MC.BACKGROUNDS || []).forEach((m) => { if (m.label) out.push(entry(m.label, 'Arkaplan', 'bg', m.label)); });
     }
     return out;
   }

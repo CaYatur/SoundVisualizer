@@ -49,11 +49,14 @@
   /* Kitaplık sekmeleri ve araçlar. `section` varsa kartın kendisi rafa çiziliyor. */
   const LIB_TABS = [
     { id: 'milkdrop', label: 'MilkDrop' },
-    { id: 'vis', label: 'Görsel' },
-    { id: 'bg', label: 'Zemin' },
+    /* `en`: sözlük sözcük sözcük çeviriyor; "Görsel" başka yerde resim ("Image"), "Zemin" yer
+       ("Ground") demek. İngilizce arayüzde bu iki sekme "Image" ve "Ground" çıkıyordu. */
+    { id: 'vis', label: 'Görsel', en: 'Visualizer' },
+    { id: 'bg', label: 'Zemin', en: 'Background' },
     { id: 'templates', label: 'Şablon', section: 'templates' },
     { id: 'scenes', label: 'Sahne' },
   ];
+  const tabText = (t) => (t.en && window.SVI18n && window.SVI18n.locale === 'en' ? t.en : tr(t.label));
   const TOOL_TABS = [
     { id: 'effects', label: 'Efekt Zinciri', section: 'effects' },
     { id: 'modulation', label: 'Modülasyon', section: 'modulation' },
@@ -1107,7 +1110,7 @@
         el('button', { class: lib ? '' : 'on', type: 'button', icon: 'sliders', title: tr('Araçlar'), 'aria-label': tr('Araçlar'), onclick: () => setShelf(TOOL_TABS[0].id) }),
       ]),
       el('div', { class: 'sv-tabs', role: 'tablist' }, tabs.map((t) => el('button', {
-        class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tr(t.label), onclick: () => setShelf(t.id),
+        class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tabText(t), onclick: () => setShelf(t.id),
       }))),
       lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' }, [
         el('span', { icon: 'search' }),

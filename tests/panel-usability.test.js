@@ -256,3 +256,20 @@ test('depo kökünde güvenlik politikası ve davranış kuralları var', () => 
   assert.match(coc, /contact@cayadev\.com/);
   assert.ok(read('package.json').includes('contact@cayadev.com'), 'adres paket bilgisindekiyle aynı');
 });
+
+test('İngilizce arayüzde raf sekmeleri ve şablon grubu bağlamına göre adlanır', () => {
+  const shell = read('src/admin/scene-shell.js');
+  assert.match(shell, /\{ id: 'vis', label: 'Görsel', en: 'Visualizer' \}/);
+  assert.match(shell, /\{ id: 'bg', label: 'Zemin', en: 'Background' \}/);
+  assert.match(shell, /text: tabText\(t\)/);
+  const tpl = read('src/admin/template-panel.js');
+  assert.match(tpl, /const GROUP_EN = \{ 'Tür': 'Genre' \};/);
+  assert.strictEqual((tpl.match(/groupText\(/g) || []).length, 2, 'iki kullanım');
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(i18n.includes("'Üretken Zeminler': 'Generative Backgrounds',"));
+  assert.ok(!/Generative Grounds|plain dark ground|A ground falling/.test(i18n));
+  // Arama yolu da aynı adları kullanır
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /entry\(m\.label, 'Görselleştirici', 'vis', m\.label\)/);
+  assert.match(admin, /entry\(m\.label, 'Arkaplan', 'bg', m\.label\)/);
+});
