@@ -119,3 +119,58 @@ test('shader kılavuzunun anlattığı adlar shader motorunda tanımlı', () => 
   for (const t of ['float', 'long', 'bool', 'color', 'point2D', 'image']) assert.ok(presets.includes("inp.TYPE === '" + t + "'"), t);
   for (const def of ['RENDERSIZE', 'isf_FragNormCoord', 'IMG_PIXEL']) { assert.ok(presets.includes('#define ' + def)); assert.ok(guide.includes(def)); }
 });
+
+/* README, ROADMAP ve CHANGELOG: kullanım alanları kartları HTML (`href="#…"`), geri kalan
+ * Markdown. Sürüm hazırlığında eklenen bölümler başka belgedeki bir başlığa da bağlanıyor
+ * (README → ROADMAP.md#what-changed-since-v317); başlık değişirse burada yakalansın. */
+const DOCS = ['README.md', 'README.tr.md', 'ROADMAP.md', 'CHANGELOG.md'];
+function hrefsOf(md) {
+  const out = linksOf(md);
+  const re = /href="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(md))) out.push(m[1]);
+  return out;
+}
+for (const file of DOCS) {
+  test(file + ': belge içi ve belgeler arası çapalar yerinde', () => {
+    const md = read(file);
+    let checked = 0;
+    for (const href of hrefsOf(md)) {
+      if (/^(https?:|mailto:)/.test(href)) continue;
+      const [rel, hash] = href.split('#');
+      // CHANGELOG geçmişi anlatıyor: o günkü yollar (ör. presets/cayadev) sonradan taşınmış olabilir
+      if (rel && file !== 'CHANGELOG.md' && !fs.existsSync(path.join(root, rel))) assert.fail(file + ': dosya yok: ' + href);
+      if (rel && !fs.existsSync(path.join(root, rel))) continue;
+      const target = rel || file;
+      if (hash && /\.md$/.test(target)) {
+        checked += 1;
+        assert.ok(anchorsOf(read(target)).has(decodeURIComponent(hash)), file + ': başlık yok: ' + href);
+      }
+    }
+    if (file !== 'CHANGELOG.md') assert.ok(checked > 0, 'çapa bağlantısı yok');
+  });
+}
+
+test('kullanım alanları iki dilde aynı sayıda ve README v4 bölümüne bağlanıyor', () => {
+  const count = (rel) => (read(rel).match(/<td width="50%" valign="top"><b>/g) || []).length;
+  assert.strictEqual(count('README.md'), 16);
+  assert.strictEqual(count('README.tr.md'), 16);
+  assert.ok(read('README.md').includes('## Use cases'));
+  assert.ok(read('README.tr.md').includes('## Kullanım alanları'));
+  assert.ok(read('ROADMAP.md').includes('## Use cases'));
+});
+
+test('ROADMAP durum tablosu: her satırda başlık kadar hücre, son sütun v4.0.0', () => {
+  const lines = read('ROADMAP.md').split(/\r?\n/);
+  const start = lines.findIndex((l) => l.startsWith('| Feature | v1.3.1 |'));
+  assert.ok(start > 0);
+  const cells = (l) => l.slice(1, -1).split('|').map((c) => c.trim());
+  const head = cells(lines[start]);
+  assert.strictEqual(head[head.length - 2], 'v4.0.0 (beta)');
+  let rows = 0;
+  for (let i = start + 1; lines[i].startsWith('|'); i++) {
+    assert.strictEqual(cells(lines[i]).length, head.length, 'satır ' + (i + 1));
+    rows += 1;
+  }
+  assert.ok(rows > 60);
+});

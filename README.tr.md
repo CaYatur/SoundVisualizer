@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4524%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4530%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -65,6 +65,47 @@ altta presetler, görseller, arkaplanlar, şablonlar ve kayıtlı sahneler tek t
 | **12** video dışa aktarma biçimi | **60** CaYaDev MilkDrop preseti | **7** arayüz teması | Çökmede sıcak yedeğe **0,4–0,5 sn**'de geçiş |
 
 </div>
+
+---
+
+## Kullanım alanları
+
+Bunların her biri uygulamanın içinde baştan sona hazır bir iş akışı; eklenti ya da sonradan yazılan bir betik değil.
+
+<table>
+<tr>
+<td width="50%" valign="top"><b>Canlı VJ setleri ve kulüp geceleri</b><br />F tuşlarında sahneler, elle karıştırmak için bir T-bar, vuruşa hizalı klip destesi, ölçüde Otomatik VJ, basılı tutulan flaş ve strobe, ve LED geri bildirimli denetleyici haritaları. <a href="#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc">&rarr;&nbsp;Gösteri kontrolü</a></td>
+<td width="50%" valign="top"><b>Yayın katmanları</b><br />Eklentisiz, saydam bir OBS tarayıcı kaynağı, albüm kapaklı Çalan Parça kartı, senkron şarkı sözleri, uyarılar ve sohbet için web sayfası katmanı, ve oyunu değil tek bir uygulamanın sesini izleyen görseller. <a href="#çıkışlar-ekranlar-obs-spout-ve-syphon">&rarr;&nbsp;Çıkışlar</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Yayınlarınız için müzik videoları</b><br />Ses dosyasından 4K'ya kadar 12 biçimde kare kare dışa aktarma, logonuz ve parça adıyla müzik videosu düzenleri, başlık ve kapanış kartları, YouTube bölümleri ve küçük resim. <a href="#kayıt-ve-video-dışa-aktarma">&rarr;&nbsp;Dışa aktarma</a></td>
+<td width="50%" valign="top"><b>Spotify Canvas, Reels ve Shorts</b><br />Tek tıkla dikey profiller ve son karesi ilk karesine akan kusursuz döngüler; geri besleme ve MilkDrop ile bile. Toplu kuyruk bir sahneyi birçok şarkıya uygular. <a href="#kayıt-ve-video-dışa-aktarma">&rarr;&nbsp;Dışa aktarma</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Şarkı sözü ve karaoke ekranları</b><br />Sözcük zamanlı LRC ve SRT, her sözcüğü izleyen karaoke dolgusu, uzatılan heceler, bir zamanlama düzenleyici, ve Windows'ta çalan parçayı izleyen söz kütüphanesi. <a href="#metin-şarkı-sözü-ve-çalan-parça">&rarr;&nbsp;Şarkı sözü</a></td>
+<td width="50%" valign="top"><b>Konser, tiyatro ve zaman kodlu gösteriler</b><br />Otomasyon şeritli zaman çizelgesi, GO ile cue işaretleri, MIDI Zaman Kodu takibi, ışık masasından Art-Net girişi, OSC, ve kapılar açılmadan gösteri öncesi denetim. <a href="#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc">&rarr;&nbsp;Gösteri kontrolü</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Projeksiyon haritalama ve LED duvarlar</b><br />Köşe sabitleme, ağ bükme ve birden çok projektör arasında yumuşak kenar harmanlama; pikselleri kare olmayan LED panolar için basıklık düzeltme. <a href="#sahne-projeksiyon-haritalama-ve-basıklık-düzeltme">&rarr;&nbsp;Sahne</a></td>
+<td width="50%" valign="top"><b>LED şeritler ve matrisler</b><br />Keşifli DDP ile WLED, WLED Ses Senkronu, sACN ve Art-Net, yılan dizilimli matris kipi, ve MilkDrop görüntüsünden örneklenen renkler. <a href="#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net">&rarr;&nbsp;Işık</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Masa ve oda RGB'si</b><br />Windows Dynamic Lighting ve OpenRGB üzerinden klavyeler, fareler, fanlar ve şeritler; her aygıtta aynı renk kipleriyle. <a href="#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net">&rarr;&nbsp;Işık</a></td>
+<td width="50%" valign="top"><b>Akıllı ev ve düğme panoları</b><br />Home Assistant keşifli MQTT, Stream Deck için bir Bitfocus Companion modülü, OpenAPI belgeli bir HTTP API ve telefon kumandası. <a href="#mqtt--home-assistant">&rarr;&nbsp;MQTT</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Kararmaması gereken etkinlikler</b><br />Yaklaşık yarım saniyede devralan sıcak yedek ikinci makine, ışıkları yalnız tek makinenin sürmesi, ses köprüsü, ve bütün gösteriyi taşıyan tam yedek. <a href="#gösteri-güvencesi-gösteri-öncesi-denetim-yedeklilik-ve-ses-köprüsü">&rarr;&nbsp;Gösteri güvencesi</a></td>
+<td width="50%" valign="top"><b>Lounge, mağaza ve bekleme salonları</b><br />Metnin ve logonun arkasında durmak için yapılmış sakin arkaplanlar, sessizlikten sonra boşta ekran koruyucu, pilde düşük güç kipi, ve uykuya geçmeyen bir ekran. <a href="#güvenilirlik-güç-ve-güncellemeler">&rarr;&nbsp;Güvenilirlik</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Her masaüstünde bir MilkDrop oynatıcı</b><br />.milk ve .milk2 presetler, küçük resimli kütüphane içe aktarma, favoriler ve puanlar, canlı düzenleyici, ve kendi yaptığımız 60 preset; Windows, macOS ve Linux'ta. <a href="#milkdrop">&rarr;&nbsp;MilkDrop</a></td>
+<td width="50%" valign="top"><b>Yeşil perde ve video miksajı</b><br />Web kamerası, video dosyaları, bir ekran ya da pencere, ve Spout veya Syphon üzerinden başka uygulamalar katman olarak; renk anahtarı, taşma bastırma ve vuruşa kilitli video döngüleriyle. <a href="#logo-görseller-ve-medya-katmanı">&rarr;&nbsp;Medya katmanı</a></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Shader taslakları</b><br />Canlı önizlemeli GLSL, çok geçişli tamponlar, Shadertoy ve ISF içe aktarma. Yazdığınız şey bir gösteride kullanılabilen bir katman olur. <a href="#studio--kendi-shaderınızı-yazın">&rarr;&nbsp;Studio</a></td>
+<td width="50%" valign="top"><b>Yapay zekâ ajanının kurduğu gösteriler</b><br />106 araçlı bir MCP sunucusu Claude, Codex, Cursor ve başka ajanların gösteriyi okumasını, sahne kurmasını ve çıkışları sürmesini izin düzeyleri ardında sağlar. <a href="#mcp--bir-yapay-zekâ-ajanıyla-kontrol">&rarr;&nbsp;MCP</a></td>
+</tr>
+</table>
 
 ---
 
@@ -134,6 +175,11 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 > [kaynaktan](#kaynaktan-çalıştırma) çalışıyor; [Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest) sayfasındaki kurulum dosyaları v4 çıkana
 > dek son sürüm olan v3.1.7.
 
+- **Tek model ve yeni bir panel.** Her sahne, şablon ve kayıtlı görünüm artık bir katman listesi;
+  panel görüntünün çevresine yeniden kuruldu: Sahne, Canlı, Zaman, Stüdyo ve Çıktı sayfaları, yalnız
+  seçili katmanın okuduğunu gösteren bir denetçi, bütün sahne için geri al ve yinele, katman
+  ayarlarını da bulan arama, <kbd>?</kbd> ile kısayol listesi ve boyutu ayarlanabilen paneller. v3
+  ayarları ilk açılışta bir kez, yedeği alınarak dönüştürülüyor. [→ Yönetici paneli](#yönetici-paneli)
 - **Görüntü mikseri gibi kurulmuş bir Canlı sayfası.** Bankalı ve F tuşlu sahne ızgarası, Sırada
   ve Canlı ekranları ve bir **T-bar**: çekerek sıradaki sahneyi elle karıştırın, yarıda bırakıp iki
   sahnenin karışımını istediğiniz kadar tutun, başa döndürüp hiçbir şeyi baştan başlatmadan
@@ -164,6 +210,42 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
   önizleme var.
 - **İlk açılışta hazır.** Boş Canlı sayfasındaki tek düğme sekiz örnek sahne kuruyor (F1–F8); siz
   daha hiçbir şey kaydetmeden sahne ızgarası, AL, T-bar ve Otomatik VJ çalışıyor.
+- **Kendi başına çalışan MilkDrop katmanları.** Her MilkDrop katmanı kendi presetini tutup kendi
+  aralığında, saniye ya da ölçüyle ilerleyebiliyor; ötekiler kendi presetlerinde kalıyor. Her ekran,
+  Spout/Syphon ve yedek makine katman başına aynı seçimi gösteriyor. [→ MilkDrop](#milkdrop)
+- **Gösteri için zaman çizelgesi.** Sekmelerde birden çok çizelge, klipleri kayıtlı sahnelerinize hiç
+  dokunmayan bir **Timeline kullan** anahtarı, siz **GO**'ya basana dek bekleyen cue işaretleri, ve
+  gelen **MIDI Zaman Kodu**nu takip.
+  [→ Gösteri kontrolü](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
+- **Medya katmanında yeşil perde ve ekran yakalama.** Taşma bastırmalı ve kenar yumuşatmalı renk
+  anahtarı; kaynak olarak bu bilgisayarın bir ekranı ya da penceresi, seçtiğiniz yenileme hızıyla ve
+  OBS katmanına aktarılarak. [→ Medya katmanı](#logo-görseller-ve-medya-katmanı)
+- **LED şeritler, matrisler ve ışık masaları.** Art-Net'in yanında **sACN** ve **WLED** (keşifli DDP
+  ve WLED Ses Senkronu), yılan dizilimli matris kipi, ve bir ışık masasının uygulamayı sürebilmesi
+  için **Art-Net girişi**. [→ Işık](#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net)
+- **Düzeneğin geri kalanına bağlantılar.** Home Assistant keşifli MQTT, OpenAPI belgeli HTTP API,
+  bir Bitfocus Companion modülü, APC40 mkII, Launchpad, nanoKONTROL2 ve Push 2 için LED geri
+  bildirimli denetleyici haritaları, MIDI saati çıkışı, Ableton Link'ten ya da bir MIDI saatinden
+  tempo, ve oyun kumandaları. [→ MQTT](#mqtt--home-assistant)
+- **Renk düzeltme ve ölçüm.** Ton Eşleme (ACES / AgX) ve 3B LUT (`.cube`) efektleri, aynı zamanda
+  modülasyon kaynağı olan bir LUFS ölçeri (BS.1770), iki adım sıralayıcı, ve 11 yeni görselleştirici
+  modu arasında Reaksiyon-Difüzyon. [→ Efektler](#katmanlar-maskeler-ve-efektler)
+- **Sözcük sözcük zamanlanan şarkı sözleri.** Her sözcüğün üstünden geçen karaoke dolgusu, uzatılan
+  heceler, düzenleyicide zamanlama araçları, ve eklediğiniz bir sağlayıcıdan önce şarkının yanındaki
+  dosyaya ve dosyanın kendi etiketlerine bakan isteğe bağlı arama.
+  [→ Şarkı sözü](#metin-şarkı-sözü-ve-çalan-parça)
+- **Taşınabilen ve toparlanabilen bir gösteri.** Sahneleri ve kullandıkları her dosyayı taşıyan bir
+  **tam yedek** (`.svbackup`), bir gösterinin kullanabileceği her videoyu ve MilkDrop dokusunu alan bir
+  yedek makine, çökmeden sonra bozuk ayar dosyasını onaran dönen anlık kopyalar, ve boşta ekran
+  koruyucu.
+  [→ Gösteri güvencesi](#gösteri-güvencesi-gösteri-öncesi-denetim-yedeklilik-ve-ses-köprüsü)
+- **Varsayılan olarak daha güvenli.** Başka bir site kumanda sayfasını çerçeveye alamıyor, sayfa
+  çerezi HttpOnly, ve yayın sunucusu video aralıklarını uygulamanın kendi oynatıcısıyla aynı kurallarla
+  yanıtlıyor.
+
+v3.1.7'den bu yana her değişiklik, konusuna göre ve çekme isteğiyle birlikte,
+[ROADMAP'in v4.0.0 bölümünde](ROADMAP.md#what-changed-since-v317) (İngilizce) ve
+[CHANGELOG.md](CHANGELOG.md) dosyasında.
 
 ---
 
@@ -277,13 +359,13 @@ npm start
 
 | Siz… | Elde ettiğiniz |
 |---|---|
-| **Yayıncıysanız** | OBS'e tarayıcı kaynağı olarak saydam bir katman, albüm kapaklı Çalan Parça kartı, şarkı sözleri, uyarılar ve sohbet için bir web sayfası katmanı, ve yayının ortasında sahne değiştirmek için bir telefon kumandası. OBS başka bir bilgisayardayken de çalışır. |
-| **VJ ya da sahne sanatçısıysanız** | Zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, MIDI ve OSC kontrolü, karartma, Resolume ya da TouchDesigner ile iki yönlü Spout/Syphon, ve her projektörde tam ekran çıkış. |
+| **Yayıncıysanız** | OBS'e tarayıcı kaynağı olarak saydam bir katman, albüm kapaklı Çalan Parça kartı, şarkı sözleri, uyarılar ve sohbet için bir web sayfası katmanı, ve yayının ortasında sahne değiştirmek için bir telefon kumandası ve Stream Deck modülü (Bitfocus Companion). OBS başka bir bilgisayardayken de çalışır. |
+| **VJ ya da sahne sanatçısıysanız** | Canlı sayfasında T-bar, zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, LED geri bildirimli MIDI denetleyici haritaları, OSC, karartma, Resolume ya da TouchDesigner ile iki yönlü Spout/Syphon, ve her projektörde tam ekran çıkış. |
 | **Müzik yapımcısı ya da plak şirketiyseniz** | Parçanızdan 12 biçimde kare kare video dışa aktarma, YouTube, Shorts ve Spotify Canvas için tek tıkla profiller, logonuz ve parça adıyla sade müzik videosu düzenleri, onları yerleştirmek için bir düzen editörü, Başlık ve Kapanış Kartları, YouTube bölümleri ve küçük resim, ve canlı çıkış için bir kayıt aracı. |
-| **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
-| **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
-| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 56 CaYaDev presetiyle gelen bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 106 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
+| **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, GO ile cue işaretleri ve MIDI Zaman Kodu, ışık masasından Art-Net girişi, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, gösterinin tam yedeği, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
+| **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB, WLED, sACN ve Art-Net/DMX; Home Assistant için MQTT; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
+| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 60 CaYaDev presetiyle gelen bir MilkDrop motoru. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Çok geçişli tamponlu, Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 106 araçlı bir MCP sunucusu, OpenAPI belgeli HTTP API, belgelenmiş kumanda protokolü ve yapılandırma, ve satır değil cevap denetleyen 4.500'ü aşkın test. |
 
 ---
 
@@ -381,6 +463,9 @@ kullanılabiliyor.
 - **Harmonik / vurmalı ayrıştırma**, ve kick, snare ve hi-hat için bant başına vuruş algılayıcıları.
 - **Tayf tanımlayıcıları** — ağırlık merkezi, rolloff, düzlük, crest.
 - **Ses yüksekliği, dinamik, gerçek tepe, stereo genişlik, korelasyon ve orta/yan bantlar.**
+- **LUFS ölçeri** (ITU-R BS.1770 / EBU R128): anlık, kısa süreli ve geçitli entegre gürlük; anlık
+  gürlük modülasyon kaynağı olarak da kullanılabiliyor. Uygulamanın önizleme karelerini okuduğu için
+  sertifikalı değil, izleme amaçlı bir ölçer.
 - Sessizlik algılama, otomatik kazanç ve kayan bir tayf geçmişi tamponu.
 
 **Tempo.** BPM bir periyot histogramından tahmin ediliyor (90, 120, 128, 140 ve 174 BPM'lik
@@ -408,7 +493,7 @@ Bu iki pafta doğrudan mod kataloğundan üretiliyor; yeni bir mod, ekran görü
 Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birinden istediğiniz kadar
 üst üste koyabilirsiniz.
 
-**Görselleştirici modları — 70**
+**Görselleştirici modları — 71**
 
 - **Temel** — Barlar · Merkez · Segment (LED ekolayzer) · Nokta Matris · Şehir Silüeti (pencereleri
   yanan binalar) · Kapsül Dalga (ortadan açılan yuvarlak uçlu çubuklar; konuşma ve podcast için) ·
@@ -428,7 +513,8 @@ Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birin
 - **Üretken sistemler** — Akış Alanı (gürültü alanının yönlendirdiği parçacıklar) · Sürü (tayfın sürdüğü
   boid'ler) · Voronoi · Truchet · Moiré · Dalga Girişimi · İpler (vuruşlarla itilen verlet fiziği) ·
   Galaksi · DNA Sarmalı · İzometrik Şehir · Çekici Alanı (formül kitaplığından iki parametresi sese
-  bağlı ayrık haritalar) · Sarkaç Dalgası · Kardioid
+  bağlı ayrık haritalar) · Sarkaç Dalgası · Kardioid · Reaksiyon-Difüzyon (küçük bir ızgarada basın
+  beslediği mercan gibi büyüme)
 - **Metin** — Metin / Şarkı Sözü · Çalan Parça
 - **Ölçüm** — Osiloskop (XY) · Gonyometre (stereo faz ölçer) · Kroma Çemberi (beşli çember sırasında
   perde sınıfları, algılanan akorun kökü vurgulu) · VU Metre · Seviye Ölçer (PPM)
@@ -556,8 +642,9 @@ sürgüleri, dört dalga biçimi, ve klasik sonsuz tünel için basla sürülen 
 - Tek sürgülü **gruplar**, ve eşit güç eğrisinde bir **A/B geçiş sürgüsü**.
 - **Solo, sessiz ve kilit** — solo bir katmanı geri alınabilir biçimde yalnız bırakır, sessiz
   ayarlarını kaybetmeden gizler, kilit kazara düzenlemeyi önler.
-- Katmanları sahneler arasında kopyalayın, yapıştırın, çoğaltın. Bütün yığın kapatılabilir; liste
-  kaybolmadan düz Arkaplan + Görselleştirici kurulumuna dönülür.
+- Katmanları sahneler arasında kopyalayın, yapıştırın, çoğaltın. Her sahne, şablon ve kayıtlı görünüm
+  bir katman listesi; v3 ayarları ilk v4 açılışında bir kez dönüştürülüp `settings.v3-backup.json`
+  olarak saklanıyor.
 - **Bozuk bir katman artık bütün kareyi götürmüyor**, ve opak bir MilkDrop katmanının
   altında kalan katmanlar hiç çizilmiyor.
 
@@ -594,8 +681,11 @@ Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
   bir noktalı yapılandırma yoluna gidiyor.
 - **Kaynaklar** — bas, orta, tiz, seviye, vuruş zarfı ve vuruş tetiği · sekiz tayf bandı ·
   Hz aralığı ve dB penceresi sizin seçtiğiniz dört serbest bant · LFO'lar ·
-  zarf izleyiciler · örnekle-ve-tut · rastgele · vuruş saati · makro düğmeleri · ve her derin çözümleme
-  ölçümü (ton, akor, perde, ses yüksekliği, davul bantları…).
+  zarf izleyiciler · örnekle-ve-tut · rastgele · vuruş saati · makro düğmeleri · iki **adım
+  sıralayıcı** (nota bölümünde 4, 8 ya da 16 adım, kaymalı) · ve her derin çözümleme ölçümü (ton,
+  akor, perde, ses yüksekliği ve LUFS, davul bantları…).
+- **Dışarıdan tempo** — vuruş saati algılanan tempo yerine bir Ableton Link oturumunu (yalnız
+  dinleyerek) ya da bir MIDI saatini izleyebiliyor.
 - **Sekiz LFO biçimi** — sinüs, üçgen, yükselen testere, alçalan testere, kare, darbe, rastgele rampa ve
   gürültü — hızı Hz cinsinden ya da algılanan tempoya kilitli vuruş bölümleriyle (1/16'dan 8 ölçüye),
   artı faz kayması ve darbe genişliği.
@@ -786,7 +876,17 @@ haber bandı · karaoke vurgusu.
   ve sarma ile duraklatmayla birlikte ilerliyor. **Tam Eşleme** ya da küçük yazım farklarına izin veren
   **Kısmen Eşleme**; kütüphanede eşleşme yoksa oynatıcının zamanlı sözleri kullanılıyor. Dosyalar zaman
   damgalarını, sözcük zamanlarını ve etiketleri renklendiren uzun bir düzenleyicide açılıyor;
-  kaldırmadan önce soruluyor. Ağdan hiçbir şey çekilmiyor.
+  kaldırmadan önce soruluyor. Bir arama sağlayıcısı eklemedikçe ağdan hiçbir şey çekilmiyor.
+- **Sözcük sözcük karaoke** — sözcük bitiş zamanları (A2 bitiş etiketleri dahil) her sözcüğün
+  üstünden, söylendikçe geçen bir dolgu veriyor; çıkışta da dışa aktarmada da. İsteğe bağlı esnetme
+  uzatılan ünlüyü tekrarlıyor: uzun bir "yar", "yaaar" okunuyor.
+- Düzenleyicide **zamanlama araçları** (Windows, kütüphaneyle birlikte): seçili satırları ±0,1 sn ya
+  da ±1 sn kaydırın, söz saatini bir satıra (<kbd>Alt</kbd> + <kbd>Enter</kbd>) ya da bir sözcüğe
+  (<kbd>Alt</kbd> + <kbd>.</kbd>) basın.
+- **Otomatik arama** (varsayılan kapalı, Windows) — çalan parça için önce ses dosyasının yanındaki
+  `.lrc` ya da `.srt`'ye, sonra dosyanın kendi söz etiketlerine (ID3, Vorbis, MP4), sonra yerel
+  önbelleğe, en son URL şablonuyla tanımladığınız sağlayıcılara bakıyor. Sağlayıcı listesi boş
+  geliyor; siz eklemeden ağa hiçbir şey gitmiyor, yavaş bir sağlayıcı da gösteriyi bekletmiyor.
 
 ---
 
@@ -901,6 +1001,14 @@ gösteriyi oynatıyor.
   100 adımlık geri alma; kutuyla çoklu seçim; sürüklenebilir döngü ayracı ve işaret bayrakları; klip
   başına geçiş tutamakları; **cetvelde tempo değişimleri**; ayarlanabilir şerit yüksekliği ve tam
   pencere kipi; yalnız düzenleyici odaktayken çalışan klavye kısayolları.
+- Sekmelerde **birden çok çizelge**; biri silinmeden pasifleştirilebiliyor. **Timeline kullan**
+  çıkışı oynatma kafasındaki çizelgeye geçiriyor: her klip kendi süresi için kendi katmanlarını
+  kuruyor, kayıtlı sahnelerinize hiç dokunmuyor; kapatınca çıkış tam bıraktığınız gibi kalıyor.
+- **GO ile cue işaretleri** — "Cue: burada bekle" açık bir işaret oynatmayı her ekranda aynı anda
+  orada durduruyor; **GO** (ya da <kbd>Enter</kbd>) sonraki cue'ya kadar sürdürüyor. Dışa aktarma
+  beklemeleri yok sayıyor.
+- **MIDI Zaman Kodu takibi** — çizelge gelen MTC'yi 24, 25, 29,97 drop-frame ve 30 fps'te izliyor;
+  01:00:00:00'da başlayan bir gösteri için kaydırma verilebiliyor.
 
 **Klip destesi.** Sahneleri, şablonları, paletleri ve medyayı bir ızgaraya yerleştirip vuruşta ateşleyin.
 
@@ -923,13 +1031,24 @@ ya da paletlerin döneceğini tam olarak seçin (ya da hepsi için boş bırakı
 katmanına kendi modunu verin, ve neyin değiştiğini, sıradakini ve bir kaynak boşsa neden hiçbir şey
 olamayacağını söyleyen bir durum satırını okuyun.
 
-İsteğe bağlı denetleyici LED geri bildirimi ve hazır haritalar varsayılan kapalıdır. Port/kip koşulları, Korg CC sahne ayarı ve gerçek donanım testi sınırları için [denetleyici kurulumuna ve üretici protokol incelemesine](docs/midi-controllers.md) bakın.
-
 **MIDI.** Bir denetimi öğretin, sonra herhangi bir CC'yi ya da notayı herhangi bir ayara ya da eyleme
 eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemleri dahil. Modülasyon saati
 bir MIDI saatini ya da Ableton Link oturumunu izleyebiliyor ve **temposunu MIDI saati olarak**
 (çeyrek nota başına 24 darbe, başlat ve durdur) bir MIDI çıkışına ya da hepsine **yollayabiliyor**.
 Varsayılan kapalı; dinlenen aygıt dışarıda bırakılıyor, saat geri yankılanmıyor.
+
+**LED geri bildirimli denetleyici haritaları.** Akai APC40 mkII, Novation Launchpad Mini MK3, X ve Pro
+MK3, Korg nanoKONTROL2 ve Ableton Push 2 için hazır haritalar sizin eşlemelerinizin üstüne yazmadan
+bağlama ekliyor; pedlar ve halkalar sürdükleri şeyle birlikte yanıyor. Varsayılan kapalı. Haritalar
+her üreticinin protokol belgesine göre yazıldı, burada gerçek donanımda çalıştırılmadı; her birinin
+istediği port ve kip için [denetleyici kurulumuna](docs/midi-controllers.md) (İngilizce) bakın.
+
+**Art-Net girişi.** Bir ışık masası uygulamayı sürebiliyor: bir evrenin DMX kanalları herhangi bir
+sürgüye ya da eyleme, öğretmeyle eşleniyor. Varsayılan kapalı; başka bir adres seçmedikçe
+`127.0.0.1`'de dinliyor ve uygulamanın kendi gönderdiği evreni reddediyor.
+
+**Oyun kumandası.** Xbox, PlayStation ve genel oyun kumandaları, MIDI ile aynı öğretme motoruyla
+ayarlara ve eylemlere eşleniyor; uygulamanın bir penceresi odaktayken çalışıyor.
 
 **OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
 için.
@@ -1016,7 +1135,9 @@ göster/gizle ve opaklık), **Görünüm** (küçük resimli görselleştirici v
 şablonları, Studio presetleri) ve **Ses**. Üstte çalan parça, tempo ve üç bantlı seviye görünür.
 Komutlar OSC ve MQTT ile aynı sabit denetim ağacından geçer ve uygulanmadan önce ana süreçte
 denetlenir. Kendi denetleyicinizi yazmak için iletiler
-[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) sayfasında (İngilizce).
+[docs/REMOTE-PROTOCOL.md](docs/REMOTE-PROTOCOL.md) sayfasında (İngilizce). **Çoklu Kopya Kumandası**
+açıkken bir kopyanın kumandasından gelen komut, listelediğiniz öteki kopyalara da döngü kurmadan
+ulaşıyor.
 
 **Karartma** <kbd>Space</kbd> ile ya da herhangi bir denetleyiciden; kendi geçişiyle, kayıtlı sahneye
 dokunmadan.
@@ -1123,6 +1244,15 @@ Art-Net, sACN ve WLED (DDP) armatürleri bir **matris** olarak da sürebiliyor; 
 her sütunun kendi tonu var, alt satır müzik kadar parlak, üstteki satırlar giderek sönüyor. Sütun ve
 satır elle verilir ya da armatür sayısından kareye yakın seçilir; **yılan dizilim** anahtarı, zigzag
 kablolanmış panolar ve katlanmış şeritler için her ikinci satırı ters çevirir.
+
+**sACN (E1.31).** Art-Net ile aynı armatürler ve renk kipleri; evrenin multicast adresine ya da tek bir
+makineye, öncelik ve kaynak adıyla.
+
+**WLED.** Pikseller DDP ile (UDP `4048`) belirlediğiniz LED sayısıyla bir WLED denetleyicisine gidiyor.
+**Ağda WLED Bul** ve **LED Sayısını Al** ağa yalnız siz bastığınızda dokunuyor. **WLED Ses Senkronu**
+seviyeyi, vuruşu ve 16 bandı yayınlıyor; WLED'in kendi sese tepkili efektleri uygulamayı izliyor.
+
+Yedekli bir çiftte Art-Net, sACN ve WLED'i yalnız çıkış yetkisindeki makine gönderiyor.
 
 **Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
 izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
@@ -1443,7 +1573,7 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - **Üstte beş sayfa** — Sahne, Canlı, Zaman, Stüdyo ve Çıktı; dişlinin arkasında Ses, Işık, Gösteri,
   Kontrol, Kitaplık ve Ayarlar (<kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>5</kbd> sayfa değiştirir).
 - **Sahne**: katman listesi, büyük önizleme, seçili katmanın denetçisi ve preset, şablon, efekt ve
-  modülasyon rafı. **Canlı**: AL düğmeli Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
+  modülasyon rafı. **Canlı**: AL düğmeli ve T-bar'lı Sırada ve Canlı monitörleri, F tuşlarında sahne ızgarası,
   katman faderleri ve klip destesi. **Zaman**: önizleme üstte, çizelge altta bütün genişlikte.
   **Çıktı** ve **Stüdyo** bir seferde tek bölüm gösterir.
 - Canlı'da **anlık efektler**: düğmeyi basılı tuttuğunuz sürece flaş, strobe, bulanık, kaleydoskop,
@@ -1452,7 +1582,13 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - **Her yerde canlı** — her değişiklik anında çıkış pencerelerine ulaşıyor ve kendini kaydediyor.
 - Her sayfanın yanında kendi demo sinyaliyle bir **canlı önizleme**, ses ölçerleri ve kayıtlı sahneler.
 - Her kartta ve sayfada **değişti işaretleri**; bölümü ya da bütün sayfayı sıfırlama.
-- Her sayfadaki her ayarda **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- Her sayfadaki her ayarda, katman ayarları dahil, iki dilde ve insanların yazdığı sözcüklerle
+  ("yeşil perde", "projektör") **arama** (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+- Sahne sayfasında **boyutu ayarlanabilen paneller**: rafa ya da bir yan panele yer açmak için
+  ayracı sürükleyin. Boyutlar pencereyle orantılı kalır; **Ayarlar → Uygulama → Panel Boyutlarını
+  Sıfırla** varsayılana döndürür.
+- <kbd>?</kbd> ile **kısayol listesi**, ve üst çubukta seyrek kullanılanları gizleyen **Basit**
+  anahtarı.
 - **Gelişmiş** anahtarları seyrek kullanılan denetimleri siz isteyene kadar gizliyor; **genişletilmiş
   aralıklar** sürgü sınırlarını 5 katına çıkarıyor.
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test
@@ -1485,6 +1621,11 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   gösteriyor ve bir sürümü atlamanıza izin veriyor. Windows kurulumu ve AppImage yerinde indirip
   kuruyor; boyut ve SHA-256 tam uyuşmadıkça hiçbir şey çalışmıyor. Kapalı, haber ver (varsayılan) ya da
   otomatik.
+- **Oturum kurtarma** — ayarlar dönen anlık kopyalar olarak tutuluyor (iki dakikada bir, son beşi);
+  bir çökmeden sonra bozuk ayar dosyası en yeni sağlam kopyadan geri yükleniyor ve panel bunu
+  söylüyor.
+- **Boşta ekran koruyucu** (varsayılan kapalı) — seçtiğiniz süre kadar ses gelmezse çıkış kararıyor,
+  gezinen bir saat ve sizin metniniz görünüyor.
 - **Tam yedek ve geri yükleme** — ayarlar, sahneler, renk şablonları ve sahnelerin kullandığı her
   dosya (kullanıcı presetleri, logolar, videolar, sözler, MilkDrop dokuları) tek bir `.svbackup`
   dosyasında, videolar isteğe bağlı. Başka bir bilgisayarda geri yükleme dosyaları yerine koyar ve
@@ -1513,8 +1654,10 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   süreci ölünce ~0,4–0,5 sn'de, takılır ya da ağ koparsa kayıp eşiğinde (1,5 sn) yetkiyi alır. Ekran
   kararmaz; seyirciye gideni görüntü anahtarlayıcısı seçer.
   - Yedek kendi gösterisini korur: birincilin kopyası ayrı alanda, presetler ve logolar tek tek
-    alınır; sürümlü **gösteri paketi** presetleri, logoları ve (işaretlerseniz) videoları parça
-    parça, özetle denetleyerek, kopunca sürerek ve yerine koymadan önce doğrulayarak kopyalar.
+    alınır; sürümlü **gösteri paketi** presetleri, logoları, MilkDrop dokularını ve (işaretlerseniz)
+    bir sahnenin gösterebileceği her videoyu, kapalı katmanlarınkiler dahil, parça parça, özetle
+    denetleyerek, kopunca sürerek ve yerine koymadan önce doğrulayarak kopyalar.
+  - Ana sürümü farklı makineler eşleşmeyi reddeder; bir v3 yedeği v4 gösterisini yansıtmaz.
   - **Işık ve OSC'yi yalnız yetkideki makine sürer** (Art-Net, OSC çıkışı, OpenRGB, Dynamic
     Lighting); yeniden açılışta kalan dönemler, çitli açılış, kırmızı **iki yönetici** alarmı,
     korumalı **birincile geri verme** ve öteki makinenin canlı önizlemesiyle iki yönlü kontrol.
@@ -1559,8 +1702,18 @@ birincili ve iki makinenin yeniden açılışını denetler.
     ağa hiç çıkmaz. İsteğe bağlı Art-Net tanığı UDP `6454`'te dinler.
   - **Ses köprüsü**: TCP `8741` (ses, çözümleme, parça) ve UDP `8742`'de imzalı işaret; ikisi de iki
     yönlü HMAC parolasıyla eşleşir.
+  - **HTTP API**: MCP sunucusunda (`127.0.0.1`, aynı jeton ve izin kipi).
+  - **MQTT** adını verdiğiniz aracı sunucuya bağlanır; *Komutları kabul et* açık değilse oradan gelen
+    komutlar yok sayılır.
+  - **sACN** evrenin multicast adresine ya da girdiğiniz makineye gönderir. **WLED** girdiğiniz
+    makineye, **WLED Ses Senkronu** `239.0.0.1:11988`'e gönderir; WLED için mDNS araması yalnız
+    düğmesine bastığınızda çalışır.
+  - **Art-Net girişi** başka bir adres seçmedikçe `127.0.0.1`'de dinler. **Ableton Link** kendi
+    multicast grubundan okunur ve oturumu hiç yönlendirmez.
+  - **Çoklu Kopya Kumandası** komutları yalnız listelediğiniz kopyalara iletir.
+  - **Söz arama** yalnız eklediğiniz sağlayıcılara sorar; liste boş gelir.
 - **Çeviriciler ve üreticiler çevrimdışı çalışıyor** — Shadertoy ve ISF içe aktarma, sahne üretici,
-  MilkDrop preset üretici, şarkı sözleri.
+  MilkDrop preset üretici, şarkı sözü dosyaları.
 - **Otomasyon kamerayı asla açmıyor.** MilkDrop presetleri `eval` ya da üretilmiş kaynak kod olmadan
   derleniyor; bilinen saldırı dizileri ve bozuk dosyalarla yazılmış enjeksiyon testleri preset
   metninin JavaScript'e ulaşamadığını doğruluyor.
@@ -2106,7 +2259,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4524 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4530 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2224,7 +2377,8 @@ müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa 
 düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
 donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. **v4.0.0** şu an `main` dalında
 4.0.0-beta olarak duruyor; derlendi ve sınandı ama henüz yayınlanmadı: [v4'te yeni](#v4te-yeni) altındaki
-her şey. Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
+her şey; v3.1.7'den bu yana her değişiklik yol haritasının
+[v4.0.0 bölümünde](ROADMAP.md#what-changed-since-v317). Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
 de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
