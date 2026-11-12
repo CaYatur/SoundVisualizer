@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4455%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4501%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -248,6 +248,11 @@ Başka hiçbir şey kurmanız gerekmiyor: ses yardımcısı uygulamanın kendi i
 4. Ya da hazır bir görünümden başlayın: **Kitaplık → Şablon**'da 83 hazır şablon var.
 5. Yayın için **Çıkış → Yayın Çıkışı (OBS / Web)**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
 6. Tüm pencereleri kapatmak için herhangi bir görselleştirme penceresinde **ESC**'ye basın.
+
+Yeni misiniz? **[Kullanım kılavuzu](docs/GUIDE.tr.md)** kurulumdan ilk gösteriye kadar kısa adımlarla
+anlatıyor. Daha fazlası için: **[modülasyon tarifleri](docs/MODULATION-COOKBOOK.md)**
+kopyalayabileceğiniz yönlendirmeleri, **[shader yazım kılavuzu](docs/SHADER-GUIDE.md)** Stüdyo'da
+kendi görselinizi yazmayı anlatıyor (ikisi İngilizce).
 
 ### Kaynaktan çalıştırma
 
@@ -803,9 +808,12 @@ haber bandı · karaoke vurgusu.
   vuruşluk **döngü** ve her çıkışta canlı sarma yapan **konum** kaydırıcısı var; dışa aktarım aynı
   formülü kare kare izliyor. **Renk anahtarı** seçilen bir rengi (yeşil perde) ya da görüntünün karanlık
   veya aydınlık tarafını eşik ve yumuşaklıkla saydam yapıyor; alttaki katman delikten görünüyor.
-  Ekran ve pencere yakalama Windows ve macOS'ta (macOS ekran kaydı izni ister) ve Linux'ta bir X11
-  ekranıyla çalışıyor; X11'siz bir Wayland oturumunda bunu söylüyor. Web kamerası gibi OBS tarayıcı
-  kaynağına gitmiyor ve video dışa aktarımında boş kalıyor.
+  **Taşma bastırma** saçta ve kenarda kalan perde rengini kısıyor, 12 piksele kadar **kenar
+  yumuşatma** kesimi içe doğru yumuşatıyor. Ekran ve pencere yakalama Windows ve macOS'ta (macOS
+  ekran kaydı izni ister) ve Linux'ta bir X11 ekranıyla çalışıyor; X11'siz bir Wayland oturumunda
+  bunu söylüyor. **Yenileme hızı** 5, 15, 30 (varsayılan) ya da 60 fps olabiliyor. Web kamerası
+  gibi, ekran bağlı bir OBS tarayıcı kaynağına aktarılan karelerle gidiyor (saniyede yaklaşık 12
+  kare, uzun kenar 960 piksel); video dışa aktarımında boş kalıyor.
 - **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
@@ -1113,7 +1121,8 @@ Lighting ile **aynı kipler ve aynı renk matematiğiyle**.
 **Art-Net / DMX.** Armatürlere ve ışık masalarına ArtDMX çıkışı; paket düzeni bayt bayt sınanıyor.
 Art-Net, sACN ve WLED (DDP) armatürleri bir **matris** olarak da sürebiliyor; sol üstten satır satır:
 her sütunun kendi tonu var, alt satır müzik kadar parlak, üstteki satırlar giderek sönüyor. Sütun ve
-satır elle verilir ya da armatür sayısından kareye yakın seçilir.
+satır elle verilir ya da armatür sayısından kareye yakın seçilir; **yılan dizilim** anahtarı, zigzag
+kablolanmış panolar ve katlanmış şeritler için her ikinci satırı ters çevirir.
 
 **Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
 izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
@@ -2094,7 +2103,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4455 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4501 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -2177,16 +2186,27 @@ Ortak motorlar DOM'suz, GPU'suz ve ses aygıtsız düz aritmetik; testleri Node'
 
 | Tuş | Eylem |
 |-----|-------|
-| `ESC` | Bütün görselleştirme pencerelerini kapat |
-| `F11` | Tam ekranı aç/kapat |
-| `Space` | Karartma |
-| `Ctrl` + `S` | PNG anlık görüntü |
-| `Ctrl` + `R` | Kaydı başlat / durdur |
+| `Space` | Karartma; tekrar basınca sahne geri gelir (panel ve çıkış penceresi) |
+| `Ctrl` + `S` | PNG anlık görüntü (panel ve çıkış penceresi) |
+| `Ctrl` + `R` | Kaydı başlat / durdur (panel ve çıkış penceresi) |
 | `Ctrl` + `K` | Bütün ayarlarda ara (panel) |
+| `Alt` + `1`–`5` | Sayfa değiştir: Sahne, Canlı, Zaman, Stüdyo, Çıktı (panel) |
+| `Ctrl` + `Z` / `Ctrl` + `Y` | Geri al / yinele (panel) |
+| `Ctrl` + `+` / `-` | Arayüzü büyüt ya da küçült (panel) |
+| `?` | Kısayol listesini aç (panel) |
+| `F1`–`F12` | Sahneyi sıraya al (Canlı sayfası) |
+| `Enter` | Sıradaki sahneyi canlıya al (Canlı sayfası) |
+| `ESC` | Bütün görselleştirme pencerelerini kapat |
+| `F11` | Tam ekranı aç/kapat (çıkış penceresi) |
 | `Ctrl` + `Shift` + `Q` | ESC kilidi açıkken görselleştiriciyi kapat |
-| `K` + iki rakam | Bir MilkDrop sprite'ı başlat (görselleştirici penceresi) |
+| `K` + iki rakam | Bir MilkDrop sprite'ı başlat (çıkış penceresi) |
 
-Zaman çizelgesi düzenleyicisinin ve klip destesinin kendi kısayolları var; panellerinde listeleniyor.
+Aynı liste uygulamanın içinde `?` ile, arama kutusundan ya da Kurulum'un altındaki **Kısayollar**
+düğmesinden açılıyor. Panelde `Space` yalnız odak bir denetimde değilken karartıyor; Zaman
+sayfasında çizelgenin oynat tuşu olarak kalıyor. Zaman çizelgesi düzenleyicisinin, klip destesinin
+ve düzen editörünün kendi kısayolları var; panellerinde listeleniyor. Windows ve Linux'ta
+uygulamanın menü çubuğu yok: `Ctrl` + `R` hiçbir pencereyi yeniden yüklemiyor, `Ctrl` + `W`
+kapatmıyor.
 
 ---
 

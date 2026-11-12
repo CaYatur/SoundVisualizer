@@ -51,19 +51,48 @@
     bassBoost: 'Bas Vurgusu', strength: 'Şiddet', amount: 'Miktar', size: 'Boyut',
     attractorStep: 'İntegrasyon Adımı', hueShift: 'Renk Kayması', saturation: 'Doygunluk',
   };
-  const fieldLabel = (k) => FIELD_LABELS[k] || k;
+  Object.assign(FIELD_LABELS, {
+    reflection: 'Zemin Yansıması', reflectionLength: 'Yansıma Boyu', segmentSize: 'Segment Boyu', segmentGap: 'Segment Aralığı',
+    barRadius: 'Köşe Yuvarlaklığı', capHold: 'Tepe Bekleme (sn)', capFall: 'Tepe Düşüş Hızı', tilt: 'Eğim',
+    attack: 'Atak', release: 'Bırakma', drift: 'Sürüklenme', orbit: 'Yörünge', warp: 'Bükülme',
+    audioReactivity: 'Ses Tepkisi', brightness: 'Parlaklık', audioBrightness: 'Ses → Parlaklık', grain: 'Gren',
+    vignette: 'Vinyet', gain: 'Kazanç', depth: 'Derinlik', height: 'Yükseklik', density: 'Yoğunluk',
+    softness: 'Yumuşaklık', amplitude: 'Genlik', contrast: 'Kontrast', angle: 'Açı', width: 'Genişlik',
+    updateRate: 'Güncelleme Hızı', threshold: 'Eşik',
+  });
+  /* Listede olmayan alan ham anahtarıyla ("reflectionLength", "bassPush") görünüyordu. Artık
+     sözcüklere ayrılıyor ("Reflection Length"): çevrilmemiş ama okunur. */
+  function humanize(k) {
+    const s = String(k).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : String(k);
+  }
+  const fieldLabel = (k) => FIELD_LABELS[k] || humanize(k);
+
+  /* Arkaplanın mod ayarları (background.starfield.count …) tek bir "Arkaplan" grubunda,
+     hangi moda ait olduğu belli olmadan ve üç ayrı "count", altı ayrı "bassPush" olarak
+     sıralanıyordu. Her mod kendi grubunda, adı ve ayar etiketleri mod kataloğundan
+     (mode-catalog.js: gerçek etiket ve aralık) geliyor. */
+  function modeGroup(base, key) {
+    const MC = window.SVModeCatalog;
+    if (base !== 'background' || !MC || !MC.get) return null;
+    const m = MC.get('background', key);
+    return m ? { label: m.label, settings: m.settings || [] } : null;
+  }
 
   // Bir nesnenin sayısal yapraklarını topla (en fazla iki düzey derin)
-  function collect(obj, base, out, group, skip, depth) {
+  function collect(obj, base, out, group, skip, depth, known) {
     if (!obj || typeof obj !== 'object' || depth > 2) return;
     for (const k of Object.keys(obj)) {
       if (skip && skip.indexOf(k) >= 0) continue;
       const v = obj[k];
       const path = base + '.' + k;
       if (typeof v === 'number' && isFinite(v)) {
-        out.push({ path, label: fieldLabel(k), group });
+        const def = known ? known.find((d) => d[0] === k) : null;
+        if (def) out.push({ path, label: def[1], group, min: def[2], max: def[3] });
+        else out.push({ path, label: fieldLabel(k), group });
       } else if (v && typeof v === 'object' && !Array.isArray(v)) {
-        collect(v, path, out, group, skip, depth + 1);
+        const mg = depth === 1 ? modeGroup(base, k) : null;
+        collect(v, path, out, mg ? group + ' · ' + mg.label : group, skip, depth + 1, mg ? mg.settings : null);
       }
     }
   }
@@ -352,7 +381,7 @@
         if (c.group !== tGroup) {
           tGroup = c.group;
           optGroup = P().el('optgroup');
-          optGroup.label = trTgt(c.group);
+          optGroup.label = String(c.group).split(' · ').map(trTgt).join(' · ');
           tgtSel.appendChild(optGroup);
         }
         const o = P().el('option', { value: c.path, text: trTgt(c.label) });

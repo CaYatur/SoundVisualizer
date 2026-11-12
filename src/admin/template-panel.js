@@ -18,6 +18,9 @@
   const P = () => window.SVPanel;
 
   let group = null;
+  /* Sözlük "Tür"ü her yerde "Type" diye çeviriyor (geçiş türü); burada müzik türü. */
+  const GROUP_EN = { 'Tür': 'Genre' };
+  const groupText = (g) => (GROUP_EN[g] && window.SVI18n && window.SVI18n.locale === 'en' ? GROUP_EN[g] : g);
   let search = '';
   let lastApplied = '';
   let gridScroll = 0;
@@ -38,11 +41,15 @@
 
     function renderCards() {
       grid.innerHTML = '';
-      const q = search.trim().toLowerCase();
+      /* Arama ortak anahtarla (shared/text-fold.js) ve GÖRÜNEN adla da: İngilizce arayüzde
+         kullanıcı çevrilmiş adı yazıyor, yalnız Türkçe kaynak adına bakılınca bulamıyordu. */
+      const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+      const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s) || s;
+      const q = F(search);
       const list = T.TEMPLATES.filter((t) => {
         if (group !== '*' && t.group !== group) return false;
         if (!q) return true;
-        return (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(q);
+        return F(t.name + ' ' + t.desc + ' ' + t.group + ' ' + tt(t.name) + ' ' + tt(t.desc) + ' ' + tt(t.group)).includes(q);
       });
 
       for (const t of list) {
@@ -55,7 +62,7 @@
           el('span', { class: 'tpl-swatch', style: swatch(t) }),
           el('span', { class: 'tpl-name', text: t.name }),
           el('span', { class: 'tpl-desc', text: t.desc }),
-          el('span', { class: 'tpl-group', text: t.group }),
+          el('span', { class: 'tpl-group', text: groupText(t.group) }),
         ]));
       }
       if (!list.length) {
@@ -80,7 +87,7 @@
     for (const g of groups) {
       const b = el('button', {
         class: 'btn ghost tiny' + (group === g ? ' active' : ''),
-        type: 'button', text: g,
+        type: 'button', text: groupText(g),
         onclick: () => {
           group = g;
           updateTabs();

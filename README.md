@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4455%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4501%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -248,6 +248,11 @@ Nothing else needs to be installed: the audio helper runs on the application's o
 5. For streaming, turn on **Output → Streaming Output (OBS / Web)** and paste the address into an OBS
    **Browser Source**.
 6. Press **ESC** on any visualization window to close them all.
+
+New here? The **[user guide](docs/GUIDE.md)** walks from install to a first show, one short step at a
+time. When you want more: the **[modulation cookbook](docs/MODULATION-COOKBOOK.md)** has routes you
+can copy, and the **[shader authoring guide](docs/SHADER-GUIDE.md)** covers writing your own visuals
+in Studio.
 
 ### Run from source
 
@@ -801,9 +806,12 @@ ticker · karaoke highlighting.
   on the app's tempo, and a **position** slider that scrubs every output live; the export follows
   the same formula frame by frame. A **color key** makes a chosen color (a green screen) or the dark
   or bright side of the picture transparent, with threshold and softness, so the layer underneath
-  shows through. Screen and window capture works on Windows and macOS (macOS asks for Screen
-  Recording permission) and on Linux with an X11 display; a Wayland session without one says so
-  instead. Like a webcam, it is not sent to the OBS browser source and stays empty in a video export.
+  shows through; **spill suppression** reduces the screen color left on hair and edges, and an
+  **edge feather** of up to 12 px softens the cut inwards. Screen and window capture works on
+  Windows and macOS (macOS asks for Screen Recording permission) and on Linux with an X11 display;
+  a Wayland session without one says so instead. Its **refresh rate** can be 5, 15, 30 (the default)
+  or 60 fps. Like a webcam, the screen reaches a connected OBS browser source as relayed frames
+  (about 12 a second, 960 px on the long edge) and stays empty in a video export.
 - **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
@@ -1108,7 +1116,8 @@ modes and colour maths** as Dynamic Lighting.
 **Art-Net / DMX.** ArtDMX output to fixtures and lighting desks; the packet layout is tested byte by
 byte. Art-Net, sACN and WLED (DDP) can also treat the fixtures as a **matrix**, row by row from the
 top left: each column has its own hue, the bottom row is as bright as the music and the rows above it
-fall off. Columns and rows are set by hand or chosen as a near-square from the fixture count.
+fall off. Columns and rows are set by hand or chosen as a near-square from the fixture count, and a
+**serpentine** switch reverses every second row for panels and folded strips wired in a zigzag.
 
 **Colour sources.** The lights can follow the background, the theme, or the **live MilkDrop
 picture** — sampled about 30 times a second into eight slices from left to right, so
@@ -2084,7 +2093,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4455 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4501 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
@@ -2166,16 +2175,26 @@ Shared engines are plain arithmetic with no DOM, GPU or audio device, so their t
 
 | Key | Action |
 |-----|--------|
-| `ESC` | Close every visualization window |
-| `F11` | Toggle full screen |
-| `Space` | Blackout |
-| `Ctrl` + `S` | PNG snapshot |
-| `Ctrl` + `R` | Start / stop recording |
+| `Space` | Blackout; press again to bring the scene back (panel and output window) |
+| `Ctrl` + `S` | PNG snapshot (panel and output window) |
+| `Ctrl` + `R` | Start / stop recording (panel and output window) |
 | `Ctrl` + `K` | Search all settings (panel) |
+| `Alt` + `1`–`5` | Switch page: Scene, Live, Time, Studio, Output (panel) |
+| `Ctrl` + `Z` / `Ctrl` + `Y` | Undo / redo (panel) |
+| `Ctrl` + `+` / `-` | Make the interface larger or smaller (panel) |
+| `?` | Open the shortcut list (panel) |
+| `F1`–`F12` | Cue a scene (Live page) |
+| `Enter` | Take the cued scene live (Live page) |
+| `ESC` | Close every visualization window |
+| `F11` | Toggle full screen (output window) |
 | `Ctrl` + `Shift` + `Q` | Close the visualizer when the ESC lock is on |
-| `K` + two digits | Launch a MilkDrop sprite (visualizer window) |
+| `K` + two digits | Launch a MilkDrop sprite (output window) |
 
-The timeline editor and the clip deck have their own shortcuts, listed in their panels.
+The same list opens inside the app with `?`, from the search box, or from the **Shortcuts** button
+at the bottom of Setup. In the panel, `Space` only blacks out while no control has the focus, and on
+the Time page it stays the timeline's play key. The timeline editor, the clip deck and the layout
+editor have their own shortcuts, listed in their panels. The app has no menu bar on Windows and
+Linux, so `Ctrl` + `R` never reloads a window and `Ctrl` + `W` does not close one.
 
 ---
 

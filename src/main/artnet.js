@@ -105,11 +105,15 @@ function matrixGrid(count, cfg) {
   return { cols, rows };
 }
 
-/* Satır öncelikli hücre. index 0 sol üst; satır aşağı doğru artar. */
-function matrixCell(index, cols) {
+/* Satır öncelikli hücre. index 0 sol üst; satır aşağı doğru artar.
+   Yılan dizilimde (serpentine) şerit her satırın sonunda geri döner: tek numaralı satırlar
+   sağdan sola kablolanmıştır, o satırlarda sütun ters çevrilir. Hazır LED panoların ve katlanmış
+   şeritlerin çoğu böyledir; düz dizilimle sürülünce her ikinci satır aynalanmış görünür. */
+function matrixCell(index, cols, serpentine) {
   const width = (cols | 0) >= 1 ? cols | 0 : 1;
   const c = index % width;
-  return { c, r: (index - c) / width };
+  const r = (index - c) / width;
+  return { c: serpentine && r % 2 === 1 ? width - 1 - c : c, r };
 }
 
 /* Hücre rengi: ton sütundan (0..cols-1), parlaklık ses seviyesinden.
@@ -120,7 +124,7 @@ function matrixColor(cfg, frame, index, count) {
   const i = index | 0;
   if (i < 0 || i >= n) return [0, 0, 0];
   const grid = matrixGrid(n, cfg);
-  const cell = matrixCell(i, grid.cols);
+  const cell = matrixCell(i, grid.cols, !!(cfg && cfg.matrixSerpentine));
   const row = cell.r >= grid.rows ? grid.rows - 1 : cell.r;
   let level = frame && typeof frame.level === 'number' ? frame.level : 0;
   if (!isFinite(level) || level < 0) level = 0;

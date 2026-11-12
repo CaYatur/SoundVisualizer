@@ -68,7 +68,7 @@ test('panel güncellemesi: değişmeyen katman listesi kurulmuyor, işaretler ik
 });
 
 test('arama efekt ve mod adlarını da buluyor, sonuç rafı açıyor', () => {
-  assert.match(admin, /out\.concat\(layerSearchEntries\(\), shelfSearchEntries\(\)\)/);
+  assert.match(admin, /out\.concat\(layerSearchEntries\(\), shelfSearchEntries\(\), actionSearchEntries\(\)\)/);
   assert.match(admin, /FX\.EFFECT_IDS\.forEach/);
   assert.match(admin, /window\.SVSceneShell\.setShelf\(entry\.shelf, entry\.filter/);
 });

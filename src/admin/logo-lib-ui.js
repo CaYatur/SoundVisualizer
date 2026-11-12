@@ -92,9 +92,10 @@
     let lastIds = '';
 
     function filtered() {
-      const s = q.trim().toLowerCase();
+      const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+      const s = F(q);
       if (!s) return items;
-      return items.filter((it) => String(it.name || '').toLowerCase().indexOf(s) >= 0);
+      return items.filter((it) => F(it.name).indexOf(s) >= 0);
     }
 
     function paint(force) {

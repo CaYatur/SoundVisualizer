@@ -80,12 +80,107 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Choosing an audio source shows that audio.** The panel preview starts on a sample signal
+  ("Demo") and only followed real audio after a click on that badge, so picking a microphone or an
+  application in Audio Sources appeared to change nothing. Choosing a source now switches the
+  preview to live audio; the badge still switches it back. Checked in the app: the badge read Demo,
+  and Live after ticking a source.
+- **The Add Layer menu has an icon per layer type.** All twelve buttons carried the same plus sign.
+- **Electron 44.11.1** (from 44.9.0), the current patch release of the same major, for its Chromium
+  security fixes. The self-test passed on it with an isolated profile, and MilkDrop and five heavy
+  scenes still hold the 75 Hz refresh rate at 1920×1080. `follow-redirects`, a build-time
+  dependency, moved to 1.16.3 for an advisory; the remaining `npm audit` findings are in `tar`
+  under the native audio module's build tool, which is not shipped in the installer.
+- **Adding a modulation route shows the route.** On the Scene page's shelf, **+ Add Route** added
+  the route to the settings but the panel did not redraw: it kept saying "No routing yet", and the
+  routes only appeared after switching to another tab and back. Undo did not update the shelf
+  either. The shelf compared a signature before repainting, and for the tabs that show a settings
+  card (Effect Chain, Modulation, Groups, Preset) that signature never changed. Those tabs repaint
+  on every change again; the Scene tab keeps its stable signature, so its list still does not jump.
+  Checked in the app: three routes added one after another each appeared at once, the shelf kept
+  its scroll position, and undo removed the last one from the list.
+- **Modulation targets have real names.** The target list showed raw setting keys
+  (`reflectionLength`, `capHold`, `bassPush`) and put every background mode's settings into one
+  "Background" group, with `count` several times and `bassPush` more than thirty times and nothing to say
+  which mode each belonged to. Background settings are now grouped per mode ("Background ·
+  Starfield") with the labels and ranges from the mode catalogue, common visualizer fields carry
+  their panel names, and anything still unknown is split into words instead of shown as an
+  identifier. Choosing a background target also fills Min and Max with that setting's own range.
+- **Three guides** in `docs/`: a **[user guide](docs/GUIDE.md)** from install to a first show
+  (English and [Turkish](docs/GUIDE.tr.md), #474), a
+  **[shader authoring guide](docs/SHADER-GUIDE.md)** for Studio (#475) and a
+  **[modulation cookbook](docs/MODULATION-COOKBOOK.md)** with eight routes to copy (#476). The four
+  complete shaders in the shader guide were compiled in the app's shader engine. A test checks every
+  relative link and heading anchor in them, and that the interface names the user guide quotes are
+  still the ones in the dictionary.
+- **English names on the shelf.** The Visualizer and Background tabs read "Image" and "Ground" in
+  the English interface, the genre presets were grouped under "Type", and one background group was
+  "Generative Grounds": the dictionary translates word by word and those words mean something else
+  elsewhere. They now read Visualizer, Background, Genre and Generative Backgrounds.
+- **Serpentine wiring for the LED matrix** (#1023). Most ready-made LED panels and folded strips
+  double back at the end of each row. Driven row by row from the left, every second row came out
+  mirrored. A **Serpentine Layout** switch next to the matrix columns and rows counts odd rows right
+  to left, for Art-Net, sACN and WLED alike. Off by default, so existing setups send the same bytes.
+  `tests/led-matrix.test.js`.
+- **The timeline's shortcut list opens as a dialog.** Pressing `?` on the Time page appended the list
+  to the page with no position and no background: it pushed the whole page down and ran along the
+  left edge. Its styles had never been written. It now uses the panel's dialog shell, scrolls when
+  it is taller than the window, and closes with Esc, `?` or a click outside. Checked in the app.
+- **A security policy and a code of conduct** in the repository root (`SECURITY.md`,
+  `CODE_OF_CONDUCT.md`): how to report a vulnerability privately, what is in scope, and what the
+  app opens on the network and when.
+- **The documented show shortcuts now exist, and `Ctrl` + `R` no longer reloads the app.** The README
+  has listed `Space` (blackout), `Ctrl` + `S` (snapshot) and `Ctrl` + `R` (record) since v3, but no
+  code handled them. Worse, the app never set a menu, so Electron installed its default one: with
+  the bar hidden its accelerators still worked, and `Ctrl` + `R` **reloaded** the panel or the output
+  window, `Ctrl` + `W` closed the focused window, `Ctrl` + `Shift` + `I` opened the developer tools
+  and `Alt` showed a generic File / Edit / View bar in the panel. Now:
+  - Windows and Linux have no application menu; macOS keeps the app, Edit and Window menus (copy,
+    paste and quit come from there) without View. `--dev` keeps reload on `F5` and the tools on `F12`.
+  - The three shortcuts work in the panel and in the output window, where the focus is during a
+    show. In the panel `Space` only acts while no control has the focus, and stays the play key on
+    the Time page. Holding a key does not repeat.
+  - Checked in the app with real keystrokes and an isolated profile: `Space` blacked out and
+    restored from both windows, `Ctrl` + `R` started a recording from both, neither window reloaded,
+    and `Ctrl` + `W` and `Ctrl` + `Shift` + `I` did nothing.
+- **A shortcut list inside the app.** `?`, the search box ("shortcut") or the Shortcuts button at the
+  bottom of Setup open one list for the panel, the Live page and the output window. The README table
+  is the same list; it had been missing the page keys, undo and the Live page keys.
+- **Search finds what people type.** The panel lowered text with the Turkish locale, which turns
+  "MIDI" into "mıdı" and "GIF" into "gıf": typing "midi" or "gif" found nothing. Every search box
+  (settings, modes, templates, logos, MilkDrop, the phone remote) now compares through one key that
+  ignores case, the Turkish I/ı pair and accents, so "sarki sozu" finds "Şarkı Sözü". Sections and
+  layer settings also carry the words people use for them, in both languages: microphone, phone,
+  green screen, webcam, export, language, projector, shortcut. Of 69 everyday words tried in the app,
+  29 found nothing before and 4 after (those four name things the app does not have). A query of three letters or fewer only matches at the start of a word,
+  so "ndi" no longer returns "Kendi" and "lut" no longer returns "Bulutsu". The template search also
+  looks at the translated names, which the English interface could not search before.
+- **"Application audio" no longer looks empty.** In Audio Sources, the line that says no application
+  is playing, or that per-application capture is unavailable, was folded into the info button of a
+  different label, leaving a bare heading. A note directly under a heading now stays there.
+- **Screen source: refresh rate and OBS** (#421). A screen or window on a media layer now has a
+  **refresh rate**: 5, 15, 30 or 60 fps. Without a limit Chromium captures at 30 fps (measured), so
+  that is the default; a lower rate reduces the capture load for slides or a chat window. The screen
+  also reaches a connected OBS browser source the way a webcam does: the app relays JPEG frames
+  (about 12 a second, at most 960 px on the long edge), and only while a stream page is connected.
+  Checked in the app on Windows with an isolated profile: 15 and 5 fps requests measured 15 and 5
+  frames a second, a stream client received 71 frames in 6 seconds under the screen's key, and
+  encoding stopped when it disconnected. The layer is still empty in a video export.
+- **Color key: spill suppression and edge feather** (#419). Two more settings on the media layer's
+  color key. **Spill suppression** (chosen color only) lowers the key's dominant channel on the
+  pixels that stay visible, where it exceeds the larger of the other two channels: the green cast a
+  screen leaves on hair and shoulders. A key color with no clear dominant channel (gray, yellow) is
+  left alone. **Edge feather** (0–12 px) blurs the matte with a box average and never raises alpha,
+  so the cut softens inwards and the screen color does not come back at the edge. On a 960×540 frame
+  the key costs 2.1 ms, spill adds 0.1 ms and the feather 2.3 ms (Node, same machine); both are off
+  by default, and with them off the output is unchanged. `tests/media-key-edges.test.js`.
 - **Screen and window source on the media layer** (#421, #1024). Next to a webcam and a video file, a
   media layer can show one of this computer's screens or windows, picked from a list the main process
   reads. Windows and macOS are supported (a macOS Screen Recording refusal shows as a message); Linux
   only with an X11 display (`DISPLAY` set or an x11 session, XWayland included), and a Wayland session
   without one gets a reason instead of an attempt. Web page layers still cannot capture the screen.
-  Like a webcam, the source is not relayed to the OBS browser source and is empty in a video export.
+  At that point the source was not relayed to the OBS browser source (see the entry above); it is
+  empty in a video export.
   Checked in the app on Windows with an isolated profile: a 1920×1080 screen and a single window both
   opened and drew a picture, no selection showed "Choose a screen or a window.", and closing the layer
   stopped the stream. `tests/screen-capture.test.js`.
@@ -330,7 +425,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   row fully and each row above it less. Columns and rows come from the settings when they are whole
   numbers of at least 1, otherwise from the fixture count as a near-square; cells past the count are
   not read. The three outputs share one colour function, and the strip modes send the same bytes
-  as before. Rows are wired left to right on every row (no serpentine option yet).
+  as before. Rows are wired left to right on every row; a serpentine option came later (see above).
   `tests/led-matrix.test.js`.
 - **MIDI clock out** (#434, #1019). Control → Tempo sends the modulation tempo as MIDI clock: start
   (`0xFA`) when switched on, 24 pulses per quarter note from the modulation BPM (120 when it is 0),
