@@ -325,3 +325,28 @@ test('modülasyon hedefleri: arkaplan ayarları moduna göre gruplanır, ham ana
   assert.ok(labels.length >= 25);
   for (const l of labels) assert.ok(i18n.includes("'" + l + "':"), 'çevirisi yok: ' + l);
 });
+
+test('ses kaynağı seçmek önizlemeyi canlı sese geçirir', () => {
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /set: \(arr\) => \{ setPath\(cfg, def\.path, arr\); wantPreviewLive\(\); push\(true\); render\(\); \},/);
+  assert.match(admin, /function wantPreviewLive\(\) \{\s*if \(previewWantsLive\) return;\s*previewWantsLive = true;\s*localStorage\.setItem\('sv-preview-live', '1'\);\s*syncPreviewSubscription\(\);/);
+});
+
+test('Katman Ekle menüsünde her türün kendi simgesi var ve simgeler tanımlı', () => {
+  const panels = read('src/admin/scene-panels.js');
+  const block = /const ADD_ICONS = \{([\s\S]*?)\};/.exec(panels)[1];
+  const pairs = block.match(/(\w+): '([\w-]+)'/g).map((x) => x.replace(/'/g, '').split(': '));
+  assert.ok(pairs.length >= 8);
+  global.window = {};
+  delete require.cache[require.resolve('../src/shared/icons.js')];
+  require('../src/shared/icons.js');
+  const I = global.window.SVIcons;
+  delete global.window;
+  const used = pairs.map((p) => p[1]).concat(['drop', 'mic', 'text']);
+  for (const name of used) assert.ok(I.has(name), 'simge yok: ' + name);
+  assert.strictEqual(new Set(pairs.map((p) => p[1])).size, pairs.length, 'iki tür aynı simgeyi paylaşmıyor');
+  for (const kind of ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying', 'input', 'web']) {
+    assert.ok(pairs.some((p) => p[0] === kind), kind);
+  }
+  assert.match(panels, /icon: ADD_ICONS\[kind\] \|\| 'plus', text: label,/);
+});

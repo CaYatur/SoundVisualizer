@@ -54,8 +54,8 @@ Sol üstteki hoparlör düğmesine tıklayın ya da **Kurulum → Ses → Ses Ka
   işaretleyin (örneğin oyunu değil müzik çaları). Program listede yoksa bir şey çaldırıp
   **Aygıtları Yenile**'ye basın.
 
-Müziğinizi önizlemede görmek için **Demo** rozetine tıklayıp **Canlı** yapın; temponun yanındaki
-küçük gösterge sesle birlikte oynamaya başlar. Görseller fazla sakin ya da fazla hareketliyse
+Bir kaynak seçmek önizlemeyi **Demo**'dan **Canlı**'ya kendiliğinden geçirir (rozete tıklamak da
+aynısını yapar); temponun yanındaki küçük gösterge sesle birlikte oynamaya başlar. Görseller fazla sakin ya da fazla hareketliyse
 **Kurulum → Ses → Ses Analizi**'nde hassasiyet ve yumuşatma var.
 
 macOS'ta sistem sesi için sanal bir aygıt, Linux'ta PulseAudio ya da PipeWire gerekir. Ayrıntısı
