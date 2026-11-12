@@ -18,6 +18,9 @@
   const P = () => window.SVPanel;
 
   let group = null;
+  /* Sözlük "Tür"ü her yerde "Type" diye çeviriyor (geçiş türü); burada müzik türü. */
+  const GROUP_EN = { 'Tür': 'Genre' };
+  const groupText = (g) => (GROUP_EN[g] && window.SVI18n && window.SVI18n.locale === 'en' ? GROUP_EN[g] : g);
   let search = '';
   let lastApplied = '';
   let gridScroll = 0;
@@ -59,7 +62,7 @@
           el('span', { class: 'tpl-swatch', style: swatch(t) }),
           el('span', { class: 'tpl-name', text: t.name }),
           el('span', { class: 'tpl-desc', text: t.desc }),
-          el('span', { class: 'tpl-group', text: t.group }),
+          el('span', { class: 'tpl-group', text: groupText(t.group) }),
         ]));
       }
       if (!list.length) {
@@ -84,7 +87,7 @@
     for (const g of groups) {
       const b = el('button', {
         class: 'btn ghost tiny' + (group === g ? ' active' : ''),
-        type: 'button', text: g,
+        type: 'button', text: groupText(g),
         onclick: () => {
           group = g;
           updateTabs();

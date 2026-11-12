@@ -190,9 +190,9 @@
     'Baseline Bars': 'Baseline Bars',
     'Parlak bir taban çizgisine oturan barlar, altında büyük başlık.': 'Bars sitting on a bright baseline with a large title below.',
     'Amber Room': 'Amber Room',
-    'Koyu tepeden sıcak sarıya inen zemin, ortada bar şeridi.': 'A ground falling from dark to warm amber, with a bar strip across the middle.',
+    'Koyu tepeden sıcak sarıya inen zemin, ortada bar şeridi.': 'A background fading from dark to warm amber, with a bar strip across the middle.',
     'Minimal White': 'Minimal White',
-    'İnce beyaz barlar, koyu ve düz zemin; en sade yayın düzeni.': 'Thin white bars on a plain dark ground -- the most restrained layout.',
+    'İnce beyaz barlar, koyu ve düz zemin; en sade yayın düzeni.': 'Thin white bars on a plain dark background -- the most restrained layout.',
     'Quiet Frame': 'Quiet Frame',
     'Neredeyse boş kadraj: altta küçük kart, yanında ince barlar.': 'An almost empty frame: a small card along the bottom with thin bars beside it.',
     'Corner Meter': 'Corner Meter',
@@ -2329,7 +2329,7 @@
     'Blok': 'Blocks',
 
     // ---- Üretken arkaplanlar ----
-    'Üretken Zeminler': 'Generative Grounds',
+    'Üretken Zeminler': 'Generative Backgrounds',
     'Plazma': 'Plasma',
     'Su Yüzeyi': 'Caustics',
     'Şeritler': 'Ribbons',
