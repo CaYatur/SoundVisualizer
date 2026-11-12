@@ -54,9 +54,10 @@ Click the speaker chip at the top left, or open **Setup → Audio → Audio Sour
   that program (for example the music player and not the game). Play something, then press
   **Refresh Devices** if the program is not listed.
 
-To see your music in the preview, click its **Demo** badge so it reads **Live**; the small meter
-next to the tempo starts to move with the sound. If the visuals look too calm or too wild,
-**Setup → Audio → Audio Analysis** has sensitivity and smoothing.
+Choosing a source switches the preview from **Demo** to **Live** by itself (the badge does the same
+when you click it); the small meter next to the tempo starts to move with the sound. If the
+visuals look too calm or too wild, **Setup → Audio → Audio Analysis** has sensitivity and
+smoothing.
 
 On macOS, system audio needs a virtual device; on Linux, PulseAudio or PipeWire. The
 [audio section](../README.md#audio-capture-and-analysis) of the README has the details.
