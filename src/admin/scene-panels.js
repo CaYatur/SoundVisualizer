@@ -3276,6 +3276,8 @@
     return [
       miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
       miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+      miniToggle('Yılan Dizilim (Zigzag Kablolama)', () => !!obj.matrixSerpentine, (v) => { obj.matrixSerpentine = !!v; }),
+      P().el('div', { class: 'studio-note dim-hint', text: 'Şerit her satırın sonunda geri dönüyorsa açın: tek numaralı satırlar sağdan sola sayılır. Kapalıyken her satır soldan başlar.' }),
     ];
   }
 

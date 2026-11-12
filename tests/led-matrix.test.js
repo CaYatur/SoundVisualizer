@@ -176,3 +176,34 @@ function legacyPixels(cfg, frame) {
   }
   return out;
 }
+
+test('yılan dizilim: tek numaralı satırlar sağdan sola sayılır', () => {
+  // 4 sütun: 0 1 2 3 / 7 6 5 4 / 8 9 10 11
+  assert.deepStrictEqual(artnet.matrixCell(0, 4, true), { c: 0, r: 0 });
+  assert.deepStrictEqual(artnet.matrixCell(3, 4, true), { c: 3, r: 0 });
+  assert.deepStrictEqual(artnet.matrixCell(4, 4, true), { c: 3, r: 1 }, 'ikinci satır sağdan başlar');
+  assert.deepStrictEqual(artnet.matrixCell(7, 4, true), { c: 0, r: 1 });
+  assert.deepStrictEqual(artnet.matrixCell(8, 4, true), { c: 0, r: 2 }, 'üçüncü satır yine soldan');
+  // Kapalıyken ve tek sütunda eski davranış
+  assert.deepStrictEqual(artnet.matrixCell(4, 4, false), { c: 0, r: 1 });
+  assert.deepStrictEqual(artnet.matrixCell(4, 4), { c: 0, r: 1 });
+  assert.deepStrictEqual(artnet.matrixCell(3, 1, true), { c: 0, r: 3 });
+});
+
+test('yılan dizilim çıkışta ikinci satırı aynalar, ötekilere dokunmaz', () => {
+  const base = { ledCount: 12, mode: 'matrix', matrixCols: 4, matrixRows: 3, brightness: 1 };
+  const frame = { level: 1 };
+  const flat = ddp.renderPixels(base, frame);
+  const snake = ddp.renderPixels(Object.assign({ matrixSerpentine: true }, base), frame);
+  const px = (buf, i) => [buf[i * 3], buf[i * 3 + 1], buf[i * 3 + 2]];
+  for (const i of [0, 1, 2, 3, 8, 9, 10, 11]) assert.deepStrictEqual(px(snake, i), px(flat, i), 'satır 0 ve 2 aynı: ' + i);
+  for (let c = 0; c < 4; c++) assert.deepStrictEqual(px(snake, 4 + c), px(flat, 7 - c), 'satır 1 ters: ' + c);
+  assert.notDeepStrictEqual(px(snake, 4), px(flat, 4));
+  // Art-Net ve sACN aynı ızgarayı kullanır
+  const dmx = artnet.buildChannels({ fixtures: 12, channelsPerFixture: 3, mode: 'matrix', matrixCols: 4, matrixRows: 3, matrixSerpentine: true, brightness: 1, startChannel: 1 }, frame);
+  assert.ok(snake.equals(dmx.subarray(0, 36)));
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(read('src/admin/scene-panels.js').includes("'Yılan Dizilim (Zigzag Kablolama)'"));
+  assert.ok(i18n.includes("'Yılan Dizilim (Zigzag Kablolama)':"));
+  assert.ok(!/matrixSerpentine/.test(read('src/shared/defaults.js')));
+});

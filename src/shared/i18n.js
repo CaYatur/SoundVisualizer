@@ -2114,6 +2114,8 @@
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
     'Matris Sütunu': 'Matrix Columns',
     'Matris Satırı': 'Matrix Rows',
+    'Yılan Dizilim (Zigzag Kablolama)': 'Serpentine Layout (Zigzag Wiring)',
+    'Şerit her satırın sonunda geri dönüyorsa açın: tek numaralı satırlar sağdan sola sayılır. Kapalıyken her satır soldan başlar.': 'Turn on if the strip doubles back at the end of each row: odd rows are counted right to left. When off, every row starts on the left.',
 
     // ---- Ağ LED çıkışları: sACN, WLED (DDP), WLED ses senkronu ----
     'sACN (E1.31) Çıkışı': 'sACN (E1.31) Output',
