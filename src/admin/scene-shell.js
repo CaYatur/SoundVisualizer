@@ -995,6 +995,7 @@
      hedef katman ya da etkin preset değişince çiziliyor; raf içinden gelen değişiklik `invalidateShelf`
      ile bildiriliyor. Öteki sekmeler ucuz, onlarda karşılaştırma yok. */
   let shelfPainted = '';
+  let sectionPaints = 0;
   let shelfStale = true;
   function shelfSig() {
     /* Boş imza her paint()'te rafı söküyordu: Sahne sekmesinde #sceneList
@@ -1013,6 +1014,14 @@
     if (shelfTab === 'vis' || shelfTab === 'bg') {
       return shelfTab + '|' + String(query || '') + '|' + lockSig + '|' + (autoTarget() ? 'a' : 's');
     }
+    /* Ayar kartı gösteren sekmeler (Efekt Zinciri, Modülasyon, Gruplar, Şablon) her çizimde
+       yeniden kurulur: kartın içeriği yapılandırmadan gelir ve kart `P().apply()` ile yeniden
+       çizilmeyi bekler. İmza sabitken "Yönlendirme Ekle" yönlendirmeyi ekliyor ama raf eski
+       hâliyle kalıyordu (başka sekmeye gidip dönünce görünüyordu); geri al da rafı güncellemiyordu.
+       Kartlar ucuz; kaydırma `scrollOf.shelf` ile, şablon araması panelin kendi durumuyla korunur.
+       Sabit imza yalnız Sahne sekmesi için gerekli (liste kaydırması başa sıçramasın). */
+    const sectionTab = LIB_TABS.concat(TOOL_TABS).find((t) => t.id === shelfTab && t.section);
+    if (sectionTab) return shelfTab + '#' + (++sectionPaints);
     if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
     /* MilkDrop: etkin preset ve seçili katman da imzada değil (vurgu syncShelf ile).
        Rafın düğmeleri yapılandırma nesnesini tutuyor; dışarıdan yeni yapılandırma

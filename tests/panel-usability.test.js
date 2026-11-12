@@ -273,3 +273,55 @@ test('İngilizce arayüzde raf sekmeleri ve şablon grubu bağlamına göre adla
   assert.match(admin, /entry\(m\.label, 'Görselleştirici', 'vis', m\.label\)/);
   assert.match(admin, /entry\(m\.label, 'Arkaplan', 'bg', m\.label\)/);
 });
+
+test('raftaki ayar kartları her çizimde yeniden kurulur; Sahne sekmesinin imzası sabit kalır', () => {
+  const shell = read('src/admin/scene-shell.js');
+  assert.match(shell, /const sectionTab = LIB_TABS\.concat\(TOOL_TABS\)\.find\(\(t\) => t\.id === shelfTab && t\.section\);\s*if \(sectionTab\) return shelfTab \+ '#' \+ \(\+\+sectionPaints\);/);
+  // Bölüm kartı gösteren sekmeler: Efekt Zinciri, Modülasyon, Gruplar, Şablon
+  for (const id of ['effects', 'modulation', 'groups', 'templates']) {
+    assert.match(shell, new RegExp("\{ id: '" + id + "', label: '[^']+', section: '" + id + "' \}"), id);
+  }
+  assert.match(shell, /\{ id: 'scenes', label: 'Sahne' \}/, 'Sahne sekmesi bölüm kartı değil: imzası sabit');
+  // Modülasyon kartı yapısal değişiklikte yeniden çizim istiyor
+  assert.match(read('src/admin/modulation-panel.js'), /onclick: \(\) => \{ routes\.push\(newRoute\(cfg\)\); rerender\(\); \}/);
+});
+
+test('modülasyon hedefleri: arkaplan ayarları moduna göre gruplanır, ham anahtar görünmez', () => {
+  const win = { SVModeCatalog: null };
+  global.window = win;
+  delete require.cache[require.resolve('../src/shared/mode-catalog.js')];
+  require('../src/shared/mode-catalog.js');
+  const MC = win.SVModeCatalog || require('../src/shared/mode-catalog.js');
+  win.SVModeCatalog = MC;
+  win.SVPanel = {}; win.SVScenePanels = {};
+  delete require.cache[require.resolve('../src/admin/modulation-panel.js')];
+  require('../src/admin/modulation-panel.js');
+  const cat = win.SVModulationPanel.targetCatalog({
+    visualizer: { reflectionLength: 0.4, capHold: 0, someNewField: 1, spectrum: { floorDb: -60 } },
+    background: { transparentKey: 0, starfield: { count: 200, bassPush: 1 }, ink: { blobs: 5, bassPush: 1 }, notAMode: { fooBar: 1 } },
+    layers: [], postfx: [],
+  });
+  delete global.window;
+  const by = (path) => cat.find((c) => c.path === path);
+  assert.strictEqual(by('visualizer.reflectionLength').label, 'Yansıma Boyu');
+  assert.strictEqual(by('visualizer.capHold').label, 'Tepe Bekleme (sn)');
+  assert.strictEqual(by('visualizer.someNewField').label, 'Some New Field', 'bilinmeyen alan sözcüklere ayrılır');
+  assert.strictEqual(by('visualizer.spectrum.floorDb').label, 'Floor Db');
+  const star = by('background.starfield.count');
+  assert.strictEqual(star.group, 'Arkaplan · ' + MC.get('background', 'starfield').label);
+  const def = MC.get('background', 'starfield').settings.find((s) => s[0] === 'count');
+  assert.strictEqual(star.label, def[1], 'etiket katalogdan');
+  assert.deepStrictEqual([star.min, star.max], [def[2], def[3]], 'aralık katalogdan');
+  // Aynı adlı ayar iki modda iki ayrı grupta
+  assert.notStrictEqual(by('background.starfield.bassPush').group, by('background.ink.bassPush').group);
+  assert.strictEqual(by('background.transparentKey').group, 'Arkaplan');
+  assert.strictEqual(by('background.notAMode.fooBar').group, 'Arkaplan', 'katalogda olmayan alt nesne ana grupta');
+  assert.ok(!cat.some((c) => /[a-z][A-Z]/.test(c.label)), 'camelCase etiket kalmadı');
+  // Katalog etiketlerinin çevirisi var (İngilizce arayüzde Türkçe kalmasın)
+  const i18n = read('src/shared/i18n.js');
+  const src = read('src/admin/modulation-panel.js');
+  const block = src.slice(src.indexOf('Object.assign(FIELD_LABELS, {'), src.indexOf('});', src.indexOf('Object.assign(FIELD_LABELS, {')));
+  const labels = block.match(/: '([^']+)'/g).map((x) => x.slice(3, -1));
+  assert.ok(labels.length >= 25);
+  for (const l of labels) assert.ok(i18n.includes("'" + l + "':"), 'çevirisi yok: ' + l);
+});

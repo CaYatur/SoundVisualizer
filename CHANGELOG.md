@@ -80,6 +80,32 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Adding a modulation route shows the route.** On the Scene page's shelf, **+ Add Route** added
+  the route to the settings but the panel did not redraw: it kept saying "No routing yet", and the
+  routes only appeared after switching to another tab and back. Undo did not update the shelf
+  either. The shelf compared a signature before repainting, and for the tabs that show a settings
+  card (Effect Chain, Modulation, Groups, Preset) that signature never changed. Those tabs repaint
+  on every change again; the Scene tab keeps its stable signature, so its list still does not jump.
+  Checked in the app: three routes added one after another each appeared at once, the shelf kept
+  its scroll position, and undo removed the last one from the list.
+- **Modulation targets have real names.** The target list showed raw setting keys
+  (`reflectionLength`, `capHold`, `bassPush`) and put every background mode's settings into one
+  "Background" group, with `count` several times and `bassPush` more than thirty times and nothing to say
+  which mode each belonged to. Background settings are now grouped per mode ("Background ·
+  Starfield") with the labels and ranges from the mode catalogue, common visualizer fields carry
+  their panel names, and anything still unknown is split into words instead of shown as an
+  identifier. Choosing a background target also fills Min and Max with that setting's own range.
+- **Three guides** in `docs/`: a **[user guide](docs/GUIDE.md)** from install to a first show
+  (English and [Turkish](docs/GUIDE.tr.md), #474), a
+  **[shader authoring guide](docs/SHADER-GUIDE.md)** for Studio (#475) and a
+  **[modulation cookbook](docs/MODULATION-COOKBOOK.md)** with eight routes to copy (#476). The four
+  complete shaders in the shader guide were compiled in the app's shader engine. A test checks every
+  relative link and heading anchor in them, and that the interface names the user guide quotes are
+  still the ones in the dictionary.
+- **English names on the shelf.** The Visualizer and Background tabs read "Image" and "Ground" in
+  the English interface, the genre presets were grouped under "Type", and one background group was
+  "Generative Grounds": the dictionary translates word by word and those words mean something else
+  elsewhere. They now read Visualizer, Background, Genre and Generative Backgrounds.
 - **Serpentine wiring for the LED matrix** (#1023). Most ready-made LED panels and folded strips
   double back at the end of each row. Driven row by row from the left, every second row came out
   mirrored. A **Serpentine Layout** switch next to the matrix columns and rows counts odd rows right

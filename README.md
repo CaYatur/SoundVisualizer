@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4486%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4499%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -248,6 +248,11 @@ Nothing else needs to be installed: the audio helper runs on the application's o
 5. For streaming, turn on **Output → Streaming Output (OBS / Web)** and paste the address into an OBS
    **Browser Source**.
 6. Press **ESC** on any visualization window to close them all.
+
+New here? The **[user guide](docs/GUIDE.md)** walks from install to a first show, one short step at a
+time. When you want more: the **[modulation cookbook](docs/MODULATION-COOKBOOK.md)** has routes you
+can copy, and the **[shader authoring guide](docs/SHADER-GUIDE.md)** covers writing your own visuals
+in Studio.
 
 ### Run from source
 
@@ -2088,7 +2093,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4486 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4499 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
