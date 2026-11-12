@@ -531,6 +531,14 @@
     ['web', 'Web Sayfası'],
   ];
 
+  /* Katman Ekle menüsünde her türün kendi simgesi: on iki düğmenin hepsi "+" taşıyordu,
+     aranan tür ancak yazıyı okuyarak bulunuyordu. */
+  const TEXT_ADD_ICONS = { static: 'text', lyrics: 'mic', now: 'tag' };
+  const ADD_ICONS = {
+    background: 'background', visualizer: 'bars', media: 'video', sprites: 'sparkles', logo: 'image',
+    nowplaying: 'music', input: 'redirect', web: 'globe',
+  };
+
   // ---- Dış kaynak katmanları: durum ve gönderici listesi ----------------
   let sourcesAvail = null;
   let sourceSenders = null;
@@ -719,7 +727,7 @@
   }
   function milkdropAddButton(cfg, list, openNew, rerender) {
     return P().el('button', {
-      class: 'btn ghost small', type: 'button', icon: 'plus', text: 'MilkDrop', 'data-add': 'milkdrop',
+      class: 'btn ghost small', type: 'button', icon: 'drop', text: 'MilkDrop', 'data-add': 'milkdrop',
       onclick: () => {
         const made = addMilkdropLayer(cfg, list);
         const MP = window.SVMilkdropPanel;
@@ -2965,7 +2973,7 @@
       if (kind === 'input' && !inputOk) return;
       addRow.appendChild(
         el('button', {
-          class: 'btn ghost small', type: 'button', icon: 'plus', text: label,
+          class: 'btn ghost small', type: 'button', icon: ADD_ICONS[kind] || 'plus', text: label,
           onclick: () => {
             let made;
             if (kind === 'nowplaying' && window.SVLayers.makeNowPlayingLayer) {
@@ -2990,7 +2998,7 @@
     TEXT_ADD_PRESETS.forEach((preset) => {
       addRow.appendChild(
         el('button', {
-          class: 'btn ghost small', type: 'button', icon: 'plus', text: preset.label,
+          class: 'btn ghost small', type: 'button', icon: TEXT_ADD_ICONS[preset.spec && preset.spec.source] || 'text', text: preset.label,
           onclick: () => {
             const layer = window.SVLayers.makeTextLayer
               ? window.SVLayers.makeTextLayer(preset.spec.source === 'lyrics' ? Object.assign({}, preset.spec, { lyricsFollow: isWindowsPlatform() }) : preset.spec)

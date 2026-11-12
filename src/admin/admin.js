@@ -1689,7 +1689,7 @@
       el,
       tr,
       get: () => getPath(cfg, def.path),
-      set: (arr) => { setPath(cfg, def.path, arr); push(true); render(); },
+      set: (arr) => { setPath(cfg, def.path, arr); wantPreviewLive(); push(true); render(); },
       appMeter,
       /* Önceki çizimin seviyeleri yeni çubuklara taşınsın diye eski harita
          appMeter içinde okunuyor; bu çizimde olmayan uygulamalar düşüyor. */
@@ -6156,6 +6156,16 @@
   }
 
   // Panelin ana süreçten ses karesi isteyip istemediğini güncelle
+  /* Ses kaynağı seçen kullanıcı o sesi görmek istiyor. Önizleme örnek sinyalde ("Demo")
+     başlıyor ve gerçek sese ancak rozete tıklanınca geçiyordu: kaynak seçilip hiçbir şeyin
+     değişmediği görülüyordu. Seçim rozete tıklamakla aynı sayılır; rozet yine geri alır. */
+  function wantPreviewLive() {
+    if (previewWantsLive) return;
+    previewWantsLive = true;
+    localStorage.setItem('sv-preview-live', '1');
+    syncPreviewSubscription();
+  }
+
   function syncPreviewSubscription() {
     if (!window.api.subscribePreview || !window.SVPreview) return;
     // Önizleme kurulamadıysa kare istemeyiz; aksi halde ana süreç kimsenin
