@@ -34,6 +34,8 @@ const fs = require('fs');
 const zlib = require('zlib');
 
 const MAX_ENTRIES = 200000;
+const COPY_CHUNK = 1024 * 1024;
+const INFLATE_TO_FILE_MAX = 256 * 1024 * 1024;
 const MAX_RATIO = 200;
 const EOCD_SIG = 0x06054b50;
 const EOCD64_SIG = 0x06064b50;
@@ -60,6 +62,15 @@ const CRC_TABLE = (() => {
 })();
 function crc32(buf) {
   let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/* Parça parça CRC: önceki parçanın sonucuyla sürer. Node 20.15 / 22.2'den
+   beri zlib'in yerel hesabı var (hızlı); eski Node'da tablo. */
+function crc32Update(buf, prev) {
+  if (typeof zlib.crc32 === 'function') return zlib.crc32(buf, prev >>> 0);
+  let c = ((prev >>> 0) ^ 0xffffffff) >>> 0;
   for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
@@ -197,6 +208,51 @@ function open(file) {
         if (crc32(out) !== entry.crc) throw new ZipError('CRC', entry.name);
         return out;
       },
+      /* Girdiyi diske yazar, belleğe almadan (gigabaytlık video). Saklanmış
+         girdi parça parça kopyalanır, CRC yolda hesaplanır; sıkıştırılmış
+         girdi `read` ile (küçük olmalı). Tutmazsa yarım dosya silinir. */
+      async copyTo(entry, dest, maxBytes, onBytes) {
+        if (closed) throw new ZipError('CLOSED');
+        if (entry.dir) throw new ZipError('IS_DIR');
+        if (typeof maxBytes === 'number' && entry.size > maxBytes) throw new ZipError('TOO_LARGE', entry.name);
+        if (entry.method !== 0) {
+          if (entry.size > INFLATE_TO_FILE_MAX) throw new ZipError('TOO_LARGE', entry.name);
+          const buf = this.read(entry, maxBytes);
+          await fs.promises.writeFile(dest, buf);
+          if (typeof onBytes === 'function') onBytes(buf.length);
+          return buf.length;
+        }
+        if (entry.encrypted) throw new ZipError('ENCRYPTED', entry.name);
+        if (entry.compSize !== entry.size) throw new ZipError('CORRUPT', 'saklanmış boyut');
+        if (entry.offset + 30 > total) throw new ZipError('CORRUPT', 'yerel başlık dışarıda');
+        const lh = readAt(fd, entry.offset, 30);
+        if (lh.readUInt32LE(0) !== LFH_SIG) throw new ZipError('CORRUPT', 'yerel başlık');
+        const start = entry.offset + 30 + lh.readUInt16LE(26) + lh.readUInt16LE(28);
+        if (start + entry.size > total) throw new ZipError('CORRUPT', 'girdi dışarıda');
+        const out = await fs.promises.open(dest, 'w');
+        let ok = false;
+        try {
+          const buf = Buffer.alloc(Math.min(COPY_CHUNK, Math.max(1, entry.size)));
+          let done = 0;
+          let crc = 0;
+          while (done < entry.size) {
+            const n = Math.min(buf.length, entry.size - done);
+            const got = await new Promise((res, rej) => fs.read(fd, buf, 0, n, start + done, (err, b) => (err ? rej(err) : res(b))));
+            if (!got) throw new ZipError('CORRUPT', 'kısa okuma');
+            const part = buf.subarray(0, got);
+            crc = crc32Update(part, crc);
+            await out.write(part, 0, got);
+            done += got;
+            if (typeof onBytes === 'function') onBytes(got);
+          }
+          if ((crc >>> 0) !== entry.crc) throw new ZipError('CRC', entry.name);
+          ok = true;
+          return done;
+        } finally {
+          await out.close();
+          if (!ok) { try { await fs.promises.unlink(dest); } catch { /* yok */ } }
+        }
+      },
       close() {
         if (closed) return;
         closed = true;
@@ -210,4 +266,4 @@ function open(file) {
   }
 }
 
-module.exports = { open, crc32, decodeName, ZipError, MAX_ENTRIES, MAX_RATIO };
+module.exports = { open, crc32, crc32Update, decodeName, ZipError, MAX_ENTRIES, MAX_RATIO };

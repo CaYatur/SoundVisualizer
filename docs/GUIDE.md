@@ -191,9 +191,12 @@ On the **Output** page:
   space in one place.
 - **Accidental-Close Protection** (Setup → Settings) stops `Esc` from closing the output by mistake;
   `Ctrl` + `Shift` + `Q` still closes it.
-- **Setup → Library → Back Up / Restore Settings** writes the application's settings to one file.
-  Saved scenes and color presets are not in it (the **Scenes** card exports scenes), and neither are
-  the files a scene uses: videos, logos and imported presets stay on this computer.
+- **Setup → Library → Back Up / Restore Settings → Create Full Backup** writes the settings, the
+  scenes, the color presets and the files the scenes use (presets, logos, videos, lyrics, MilkDrop
+  textures) to one `.svbackup` file. Take one before a show, and use **Restore from Full Backup** to
+  move your setup to another computer: the videos are put in place there and the scenes point to
+  them. **Include Videos** can be turned off for a smaller file; the card says how much video the
+  scenes use. **Settings Only** is the older JSON file with the settings alone.
 - If the picture stutters on a weak machine, **Output → Power / Performance** has **Adaptive
   Resolution** and a frame-rate limit.
 

@@ -136,6 +136,12 @@ contextBridge.exposeInMainWorld('api', {
   // JSON içe/dışa aktarma (şablonlar, arkaplan ve tüm uygulama ayarları)
   exportJson: (name, data) => ipcRenderer.invoke('file:export-json', name, data),
   importJson: (title) => ipcRenderer.invoke('file:import-json', title),
+  // Tam yedek (full-backup.js): arşiv yolu panele hiç gelmez, jetonla
+  backupPlan: () => ipcRenderer.invoke('backup:plan'),
+  backupExport: (opts) => ipcRenderer.invoke('backup:export', opts || {}),
+  backupOpen: () => ipcRenderer.invoke('backup:open'),
+  backupRestore: (token) => ipcRenderer.invoke('backup:restore', token),
+  onBackupProgress: (cb) => ipcRenderer.on('backup-progress', (e, p) => cb(p)),
 
   // Video dışa aktarma
   gpuAvailable: () => ipcRenderer.invoke('export:gpu-available'),

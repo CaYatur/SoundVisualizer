@@ -418,6 +418,27 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Control and show
 
+- **Full backup and restore.** Back Up / Restore Settings wrote only the settings: saved scenes and
+  color presets were left out, and so were the files the scenes use, so a setup moved to another
+  computer opened with empty layers. **Create Full Backup** writes one `.svbackup` file:
+  - the settings, scenes and color presets;
+  - the user presets (Studio and MilkDrop);
+  - the logo, video and lyrics libraries;
+  - the MilkDrop textures (the same choice as the show package);
+  - the videos the scenes use from outside the library, including layers that are switched off.
+
+  Videos are optional; the card says how many the scenes use and how large they are.
+  **Restore from Full Backup** shows what the file holds before anything is written. It adds library
+  items under their own ids, so the scenes still find them, and the backup's version wins where an
+  id already exists; nothing that is missing from the backup is deleted. Videos from outside the
+  library go to a `restored-media` folder and the scenes are pointed there. On the same computer,
+  where the original files still exist, the paths are left as they are. The archive is read as
+  untrusted: ids, names and extensions are checked before anything is written, large files are
+  copied without loading them into memory, and every file is checked against its CRC.
+  Checked in the app with two profiles: a backup from one, restored into an empty one with the first
+  one's folders removed, brought back the scene, preset, logo, texture and both videos. The videos
+  pointed into the new profile and played (HTTP 206), and Pre-show Check reported the scene's files
+  in place. The settings-only JSON file is still there as **Settings Only**.
 - **The backup machine gets every file a show can use.** The show package skipped the video of a
   layer that was switched off or muted, so turning that layer on after a takeover showed nothing.
   It now carries every video a scene can show, from the live scene and every saved scene: the same
