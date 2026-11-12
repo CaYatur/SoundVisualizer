@@ -342,7 +342,8 @@ test('Katman Ekle menüsünde her türün kendi simgesi var ve simgeler tanıml�
   require('../src/shared/icons.js');
   const I = global.window.SVIcons;
   delete global.window;
-  const used = pairs.map((p) => p[1]).concat(['drop', 'mic', 'text']);
+  const used = pairs.map((p) => p[1]).concat(['drop', 'mic', 'text', 'tag']);
+  assert.match(panels, /const TEXT_ADD_ICONS = \{ static: 'text', lyrics: 'mic', now: 'tag' \};/);
   for (const name of used) assert.ok(I.has(name), 'simge yok: ' + name);
   assert.strictEqual(new Set(pairs.map((p) => p[1])).size, pairs.length, 'iki tür aynı simgeyi paylaşmıyor');
   for (const kind of ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying', 'input', 'web']) {

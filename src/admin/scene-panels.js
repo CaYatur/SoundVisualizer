@@ -533,6 +533,7 @@
 
   /* Katman Ekle menüsünde her türün kendi simgesi: on iki düğmenin hepsi "+" taşıyordu,
      aranan tür ancak yazıyı okuyarak bulunuyordu. */
+  const TEXT_ADD_ICONS = { static: 'text', lyrics: 'mic', now: 'tag' };
   const ADD_ICONS = {
     background: 'background', visualizer: 'bars', media: 'video', sprites: 'sparkles', logo: 'image',
     nowplaying: 'music', input: 'redirect', web: 'globe',
@@ -2997,7 +2998,7 @@
     TEXT_ADD_PRESETS.forEach((preset) => {
       addRow.appendChild(
         el('button', {
-          class: 'btn ghost small', type: 'button', icon: preset.spec && preset.spec.source === 'lyrics' ? 'mic' : 'text', text: preset.label,
+          class: 'btn ghost small', type: 'button', icon: TEXT_ADD_ICONS[preset.spec && preset.spec.source] || 'text', text: preset.label,
           onclick: () => {
             const layer = window.SVLayers.makeTextLayer
               ? window.SVLayers.makeTextLayer(preset.spec.source === 'lyrics' ? Object.assign({}, preset.spec, { lyricsFollow: isWindowsPlatform() }) : preset.spec)

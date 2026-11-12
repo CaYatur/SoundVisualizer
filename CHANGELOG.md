@@ -80,6 +80,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 ### Visuals
 
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
+- **Choosing an audio source shows that audio.** The panel preview starts on a sample signal
+  ("Demo") and only followed real audio after a click on that badge, so picking a microphone or an
+  application in Audio Sources appeared to change nothing. Choosing a source now switches the
+  preview to live audio; the badge still switches it back. Checked in the app: the badge read Demo,
+  and Live after ticking a source.
+- **The Add Layer menu has an icon per layer type.** All twelve buttons carried the same plus sign.
 - **Adding a modulation route shows the route.** On the Scene page's shelf, **+ Add Route** added
   the route to the settings but the panel did not redraw: it kept saying "No routing yet", and the
   routes only appeared after switching to another tab and back. Undo did not update the shelf
