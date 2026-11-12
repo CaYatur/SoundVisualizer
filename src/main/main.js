@@ -4038,6 +4038,9 @@ ipcMain.handle('file:export-json', async (e, defaultName, data) => {
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
     if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    /* Ayar yedeği hangi sürümden çıktığını taşır. Panel eskiden sabit
+       '1.3.1' yazıyordu; sürümü yalnız ana süreç doğru biliyor. */
+    if (data && typeof data === 'object' && data.type === 'cayadev-visualizer-settings') data = Object.assign({}, data, { appVersion: app.getVersion() });
     fs.writeFileSync(r.filePath, JSON.stringify(data, null, 2), 'utf-8');
     return { ok: true, path: r.filePath };
   } catch (err) {
@@ -4899,6 +4902,7 @@ function syncRecovery() {
   else recovery.start(() => currentConfig, rc.intervalSec);
 }
 const ShowKeys = require('../shared/show-keys');
+let pkgTextures = new Map(); // yedekte paketle gelen MilkDrop dokuları: küçük harfli ad -> { name, file }
 const red = {
   sig: '', role: 'off', cfg: redundancy.normalize(null),
   follower: null, client: null, beatTimer: null, tickTimer: null,
@@ -5169,7 +5173,7 @@ function ctlApply(action, args) {
     else if (action === 'redRelease') { if (red.follower.release(now)) onFollowerChanged(); }
     else if (action === 'redRearm') { if (red.follower.rearm() && red.follower.tick(now)) onFollowerChanged(); }
     else if (action === 'redHandback') { const r = armHandback(args && args.at); if (!r.ok) return r; }
-    else if (action === 'redPkgRequest') { if (red.client) red.client.send({ type: 'pkg-request' }); }
+    else if (action === 'redPkgRequest') { if (red.client) red.client.send({ type: 'pkg-request', kinds: showPackage.KINDS }); }
     notifyRedundancySoon();
     return { ok: true, applied: 'backup' };
   }
@@ -5520,6 +5524,8 @@ function leaveBackupSpace() {
   red.source = 'primary';
   // Birincilin presetleri pencerelerden çekilir; kütüphaneye hiçbiri girmedi
   syncOverlay();
+  // Paketin dokuları da: pencereler listeyi yeniden istesin
+  sendToVisualizers('milkdrop-textures-changed', null);
   setImmediate(() => {
     if (red.isolated || !currentConfig) return;
     const next = Object.assign({}, currentConfig);
@@ -5700,7 +5706,7 @@ function onPeerMessage(msg, client) {
   } else if (msg && msg.type === 'peer-resync' && client && red.role === 'primary') {
     sendPeerSnapshot(client);
   } else if (msg && msg.type === 'pkg-request' && client && red.role === 'primary') {
-    servePackageManifest(client).catch((e) => streamServer.sendJson(client, { type: 'pkg-error', code: 'build', detail: String(e && e.message || e).slice(0, 120) }));
+    servePackageManifest(client, showPackage.kindsFrom(msg.kinds)).catch((e) => streamServer.sendJson(client, { type: 'pkg-error', code: 'build', detail: String(e && e.message || e).slice(0, 120) }));
   } else if (msg && msg.type === 'pkg-get' && client && red.role === 'primary') {
     servePackageChunk(client, msg).catch(() => streamServer.sendJson(client, { type: 'pkg-error', pkg: msg.pkg, code: 'read' }));
   } else if (msg && msg.type === 'peer-beat' && red.role === 'primary') {
@@ -5987,11 +5993,14 @@ async function cachedFileHash(file) {
   return { size: st.size, sha256: h };
 }
 
-// Birincil: paketin girdileri (presetler, logolar, sahnelerin videoları)
-async function buildPackageEntries() {
+/* Birincil: paketin girdileri (presetler, logolar, sahnelerin videoları,
+   MilkDrop dokuları). `kinds`: yedeğin tanıdığı türler (eski yedek
+   dokuları bilmiyor, manifestin tamamını reddederdi). */
+async function buildPackageEntries(kinds) {
+  const want = new Set(kinds || showPackage.KINDS);
   const entries = [];
   let i = 0;
-  for (const p of presetsStore.list()) {
+  for (const p of (want.has('presets') ? presetsStore.list() : [])) {
     if (!p || !p.id || p.builtin) continue;
     const full = presetsStore.get(p.id);
     if (!full) continue;
@@ -5999,7 +6008,7 @@ async function buildPackageEntries() {
     entries.push({ kind: 'presets', id: p.id, name: p.name || p.id, ext: '.json', size: bytes.length, sha256: showPackage.sha256(bytes), bytes });
     if (++i % 25 === 0) await new Promise((r) => setImmediate(r));
   }
-  for (const it of logoLibrary.loadManifest(logoLibDir()).items) {
+  for (const it of (want.has('logos') ? logoLibrary.loadManifest(logoLibDir()).items : [])) {
     if (!it || !it.id) continue;
     const info = logoLibrary.fileInfo(logoLibDir(), it.id);
     if (!info || !info.file) continue;
@@ -6008,18 +6017,64 @@ async function buildPackageEntries() {
       entries.push({ kind: 'logos', id: it.id, name: it.name || it.id, ext: path.extname(info.file), size: h.size, sha256: h.sha256, src: info.file });
     } catch { /* okunamadı: pakete girmez */ }
   }
-  for (const raw of Object.keys(showMediaPaths(currentConfig))) {
+  for (const raw of (want.has('media') ? Object.keys(showMediaPaths(currentConfig)) : [])) {
     if (!raw || !fs.existsSync(raw)) continue;
     try {
       const h = await cachedFileHash(raw);
       entries.push({ kind: 'media', id: raw, name: path.basename(raw), ext: path.extname(raw), size: h.size, sha256: h.sha256, src: raw, ref: raw });
     } catch { /* okunamadı */ }
   }
+  if (want.has('textures')) {
+    for (const t of await showTextureFiles()) {
+      try {
+        const h = await cachedFileHash(t.file);
+        entries.push({ kind: 'textures', id: t.name.toLowerCase(), name: t.name, ext: path.extname(t.name), size: h.size, sha256: h.sha256, src: t.file });
+      } catch { /* okunamadı */ }
+    }
+  }
   return entries;
 }
 
-async function servePackageManifest(client) {
-  const entries = await buildPackageEntries();
+/* Gösterinin MilkDrop dokuları: içe aktarılan paketlerin dokuları (uygulamanın
+   klasörü) hepsi; kullanıcının seçtiği klasörden yalnız kullanıcı
+   presetlerinin ADIYLA istedikleri (klasör binlerce dosya olabilir). Ad
+   çakışırsa motorun sırası: önce kullanıcının klasörü. */
+const texWantCache = new Map(); // kimlik|güncelleme -> presetin istediği doku adları
+async function showTextureFiles() {
+  const wanted = new Set();
+  let i = 0;
+  for (const lean of presetsStore.list()) {
+    if (!lean || !lean.id || lean.builtin) continue;
+    const key = lean.id + '|' + (lean.updatedAt || 0);
+    let names = texWantCache.get(key);
+    if (!names) {
+      const p = presetsStore.get(lean.id);
+      if (!p) continue;
+      names = Array.from(mdTex.userSamplers(typeof p.source === 'string' ? p.source : JSON.stringify(p)).names);
+      texWantCache.set(key, names);
+    }
+    for (const n of names) wanted.add(n);
+    // Büyük kütüphane: kalp atışı aynı iş parçacığında
+    if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+  }
+  const out = [];
+  const seen = new Set();
+  const add = (dir, name) => {
+    const k = name.toLowerCase();
+    if (seen.has(k)) return;
+    const t = mdTex.textureFileInfo(dir, name, TEX_MAX_BYTES);
+    if (!t) return;
+    seen.add(k);
+    out.push({ name, file: t.file });
+  };
+  const user = textureDir();
+  if (user) for (const n of mdTex.listTextures(user).names) if (wanted.has(n.replace(/\.[^.]+$/, '').toLowerCase())) add(user, n);
+  for (const n of mdTex.listTextures(managedTextureDir()).names) add(managedTextureDir(), n);
+  return out;
+}
+
+async function servePackageManifest(client, kinds) {
+  const entries = await buildPackageEntries(kinds);
   const manifest = showPackage.buildManifest(entries, { version: app.getVersion() });
   const byPath = new Map();
   for (const e of entries) byPath.set(showPackage.entryName(e.kind, e.id, e.ext), e);
@@ -6092,7 +6147,7 @@ function onPackageError(msg) {
   if (!red.pull) return;
   if (msg.code === 'unknown-pkg' && red.pullAuto) {
     // Birincil manifesti unuttu (yeniden başladı): yeniden iste, aynıysa sürer
-    if (red.client) red.client.send({ type: 'pkg-request' });
+    if (red.client) red.client.send({ type: 'pkg-request', kinds: showPackage.KINDS });
     return;
   }
   red.pull.fail(msg.code);
@@ -6111,8 +6166,10 @@ function loadPackageOverlay() {
   const man = showPackage.currentManifest(root);
   const presets = new Map();
   const logos = new Map();
+  const textures = new Map();
   if (!man) {
     red.overlay = { presets, logos };
+    setPackageTextures(textures);
     return null;
   }
   const res = { at: Date.now(), added: 0, same: 0, media: 0, conflicts: [], isolated: [], isolatedCount: 0 };
@@ -6139,7 +6196,13 @@ function loadPackageOverlay() {
       } else if (showInventory.fileFp(own.file) === showInventory.fileFp(file)) res.same++;
       else res.conflicts.push({ kind: 'logo', id: it.id, name });
     } else if (it.kind === 'media') res.media++;
+    else if (it.kind === 'textures') {
+      // Ad → dosya: depodaki adı küçük harfli ve özetli, motor özgün adla arıyor
+      const name = String(it.name || '');
+      if (mdTex.isTextureFile(name) && !/[\\/]/.test(name)) textures.set(name.toLowerCase(), { name, file });
+    }
   }
+  setPackageTextures(textures);
   res.conflicts = res.conflicts.slice(0, 200);
   res.isolated = res.isolated.slice(0, 200);
   red.overlay = { presets, logos };
@@ -6165,15 +6228,17 @@ function installPackage() {
    dosyaları yalnız bildirilir.
    --------------------------------------------------------------------------- */
 const showInventory = require('./show-inventory');
+const PreshowRefs = require('../shared/preshow-refs');
 const presetFpCache = new Map();
 let localInvBusy = null;
 
-// Sahnenin ve kayıtlı sahnelerin video dosyaları (yol → parmak izi)
+/* Sahnenin ve kayıtlı sahnelerin video dosyaları (yol → parmak izi).
+   Kapalı ya da susturulmuş katmanlar da: yedeğe geçen operatör o katmanı
+   açınca video orada olmalı. Liste gösteri öncesi denetimin gezdiği
+   yuvalarla aynı (preshow-refs). */
 function showMediaPaths(cfg) {
-  const files = new Set(exportMedia.mediaFiles(cfg));
-  for (const sc of (cfg && Array.isArray(cfg.scenes) ? cfg.scenes : [])) {
-    if (sc && sc.data) for (const f of exportMedia.mediaFiles(sc.data)) files.add(f);
-  }
+  const files = new Set();
+  for (const r of PreshowRefs.collect(cfg, { all: true })) if (r.kind === 'media') files.add(r.id);
   const out = {};
   for (const f of files) {
     const raw = mediaUrl.fromMediaUrl(f);
@@ -6311,7 +6376,7 @@ function pullPackageForPush() {
   if (!red.pull) red.pull = showPackage.createPull({ window: 2, root: redSpace().pkgRoot });
   red.pull.cancel();
   red.pullAuto = { any: true, media: false };
-  red.client.send({ type: 'pkg-request' });
+  red.client.send({ type: 'pkg-request', kinds: showPackage.KINDS });
   notifyRedundancySoon();
 }
 
@@ -6358,7 +6423,6 @@ ipcMain.handle('redundancy:compare', () => { requestInventory(); return redundan
    sahnenin dosyaları, yedeklilik, disk.
    --------------------------------------------------------------------------- */
 const preshow = require('./preshow');
-const PreshowRefs = require('../shared/preshow-refs');
 const outputFps = new Map(); // webContents kimliği -> { fps, measuring, paused, cap, at }
 const outputOpenedAt = new WeakMap(); // pencere -> açılış zamanı
 /* Son denetimin gösterdiği eksik dosya yolları: panel yalnız bunları
@@ -6629,7 +6693,7 @@ ipcMain.handle('redundancy:pkg-request', () => {
   red.pullAuto = null;
   red.pull.cancel();
   red.pkgRequestedAt = Date.now();
-  red.client.send({ type: 'pkg-request' });
+  red.client.send({ type: 'pkg-request', kinds: showPackage.KINDS });
   return redundancyStatus();
 });
 ipcMain.handle('redundancy:pkg-confirm', (e, choice) => {
@@ -7287,6 +7351,15 @@ const TEX_MAX_BYTES = 8 * 1024 * 1024;
    yolları da boş döner — kaynak "klasör yok"la "dosya yok"u ayırmıyor,
    ikisinde de gürültüye düşüyor. */
 function textureDir() {
+  /* Yedek birincilin gösterisini çizerken sahnenin `milkdrop.textureDir`'i
+     BİRİNCİLİN klasörü: o yol bu makinede yok ya da başka bir şey. Bu
+     makinenin kendi gösterisindeki klasör kullanılır. */
+  if (red.isolated && red.source === 'primary') {
+    let local = null;
+    try { local = redSpace().loadLocal(); } catch { local = null; }
+    const ld = local && local.show && local.show.milkdrop && local.show.milkdrop.textureDir;
+    return typeof ld === 'string' ? ld : '';
+  }
   const d = currentConfig && currentConfig.milkdrop && currentConfig.milkdrop.textureDir;
   return typeof d === 'string' ? d : '';
 }
@@ -7319,12 +7392,26 @@ function textureDirs() {
   return [textureDir(), managedTextureDir()];
 }
 
+/* YEDEKTE BİRİNCİLİN DOKULARI (#812). Paketle gelen dokular yedeğin
+   klasörlerine yazılmaz; adla bulunur, yerel klasörlerden SONRA (aynı ad
+   yerelde varsa o geçerli). Yalnız yalıtılmış yedek rolünde. Liste
+   değişince pencereler doku listesini yeniden ister. */
+function setPackageTextures(map) {
+  const sig = (m) => Array.from(m.values()).map((t) => t.name + '>' + t.file).sort().join('|');
+  const changed = sig(map) !== sig(pkgTextures);
+  pkgTextures = map;
+  if (changed) sendToVisualizers('milkdrop-textures-changed', null);
+}
+function packageTextures() {
+  return red.isolated ? pkgTextures : null;
+}
+
 function textureNames() {
-  return mdTex.listTexturesIn(textureDirs());
+  return mdTex.listTexturesWith(textureDirs(), packageTextures());
 }
 
 function textureFile(name) {
-  return mdTex.textureFileInfoIn(textureDirs(), name, TEX_MAX_BYTES);
+  return mdTex.textureFileInfoWith(textureDirs(), name, TEX_MAX_BYTES, packageTextures());
 }
 
 /* Klasördeki görsel dosyalarının adları. Preset `sampler_worms` derken

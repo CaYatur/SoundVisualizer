@@ -40,10 +40,21 @@ const path = require('path');
 
 const FORMAT = 1;
 const CHUNK = 256 * 1024;
-const KINDS = ['presets', 'logos', 'media'];
+/* textures: MilkDrop dokuları. Eski yedek bu türü tanımıyor ve bütün
+   manifesti reddediyordu; yedek desteklediği türleri isteğinde söyler,
+   birincil yalnız onları gönderir (`kindsFrom`). */
+const KINDS = ['presets', 'logos', 'media', 'textures'];
+const LEGACY_KINDS = ['presets', 'logos', 'media'];
 const MAX_ITEMS = 50000;
 const MAX_FILE = 64 * 1024 * 1024 * 1024; // 64 GB: video dosyası için bile bol
-const NAME_RE = /^(presets|logos|media)\/[a-z0-9][a-z0-9._-]{0,80}$/;
+const NAME_RE = /^(presets|logos|media|textures)\/[a-z0-9][a-z0-9._-]{0,80}$/;
+
+/* Yedeğin isteğindeki tür listesi: tanınanlar, sırayla. İstekte liste yoksa
+   yedek eski bir sürüm: yalnız onun bildiği türler. */
+function kindsFrom(list) {
+  if (!Array.isArray(list)) return LEGACY_KINDS.slice();
+  return KINDS.filter((k) => list.indexOf(k) >= 0);
+}
 
 function sha256(buf) { return crypto.createHash('sha256').update(buf).digest('hex'); }
 
@@ -524,7 +535,8 @@ function createPull(opts) {
   let rx = null;
   const sent = new Set();
   function summary(m) {
-    const by = { presets: { n: 0, bytes: 0 }, logos: { n: 0, bytes: 0 }, media: { n: 0, bytes: 0 } };
+    const by = {};
+    for (const k of KINDS) by[k] = { n: 0, bytes: 0 };
     for (const it of m.items) { by[it.kind].n++; by[it.kind].bytes += it.size; }
     return by;
   }
@@ -648,6 +660,6 @@ function createPull(opts) {
 
 module.exports = {
   linkOrCopy,
-  FORMAT, CHUNK, KINDS, sha256, entryName, hashFile, chunkCount, buildManifest, validateManifest,
+  FORMAT, CHUNK, KINDS, LEGACY_KINDS, kindsFrom, sha256, entryName, hashFile, chunkCount, buildManifest, validateManifest,
   readChunk, retrySync, retryAsync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, storePath, collect, removeMedia, createPull,
 };

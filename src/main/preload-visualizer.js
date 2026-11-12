@@ -97,6 +97,8 @@ contextBridge.exposeInMainWorld('api', {
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  // Doku listesi değişti (yedekte birincilin paketi geldi ya da rol bitti)
+  onMilkdropTexturesChanged: (cb) => ipcRenderer.on('milkdrop-textures-changed', () => cb()),
   logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
   lyricsLibSnapshot: () => ipcRenderer.invoke('lyrics-lib:snapshot'),
   lyricsLibRead: (id) => ipcRenderer.invoke('lyrics-lib:read', id),

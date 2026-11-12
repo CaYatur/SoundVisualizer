@@ -6760,7 +6760,6 @@
     const result = await window.api.exportJson('cayadev-visualizer-ayarlari.json', {
       type: 'cayadev-visualizer-settings',
       version: 1,
-      appVersion: '1.3.1',
       exportedAt: new Date().toISOString(),
       excludes: USER_CONTENT_KEYS.slice(),
       settings,

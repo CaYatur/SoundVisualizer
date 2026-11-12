@@ -189,8 +189,10 @@ Bunların hepsi siz açana kadar kapalıdır.
   dosyalarına ve disk alanına tek yerden bakar.
 - **Kaza Koruması** (Kurulum → Ayarlar) `Esc`'nin çıkışı yanlışlıkla kapatmasını önler;
   `Ctrl` + `Shift` + `Q` yine kapatır.
-- **Kurulum → Kitaplık → Ayarları Yedekle / Geri Yükle** her şeyi tek dosyaya yazar. Gösteriden
-  önce yedek alın; kurulumunuzu başka bir bilgisayara taşımak için de bunu kullanın.
+- **Kurulum → Kitaplık → Ayarları Yedekle / Geri Yükle** uygulamanın ayarlarını tek dosyaya yazar.
+  Kayıtlı sahneler ve renk şablonları bu dosyada yok (sahneleri **Sahneler** kartı dışa aktarır);
+  sahnenin kullandığı dosyalar da yok: videolar, logolar ve içe aktarılan presetler bu bilgisayarda
+  kalır.
 - Zayıf bir makinede görüntü takılıyorsa **Çıktı → Güç / Performans**'ta **Uyarlanır Çözünürlük**
   ve kare hızı sınırı var.
 

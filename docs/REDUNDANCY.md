@@ -74,9 +74,15 @@ check warns "Old pairing".
 
 - The backup keeps the primary's copy in a separate area (`<userData>/redundancy`); its own show
   is never overwritten and comes back exactly when the role is turned off.
-- **Show package** (Show Data → Request Package from Primary): presets, logos and, only if you tick
-  them, video files. Chunked, checksummed, resumable, verified before anything is swapped in.
-  Files are content-addressed, so a new package never touches a video that is playing.
+- **Show package** (Show Data → Request Package from Primary): presets, logos, MilkDrop textures
+  and, only if you tick them, video files. Chunked, checksummed, resumable, verified before
+  anything is swapped in. Files are content-addressed, so a new package never touches a video that
+  is playing.
+  - Videos: every video a scene can show, including layers that are switched off or muted, so
+    turning one on during a takeover finds its file.
+  - Textures: everything imported with MilkDrop packs, plus the files user presets ask for by name
+    from the primary's texture folder. The backup looks in its own texture folders first.
+  - A backup from an older version gets only the kinds it knows (presets, logos, videos).
 - **Remove Copied Videos** frees the space again; presets and logos stay.
 
 ## 5. Authority and outputs

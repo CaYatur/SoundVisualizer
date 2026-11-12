@@ -418,6 +418,20 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Control and show
 
+- **The backup machine gets every file a show can use.** The show package skipped the video of a
+  layer that was switched off or muted, so turning that layer on after a takeover showed nothing.
+  It now carries every video a scene can show, from the live scene and every saved scene: the same
+  slots Pre-show Check reads. Video export still opens only the layers that are drawn.
+- **MilkDrop textures travel with the show package.** Imported presets reached the backup, but the
+  textures imported with them stayed on the primary, so a preset that draws a texture looked
+  different on the backup. The package now carries the textures imported with MilkDrop packs and
+  the ones user presets ask for by name from the primary's texture folder. The backup looks in its
+  own folders first and then in the package, by the original file name; open windows reload the
+  list when a package arrives or the role ends. A backup also used the primary's texture folder
+  path, which does not exist on that machine; it now uses its own. A backup on an older version
+  asks without a list of kinds and gets only presets, logos and videos, instead of rejecting the
+  whole package.
+- **The settings backup file records the real version.** It always wrote `1.3.1`.
 - **Tempo sync**: the modulation clock BPM can follow an Ableton Link session (listen-only) or a
   MIDI clock.
 - **Matrix colour source for network lights** (#1023). Art-Net, sACN and WLED (DDP) can drive the

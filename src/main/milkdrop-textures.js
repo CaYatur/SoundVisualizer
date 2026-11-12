@@ -153,7 +153,34 @@ function textureFileInfoIn(dirs, name, maxBytes) {
   return null;
 }
 
+/* KLASÖR DIŞI DOKULAR (#812). Yedek makinede birincilin paketiyle gelen
+   dokular içerik adresli depoda, küçük harfli ve özetli adlarla duruyor;
+   motor özgün adla arıyor. `extra`: küçük harfli ad -> { name, file }.
+   Klasörlerden SONRA bakılıyor: aynı ad yerelde varsa o geçerli. */
+function listTexturesWith(dirs, extra) {
+  const r = listTexturesIn(dirs);
+  if (!extra || !extra.size) return r;
+  const seen = new Set(r.names.map((n) => n.toLowerCase()));
+  for (const [k, t] of extra) {
+    if (seen.has(k) || !t || !isTextureFile(t.name) || /[\\/]/.test(t.name)) continue;
+    seen.add(k);
+    r.names.push(t.name);
+  }
+  r.names.sort();
+  return r;
+}
+
+function textureFileInfoWith(dirs, name, maxBytes, extra) {
+  const t = textureFileInfoIn(dirs, name, maxBytes);
+  if (t || !extra || typeof name !== 'string') return t;
+  const hit = extra.get(name.toLowerCase());
+  if (!hit || !hit.file || !isTextureFile(hit.name) || /[\\/]/.test(hit.name)) return null;
+  const info = textureFileInfo(path.dirname(hit.file), path.basename(hit.file), maxBytes);
+  // Depodaki ad uzantıyı korur ama tür özgün addan
+  return info ? Object.assign({}, info, { mime: mimeFor(hit.name) || info.mime }) : null;
+}
+
 module.exports = {
   TEXTURE_EXT, TEXTURE_MIME, isTextureFile, mimeFor, resolveTexture, listTextures, textureFileInfo,
-  listTexturesIn, textureFileInfoIn, userSamplers,
+  listTexturesIn, textureFileInfoIn, userSamplers, listTexturesWith, textureFileInfoWith,
 };
