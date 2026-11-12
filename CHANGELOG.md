@@ -79,6 +79,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visuals
 
+- **Tonemap and 3D LUT effects** (#985). **Tonemap** converts the frame to linear light, applies an
+  exposure and an ACES, AgX or Reinhard curve, and returns to sRGB; the exposure can follow the
+  audio. **3D LUT** loads a `.cube` file in the panel (nothing is written to disk), resamples it to
+  at most 33³ and saves it with the scene, so outputs and exports grade the same. With no LUT it
+  passes the picture through unchanged, and a malformed file is refused with a reason. Both are on
+  the global chain and on every layer's chain.
 - **Multi-pass Studio shaders** (#905). A Studio shader can now split into passes: `//@pass A` … `//@pass D` are buffers drawn in that order, each keeping its previous frame, and `//@pass image` goes to the screen; `//@common` code is shared. A pass reads the current frame of every buffer drawn before it and the previous frame of itself and the ones after (`sv_bufA`…`sv_bufD`), and `channels=` wires `iChannel0`–`3`, so multi-buffer shader code can be pasted pass by pass. Buffers are half-float where the GPU allows (values above 1 survive), and they keep their content across a resolution step. ISF files with `PASSES` are now imported as real passes (targets bound to A–D in order) instead of being reduced to one. Without the markers a shader runs exactly as before. Checked in a real WebGL context: an accumulating trail grew from 16 to 102 lit pixels over 60 frames and kept them through a resize (118); B read A's value from the same frame (255 on the first frame); a buffer held 3.5 (shown as 223 after /4); an error in pass B was reported as pass B, line 5 of the original text.
 - **Choosing an audio source shows that audio.** The panel preview starts on a sample signal
   ("Demo") and only followed real audio after a click on that badge, so picking a microphone or an
@@ -297,7 +303,22 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Timeline auto clip titles match the UI language.** Shelf “Scene 1” / “Forest” while the clip still showed “Sahne 1” / “Orman” — `clipLabel` and the source picker now use the same i18n resolution as the shelf (stable source ids, no rewrite of user-named clips). Covers scenes, colour presets, visualizers and the clip deck.
 - **Colour-preset playback no longer sticks on a future clip; unrelated action/media clips are not replayed when a palette on another track enters or leaves** (edge-trigger per track; palette winner restored declaratively). With Forest from 0 and Night from 2 s, seeking or playing back before Night’s start re-applies Forest; selection alone does not drive output. `tests/timeline-palette-order.test.js`.
 - **Snap grid offers 1 s and 0.5 s steps** beside bars/beats/frames, plus Off for free placement. Ruler unit stays independent of snap. Alt+drag still suspends snap; Start/Duration keep fractional values. `tests/timeline-snap-seconds.test.js`.
-- **Apply edits immediately** is an opt-in toolbar toggle (default off) so a stopped timeline still will not overwrite Scene / Template / MilkDrop picks unless you turn it on.
+- **Use Timeline** (#972). One switch puts the output on the timeline at the playhead, without
+  starting playback. Each visual clip composes its own layers for its own time only, so saved scenes,
+  templates and your manual settings are never changed; switching it off leaves the output exactly as
+  it was. With it on, selecting a single clip makes the normal Scene panels edit that clip's own copy.
+  Actions fire once when playback runs into their clip, not on a seek or an undo. It replaces the
+  Apply Immediately toggle. The live output, the panel preview and the export draw the same
+  composition: 17 transition styles were compared at 6 points each between the live and the export
+  path.
+- **Several timelines** (#959). The Time page has tabs: create, rename and switch timelines, and set
+  one passive without deleting it; a passive timeline drives neither the output nor an export. With
+  the loop off, the last clip's state stays after the end instead of clearing. **Include Timeline**
+  in Export (off by default since #973) applies the timeline's scene clips and automation to the video.
+- **Cue markers with GO** (#988). A marker can be set to **Cue: hold here**. Playback stops there on
+  every output window, the preview, the overlay and a backup machine at the same time, with no
+  overshoot. **GO** (also <kbd>Enter</kbd> in the editor) resumes until the next hold; while playing
+  it jumps to the next marker. Exports ignore holds, so they stay linear and frame-exact.
 - **Visualizer is a real timeline clip type** (Type list, source list, apply path) alongside scene / preset / palette / media.
 - **Timeline scene clips link to the full Scene editor.** A clip is still a reference (timing/transition stay on the clip); “Open scene” jumps to the Scene page so layers and effects are not mistaken for missing inspector fields.
 - **Layer Groups A/B crossfader no longer wraps in a narrow inspector.** The A / value / B row and the A / Mid / B buttons stay on two clean grid rows at ~340 px.
@@ -492,6 +513,45 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   restored from the newest healthy snapshot and the panel says so. If there is no snapshot to restore,
   the panel says the settings file could not be read.
 
+- **sACN output, WLED and WLED Audio Sync** (#984), on the Lighting page, all off by default.
+  **sACN (E1.31)** sends the same channels as Art-Net to a universe's multicast address or to one
+  host, with priority and source name, and closes the stream when stopped. **WLED** gets pixels over
+  DDP (UDP 4048, up to 480 per packet); **Find WLED on Network** sends one mDNS query and **Get LED
+  Count** reads the controller's `/json/info`, only when pressed. **WLED Audio Sync** broadcasts the
+  level, the beat and 16 bands to `239.0.0.1:11988`. All three go through the redundancy authority
+  gate, so a backup machine never sends twice. Tested against loopback listeners and a fake WLED
+  server, not a real controller.
+- **Art-Net input** (#987). The DMX channels of one universe map to any slider or action, with
+  Learn; a value above half fires an action, as with MIDI. Off by default, it listens on `127.0.0.1`
+  unless you choose otherwise, refuses the universe the Art-Net output uses, and shares port 6454 with
+  the redundancy witness.
+- **MIDI Time Code chase** (#987). The timeline follows incoming MTC (quarter frames and full-frame
+  messages at 24, 25, 29.97 drop-frame and 30 fps): it plays while code runs, seeks when it drifts by
+  more than 0.15 s, and parks when code stops. An offset maps a show that starts at 01:00:00:00. Off
+  by default. Not driven by real timecode yet.
+- **MIDI controller maps with LED feedback** (#986). Maps for the Akai APC40 mkII, Novation Launchpad
+  Mini MK3, X and Pro MK3, Korg nanoKONTROL2 and Ableton Push 2 add bindings that do not clash with
+  yours, and the controller's LEDs show what they control. **Prepare Controller** and **Return to
+  Normal Mode** send the documented mode commands to one chosen output; nothing is sent on start,
+  hot-plug or when a map is applied. Off by default. Written from each vendor's protocol document
+  ([docs/midi-controllers.md](docs/midi-controllers.md)) and tested with fake devices, not on the
+  hardware.
+- **HTTP API and a Bitfocus Companion module** (#989). **HTTP API (REST, OpenAPI)** on the MCP card
+  (off by default) serves `/api/v1/openapi.json`, `/api/v1/tools` and `POST /api/v1/tools/{name}` on
+  the MCP server: the same loopback address, token and permission mode, and requests with an
+  `Origin` header or another host name are refused. `integrations/companion/` is a Companion module
+  with actions, presets and feedback over the app's OSC tree; it is not part of the app's install.
+- **MQTT / Home Assistant** (#991). Control → MQTT / Home Assistant (off by default) connects to the
+  broker you name, publishes the show state to retained topics and announces itself to Home
+  Assistant. Commands are read only with **Accept commands** on, and go through the same path as OSC
+  input. No dependency is added; the client is plain MQTT 3.1.1 with TLS.
+- **Step sequencers** (#982). Two sequencers in the modulation matrix, with 4, 8 or 16 steps, a note
+  division and glide. The step comes from the draw clock and the tempo, so exports stay frame-exact.
+- **LUFS meter** (#983). Deep Analysis has momentary, short-term and integrated loudness after ITU-R
+  BS.1770 / EBU R128, with gating and **Reset Integrated**; **Loudness (LUFS)** is a modulation
+  source and a column in the analysis export. Checked against the answers in EBU Tech 3341. It reads
+  the preview's frames, so it is a monitoring meter, not a certified one.
+
 ### Export
 
 - **H.264 Quick Sync on Linux when the driver rejects ICQ** (#904). The test encode used
@@ -513,8 +573,18 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     with the current state and examples of later-shipped tasks.
   - The ROADMAP's v4 section said work happened "on a separate `dev/v4` branch" and listed its stages
     as a plan. It now opens with where things stand (v4.0.0 on `main` as 4.0.0-beta, not released),
-    gives each stage its status, and says the status table only has released versions. The README's
-    roadmap section says the same.
+    gives each stage its status, and keeps the status table to released versions. The README's
+    roadmap section says the same. (Release preparation later added one marked **v4.0.0 (beta)**
+    column; see the next entry.)
+- **Use cases, and everything since v3.1.7.** The README (English and Turkish) has a **Use cases**
+  section with sixteen workflows, each linked to its feature section, and **New in v4** now covers
+  every area. Feature sections describe what had only been in the changelog: the LUFS meter, step
+  sequencers, word karaoke and lyrics lookup, several timelines and Use Timeline, cue markers, MTC,
+  controller maps, Art-Net input, sACN, WLED, session recovery and the screensaver; the privacy list
+  names what each new network feature opens. The ROADMAP lists every change since v3.1.7 by area
+  with its pull request, says what has not run against real devices, and its status table has a
+  **v4.0.0 (beta)** column. Stale text fixed along the way: the mode list said 70 (it is 71), the
+  layer stack could no longer be switched off in v4, and the README still said 56 CaYaDev presets.
 - **No comparisons with other products.** The archived plan no longer lists the products it was
   compared with. The timeline editor, the clip deck and its launch modes are no longer described as
   modelled on another program, the ROADMAP and code comments no longer point at other engines' open
