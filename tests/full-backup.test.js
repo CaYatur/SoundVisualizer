@@ -295,6 +295,48 @@ test('güvenilmez arşiv: başka ZIP reddediliyor, kaçan adlar yazılmıyor', a
   }
 });
 
+test('taşınabilir ad: Windows\'un reddettiği adlar ayırt ediliyor', () => {
+  for (const ok of ['Sahne Klibi.mp4', 'worms.jpg', 'a.b.c.png', 'Kurtlar (2).mp4']) assert.ok(Backup.portableName(ok), ok);
+  for (const bad of ['a?b.mp4', 'a*b.png', 'a<b>.png', 'x|y.mp4', 'q"q.mp4', 'nokta.', 'boşluk ', 'CON', 'con.png', 'NUL.mp4', 'com1.jpg', 'LPT9.txt', 'a\tb.png', '../x.png', 'a:b.mp4']) {
+    assert.ok(!Backup.portableName(bad), bad);
+  }
+  assert.ok(Backup.portableName('console.png'), 'yalnız tam ayrılmış ad');
+});
+
+test('geri yükleme bir öğede takılınca durmuyor: ad yerine ASCII ad, doku atlanıyor, ayarlar geliyor', async () => {
+  const dir = tmpdir();
+  try {
+    const file = path.join(dir, 'm' + Backup.EXT);
+    const z = ZipWriter.createWriter(file);
+    z.addBuffer('media/0-a-b.mp4', 'VIDEO');
+    z.addBuffer('textures/0-x.png', 'TEX');
+    z.addBuffer('textures/1-ok.png', 'TEX2');
+    z.addBuffer('presets/usr_1.json', JSON.stringify({ id: 'usr_1' }));
+    const ref = '/Users/mac/Movies/a?b.mp4';
+    z.addBuffer('backup.json', JSON.stringify({
+      type: Backup.TYPE, format: Backup.FORMAT,
+      settings: { layers: [{ kind: 'media', settings: { media: { source: 'file', file: ref } } }] },
+      presets: ['presets/usr_1.json'],
+      textures: [{ name: 'x?.png', path: 'textures/0-x.png' }, { name: 'ok.png', path: 'textures/1-ok.png' }],
+      media: [{ ref, name: 'a?b.mp4', path: 'media/0-a-b.mp4', size: 5 }],
+    }));
+    z.close();
+    const b = machine(path.join(dir, 'B'));
+    const t = targetOf(b);
+    t.savePresets = async () => { throw new Error('disk dolu'); };
+    const out = await Backup.restore(file, t);
+    const dest = path.join(b.restored, '0-a-b.mp4');
+    assert.strictEqual(fs.readFileSync(dest, 'utf8'), 'VIDEO');
+    assert.strictEqual(out.settings.layers[0].settings.media.file, dest);
+    assert.ok(!fs.existsSync(path.join(b.textures, 'x?.png')));
+    assert.strictEqual(fs.readFileSync(path.join(b.textures, 'ok.png'), 'utf8'), 'TEX2');
+    assert.deepStrictEqual({ presets: out.counts.presets, textures: out.counts.textures, videos: out.counts.videos, skipped: out.counts.skipped },
+      { presets: 0, textures: 1, videos: 1, skipped: 2 });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('ana süreç: yol panele gitmiyor, tahmin hafif, yedek rolünde geri yükleme yok', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
   // Panel arşivi jetonla anar; yol ana süreçte kalır

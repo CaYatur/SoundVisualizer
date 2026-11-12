@@ -49,6 +49,14 @@ const PRESET_BATCH = 500;
 
 const safeId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(id);
 const plainName = (n) => typeof n === 'string' && n.length > 0 && n.length <= 200 && !/[\\/:\0]/.test(n) && n !== '.' && n !== '..';
+/* Windows'un da kabul ettiği ad: macOS ya da Linux'ta alınmış yedekteki
+   `a?b.mp4`, `nokta.` ya da `CON.png` Windows'ta yazılamaz ve geri yüklemeyi
+   yarıda keserdi. */
+const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+function portableName(n) {
+  return plainName(n) && !/[<>"|?*\u0000-\u001f]/.test(n) && !/[. ]$/.test(n) && !RESERVED.test(n);
+}
+
 // Arşiv içi ad: ASCII, kısa; özgün ad backup.json'da
 function slug(name) {
   const ext = path.extname(String(name || '')).toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 10);
@@ -319,6 +327,8 @@ async function restore(file, dst, onProgress) {
       counts.presets += Array.isArray(saved) ? saved.length : 0;
       batch = [];
     };
+    /* Her öğe kendi başına: biri yazılamazsa (kilitli dosya, dolu disk, bu
+       sistemde geçersiz ad) atlanır ve sayılır; ayarlar yine geri gelir. */
     for (const name of Array.isArray(meta.presets) ? meta.presets : []) {
       const m = /^presets\/([A-Za-z0-9_-]{1,80})\.json$/.exec(String(name));
       const e = m && b.byName.get(name);
@@ -328,9 +338,12 @@ async function restore(file, dst, onProgress) {
       if (!p || typeof p !== 'object' || p.id !== m[1]) { counts.skipped++; continue; }
       delete p.builtin;
       batch.push(p);
-      if (batch.length >= PRESET_BATCH) await flush();
+      if (batch.length >= PRESET_BATCH) {
+        const n = batch.length;
+        try { await flush(); } catch { counts.skipped += n; batch = []; }
+      }
     }
-    await flush();
+    try { await flush(); } catch { counts.skipped += batch.length; batch = []; }
     // Kitaplıklar: aynı kimlik, aynı dosya adı
     const libs = meta.libraries && typeof meta.libraries === 'object' ? meta.libraries : {};
     for (const key of LIB_KEYS) {
@@ -343,25 +356,32 @@ async function restore(file, dst, onProgress) {
         const okName = it && safeId(it.id) && plainName(it.file) && (!target.lib || !target.lib.isFile || target.lib.isFile(it.file));
         const e = okName && b.byName.get('libs/' + key + '/' + it.file);
         if (!e || it.path !== e.name) { counts.skipped++; continue; }
-        fs.mkdirSync(target.dir, { recursive: true });
         const dest = path.join(target.dir, it.file);
-        await extract(b, e, dest, onBytes);
+        try {
+          fs.mkdirSync(target.dir, { recursive: true });
+          await extract(b, e, dest, onBytes);
+        } catch { counts.skipped++; continue; }
         const item = Object.assign({}, it);
         delete item.ref; delete item.path;
         kept.push(item);
         if (typeof it.ref === 'string' && it.ref) map[it.ref] = dest;
       }
-      if (kept.length) upsertManifest(target.dir, kept, target.lib);
+      if (kept.length) {
+        try { upsertManifest(target.dir, kept, target.lib); } catch { counts.skipped += kept.length; continue; }
+      }
       counts[key] += kept.length;
       if (key === 'media') counts.videos += kept.length;
     }
     // Dokular: uygulamanın doku klasörüne özgün adıyla
     for (const t of Array.isArray(meta.textures) ? meta.textures : []) {
       tick('textures');
-      const e = t && plainName(t.name) && /\.(jpe?g|png|gif|bmp|webp)$/i.test(t.name) && b.byName.get(t.path);
+      // Doku adla aranıyor (`sampler_<ad>`): bu sistemde geçersiz ad yeniden adlandırılmaz, atlanır
+      const e = t && portableName(t.name) && /\.(jpe?g|png|gif|bmp|webp)$/i.test(t.name) && b.byName.get(t.path);
       if (!e || !d.textureDir) { counts.skipped++; continue; }
-      fs.mkdirSync(d.textureDir, { recursive: true });
-      await extract(b, e, path.join(d.textureDir, t.name), onBytes);
+      try {
+        fs.mkdirSync(d.textureDir, { recursive: true });
+        await extract(b, e, path.join(d.textureDir, t.name), onBytes);
+      } catch { counts.skipped++; continue; }
       counts.textures++;
     }
     // Kitaplık dışı videolar
@@ -369,10 +389,13 @@ async function restore(file, dst, onProgress) {
       tick('media');
       const e = m && typeof m.ref === 'string' && m.ref && b.byName.get(m.path);
       if (!e || !d.restoredMediaDir || !/^media\/\d+-[a-z0-9._-]+$/.test(String(m.path))) { counts.skipped++; continue; }
-      fs.mkdirSync(d.restoredMediaDir, { recursive: true });
-      const nice = plainName(m.name) ? m.name : path.basename(m.path);
-      const dest = path.join(d.restoredMediaDir, String(m.path).slice(6).split('-')[0] + '-' + nice);
-      await extract(b, e, dest, onBytes);
+      // Sahne yeni yola eşleniyor: ad bu sistemde geçersizse arşivdeki ASCII adı
+      const inZip = String(m.path).slice(6);
+      const dest = path.join(d.restoredMediaDir, portableName(m.name) ? inZip.split('-')[0] + '-' + m.name : inZip);
+      try {
+        fs.mkdirSync(d.restoredMediaDir, { recursive: true });
+        await extract(b, e, dest, onBytes);
+      } catch { counts.skipped++; continue; }
       map[m.ref] = dest;
       counts.videos++;
     }
@@ -394,4 +417,4 @@ async function restore(file, dst, onProgress) {
   }
 }
 
-module.exports = { TYPE, FORMAT, EXT, LIB_KEYS, plan, writeBackup, inspect, restore, BackupError, slug };
+module.exports = { TYPE, FORMAT, EXT, LIB_KEYS, plan, writeBackup, inspect, restore, BackupError, slug, portableName };
