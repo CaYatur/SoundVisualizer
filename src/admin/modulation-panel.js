@@ -31,13 +31,203 @@
      kirletirdi. */
   const ROOTS = [
     { path: 'visualizer', label: 'Görselleştirici', skip: ['barCount', 'minFreq', 'maxFreq'] },
-    { path: 'background', label: 'Arkaplan', skip: [] },
+    // Saydamlık anahtarı bir renk eşiği, sürülecek bir ayar değil
+    { path: 'background', label: 'Arkaplan', skip: ['transparentKey'] },
     { path: 'geometry', label: '3B Geometri', skip: ['attractorPoints'] },
     { path: 'logo', label: 'Logo', skip: [] },
     { path: 'images', label: 'Görsel Nesneler', skip: ['count'] },
     { path: 'audio', label: 'Ses', skip: [] },
     { path: 'lighting', label: 'Aydınlatma', skip: [] },
+    /* Otomasyon hedefleri eksikti: bu ayarların kartı var, katmanlar da
+       taşıyor, ama listede yoktular. Ağ sıklığı ve iç çözünürlük her ara
+       değerde motoru yeniden kurar; onlar şemada kovalı kaydırıcı. */
+    { path: 'milkdrop', label: 'MilkDrop', skip: ['mesh', 'renderScale', 'hardCutHalfLife'] },
+    // echo: motorda var, panelde kaydırıcısı yok
+    { path: 'feedback', label: 'Geri Besleme', skip: ['echo'] },
+    // Giriş/çıkış noktası sarar; döngü vuruşu bir seçim
+    { path: 'media', label: 'Medya', skip: ['inPoint', 'outPoint', 'loopBeats'] },
+    { path: 'text', label: 'Yazı', skip: [] },
+    { path: 'nowplaying', label: 'Çalan Parça', skip: ['holdSeconds', 'manual'] },
   ];
+
+  /* İç içe bölümlerin kendi grubu. MilkDrop'un ses girişi genel "Ses"
+     grubunda "Kazanç" ve "Yumuşatma" diye duruyordu; genel ses ayarlarından
+     ayırt edilemiyordu. Ad, Ayarlar'daki kartın adı. */
+  const NESTED_GROUPS = {
+    'audio.milkdrop': { label: 'MilkDrop Ses Girişi', own: true },
+    'visualizer.spectrum': { label: 'Tayf Ölçümü' },
+  };
+  /* Aramada ek sözcükler: MilkDrop'un kazancı onun duyarlılığı. */
+  const SEARCH_KEYS = {
+    'audio.milkdrop.gain': 'milkdrop duyarlılık hassasiyet sensitivity',
+    'audio.sensitivity': 'sensitivity',
+    'visualizer.sensitivity': 'sensitivity duyarlılık',
+  };
+
+  /* Panelin kendi kaydırıcılarındaki ad ve aralık (yol → [ad, en az, en çok]).
+     Kaynak: lighting-general.js rangeRow, scene-panels.js miniSlider ve
+     gradyan satırları, admin.js Ayarlar kartları. Ad yoksa alan ham
+     anahtarından ("Gate Threshold") üretiliyordu, aralık yoksa hedef 0–1
+     sanılıyordu ve otomasyon Hassasiyet'i 1'in üstüne çıkaramıyordu.
+     tests/automation-targets.test.js her satırı kaynağıyla karşılaştırıyor. */
+  const PANEL_SLIDERS = {
+    'audio.bassBoost': ['Bas Vurgusu'],
+    'audio.milkdrop.gain': ['Kazanç', 0, 4],
+    'audio.milkdrop.gateHold': ['Bekleme', 0, 3],
+    'audio.milkdrop.gateThreshold': ['Filtre Eşiği', 0, 0.2],
+    'audio.milkdrop.smoothing': ['Yumuşatma', 0, 0.95],
+    'audio.sensitivity': ['Hassasiyet'],
+    'audio.smoothing': ['Yumuşatma'],
+    'background.gradient.audioBrightness': ['Ses Patlaması (Parlaklık)', 0, 2],
+    'background.gradient.audioHue': ['Ses ile Renk Kayması', 0, 1],
+    'background.gradient.audioReactivity': ['Ses Tepkisi', 0, 2],
+    'background.gradient.brightness': ['Parlaklık (Temel)', 0.4, 1.6],
+    'background.gradient.drift': ['Tek Yönlü Kayma', 0, 1],
+    'background.gradient.grain': ['Gren', 0, 0.2],
+    'background.gradient.orbit': ['Dolanma Miktarı', 0, 2],
+    'background.gradient.scale': ['Ölçek (Yoğunluk)', 0.4, 3],
+    'background.gradient.speed': ['Akış Hızı', 0, 2],
+    'background.gradient.swirl': ['İç Dönüş (Swirl)', 0, 2],
+    'background.gradient.vignette': ['Vinyet', 0, 1],
+    'background.gradient.wander': ['Gezinme Alanı', 0, 2],
+    'background.gradient.warp': ['Bozulma (Akışkanlık)', 0, 2],
+    'feedback.bassRotate': ['Bas → Dönüş'],
+    'feedback.bassZoom': ['Bas → Yakınlaşma'],
+    'feedback.decay': ['Sönme'],
+    'feedback.dx': ['Yatay Kayma'],
+    'feedback.dy': ['Dikey Kayma'],
+    'feedback.rotate': ['Dönüş'],
+    'feedback.sharpen': ['Keskinlik'],
+    'feedback.swirl': ['İç Dönüş'],
+    'feedback.warp': ['Bükülme'],
+    'feedback.waveAmp': ['Dalga Genliği'],
+    'feedback.waveThickness': ['Dalga Kalınlığı'],
+    'feedback.zoom': ['Yakınlaşma'],
+    'lighting.audioAcceleration': ['Sesle Hızlanma', 0, 3],
+    'lighting.bandAttack': ['Bant Saldırı Hızı', 0.15, 1],
+    'lighting.bandHardness': ['Bant Sertliği', 0, 1],
+    'lighting.bandRelease': ['Bant Bırakma Hızı', 0.03, 0.65],
+    'lighting.bandSeparation': ['Bant Ayrıştırma', 0, 1],
+    'lighting.bandThreshold': ['Bant Gürültü Eşiği', 0, 0.8],
+    'lighting.baseLevel': ['Sessizlikte Işık', 0.02, 0.6],
+    'lighting.bassGain': ['Bas Hassasiyeti', 0, 3],
+    'lighting.brightness': ['Genel Parlaklık', 0, 1],
+    'lighting.colorSpeed': ['Renk Akış Hızı', 0, 3],
+    'lighting.flashDecay': ['Patlama Sönümleme', 0.45, 0.995],
+    'lighting.flashStrength': ['Patlama Gücü', 0, 1.5],
+    'lighting.flashThreshold': ['Patlama Eşiği', 0.02, 0.98],
+    'lighting.flowSpeed': ['Aygıtlar Arası Akış Hızı', 0, 3],
+    'lighting.fusionMix': ['Arka Plan Karışım Oranı', 0, 1],
+    'lighting.intensity': ['Ses Tepkisi', 0, 1],
+    'lighting.midGain': ['Orta Frekans Hassasiyeti', 0, 3],
+    'lighting.rainbowAudioBrightness': ['Sese Göre Parlaklık Gücü', 0, 1.5],
+    'lighting.rainbowBaseBrightness': ['Rainbow Taban Parlaklığı', 0.02, 1],
+    'lighting.rainbowSpeed': ['Rainbow Akış Hızı', 0.05, 3],
+    'lighting.rainbowSpread': ['Rainbow Renk Yayılımı', 0.1, 4],
+    'lighting.rippleSpeed': ['Dalga Hızı', 0.05, 3],
+    'lighting.rippleWidth': ['Dalga Genişliği', 0.03, 0.6],
+    'lighting.saturation': ['Renk Doygunluğu', 0, 1.5],
+    'lighting.smoothing': ['Yumuşatma', 0, 0.95],
+    'lighting.spectrumContrast': ['Bar Kontrastı', 0, 1],
+    'lighting.spread': ['Renk Yayılımı', 0.1, 4],
+    'lighting.thresholdBurstBaseBrightness': ['Eşik Altı Taban Işığı', 0, 0.5],
+    'lighting.thresholdBurstCooldown': ['Darbeler Arası Süre (ms)', 0, 1000],
+    'lighting.thresholdBurstDecay': ['Patlama Sönümleme', 0.45, 0.995],
+    'lighting.thresholdBurstStrength': ['Eşik Üstü Patlama Gücü', 0, 2],
+    'lighting.thresholdBurstThreshold': ['Tetikleme Eşiği', 0.01, 0.99],
+    'lighting.trebleGain': ['Tiz Hassasiyeti', 0, 3],
+    'lighting.updateRate': ['Güncelleme Hızı', 5, 60],
+    'lighting.zoneBlend': ['Bölge Geçiş Yumuşaklığı', 0, 1],
+    'logo.audioBrightness': ['Ses → Parlaklık', 0, 1],
+    'logo.audioHue': ['Ses → Renk', 0, 1],
+    'logo.audioOpacity': ['Ses → Saydamlık', 0, 1],
+    'logo.audioSpeed': ['Ses → Hız', 0, 1],
+    'logo.beatFlash': ['Ritim Parlaması', 0, 1],
+    'logo.brightness': ['Parlaklık', 0.2, 2],
+    'logo.cornerRadius': ['Köşe / Oval', 0, 0.5],
+    'logo.glow': ['Parlama (Glow)', 0, 1],
+    'logo.hue': ['Renk Kayması', 0, 1],
+    'logo.opacity': ['Saydamlık', 0, 1],
+    'logo.pulse': ['Nabız', 0, 1],
+    'logo.saturate': ['Doygunluk', 0, 2],
+    'logo.scale': ['Boyut', 0.05, 0.9],
+    'logo.speed': ['Oynatma Hızı', 0.1, 3],
+    'logo.x': ['Yatay Konum (X)', 0, 1],
+    'logo.y': ['Dikey Konum (Y)', 0, 1],
+    'visualizer.barCenterX': ['Yatay Konum', 0, 1],
+    'visualizer.barCount': ['Bar Sayısı', 16, 160],
+    'visualizer.barHeight': ['Bar Yüksekliği', 0.05, 1],
+    'visualizer.barRadius': ['Köşe Yuvarlaklığı', 0, 0.5],
+    'visualizer.barSpan': ['Bar Genişliği', 0.1, 1],
+    'visualizer.baseline': ['Taban Çizgisi', 0, 1],
+    'visualizer.capFall': ['Tepe Düşüş Hızı', 0.25, 4],
+    'visualizer.capHold': ['Tepe Bekleme (sn)', 0, 2],
+    'visualizer.gap': ['Bar Boşluğu', 0, 0.8],
+    'visualizer.glow': ['Parlama (Glow)', 0, 1],
+    'visualizer.lineWidth': ['Çizgi Kalınlığı', 1, 12],
+    'visualizer.reflection': ['Zemin Yansıması', 0, 1],
+    'visualizer.reflectionLength': ['Yansıma Boyu', 0.05, 1],
+    'visualizer.segmentGap': ['Segment Aralığı', 0, 0.8],
+    'visualizer.segmentSize': ['Segment Boyu', 0.01, 0.2],
+    'visualizer.sensitivity': ['Hassasiyet', 0.2, 3],
+    'visualizer.spectrum.attack': ['Atak (sn)', 0, 0.2],
+    'visualizer.spectrum.floorDb': ['dB Tabanı', -96, -24],
+    'visualizer.spectrum.release': ['Bırakma (sn)', 0.01, 1.2],
+    'visualizer.spectrum.smooth': ['Profil Yumuşatma', 0, 1],
+    'visualizer.spectrum.spread': ['Komşu Yayılımı', 0, 0.95],
+    'visualizer.spectrum.tilt': ['Eğim (dB/oktav)', -6, 12],
+    'visualizer.thickness': ['Genlik / Dolgu', 0.1, 1],
+    'visualizer.trailHeight': ['Yükseklik', 0.4, 3],
+    // Medya kartı (mediaSlider; aralık şemada)
+    'media.audioOpacity': ['Bas → Saydamlık'],
+    'media.audioZoom': ['Bas → Yakınlaşma'],
+    'media.beatPulse': ['Vuruşta Nabız'],
+    'media.hue': ['Renk Kayması'],
+    'media.kaleido': ['Kaleydoskop Dilimi'],
+    'media.kenBurns': ['Ken Burns (Yavaş Yakınlaşma ve Kayma)'],
+    'media.kenBurnsPeriod': ['Ken Burns Döngüsü'],
+    'media.saturate': ['Doygunluk'],
+    // MilkDrop kartı: ölçüyle otomatik geçiş aralığı
+    'milkdrop.autoNextBars': ['Aralık', 1, 64],
+    // Yazı katmanı
+    'text.animDuration': ['Giriş Süresi', 0.05, 2],
+    'text.audioJitter': ['Titreşim', 0, 1],
+    'text.audioLift': ['Harf Yükselmesi', 0, 1],
+    'text.audioScale': ['Bas Nabzı', 0, 0.6],
+    'text.karaokeHoldAmount': ['Esneme Miktarı', 0, 1],
+    'text.karaokeHoldMin': ['Esneme Eşiği', 0.2, 3],
+    'text.marqueeSpeed': ['Kayma Hızı', 0.02, 0.6],
+    'text.maxWidth': ['En Fazla Genişlik', 0.2, 1],
+    'text.offset': ['Senkron Kayması', -10, 10],
+    'text.opacity': ['Yazı Saydamlığı', 0, 1],
+    'text.outline': ['Kontur', 0, 1],
+    'text.scrollSpeed': ['Kaydırma Hızı', 0.25, 4],
+    'text.shadow': ['Gölge', 0, 1],
+    'text.size': ['Yazı Boyutu', 0.01, 0.3],
+    'text.weight': ['Kalınlık', 100, 900],
+    'text.x': ['Yatay Konum', 0, 1],
+    'text.y': ['Dikey Konum', 0, 1],
+    // Şimdi Çalıyor katmanı
+    'nowplaying.audioScale': ['Bas Nabzı', 0, 0.4],
+    'nowplaying.barBackOpacity': ['Zemin Koyuluğu', 0, 1],
+    'nowplaying.barGap': ['Yazıyla Arası', 0, 2],
+    'nowplaying.barHeight': ['Çubuk Kalınlığı', 0.001, 0.04],
+    'nowplaying.barWidth': ['Genişlik', 0.05, 1],
+    'nowplaying.coverAudioScale': ['Kapak Bas Nabzı', 0, 0.4],
+    'nowplaying.coverGap': ['Yazı Aralığı', 0, 1],
+    'nowplaying.coverRadius': ['Köşe / Oval', 0, 0.5],
+    'nowplaying.coverSize': ['Kapak Boyutu', 0.05, 0.5],
+    'nowplaying.lineGap': ['Satır Aralığı', 0, 1.2],
+    'nowplaying.maxWidth': ['En Fazla Genişlik', 0.2, 1],
+    'nowplaying.opacity': ['Yazı Saydamlığı', 0, 1],
+    'nowplaying.outline': ['Kontur', 0, 1],
+    'nowplaying.scrollSpeed': ['Kaydırma Hızı', 0.25, 4],
+    'nowplaying.shadow': ['Gölge', 0, 1],
+    'nowplaying.size': ['Boyut', 0.015, 0.16],
+    'nowplaying.weight': ['Kalınlık', 100, 900],
+    'nowplaying.x': ['Yatay Konum', 0, 1],
+    'nowplaying.y': ['Dikey Konum', 0, 1],
+  };
 
   // Sık kullanılan alanların insan okuyabilir adları. Listede olmayan bir
   // alan ham anahtarıyla görünür — yeni alan eklendiğinde panel bozulmaz.
@@ -74,7 +264,8 @@
      (mode-catalog.js: gerçek etiket ve aralık) geliyor. */
   function modeGroup(base, key) {
     const MC = window.SVModeCatalog;
-    if (base !== 'background' || !MC || !MC.get) return null;
+    // Katmanın kendi arkaplanı da: layers.<i>.settings.background
+    if (!/(^|\.)background$/.test(base) || !MC || !MC.get) return null;
     const m = MC.get('background', key);
     return m ? { label: m.label, settings: m.settings || [] } : null;
   }
@@ -92,8 +283,68 @@
         else out.push({ path, label: fieldLabel(k), group });
       } else if (v && typeof v === 'object' && !Array.isArray(v)) {
         const mg = depth === 1 ? modeGroup(base, k) : null;
-        collect(v, path, out, mg ? group + ' · ' + mg.label : group, skip, depth + 1, mg ? mg.settings : null);
+        const nested = NESTED_GROUPS[relPath(path)];
+        // Kendi grubu olan bölüm (MilkDrop Ses Girişi) genel "Ses" altında değil
+        const g = mg ? group + ' · ' + mg.label
+          : nested ? (nested.own && relPath(path) === path ? nested.label : group + ' · ' + nested.label) : group;
+        collect(v, path, out, g, skip, depth + 1, mg ? mg.settings : null);
       }
+    }
+  }
+
+  // Katman yolunun genel karşılığı: layers.3.settings.visualizer.glow → visualizer.glow
+  function relPath(path) { return String(path).replace(/^layers\.\d+\.settings\./, ''); }
+
+  /* Ad, aralık ve arama sözcükleri: önce şema (panel kaydırıcısının sınırı,
+     sliderCtrl ile aynı), sonra panel tablosu. Yol değişmiyor; kayıtlı
+     şeritler aynı hedefe bağlı kalıyor. */
+  function enrich(o) {
+    const rel = relPath(o.path);
+    const S = window.SVSchema;
+    const known = S && S.rangeFor ? S.rangeFor(rel) : null;
+    const ps = PANEL_SLIDERS[rel];
+    if (ps && ps[0]) o.label = ps[0];
+    else {
+      // Şemadaki denetleyici kaydırıcısının adı ("MilkDrop · Geçiş Süresi" → "Geçiş Süresi")
+      const sl = S && S.SLIDERS ? S.SLIDERS.find((x) => x.path === rel) : null;
+      if (sl && sl.label) o.label = String(sl.label).split(' · ').pop();
+    }
+    if (known && known.min !== undefined && known.max !== undefined) { o.min = known.min; o.max = known.max; }
+    else if (o.min == null && ps && ps.length === 3) { o.min = ps[1]; o.max = ps[2]; }
+    if (SEARCH_KEYS[rel]) o.keys = (o.keys ? o.keys + ' ' : '') + SEARCH_KEYS[rel];
+    return o;
+  }
+
+  /* Katmanın kendi ayarları. Katman bir değeri taşıyorsa genel yol o katmanı
+     sürmüyor (layers.js layerConfig: katman ayarı genel ayarın üstüne
+     biniyor; genel yol yalnız ilk canlı katmana yönleniyor). Gerçek bir
+     sahnede 117 katmanın 23'ü kendi Hassasiyet değerini taşıyordu; ikinci
+     görselleştirici katmanının duyarlılığı hiçbir hedefle sürülemiyordu.
+     Yalnız katmanın taşıdığı yapraklar: olmayan yol otomasyonda "eksik" sayılır.
+     Arkaplan katmanında yalnız kendi modu ve gradyan; öbür modların ayarları
+     o katmanda çizilmiyor. */
+  const SECTION_LABELS = {
+    visualizer: 'Görselleştirici', background: 'Arkaplan', geometry: '3B Geometri', logo: 'Logo',
+    images: 'Görsel Nesneler', milkdrop: 'MilkDrop', feedback: 'Geri Besleme', media: 'Medya',
+    text: 'Yazı', nowplaying: 'Çalan Parça',
+  };
+  function layerSettings(l, i, g, out) {
+    const st = l && l.settings;
+    if (!st || typeof st !== 'object') return;
+    for (const sec of Object.keys(st)) {
+      const v = st[sec];
+      if (!v || typeof v !== 'object' || Array.isArray(v) || !SECTION_LABELS[sec]) continue;
+      let src = v;
+      if (sec === 'background') {
+        src = {};
+        for (const k of Object.keys(v)) {
+          if (typeof v[k] === 'number' || k === 'gradient' || k === l.type) src[k] = v[k];
+        }
+      }
+      const root = ROOTS.find((r) => r.path === sec);
+      // "Logo" adlı logo katmanında "Logo · Logo" yazmasın
+      const sg = l.name === SECTION_LABELS[sec] ? g : g + ' · ' + SECTION_LABELS[sec];
+      collect(src, 'layers.' + i + '.settings.' + sec, out, sg, root ? root.skip : [], 1);
     }
   }
 
@@ -102,13 +353,15 @@
     for (const r of ROOTS) {
       collect(cfg[r.path], r.path, out, r.label, r.skip, 1);
     }
+    // Ana opaklık (Kontrol kartındaki ana fader)
+    if (typeof cfg.master === 'number') out.push({ path: 'master', label: 'Ana Opaklık', group: 'Çıkış', min: 0, max: 1 });
     // Efekt zinciri: her efektin kendi parametreleri
     const fx = Array.isArray(cfg.postfx) ? cfg.postfx : [];
     const defs = (window.SVPostFX && window.SVPostFX.EFFECTS) || {};
     fx.forEach((f, i) => {
       const def = defs[f.type];
       if (!def) return;
-      out.push({ path: 'postfx.' + i + '.opacity', label: 'Karışım', group: (i + 1) + '. ' + def.label });
+      out.push({ path: 'postfx.' + i + '.opacity', label: 'Karışım', group: (i + 1) + '. ' + def.label, min: 0, max: 1 });
       for (const p of def.params || []) {
         out.push({
           path: 'postfx.' + i + '.params.' + p.name,
@@ -127,8 +380,9 @@
       out.push({ path: 'layers.' + i + '.transform.rotate', label: 'Dönüş', group: g, min: -180, max: 180 });
       out.push({ path: 'layers.' + i + '.transform.x', label: 'Yatay', group: g, min: -1, max: 1 });
       out.push({ path: 'layers.' + i + '.transform.y', label: 'Dikey', group: g, min: -1, max: 1 });
+      layerSettings(l, i, g, out);
     });
-    return out;
+    return out.map(enrich);
   }
 
   // Hedefin makul kaydırıcı aralığı: katalogda varsa oradan, yoksa mevcut

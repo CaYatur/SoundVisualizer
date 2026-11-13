@@ -317,6 +317,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   connects, and is moved onto the page's own clock if OBS runs on another computer. Measured on a
   copy of a real profile: before, the page sat at 0 s while the panel played at 6 s; after, both
   read the same time and the page drew the composed clips. `tests/web-show-clock.test.js`.
+- **Automation and modulation can reach every setting the panel has.** The target list missed
+  MilkDrop's own audio input: its gain, MilkDrop's separate sensitivity, sat in the general Audio
+  group as "Gain" with no range. Now it has its own MilkDrop Audio Input group and is found by
+  "sensitivity". Text, Now Playing, media, feedback, MilkDrop timing and Master Opacity were
+  missing too. Each layer's own settings are targets: 23 of 117 layers in a real profile carried
+  their own Sensitivity, and the general target only reaches the first layer. Names and ranges come
+  from the panel's sliders. Before, 104 targets had no range, so Sensitivity stopped at 1, and 57
+  showed raw English keys; now none show a raw key, and only MilkDrop's two step-only settings (mesh
+  and internal resolution) have no range. Saved tracks keep their paths.
+  `tests/automation-targets.test.js`.
 - **Several timelines** (#959). The Time page has tabs: create, rename and switch timelines, and set
   one passive without deleting it; a passive timeline drives neither the output nor an export. With
   the loop off, the last clip's state stays after the end instead of clearing. **Include Timeline**
