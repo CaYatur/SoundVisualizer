@@ -3,7 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## v4.0.0 — ready, not yet released
+## v4.0.0 — 2026-11-13
 
 ### Security
 

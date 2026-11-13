@@ -48,7 +48,7 @@ Solda katmanlar, ortada canlı önizleme, sağda seçili katmanın ayarları;<br
 altta presetler, görseller, arkaplanlar, şablonlar ve kayıtlı sahneler tek tık uzakta.
 [→ Yönetici paneli](#yönetici-paneli)
 
-<sub>v4 arayüzü; yayınlanana dek [kaynaktan](#kaynaktan-çalıştırma) çalışıyor, kurulum dosyaları v3.1.7.</sub>
+<sub>v4 arayüzü.</sub>
 
 </div>
 
@@ -171,10 +171,6 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 ---
 
 ## v4'te yeni
-
-> **v4 henüz yayınlanmadı.** Aşağıdakilerin hepsi `main` dalında ve bugün
-> [kaynaktan](#kaynaktan-çalıştırma) çalışıyor; [Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest) sayfasındaki kurulum dosyaları v4 çıkana
-> dek son sürüm olan v3.1.7.
 
 - **Tek model ve yeni bir panel.** Her sahne, şablon ve kayıtlı görünüm artık bir katman listesi;
   panel görüntünün çevresine yeniden kuruldu: Sahne, Canlı, Zaman, Stüdyo ve Çıktı sayfaları, yalnız
@@ -310,8 +306,9 @@ v3.1.7'den bu yana her değişiklik, konusuna göre ve çekme isteğiyle birlikt
 ### İndir
 
 Son derlemeyi **[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases/latest)** sayfasından alın.
-En yeni sürüm v3.1.7; [v4'teki yenilikler](#v4te-yeni) bir sonraki sürümle geliyor, şimdiden
-[kaynaktan](#kaynaktan-çalıştırma) çalıştırılabiliyor.
+En yeni sürüm v4.0.0. v3.1.7 ya da daha eskisinden geçiyorsanız elle indirin: eski güncelleyici kurulum
+dosyasını başlatamıyor. Ayarlar bir kez v4 biçimine dönüşür, eski dosya `settings.v3-backup.json`
+olarak saklanır.
 
 | Platform | Dosya | Not |
 |---|---|---|
@@ -2376,8 +2373,8 @@ basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle M
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme, v3.1.6'da
 müzik videosu araçlarıyla çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni
 düzenleyicisi, kare eşitlemeli yedeklilik ve CaYaDev presetleri, v3.1.7'de yarı bellek, çöp toplama
-donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset. **v4.0.0** şu an `main` dalında
-4.0.0-beta olarak duruyor; derlendi ve sınandı ama henüz yayınlanmadı: [v4'te yeni](#v4te-yeni) altındaki
+donmalarının kalkması, düşük güç kipi ve MilkDrop katmanı başına preset; v4.0.0 ise çekirdeği ve
+arayüzü yeniden kuruyor: [v4'te yeni](#v4te-yeni) altındaki
 her şey; v3.1.7'den bu yana her değişiklik yol haritasının
 [v4.0.0 bölümünde](ROADMAP.md#what-changed-since-v317). Ardından müzik videosu stüdyosu geliyor. Neyin *yapılmadığının* ve nedeninin dürüst bir listesini
 de tutuyor. Her sürümdeki bütün değişiklikler,

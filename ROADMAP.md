@@ -4,12 +4,11 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.7** (2026-11-03) · **Next release: v4.0.0**
+**Current release: v4.0.0** (2026-11-13) · **Next: the music video studio**
 
-**Where things stand (12 November 2026):** v4.0.0 is on `main` as 4.0.0-beta: built and tested,
-but not released, so the installers on the Releases page are still v3.1.7. Every change since v3.1.7
-is listed in [What changed since v3.1.7](#what-changed-since-v317), the status table has a v4.0.0
-column, and the README's "Use cases" and "New in v4" sum it up for users.
+**Where things stand (13 November 2026):** v4.0.0 is released. Every change since v3.1.7 is listed in
+[What changed since v3.1.7](#what-changed-since-v317), the status table has a v4.0.0 column, and
+the README's "Use cases" and "New in v4" sum it up for users.
 
 v3.1.6 carried three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
@@ -34,8 +33,8 @@ decision, moves after that.
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
 | v3.1.6 | Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets | 2026-10-29 | Shipped |
-| **v3.1.7** | **Fixes and performance: half the memory, background shader compiles, low-power mode, a preset per MilkDrop layer, GPU export on Linux** | **2026-11-03** | **Current** |
-| v4.0.0 | New core and interface: every scene a layer list, a rebuilt panel, a Live page with a T-bar, MilkDrop layers that run on their own, timeline cues and timecode, sACN and WLED, MQTT, an HTTP API and a Companion module, full backup | — | On `main` as 4.0.0-beta, not released |
+| v3.1.7 | Fixes and performance: half the memory, background shader compiles, low-power mode, a preset per MilkDrop layer, GPU export on Linux | 2026-11-03 | Shipped |
+| **v4.0.0** | **New core and interface: every scene a layer list, a rebuilt panel, a Live page with a T-bar, MilkDrop layers that run on their own, timeline cues and timecode, sACN and WLED, MQTT, an HTTP API and a Companion module, full backup** | **2026-11-13** | **Current** |
 | After v4.0.0 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
@@ -43,11 +42,10 @@ decision, moves after that.
 
 ## Status table
 
-Each column is a released version, except the last one: **v4.0.0 (beta)** is what `main` holds as
-4.0.0-beta, and it becomes a release column when v4.0.0 ships. Rows added for v4 show ❌ in the
-released columns; [What changed since v3.1.7](#what-changed-since-v317) has the full list.
+Each column is a released version. Rows added for v4 show ❌ in the
+earlier columns; [What changed since v3.1.7](#what-changed-since-v317) has the full list.
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | v3.1.5 | v3.1.6 | **v3.1.7** | v4.0.0 (beta) | Note |
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | v3.1.5 | v3.1.6 | v3.1.7 | **v4.0.0** | Note |
 | --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | --- |
 | Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display. v3.1.5: the chosen displays are found again after Windows renumbers them. v3.1.6: the windows advance on the same vsync, within 0.1 ms of each other on two displays |
 | System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
@@ -86,7 +84,7 @@ released columns; [What changed since v3.1.7](#what-changed-since-v317) has the 
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net. v3.1.6: twelve formats including alpha, 10-bit and PNG/EXR sequences, about 3× faster, profiles, a queue, chapters, and BT.709 colours that match the screen |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Scenes, templates, Studio presets. v4: rebuilt in the panel's design, five pages, on the fixed control tree, protocol documented in `docs/REMOTE-PROTOCOL.md` |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **3785** unit tests at v3.1.7 + a GPU self-test over every engine (3666 at v3.1.6, 2999 at v3.1.5, 1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **4549** unit tests at v4.0.0 + a GPU self-test over every engine (3785 at v3.1.7, 3666 at v3.1.6, 2999 at v3.1.5, 1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅✅ | Shipped in v3.1.0: tracks, clips, automation lanes, markers, one shared transport. v3.1.5 (#636): a DAW-style editor with undo, split, duplicate and solo, multi-select with box selection, a loop brace, fade handles, tempo changes on the ruler, and media clips with a target. v3.1.6: YouTube chapters written from the markers. v4: several timelines, Use Timeline, cue markers with GO, MTC chase |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0: sparse grid, beat-quantised launch, follow actions, performance view. v3.1.5 (#637): several decks, trigger/toggle/gate launch modes, keyboard play, drag and drop, video, image and shader slots on a chosen layer, and action slots |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -128,14 +126,11 @@ Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 ### Not shipped yet
 
 Kept separate from the table above on purpose: that one records what has
-actually been released, plus one **v4.0.0 (beta)** column for what `main` holds
-for the next release; this one records intent. Nothing here, and nothing that
-is only in the beta column, is in a user’s hands yet. A row moves up only once
-it is built and tested on `main`.
+actually been released; this one records intent. Nothing here is in a user’s
+hands yet. A row moves up only once it is built, tested and released.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| New core and interface | v4.0.0 | On `main` as 4.0.0-beta and in the status table's v4.0.0 column, but not in users' hands until the release. See [What changed since v3.1.7](#what-changed-since-v317) |
 | Video project view and video wizard | After v4.0.0 | Planned (music video studio, phase 1), with mix videos from a track list |
 | Song sections and an edit that follows them | After v4.0.0 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
 | Kinetic lyric styles, podcast and audiogram templates | After v4.0.0 | Planned (phase 3) |
@@ -213,7 +208,7 @@ npm start -- --smoke
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
   more with v3.1.6 — 3666 at that tag — and 119
-  more with v3.1.7 — 3785 at that tag — and 745 more for v4.0.0 on `main` since.
+  more with v3.1.7 — 3785 at that tag — and 764 more with v4.0.0 — 4549 at that tag.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -3890,10 +3885,10 @@ identical to v3.1.6, frame by frame, with a control run of the same build also a
   here; see "Shipped, but never run on real hardware".
 - **`npm run perf`** (#910), to measure a real setup and compare runs.
 
-## v4.0.0 — New core and interface · in testing, not released
+## v4.0.0 — New core and interface · shipped
 
-Tracked in #905. Developed on `dev/v4`; since 11 November 2026 it is on `main` as 4.0.0-beta (built and
-tested, not released). When it ships, the list below and the CHANGELOG are its release notes.
+Tracked in #905. Developed on `dev/v4`, on `main` from 11 November 2026 and released on 13 November 2026.
+The list below and the CHANGELOG are its release notes.
 
 ### What changed since v3.1.7
 

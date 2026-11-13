@@ -166,7 +166,7 @@ test('ROADMAP durum tablosu: her satırda başlık kadar hücre, son sütun v4.0
   assert.ok(start > 0);
   const cells = (l) => l.slice(1, -1).split('|').map((c) => c.trim());
   const head = cells(lines[start]);
-  assert.strictEqual(head[head.length - 2], 'v4.0.0 (beta)');
+  assert.strictEqual(head[head.length - 2], '**v4.0.0**');
   let rows = 0;
   for (let i = start + 1; lines[i].startsWith('|'); i++) {
     assert.strictEqual(cells(lines[i]).length, head.length, 'satır ' + (i + 1));

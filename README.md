@@ -47,7 +47,7 @@ Layers on the left, the live preview in the middle, the selected layer's setting
 and presets, images, backgrounds, templates and saved scenes one click away below.
 [→ The control panel](#the-control-panel)
 
-<sub>The v4 interface, which runs [from source](#run-from-source) until its release; the installers are v3.1.7.</sub>
+<sub>The v4 interface.</sub>
 
 </div>
 
@@ -171,9 +171,6 @@ fluid gradient backgrounds that move with the music.
 ---
 
 ## New in v4
-
-> **v4 is not released yet.** Everything below is on `main` and runs [from source](#run-from-source)
-> today; the installers under [Download](#download) are the latest release (v3.1.7) until v4 ships.
 
 - **One model and a new panel.** Every scene, template and saved look is now a list of layers, and
   the panel is rebuilt around the picture: Scene, Live, Time, Studio and Output pages, an inspector
@@ -304,8 +301,9 @@ Every change since v3.1.7, grouped by area and with its pull request, is in the
 ### Download
 
 Get the latest build from **[Releases](https://github.com/CaYatur/SoundVisualizer/releases/latest)**.
-The newest release is v3.1.7; the [v4 features](#new-in-v4) arrive with the next release or can be
-[run from source](#run-from-source) now.
+The newest release is v4.0.0. Coming from v3.1.7 or older, download it by hand: the old updater cannot
+start the installer. Settings convert once to the v4 format and the old file is kept as
+`settings.v3-backup.json`.
 
 | Platform | File | Notes |
 |---|---|---|
@@ -2357,8 +2355,8 @@ the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, a
 and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a far broader and much
 faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
 and the CaYaDev presets, and in v3.1.7 half the memory, no more garbage collection freezes, low-power
-mode and a preset per MilkDrop layer. **v4.0.0** is on `main` now as 4.0.0-beta, built and tested but not
-released yet: everything under [New in v4](#new-in-v4), and every change since v3.1.7 in the
+mode and a preset per MilkDrop layer, and v4.0.0 rebuilds the core and the interface: everything under
+[New in v4](#new-in-v4), and every change since v3.1.7 in the
 roadmap's [v4.0.0 section](ROADMAP.md#what-changed-since-v317). After it comes the music video studio. The
 roadmap also keeps an honest list of what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
