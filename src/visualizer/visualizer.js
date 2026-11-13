@@ -739,6 +739,13 @@
     applyScene();
     applyLogo();
     document.body.style.cursor = (window.SV_FLOATING || !cfg.power.hideCursor) ? 'default' : 'none';
+    /* Konumu kilitli yüzen pencerede çubuk hiç görünmez. Kilit yalnız fareyle
+       taşımayı kapatıyordu; çubuk üzerine gelince açılıyor, köşe ve S/M/L
+       düğmeleri pencereyi kilitliyken de taşıyıp boyutlandırıyordu. Panelin
+       kendi düğmeleri ve ESC ile kapatma çalışmaya devam eder. */
+    if (window.SV_FLOATING) {
+      document.documentElement.classList.toggle('sv-float-locked', !!(cfg.floating && cfg.floating.locked));
+    }
     /* Sayfanın zemini de kalkmalı; pencere şeffaf doğsa bile body siyah
        boyadığı sürece arkasındaki masaüstü görünmez. */
     document.documentElement.classList.toggle('sv-transparent',

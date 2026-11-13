@@ -216,6 +216,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **A locked floating window shows no bar.** Lock Position only stopped dragging: the bar still
+  appeared under the mouse, and its corner and S/M/L buttons moved and resized the window anyway.
+  With the lock on, the bar is hidden and those commands from the window are ignored; the same
+  buttons in the panel still work, and Esc still closes it. `tests/floating-lock-bar.test.js`.
 - **Resizable Scene page panels.** The library shelf under the preview had a fixed height, so on a
   wide window it shrank to one row of cards. Drag the divider between the preview and the shelf, or
   between the side panels (Layers, Inspector) and the centre, to resize them.
