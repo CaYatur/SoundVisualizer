@@ -6427,10 +6427,22 @@
   /* Sahnenin küçük resmi: sahne uygulanınca ya da kaydedilince önizlemeden. Makineye özgü kolaylık,
      ayar dosyasına girmiyor: tarayıcı deposunda, sahne başına ~10 KB. */
   const SCENE_THUMB = 'sv-scene-thumb:';
-  function grabSceneThumb(id) {
+  /* Resim yalnız sahnenin kendisi ekrandayken: geçiş sürerken önizleme iki sahnenin
+     karışımını (ve varış sahnesinin efektlerini) gösteriyor. 1,4 sn sonra çekilen kare
+     2,5 sn'lik bir geçişin ortasına düşüyordu; T-bar tutulup geri alınınca da geri alınan
+     sahnenin resmi olarak eski sahnenin karesi kaydediliyordu ve Sıradaki monitörü onu
+     gösteriyordu. Sahne artık etkin değilse çekilmiyor; geçiş sürüyorsa bitene dek bekleniyor. */
+  function grabSceneThumb(id, tries) {
     setTimeout(() => {
       if (!window.SVPreview || !window.SVPreview.nextFrame) return;
+      if (activeSceneId !== id) return;
+      const st = window.SVPreview.stack ? window.SVPreview.stack() : null;
+      if (st && st.trans) {
+        if ((tries || 0) < 40) grabSceneThumb(id, (tries || 0) + 1);
+        return;
+      }
       window.SVPreview.nextFrame(() => {
+        if (activeSceneId !== id) return;
         const stage = $('pvStage');
         const list = stage ? stage.querySelectorAll('canvas') : [];
         if (!list.length || isBlackedOut()) return;
@@ -6441,7 +6453,7 @@
         list.forEach((n) => { if (n.width && n.height && n.style.display !== 'none') { try { g.drawImage(n, 0, 0, c.width, c.height); } catch { /* henüz çizilmedi */ } } });
         try { localStorage.setItem(SCENE_THUMB + id, c.toDataURL('image/webp', 0.7)); } catch { /* depo dolu: renk özeti kalır */ }
       });
-    }, 1400);
+    }, tries ? 400 : 1400);
   }
   function sceneThumbShot(id) {
     try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch { return ''; }
