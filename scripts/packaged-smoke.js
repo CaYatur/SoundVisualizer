@@ -20,7 +20,7 @@
    Kullanım:
      npm run pack:dir            (önce paket)
      npm run smoke:packaged
-     npm run smoke:packaged -- --exe=<yol> --keep --timeout=600
+     npm run smoke:packaged -- --exe=<yol> --keep --timeout=1200
 
    Çıkış kodu: öz test PASS ise 0, değilse 1, paket yoksa 2. */
 const fs = require('fs');
@@ -85,7 +85,9 @@ async function main() {
     process.exit(1);
   }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-pkg-smoke-'));
-  const timeoutS = Number(arg('timeout', 600)) || 600;
+  /* v4.0.0'da öz test yaklaşık 9 dakika sürüyor; 600 sn sınırı yayın günü ilk koşuyu
+     MilkDrop adımından hemen sonra kesti (takılma değil, aynı paket 1200 sn ile geçti). */
+  const timeoutS = Number(arg('timeout', 1200)) || 1200;
   console.log('Paket: ' + exe);
   console.log('Geçici profil: ' + work);
   const child = spawn(exe, ['--user-data-dir=' + work, '--smoke', '--smoke-export'], { stdio: ['ignore', 'pipe', 'pipe'] });
