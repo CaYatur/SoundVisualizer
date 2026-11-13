@@ -1,0 +1,59 @@
+# SoundVisualizer Android (#1054). Yalnız Android tarafı değişince koşar ve
+# masaüstünün zorunlu beş denetiminden biri DEĞİLDİR (docs/android/PLAN.md, D14).
+name: android
+
+on:
+  push:
+    branches: [dev/android]
+    paths:
+      - 'android/**'
+      - 'src/mobile/**'
+      - 'docs/android/**'
+      - 'src/main/preload-visualizer.js'
+      - 'src/main/preload-exporter.js'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'src/mobile/**'
+      - 'docs/android/**'
+      - 'src/main/preload-visualizer.js'
+      - 'src/main/preload-exporter.js'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+# Read-only: this job never writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: android host contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test android/js-tests/*.test.js
+
+  build:
+    name: android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Build, unit tests and lint
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-debug
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/reports/
+          retention-days: 7

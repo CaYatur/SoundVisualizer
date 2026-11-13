@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SoundVisualizer — CaYaDev Ses Görselleştirici
+  Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+  https://github.com/CaYatur/SoundVisualizer
+  SPDX-License-Identifier: MIT
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Güncelleme denetimi ve web katmanı için. Uygulamanın kendi sayfaları
+         ağa çıkmıyor: WebViewAssetLoader onları APK'dan veriyor. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SV">
+
+        <!-- Döndürme ve boyut değişiminde Activity yeniden kurulmaz: WebView'in
+             içindeki motor ve WebGL bağlamı korunur (PLAN 2.4). -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
