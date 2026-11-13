@@ -228,7 +228,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     2.5 s transition. After a T-bar cancel, the cancelled scene got the live scene's picture, and
     the Cued monitor showed it. It is now taken only once the transition is over and the scene is
     still live. Thumbnails already saved wrong are replaced the next time that scene goes live.
-  - `tests/tbar-transition-fx.test.js`.
+  - **Release at 0 %:** output windows, the web overlay and Spout showed the cued scene for one
+    frame when the T-bar was released at 0 %; the panel preview did not. Outputs receive the
+    cancel and the old configuration as two messages, and a frame drawn between them used the
+    cued scene's settings for layers both scenes share. The cancelled scene's configuration is
+    now held for drawing until the next one arrives. Recorded frame by frame on an output: the
+    cued scene appeared at +21 and +39 ms before, and in no frame after.
+  - `tests/tbar-transition-fx.test.js`, `tests/tbar-cancel-gap.test.js`.
 - **A locked floating window shows no bar.** Lock Position only stopped dragging: the bar still
   appeared under the mouse, and its corner and S/M/L buttons moved and resized the window anyway.
   With the lock on, the bar is hidden and those commands from the window are ignored; the same

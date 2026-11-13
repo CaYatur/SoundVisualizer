@@ -1538,6 +1538,8 @@
        kurulur; sürükleme sırasında her karede WebGL bağlamı yeniden yaratmak
        hem pahalı hem de görsel olarak sıçramalı olurdu. */
     setConfig(cfg) {
+      // Geri alınan geçişin tutulan yapılandırması: yenisi geldi (cancelTransition)
+      this._heldCfg = null;
       /* Sahne değiştiyse ve geçiş açıksa, mevcut katmanları giden yığına
          devret. Bu, aşağıdaki yeniden kurulumdan ÖNCE olmalı — sonrasında
          eski katmanlar çoktan atılmış olurdu. */
@@ -2105,6 +2107,13 @@
       this.entries = restored;
       this.signature = restored.map((e) => e.key).join(';');
       this.prevCfg = tr.cfg;
+      /* Geri alma ile eski yapılandırmanın gelişi arasında çizilen kareler giden sahnenin
+         yapılandırmasıyla çiziliyor. Çıkış penceresi, yayın katmanı ve Spout `cancel`'ı ve
+         yapılandırmayı ayrı iletilerle alıyor; arada bir iki kare çağıran hâlâ varış sahnesinin
+         yapılandırmasını veriyordu. Katman kimliği iki sahnede aynıysa (`_live`) eski örnekler
+         varışın ayarlarıyla çiziliyor, çıkışta varış sahnesi bir kare tam görünüyordu.
+         Önizlemede yoktu: panel yapılandırmayı aynı adımda veriyor. setConfig bunu bırakıyor. */
+      this._heldCfg = tr.cfg;
       this.lastSig = sceneSignature(tr.cfg);
       if (this.container) {
         restored.forEach((e, i) => {
@@ -2174,6 +2183,7 @@
     }
 
     draw(audio, cfg, t, dt) {
+      if (this._heldCfg) cfg = this._heldCfg;
       this._sharedLead = null;
       if (this._fxHold && this._fxHold.length && performance.now() - this._fxHoldAt > 3000) this.setMomentary([]);
       const tick = this._tickTransition(dt);
