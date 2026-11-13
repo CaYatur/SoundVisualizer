@@ -98,7 +98,8 @@
       "src/main/app-capture.js",
       "src/main/app-capture-linux.js",
       "src/main/audio-frame.js",
-      "src/main/loopback-helper.js"
+      "src/main/loopback-helper.js",
+      "src/shared/audio-spectrum.js"
     ],
     "win": {
       "target": [

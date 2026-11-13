@@ -25,8 +25,8 @@ olursa İngilizce sürüm esastır.
 | K11 | **Bağımlılıklar**: yalnız Kotlin ve Google'ın androidx kütüphaneleri (webkit, core, activity, media3-exoplayer, media3-session). Gradle wrapper ve sürümler sabitlenir. CI'da GitHub'ın kendi eylemleri ve `./gradlew` kullanılır. | Bağımsızlık şartı. |
 | K12 | **İmza**: geliştirme boyunca test imzası. İlk APK'dan önce kalıcı anahtarı kullanıcı oluşturur (parola kullanıcıda, depo dışında, yedekli). Play'e geçişte aynı anahtar Play'e yüklenir. | GitHub ve Play kurulumları aynı imzayı taşır, kullanıcı kanallar arasında sorunsuz güncellenir. |
 | K13 | **Güncelleme**: "yeni sürüm var" bildirimi ve sürüm sayfası. Uygulama kendini kurmaz. | Play kuralı. |
-| K14 | **Dal ve PR**: `dev/android` (main'den) **yalnız ekleme** yapar (`android/`, `src/mobile/`, `docs/android/`). Her iş ayrı PR. Commit ve PR İngilizce, "For #N", atıf satırı yok. Android CI zorunlu 5 denetime eklenmez. Yayın ayrı onayla. | Mevcut kurallar. |
-| K14b | **PC'ye dokunan işler önce main'e**: §2'deki maddeler (FFT ortak modülü, paket hariç tutma, `.gitignore`, güncelleyici bekçisi) ayrı ayrı, PC kapılarından geçerek doğrudan main'e birleşir. Sonra main `dev/android`'e alınır. | PC değişiklikleri PC'nin kendi test ve yayın akışında sınanır. Test sayısı çakışmaları büyük ölçüde kalkar. Android'in sonunda main'e birleşmesi PC için hiçbir şey değiştirmez. |
+| K14 | **Dal ve PR**: bütün Android işi `dev/android`'de (main'den). Her iş ayrı PR. Commit ve PR İngilizce, "For #N", atıf satırı yok. Android CI zorunlu 5 denetime eklenmez. Yayın ayrı onayla. | Mevcut kurallar. |
+| K14b | **main'e dokunulmaz.** PC dosyalarına dokunan değişiklikler de ayrı PR'larla, PC kapılarından geçerek `dev/android`'e gider. main'e alma (ya da main'den alma) yalnız sizin kararınızla. (14.11.2026'da değişti; ilk sürüm PC değişikliklerini önce main'e gönderiyordu.) | main'i kullanan ya da izleyenler yarım Android işiyle karşılaşmasın; main kararlı PC sürümü olarak kalsın. |
 | K15 | **Fiziksel cihaz yok**: iş emülatörle başlar. Performansla ilgili kesin kararlar ve **1.0 yayını fiziksel telefon ölçümüne bağlıdır.** | Emülatörün GPU'su telefonu temsil etmez. |
 
 ---
@@ -70,9 +70,9 @@ Kalıp başına yaklaşık 1.5 GB, toplam yaklaşık 7.5 GB.
 - `source-parses`: `src` altındaki her `.js` dosyasını ayrıştırıyor. Mobil JS de kapsanır.
 - `ui-themes`: CSS dosyalarını **elle listeliyor** (`admin.css`, `studio.css`). Mobil CSS listeye eklenmezse renk kuralı uygulanmaz. **Mutlaka eklenecek.**
 - `external-review`: `src` altında ikili dosya istemiyor. İkon ve yazı tipleri derlemede kopyalanır, `src/mobile`'a konmaz.
-- `scripts/test.js` README, README.tr ve ROADMAP'teki test sayısını denetliyor. `dev/android`'de test ekleyen her PR sayıları da günceller. main içeri alınınca sayı yeniden hesaplanır (bilinen sürtünme).
+- `scripts/test.js` README, README.tr ve ROADMAP'teki test sayısını denetliyor. `dev/android`'de test ekleyen her PR sayıları da günceller. main içeri alınırsa sayı yeniden hesaplanır.
 
-**PC dosyalarına dokunan değişiklikler (bilinen tam liste):** Her biri ayrı PR ve PC kapılarından geçer: `npm test`, öz test, gerekiyorsa golden A/B (107 sahne aynı).
+**PC dosyalarına dokunan değişiklikler (bilinen tam liste):** Her biri `dev/android`'e ayrı PR ve PC kapılarından geçer: `npm test`, öz test, gerekiyorsa golden A/B (107 sahne aynı).
 1. FFT ve ses karesi üretimini ortak modüle çıkarma (bugün `loopback-helper.js` ile `exporter.js`'te iki kopya). Ek kapı: kareler önce/sonra bayt bayt aynı (test).
 2. `package.json`: electron-builder'a `!src/mobile/**` ve `android:*` betikleri. `platform-packaging` testine "mobil pakete girmez" denetimi.
 3. `.gitignore`: `android/**/build`, `.gradle`, `local.properties`, kopyalanan web varlıkları.
@@ -131,7 +131,7 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
 - **Bitti:** `docs/android/PHASE0.md` (ölçüm raporu ve kararlara etkisi) ile telefonda tekrarlanacaklar listesi (0P).
 
 ### 1 — Altyapı
-- 1.1 FFT'yi ortak modüle çıkarma (PC PR'ı, kapılar).
+- 1.1 FFT'yi ve halka tamponlarını ortak modüle çıkarma (`src/shared/audio-spectrum.js`, PC kapılarıyla).
 - 1.2 electron-builder hariç tutma, `.gitignore`, npm betikleri, koruma testlerinin genişletilmesi (mobil CSS, Kotlin başlıkları).
 - 1.3 `android.yml`: `assembleDebug`, Kotlin birim testleri, lint; yol süzgeçli.
 - 1.4 `versionName`/`versionCode`; `release-assets.js`'in APK'yı tanıması (yayın fazında).
@@ -201,7 +201,7 @@ Yalnız siz isteyince.
 | R5 | WebView çökmesi | `onRenderProcessGone` ile yeniden kurma. |
 | R6 | Dışa aktarım arka planda yavaşlar | İlk sürümde ekran açık; arka plan ölçülürse eklenir. |
 | R7 | MIUI pil ve izin kısıtları | Rehber ekran, telefonda doğrulama. |
-| R8 | `dev/android` ile main'in ayrışması | main'i düzenli içeri almak; test sayısı satırlarını yeniden hesaplamak. |
+| R8 | `dev/android` ile main'in ayrışması | main'e gelen PC düzeltmeleri sizin kararınızla içeri alınır; PC'ye dokunan her PR'da PC kapıları `dev/android`'de koşar. |
 | R9 | Play kuralları (yüzen pencere, servis beyanları) | Baştan uygun bildirim dosyası ve yazılı gerekçeler. |
 | R10 | 2400×1080 ekranda tam çözünürlük pahalı | Çizim ölçeği; ölçüme göre varsayılan. |
 | R11 | Android sürümü GitHub'da "Latest" olur, PC güncelleyicisi ve indirme düğmeleri bozulur | `--latest=false` kuralı, PC güncelleyicisinde etiket bekçisi ve testi (§2.6). |
