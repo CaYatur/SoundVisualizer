@@ -8105,18 +8105,26 @@ function lookupLiveLyrics(st) {
 }
 /* Ayar değişince: kapatılınca bulunan söz kalkar; açılınca ya da sağlayıcı
    değişince aynı parçaya yeniden bakılır. */
+/* Bulunan söz yalnız arama kapatılınca ya da ayarı değişince kalkar. Söz katmanı
+   olmayan bir sahneye geçmek onu silmiyordu ama siliyordu: sahne geçişinde (ve T-bar
+   tutulurken) giden sahne hâlâ ekrandayken sözü boşalıyordu; geri dönülünce önbellekten
+   yeniden geliyor, yazı bir an sonra beliriyordu. Arama yine yalnız sözü izleyen bir
+   sahnede yapılıyor (lookupLiveLyrics); başka parçanın sözü eşleşmediği için çizilmez. */
 let lyricsLookupCfgSig = '';
 function syncLyricsLookup() {
   const cfg = currentConfig;
-  const on = !!(cfg && cfg.lyricsLookup && cfg.lyricsLookup.enabled === true && configFollowsLyrics(cfg));
-  const sig = on ? JSON.stringify(cfg.lyricsLookup) : '';
-  if (sig === lyricsLookupCfgSig) return;
-  lyricsLookupCfgSig = sig;
-  lyricsAutoSig = '';
-  if (!on) {
-    if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
-    return;
+  const enabled = !!(cfg && cfg.lyricsLookup && cfg.lyricsLookup.enabled === true);
+  const sig = enabled ? JSON.stringify(cfg.lyricsLookup) : '';
+  if (sig !== lyricsLookupCfgSig) {
+    lyricsLookupCfgSig = sig;
+    lyricsAutoSig = '';
+    if (!enabled) {
+      if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
+      return;
+    }
   }
+  if (!enabled || !configFollowsLyrics(cfg)) return;
+  // Aynı parça için yeniden aranmaz (lyricsAutoSig); başka sahnedeyken parça değiştiyse şimdi
   const st = shownNowPlaying();
   if (st && st.title) lookupLiveLyrics(st);
 }

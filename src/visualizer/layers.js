@@ -1173,6 +1173,16 @@
       this._fxHold = Array.isArray(list) ? list : [];
       this._fxHoldAt = performance.now();
       this._syncFx();
+      // Geçiş sürerken giden sahne de aynı anlık efekti alıyor: efekt bütün görüntüde
+      const out = this.trans && this.trans.stack;
+      if (out) { out._fxHold = this._fxHold; out._syncFx(); }
+    }
+
+    // Giden sahnenin efekt örneği geçişle birlikte kapanıyor
+    _dropOutFx(out) {
+      if (!out || !out.postfx) return;
+      if (out.postfx !== this.postfx) { try { out.postfx.dispose(); } catch { /* bağlam zaten gitti */ } }
+      out.postfx = null;
     }
 
     _syncFx() {
@@ -1962,6 +1972,17 @@
       out._mediaByLayer = this._mediaByLayer ? new Map(this._mediaByLayer) : null;
       // Giden sahnenin arkaplanı da geçiş boyunca aynı süzgeçle saydamlaşsın
       out.keyFilter = this.keyFilter;
+      /* Efekt zinciri de sahnenin: giden sahne kendi efektleriyle çiziliyor, varış sahnesi
+         kendininkiyle, karışım ikisinin arasında. Tek zincir karışımın TAMAMINA uygulanıyordu:
+         çağrı hemen ardından varış sahnesinin zincirini kuruyor ve T-bar %0'dayken bile giden
+         sahne varışın CRT/renk sapmasıyla çiziliyordu; geri alınca efekt bir karede kalkıyordu.
+         Giden yığın mevcut örneği alıyor; varış için aynı zincirle yenisi kuruluyor (setPostFX
+         onu birazdan güncelliyor). */
+      out._fxBase = this._fxBase;
+      out._fxHold = this._fxHold;
+      out.postfx = this.postfx;
+      this.postfx = null;
+      this._syncFx();
       for (const e of out.entries) {
         if (!e.proxyOf && e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
       }
@@ -1998,6 +2019,7 @@
       const gone = out.entries.filter((e) => !e.proxyOf);
       out.entries = [];
       this.trans = null;
+      this._dropOutFx(out);
       this._flushHeldMedia();
       if (this.container && gone.length && typeof setTimeout === 'function') {
         const next = () => {
@@ -2070,6 +2092,14 @@
       this._mediaPool = oldPool || null;
       this._mediaByLayer = out._mediaByLayer || null;
       this._mediaHold = [];
+      // Efekt zinciri de giden sahnenin örneğine dönüyor: geri alınan karede efekt değişmez
+      if (out.postfx) {
+        if (this.postfx) { try { this.postfx.dispose(); } catch { /* bağlam zaten gitti */ } }
+        this.postfx = out.postfx;
+        this._fxBase = out._fxBase;
+        out.postfx = null;
+        this._syncFx();
+      }
       out.entries = [];
       this.trans = null;
       this.entries = restored;
@@ -2164,6 +2194,7 @@
         this.revived = (this.revived || 0) + 1;
       }
       const fxOn = !!(this.postfx && this.postfx.hasWork());
+      const outFx = tick && tick.tr.stack.postfx && tick.tr.stack.postfx.hasWork() ? tick.tr.stack.postfx : null;
       const single = !!cfg.timelineComposition || fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
       if (single) {
@@ -2174,7 +2205,6 @@
         }
         this.drawTo(this.compCtx, audio, cfg, t, dt);
 
-        let src = this.compCanvas;
         if (tick) {
           const tr = tick.tr;
           this._ensureTrans();
@@ -2188,17 +2218,30 @@
             }
           }
           tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt);
-          this.compositor.compose(this.transCtx, this.transOut, this.compCanvas,
+          // Her sahne kendi efekt zinciriyle, karışımdan ÖNCE (beginTransition)
+          let outSrc = this.transOut;
+          if (outFx) {
+            outFx.resize(this.width, this.height);
+            outFx.render(this.transOut, audio, t, dt, seeThrough(tr.cfg));
+            outSrc = outFx.canvas;
+          }
+          let inSrc = this.compCanvas;
+          if (fxOn) {
+            this.postfx.resize(this.width, this.height);
+            this.postfx.render(this.compCanvas, audio, t, dt, seeThrough(cfg));
+            inSrc = this.postfx.canvas;
+          }
+          this.compositor.compose(this.transCtx, outSrc, inSrc,
             this.width, this.height, tr.type, tick.p, tr.opts);
-          src = this.transSurface;
+          this._setSurface(this.transSurface);
+          return;
         }
 
+        const src = this.compCanvas;
         if (fxOn) {
           this.postfx.resize(this.width, this.height);
           this.postfx.render(src, audio, t, dt, seeThrough(cfg));
           this._setSurface(this.postfx.canvas);
-        } else if (tick) {
-          this._setSurface(this.transSurface);
         } else {
           // Yalnızca haritalama ya da kayıt için tek yüzeye indik
           this._setSurface(this.compCanvas);
@@ -2773,6 +2816,8 @@
     }
 
     dispose() {
+      // Geçiş sürüyorsa giden sahnenin örnekleri ve efekt zinciri de kapanıyor
+      if (this.trans) this.endTransition();
       if (this.timelineRenderer) { this.timelineRenderer.dispose(); this.timelineRenderer = null; }
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];

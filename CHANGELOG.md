@@ -216,6 +216,19 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **The T-bar and scene transitions keep each scene's effects and lyrics.**
+  - **Effects:** the incoming scene's effect chain (CRT, chromatic aberration) was applied to the
+    whole mix. With the T-bar held at 0–10 %, the outgoing scene already bent and fringed, and
+    releasing at 0 % dropped the effect in one frame. Now each scene is drawn with its own chain
+    before the mix, in the T-bar and in timed transitions.
+  - **Lyrics:** moving to a scene without a lyrics layer cleared the automatically found lyrics at
+    once. During a transition, or with the T-bar held, the outgoing scene lost its lyrics, and
+    they came back a moment after a cancel. They now stay until lyrics lookup is turned off.
+  - **Thumbnails:** a scene's thumbnail was taken 1.4 s after it was applied, in the middle of a
+    2.5 s transition. After a T-bar cancel, the cancelled scene got the live scene's picture, and
+    the Cued monitor showed it. It is now taken only once the transition is over and the scene is
+    still live. Thumbnails already saved wrong are replaced the next time that scene goes live.
+  - `tests/tbar-transition-fx.test.js`.
 - **A locked floating window shows no bar.** Lock Position only stopped dragging: the bar still
   appeared under the mouse, and its corner and S/M/L buttons moved and resized the window anyway.
   With the lock on, the bar is hidden and those commands from the window are ignored; the same
