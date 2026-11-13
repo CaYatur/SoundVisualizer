@@ -306,7 +306,9 @@ test('modülasyon hedefleri: arkaplan ayarları moduna göre gruplanır, ham ana
   assert.strictEqual(by('visualizer.reflectionLength').label, 'Yansıma Boyu');
   assert.strictEqual(by('visualizer.capHold').label, 'Tepe Bekleme (sn)');
   assert.strictEqual(by('visualizer.someNewField').label, 'Some New Field', 'bilinmeyen alan sözcüklere ayrılır');
-  assert.strictEqual(by('visualizer.spectrum.floorDb').label, 'Floor Db');
+  // Panelde adı olan alan panelin adını alır (automation-targets.test.js)
+  assert.strictEqual(by('visualizer.spectrum.floorDb').label, 'dB Tabanı');
+  assert.strictEqual(by('visualizer.spectrum.floorDb').group, 'Görselleştirici · Tayf Ölçümü');
   const star = by('background.starfield.count');
   assert.strictEqual(star.group, 'Arkaplan · ' + MC.get('background', 'starfield').label);
   const def = MC.get('background', 'starfield').settings.find((s) => s[0] === 'count');
@@ -314,9 +316,9 @@ test('modülasyon hedefleri: arkaplan ayarları moduna göre gruplanır, ham ana
   assert.deepStrictEqual([star.min, star.max], [def[2], def[3]], 'aralık katalogdan');
   // Aynı adlı ayar iki modda iki ayrı grupta
   assert.notStrictEqual(by('background.starfield.bassPush').group, by('background.ink.bassPush').group);
-  assert.strictEqual(by('background.transparentKey').group, 'Arkaplan');
+  assert.strictEqual(by('background.transparentKey'), undefined, 'renk eşiği hedef değil');
   assert.strictEqual(by('background.notAMode.fooBar').group, 'Arkaplan', 'katalogda olmayan alt nesne ana grupta');
-  assert.ok(!cat.some((c) => /[a-z][A-Z]/.test(c.label)), 'camelCase etiket kalmadı');
+  assert.ok(!cat.some((c) => /[a-z][A-Z]/.test(c.label.replace(/dB/g, ''))), 'camelCase etiket kalmadı');
   // Katalog etiketlerinin çevirisi var (İngilizce arayüzde Türkçe kalmasın)
   const i18n = read('src/shared/i18n.js');
   const src = read('src/admin/modulation-panel.js');
