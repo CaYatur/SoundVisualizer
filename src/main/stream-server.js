@@ -960,6 +960,11 @@ function handleUpgrade(req, socket) {
     const lyricClock = hooks.getLyricsClock();
     if (lyricClock) sendJson(client, { type: 'lyrics-clock', anchor: lyricClock });
   }
+  // Zaman çizelgesi çıpası: sonradan açılan web çıkışı oynatma kafasını bilsin
+  if (client.kind === 'overlay' && typeof hooks.getShowClock === 'function') {
+    const showClock = hooks.getShowClock();
+    if (showClock) sendJson(client, { type: 'show-clock', anchor: showClock });
+  }
 
   socket.on('data', (chunk) => {
     client.buf = Buffer.concat([client.buf, chunk]);
