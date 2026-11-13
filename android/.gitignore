@@ -1,0 +1,9 @@
+# Gradle ve Android Studio çıktıları
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
