@@ -1,13 +1,12 @@
 > **Archive: the plan of the 3.0 cycle (August–September 2026).** It is not the current plan and its
 > boxes are no longer kept up to date. Several unticked tasks shipped later, for example the clip deck and
 > timeline (v3.1.0), Spout and Syphon output (v3.1.1), OSC output (v3.1.5) and MilkDrop preset
-> thumbnails (v3.1.5). Others are done on `main` for v4.0.0: Art-Net input, gamepad, MIDI clock input,
+> thumbnails (v3.1.5). Others shipped in v4.0.0: Art-Net input, gamepad, MIDI clock input,
 > multi-pass Studio shaders, adaptive resolution and golden-frame tests. The GitHub issues named in each
 > task carry their current state.
 >
-> **Where things stand today:** the latest release is **v3.1.7** (2026-11-03). **v4.0.0** is on `main` as
-> 4.0.0-beta: built and tested, not released yet. See the README's "New in v4" section and
-> [ROADMAP.md](../../ROADMAP.md).
+> **Where things stand today:** the latest release is **v4.0.0** (2026-11-13). See the README's
+> "New in v4" section and [ROADMAP.md](../../ROADMAP.md).
 
 > At the time this plan was closed: **131 / 227** tasks complete; the timeline and clip deck work moved to
 > v3.1.0 and the rest to the backlog. The v3.0.0 milestone was closed with 150 issues.
