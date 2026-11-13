@@ -11,7 +11,7 @@ import java.nio.ByteOrder
 
 /* İKİLİ İLETİ BİÇİMİ — docs/android/MESSAGES.md. Sayfa tarafındaki karşılığı
    src/mobile/messages.js; iki taraf aynı sabitleri kullanır ve çapraz testle
-   (tests/fixtures/android-messages) birbirine bağlıdır. Hepsi küçük uçlu. */
+   (android/js-tests/fixtures) birbirine bağlıdır. Hepsi küçük uçlu. */
 object Messages {
     const val VERSION = 1
     const val HEADER_BYTES = 16
@@ -51,6 +51,20 @@ object Messages {
                 return Header(type, seq, time)
             }
         }
+    }
+
+    const val WAVE_HEADER_BYTES = 8
+
+    /** WAVE iletisi (uygulama → sayfa): Visualizer'ın 128 merkezli 8 bit dalga anlık görüntüsü. */
+    fun wave(seq: Long, timeMs: Double, sampleRate: Int, wave: ByteArray): ByteArray {
+        val out = ByteArray(HEADER_BYTES + WAVE_HEADER_BYTES + wave.size)
+        val buf = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN)
+        Header(TYPE_WAVE, seq, timeMs).write(buf)
+        buf.putInt(sampleRate)
+        buf.putShort(wave.size.toShort())
+        buf.putShort(0)
+        buf.put(wave)
+        return out
     }
 
     /** PCM iletisi (uygulama → sayfa). [samples] iç içe kanallı 16 bit örnekler. */

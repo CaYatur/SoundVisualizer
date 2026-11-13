@@ -26,3 +26,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "SoundVisualizer"
 include(":app")
+// Sınama yardımcısı: başka bir uygulama gibi ses çalar (0E5); yayımlanmaz
+include(":tonegen")
