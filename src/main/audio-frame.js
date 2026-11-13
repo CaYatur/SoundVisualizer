@@ -28,8 +28,10 @@
    şey (bantlar, tayf, MilkDrop, dışa aktarım) aynı sayıları görüyor. İki
    kanal onun yanına ekleniyor. */
 
-const FFT_SIZE = 2048;
-const BINS = FFT_SIZE / 2; // 1024
+const spectrumLib = require('../shared/audio-spectrum.js');
+
+const FFT_SIZE = spectrumLib.FFT_SIZE; // 2048
+const BINS = spectrumLib.BINS; // 1024
 const MARKER0 = 0xaa;
 const MARKER1 = 0x55;
 const OFFSET = Object.freeze({
@@ -41,80 +43,9 @@ const OFFSET = Object.freeze({
 });
 const FRAME_BYTES = 6 + BINS + 3 * FFT_SIZE;
 
-/* Bir kaynağın (aygıt ya da uygulama) halka tamponları. Kronolojik: en yeni
-   örnek sonda. Mono tampon eski yolun tamponunun kendisi — aynı ortalama,
-   aynı sıra — ki mono okuyan hiçbir şeyin sayısı değişmesin. */
-class SourceRings {
-  constructor() {
-    this.mono = new Float32Array(FFT_SIZE);
-    this.left = new Float32Array(FFT_SIZE);
-    this.right = new Float32Array(FFT_SIZE);
-  }
-
-  /* Yeni örnek yeri açar ve yazmaya başlanacak indisi döndürür.
-
-     Parça tampondan UZUNSA yalnız EN YENİ 2048 örnek alınıyor. Eski yol
-     burada kaydırmayı atlıyor ve parçanın EN ESKİ 2048 örneğini yazıyordu;
-     aygıt geri çağrısı 512 örnek verdiği için yalnız uygulama yakalamasında,
-     boru bir an tıkanıp büyük bir parça geldiğinde görülebilirdi. */
-  _shift(n) {
-    if (n < FFT_SIZE) {
-      this.mono.copyWithin(0, n);
-      this.left.copyWithin(0, n);
-      this.right.copyWithin(0, n);
-    }
-    return FFT_SIZE - n;
-  }
-
-  /* Araya serpiştirilmiş float32 örnekler (aygıt geri çağrısı). Tek kanallı
-     bir aygıtta sol ve sağ aynı örnek: mikrofon gerçekten tek kanal. */
-  pushFloat32(f, nCh) {
-    const ch = Math.max(1, nCh | 0);
-    const samples = (f.length / ch) | 0;
-    const n = Math.min(samples, FFT_SIZE);
-    const w = this._shift(n);
-    const skip = samples - n;
-    const M = this.mono, L = this.left, R = this.right;
-    for (let i = 0; i < n; i++) {
-      const idx = (skip + i) * ch;
-      const l = f[idx];
-      if (ch > 1) {
-        const r = f[idx + 1];
-        M[w + i] = (l + r) * 0.5;
-        L[w + i] = l;
-        R[w + i] = r;
-      } else {
-        M[w + i] = l;
-        L[w + i] = l;
-        R[w + i] = l;
-      }
-    }
-  }
-
-  /* Uygulama yakalamasının ham akışı: float32 stereo, küçük endian. Okuma
-     readFloatLE ile — Node'un havuzdan verdiği tamponun byteOffset'i 4'ün
-     katı olmak zorunda değil ve hizalanmamış bir görünüm RangeError atardı. */
-  pushStereoLE(buf, frames) {
-    const n = Math.min(frames, FFT_SIZE);
-    const w = this._shift(n);
-    const skip = frames - n;
-    const M = this.mono, L = this.left, R = this.right;
-    for (let i = 0; i < n; i++) {
-      const off = (skip + i) * 8;
-      const l = buf.readFloatLE(off);
-      const r = buf.readFloatLE(off + 4);
-      M[w + i] = (l + r) * 0.5;
-      L[w + i] = l;
-      R[w + i] = r;
-    }
-  }
-
-  reset() {
-    this.mono.fill(0);
-    this.left.fill(0);
-    this.right.fill(0);
-  }
-}
+/* Kaynak halka tamponları ortak modülde (src/shared/audio-spectrum.js, #1054):
+   Android sayfası kareyi aynı halkayla kuruyor. */
+const SourceRings = spectrumLib.SourceRings;
 
 /* Kaynakları karıştırır. Normalleştirme KARIŞTIRILAN kaynak sayısına göre
    (1/√n) ve bir kez hesaplanıyor; toplama sırası kaynak sırası — eski
@@ -140,11 +71,8 @@ function mixSources(out, sources, norm) {
 /* -1..1 örnekleri 128 merkezli baytlara yazar. Kırpma ve yuvarlama eski
    yolunki: NaN olduğu gibi geçer ve 0 baytına düşer. */
 function writeTime(buf, offset, ring) {
-  for (let i = 0; i < FFT_SIZE; i++) {
-    let s = ring[i];
-    s = s < -1 ? -1 : s > 1 ? 1 : s;
-    buf[offset + i] = (128 + s * 127) | 0;
-  }
+  // Hesap dışa aktarım ve Android ile ortak (#1054)
+  spectrumLib.timeBytes(ring, buf, offset);
 }
 
 /* Bir karenin baytlarından okuyucuya giden nesne. Her dizi KOPYA: kaynak

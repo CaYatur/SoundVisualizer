@@ -37,50 +37,13 @@
      kare saatine sarılır; kamera açılmaz (canlı kaynak). */
   window.SV_OFFLINE = true;
 
-  // ---- loopback-helper.js ile birebir aynı sabitler/ölçek ----
-  const FFT_SIZE = 2048;
-  const BINS = FFT_SIZE / 2; // 1024
-  const MIN_DB = -90;
-  const MAX_DB = -18;
-
-  const hann = new Float32Array(FFT_SIZE);
-  for (let i = 0; i < FFT_SIZE; i++) {
-    hann[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)));
-  }
-  const re = new Float32Array(FFT_SIZE);
-  const im = new Float32Array(FFT_SIZE);
-
-  // loopback-helper.js'teki radix-2 FFT (birebir)
-  function fft() {
-    const n = FFT_SIZE;
-    for (let i = 1, j = 0; i < n; i++) {
-      let bit = n >> 1;
-      for (; j & bit; bit >>= 1) j ^= bit;
-      j ^= bit;
-      if (i < j) {
-        const tr = re[i]; re[i] = re[j]; re[j] = tr;
-        const ti = im[i]; im[i] = im[j]; im[j] = ti;
-      }
-    }
-    for (let len = 2; len <= n; len <<= 1) {
-      const ang = (-2 * Math.PI) / len;
-      const wr = Math.cos(ang), wi = Math.sin(ang);
-      const half = len >> 1;
-      for (let i = 0; i < n; i += len) {
-        let cr = 1, ci = 0;
-        for (let k = 0; k < half; k++) {
-          const a = i + k, b = a + half;
-          const vr = re[b] * cr - im[b] * ci;
-          const vi = re[b] * ci + im[b] * cr;
-          re[b] = re[a] - vr; im[b] = im[a] - vi;
-          re[a] += vr; im[a] += vi;
-          const ncr = cr * wr - ci * wi;
-          ci = cr * wi + ci * wr;
-          cr = ncr;
-        }
-      }
-    }
-  }
+  /* ---- Ses karesi: canlı yakalama ve Android ile ORTAK hesap (#1054) ----
+     src/shared/audio-spectrum.js. Aynı sahne canlıda ve videoda aynı tepkiyi
+     versin diye tayf ve zaman baytları üç yerde de aynı koddan geliyor. */
+  const SPEC = window.SVAudioSpectrum;
+  const FFT_SIZE = SPEC.FFT_SIZE;
+  const BINS = SPEC.BINS;
+  const spectrum = SPEC.create();
 
   // ---- Durum ----
   const stageEl = document.getElementById('stage');
@@ -148,28 +111,10 @@
       ringL[i] = l;
       ringR[i] = r;
     }
-    for (let i = 0; i < FFT_SIZE; i++) {
-      re[i] = ring[i] * hann[i];
-      im[i] = 0;
-    }
-    fft();
-    const range = MAX_DB - MIN_DB;
-    for (let i = 0; i < BINS; i++) {
-      const mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / (FFT_SIZE / 4);
-      let db = 20 * Math.log10(mag + 1e-9);
-      let v = (db - MIN_DB) / range;
-      v = v < 0 ? 0 : v > 1 ? 1 : v;
-      freqBytes[i] = (v * 255) | 0;
-    }
-    const toByte = (s) => {
-      s = s < -1 ? -1 : s > 1 ? 1 : s;
-      return (128 + s * 127) | 0;
-    };
-    for (let i = 0; i < FFT_SIZE; i++) {
-      timeBytes[i] = toByte(ring[i]);
-      leftBytes[i] = toByte(ringL[i]);
-      rightBytes[i] = toByte(ringR[i]);
-    }
+    spectrum.spectrum(ring, freqBytes, 0);
+    SPEC.timeBytes(ring, timeBytes, 0);
+    SPEC.timeBytes(ringL, leftBytes, 0);
+    SPEC.timeBytes(ringR, rightBytes, 0);
   }
 
   // Ses dosyasını PCM'e çöz (kayıpsız çözümleme). 48000 Hz sabit — canlı boru hattıyla

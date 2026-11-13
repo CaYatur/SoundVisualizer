@@ -26,10 +26,11 @@ const { RtAudio, RtAudioApi, RtAudioFormat } = require('audify');
 /* Karenin yerleşimi ve kaynak tamponları ana süreçle ORTAK (bkz.
    audio-frame.js): biri değişip öbürü değişmeseydi kareler kayardı. */
 const frameFormat = require('./audio-frame.js');
-const { FFT_SIZE, BINS, OFFSET } = frameFormat;
+const { OFFSET } = frameFormat;
+/* Tayf hesabı dışa aktarım ve Android ile ORTAK (#1054): üçü aynı baytları
+   üretmeli, yoksa aynı sahne canlıda ve videoda farklı tepki verir. */
+const spectrum = require('../shared/audio-spectrum.js').create();
 const FRAME = 512; // callback başına örnek
-const MIN_DB = -90;
-const MAX_DB = -18;
 
 // İşletim sistemine göre ses arka ucu (Windows: WASAPI, macOS: CoreAudio, Linux: Pulse/ALSA)
 function makeRt() {
@@ -147,69 +148,18 @@ if (wanted.length === 1 && wanted[0] === 'default') {
   if (advice) process.stderr.write('NO-LOOPBACK ' + advice.code + ' ' + advice.message + '\n');
 }
 
-// FFT hazırlığı
 /* Karışım: mono ve iki kanal. Tayf mono karışımdan hesaplanıyor — eskisi
    gibi; iki kanal yalnız zaman baytları olarak karenin sonuna ekleniyor. */
 const mixed = new frameFormat.SourceRings();
-const hann = new Float32Array(FFT_SIZE);
-for (let i = 0; i < FFT_SIZE; i++) hann[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)));
-const re = new Float32Array(FFT_SIZE);
-const im = new Float32Array(FFT_SIZE);
 
 // Çıkış karesi: işaret, örnekleme hızı, tayf, mono, sol, sağ (audio-frame.js)
 const outBuf = Buffer.allocUnsafe(frameFormat.FRAME_BYTES);
 outBuf[0] = frameFormat.MARKER0;
 outBuf[1] = frameFormat.MARKER1;
 
-function fft() {
-  const n = FFT_SIZE;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) {
-      const tr = re[i]; re[i] = re[j]; re[j] = tr;
-      const ti = im[i]; im[i] = im[j]; im[j] = ti;
-    }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = (-2 * Math.PI) / len;
-    const wr = Math.cos(ang), wi = Math.sin(ang);
-    const half = len >> 1;
-    for (let i = 0; i < n; i += len) {
-      let cr = 1, ci = 0;
-      for (let k = 0; k < half; k++) {
-        const a = i + k, b = a + half;
-        const vr = re[b] * cr - im[b] * ci;
-        const vi = re[b] * ci + im[b] * cr;
-        re[b] = re[a] - vr; im[b] = im[a] - vi;
-        re[a] += vr; im[a] += vi;
-        const ncr = cr * wr - ci * wi;
-        ci = cr * wi + ci * wr;
-        cr = ncr;
-      }
-    }
-  }
-}
-
 function emit() {
-  // pencereleme + FFT girişi
-  const ring = mixed.mono;
-  for (let i = 0; i < FFT_SIZE; i++) {
-    re[i] = ring[i] * hann[i];
-    im[i] = 0;
-  }
-  fft();
-
-  // frekans baytları (0..255), dB ölçekli
-  const range = MAX_DB - MIN_DB;
-  for (let i = 0; i < BINS; i++) {
-    const mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / (FFT_SIZE / 4);
-    let db = 20 * Math.log10(mag + 1e-9);
-    let v = (db - MIN_DB) / range;
-    v = v < 0 ? 0 : v > 1 ? 1 : v;
-    outBuf[OFFSET.freq + i] = (v * 255) | 0;
-  }
+  // frekans baytları (0..255), dB ölçekli; hesap src/shared/audio-spectrum.js
+  spectrum.spectrum(mixed.mono, outBuf, OFFSET.freq);
   // zaman baytları (128 merkez): mono, sonra iki kanal
   frameFormat.writeTime(outBuf, OFFSET.time, mixed.mono);
   frameFormat.writeTime(outBuf, OFFSET.left, mixed.left);
