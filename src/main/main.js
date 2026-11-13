@@ -3374,9 +3374,16 @@ ipcMain.on('media-scrub', (e, m) => {
   sendToVisualizers('media-scrub', { layerId, frac });
 });
 
+/* Web çıkışı da çıpayı almalı: "Timeline kullan" açıkken çıkış oynatma
+   kafasındaki bileşim. Çıpa gitmeyince web sayfası 0. saniyeyi çiziyor,
+   orada klip yoksa siyah kalıyordu. */
+function broadcastShowClock() {
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'show-clock', anchor: showClockAnchor }, 'overlay');
+}
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);
+  broadcastShowClock();
   // Yedeklilik (#544): birincilin taşıması yedeğe de gider
   if (red.role === 'primary' && streamServer.peerCount()) streamServer.sendPeers({ type: 'show-clock', anchor: showClockAnchor });
 });
@@ -4828,6 +4835,7 @@ function syncStreamServer() {
       getNowPlaying: () => shownNowPlaying(),
       getLyricsLibrary: () => lyricsSnapshot(),
       getLyricsClock: () => lyricsClockAnchor,
+      getShowClock: () => showClockAnchor,
       /* MilkDrop dokuları (#586): adlar ve doğrulanmış dosya. Web çıkışı
          yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
       mdTextureNames: () => textureNames().names,
@@ -5854,6 +5862,7 @@ function onPrimaryMessage(msg) {
     if (a && Number.isFinite(a.epoch)) a.epoch = f.toLocal(a.epoch);
     showClockAnchor = a;
     sendToVisualizers('show-clock', showClockAnchor);
+    broadcastShowClock();
     notifyAdmin('show-clock-follow', showClockAnchor);
     return;
   }

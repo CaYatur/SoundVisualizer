@@ -35,6 +35,8 @@
   let lyricsLibSeen = false;
   let lyricsClockAnchor = null;
   let lyricsClockSeen = false;
+  let showClockAnchor = null;
+  let showClockSeen = false;
   let ws = null;
   let retry = 0;
   let firstConfig = null;
@@ -281,7 +283,14 @@
       } else if (msg.type === 'tbar') {
         handlers.tbar.forEach((h) => h(msg.m));
       } else if (msg.type === 'show-clock') {
-        handlers.showClock.forEach((h) => h(msg.anchor));
+        /* Çıpa uygulamanın Date.now'uyla damgalı; sayfa kendi saatiyle
+           hesaplıyor. Başka makinedeki OBS için damga bu saate çevrilir. */
+        let anchor = msg.anchor && typeof msg.anchor === 'object' ? Object.assign({}, msg.anchor) : null;
+        const box = window.SVServerNow;
+        if (anchor && isFinite(anchor.epoch) && box && isFinite(box.offset)) anchor.epoch -= box.offset;
+        showClockAnchor = anchor;
+        showClockSeen = true;
+        handlers.showClock.forEach((h) => h(anchor));
       } else if (msg.type === 'md-follow') {
         // Liderin MilkDrop seçimi (#585): web çıkışı hep izleyici
         handlers.mdFollow.forEach((h) => h(msg.follow || null));
@@ -377,7 +386,11 @@
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onMomentaryFx: (cb) => handlers.momentaryFx.push(cb),
     onTbar: (cb) => handlers.tbar.push(cb),
-    onShowClock: (cb) => handlers.showClock.push(cb),
+    // Zaman çizelgesi çıpası da dinleyiciden önce gelebilir: son örnek yeniden verilir
+    onShowClock: (cb) => {
+      handlers.showClock.push(cb);
+      if (showClockSeen && typeof cb === 'function') cb(showClockAnchor);
+    },
     /* Kütüphane ve söz saati, dinleyici kurulmadan önce gelebilir.
        Son örnek abone olunca yeniden verilir. */
     onLyricsLib: (cb) => {
