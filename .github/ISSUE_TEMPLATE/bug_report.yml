@@ -12,7 +12,7 @@ body:
     attributes:
       label: Version
       description: "*Installed Version* on the Updates card, or the name of the file you installed."
-      placeholder: v3.1.5
+      placeholder: v4.0.0
     validations:
       required: true
   - type: dropdown
