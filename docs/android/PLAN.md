@@ -28,8 +28,8 @@ rewritten. The phone is a personal device, so most VJ and show-control tools sta
 | D11 | **Dependencies:** Kotlin and Google's androidx libraries only (webkit, core, activity, media3-exoplayer, media3-session). Gradle wrapper and versions pinned. CI uses GitHub's own actions and `./gradlew`. | Independence. |
 | D12 | **Signing:** debug signing during development. Before the first APK the owner creates the release key (the password stays with the owner, outside the repository, backed up). If the app moves to Play, the same key is uploaded to Play App Signing. | GitHub and Play installs then carry the same signature and update into each other. |
 | D13 | **Updates:** a "new version" notice and a link to the release page. The app never installs itself. | Play policy. |
-| D14 | **Branch and PRs:** `dev/android` (from `main`) is **additive only**: `android/`, `src/mobile/`, `docs/android/`. One PR per task. Commits and PRs in English, "For #N". The Android CI job is not one of the five required checks. Releases need separate approval. | Existing rules. |
-| D14b | **Desktop-touching changes go to `main` first**, each as its own PR through the desktop gates, and `main` is then merged into `dev/android`. | Desktop changes are tested by the desktop test and release flow. Test-count conflicts mostly disappear, and merging Android into `main` later changes nothing for the desktop app. |
+| D14 | **Branch and PRs:** all Android work lives on `dev/android` (from `main`). One PR per task. Commits and PRs in English, "For #N". The Android CI job is not one of the five required checks. Releases need separate approval. | Existing rules. |
+| D14b | **`main` is not touched.** Changes to desktop files go to `dev/android` too, each as its own PR through the desktop gates. Merging into `main` (or from it) happens only when the owner decides. (Changed on 2026-11-14; the first version sent desktop changes to `main` first.) | People who use or follow `main` should not meet half-finished Android work; `main` stays the stable desktop line. |
 | D15 | **No physical phone for now:** work starts on the emulator. Performance decisions and **the 1.0 release depend on measurements on a physical phone.** | The emulator GPU does not represent a phone. |
 
 ---
@@ -66,7 +66,7 @@ Google licence; if the owner accepts it, they are added so the WebView updates f
 - `external-review` allows no binary files under `src`. Icons and fonts are copied at build time, never committed to `src/mobile`.
 - `scripts/test.js` checks the test count in README, README.tr and ROADMAP. A PR on `dev/android` that adds tests also updates those numbers.
 
-**Changes that touch desktop files.** Each is its own PR to `main` through `npm test`, the smoke test and, where relevant, the golden A/B (107 scenes unchanged):
+**Changes that touch desktop files.** Each is its own PR to `dev/android` through `npm test`, the smoke test and, where relevant, the golden A/B (107 scenes unchanged):
 1. Move the FFT and audio-frame builder into one shared module. Today there are two copies, in `loopback-helper.js` and `exporter.js`. Extra gate: frames are byte-identical before and after (test).
 2. `package.json`: exclude `!src/mobile/**` from electron-builder and add the `android:*` scripts. The `platform-packaging` test proves that the mobile files stay out of the desktop package.
 3. `.gitignore`: `android/**/build`, `.gradle`, `local.properties` and the copied web assets.
@@ -118,8 +118,8 @@ Each phase ends with a "done when" line. The owner approves each phase before th
 - **Done when** `docs/android/PHASE0.md` (the measurement report and its effect on decisions) and the list of checks to repeat on a phone (0P) are written.
 
 ### 1 — Infrastructure
-- 1.1 FFT moved into a shared module (desktop PR to `main`).
-- 1.2 electron-builder exclusion, `.gitignore`, npm scripts, wider guard tests (mobile CSS, Kotlin headers), updater tag guard. Desktop PRs to `main`.
+- 1.1 FFT and ring buffers moved into a shared module (`src/shared/audio-spectrum.js`).
+- 1.2 electron-builder exclusion, `.gitignore`, npm scripts, wider guard tests (mobile CSS, Kotlin headers), updater tag guard.
 - 1.3 `android.yml`: `assembleDebug`, Kotlin unit tests and lint, path-filtered.
 - 1.4 `versionName`/`versionCode`; `release-assets.js` learns about the APK (release phase).
 - **Done when** the desktop gates and the Android CI are green and no mobile file is in the desktop package.
@@ -188,7 +188,7 @@ Only when the owner asks.
 | R5 | The WebView renderer dies | Rebuild through `onRenderProcessGone`. |
 | R6 | Export slows down in the background | First release keeps the screen on; background export only after measurement. |
 | R7 | Vendor battery and permission rules | Guide screen, phone verification. |
-| R8 | `dev/android` drifts from `main` | D14b; merge `main` in regularly. |
+| R8 | `dev/android` drifts from `main` | Desktop fixes that land on `main` are brought in when the owner decides; desktop gates run on `dev/android` for every desktop-touching PR. |
 | R9 | Play rules (floating window, service declarations) | A compliant manifest from the start, with written reasons. |
 | R10 | Full resolution on a 2400×1080 screen is expensive | Render scale, default set by measurement. |
 | R11 | An Android release becomes "Latest" on GitHub | `--latest=false` rule, tag guard in the desktop updater and its test (§2.6). |
