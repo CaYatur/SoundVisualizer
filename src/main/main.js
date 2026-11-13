@@ -3265,8 +3265,11 @@ ipcMain.handle('floating:is-open', () => floatingIsOpen());
 ipcMain.handle('floating:snap', (e, where) => { snapFloating(where); return true; });
 ipcMain.handle('floating:size', (e, kind) => { sizeFloating(kind); return true; });
 ipcMain.on('floating:close', () => closeFloatingWindow());
-ipcMain.on('floating:snap', (e, where) => snapFloating(where));
-ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
+/* Pencerenin kendi çubuğundan gelen komutlar: konum kilitliyken yok sayılır
+   (çubuk o sırada gizli; eski bir sayfa ya da kısayol yine de göndermesin).
+   Paneldeki aynı düğmeler ayrı kanaldan (handle) gelir ve çalışır. */
+ipcMain.on('floating:snap', (e, where) => { if (!floatingPrefs().locked) snapFloating(where); });
+ipcMain.on('floating:size', (e, kind) => { if (!floatingPrefs().locked) sizeFloating(kind); });
 
 /* Tam ekrandan (F11) cekilince tasima/yeniden boyut; kilit cfg.power.geometryLock. */
 /* Tam ekrandan çıkınca pencere ekranı birebir kaplıyorsa çalışma alanına
