@@ -311,6 +311,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   Apply Immediately toggle. The live output, the panel preview and the export draw the same
   composition: 17 transition styles were compared at 6 points each between the live and the export
   path.
+- **The web output follows Use Timeline.** The playhead clock went to the output windows and to
+  Spout/Syphon but never to the web page, so in OBS the page stayed at second 0 and showed black
+  wherever no clip starts there. The clock now reaches the page when it changes and when the page
+  connects, and is moved onto the page's own clock if OBS runs on another computer. Measured on a
+  copy of a real profile: before, the page sat at 0 s while the panel played at 6 s; after, both
+  read the same time and the page drew the composed clips. `tests/web-show-clock.test.js`.
 - **Automation and modulation can reach every setting the panel has.** The target list missed
   MilkDrop's own audio input: its gain, MilkDrop's separate sensitivity, sat in the general Audio
   group as "Gain" with no range. Now it has its own MilkDrop Audio Input group and is found by
