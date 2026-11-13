@@ -109,15 +109,18 @@ function checkRoadmap() {
     const last = cells[cells.length - 3].replace(/\*/g, '');
     /* Yayın hazırlığı: yayındaki sürümün sütunundan sonra, main'deki ön sürüm için
        "(beta)" etiketli TEK bir sütun olabilir; yalnız package.json sürümü o sürümün
-       -beta'sıyken. Sürüm çıkınca "Current release" ona döner, etiketli sütun artık
-       son sürüm sütunu sayılmaz ve etiketin kalkması gerekir. */
+       -beta'sıyken (ör. 4.0.0-beta, 4.0.0-beta.1) ya da yayına hazırlanmış sürümün
+       kendisiyken (4.0.0, etiket ve Release henüz yok). Sürüm çıkınca "Current release"
+       ona döner, etiketli sütun artık son sürüm sütunu sayılmaz ve etiketin kalkması
+       gerekir. */
     const pre = /^(v[\d.]+) \(beta\)$/.exec(last);
     if (pre) {
       const prev = cells[cells.length - 4].replace(/\*/g, '');
       let pkg = '';
       try { pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version; } catch { /* yok */ }
       if (prev !== cur[1]) bad.push('ön sürüm sütunundan önceki sütun ' + prev + ', yayındaki sürüm ' + cur[1]);
-      if (pkg !== pre[1].slice(1) + '-beta') bad.push('ön sürüm sütunu ' + last + ', package.json sürümü ' + pkg);
+      const want = pre[1].slice(1);
+      if (pkg !== want && !new RegExp('^' + want.replace(/\./g, '\\.') + '-beta(\\.\\d+)?$').test(pkg)) bad.push('ön sürüm sütunu ' + last + ', package.json sürümü ' + pkg);
     } else if (last !== cur[1]) {
       bad.push('tablonun son sürüm sütunu ' + last + ', yayındaki sürüm ' + cur[1]);
     }
