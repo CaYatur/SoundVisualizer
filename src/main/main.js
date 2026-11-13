@@ -3265,8 +3265,11 @@ ipcMain.handle('floating:is-open', () => floatingIsOpen());
 ipcMain.handle('floating:snap', (e, where) => { snapFloating(where); return true; });
 ipcMain.handle('floating:size', (e, kind) => { sizeFloating(kind); return true; });
 ipcMain.on('floating:close', () => closeFloatingWindow());
-ipcMain.on('floating:snap', (e, where) => snapFloating(where));
-ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
+/* Pencerenin kendi çubuğundan gelen komutlar: konum kilitliyken yok sayılır
+   (çubuk o sırada gizli; eski bir sayfa ya da kısayol yine de göndermesin).
+   Paneldeki aynı düğmeler ayrı kanaldan (handle) gelir ve çalışır. */
+ipcMain.on('floating:snap', (e, where) => { if (!floatingPrefs().locked) snapFloating(where); });
+ipcMain.on('floating:size', (e, kind) => { if (!floatingPrefs().locked) sizeFloating(kind); });
 
 /* Tam ekrandan (F11) cekilince tasima/yeniden boyut; kilit cfg.power.geometryLock. */
 /* Tam ekrandan çıkınca pencere ekranı birebir kaplıyorsa çalışma alanına
@@ -3371,9 +3374,16 @@ ipcMain.on('media-scrub', (e, m) => {
   sendToVisualizers('media-scrub', { layerId, frac });
 });
 
+/* Web çıkışı da çıpayı almalı: "Timeline kullan" açıkken çıkış oynatma
+   kafasındaki bileşim. Çıpa gitmeyince web sayfası 0. saniyeyi çiziyor,
+   orada klip yoksa siyah kalıyordu. */
+function broadcastShowClock() {
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'show-clock', anchor: showClockAnchor }, 'overlay');
+}
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);
+  broadcastShowClock();
   // Yedeklilik (#544): birincilin taşıması yedeğe de gider
   if (red.role === 'primary' && streamServer.peerCount()) streamServer.sendPeers({ type: 'show-clock', anchor: showClockAnchor });
 });
@@ -4825,6 +4835,7 @@ function syncStreamServer() {
       getNowPlaying: () => shownNowPlaying(),
       getLyricsLibrary: () => lyricsSnapshot(),
       getLyricsClock: () => lyricsClockAnchor,
+      getShowClock: () => showClockAnchor,
       /* MilkDrop dokuları (#586): adlar ve doğrulanmış dosya. Web çıkışı
          yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
       mdTextureNames: () => textureNames().names,
@@ -5851,6 +5862,7 @@ function onPrimaryMessage(msg) {
     if (a && Number.isFinite(a.epoch)) a.epoch = f.toLocal(a.epoch);
     showClockAnchor = a;
     sendToVisualizers('show-clock', showClockAnchor);
+    broadcastShowClock();
     notifyAdmin('show-clock-follow', showClockAnchor);
     return;
   }
@@ -8093,18 +8105,26 @@ function lookupLiveLyrics(st) {
 }
 /* Ayar değişince: kapatılınca bulunan söz kalkar; açılınca ya da sağlayıcı
    değişince aynı parçaya yeniden bakılır. */
+/* Bulunan söz yalnız arama kapatılınca ya da ayarı değişince kalkar. Söz katmanı
+   olmayan bir sahneye geçmek onu silmiyordu ama siliyordu: sahne geçişinde (ve T-bar
+   tutulurken) giden sahne hâlâ ekrandayken sözü boşalıyordu; geri dönülünce önbellekten
+   yeniden geliyor, yazı bir an sonra beliriyordu. Arama yine yalnız sözü izleyen bir
+   sahnede yapılıyor (lookupLiveLyrics); başka parçanın sözü eşleşmediği için çizilmez. */
 let lyricsLookupCfgSig = '';
 function syncLyricsLookup() {
   const cfg = currentConfig;
-  const on = !!(cfg && cfg.lyricsLookup && cfg.lyricsLookup.enabled === true && configFollowsLyrics(cfg));
-  const sig = on ? JSON.stringify(cfg.lyricsLookup) : '';
-  if (sig === lyricsLookupCfgSig) return;
-  lyricsLookupCfgSig = sig;
-  lyricsAutoSig = '';
-  if (!on) {
-    if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
-    return;
+  const enabled = !!(cfg && cfg.lyricsLookup && cfg.lyricsLookup.enabled === true);
+  const sig = enabled ? JSON.stringify(cfg.lyricsLookup) : '';
+  if (sig !== lyricsLookupCfgSig) {
+    lyricsLookupCfgSig = sig;
+    lyricsAutoSig = '';
+    if (!enabled) {
+      if (lyricsAutoItem) { lyricsAutoItem = null; publishLyricsLib(); }
+      return;
+    }
   }
+  if (!enabled || !configFollowsLyrics(cfg)) return;
+  // Aynı parça için yeniden aranmaz (lyricsAutoSig); başka sahnedeyken parça değiştiyse şimdi
   const st = shownNowPlaying();
   if (st && st.title) lookupLiveLyrics(st);
 }

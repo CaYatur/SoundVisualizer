@@ -110,6 +110,8 @@ html.sv-floating, html.sv-floating body { cursor: default; }
 html.sv-floating #sv-float-bar { pointer-events: auto; }
 html.sv-floating #sv-float-bar:hover,
 html.sv-floating.sv-float-show #sv-float-bar { opacity: 1; background: rgba(8, 8, 12, 0.72); }
+/* Konum kilitliyken çubuk yok: üzerine gelince de görünmez, sürükleme bölgesi de kalkar. */
+html.sv-floating.sv-float-locked #sv-float-bar { display: none; }
 .sv-float-grip {
   flex: 1;
   height: 100%;

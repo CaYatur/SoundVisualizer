@@ -3,7 +3,7 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v4.0.0 — 2026-11-13
 
 ### Security
 
@@ -216,6 +216,29 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Interface
 
+- **The T-bar and scene transitions keep each scene's effects and lyrics.**
+  - **Effects:** the incoming scene's effect chain (CRT, chromatic aberration) was applied to the
+    whole mix. With the T-bar held at 0–10 %, the outgoing scene already bent and fringed, and
+    releasing at 0 % dropped the effect in one frame. Now each scene is drawn with its own chain
+    before the mix, in the T-bar and in timed transitions.
+  - **Lyrics:** moving to a scene without a lyrics layer cleared the automatically found lyrics at
+    once. During a transition, or with the T-bar held, the outgoing scene lost its lyrics, and
+    they came back a moment after a cancel. They now stay until lyrics lookup is turned off.
+  - **Thumbnails:** a scene's thumbnail was taken 1.4 s after it was applied, in the middle of a
+    2.5 s transition. After a T-bar cancel, the cancelled scene got the live scene's picture, and
+    the Cued monitor showed it. It is now taken only once the transition is over and the scene is
+    still live. Thumbnails already saved wrong are replaced the next time that scene goes live.
+  - **Release at 0 %:** output windows, the web overlay and Spout showed the cued scene for one
+    frame when the T-bar was released at 0 %; the panel preview did not. Outputs receive the
+    cancel and the old configuration as two messages, and a frame drawn between them used the
+    cued scene's settings for layers both scenes share. The cancelled scene's configuration is
+    now held for drawing until the next one arrives. Recorded frame by frame on an output: the
+    cued scene appeared at +21 and +39 ms before, and in no frame after.
+  - `tests/tbar-transition-fx.test.js`, `tests/tbar-cancel-gap.test.js`.
+- **A locked floating window shows no bar.** Lock Position only stopped dragging: the bar still
+  appeared under the mouse, and its corner and S/M/L buttons moved and resized the window anyway.
+  With the lock on, the bar is hidden and those commands from the window are ignored; the same
+  buttons in the panel still work, and Esc still closes it. `tests/floating-lock-bar.test.js`.
 - **Resizable Scene page panels.** The library shelf under the preview had a fixed height, so on a
   wide window it shrank to one row of cards. Drag the divider between the preview and the shelf, or
   between the side panels (Layers, Inspector) and the centre, to resize them.
@@ -311,6 +334,22 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   Apply Immediately toggle. The live output, the panel preview and the export draw the same
   composition: 17 transition styles were compared at 6 points each between the live and the export
   path.
+- **The web output follows Use Timeline.** The playhead clock went to the output windows and to
+  Spout/Syphon but never to the web page, so in OBS the page stayed at second 0 and showed black
+  wherever no clip starts there. The clock now reaches the page when it changes and when the page
+  connects, and is moved onto the page's own clock if OBS runs on another computer. Measured on a
+  copy of a real profile: before, the page sat at 0 s while the panel played at 6 s; after, both
+  read the same time and the page drew the composed clips. `tests/web-show-clock.test.js`.
+- **Automation and modulation can reach every setting the panel has.** The target list missed
+  MilkDrop's own audio input: its gain, MilkDrop's separate sensitivity, sat in the general Audio
+  group as "Gain" with no range. Now it has its own MilkDrop Audio Input group and is found by
+  "sensitivity". Text, Now Playing, media, feedback, MilkDrop timing and Master Opacity were
+  missing too. Each layer's own settings are targets: 23 of 117 layers in a real profile carried
+  their own Sensitivity, and the general target only reaches the first layer. Names and ranges come
+  from the panel's sliders. Before, 104 targets had no range, so Sensitivity stopped at 1, and 57
+  showed raw English keys; now none show a raw key, and only MilkDrop's two step-only settings (mesh
+  and internal resolution) have no range. Saved tracks keep their paths.
+  `tests/automation-targets.test.js`.
 - **Several timelines** (#959). The Time page has tabs: create, rename and switch timelines, and set
   one passive without deleting it; a passive timeline drives neither the output nor an export. With
   the loop off, the last clip's state stays after the end instead of clearing. **Include Timeline**
