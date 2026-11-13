@@ -103,6 +103,16 @@ The export page also uses `window.api.milkdropTextures` and `window.api.milkdrop
 
 ## Shell surface
 
+Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md)):
+
+| Request / event | Notes |
+|---|---|
+| `audioStart { source }` | `capture` (other apps' audio, Android 10+; system consent dialog every session), `mic` or `visualizer` (the output-mix fallback). Asks for the microphone permission first; resolves `{ source }` or fails with `permission-denied`, `consent-denied` or `bad-source`. |
+| `audioStop` | Stops the audio service. |
+| `audioStats` | `{ delivered, dropped }` binary messages on the app side. |
+| event `audioStatus` | `{ source, state }` with `running`, `stopped` or `error:<reason>`. |
+
+
 The editor's calls (settings, presets, import, export queue, audio source, floating window…) are defined in phases
 2 and 3. They follow the same rules. Where a desktop IPC channel exists, the method keeps its name (`presets:save` →
 `presetsSave`), so the two hosts stay easy to compare.

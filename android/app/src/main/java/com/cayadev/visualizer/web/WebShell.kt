@@ -98,15 +98,23 @@ object WebShell {
     }
 
     /* Sayfanın betiklerinden önce çalışan betikler, YALNIZ kendi adresimizde.
-       Sıra önemli: önce ortam, sonra demo ses (yalnız ölçüm sayfası), en son
+       Sıra önemli: önce ortam, sonra ses karesini kuran ortak kod (masaüstüyle
+       aynı tayf ve halka), demo ses, ileti biçimi ve ses girişi, en son
        window.api. */
+    private val HOST_SCRIPTS = listOf(
+        "web/src/shared/audio-spectrum.js",
+        "web/src/shared/demo-audio.js",
+        "web/src/mobile/messages.js",
+        "web/src/mobile/audio-input.js",
+        "web/src/mobile/android-host.js",
+    )
+
     private fun installHostScripts(context: Context, web: WebView, debug: Boolean, page: String) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         val origins = setOf(ORIGIN)
         val env = "window.__SV_ANDROID = Object.freeze({ debug: $debug, page: ${jsString(page)} });"
         WebViewCompat.addDocumentStartJavaScript(web, env, origins)
-        WebViewCompat.addDocumentStartJavaScript(web, readAsset(context, "web/src/shared/demo-audio.js"), origins)
-        WebViewCompat.addDocumentStartJavaScript(web, readAsset(context, "web/src/mobile/android-host.js"), origins)
+        for (path in HOST_SCRIPTS) WebViewCompat.addDocumentStartJavaScript(web, readAsset(context, path), origins)
     }
 
     private fun readAsset(context: Context, path: String): String =

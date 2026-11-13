@@ -102,5 +102,5 @@ Sent once before the first chunk and again if the encoder reports a new configur
 - Page: `src/mobile/messages.js`.
 - App: `android/app/src/main/java/com/cayadev/visualizer/bridge/Messages.kt`.
 
-**Cross test:** JavaScript writes sample messages to `tests/fixtures/android-messages/`, and a Kotlin unit test
+**Cross test:** the committed sample `android/js-tests/fixtures/pcm-s16.bin` must match what JavaScript writes (`android/js-tests/audio-input.test.js`), and a Kotlin unit test (`MessagesTest.fixtureFromJs`)
 decodes the same files. A change on only one side fails one of the two tests.

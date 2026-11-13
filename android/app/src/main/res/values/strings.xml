@@ -3,4 +3,6 @@
     <string name="app_name" translatable="false">CAYADEV Visualizer</string>
     <!-- %1$s: kurulu WebView sürümü, %2$s: eksik özellikler -->
     <string name="webview_too_old">Android System WebView is too old (%1$s). Update it from Google Play and open the app again.\n\nMissing: %2$s</string>
+    <string name="audio_channel">Audio input</string>
+    <string name="audio_running">Listening to audio for the visualizer</string>
 </resources>

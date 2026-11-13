@@ -56,7 +56,35 @@
 
   // ---- Kanal (docs/android/MESSAGES.md) ----
   const native = typeof window.SVNative === 'object' && window.SVNative ? window.SVNative : null;
-  const state = { hello: null, textIn: 0, binaryIn: 0, audioFrames: 0, source: 'demo' };
+  const state = { hello: null, textIn: 0, binaryIn: 0, badBinary: 0, audioFrames: 0, nativeFrames: 0, source: 'demo', audioStatus: null };
+
+  /* Uygulamadan gelen ses (src/mobile/audio-input.js): kare masaüstündekiyle
+     aynı halka ve tayfla kurulur. Son gerçek kareden bu kadar süre sonra demo
+     sinyale dönülür (masaüstü önizlemesinin REAL_FRAME_TIMEOUT değeri). */
+  const REAL_FRAME_TIMEOUT = 700;
+  let lastNativeAt = 0;
+  let lastFrame = null;
+  const M = window.SVMessages || null;
+  const input = window.SVAudioInput ? window.SVAudioInput.create((frame) => {
+    lastNativeAt = now();
+    lastFrame = frame;
+    state.nativeFrames++;
+    state.audioFrames++;
+    ev.audio.emit(frame);
+  }) : null;
+  function now() { return typeof performance !== 'undefined' ? performance.now() : Date.now(); }
+
+  function onBinary(buf) {
+    const h = M && M.readHeader(buf);
+    if (!h || !input) { state.badBinary++; return; }
+    if (h.type === M.TYPE_PCM) {
+      const m = M.readPcm(buf);
+      if (m) input.pushPcm(m); else state.badBinary++;
+    } else if (h.type === M.TYPE_WAVE) {
+      const m = M.readWave(buf);
+      if (m) input.pushWave(m); else state.badBinary++;
+    }
+  }
   let nextId = 1;
   const pending = new Map();
 
@@ -89,6 +117,7 @@
         } else if (m.t === 'evt') onEvent(m.ev, m.v);
       } else if (d instanceof ArrayBuffer) {
         state.binaryIn++;
+        onBinary(d);
       }
     };
     send({ t: 'hello', v: 1, page: env.page || '' });
@@ -98,6 +127,8 @@
     if (name === 'powerSource') {
       onBattery = !!(v && v.onBattery);
       ev.powerSource.emit({ onBattery });
+    } else if (name === 'audioStatus') {
+      state.audioStatus = v;
     }
   }
 
@@ -115,7 +146,9 @@
   function demoTick() {
     const D = window.SVDemoAudio;
     if (!D || !ev.audio.size || state.source !== 'demo') return;
-    const t = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0) / 1000;
+    // Uygulamadan gerçek ses geliyorsa demo susar
+    if (lastNativeAt && now() - lastNativeAt < REAL_FRAME_TIMEOUT) return;
+    const t = (now() - t0) / 1000;
     D.spectrum(t, demo.freq);
     D.fill(Math.floor(t * D.SR), demo.time, demo.left, demo.right);
     demo.sampleRate = D.SR || 48000;
@@ -195,6 +228,14 @@
       pushConfig(c) { config = c; ev.config.emit(c); },
       patchConfig(p) { ev.configPatch.emit(p); },
       setAudioSource(name) { state.source = name; },
+      audioStart(source) { return request('audioStart', { source }); },
+      audioStop() { return request('audioStop'); },
+      audioStats() { return input ? Object.assign({}, input.stats) : null; },
+      /* Son gerçek karenin kopyası (ölçüm: tayftaki tepeler doğru yerde mi). */
+      peekFrame() {
+        if (!lastFrame) return null;
+        return { freq: Array.from(lastFrame.freq), time: Array.from(lastFrame.time), sampleRate: lastFrame.sampleRate };
+      },
     };
   }
 })();

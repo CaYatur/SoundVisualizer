@@ -35,6 +35,33 @@ class MessagesTest {
         assertNull(Messages.Header.read(wrongVersion))
     }
 
+    /* Çapraz test (MESSAGES.md): JavaScript tarafının yazdığı dosya
+       (android/js-tests/audio-input.test.js) burada aynı baytlarla üretiliyor
+       ve çözülüyor. İki taraftan biri değişirse testlerden biri düşer. */
+    @Test
+    fun fixtureFromJs() {
+        val file = java.io.File("../js-tests/fixtures/pcm-s16.bin")
+        val js = file.readBytes()
+        val samples = shortArrayOf(1, -1, 32767, -32768)
+        val kt = Messages.pcmS16(0xfffffffeL, 1234.5, 48000, 2, Messages.SOURCE_CAPTURE, samples, samples.size)
+        org.junit.Assert.assertArrayEquals(js, kt)
+        val h = Messages.Header.read(js)!!
+        assertEquals(Messages.TYPE_PCM, h.type)
+        assertEquals(0xfffffffeL, h.seq)
+    }
+
+    @Test
+    fun waveLayout() {
+        val w = ByteArray(1024) { (128 + (it % 50)).toByte() }
+        val out = Messages.wave(3, 5.0, 44100, w)
+        assertEquals(Messages.HEADER_BYTES + Messages.WAVE_HEADER_BYTES + 1024, out.size)
+        val b = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(Messages.TYPE_WAVE.toByte(), out[3])
+        assertEquals(44100, b.getInt(16))
+        assertEquals(1024.toShort(), b.getShort(20))
+        assertEquals(w[10], out[24 + 10])
+    }
+
     @Test
     fun pcmLayout() {
         val samples = shortArrayOf(1, -1, 32767, -32768)

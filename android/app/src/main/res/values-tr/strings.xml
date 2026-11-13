@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="webview_too_old">Android System WebView çok eski (%1$s). Google Play\'den güncelleyip uygulamayı yeniden açın.\n\nEksik: %2$s</string>
+    <string name="audio_channel">Ses girişi</string>
+    <string name="audio_running">Görselleştirici için ses dinleniyor</string>
 </resources>
