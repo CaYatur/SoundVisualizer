@@ -115,6 +115,16 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `exportEnd` | Flushes, adds the audio track, closes the MP4. Resolves `{ path, bytes, frames, encodeMs, totalMs }`. |
 | `exportCancel` | Drops the job and deletes the partial file. |
 | events `exportAck` / `exportError` | `{ job, index }` per frame; see VIDEO-FRAME in MESSAGES.md. |
+| `floatingOpen { width?, height?, opacity?, clickThrough? }` | Moves the one engine into a free-size floating window over other apps and sends the app to the back. Needs "display over other apps"; without it, opens that setting and fails with `overlay-permission`. |
+| `floatingSet { opacity?, clickThrough?, locked? }` | Same settings as the desktop floating window. With pass-through on, opacity is capped at the system limit (`maxPassThroughOpacity`, 0.8 on Android 12+). |
+| `floatingClose` | Closes the window and brings the app back; the same engine returns to full screen. |
+| `floatingState` | `{ showing, opacity, clickThrough, locked, maxPassThroughOpacity, bounds, activity }`. |
+| `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
+| event `windowChrome` | `{ pip }` when picture-in-picture starts or ends. |
+
+The engine (the one WebView) belongs to the app, not to the screen (`EngineHost`): it is built on the application
+context and moved between the full-screen Activity and the floating window. If the system destroys the Activity while
+the floating window is up, the engine keeps drawing; reopening the app shows the same engine without rebuilding the scene.
 
 
 The editor's calls (settings, presets, import, export queue, audio source, floating window…) are defined in phases

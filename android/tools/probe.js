@@ -291,7 +291,67 @@ async function exportCmd() {
   if (!st.result || out.decodedFrames !== Math.ceil(seconds * fps)) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd };
+/* Yüzen pencere ve PiP (0E7). Asıl sınav: yüzen pencere açıkken sistemin
+   Activity'yi kapatması. "Etkinlikleri tutma" (always_finish_activities) açılır,
+   motor yüzen pencereye taşınıp uygulama arkaya alınır: Activity kapanır, motor
+   (aynı WebView, aynı sayfa) çizmeye devam etmeli ve WebGL bağlamı kaybolmamalı.
+   Uygulama yeniden açılınca aynı motor tam ekrana dönmeli. Sonra sistem PiP'i. */
+async function floating() {
+  const out = {};
+  const RAF = '(() => { if (!window.__raf) { window.__raf = { n: 0 }; (function f() { window.__raf.n++; requestAnimationFrame(f); })(); } return window.__raf.n; })()';
+  const snap = async (page) => page.evaluate('({ marker: window.__marker, raf: ' + RAF + ', gl: window.__svHost.glContexts(), audio: window.__svHost.state.audioFrames })');
+  /* dumpsys görev kaydında Activity'nin adı kapandıktan sonra da duruyor; doğru bilgi
+     uygulamada: EngineHost.activity (floatingState.activity). */
+  const activityAlive = async (page) => (await page.evaluate('window.__svHost.request("floatingState")')).activity;
+  D.adb(['shell', 'appops', 'set', D.PKG, 'SYSTEM_ALERT_WINDOW', 'allow']);
+  D.adb(['shell', 'settings', 'put', 'global', 'always_finish_activities', '1']);
+  try {
+    const pid = await D.launch();
+    const page = await D.connect(pid);
+    try {
+      for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.__svHost.state.hello)')); i++) await D.sleep(200);
+      await page.evaluate('window.__marker = Math.random(); 1');
+      await D.sleep(1500);
+      out.full = await snap(page);
+      out.open = await page.evaluate('window.__svHost.request("floatingOpen", { width: 540, height: 304 })');
+      await D.sleep(2500);
+      // Sistemin arka plandaki Activity'yi kapatması (adb'den yazılan "Etkinlikleri tutma" bu
+      // emülatörde etkili olmadı): aynı onDestroy yolu, geliştirme isteğiyle
+      out.finish = await page.evaluate('window.__svHost.request("debugFinishActivity")');
+      await D.sleep(1500);
+      out.activityAfterOpen = await activityAlive(page);
+      const a = await snap(page);
+      await D.sleep(2000);
+      const b = await snap(page);
+      out.floating = { sameEngine: b.marker === out.full.marker, rafPerSec: Math.round((b.raf - a.raf) / 2), audioPerSec: Math.round((b.audio - a.audio) / 2), glLost: b.gl.lost - out.full.gl.lost, glActive: b.gl.active };
+      out.floatLit = Math.round(PNG.luma(D.screencap(), 4).lit * 1000) / 1000;
+      // Uygulamaya dön: aynı motor tam ekrana geçmeli
+      D.adb(['shell', 'am', 'start', '-n', D.PKG + '/.MainActivity']);
+      await D.sleep(2500);
+      const c = await snap(page);
+      await D.sleep(2000);
+      const d = await snap(page);
+      out.back = { sameEngine: d.marker === out.full.marker, rafPerSec: Math.round((d.raf - c.raf) / 2), glLost: d.gl.lost - out.full.gl.lost, floatingShowing: (await page.evaluate('window.__svHost.request("floatingState")')).showing, activity: await activityAlive(page) };
+      // Sistem PiP'i
+      D.adb(['shell', 'settings', 'put', 'global', 'always_finish_activities', '0']);
+      out.pip = await page.evaluate('window.__svHost.request("pipEnter", { w: 16, h: 9 })');
+      await D.sleep(2500);
+      const e = await snap(page);
+      await D.sleep(2000);
+      const g = await snap(page);
+      out.pipRun = { rafPerSec: Math.round((g.raf - e.raf) / 2), audioPerSec: Math.round((g.audio - e.audio) / 2), glLost: g.gl.lost - out.full.gl.lost, pinned: /mWindowingMode=pinned|windowingMode=pinned/.test(D.adb(['shell', 'dumpsys', 'activity', 'activities'])) };
+      out.pipLit = Math.round(PNG.luma(D.screencap(), 4).lit * 1000) / 1000;
+    } finally { page.close(); }
+  } finally {
+    D.adb(['shell', 'settings', 'put', 'global', 'always_finish_activities', '0']);
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.floating.sameEngine && out.floating.rafPerSec > 20 && out.floating.glLost === 0 && !out.activityAfterOpen
+    && out.back.sameEngine && out.back.rafPerSec > 20 && !out.back.floatingShowing && out.pipRun.rafPerSec > 10;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);
