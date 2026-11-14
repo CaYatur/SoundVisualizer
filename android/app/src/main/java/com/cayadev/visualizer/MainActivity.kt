@@ -7,14 +7,20 @@
 package com.cayadev.visualizer
 
 import android.Manifest
+import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
+import android.util.Rational
 import android.view.ViewGroup
-import android.webkit.WebView
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,18 +31,17 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
-import com.cayadev.visualizer.bridge.Messages
-import com.cayadev.visualizer.export.ExportHub
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
 
 /* 0E İSKELETİ (docs/android/PLAN.md). Değiştirilmemiş görselleştirici sayfası
    tam ekranda açılır; ses demo sinyalinden ya da sayfanın istediği kaynaktan
-   (sistem sesi, mikrofon, Visualizer) gelir. Mobil arayüz Faz 3'te gelir. */
+   (sistem sesi, mikrofon, Visualizer) gelir. Mobil arayüz Faz 3'te gelir.
+
+   Motor bu Activity'nin değil EngineHost'un: Activity yalnız onu gösterir.
+   Yüzen pencere açıkken Activity kapanabilir, motor yaşar (0E7). */
 class MainActivity : ComponentActivity() {
-    private var web: WebView? = null
-    private var bridge: Bridge? = null
-    private val exportHub by lazy { ExportHub(applicationContext) { name, v -> bridge?.event(name, v) } }
+    private lateinit var frame: FrameLayout
 
     /** İzin ya da sistem onayı beklenen ses isteği. */
     private var pending: Pair<String, Bridge.Reply>? = null
@@ -78,49 +83,30 @@ class MainActivity : ComponentActivity() {
             })
             return
         }
-        start()
-    }
-
-    private fun start() {
+        frame = FrameLayout(this)
+        setContentView(frame, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        EngineHost.register(this)
         // Sayfa seçimi yalnız geliştirme sürümünde (ölçüm sayfaları için)
         val page = (if (BuildConfig.DEBUG) intent?.getStringExtra(EXTRA_PAGE) else null) ?: DEFAULT_PAGE
-        val w = WebShell.create(applicationContext, BuildConfig.DEBUG, page) { dead -> rebuild(dead) }
-        val b = Bridge(applicationContext, { op, args, reply -> onRequest(op, args, reply) }) { head, bytes ->
-            if (head.type == Messages.TYPE_VIDEO_FRAME) exportHub.frame(bytes)
-        }
-        b.install(w)
-        bridge = b
-        setContentView(w, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        w.loadUrl(WebShell.pageUrl(page))
-        web = w
+        EngineHost.ensure(this, page, BuildConfig.DEBUG, AppRequests(applicationContext))
+        // Uygulamaya dönülünce yüzen pencere kapanır, aynı motor tam ekrana geçer
+        if (FloatingWindow.isShowing) FloatingWindow.close(this)
+        EngineHost.attach(frame)
+        frame.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updatePipParams() }
         Log.i(TAG, "sayfa: $page, WebView ${WebShell.webViewVersion(this)}")
     }
 
-    /* Sayfanın istekleri (docs/android/HOST.md). */
-    private fun onRequest(op: String, args: JSONObject, reply: Bridge.Reply) {
-        when (op) {
-            "audioStart" -> {
-                val source = args.optString("source")
-                if (source !in AudioService.SOURCES) { reply.fail("bad-source", source); return }
-                pending?.second?.fail("superseded")
-                pending = source to reply
-                if (hasRecordAudio()) continueAudio(source, reply)
-                else askPermissions.launch(permissions())
-            }
-            "audioStop" -> {
-                AudioService.stop(this)
-                reply.ok()
-            }
-            "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
-            // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
-            "exportBegin" -> exportHub.begin(args) { r, err -> if (r != null) reply.ok(r) else reply.fail("export-begin", err ?: "") }
-            "exportEnd" -> exportHub.end { r, err -> if (r != null) reply.ok(r) else reply.fail("export-end", err ?: "") }
-            "exportCancel" -> {
-                exportHub.cancel()
-                reply.ok()
-            }
-            else -> reply.fail("unknown-op", op)
-        }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (FloatingWindow.isShowing) FloatingWindow.close(this)
+        if (::frame.isInitialized) EngineHost.attach(frame)
+    }
+
+    fun startAudio(source: String, reply: Bridge.Reply) {
+        pending?.second?.fail("superseded")
+        pending = source to reply
+        if (hasRecordAudio()) continueAudio(source, reply)
+        else askPermissions.launch(permissions())
     }
 
     private fun continueAudio(source: String, reply: Bridge.Reply) {
@@ -137,21 +123,49 @@ class MainActivity : ComponentActivity() {
         reply.ok(JSONObject().put("source", source))
     }
 
+    /* Sistem PiP'i: oran 1:2,39 ile 2,39:1 arasında; kullanıcı parmakla boyutlandırır.
+       Otomatik geçiş (ana ekrana basınca) Faz 3'te bir ayar olacak; şimdilik kapalı. */
+    private var pipAspect = Rational(16, 9)
+    var autoPip = false
+
+    private fun pipParams(): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(pipAspect)
+        if (Build.VERSION.SDK_INT >= 31) {
+            b.setSeamlessResizeEnabled(true)
+            b.setAutoEnterEnabled(autoPip)
+        }
+        // Küçülme animasyonu görüntünün kendisinden başlasın
+        if (::frame.isInitialized && frame.width > 0) {
+            val r = android.graphics.Rect()
+            frame.getGlobalVisibleRect(r)
+            b.setSourceRectHint(r)
+        }
+        return b.build()
+    }
+
+    private fun updatePipParams() = setPictureInPictureParams(pipParams())
+
+    fun enterPip(w: Int, h: Int): Boolean {
+        val r = Rational(w.coerceAtLeast(1), h.coerceAtLeast(1))
+        pipAspect = when {
+            r.toFloat() > 2.39f -> Rational(239, 100)
+            r.toFloat() < 1 / 2.39f -> Rational(100, 239)
+            else -> r
+        }
+        return enterPictureInPictureMode(pipParams())
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        EngineHost.bridge?.event("windowChrome", JSONObject().put("pip", isInPictureInPictureMode))
+    }
+
     private fun hasRecordAudio() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun permissions(): Array<String> =
         if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
         else arrayOf(Manifest.permission.RECORD_AUDIO)
-
-    /* Çizim süreci öldüyse eski WebView'i bırakıp yenisini kur. */
-    private fun rebuild(dead: WebView) {
-        bridge?.detach()
-        (dead.parent as? ViewGroup)?.removeView(dead)
-        dead.destroy()
-        web = null
-        start()
-    }
 
     private fun immersive() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -163,24 +177,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        web?.onResume()
+        EngineHost.web?.onResume()
     }
 
     override fun onPause() {
-        web?.onPause()
+        // PiP'te ve yüzen pencerede motor çizmeye devam eder
+        if (!isInPictureInPictureMode && !FloatingWindow.isShowing) EngineHost.web?.onPause()
         super.onPause()
     }
 
     override fun onDestroy() {
-        bridge?.detach()
-        bridge = null
-        // Görüntüsü olmayan sesi yakalamaya devam etmenin anlamı yok (yüzen pencere 0E7'de)
-        if (isFinishing) AudioService.stop(this)
-        web?.let {
-            (it.parent as? ViewGroup)?.removeView(it)
-            it.destroy()
+        EngineHost.unregister(this)
+        if (FloatingWindow.isShowing) {
+            // Motor yüzen pencerede yaşıyor; yalnız bu ekranı bırak
+            Log.i(TAG, "Activity kapandı, motor yüzen pencerede sürüyor")
+        } else if (isFinishing) {
+            // Görüntüsü olmayan sesi yakalamaya devam etmenin anlamı yok
+            AudioService.stop(this)
+            EngineHost.destroy()
+        } else {
+            EngineHost.detach()
         }
-        web = null
         super.onDestroy()
     }
 

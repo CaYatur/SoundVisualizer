@@ -78,8 +78,18 @@ object WebShell {
         }
 
         web.webViewClient = object : WebViewClientCompat() {
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                loader.shouldInterceptRequest(request.url)
+            /* Kendi adresimize gelen ve yanıtlanamayan istek (ör. tarayıcının kendiliğinden
+               istediği /favicon.ico) AĞA ÇIKMAZ: 404 alır. Ölçüldü: aksi halde WebView bu
+               adı DNS'te arıyor ve sayfaya "ERR_NAME_NOT_RESOLVED" hatası düşüyordu. */
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                loader.shouldInterceptRequest(request.url)?.let { return it }
+                if (request.url.host == HOST) {
+                    // Simge yok, bu bir hata değil: 204 tarayıcı günlüğüne hata düşürmüyor
+                    val none = request.url.path == "/favicon.ico"
+                    return WebResourceResponse("text/plain", "utf-8", if (none) 204 else 404, if (none) "No Content" else "Not Found", emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
+                }
+                return null
+            }
 
             /* Gezinme bekçisi: uygulamanın sayfası başka bir adrese gidemez. */
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

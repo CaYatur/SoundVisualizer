@@ -91,7 +91,7 @@ async function connect(pid) {
     if (m.method === 'Runtime.consoleAPICalled' && (m.params.type === 'error' || m.params.type === 'warning')) {
       logs.push(m.params.type + ': ' + m.params.args.map((a) => (a.value !== undefined ? a.value : a.description)).join(' '));
     } else if (m.method === 'Log.entryAdded' && (m.params.entry.level === 'error' || m.params.entry.level === 'warning')) {
-      logs.push('browser-' + m.params.entry.level + ': ' + m.params.entry.text);
+      logs.push('browser-' + m.params.entry.level + ': ' + m.params.entry.text + (m.params.entry.url ? ' [' + m.params.entry.url + ']' : ''));
     } else if (m.method === 'Runtime.exceptionThrown') {
       const d = m.params.exceptionDetails;
       logs.push('exception: ' + ((d.exception && d.exception.description) || d.text));
