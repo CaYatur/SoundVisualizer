@@ -746,7 +746,7 @@
     T('gen-experimental', 'Tür', 'Experimental', 'Reaksiyon-difüzyon hissi.',
       merge(B('solid', { solidColor: '#000000' }), V('voronoi', { thickness: 0.7 }),
         pal('#000000', '#ffffff', '#ff0000'),
-        { postfx: [fx('threshold', { level: 0.42 }), fx('edge', { amount: 0.5 })] })),
+        { postfx: [fx('levels', { black: 0.02, white: 0.32, gamma: 1, contrast: 1.2 }), fx('threshold', { level: 0.42 }), fx('edge', { amount: 0.5 })] })),
 
     // ========================= SUNUM / ETKİNLİK =========================
     T('evt-minimal', 'Etkinlik', 'Minimal Line', 'Tek çizgi, beyaz üstü siyah.',
