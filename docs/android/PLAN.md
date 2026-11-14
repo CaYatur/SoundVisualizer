@@ -29,7 +29,7 @@ rewritten. The phone is a personal device, so most VJ and show-control tools sta
 | D12 | **Signing:** debug signing during development. Before the first APK the owner creates the release key (the password stays with the owner, outside the repository, backed up). If the app moves to Play, the same key is uploaded to Play App Signing. | GitHub and Play installs then carry the same signature and update into each other. |
 | D13 | **Updates:** a "new version" notice and a link to the release page. The app never installs itself. | Play policy. |
 | D14 | **Branch and PRs:** all Android work lives on `dev/android` (from `main`). One PR per task. Commits and PRs in English, "For #N". The Android CI job is not one of the five required checks. Releases need separate approval. | Existing rules. |
-| D14b | **`main` is not touched.** Changes to desktop files go to `dev/android` too, each as its own PR through the desktop gates. Merging into `main` (or from it) happens only when the owner decides. (Changed on 2026-11-14; the first version sent desktop changes to `main` first.) | People who use or follow `main` should not meet half-finished Android work; `main` stays the stable desktop line. |
+| D14b | **Changes flow one way, `main` → `dev/android`.** Android work never goes to `main`. That includes changes to desktop files, which go to `dev/android` as their own PRs through the desktop gates. Fixes that land on `main` may be merged into `dev/android` (first: #1064). Exception: a bug found during Android work that also exists on desktop is fixed on `main` as a desktop-only change after the owner picks the branch, then merged into `dev/android` (the Experimental template, #1063). (Changed on 2026-11-14; the first version sent desktop changes to `main` first.) | People who use or follow `main` should not meet half-finished Android work; `main` stays the stable desktop line. |
 | D15 | **No physical phone for now:** work starts on the emulator. Performance decisions and **the 1.0 release depend on measurements on a physical phone.** | The emulator GPU does not represent a phone. |
 
 ---
@@ -188,7 +188,7 @@ Only when the owner asks.
 | R5 | The WebView renderer dies | Rebuild through `onRenderProcessGone`. |
 | R6 | Export slows down in the background | First release keeps the screen on; background export only after measurement. |
 | R7 | Vendor battery and permission rules | Guide screen, phone verification. |
-| R8 | `dev/android` drifts from `main` | Desktop fixes that land on `main` are brought in when the owner decides; desktop gates run on `dev/android` for every desktop-touching PR. |
+| R8 | `dev/android` drifts from `main` | Fixes that land on `main` are merged into `dev/android` with a merge PR; desktop gates run on `dev/android` for every desktop-touching PR. |
 | R9 | Play rules (floating window, service declarations) | A compliant manifest from the start, with written reasons. |
 | R10 | Full resolution on a 2400×1080 screen is expensive | Render scale, default set by measurement. |
 | R11 | An Android release becomes "Latest" on GitHub | `--latest=false` rule, tag guard in the desktop updater and its test (§2.6). |

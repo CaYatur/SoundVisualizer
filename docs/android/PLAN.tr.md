@@ -26,7 +26,7 @@ olursa İngilizce sürüm esastır.
 | K12 | **İmza**: geliştirme boyunca test imzası. İlk APK'dan önce kalıcı anahtarı kullanıcı oluşturur (parola kullanıcıda, depo dışında, yedekli). Play'e geçişte aynı anahtar Play'e yüklenir. | GitHub ve Play kurulumları aynı imzayı taşır, kullanıcı kanallar arasında sorunsuz güncellenir. |
 | K13 | **Güncelleme**: "yeni sürüm var" bildirimi ve sürüm sayfası. Uygulama kendini kurmaz. | Play kuralı. |
 | K14 | **Dal ve PR**: bütün Android işi `dev/android`'de (main'den). Her iş ayrı PR. Commit ve PR İngilizce, "For #N", atıf satırı yok. Android CI zorunlu 5 denetime eklenmez. Yayın ayrı onayla. | Mevcut kurallar. |
-| K14b | **main'e dokunulmaz.** PC dosyalarına dokunan değişiklikler de ayrı PR'larla, PC kapılarından geçerek `dev/android`'e gider. main'e alma (ya da main'den alma) yalnız sizin kararınızla. (14.11.2026'da değişti; ilk sürüm PC değişikliklerini önce main'e gönderiyordu.) | main'i kullanan ya da izleyenler yarım Android işiyle karşılaşmasın; main kararlı PC sürümü olarak kalsın. |
+| K14b | **Değişiklikler tek yönde akar: main → `dev/android`.** Android işi main'e hiç gitmez. PC dosyalarına dokunan değişiklikler de buna dahil; bunlar ayrı PR'larla, PC kapılarından geçerek `dev/android`'e gider. main'e gelen düzeltmeler `dev/android`'e birleştirilebilir (ilki #1064). İstisna: Android çalışırken bulunan ama masaüstünde de olan bir hata, dalı siz seçtikten sonra main'de yalnız PC'ye özgü bir düzeltmeyle giderilir, sonra `dev/android`'e alınır (Experimental şablonu, #1063). (14.11.2026'da değişti; ilk sürüm PC değişikliklerini önce main'e gönderiyordu.) | main'i kullanan ya da izleyenler yarım Android işiyle karşılaşmasın; main kararlı PC sürümü olarak kalsın. |
 | K15 | **Fiziksel cihaz yok**: iş emülatörle başlar. Performansla ilgili kesin kararlar ve **1.0 yayını fiziksel telefon ölçümüne bağlıdır.** | Emülatörün GPU'su telefonu temsil etmez. |
 
 ---
@@ -201,7 +201,7 @@ Yalnız siz isteyince.
 | R5 | WebView çökmesi | `onRenderProcessGone` ile yeniden kurma. |
 | R6 | Dışa aktarım arka planda yavaşlar | İlk sürümde ekran açık; arka plan ölçülürse eklenir. |
 | R7 | MIUI pil ve izin kısıtları | Rehber ekran, telefonda doğrulama. |
-| R8 | `dev/android` ile main'in ayrışması | main'e gelen PC düzeltmeleri sizin kararınızla içeri alınır; PC'ye dokunan her PR'da PC kapıları `dev/android`'de koşar. |
+| R8 | `dev/android` ile main'in ayrışması | main'e gelen düzeltmeler birleştirme PR'ıyla `dev/android`'e alınır; PC'ye dokunan her PR'da PC kapıları `dev/android`'de koşar. |
 | R9 | Play kuralları (yüzen pencere, servis beyanları) | Baştan uygun bildirim dosyası ve yazılı gerekçeler. |
 | R10 | 2400×1080 ekranda tam çözünürlük pahalı | Çizim ölçeği; ölçüme göre varsayılan. |
 | R11 | Android sürümü GitHub'da "Latest" olur, PC güncelleyicisi ve indirme düğmeleri bozulur | `--latest=false` kuralı, PC güncelleyicisinde etiket bekçisi ve testi (§2.6). |
