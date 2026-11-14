@@ -245,6 +245,15 @@ function srcFiles(dir, out = []) {
   return out;
 }
 
+test('Android uygulamasının mobil sayfaları masaüstü paketine girmiyor', () => {
+  /* src/mobile Android uygulamasının web tarafı (#1054); masaüstünde çalışmaz ve
+     paketi büyütmekten başka işe yaramaz. Bütün src kuralından sonra dışlanıyor. */
+  const files = build.files;
+  const all = files.indexOf('src/**/*');
+  const mobile = files.indexOf('!src/mobile/**');
+  assert.ok(all >= 0 && mobile > all, '!src/mobile/** src/**/* kuralından sonra gelmeli');
+});
+
 test('paket node_modules olarak yalnız çalışma anı modüllerini alıyor', () => {
   const files = build.files;
   assert.ok(files.includes('!node_modules/**/*'), 'önce bütün node_modules dışarıda');

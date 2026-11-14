@@ -97,6 +97,20 @@ test('denetim: güncel, atlanan sürüm, yalnız haber verilen türler, ağ hata
   assert.strictEqual(pre.status, 'error', 'ön sürüm önerilmiyor');
 });
 
+test('denetim: masaüstü olmayan etiket (Android sürümü) güncel sanılmıyor', async () => {
+  /* Android sürümleri android-v… etiketiyle aynı sayfada (#1054). "Latest" olmamaları
+     gerekiyor; olursa eski yol etiketi 0.0.0 okuyup "güncelsiniz" diyordu. */
+  for (const tag of ['android-v1.0.0', 'android-v4.9.9', 'nightly']) {
+    const s = await U.check({ current: '3.1.0', kind: 'nsis', fetchJson: fetchOf(Object.assign({}, FIXTURE, { tag_name: tag, name: tag })) });
+    assert.strictEqual(s.status, 'error', tag);
+    assert.match(s.error, /not a desktop release/, tag);
+    assert.strictEqual(s.installable, undefined, tag + ': kurulum önerilmiyor');
+  }
+  // v öneki olmayan masaüstü etiketi eskisi gibi kabul
+  const plain = await U.check({ current: '3.1.0', kind: 'nsis', arch: 'x64', fetchJson: fetchOf(Object.assign({}, FIXTURE, { tag_name: '3.1.4' })) });
+  assert.strictEqual(plain.status, 'available');
+});
+
 test('başarısız denetim görülen yeni sürümü silmez; başarılı denetim yazar', () => {
   const seen = { status: 'available', latest: '3.1.6', current: '3.1.5', notes: 'not', asset: { name: 'a' }, installable: true };
   const kept = U.applyCheckResult(seen, { status: 'error', error: 'offline', checkedAt: 5 }, { manual: true });
