@@ -97,6 +97,23 @@ The Visualizer fallback delivers short 8-bit waveform snapshots, not continuous 
 
 Sent once before the first chunk and again if the encoder reports a new configuration.
 
+### `0x12` VIDEO-FRAME (page → app)
+
+An export frame from the unchanged export page, in the same I420 layout the desktop sends to ffmpeg. The app encodes
+it with MediaCodec (H.264) and acknowledges each frame with the event `exportAck { job, index }` (or `exportError`);
+the page keeps at most a few frames in flight, as on the desktop. WebCodecs is not used for this: the emulator's
+WebView has no H.264 encoder at all, and phones depend on the driver.
+
+| Offset | Size | Field |
+|---|---|---|
+| 16 | 4 | Export job id, `uint32` (from `exportBegin`) |
+| 20 | 4 | Frame index, `uint32` |
+| 24 | 2 | Width, `uint16` |
+| 26 | 2 | Height, `uint16` |
+| 28 | 1 | Format: `1` = I420 (Y, then U, then V; chroma at half resolution) |
+| 29 | 3 | Reserved, `0` |
+| 32 | … | Frame bytes, `width × height × 1.5` |
+
 ## Where the constants live
 
 - Page: `src/mobile/messages.js`.

@@ -48,13 +48,15 @@ function decode(buf) {
   return { width, height, bpp, data: out };
 }
 
-/** Ortalama parlaklık (0..255) ve "siyah değil" piksel oranı (luma > 12). */
-function luma(buf) {
+/** Ortalama parlaklık (0..255) ve "siyah değil" piksel oranı (luma > 12).
+    `step`: her yönde kaçta bir piksel (tam ekran görüntüsü için 8). */
+function luma(buf, step) {
   const img = decode(buf);
-  let sum = 0, lit = 0;
-  const n = img.width * img.height;
-  for (let i = 0; i < n; i++) {
-    const o = i * img.bpp;
+  const s = Math.max(1, step | 0);
+  let sum = 0, lit = 0, n = 0;
+  for (let yy = 0; yy < img.height; yy += s) for (let xx = 0; xx < img.width; xx += s) {
+    n++;
+    const o = (yy * img.width + xx) * img.bpp;
     const y = 0.2126 * img.data[o] + 0.7152 * img.data[o + 1] + 0.0722 * img.data[o + 2];
     sum += y;
     if (y > 12) lit++;

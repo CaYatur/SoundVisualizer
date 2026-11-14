@@ -40,6 +40,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Uygulamayı (yeniden) başlatır; `page` yalnız geliştirme sürümünde dikkate alınır. */
 async function launch(page) {
+  /* Android'in tam ekran ilk kullanım uyarısı ekranın üst üçte birini kaplıyor ve
+     siyah ekran ölçümünü bozuyordu (her şablon en az %32 aydınlık çıktı). Yalnız
+     sınama cihazında: uyarı "görüldü" sayılır. */
+  try { adb(['shell', 'settings', 'put', 'secure', 'immersive_mode_confirmations', 'confirmed']); } catch { /* eski sürüm */ }
   adb(['shell', 'am', 'force-stop', PKG]);
   const args = ['shell', 'am', 'start', '-W', '-n', PKG + '/.MainActivity'];
   if (page) args.push('-e', 'page', page);
@@ -86,6 +90,8 @@ async function connect(pid) {
     if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); return; }
     if (m.method === 'Runtime.consoleAPICalled' && (m.params.type === 'error' || m.params.type === 'warning')) {
       logs.push(m.params.type + ': ' + m.params.args.map((a) => (a.value !== undefined ? a.value : a.description)).join(' '));
+    } else if (m.method === 'Log.entryAdded' && (m.params.entry.level === 'error' || m.params.entry.level === 'warning')) {
+      logs.push('browser-' + m.params.entry.level + ': ' + m.params.entry.text);
     } else if (m.method === 'Runtime.exceptionThrown') {
       const d = m.params.exceptionDetails;
       logs.push('exception: ' + ((d.exception && d.exception.description) || d.text));
@@ -98,6 +104,8 @@ async function connect(pid) {
   });
   await call('Runtime.enable');
   await call('Page.enable');
+  // Tarayıcının kendi uyarıları (ör. "Too many active WebGL contexts") burada gelir
+  await call('Log.enable');
   return {
     port,
     url: page.url,
@@ -124,4 +132,11 @@ async function connect(pid) {
   };
 }
 
-module.exports = { PKG, ORIGIN, sdkDir, adb, adbPath, launch, pidOf, connect, sleep };
+/** Cihaz ekranının PNG görüntüsü (adb screencap). DevTools ekran görüntüsü WebView'de
+    WebGL tuvallerini içermiyor (ölçüldü: her şablon siyah çıktı); bu, kullanıcının
+    gördüğünün aynısı. */
+function screencap() {
+  return execFileSync(adbPath(), ['exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024 });
+}
+
+module.exports = { PKG, ORIGIN, sdkDir, adb, adbPath, launch, pidOf, connect, sleep, screencap };

@@ -144,13 +144,17 @@ async function templates() {
       await page.evaluate(APPLY(t.id));
       await D.sleep(wait);
       const fps = await page.evaluate(FPS);
-      const lum = PNG.luma(await page.screenshot(0.125));
-      const errors = page.logs.filter((l) => /^(error|exception)/.test(l));
-      const black = lum.lit < 0.01;
-      const fail = errors.length > 0 || (black && t.cls === 'render');
-      const r = { id: t.id, name: t.name, group: t.group, cls: t.cls, fps, luma: Math.round(lum.mean), lit: Math.round(lum.lit * 1000) / 1000, errors, fail };
+      // Tam çözünürlük: ince çizgili sahneler (Minimal Line, Clean Wave) seyrek örneklemede kaçıyordu
+      const lum = PNG.luma(D.screencap(), 1);
+      const errors = page.logs.filter((l) => /^(error|exception|browser-error)/.test(l));
+      const evicted = page.logs.filter((l) => /Too many active WebGL contexts/i.test(l)).length;
+      const gl = await page.evaluate('window.__svHost.glContexts ? window.__svHost.glContexts() : null');
+      // 1080 piksellik tek bir 2 piksel çizgi ekranın ~%0,08'i; tamamen siyah ekranda 0
+      const black = lum.lit < 0.0003;
+      const fail = errors.length > 0 || evicted > 0 || (black && t.cls === 'render');
+      const r = { id: t.id, name: t.name, group: t.group, cls: t.cls, fps, luma: Math.round(lum.mean), lit: Math.round(lum.lit * 1000) / 1000, glActive: gl ? gl.active : null, evicted, errors, fail };
       results.push(r);
-      console.log((fail ? 'HATA ' : 'tamam') + ' ' + String(fps).padStart(3) + ' fps  ışık ' + r.lit.toFixed(3) + '  [' + t.cls + '] ' + t.name + (errors.length ? '\n      ' + errors.slice(0, 3).join('\n      ') : ''));
+      console.log((fail ? 'HATA ' : 'tamam') + ' ' + String(fps).padStart(3) + ' fps  ışık ' + r.lit.toFixed(3) + '  gl ' + r.glActive + (evicted ? ' (TAŞTI)' : '') + '  [' + t.cls + '] ' + t.name + (errors.length ? '\n      ' + errors.slice(0, 3).join('\n      ') : ''));
     }
   } finally { page.close(); }
   const sum = { total: results.length, fail: results.filter((r) => r.fail).length, byClass: {} };
@@ -228,7 +232,66 @@ async function audio() {
   if (!want) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio };
+/* Dışa aktarım (0E6): değiştirilmemiş dışa aktarım sayfasında bir şablon
+   kare kare çizilir, I420 kareler ikili kanaldan uygulamaya gider, MediaCodec
+   H.264'e kodlar, MediaMuxer şarkıyı (AAC, yeniden kodlamadan) ekler. MP4
+   bilgisayara çekilir ve ffmpeg ile kare sayısı, ses izi ve görüntü denetlenir.
+   --song: AAC .m4a (uygulamanın medya klasörüne kopyalanır). */
+async function exportCmd() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const song = arg('song');
+  if (!song) throw new Error('--song=<.m4a> gerekli');
+  const tpl = arg('template', 'fireworks');
+  const width = +arg('width', 1280), height = +arg('height', 720), fps = +arg('fps', 30), seconds = +arg('seconds', 10);
+  const name = path.basename(song);
+  D.adb(['push', song, '/data/local/tmp/' + name]);
+  // adb shell bağımsız değişkenleri tek satırda birleştiriyor: komut tek dizgi olmalı
+  D.adb(['shell', `run-as ${D.PKG} sh -c 'mkdir -p files/media && cp /data/local/tmp/${name} files/media/${name}'`]);
+  const pid = await D.launch('src/exporter/index.html');
+  const page = await D.connect(pid);
+  let st;
+  try {
+    for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.exp && window.SVTemplates && window.SV)')); i++) await D.sleep(200);
+    await page.evaluate(`(async () => {
+      const T = window.SVTemplates, S = window.SV;
+      const t = T.TEMPLATES.find((x) => x.id === ${JSON.stringify(tpl)} || x.name.toLowerCase() === ${JSON.stringify(tpl)});
+      const cfg = T.apply(S.clone(S.defaultConfig()), t, { defaultConfig: S.defaultConfig, deepMerge: S.deepMerge, clone: S.clone });
+      const audioBuffer = await (await fetch('/files/${name}')).arrayBuffer();
+      window.__svHost.runExport({ cfg, width: ${width}, height: ${height}, fps: ${fps}, pix: 'yuv420p', durationSec: ${seconds},
+        audioBuffer, audioName: ${JSON.stringify(name)}, outputName: 'probe-export.mp4', platform: 'android', profile: true });
+      return true;
+    })()`);
+    const t0 = Date.now();
+    for (;;) {
+      st = await page.evaluate('window.__svHost.exportState()');
+      if (st.result || st.error) break;
+      if (Date.now() - t0 > 600000) throw new Error('zaman aşımı');
+      await D.sleep(1000);
+    }
+  } finally { page.close(); }
+  const out = { template: tpl, size: width + 'x' + height, fps, seconds, sent: st.sent, acked: st.acked, error: st.error, result: st.result };
+  if (st.result) {
+    const local = path.join(os.tmpdir(), 'sv-probe-export.mp4');
+    D.adb(['pull', st.result.path, local]);
+    const FF = require(path.join(__dirname, '..', '..', 'node_modules', 'ffmpeg-static'));
+    let info = '';
+    try { execFileSync(FF, ['-hide_banner', '-i', local], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) { info = String(e.stderr || ''); }
+    out.streams = info.split('\n').filter((l) => /Stream #|Duration/.test(l)).map((l) => l.trim());
+    const count = execFileSync(FF, ['-hide_banner', '-v', 'error', '-i', local, '-map', '0:v:0', '-f', 'null', '-', '-progress', 'pipe:1'], { encoding: 'utf8' });
+    const frames = /frame=(\d+)/g; let m, last = 0; while ((m = frames.exec(count))) last = +m[1];
+    out.decodedFrames = last;
+    const png = execFileSync(FF, ['-hide_banner', '-v', 'error', '-ss', String(seconds / 2), '-i', local, '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', '-'], { maxBuffer: 64 * 1024 * 1024 });
+    out.midFrameLit = Math.round(PNG.luma(png, 4).lit * 1000) / 1000;
+    out.realtimeFactor = Math.round((seconds * 1000 / st.result.totalMs) * 100) / 100;
+    out.local = local;
+  }
+  console.log(JSON.stringify(out, null, 1));
+  if (!st.result || out.decodedFrames !== Math.ceil(seconds * fps)) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

@@ -111,6 +111,10 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `audioStop` | Stops the audio service. |
 | `audioStats` | `{ delivered, dropped }` binary messages on the app side. |
 | event `audioStatus` | `{ source, state }` with `running`, `stopped` or `error:<reason>`. |
+| `exportBegin { width, height, fps, bitrate?, audio?, name? }` | Opens the H.264 encoder and the MP4 file; `audio` is a file in the app's media folder (AAC is copied without re-encoding). Resolves `{ job, codec, path }`. |
+| `exportEnd` | Flushes, adds the audio track, closes the MP4. Resolves `{ path, bytes, frames, encodeMs, totalMs }`. |
+| `exportCancel` | Drops the job and deletes the partial file. |
+| events `exportAck` / `exportError` | `{ job, index }` per frame; see VIDEO-FRAME in MESSAGES.md. |
 
 
 The editor's calls (settings, presets, import, export queue, audio source, floating window…) are defined in phases

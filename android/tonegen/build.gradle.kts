@@ -33,7 +33,8 @@ android {
     }
 
     lint {
-        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
+        // Sınama yardımcısı: yedekleme kuralları anlamsız
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable", "DataExtractionRules")
     }
 }
 

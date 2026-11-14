@@ -17,6 +17,7 @@ import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.cayadev.visualizer.export.ExportHub
 
 /* WEBVIEW KURULUMU (docs/android/PLAN.md, D1/D2).
 
@@ -57,6 +58,8 @@ object WebShell {
         val loader = WebViewAssetLoader.Builder()
             .setDomain(HOST)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            // Uygulamanın kendi medya klasörü, salt okunur (MESSAGES.md "Reading files")
+            .addPathHandler("/files/", WebViewAssetLoader.InternalStoragePathHandler(context, ExportHub.mediaDir(context)))
             .build()
 
         val web = WebView(context)

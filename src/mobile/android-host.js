@@ -129,6 +129,8 @@
       ev.powerSource.emit({ onBattery });
     } else if (name === 'audioStatus') {
       state.audioStatus = v;
+    } else if (name === 'exportAck' || name === 'exportError') {
+      onExportEvent(name, v);
     }
   }
 
@@ -220,12 +222,116 @@
     milkdropSprite: () => resolved(null),
   };
 
+  /* ---- Dışa aktarım (docs/android/HOST.md "Export surface") ----
+     Dışa aktarım sayfası (src/exporter, değişmeden) window.exp'i masaüstünde
+     önyükleme betiğinden alıyor. Burada kareler (I420) ikili kanaldan uygulamaya
+     gidiyor; kodlayıcı ve MP4 uygulamada. Kare kodlayıcıya verilince gelen
+     exportAck, masaüstündeki "ffmpeg.stdin yazıldı" bekleyişinin karşılığı. */
+  const exportState = { job: null, id: 0, began: null, sent: 0, acked: 0, bytes: 0, progress: [0, 0], cancel: false, result: null, error: null, analysis: null, t0: 0 };
+  const acks = new Map();
+  const jobListeners = listeners();
+  /* İş, dışa aktarım sayfasının son betiği (exporter.js) onJob'u kurmadan önce
+     gelebilir: bekletilir ve dinleyici kurulunca teslim edilir (ölçüldü: aksi
+     halde iş sessizce kayboluyordu). */
+  let pendingJob = null;
+  let frameSeq = 0;
+
+  function onExportEvent(name, v) {
+    const index = v && v.index;
+    const w = acks.get(index);
+    if (name === 'exportAck') exportState.acked++;
+    else exportState.error = (v && v.msg) || 'encode';
+    if (w) { acks.delete(index); w(name === 'exportAck'); }
+  }
+
+  if (String(env.page || '').indexOf('src/exporter/') === 0 && !window.exp) {
+    window.exp = {
+      onJob: (cb) => {
+        jobListeners.add(cb);
+        if (pendingJob) { const j = pendingJob; pendingJob = null; cb(j); }
+      },
+      ready: (totalFrames) => {
+        const j = exportState.job || {};
+        exportState.began = request('exportBegin', {
+          width: j.width, height: j.height, fps: j.fps, total: totalFrames,
+          audio: j.audioName || '', name: j.outputName || '',
+        }).then((r) => { exportState.id = r.job; return r; }, (e) => { exportState.error = e.message; throw e; });
+      },
+      sendFrame: async (data, index) => {
+        const began = await exportState.began;
+        const j = exportState.job;
+        const buf = M.videoFrame(frameSeq++, now(), began.job, index, j.width, j.height, data);
+        exportState.sent++;
+        exportState.bytes += buf.byteLength;
+        const ok = new Promise((resolve) => acks.set(index, resolve));
+        native.postMessage(buf);
+        const fine = await ok;
+        return { cancel: exportState.cancel || !fine };
+      },
+      progress: (done, total) => { exportState.progress = [done, total]; },
+      finish: () => {
+        request('exportEnd').then((r) => {
+          exportState.result = Object.assign({ pageMs: Math.round(now() - exportState.t0), sentMB: Math.round(exportState.bytes / 1e5) / 10 }, r);
+        }, (e) => { exportState.error = e.message; });
+      },
+      cancelled: () => { request('exportCancel').catch(() => {}); exportState.error = 'cancelled'; },
+      error: (msg) => { request('exportCancel').catch(() => {}); exportState.error = String(msg); },
+      analysis: (data) => { exportState.analysis = data ? Object.keys(data).length : 0; },
+      cancelRequested: () => resolved(exportState.cancel),
+    };
+  }
+
+  /* WebGL BAĞLAM SAYACI (yalnız geliştirme sürümü). Android WebView'de sayfa
+     başına en çok 8 etkin bağlam var (ölçüldü, masaüstünde 16); dokuzuncu açılınca
+     en eskisi kaybolur. Her GL katmanı kendi bağlamını açtığı için hangi sahnenin
+     sınıra ne kadar yaklaştığı burada sayılır. */
+  const gl = { created: 0, lost: 0, max: 0 };
+  const glRefs = [];
+  function glActive() {
+    let n = 0;
+    for (let i = glRefs.length - 1; i >= 0; i--) {
+      const c = glRefs[i].canvas.deref();
+      const x = glRefs[i].ctx.deref();
+      if (!c || !x) { glRefs.splice(i, 1); continue; }
+      if (c.isConnected && !x.isContextLost()) n++;
+    }
+    return n;
+  }
+  if (env.debug && typeof HTMLCanvasElement !== 'undefined') {
+    const orig = HTMLCanvasElement.prototype.getContext;
+    const seen = new WeakSet();
+    HTMLCanvasElement.prototype.getContext = function (type, opts) {
+      const c = orig.call(this, type, opts);
+      if (c && (type === 'webgl' || type === 'webgl2') && !seen.has(c)) {
+        seen.add(c);
+        gl.created++;
+        if (typeof WeakRef === 'function') glRefs.push({ canvas: new WeakRef(this), ctx: new WeakRef(c) });
+        this.addEventListener('webglcontextlost', () => { gl.lost++; });
+      }
+      return c;
+    };
+  }
+
   /* Ölçüm araçlarının kancası (yalnız geliştirme sürümü). */
   if (env.debug) {
     window.__svHost = {
       state,
       request,
       pushConfig(c) { config = c; ev.config.emit(c); },
+      /* Dışa aktarım işi (Faz 5'te düzenleyiciden gelecek; 0E'de ölçüm aracından). */
+      runExport(job) {
+        Object.assign(exportState, { job, began: null, sent: 0, acked: 0, bytes: 0, cancel: false, result: null, error: null, t0: now() });
+        if (jobListeners.size) jobListeners.emit(job);
+        else pendingJob = job;
+      },
+      exportState() { return Object.assign({}, exportState, { job: null, began: !!exportState.began }); },
+      cancelExport() { exportState.cancel = true; },
+      /* WebGL bağlamları: açılan, kaybolan, şu an etkin (kayıp olmayan) ve en çok. */
+      glContexts() {
+        const active = glActive();
+        if (active > gl.max) gl.max = active;
+        return Object.assign({ active }, gl);
+      },
       patchConfig(p) { ev.configPatch.emit(p); },
       setAudioSource(name) { state.source = name; },
       audioStart(source) { return request('audioStart', { source }); },
