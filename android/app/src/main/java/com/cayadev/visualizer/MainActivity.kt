@@ -25,6 +25,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
+import com.cayadev.visualizer.bridge.Messages
+import com.cayadev.visualizer.export.ExportHub
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
 
@@ -34,6 +36,7 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity() {
     private var web: WebView? = null
     private var bridge: Bridge? = null
+    private val exportHub by lazy { ExportHub(applicationContext) { name, v -> bridge?.event(name, v) } }
 
     /** İzin ya da sistem onayı beklenen ses isteği. */
     private var pending: Pair<String, Bridge.Reply>? = null
@@ -82,7 +85,9 @@ class MainActivity : ComponentActivity() {
         // Sayfa seçimi yalnız geliştirme sürümünde (ölçüm sayfaları için)
         val page = (if (BuildConfig.DEBUG) intent?.getStringExtra(EXTRA_PAGE) else null) ?: DEFAULT_PAGE
         val w = WebShell.create(applicationContext, BuildConfig.DEBUG, page) { dead -> rebuild(dead) }
-        val b = Bridge(applicationContext) { op, args, reply -> onRequest(op, args, reply) }
+        val b = Bridge(applicationContext, { op, args, reply -> onRequest(op, args, reply) }) { head, bytes ->
+            if (head.type == Messages.TYPE_VIDEO_FRAME) exportHub.frame(bytes)
+        }
         b.install(w)
         bridge = b
         setContentView(w, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -107,6 +112,13 @@ class MainActivity : ComponentActivity() {
                 reply.ok()
             }
             "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
+            // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
+            "exportBegin" -> exportHub.begin(args) { r, err -> if (r != null) reply.ok(r) else reply.fail("export-begin", err ?: "") }
+            "exportEnd" -> exportHub.end { r, err -> if (r != null) reply.ok(r) else reply.fail("export-end", err ?: "") }
+            "exportCancel" -> {
+                exportHub.cancel()
+                reply.ok()
+            }
             else -> reply.fail("unknown-op", op)
         }
     }

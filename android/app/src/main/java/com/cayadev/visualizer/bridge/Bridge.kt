@@ -33,7 +33,12 @@ import org.json.JSONObject
    açılışta denetleniyor: biri yoksa MainActivity sayfayı hiç açmıyor. Bu
    yüzden yanıt vekilinin çağrılarında ayrıca denetim yok. */
 @SuppressLint("RequiresFeature")
-class Bridge(private val context: Context, private val handler: RequestHandler) {
+class Bridge(
+    private val context: Context,
+    private val handler: RequestHandler,
+    /** Sayfadan gelen ikili iletiler (dışa aktarım kareleri); başlık denetlenmiş olarak. */
+    private val binary: ((Messages.Header, ByteArray) -> Unit)? = null,
+) {
     private val tag = "SVBridge"
 
     /** Sayfanın isteği: [op] HOST.md/MESSAGES.md adıyla; yanıt [reply] ile (ana iş parçacığında). */
@@ -112,7 +117,7 @@ class Bridge(private val context: Context, private val handler: RequestHandler) 
             Log.w(tag, "geçersiz ikili ileti (${bytes.size} bayt)")
             return
         }
-        Log.d(tag, "ikili ileti tür=${head.type} sıra=${head.seq} (${bytes.size} bayt)")
+        binary?.invoke(head, bytes)
     }
 
     /** Sayfaya olay (ana iş parçacığında çağrılır). */

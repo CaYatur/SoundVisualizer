@@ -16,6 +16,9 @@
   const TYPE_WAVE = 0x02;
   const TYPE_VIDEO_CHUNK = 0x10;
   const TYPE_VIDEO_CONFIG = 0x11;
+  const TYPE_VIDEO_FRAME = 0x12;
+  const VIDEO_FRAME_HEADER_BYTES = 32;
+  const FRAME_I420 = 1;
   const PCM_HEADER_BYTES = 8;
   const WAVE_HEADER_BYTES = 8;
   const FORMAT_S16 = 1;
@@ -87,8 +90,23 @@
     return buf;
   }
 
+  /** VIDEO-FRAME iletisi (sayfa → uygulama): dışa aktarım karesi, I420. Kare
+      başlıkla birlikte TEK ArrayBuffer olarak gider (kanal tek parça taşıyor). */
+  function videoFrame(seq, time, job, index, width, height, data) {
+    const buf = new ArrayBuffer(VIDEO_FRAME_HEADER_BYTES + data.byteLength);
+    const v = new DataView(buf);
+    writeHeader(v, TYPE_VIDEO_FRAME, seq, time);
+    v.setUint32(16, job >>> 0, true);
+    v.setUint32(20, index >>> 0, true);
+    v.setUint16(24, width, true);
+    v.setUint16(26, height, true);
+    v.setUint8(28, FRAME_I420);
+    new Uint8Array(buf, VIDEO_FRAME_HEADER_BYTES).set(data instanceof Uint8Array ? data : new Uint8Array(data.buffer || data, data.byteOffset || 0, data.byteLength));
+    return buf;
+  }
+
   const api = {
-    VERSION, HEADER_BYTES, TYPE_PCM, TYPE_WAVE, TYPE_VIDEO_CHUNK, TYPE_VIDEO_CONFIG,
+    VERSION, HEADER_BYTES, TYPE_PCM, TYPE_WAVE, TYPE_VIDEO_CHUNK, TYPE_VIDEO_CONFIG, TYPE_VIDEO_FRAME, VIDEO_FRAME_HEADER_BYTES, FRAME_I420, videoFrame,
     PCM_HEADER_BYTES, WAVE_HEADER_BYTES, FORMAT_S16, FORMAT_F32, SOURCES,
     readHeader, writeHeader, readPcm, readWave, pcmS16,
   };

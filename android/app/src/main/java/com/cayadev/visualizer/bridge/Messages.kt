@@ -22,6 +22,11 @@ object Messages {
     const val TYPE_WAVE = 0x02
     const val TYPE_VIDEO_CHUNK = 0x10
     const val TYPE_VIDEO_CONFIG = 0x11
+    const val TYPE_VIDEO_FRAME = 0x12
+
+    /** VIDEO-FRAME: başlık + iş, kare sırası, genişlik, yükseklik, biçim (1 = I420). */
+    const val VIDEO_FRAME_HEADER_BYTES = 32
+    const val FRAME_I420 = 1
 
     const val PCM_HEADER_BYTES = 8
     const val FORMAT_S16 = 1
