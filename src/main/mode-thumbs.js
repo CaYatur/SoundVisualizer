@@ -58,7 +58,10 @@ const KINDS = Object.freeze(['vis', 'bg']);
 /* Studio kitaplığı da (#905): yerleşik shader eklemek ya da içe aktarıcıyı değiştirmek bütün resimleri
    eskitiyordu. Yalnız Studio (`custom`) resmi bu dosyalara bağlı, o da türünün İLK yerleşik
    shader'ını gösteriyor; ilk shader değişirse `--force`. */
-const KEY_SKIP = Object.freeze(['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js']);
+/* Şablonlar da: sayfa onları yalnız zaman çizelgesindeki "preset" klipleri için yüklüyor, mod
+   resmi çizilirken kullanılmıyor. Bir şablonu düzeltmek (Experimental, #1054 sırasında) yüzü
+   aşkın resmin hepsini eskitiyordu. */
+const KEY_SKIP = Object.freeze(['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js', 'src/shared/templates.js']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 /* Sayfanın yüklediği dosyalar, sırasıyla — HTML'den okunuyor; liste iki
