@@ -73,6 +73,7 @@
     },
     "files": [
       "src/**/*",
+      "!src/mobile/**",
       "assets/**/*",
       "build/icon.ico",
       "package.json",

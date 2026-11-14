@@ -169,6 +169,13 @@ async function check(opts) {
   if (!rel.version || rel.draft || rel.prerelease) {
     return Object.assign(base, { status: 'error', error: 'no stable release' });
   }
+  /* Yalnız masaüstü sürümleri (v1.2.3). Android uygulaması aynı Sürümler
+     sayfasında android-v1.0.0 gibi etiketlerle yayımlanıyor (#1054) ve hiçbir
+     zaman "Latest" işaretlenmiyor; yine de biri yanlışlıkla işaretlenirse
+     masaüstü onu 0.0.0 okuyup "güncelsiniz" demesin, açıkça söylesin. */
+  if (!/^v?\d+\.\d+\.\d+/.test(rel.tag)) {
+    return Object.assign(base, { status: 'error', error: 'latest release is not a desktop release: ' + rel.tag.slice(0, 40) });
+  }
   const newer = compareVersions(rel.version, current) > 0;
   const asset = newer ? pickAsset(kind, rel.assets, o.arch) : null;
   return Object.assign(base, {
