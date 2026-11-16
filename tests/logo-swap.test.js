@@ -90,10 +90,9 @@ test('çizici, dışa aktarıcı ve panel bağlı; Math.random yok', () => {
   const ex = read('src/exporter/exporter.js');
   assert.match(ex, /await preloadLayerLogos\(\);/);
   assert.match(ex, /sw\.items\.forEach\(\(id\) => \{ const u = L\.logoFileSrc/);
-  assert.match(ex, /rt\.whenUrl\(id\)/);
-  assert.match(read('src/shared/logo-runtime.js'), /function whenUrl\(id\)/);
+  assert.match(ex, /await waitLibraryLogos\(ids\)/);
+  assert.match(ex, /this\.crossOrigin = 'anonymous'/);
   assert.match(read('src/main/preload-exporter.js'), /logoLibRead: \(id\) => ipcRenderer\.invoke\('logo-lib:read', id\)/);
-  assert.match(read('src/visualizer/layers.js'), /if \(\/\^sv-logo:\/i\.test\(src\)\) img\.crossOrigin = 'anonymous'/);
   assert.match(read('src/main/main.js'), /scheme: 'sv-logo', privileges: \{[^}]*corsEnabled: true/);
   assert.match(read('src/main/main.js'), /protocol\.handle\('sv-logo'[\s\S]{0,800}Access-Control-Allow-Origin/);
   ['src/admin/index.html', 'src/exporter/index.html', 'src/visualizer/index.html'].forEach((f) => {

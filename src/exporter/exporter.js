@@ -366,18 +366,51 @@
     else Object.keys(node).forEach((k) => collectLogoIds(node[k], ids, seen));
   }
 
+  /* sv-logo sayfadan ayrı köken. crossOrigin, src yazılmadan önce
+     konmalı. Katman motoruna yazılırsa bütün mod küçük resimleri eskir;
+     bu sayfa yalnız dışa aktarımda yüklendiği için yama burada. */
+  function allowLogoCors() {
+    const proto = window.HTMLImageElement && window.HTMLImageElement.prototype;
+    if (!proto || proto.__svLogoCors) return;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'src');
+    if (!desc || typeof desc.set !== 'function' || typeof desc.get !== 'function') return;
+    Object.defineProperty(proto, 'src', {
+      configurable: true,
+      enumerable: desc.enumerable,
+      get() { return desc.get.call(this); },
+      set(v) {
+        if (/^sv-logo:/i.test(String(v || ''))) this.crossOrigin = 'anonymous';
+        desc.set.call(this, v);
+      },
+    });
+    proto.__svLogoCors = true;
+  }
+
+  async function waitLibraryLogos(ids) {
+    const rt = window.SVLogoRuntime;
+    if (!rt || typeof rt.warm !== 'function' || !ids.size) return;
+    ids.forEach((id) => rt.warm(id));
+    const left = new Set(ids);
+    const deadline = Date.now() + 20000;
+    while (left.size && Date.now() < deadline) {
+      for (const id of left) {
+        if (rt.urlFor(id) || (typeof rt.isPending === 'function' && !rt.isPending(id))) left.delete(id);
+      }
+      if (!left.size) return;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
   async function preloadLayerLogos() {
     const L = window.SVLayers;
     if (!L || !stack || typeof L.logoFileSrc !== 'function') return;
     /* Kitaplık görseli blob olana kadar bekle. Aksi halde sv-logo:// tuvali
        kirletir ve ilk karede GPU okuması düşer. Çizelge kliplerindeki
        logolar da cfg'nin içinde. */
-    const rt = window.SVLogoRuntime;
-    if (rt && typeof rt.whenUrl === 'function') {
-      const ids = new Set();
-      collectLogoIds(cfg, ids, new Set());
-      if (ids.size) await Promise.all(Array.from(ids).map((id) => Promise.resolve(rt.whenUrl(id)).catch(() => null)));
-    }
+    allowLogoCors();
+    const ids = new Set();
+    collectLogoIds(cfg, ids, new Set());
+    await waitLibraryLogos(ids);
     const urls = new Set();
     const gifs = [];
     const addLogo = (lg) => {
