@@ -89,12 +89,39 @@
     nodes.push(P().segment('Renk Kaynağı', prefix + '.mode', MODES, { rebuild: true }));
     if (obj.mode === 'single') nodes.push(P().color('Renk', prefix + '.color'));
     if (obj.mode === 'matrix' && window.SVScenePanels && window.SVScenePanels.matrixDimSliders) {
-      const n = prefix === 'wled'
-        ? Math.max(1, Math.min(4096, obj.ledCount | 0 || 60))
-        : Math.max(1, Math.min(170, obj.fixtures | 0 || 8));
-      window.SVScenePanels.matrixDimSliders(obj, n).forEach((node) => nodes.push(node));
+      if (prefix === 'wled') {
+        const n = Math.max(1, obj.ledCount | 0 || 60);
+        window.SVScenePanels.matrixDimSliders(obj, n, { numeric: true }).forEach((node) => nodes.push(node));
+      } else {
+        const n = Math.max(1, Math.min(170, obj.fixtures | 0 || 8));
+        window.SVScenePanels.matrixDimSliders(obj, n).forEach((node) => nodes.push(node));
+      }
     }
     nodes.push(P().slider('Parlaklık', prefix + '.brightness', { step: 0.02, percent: true }));
+  }
+
+  /* Şemadaki tam sayı aralığı. Kayıtlı değer kutuda durur, yazılınca aralığa çekilir. */
+  function intBox(label, path, width) {
+    const el = P().el;
+    const row = window.SVSchema && window.SVSchema.rangeFor ? window.SVSchema.rangeFor(path) : null;
+    const min = row ? row.min : 1;
+    const max = row ? row.max : 1;
+    const cur = P().get(path);
+    const inp = el('input', {
+      class: 'p-in p-num', type: 'number', min: String(min), max: String(max), step: '1',
+      value: Number.isFinite(cur) ? String(Math.round(cur)) : '',
+      style: width ? 'width:' + width : undefined,
+      onchange: (e) => {
+        const v = Math.round(Number(e.target.value));
+        if (!Number.isInteger(v)) { e.target.value = Number.isFinite(cur) ? String(Math.round(cur)) : ''; return; }
+        const next = Math.max(min, Math.min(max, v));
+        e.target.value = String(next);
+        P().set(path, next);
+        P().push(true);
+        P().rerender();
+      },
+    });
+    return P().row(label, inp);
   }
 
   function sacnPanel() {
@@ -148,7 +175,10 @@
         if (!window.api || !window.api.wledInfo || !w.host) return;
         const r = await window.api.wledInfo(w.host).catch(() => null);
         if (r && r.ok && r.leds > 0) {
-          w.ledCount = Math.min(1500, r.leds);
+          const cap = window.SVSchema && window.SVSchema.rangeFor ? window.SVSchema.rangeFor('wled.ledCount') : null;
+          const max = cap && cap.max > 1 ? cap.max : Math.floor(0xFFFFFFFF / 3);
+          const n = Math.floor(Number(r.leds));
+          w.ledCount = Math.max(1, Math.min(max, n));
           infoText = (r.name || 'WLED') + (r.version ? ' ' + r.version : '') + ' · ' + r.leds + ' LED';
           P().push(true);
         } else {
@@ -175,11 +205,11 @@
       ]))));
     }
     if (w.enabled) {
-      nodes.push(P().slider('LED Sayısı', 'wled.ledCount', { min: 1, max: 1500, step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(intBox('LED Sayısı', 'wled.ledCount', '9em'));
       colorRows(nodes, 'wled', w);
-      nodes.push(P().slider('Gönderim Hızı', 'wled.fps', { min: 1, max: 60, step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
+      nodes.push(intBox('Gönderim Hızı (Hz)', 'wled.fps', '5em'));
     }
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'WLED piksellerini DDP (UDP 4048) ile doğrudan sürer; Art-Net evren ayarı gerekmez. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Pikseller DDP (UDP 4048) ile bu adrese gider; alıcı WLED olmak zorunda değil. LED sayısı, sütun, satır ve gönderim hızı sayı olarak yazılır. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır. Renk kaynağı Matris ve MilkDrop kartında görüntü seçiliyken ızgara ekrandaki kareyi basar. Değilse sütunlar renk tonu, satırlar ses seviyesidir.' }));
     return el('div', { class: 'lednet-panel' }, nodes);
   }
 

@@ -61,7 +61,9 @@ const KINDS = Object.freeze(['vis', 'bg']);
 /* Şablonlar da: sayfa onları yalnız zaman çizelgesindeki "preset" klipleri için yüklüyor, mod
    resmi çizilirken kullanılmıyor. Bir şablonu düzeltmek (Experimental, #1054 sırasında) yüzü
    aşkın resmin hepsini eskitiyordu. */
-const KEY_SKIP = Object.freeze(['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js', 'src/shared/templates.js']);
+/* Şema da: kaydırıcı sınırları (DDP LED sayısı gibi) tuvale çizilen kareyi değiştirmez.
+   Sayfa dosyayı yüklüyor; anahtarda kalsaydı her sınır düzenlemesi bütün resimleri eskitirdi. */
+const KEY_SKIP = Object.freeze(['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js', 'src/shared/templates.js', 'src/shared/schema.js']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 /* Sayfanın yüklediği dosyalar, sırasıyla — HTML'den okunuyor; liste iki

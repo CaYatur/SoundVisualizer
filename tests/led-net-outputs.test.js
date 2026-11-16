@@ -152,7 +152,13 @@ test('DDP: piksel sayısı = LED sayısı, renkler Art-Net renk mantığıyla ay
   assert.strictEqual(px.length, 27);
   const dmx = artnet.buildChannels({ fixtures: 9, channelsPerFixture: 3, mode: 'bands', brightness: 1 }, FRAME);
   assert.ok(px.equals(dmx.subarray(0, 27)));
-  assert.strictEqual(ddp.renderPixels({ ledCount: 99999 }, FRAME).length, 4096 * 3);
+  assert.strictEqual(ddp.ledCount({ ledCount: 99999 }), 99999);
+  assert.strictEqual(ddp.renderPixels({ ledCount: 99999 }, FRAME).length, 99999 * 3);
+  assert.strictEqual(ddp.ledCount({ ledCount: ddp.MAX_LEDS + 10 }), ddp.MAX_LEDS);
+  assert.strictEqual(ddp.ledCount({}), 60);
+  assert.strictEqual(ddp.ledCount({ ledCount: 0 }), 60);
+  assert.strictEqual(ddp.ledCount({ ledCount: -4 }), 1);
+  assert.strictEqual(ddp.MAX_LEDS, Math.floor(0xFFFFFFFF / 3));
 });
 
 test('DDP: host yoksa başlamaz; host varsa 127.0.0.1 dinleyicisine kare gider', async () => {
@@ -283,6 +289,81 @@ test('ana süreç: ağ LED çıkışları Art-Net yetki kapısından geçer ve o
   assert.match(main, /'wled:discover', \(\) => \(HW_OFF/);
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
   assert.match(html, /<script src="led-net-panel\.js"><\/script>/);
+});
+
+test('DDP: 128×128 sahte alıcıya eksiksiz gider ve bildirilen LED sayısı kesilmez', async () => {
+  const cols = 128;
+  const rows = 128;
+  const n = cols * rows;
+  const frame = { level: 1 };
+  const cfg = {
+    enabled: true, mode: 'matrix', matrixCols: cols, matrixRows: rows,
+    ledCount: n, brightness: 1, fps: 60,
+  };
+  const pixels = ddp.renderPixels(cfg, frame);
+  assert.strictEqual(pixels.length, n * 3);
+  const pk = ddp.buildPackets(pixels, { seq: 7 });
+  assert.strictEqual(pk.length, Math.ceil(n / ddp.MAX_PIXELS_PER_PACKET));
+  const back = Buffer.alloc(n * 3);
+  const parsed = pk.map(ddp.parsePacket);
+  assert.strictEqual(parsed.filter((p) => p.push).length, 1);
+  assert.strictEqual(parsed[parsed.length - 1].push, true);
+  assert.strictEqual(parsed[parsed.length - 1].length, (n % 480) * 3);
+  for (const p of parsed) back.set(p.data, p.offset);
+  assert.ok(back.equals(pixels));
+  // Sol üst ve sağ alt, 128 sütunluk ızgarada
+  assert.deepStrictEqual([pixels[0], pixels[1], pixels[2]], [2, 0, 0]);
+  const last = n - 1;
+  assert.ok(pixels[last * 3] > pixels[0], 'alt satır üst satırdan parlak');
+
+  const srv = http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ name: 'Panel', ver: '14', leds: { count: n, rgbw: false } }));
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const L = await listen();
+  const live = Object.assign({}, cfg, { host: '127.0.0.1', port: L.port });
+  try {
+    const info = await ddp.fetchInfo('127.0.0.1:' + srv.address().port, 1500);
+    assert.strictEqual(info.leds, n);
+    assert.strictEqual(ddp.ledCount({ ledCount: info.leds }), n);
+    assert.strictEqual((await ddp.start(live)).running, true);
+    assert.strictEqual(ddp.send(live, frame), true);
+    await L.next(pk.length);
+    const got = Buffer.alloc(n * 3);
+    for (const g of L.got) {
+      const p = ddp.parsePacket(g.m);
+      assert.ok(p, 'DDP başlığı');
+      got.set(p.data, p.offset);
+    }
+    assert.ok(got.equals(pixels), 'sahte cihaz karenin tamamını aldı');
+  } finally {
+    srv.close();
+    await ddp.stop();
+    await L.close();
+  }
+});
+
+test('şema ve panel: LED tavanı DDP ofseti, sayı kutuları, 1500 yok', () => {
+  const schema = require('../src/shared/schema');
+  const row = schema.rangeFor('wled.ledCount');
+  assert.strictEqual(row.max, ddp.MAX_LEDS);
+  assert.strictEqual(row.noExtend, true);
+  assert.strictEqual(schema.extendedMax(row), ddp.MAX_LEDS);
+  const fps = schema.rangeFor('wled.fps');
+  assert.strictEqual(fps.min, 1);
+  assert.strictEqual(fps.max, 60);
+  assert.strictEqual(fps.noExtend, true);
+  const led = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'led-net-panel.js'), 'utf8');
+  const scene = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  assert.doesNotMatch(led, /1500|4096/);
+  assert.match(led, /intBox\('LED Sayısı', 'wled\.ledCount'/);
+  assert.match(led, /intBox\('Gönderim Hızı \(Hz\)', 'wled\.fps'/);
+  assert.match(led, /numeric: true/);
+  assert.match(led, /matrixDimSliders\(obj, n\)/);
+  assert.match(scene, /matrixCountBox\('Matris Sütunu'/);
+  assert.match(scene, /matrixCountBox\('Matris Satırı'/);
+  assert.match(scene, /miniSlider\('Matris Sütunu'/);
 });
 
 test('çeviri: panel metinlerinin İngilizcesi var', () => {
