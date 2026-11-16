@@ -20,6 +20,7 @@ on:
       - 'src/main/full-backup.js'
       - 'src/main/zip-reader.js'
       - 'src/main/zip-writer.js'
+      - 'src/main/show-space.js'
       - 'src/main/media-session.js'
       - '.github/workflows/android.yml'
   pull_request:
@@ -35,6 +36,7 @@ on:
       - 'src/main/full-backup.js'
       - 'src/main/zip-reader.js'
       - 'src/main/zip-writer.js'
+      - 'src/main/show-space.js'
       - 'src/main/media-session.js'
       - '.github/workflows/android.yml'
   workflow_dispatch:
