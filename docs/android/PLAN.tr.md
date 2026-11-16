@@ -136,6 +136,8 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
 - 1.3 `android.yml`: `assembleDebug`, Kotlin birim testleri, lint; yol süzgeçli.
 - 1.4 `versionName`/`versionCode`; `release-assets.js`'in APK'yı tanıması (yayın fazında).
 - **Bitti:** PC kapıları yeşil, Android CI yeşil, PC paketinde mobil dosya yok.
+- **Durum (17.11.2026):** 1.1–1.3, Faz 0E PR'larıyla bitti (#1057, #1061, `android.yml`). Mobil CSS bekçisi Faz 3'e
+  kaldı (henüz mobil CSS yok); `release-assets.js` Faz 6'ya.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

@@ -20,7 +20,7 @@ Emulator: Pixel 7 profile (1080×2400), x86_64, host GPU (RTX 5070 Laptop) throu
 | WebGL2 | Yes. highp in fragment shaders, float colour buffers (`EXT_color_buffer_float`, half float), `OES_texture_float_linear`, RGB10_A2 framebuffers (MilkDrop's feedback format). No `KHR_parallel_shader_compile`: shaders compile without the background path, as on drivers without it on the desktop. |
 | **WebGL context limit** | **8 active contexts per page** (desktop Chrome: 16). The 9th makes the oldest one lost. |
 | Contexts per built-in template | At most **2** active. Single templates are far from the limit; the risk is multi-layer user scenes plus transitions (see decisions). |
-| 83 built-in templates | **81 pass** (no errors, not black). *Experimental* is black, and it is black on the desktop too: a separate desktop issue, not Android. *Strobe Wall* only tripped over a `/favicon.ico` request, now answered locally. |
+| 83 built-in templates | **81 pass** (no errors, not black). *Experimental* is black, and it is black on the desktop too: a separate desktop issue, not Android. *Strobe Wall* only tripped over a `/favicon.ico` request, now answered locally. **Update (17.11):** *Experimental* was fixed on the desktop (#1063) and brought into `dev/android` (#1064); it renders on the emulator. A full rerun gave 82/83: *Interference* was black once while a Gradle build ran in parallel, and passed alone twice. |
 | Frame rate on the emulator | Median 61 fps; slowest *Drum & Bass* 24 fps, *Centre Strip* and *Wave Card* 37. The emulator's GPU is the PC's, so these numbers say nothing about phones. |
 
 ### Audio (0E5)

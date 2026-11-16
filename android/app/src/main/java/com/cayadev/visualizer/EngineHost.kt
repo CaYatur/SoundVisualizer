@@ -14,6 +14,7 @@ import android.webkit.WebView
 import com.cayadev.visualizer.bridge.Bridge
 import com.cayadev.visualizer.bridge.Messages
 import com.cayadev.visualizer.export.ExportHub
+import com.cayadev.visualizer.store.ProfileStore
 import com.cayadev.visualizer.web.WebShell
 import java.lang.ref.WeakReference
 
@@ -41,6 +42,10 @@ object EngineHost {
     lateinit var exportHub: ExportHub
         private set
 
+    /** Ayar dosyaları (profil klasörü); motor yeniden kurulsa da aynı depo. */
+    lateinit var profile: ProfileStore
+        private set
+
     fun register(a: MainActivity) { activityRef = WeakReference(a) }
 
     fun unregister(a: MainActivity) { if (activityRef?.get() === a) activityRef = null }
@@ -51,6 +56,7 @@ object EngineHost {
         destroy()
         val app = context.applicationContext
         if (!::exportHub.isInitialized) exportHub = ExportHub(app) { name, v -> bridge?.event(name, v) }
+        if (!::profile.isInitialized) profile = ProfileStore(app)
         val w = WebShell.create(app, debug, page) { dead -> rebuild(app, dead, debug, handler) }
         val b = Bridge(app, handler) { head, bytes ->
             if (head.type == Messages.TYPE_VIDEO_FRAME) exportHub.frame(bytes)

@@ -16,9 +16,10 @@
    burada TANIMLI. Android'de anlamı olmayanlar boş değer döndürür ya da hiç
    tetiklenmez; motor Android yüzünden `typeof` denetimi yapmak zorunda kalmaz.
 
-   0E durumu: yapılandırma ve ses henüz gerçek kaynaktan gelmiyor. Ses, demo
-   sinyalinden (src/shared/demo-audio.js, kabuk ondan önce yüklüyor) kare
-   biçiminde üretiliyor; ölçüm araçları `window.__svHost` üzerinden yapılandırma
+   Yapılandırma uygulamanın profil klasöründen okunur ve oraya yazılır
+   (src/mobile/profile-store.js, masaüstüyle aynı dosya düzeni). Uygulama
+   kaynağı yokken ses demo sinyalinden (src/shared/demo-audio.js) kare
+   biçiminde üretiliyor. Ölçüm araçları `window.__svHost` üzerinden yapılandırma
    gönderebiliyor (yalnız geliştirme sürümünde). */
 (function () {
   if (typeof window === 'undefined' || window.api) return;
@@ -56,7 +57,7 @@
 
   // ---- Kanal (docs/android/MESSAGES.md) ----
   const native = typeof window.SVNative === 'object' && window.SVNative ? window.SVNative : null;
-  const state = { hello: null, textIn: 0, binaryIn: 0, badBinary: 0, audioFrames: 0, nativeFrames: 0, source: 'demo', audioStatus: null };
+  const state = { hello: null, textIn: 0, binaryIn: 0, badBinary: 0, audioFrames: 0, nativeFrames: 0, source: 'demo', audioStatus: null, flushEvents: 0 };
 
   /* Uygulamadan gelen ses (src/mobile/audio-input.js): kare masaüstündekiyle
      aynı halka ve tayfla kurulur. Son gerçek kareden bu kadar süre sonra demo
@@ -124,7 +125,10 @@
   }
 
   function onEvent(name, v) {
-    if (name === 'powerSource') {
+    if (name === 'flush') {
+      state.flushEvents++;
+      profile.flush();
+    } else if (name === 'powerSource') {
       onBattery = !!(v && v.onBattery);
       ev.powerSource.emit({ onBattery });
     } else if (name === 'audioStatus') {
@@ -166,6 +170,112 @@
   const resolved = (v) => Promise.resolve(v);
   const noop = () => {};
 
+  /* ---- Ayar dosyaları (docs/android/HOST.md "Profile") ----
+     Okuma bir kez, ilk requestConfig'te: v4 göçü sayfanın katman kodunu
+     (window.SVLayers) istiyor ve bu betik ondan önce çalışıyor. Okuma hata
+     verirse (disk, izin) kaydedici KAPALI kalır: varsayılan ayarlar
+     kullanıcınınkilerin üstüne yazılmaz. */
+  const P = window.SVProfileStore || null;
+  const profile = {
+    loaded: null,
+    saver: null,
+    state: { loaded: false, readError: null, broken: false, migrated: false, cleaned: [] },
+    load() {
+      if (this.loaded) return this.loaded;
+      if (!native || !P) return (this.loaded = resolved(config));
+      this.loaded = domReady().then(() => request('storeRead', { names: P.FILES })).then(async (texts) => {
+        const r = P.load(texts, migrateConfig);
+        if (r.broken) {
+          // Çözülemeyen dosya ilk kayıttan önce kenara: kullanıcı elle kurtarabilsin
+          await request('storeCopy', { from: P.MAIN, to: P.BROKEN, overwrite: true });
+          this.state.broken = true;
+        }
+        if (r.migrated) {
+          await request('storeCopy', { from: P.MAIN, to: P.V3_BACKUP, overwrite: false });
+          this.state.migrated = true;
+        }
+        this.state.cleaned = r.cleaned || [];
+        this.saver = P.createSaver({ write: (files) => request('storeWrite', { files }), seed: r.broken ? null : texts });
+        this.state.loaded = true;
+        if (r.cfg && !config) config = r.cfg;
+        return config;
+      }, (e) => {
+        this.state.readError = String((e && e.message) || e);
+        return config;
+      });
+      return this.loaded;
+    },
+    save(cfg) { if (this.saver) this.saver.save(cfg); },
+    flush() { return this.saver ? this.saver.flush() : resolved(); },
+  };
+
+  /* Sayfanın betikleri bitene kadar beklenir: v4 göçü katman kodunu istiyor ve
+     sayfanın kendisinden önce gelen bir istek (ölçüm aracı) göçü atlatmasın. */
+  function domReady() {
+    if (typeof document === 'undefined' || document.readyState !== 'loading' || !document.addEventListener) return resolved();
+    return new Promise((r) => document.addEventListener('DOMContentLoaded', () => r(), { once: true }));
+  }
+
+  /* MASAÜSTÜNE ÖZGÜ ÇIKIŞLAR motora kapalı gider. Telefonda ışık (Dynamic
+     Lighting, OpenRGB, Art-Net, sACN, WLED) ve OSC çıkışı yok, ama bilgisayardan
+     gelen ayarda açık olabilirler. Ölçüldü: ışık paleti MilkDrop'tan alınıyorsa
+     motor saniyede ~30 kez GPU'dan piksel okuyor (gl.readPixels işlem hattını
+     bekletiyor); emülatörde kare hızı 60'tan ~4'e düşüyor ve görüntü siyah
+     kalıyordu, telefonda da boşa iş. Dosyadaki değer DEĞİŞMEZ: ayar bilgisayara
+     geri götürülünce ışıklar yine açık. */
+  const DESKTOP_OUTPUTS = ['lighting', 'openrgb', 'artnet', 'sacn', 'wled', 'oscOut'];
+  function engineView(c) {
+    if (!c || typeof c !== 'object') return c;
+    let out = c;
+    for (const k of DESKTOP_OUTPUTS) {
+      const v = c[k];
+      if (!v || typeof v !== 'object' || v.enabled !== true) continue;
+      if (out === c) out = Object.assign({}, c);
+      out[k] = Object.assign({}, v, { enabled: false });
+    }
+    return out;
+  }
+
+  /* v4 göçü (src/shared/migrate-v4.js): masaüstünde ana süreç yapıyor. Katman
+     kodu olmayan sayfada (dışa aktarım) yapılmaz; çevrilmemiş ayar yazılsa da
+     docVersion eski kalır, sonraki açılışta çevrilir. */
+  function migrateConfig(cfg) {
+    const Mg = window.SVMigrateV4;
+    if (!Mg || !window.SVLayers || !Mg.needsMigration(cfg)) return false;
+    return Mg.migrate(cfg).changed;
+  }
+
+  /* Düzenleyicinin (Faz 3) kullanacağı yol: motor hemen uygular, dosya
+     birleştirilmiş kayıtla yazılır. patch: kaydırıcı sürüklenirken yalnız
+     değişen üst düzey anahtarlar (masaüstündeki config-patch). */
+  function setConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    config = cfg;
+    ev.config.emit(engineView(cfg));
+    profile.save(cfg);
+  }
+  function patchConfig(p) {
+    if (!config || !p || typeof p !== 'object') return;
+    config = Object.assign({}, config, p);
+    ev.configPatch.emit(engineView(p));
+    profile.save(config);
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    // Arka plana geçerken ve sayfa kapanırken bekleyen kayıt hemen yazılır
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') profile.flush(); });
+  }
+  if (typeof window.addEventListener === 'function') window.addEventListener('pagehide', () => { profile.flush(); });
+
+  window.SVAndroid = Object.freeze({
+    config: Object.freeze({
+      get: () => config,
+      set: setConfig,
+      patch: patchConfig,
+      flush: () => profile.flush(),
+      ready: () => profile.load(),
+    }),
+  });
+
   window.SV_PLATFORM = Object.freeze({ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true });
   window.SV_DISPLAY_ID = null;
   window.SV_SHARED_EPOCH = null;
@@ -173,7 +283,7 @@
 
   /* HOST.md'deki tablo, aynı sırayla. */
   window.api = {
-    requestConfig: () => resolved(config),
+    requestConfig: () => profile.load().then(() => engineView(config)),
     onConfig: (cb) => ev.config.add(cb),
     onConfigPatch: (cb) => ev.configPatch.add(cb),
     onShowClock: (cb) => ev.showClock.add(cb),
@@ -317,7 +427,14 @@
     window.__svHost = {
       state,
       request,
-      pushConfig(c) { config = c; ev.config.emit(c); },
+      /* Yalnız motora: ölçümün uyguladığı şablonlar kullanıcının ayarlarına yazılmaz. */
+      pushConfig(c) { config = c; ev.config.emit(engineView(c)); },
+      saveConfig: setConfig,
+      flushConfig: () => profile.flush(),
+      profileState() {
+        const st = profile.saver ? Object.assign({}, profile.saver.stats) : null;
+        return Object.assign({}, profile.state, { saver: st, pending: !!(profile.saver && profile.saver.pending()) });
+      },
       /* Dışa aktarım işi (Faz 5'te düzenleyiciden gelecek; 0E'de ölçüm aracından). */
       runExport(job) {
         Object.assign(exportState, { job, began: null, sent: 0, acked: 0, bytes: 0, cancel: false, result: null, error: null, t0: now() });
@@ -332,7 +449,8 @@
         if (active > gl.max) gl.max = active;
         return Object.assign({ active }, gl);
       },
-      patchConfig(p) { ev.configPatch.emit(p); },
+      patchConfig(p) { ev.configPatch.emit(engineView(p)); },
+      savePatch: patchConfig,
       setAudioSource(name) { state.source = name; },
       audioStart(source) { return request('audioStart', { source }); },
       audioStop() { return request('audioStop'); },

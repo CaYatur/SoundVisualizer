@@ -19,7 +19,11 @@
    Şablonlar önce sınıflanır: "çizmeli", "eksik varlık" (yerel dosya yolu, depoda
    olmayan dokular) ve "yalnız masaüstü" (Spout/Syphon girişi, web katmanı, ekran
    yakalama). Siyah ekran denetimi YALNIZ "çizmeli" grupta hata sayılır; öbür
-   ikisi Android'le ilgisiz sebeplerle siyah kalabilir. */
+   ikisi Android'le ilgisiz sebeplerle siyah kalabilir.
+
+     node android/tools/probe.js profile
+       Ayar dosyaları: kayıt, arka plana geçişte yazım, çizim süreci çökünce
+       son ayarla geri gelme. Uygulamanın verisini siler. */
 const fs = require('node:fs');
 const D = require('./lib/device');
 const PNG = require('./lib/png');
@@ -351,7 +355,75 @@ async function floating() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating };
+/* AYAR DOSYALARI (PLAN 2.2, 2.4). Kayıt profil klasörüne masaüstü düzeninde
+   gidiyor mu; uygulama arka plana geçince bekleyen kayıt hemen yazılıyor mu;
+   WebView'in çizim süreci çökünce sayfa son kaydedilen ayarla geri geliyor mu.
+   Uygulamanın verisi baştan silinir: yalnız sınama cihazında koşun. */
+async function profileCmd() {
+  const out = {};
+  // Kopan CDP bağlantısında bekleyen söz olay döngüsünü boşaltır: yarım sonucu yine yaz
+  const partial = () => { if (!out.done) { console.log(JSON.stringify(out, null, 1)); console.error('yarım kaldı'); process.exitCode = 1; } };
+  process.on('exit', partial);
+  const cat = (n) => { try { return D.adb(['shell', 'run-as ' + D.PKG + ' cat files/profile/' + n]); } catch { return null; } };
+  const ready = async (page) => { for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.__svHost.state.hello)')); i++) await D.sleep(200); };
+  D.adb(['shell', 'pm', 'clear', D.PKG]);
+  const pid = await D.launch();
+  let page = await D.connect(pid);
+  const marker = 'p' + Date.now();
+  try {
+    await ready(page);
+    out.first = await page.evaluate('window.api.requestConfig().then((c) => ({ cfg: c, st: window.__svHost.profileState() }))');
+    // Masaüstündeki gibi tam bir yapılandırma ve bir sahne
+    out.saved = await page.evaluate(`(async () => {
+      const c = window.SV.deepMerge(window.SV.defaultConfig(), {});
+      c.probeMarker = ${JSON.stringify(marker)};
+      c.scenes = [{ id: 'probe', name: 'Probe', data: {} }];
+      window.__svHost.saveConfig(c);
+      await window.__svHost.flushConfig();
+      return window.__svHost.profileState();
+    })()`);
+    const settings = cat('settings.json');
+    out.files = {
+      settingsMarker: !!settings && JSON.parse(settings).probeMarker === marker,
+      settingsHasScenes: !!settings && 'scenes' in JSON.parse(settings),
+      scenes: cat('scenes.json'),
+    };
+    // Bekleyen kayıt + ana ekran: Activity.onPause → "flush"
+    out.pendingBeforeHome = await page.evaluate(`(window.__svHost.savePatch({ probeHome: ${JSON.stringify(marker)} }), window.__svHost.profileState().pending)`);
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+    await D.sleep(1200);
+    out.afterHome = await page.evaluate('({ flushEvents: window.__svHost.state.flushEvents, st: window.__svHost.profileState() })');
+    out.files.homeMarker = (JSON.parse(cat('settings.json') || '{}').probeHome) === marker;
+    D.adb(['shell', 'am', 'start', '-n', D.PKG + '/.MainActivity']);
+    await D.sleep(1500);
+    // Çizim süreci çöker: uygulama yaşamalı, sayfa yeniden kurulmalı, ayar diskten gelmeli
+    await page.evaluate('window.__crashMarker = 1; 1');
+    // Yanıt beklenmez: çöken sayfa yanıt vermiyor, bağlantı kopuyor
+    const deadId = page.id;
+    page.call('Page.crash').catch(() => {});
+    await D.sleep(500);
+    page.close();
+    await D.sleep(3000);
+    out.crash = { appPidSame: D.pidOf() === pid };
+    page = await D.connect(pid, deadId);
+    await ready(page);
+    out.crash.after = await page.evaluate(`window.api.requestConfig().then((c) => ({
+      newPage: !window.__crashMarker,
+      marker: c && c.probeMarker, home: c && c.probeHome, scenes: c && Array.isArray(c.scenes) ? c.scenes.length : null,
+      st: window.__svHost.profileState() }))`);
+  } finally { page.close(); }
+  out.done = true;
+  process.off('exit', partial);
+  console.log(JSON.stringify(out, null, 1));
+  const a = out.crash.after || {};
+  const ok = out.first.cfg === null && out.first.st.loaded && out.saved.saver && out.saved.saver.writes >= 1
+    && out.files.settingsMarker && !out.files.settingsHasScenes && /"probe"/.test(out.files.scenes || '')
+    && out.pendingBeforeHome && out.afterHome.flushEvents >= 1 && out.files.homeMarker
+    && out.crash.appPidSame && a.newPage && a.marker === marker && a.home === marker && a.scenes === 1;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

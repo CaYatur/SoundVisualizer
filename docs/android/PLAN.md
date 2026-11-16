@@ -123,6 +123,8 @@ Each phase ends with a "done when" line. The owner approves each phase before th
 - 1.3 `android.yml`: `assembleDebug`, Kotlin unit tests and lint, path-filtered.
 - 1.4 `versionName`/`versionCode`; `release-assets.js` learns about the APK (release phase).
 - **Done when** the desktop gates and the Android CI are green and no mobile file is in the desktop package.
+- **Status (17.11.2026):** 1.1–1.3 were done with the phase 0E pull requests (#1057, #1061, `android.yml`). The
+  mobile CSS guard moves to phase 3 (there is no mobile CSS yet); `release-assets.js` moves to phase 6.
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.
