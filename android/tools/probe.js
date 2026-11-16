@@ -21,6 +21,9 @@
    yakalama). Siyah ekran denetimi YALNIZ "çizmeli" grupta hata sayılır; öbür
    ikisi Android'le ilgisiz sebeplerle siyah kalabilir.
 
+     node android/tools/probe.js lifecycle
+       Döndürme, WebGL bağlam kaybı, bellek baskısı ve pil durumu.
+
      node android/tools/probe.js profile
        Ayar dosyaları: kayıt, arka plana geçişte yazım, çizim süreci çökünce
        son ayarla geri gelme. Uygulamanın verisini siler. */
@@ -205,6 +208,11 @@ async function audio() {
   const source = arg('source', 'capture');
   const mode = arg('mode', 'allow');
   const seconds = +arg('seconds', 12);
+  /* Çalışma zamanı izinleri sınama cihazında önceden verilir: `pm clear` (profile
+     komutu) onları geri alıyor ve izin penceresinde bekleyip kalınıyordu. */
+  for (const p of ['RECORD_AUDIO', 'POST_NOTIFICATIONS']) {
+    try { D.adb(['shell', 'pm', 'grant', D.PKG, 'android.permission.' + p]); } catch { /* eski sürümde yok */ }
+  }
   const pid = await D.launch();
   const page = await D.connect(pid);
   const out = { source, mode };
@@ -228,11 +236,13 @@ async function audio() {
     const sp = out.spectrum;
     out.heard = !!(sp && sp.low > sp.median + 60 && sp.high > sp.median + 60);
     out.silent = !sp || sp.level < 30;
+    // Sessizlik algılama (PHASE0 R3): engelleyen uygulamada düzenleyiciye haber gider
+    out.silenceEvents = await page.evaluate('window.__svHost.state.silenceEvents');
     await page.evaluate('window.__svHost.audioStop()');
   } finally { page.close(); }
   D.adb(['shell', 'am', 'force-stop', 'com.cayadev.visualizer.tonegen']);
   console.log(JSON.stringify(out, null, 1));
-  const want = mode === 'deny' ? out.silent : out.heard;
+  const want = mode === 'deny' ? out.silent && out.silenceEvents >= 1 : out.heard && out.silenceEvents === 0;
   if (!want) process.exitCode = 1;
 }
 
@@ -423,7 +433,81 @@ async function profileCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd };
+/* YAŞAM DÖNGÜSÜ (PLAN 2.4). Döndürmede motor yeniden kurulmuyor mu (aynı sayfa,
+   kaybolan bağlam yok); WebGL bağlamı düşürülünce sahne kendini kuruyor mu (#594);
+   bellek baskısı ve pil durumu sayfaya geliyor mu. Ekran yönü ve pil durumu iş
+   bitince — hata olsa da — geri alınır. */
+async function lifecycleCmd() {
+  const out = {};
+  const lit = () => Math.round(PNG.luma(D.screencap(), 4).lit * 1000) / 1000;
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  try {
+    for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.__svHost.state.hello)')); i++) await D.sleep(200);
+    await page.evaluate('window.__marker = 1; 1');
+    await D.sleep(2500);
+    const snap = async () => page.evaluate('({ size: [innerWidth, innerHeight], same: window.__marker === 1, gl: window.__svHost.glContexts() })');
+    out.before = await snap();
+    out.before.lit = lit();
+    // Döndürme: Activity yeniden kurulmaz (configChanges), sayfa yalnız boyut değiştirir
+    try {
+      D.adb(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0']);
+      D.adb(['shell', 'settings', 'put', 'system', 'user_rotation', '1']);
+      await D.sleep(3000);
+      out.rotated = await snap();
+      out.rotated.lit = lit();
+      out.rotated.samePid = D.pidOf() === pid;
+    } finally {
+      D.adb(['shell', 'settings', 'put', 'system', 'user_rotation', '0']);
+    }
+    await D.sleep(2500);
+    out.back = await snap();
+    // Bağlam kaybı: belgede duran her WebGL tuvali düşürülür; motor yeniden kurmalı
+    out.loss = await page.evaluate(`(() => {
+      let n = 0;
+      for (const c of document.querySelectorAll('canvas')) {
+        const g = c.getContext('webgl2') || c.getContext('webgl');
+        const x = g && g.getExtension('WEBGL_lose_context');
+        if (x && !g.isContextLost()) { x.loseContext(); n++; }
+      }
+      return { dropped: n, gl: window.__svHost.glContexts() };
+    })()`);
+    await D.sleep(5000);
+    out.revived = await page.evaluate('window.__svHost.glContexts()');
+    out.revived.lit = lit();
+    // Bellek baskısı (onTrimMemory → memoryPressure → kayıt)
+    D.adb(['shell', 'am', 'send-trim-memory', D.PKG, 'RUNNING_CRITICAL']);
+    await D.sleep(1000);
+    out.memory = await page.evaluate('window.__svHost.state.memoryPressure');
+    if (!out.memory) {
+      D.adb(['shell', 'am', 'send-trim-memory', D.PKG, 'HIDDEN']);
+      await D.sleep(1000);
+      out.memory = await page.evaluate('window.__svHost.state.memoryPressure');
+    }
+    // Pil: şarj kablosu çıkarılmış gibi
+    try {
+      out.power0 = await page.evaluate('window.api.getPowerSource()');
+      D.adb(['shell', 'dumpsys', 'battery', 'unplug']);
+      await D.sleep(1500);
+      out.power1 = await page.evaluate('window.api.getPowerSource()');
+    } finally {
+      D.adb(['shell', 'dumpsys', 'battery', 'reset']);
+    }
+    await D.sleep(1500);
+    out.power2 = await page.evaluate('window.api.getPowerSource()');
+    out.budget = await page.evaluate('window.SVAndroid.gl()');
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally { page.close(); }
+  console.log(JSON.stringify(out, null, 1));
+  const r = out.rotated;
+  const ok = r.same && r.samePid && r.size[0] > r.size[1] && r.gl.lost === out.before.gl.lost && r.lit > 0.05
+    && out.back.same && out.back.size[0] < out.back.size[1]
+    && out.loss.dropped >= 1 && out.revived.created > out.loss.gl.created && out.revived.lit > 0.05
+    && !!out.memory && out.power0.onBattery === false && out.power1.onBattery === true && out.power2.onBattery === false;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

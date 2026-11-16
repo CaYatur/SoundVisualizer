@@ -43,7 +43,8 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
                 val bitrate = args.optInt("bitrate", (w * h * fps * 0.15).toInt())
                 val audio = args.optString("audio").takeIf { it.isNotEmpty() }?.let { mediaFile(it) }
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
-                val out = File(dir, args.optString("name", "export-${System.currentTimeMillis()}.mp4"))
+                // Ad sayfadan geliyor: klasör dışına çıkamaz (ExportNames)
+                val out = File(dir, ExportNames.output(args.optString("name", ""), System.currentTimeMillis()))
                 val s = ExportSession(out, w, h, fps, bitrate, audio?.takeIf { it.exists() })
                 session = s
                 job++

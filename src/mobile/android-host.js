@@ -47,6 +47,7 @@
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
     texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(),
+    silence: listeners(), audioStatus: listeners(), memory: listeners(),
   };
 
   let config = null;
@@ -57,7 +58,7 @@
 
   // ---- Kanal (docs/android/MESSAGES.md) ----
   const native = typeof window.SVNative === 'object' && window.SVNative ? window.SVNative : null;
-  const state = { hello: null, textIn: 0, binaryIn: 0, badBinary: 0, audioFrames: 0, nativeFrames: 0, source: 'demo', audioStatus: null, flushEvents: 0 };
+  const state = { hello: null, textIn: 0, binaryIn: 0, badBinary: 0, audioFrames: 0, nativeFrames: 0, source: 'demo', audioStatus: null, flushEvents: 0, silent: false, silenceEvents: 0, memoryPressure: null };
 
   /* Uygulamadan gelen ses (src/mobile/audio-input.js): kare masaüstündekiyle
      aynı halka ve tayfla kurulur. Son gerçek kareden bu kadar süre sonra demo
@@ -66,12 +67,21 @@
   let lastNativeAt = 0;
   let lastFrame = null;
   const M = window.SVMessages || null;
+  /* Yakalama sürerken ~3 sn dijital sessizlik: çalan uygulama sesini paylaşmıyor
+     olabilir (src/mobile/silence.js). Düzenleyici çıkış karışımı ya da mikrofon önerir. */
+  const silence = window.SVSilence ? window.SVSilence.create() : null;
   const input = window.SVAudioInput ? window.SVAudioInput.create((frame) => {
     lastNativeAt = now();
     lastFrame = frame;
     state.nativeFrames++;
     state.audioFrames++;
     ev.audio.emit(frame);
+    const s = silence && silence.push(frame, now());
+    if (s) {
+      state.silent = s === 'silent';
+      if (state.silent) state.silenceEvents++;
+      ev.silence.emit({ silent: state.silent, source: state.audioStatus && state.audioStatus.source });
+    }
   }) : null;
   function now() { return typeof performance !== 'undefined' ? performance.now() : Date.now(); }
 
@@ -133,6 +143,16 @@
       ev.powerSource.emit({ onBattery });
     } else if (name === 'audioStatus') {
       state.audioStatus = v;
+      // Kaynak değişti ya da durdu: sessizlik sayacı baştan
+      if (silence) silence.reset();
+      if (state.silent) { state.silent = false; ev.silence.emit({ silent: false, source: v && v.source }); }
+      ev.audioStatus.emit(v);
+    } else if (name === 'memoryPressure') {
+      /* Sistem bellek istiyor (onTrimMemory): bekleyen kayıt hemen yazılır, uygulama
+         haber vermeden kapatılabilir. Düzenleyici isterse ağır katmanları uyarır. */
+      state.memoryPressure = v;
+      profile.flush();
+      ev.memory.emit(v);
     } else if (name === 'exportAck' || name === 'exportError') {
       onExportEvent(name, v);
     }
@@ -274,6 +294,18 @@
       flush: () => profile.flush(),
       ready: () => profile.load(),
     }),
+    /* Ses kaynağı (HOST.md "Shell surface"): capture, mic, visualizer. */
+    audio: Object.freeze({
+      start: (source) => request('audioStart', { source }),
+      stop: () => request('audioStop'),
+      status: () => state.audioStatus,
+      silent: () => state.silent,
+      onStatus: (cb) => ev.audioStatus.add(cb),
+      onSilence: (cb) => ev.silence.add(cb),
+    }),
+    /* WebGL bağlam bütçesi: sayfa başına en çok GL_LIMIT etkin bağlam. */
+    gl: () => glBudget(),
+    onMemoryPressure: (cb) => ev.memory.add(cb),
   });
 
   window.SV_PLATFORM = Object.freeze({ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true });
@@ -391,23 +423,35 @@
     };
   }
 
-  /* WebGL BAĞLAM SAYACI (yalnız geliştirme sürümü). Android WebView'de sayfa
-     başına en çok 8 etkin bağlam var (ölçüldü, masaüstünde 16); dokuzuncu açılınca
-     en eskisi kaybolur. Her GL katmanı kendi bağlamını açtığı için hangi sahnenin
-     sınıra ne kadar yaklaştığı burada sayılır. */
+  /* WEBGL BAĞLAM SAYACI. Android WebView'de sayfa başına en çok 8 etkin bağlam
+     var (ölçüldü, masaüstünde 16); dokuzuncu açılınca en eskisi kaybolur. Her GL
+     katmanı kendi bağlamını açtığı için düzenleyici bir sahne sınıra yaklaşınca
+     uyarır (PHASE0.md, R1): sayaç yayın sürümünde de açık.
+       attached: belgede duran ve kaybolmamış bağlamlar (0E ölçümleri bununla);
+       live: kaybolmamış ve hâlâ tutulan bütün bağlamlar — belgeden çıkarılmış
+             tuval de sınıra sayılıyor (zaman çizelgesi katmanları ekran dışında). */
+  const GL_LIMIT = 8;
   const gl = { created: 0, lost: 0, max: 0 };
   const glRefs = [];
-  function glActive() {
-    let n = 0;
+  function glCount() {
+    let attached = 0;
+    let live = 0;
     for (let i = glRefs.length - 1; i >= 0; i--) {
       const c = glRefs[i].canvas.deref();
       const x = glRefs[i].ctx.deref();
       if (!c || !x) { glRefs.splice(i, 1); continue; }
-      if (c.isConnected && !x.isContextLost()) n++;
+      if (x.isContextLost()) continue;
+      live++;
+      if (c.isConnected) attached++;
     }
-    return n;
+    return { attached, live };
   }
-  if (env.debug && typeof HTMLCanvasElement !== 'undefined') {
+  function glActive() { return glCount().attached; }
+  function glBudget() {
+    const n = glCount();
+    return { live: n.live, attached: n.attached, limit: GL_LIMIT, created: gl.created, lost: gl.lost };
+  }
+  if (typeof HTMLCanvasElement !== 'undefined') {
     const orig = HTMLCanvasElement.prototype.getContext;
     const seen = new WeakSet();
     HTMLCanvasElement.prototype.getContext = function (type, opts) {

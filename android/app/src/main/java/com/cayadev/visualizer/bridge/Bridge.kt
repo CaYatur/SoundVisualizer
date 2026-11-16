@@ -16,6 +16,7 @@ import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.cayadev.visualizer.BuildConfig
+import com.cayadev.visualizer.PowerWatch
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
@@ -98,6 +99,8 @@ class Bridge(
                     .put("sdk", Build.VERSION.SDK_INT)
                     .put("webview", WebShell.webViewVersion(context))
                 proxy.postMessage(out.toString())
+                // Yeni sayfa pil durumunu hemen bilsin (düşük güç kipi)
+                event("powerSource", JSONObject().put("onBattery", PowerWatch.onBattery))
             }
             "req" -> {
                 val r = Reply(msg.optInt("id"), proxy)

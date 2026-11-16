@@ -59,7 +59,7 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `screenSources` | Empty | Resolves `[]`. Screen capture as a layer is not planned. |
 | `getPresets` | Real (2) | Studio presets from app storage. |
 | `milkdropPresetSource` | Real (2) | Source text of a MilkDrop preset. |
-| `getPowerSource` | Real (2) | `{ onBattery }` from Android's battery state, for the low-power mode. |
+| `getPowerSource` | Real (2) | `{ onBattery }`: the charger is unplugged (`ACTION_BATTERY_CHANGED`, `EXTRA_PLUGGED`), for the low-power mode. Sent to every new page on `hello`. |
 | `onPowerSource` | Real (2) | |
 | `onPresets` | Real (2) | |
 | `onPresetsDelta` | Real (2) | |
@@ -137,8 +137,15 @@ profile: with the light palette taken from MilkDrop, the engine read pixels back
 for lights that do not exist, and the emulator dropped from 60 to about 4 frames per second. Taking the profile back
 to the desktop turns the lights on again.
 
-**Editor API** (`window.SVAndroid.config`, used by the mobile UI in phase 3): `get()`, `set(cfg)`, `patch(keys)`,
-`flush()`, `ready()`.
+**Editor API** (`window.SVAndroid`, used by the mobile UI in phase 3):
+
+| Member | Notes |
+|---|---|
+| `config.get()`, `config.set(cfg)`, `config.patch(keys)`, `config.flush()`, `config.ready()` | Configuration, as above. |
+| `audio.start(source)`, `audio.stop()`, `audio.status()`, `audio.onStatus(cb)` | Audio source (`capture`, `mic`, `visualizer`). |
+| `audio.silent()`, `audio.onSilence(cb)` | About 3 s of digital silence while an app source runs: the playing app may not share its audio (PHASE0 R3). Fires once when silence starts and once when sound returns; a source change resets it. The UI offers the output mix or the microphone. |
+| `gl()` | WebGL context budget: `{ live, attached, limit: 8, created, lost }`. `live` counts every context that is not lost, also canvases outside the document (timeline layers), because those count toward the limit too. On in release builds. |
+| `onMemoryPressure(cb)` | The system asked for memory (`onTrimMemory`, level ≥ `RUNNING_LOW`, which includes going to the background). The pending save is written first. |
 
 ## Shell surface
 
@@ -160,11 +167,32 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `floatingState` | `{ showing, opacity, clickThrough, locked, maxPassThroughOpacity, bounds, activity }`. |
 | `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
 | event `windowChrome` | `{ pip }` when picture-in-picture starts or ends. |
+| event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |
+| event `memoryPressure` | `{ level }` (`onTrimMemory`, registered on the application, so it also arrives while only the floating window is up). |
 
 The engine (the one WebView) belongs to the app, not to the screen (`EngineHost`): it is built on the application
 context and moved between the full-screen Activity and the floating window. If the system destroys the Activity while
 the floating window is up, the engine keeps drawing; reopening the app shows the same engine without rebuilding the scene.
 
+
+## Security (phase 2.5)
+
+Measured or enforced in code; nothing here depends on the page behaving well.
+
+- **Channel:** `SVNative` is registered only for `https://appassets.androidplatform.net` and answers only the main
+  frame. The document-start scripts (`window.api`) run only on that origin. A foreign page never sees either.
+- **Navigation guard:** the WebView may only navigate inside our origin; anything else is refused and logged.
+  Multiple windows are not enabled, so `window.open` goes through the same guard. A request to our own host that
+  no handler answers gets 404 (204 for `/favicon.ico`) and never reaches the network.
+- **WebView settings:** file and content access off, mixed content never, zoom off.
+- **Web permissions:** there is no `WebChromeClient`, so the page's permission requests (`getUserMedia` and the like)
+  are refused. Audio comes from the app, not from the page. The camera layer (phase 4) will grant the camera only to
+  our origin and only with the app's own camera permission.
+- **Files:** the profile store accepts only the names in `ProfileNames.kt`. A song for export must resolve inside
+  `files/media/` (canonical path). The export file name comes from the page and is cleaned by `ExportNames.kt`:
+  no path parts, no leading dots, `.mp4` (unit test).
+- **Debug only:** WebView DevTools, `window.__svHost`, the `page` intent extra and `debugFinishActivity` exist only
+  in debug builds (`BuildConfig.DEBUG`).
 
 The editor's calls (settings, presets, import, export queue, audio source, floating window…) are defined in phases
 2 and 3. They follow the same rules. Where a desktop IPC channel exists, the method keeps its name (`presets:save` →
