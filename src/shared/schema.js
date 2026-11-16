@@ -133,7 +133,8 @@
     { path: 'sacn.universe', min: 1, max: 512, int: true },
     { path: 'wled.brightness', min: 0, max: 1, noExtend: true },
     { path: 'wled.fps', min: 1, max: 60, int: true, noExtend: true },
-    { path: 'wled.ledCount', min: 1, max: 1500, int: true },
+    // DDP ofseti 32 bit bayt adresi. noExtend: genişletilmiş aralık bunu 5 katına çıkarmaz.
+    { path: 'wled.ledCount', min: 1, max: Math.floor(0xFFFFFFFF / 3), int: true, noExtend: true },
     { path: 'wledSync.fps', min: 5, max: 60, int: true, noExtend: true },
     { path: 'geometry.alpha', min: 0.05, max: 1 },
     { path: 'geometry.attractorPoints', min: 1000, max: 200000 },

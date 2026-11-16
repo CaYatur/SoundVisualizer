@@ -488,6 +488,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Control and show
 
+- **DDP LED count for large matrices** (#1065). The WLED (DDP) card takes the LED count, columns,
+  rows and update rate as numbers. The panel ceiling of 1500 and the sender ceiling of 4096 are
+  gone. The remaining ceiling is the DDP byte offset, 1,431,655,765 RGB pixels, which covers a
+  128×128 matrix (16384 LEDs). Each packet still holds at most 480 pixels, and the update rate
+  stays 1–60 Hz. Get LED Count keeps the number the controller reports. The address does not have
+  to be a WLED device. Checked with a fake WLED server and a loopback listener, not a physical panel.
 - **Full backup and restore.** Back Up / Restore Settings wrote only the settings: saved scenes and
   color presets were left out, and so were the files the scenes use, so a setup moved to another
   computer opened with empty layers. **Create Full Backup** writes one `.svbackup` file:

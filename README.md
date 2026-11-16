@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4549%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4551%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1235,8 +1235,11 @@ fall off. Columns and rows are set by hand or chosen as a near-square from the f
 **sACN (E1.31).** The same fixtures and colour modes as Art-Net, sent to the universe's multicast
 address or to one host, with priority and a source name.
 
-**WLED.** Pixels go to a WLED controller over DDP (UDP `4048`) with the LED count you set. **Find WLED
-on Network** and **Get LED Count** touch the network only when you press them. **WLED Audio Sync**
+**WLED / DDP.** Pixels go to any DDP receiver over UDP `4048`, WLED included, with the LED count,
+columns, rows and update rate you type. A 128×128 matrix is 16384 LEDs. The ceiling is the DDP
+offset itself: 1431655765 RGB pixels. Each packet still carries at most 480 pixels, and the update
+rate stays between 1 and 60 Hz. **Find WLED on Network** and **Get LED Count** touch the network
+only when you press them, and the count they read is kept. **WLED Audio Sync**
 broadcasts the level, the beat and 16 bands, so WLED's own sound-reactive effects follow the app.
 
 On a redundant pair, only the machine with output authority sends Art-Net, sACN and WLED.
@@ -2241,7 +2244,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4549 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4551 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
