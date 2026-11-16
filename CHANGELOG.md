@@ -273,6 +273,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   threshold (5.8 in High Contrast against 7). It now uses the secondary colour as is: 5.8–13.8.
   The note only appears while a multi-process program plays sound, so the self-test caught it
   only on such a machine.
+- **Light theme notes clear the contrast check.** The quieter text colour `#5b6170` measured 4.46:1
+  on the display and frame-rate notes (threshold 4.5). It is now `#545a68`. The primary muted colour
+  stays darker.
 - **Application audio shows program names, not paths.** Some processes appeared as
   `C:\Windows\System32\cmd.exe`; the list now shows `cmd.exe`, and capture still matches the full
   path.
