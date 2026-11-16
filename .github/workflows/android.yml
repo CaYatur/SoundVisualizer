@@ -2,7 +2,9 @@
 # masaüstünün zorunlu beş denetiminden biri DEĞİLDİR (docs/android/PLAN.md, D14).
 # src/shared de süzgeçte: uygulama oradaki dosyaları sayfadan önce yüklüyor.
 # src/main'den yalnız Android testlerinin karşılaştırdığı dosyalar: ayar deposu,
-# tam yedek (ve zip okuyucu/yazıcısı), "şimdi çalıyor" biçimi.
+# tam yedek (ve zip okuyucu/yazıcısı), "şimdi çalıyor" biçimi. Motor sayfası
+# (src/visualizer), assets ve küçük resim anahtarını hesaplayan dosyalar da: APK'ya
+# giriyorlar ve küçük resim dizini (android/tools/thumb-index.js) onlardan çıkıyor.
 name: android
 
 on:
@@ -12,6 +14,13 @@ on:
       - 'android/**'
       - 'src/mobile/**'
       - 'src/shared/**'
+      - 'src/visualizer/**'
+      - 'src/thumbs/**'
+      - 'assets/**'
+      - 'scripts/gen-mode-thumbs.js'
+      - 'src/main/mode-thumbs.js'
+      - 'src/main/milkdrop-thumbs.js'
+      - 'src/main/milkdrop-textures.js'
       - 'docs/android/**'
       - 'src/main/preload-visualizer.js'
       - 'src/main/preload-exporter.js'
@@ -28,6 +37,13 @@ on:
       - 'android/**'
       - 'src/mobile/**'
       - 'src/shared/**'
+      - 'src/visualizer/**'
+      - 'src/thumbs/**'
+      - 'assets/**'
+      - 'scripts/gen-mode-thumbs.js'
+      - 'src/main/mode-thumbs.js'
+      - 'src/main/milkdrop-thumbs.js'
+      - 'src/main/milkdrop-textures.js'
       - 'docs/android/**'
       - 'src/main/preload-visualizer.js'
       - 'src/main/preload-exporter.js'
@@ -65,6 +81,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      # Mod küçük resimlerinin dizini derlemede Node ile çıkarılıyor (android/tools/thumb-index.js)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Build, unit tests and lint
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug

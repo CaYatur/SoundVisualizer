@@ -50,11 +50,15 @@ function decode(buf) {
 
 /** Ortalama parlaklık (0..255) ve "siyah değil" piksel oranı (luma > 12).
     `step`: her yönde kaçta bir piksel (tam ekran görüntüsü için 8). */
-function luma(buf, step) {
+/*  `region`: { y0, y1 } görüntü yüksekliğinin kesirleri (ör. sahnenin sayfa dışında kalan üstü). */
+function luma(buf, step, region) {
   const img = decode(buf);
   const s = Math.max(1, step | 0);
+  const r = region || {};
+  const top = Math.floor((r.y0 || 0) * img.height);
+  const bottom = Math.ceil((r.y1 == null ? 1 : r.y1) * img.height);
   let sum = 0, lit = 0, n = 0;
-  for (let yy = 0; yy < img.height; yy += s) for (let xx = 0; xx < img.width; xx += s) {
+  for (let yy = top; yy < bottom; yy += s) for (let xx = 0; xx < img.width; xx += s) {
     n++;
     const o = (yy * img.width + xx) * img.bpp;
     const y = 0.2126 * img.data[o] + 0.7152 * img.data[o + 1] + 0.0722 * img.data[o + 2];

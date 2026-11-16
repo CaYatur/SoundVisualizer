@@ -852,7 +852,142 @@ async function shellCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd };
+/* KATMANLAR SEKMESİ (Faz 3.3). Liste ayardaki katmanları görüntü sırasıyla gösteriyor
+   mu, küçük resimler geliyor mu; göz ve görünürlük motorun çizdiğini değiştiriyor mu
+   (ayar değil, ekrandaki parlaklık ölçülüyor); katman ekleme masaüstü gibi kuruyor mu
+   (ikinci MilkDrop kendi presetini alır); tutamaçtan sürükleme diziyi değiştiriyor mu;
+   silme onay istiyor mu; geri tuşu sayfaları sırayla kapatıyor mu. Her düğme 48 dp,
+   İngilizce arayüzde Türkçe metin kalmamalı. Ayar sonda geri yazılır. */
+async function layersCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (name) => { const b = D.screencap(); if (shots) fs.writeFileSync(path.join(shots, name + '.png'), b); return b; };
+  // Sahnenin sayfanın üstünde kalan kısmı (sayfa ekranın üçte ikisini kaplıyor)
+  const STAGE = { y0: 0.14, y1: 0.3 };
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const small = `(() => Array.from(document.querySelectorAll('#sv-shell button, #sv-shell a, #sv-shell input, #sv-shell select, #sv-shell .grip, #sv-shell [role=switch]'))
+    .filter((b) => b.offsetParent !== null && b.getClientRects().length)
+    .map((b) => { const r = b.getBoundingClientRect(); return { t: (b.getAttribute('aria-label') || b.textContent || b.className || '').trim().slice(0, 24), w: Math.round(r.width), h: Math.round(r.height) }; })
+    .filter((x) => x.w < 47.5 || x.h < 47.5))()`;
+  const tap = async (sel) => {
+    const p = await ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
+      return [Math.round((r.left + r.width / 2) * devicePixelRatio), Math.round((r.top + r.height / 2) * devicePixelRatio)]; })()`);
+    if (p) D.adb(['shell', 'input', 'tap', String(p[0]), String(p[1])]);
+    await D.sleep(700);
+    return !!p;
+  };
+  const layersNow = () => ev('(window.SVAndroid.config.get().layers || []).map((l) => ({ id: l.id, kind: l.kind, type: l.type, enabled: l.enabled !== false, opacity: l.opacity == null ? 1 : l.opacity, md: l.settings && l.settings.milkdrop || null }))');
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1200);
+    await ev('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
+    // Bilinen başlangıç: arkaplan (gradyan) ve görselleştirici (barlar), yığın açık
+    await ev(`(() => { const L = window.SVLayers; const c = JSON.parse(JSON.stringify(window.SVAndroid.config.get()));
+      c.layers = [L.normalizeLayer({ kind: 'background', type: 'gradient', name: '' }), L.normalizeLayer({ kind: 'visualizer', type: 'bars', name: '' })];
+      c.layerStack = Object.assign({}, c.layerStack, { enabled: true }); window.SVAndroid.config.set(c); return 1; })()`);
+    await D.sleep(1200);
+    await ev("window.SVShell.open('layers'); 1");
+    await D.sleep(1200);
+    out.list = await ev(`({ rows: Array.from(document.querySelectorAll('#sv-shell .layer-list .row')).map((r) => r.dataset.id),
+      thumbs: Array.from(document.querySelectorAll('#sv-shell .layer-list img')).map((i) => i.naturalWidth), small: ${small} })`);
+    const l0 = await layersNow();
+    out.listOrder = out.list.rows.join() === l0.map((l) => l.id).reverse().join();
+    shot('1-list');
+    // Göz: arkaplanı gizle → sahne kararmalı
+    const before = PNG.luma(D.screencap(), 4, STAGE).mean;
+    const bgId = l0[0].id;
+    await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .iconbtn`);
+    await D.sleep(600);
+    const hidden = PNG.luma(shot('2-hidden'), 4, STAGE).mean;
+    out.eye = { config: (await layersNow())[0].enabled === false, before: Math.round(before), after: Math.round(hidden) };
+    await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .iconbtn`);
+    await D.sleep(600);
+    out.eye.back = (await layersNow())[0].enabled === true;
+    // Ayarlar: görünürlük 0,2 → sahne kararmalı (yerel range'e input olayı)
+    await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .row-main`);
+    out.editDepth = await ev('window.SVShell.state().depth');
+    await ev(`(() => { const r = document.querySelector('#sv-shell .sheet-body input[type=range]'); r.value = '0.2'; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await D.sleep(800);
+    const dim = PNG.luma(shot('3-edit'), 4, STAGE).mean;
+    out.opacity = { config: (await layersNow())[0].opacity, after: Math.round(dim) };
+    out.editSmall = await ev(small);
+    for (let t = 1; t < 4; t++) {
+      await ev(`document.querySelectorAll('#sv-shell .tabs button')[${t}].click(); 1`);
+      await D.sleep(300);
+      const s = await ev(small);
+      if (s.length) out.editSmall = out.editSmall.concat(s);
+    }
+    await ev(`(() => { const r = document.querySelector('#sv-shell .sheet-body input[type=range]'); r.value = '1'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    // Geri: ayarlar → liste
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(700);
+    out.backToList = await ev('window.SVShell.state().depth') === 1;
+    // Ekle: Barlar (ilk mod seçili gelir) → katman en üstte, ayarları açık
+    await tap('#sv-shell .sheet-actions .btn');
+    await D.sleep(800);
+    out.addSmall = await ev(small);
+    out.addThumbs = await ev("Array.from(document.querySelectorAll('#sv-shell .grid2 img')).slice(0, 6).map((i) => i.naturalWidth)");
+    shot('4-add');
+    await tap('#sv-shell .sheet-foot .btn');
+    await D.sleep(800);
+    const l1 = await layersNow();
+    out.added = { count: l1.length, top: l1[l1.length - 1].type, depth: await ev('window.SVShell.state().depth') };
+    // MilkDrop iki kez: ikincisi kendi presetini alır (masaüstündeki gibi)
+    for (let k = 0; k < 2; k++) {
+      await ev('window.SVShell.back(); 1');
+      await D.sleep(400);
+      await tap('#sv-shell .sheet-actions .btn');
+      await tap('#sv-shell .pills .pill:nth-child(3)');
+      await tap('#sv-shell .sheet-foot .btn');
+      await D.sleep(600);
+    }
+    const l2 = await layersNow();
+    const mds = l2.filter((l) => l.type === 'milkdrop');
+    out.milkdrop = { count: mds.length, secondIndependent: !!(mds[1] && mds[1].md && mds[1].md.independent) };
+    shot('5-milkdrop');
+    await ev('window.SVShell.back(); 1');
+    await D.sleep(700);
+    // Sürükle: en üstteki satırı bir satır aşağı
+    const g = await ev(`(() => { const rows = document.querySelectorAll('#sv-shell .layer-list .row'); const a = rows[0].querySelector('.grip').getBoundingClientRect(); const b = rows[1].getBoundingClientRect();
+      const d = devicePixelRatio; return [Math.round((a.left + a.width / 2) * d), Math.round((a.top + a.height / 2) * d), Math.round((b.top - rows[0].getBoundingClientRect().top) * d)]; })()`);
+    const topBefore = (await layersNow()).slice(-1)[0].id;
+    D.adb(['shell', 'input', 'swipe', String(g[0]), String(g[1]), String(g[0]), String(g[1] + g[2] + 10), '800']);
+    await D.sleep(1000);
+    const l3 = await layersNow();
+    out.drag = { moved: l3[l3.length - 2].id === topBefore && l3[l3.length - 1].id !== topBefore };
+    shot('6-dragged');
+    // Sil: onay penceresi, sonra bir eksik
+    const n4 = l3.length;
+    await tap('#sv-shell .layer-list .row:first-child .row-main');
+    await tap('#sv-shell .sheet-actions [aria-label="Sil"], #sv-shell .sheet-actions [aria-label="Delete"]');
+    out.confirmShown = await ev("!!document.querySelector('#sv-shell .dialog')");
+    shot('7-confirm');
+    await tap('#sv-shell .dialog .btn.danger');
+    out.deleted = (await layersNow()).length === n4 - 1 && await ev('window.SVShell.state().depth') === 1;
+    // İngilizce arayüzde Türkçe metin (katman ve sahne adları dışında)
+    out.turkish = await ev(`(() => { const t = document.getElementById('sv-shell').innerText.split(/\\n+/);
+      return t.filter((s) => /[çğıöşüÇĞİÖŞÜ]/.test(s) && !/^(Bir|İki)$/.test(s.trim())); })()`);
+    out.lang = await ev('window.SVI18n && window.SVI18n.locale');
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); window.SVAndroid.config.set(window.__probeOrig); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.listOrder && out.list.thumbs.length === 2 && out.list.thumbs.every((w) => w > 0) && !out.list.small.length
+    && out.eye.config && out.eye.back && out.eye.after < out.eye.before * 0.6
+    && out.editDepth === 2 && Math.abs(out.opacity.config - 0.2) < 0.01 && out.opacity.after < out.eye.before * 0.75 && !out.editSmall.length
+    && out.backToList && !out.addSmall.length && out.addThumbs.every((w) => w > 0)
+    && out.added.top === 'bars' && out.added.depth === 2 && out.milkdrop.count === 2 && out.milkdrop.secondIndependent
+    && out.drag.moved && out.confirmShown && out.deleted && (out.lang !== 'en' || !out.turkish.length);
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);
