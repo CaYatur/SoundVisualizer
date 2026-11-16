@@ -60,6 +60,17 @@
     return warm(id);
   }
 
+  /* Isınma bitene kadar bekler. Dışa aktarım ilk kareden önce buna ihtiyaç
+     duyar: blob hazır değilken sv-logo:// çizmek tuvali kirletir ve GPU
+     kare okuması SecurityError ile durur. */
+  function whenUrl(id) {
+    if (!id) return Promise.resolve(null);
+    if (cache.has(id)) return Promise.resolve(cache.get(id));
+    if (!apiRead()) return Promise.resolve(null);
+    if (!inflight.has(id)) warm(id);
+    return inflight.get(id) || Promise.resolve(cache.get(id) || null);
+  }
+
   function displaySrc(lg) {
     if (!lg) return null;
     if (lg.src) return lg.src;
@@ -79,7 +90,7 @@
     return !!(id && !cache.has(id) && inflight.has(id));
   }
 
-  const api = { warm, urlFor, displaySrc, isPending, cache };
+  const api = { warm, urlFor, displaySrc, isPending, whenUrl, cache };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLogoRuntime = api;
 })();

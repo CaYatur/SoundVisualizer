@@ -1148,6 +1148,10 @@
       if (!src) return null;
       if (this._imageCache[src]) return this._imageCache[src];
       const img = new Image();
+      /* sv-logo sayfadan (file://) ayrı köken. crossOrigin yokken görsel
+         çizilir ama tuval kirlenir; dışa aktarımın texImage2D'si o zaman
+         SecurityError atar. CORS başlığı protokol yanıtında. */
+      if (/^sv-logo:/i.test(src)) img.crossOrigin = 'anonymous';
       img.onload = () => {
         if (typeof window !== 'undefined' && window.SVPreview && typeof window.SVPreview.drawOnce === 'function') {
           window.SVPreview.drawOnce();
