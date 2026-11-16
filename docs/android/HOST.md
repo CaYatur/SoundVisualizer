@@ -36,9 +36,9 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 
 | Method | Status | Notes |
 |---|---|---|
-| `requestConfig` | Real (0E) | Current configuration. In 0E a fixed test configuration. |
-| `onConfig` | Real (0E) | Full configuration after a load or a large change. |
-| `onConfigPatch` | Local (3) | The editor sends only the changed top-level keys while a slider moves, as on the desktop. |
+| `requestConfig` | Real (2) | The saved configuration from the profile folder (see "Profile" below), or `null` on first start. Desktop-only outputs arrive switched off ("Engine view"). |
+| `onConfig` | Real (2) | Full configuration after a load or a large change (`SVAndroid.config.set`). |
+| `onConfigPatch` | Local (2) | Only the changed top-level keys while a slider moves, as on the desktop (`SVAndroid.config.patch`). |
 | `onShowClock` | Local (5) | Timeline show-clock anchor. |
 | `onMomentaryFx` | Empty | Momentary effects are a VJ tool that is not on Android (D6). |
 | `onMediaScrub` | Local (5) | Scrubbing a media layer from the timeline. |
@@ -100,6 +100,45 @@ The export page is `src/exporter/index.html`, unchanged. The host takes the plac
 | `cancelRequested` | Resolves `true` after the user taps Cancel. |
 
 The export page also uses `window.api.milkdropTextures` and `window.api.milkdropTexture` (same as above).
+
+## Profile (phase 2)
+
+The configuration lives in the app's private folder (`files/profile/`) in the desktop layout
+(`src/main/settings-store.js`): `settings.json` holds the settings, `scenes.json` the saved scenes and
+`library.json` the MilkDrop library. Files copied from a desktop profile open unchanged, and files written on the phone
+open on the desktop.
+
+- **The app is only storage.** `src/mobile/profile-store.js` decides what goes into which file, with the desktop's
+  rules: parse (strip a BOM, convert the old single `audio.source`), merge the parts, migrate to v4
+  (`src/shared/migrate-v4.js`), drop stray `layers[].settings.postfx`. A test compares every step with its desktop
+  counterpart on the same input.
+- **Reading** happens once, on the first `requestConfig`, after the page's own scripts have run (the v4 migration needs
+  the layer code). Before migrating, `settings.json` is copied once to `settings.v3-backup.json`, as on the desktop.
+  A `settings.json` that does not parse is copied to `settings.broken.json` before anything is written over it. If the
+  read itself fails, saving stays off: defaults never overwrite the user's files.
+- **Saving** is coalesced as on the desktop: 300 ms after the last change, at most 2 s after the first pending one. A
+  part whose object did not change is neither serialised nor sent; only changed files cross the channel. Writes are
+  atomic (`AtomicFile`: the new file is written and synced, then renamed).
+- **Flush:** a pending save is written at once when the page is hidden, on `pagehide`, and on the app's `flush`
+  event (sent from `Activity.onPause`): the system may stop a background app without notice.
+- **Renderer crash:** the rebuilt page reads the same files, so it comes back with the last saved configuration
+  (measured: `node android/tools/probe.js profile`).
+
+| Request | Notes |
+|---|---|
+| `storeRead { names }` | `{ name: text or null }`. Only the names in `ProfileNames.kt` are accepted; a path is refused. |
+| `storeWrite { files }` | `{ name: text }`, written atomically; `settings.json` last, so an interrupted save leaves the old settings pointing at the old parts. |
+| `storeCopy { from, to, overwrite }` | Backup copies (`settings.v3-backup.json` once, `settings.broken.json` every time). |
+| event `flush` | Write the pending save now. |
+
+**Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the
+phone does not have are off: `lighting`, `openrgb`, `artnet`, `sacn`, `wled`, `oscOut`. Measured on a copy of a desktop
+profile: with the light palette taken from MilkDrop, the engine read pixels back from the GPU about 30 times a second
+for lights that do not exist, and the emulator dropped from 60 to about 4 frames per second. Taking the profile back
+to the desktop turns the lights on again.
+
+**Editor API** (`window.SVAndroid.config`, used by the mobile UI in phase 3): `get()`, `set(cfg)`, `patch(keys)`,
+`flush()`, `ready()`.
 
 ## Shell surface
 

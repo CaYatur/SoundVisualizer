@@ -1,5 +1,7 @@
 # SoundVisualizer Android (#1054). Yalnız Android tarafı değişince koşar ve
 # masaüstünün zorunlu beş denetiminden biri DEĞİLDİR (docs/android/PLAN.md, D14).
+# src/shared de süzgeçte: uygulama oradaki dosyaları sayfadan önce yüklüyor ve
+# testler masaüstündeki ayar deposuyla karşılaştırıyor.
 name: android
 
 on:
@@ -8,17 +10,23 @@ on:
     paths:
       - 'android/**'
       - 'src/mobile/**'
+      - 'src/shared/**'
       - 'docs/android/**'
       - 'src/main/preload-visualizer.js'
       - 'src/main/preload-exporter.js'
+      - 'src/main/settings-store.js'
+      - 'src/main/settings-guard.js'
       - '.github/workflows/android.yml'
   pull_request:
     paths:
       - 'android/**'
       - 'src/mobile/**'
+      - 'src/shared/**'
       - 'docs/android/**'
       - 'src/main/preload-visualizer.js'
       - 'src/main/preload-exporter.js'
+      - 'src/main/settings-store.js'
+      - 'src/main/settings-guard.js'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 

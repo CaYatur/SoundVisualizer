@@ -112,11 +112,13 @@ object WebShell {
 
     /* Sayfanın betiklerinden önce çalışan betikler, YALNIZ kendi adresimizde.
        Sıra önemli: önce ortam, sonra ses karesini kuran ortak kod (masaüstüyle
-       aynı tayf ve halka), demo ses, ileti biçimi ve ses girişi, en son
-       window.api. */
+       aynı tayf ve halka), demo ses, ayar dosyalarının biçimi ve v4 göçü,
+       ileti biçimi ve ses girişi, en son window.api. */
     private val HOST_SCRIPTS = listOf(
         "web/src/shared/audio-spectrum.js",
         "web/src/shared/demo-audio.js",
+        "web/src/shared/migrate-v4.js",
+        "web/src/mobile/profile-store.js",
         "web/src/mobile/messages.js",
         "web/src/mobile/audio-input.js",
         "web/src/mobile/android-host.js",

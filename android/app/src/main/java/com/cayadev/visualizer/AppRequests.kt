@@ -46,6 +46,20 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 AudioService.stop(app)
                 reply.ok()
             }
+            /* Ayar dosyaları (2.2): sayfa adla okur ve yazar, biçim sayfada
+               (src/mobile/profile-store.js). Disk işi ayrı iş parçacığında. */
+            "storeRead" -> {
+                val a = args.optJSONArray("names") ?: JSONArray()
+                val names = (0 until a.length()).map { a.optString(it) }
+                EngineHost.profile.read(names) { r, err -> if (r != null) reply.ok(r) else reply.fail("store-read", err ?: "") }
+            }
+            "storeWrite" -> {
+                val files = args.optJSONObject("files") ?: JSONObject()
+                EngineHost.profile.write(files) { r, err -> if (r != null) reply.ok(r) else reply.fail("store-write", err ?: "") }
+            }
+            "storeCopy" -> EngineHost.profile.copy(args.optString("from"), args.optString("to"), args.optBoolean("overwrite", false)) { r, err ->
+                if (r != null) reply.ok(r) else reply.fail("store-copy", err ?: "")
+            }
             "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
             // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
             "exportBegin" -> EngineHost.exportHub.begin(args) { r, err -> if (r != null) reply.ok(r) else reply.fail("export-begin", err ?: "") }

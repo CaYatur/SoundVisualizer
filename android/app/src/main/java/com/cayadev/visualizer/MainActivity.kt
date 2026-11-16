@@ -181,6 +181,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        /* Bekleyen ayar kaydı hemen yazılsın: arka plandaki uygulamayı sistem
+           haber vermeden kapatabilir (sayfa kaydı 300 ms ile 2 sn bekletiyor). */
+        EngineHost.bridge?.event("flush", null)
         // PiP'te ve yüzen pencerede motor çizmeye devam eder
         if (!isInPictureInPictureMode && !FloatingWindow.isShowing) EngineHost.web?.onPause()
         super.onPause()

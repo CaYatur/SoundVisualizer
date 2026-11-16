@@ -66,8 +66,10 @@ function devtoolsSocket(pid) {
   return unix.includes('@' + name) ? name : null;
 }
 
-/** Sayfaya CDP bağlantısı; `evaluate`, `screenshot`, `logs` ve `close` döner. */
-async function connect(pid) {
+/** Sayfaya CDP bağlantısı; `evaluate`, `screenshot`, `logs` ve `close` döner.
+    `notId`: bu kimlikteki sayfa atlanır (çizim süreci çöktükten sonra ölü hedef
+    bir süre listede kalıyor; yeniden kurulan sayfa yeni kimlikle gelir). */
+async function connect(pid, notId) {
   const sock = devtoolsSocket(pid || pidOf());
   if (!sock) throw new Error('DevTools soketi yok (geliştirme sürümü mü?)');
   const port = adb(['forward', 'tcp:0', 'localabstract:' + sock]);
@@ -75,7 +77,7 @@ async function connect(pid) {
   for (let i = 0; i < 50 && !page; i++) {
     try {
       const list = await (await fetch('http://127.0.0.1:' + port + '/json')).json();
-      page = list.find((p) => p.type === 'page' && String(p.url).startsWith(ORIGIN));
+      page = list.find((p) => p.type === 'page' && String(p.url).startsWith(ORIGIN) && p.id !== notId);
     } catch { /* henüz hazır değil */ }
     if (!page) await sleep(200);
   }
@@ -108,6 +110,7 @@ async function connect(pid) {
   await call('Log.enable');
   return {
     port,
+    id: page.id,
     url: page.url,
     logs,
     call,
