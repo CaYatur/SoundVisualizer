@@ -14,14 +14,17 @@ package com.cayadev.visualizer.store
    settings.json ayarları, scenes.json sahneleri, library.json MilkDrop
    kütüphanesini tutar; settings.v3-backup.json v4 göçünden önceki kopyadır,
    settings.broken.json çözülemeyen bir settings.json'ın üstüne yazılmadan
-   önceki kopyası.
+   önceki kopyası, *.before-import.json içe aktarmadan önceki hâl.
    Android çerçevesine bağlı değil, JVM birim testinde denetleniyor. */
 object ProfileNames {
     val CONFIG_FILES = listOf("settings.json", "scenes.json", "library.json")
     const val V3_BACKUP = "settings.v3-backup.json"
     const val BROKEN = "settings.broken.json"
 
-    private val ALLOWED = (CONFIG_FILES + V3_BACKUP + BROKEN).toSet()
+    /** İçe aktarmadan önceki hâlin kopyaları (bir önceki içe aktarmanınkinin yerine). */
+    val BEFORE_IMPORT = CONFIG_FILES.map { it.replace(".json", ".before-import.json") }
+
+    private val ALLOWED = (CONFIG_FILES + V3_BACKUP + BROKEN + BEFORE_IMPORT).toSet()
 
     fun allowed(name: String): Boolean = name in ALLOWED
 }

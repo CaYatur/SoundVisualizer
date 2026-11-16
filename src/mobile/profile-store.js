@@ -32,6 +32,14 @@
   const FILES = [MAIN].concat(PARTS.map((p) => p.file));
   const V3_BACKUP = 'settings.v3-backup.json';
   const BROKEN = 'settings.broken.json';
+  // İçe aktarmadan önceki hâl (ProfileNames.kt BEFORE_IMPORT)
+  const BEFORE_IMPORT = FILES.map((n) => n.replace('.json', '.before-import.json'));
+
+  /* MASAÜSTÜ TAM YEDEĞİ (src/main/full-backup.js openBackup): tür, biçim ve ayar
+     nesnesi aynı kurallarla denetlenir. */
+  const BACKUP_TYPE = 'cayadev-visualizer-backup';
+  const BACKUP_FORMAT = 1;
+  const PRESET_ENTRY = /^presets\/([A-Za-z0-9_-]{1,80})\.json$/;
   const SAVE_DELAY_MS = 300;
   const SAVE_MAX_WAIT_MS = 2000;
 
@@ -95,6 +103,41 @@
     const migrated = typeof migrate === 'function' ? !!migrate(cfg) : false;
     const cleaned = dropStrayLayerPostfx(cfg);
     return { cfg, migrated, cleaned };
+  }
+
+  /* backup.json metni → { settings, presetIds, summary } ya da { error }. summary
+     masaüstündeki inspect() ile aynı alanlar (arşiv içi boyut gerektiren videoBytes hariç).
+     error: NOT_BACKUP (bu bir tam yedek değil) | FORMAT (daha yeni bir sürümün yedeği). */
+  function readBackup(text) {
+    let meta;
+    try { meta = JSON.parse(stripBom(text)); } catch (e) { return { error: 'NOT_BACKUP' }; }
+    if (!meta || meta.type !== BACKUP_TYPE) return { error: 'NOT_BACKUP' };
+    if (meta.format !== BACKUP_FORMAT) return { error: 'FORMAT' };
+    if (!meta.settings || typeof meta.settings !== 'object' || Array.isArray(meta.settings)) return { error: 'NOT_BACKUP' };
+    const ids = [];
+    for (const name of Array.isArray(meta.presets) ? meta.presets : []) {
+      const m = PRESET_ENTRY.exec(String(name));
+      if (m && ids.indexOf(m[1]) < 0) ids.push(m[1]);
+    }
+    const libs = meta.libraries && typeof meta.libraries === 'object' ? meta.libraries : {};
+    const n = (k) => (libs[k] && Array.isArray(libs[k].items) ? libs[k].items.length : 0);
+    return {
+      settings: meta.settings,
+      presetIds: ids,
+      summary: {
+        appVersion: String(meta.appVersion || ''),
+        platform: String(meta.platform || ''),
+        createdAt: String(meta.createdAt || ''),
+        scenes: Array.isArray(meta.settings.scenes) ? meta.settings.scenes.length : 0,
+        colorPresets: Array.isArray(meta.settings.userPresets) ? meta.settings.userPresets.length : 0,
+        presets: Array.isArray(meta.presets) ? meta.presets.length : 0,
+        logos: n('logos'),
+        lyrics: n('lyrics'),
+        videos: n('media') + (Array.isArray(meta.media) ? meta.media.length : 0),
+        textures: Array.isArray(meta.textures) ? meta.textures.length : 0,
+        videosLeftOut: Number(meta.videosLeftOut) || 0,
+      },
+    };
   }
 
   /* Kaydedici. write(files): ad → metin; Promise döner (uygulamaya yazdırır).
@@ -181,7 +224,7 @@
     return { save, flush, serialize, pending: () => !!queued, stats };
   }
 
-  const api = { PARTS, FILES, MAIN, V3_BACKUP, BROKEN, SAVE_DELAY_MS, SAVE_MAX_WAIT_MS, filled, parseSettings, merge, dropStrayLayerPostfx, load, createSaver };
+  const api = { PARTS, FILES, MAIN, V3_BACKUP, BROKEN, BEFORE_IMPORT, BACKUP_TYPE, BACKUP_FORMAT, SAVE_DELAY_MS, SAVE_MAX_WAIT_MS, filled, parseSettings, merge, dropStrayLayerPostfx, load, readBackup, createSaver };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVProfileStore = api;
 })();

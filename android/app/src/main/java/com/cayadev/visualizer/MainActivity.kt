@@ -88,6 +88,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /* Bilgisayardan içe aktarma: masaüstünün tam yedeği (.svbackup) ya da settings.json.
+       .svbackup'ın kayıtlı bir türü yok, Android onu genel ikili dosya sayar. */
+    private var pendingImport: Bridge.Reply? = null
+    private val askImport = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val reply = pendingImport ?: return@registerForActivityResult
+        pendingImport = null
+        if (uri == null) { reply.fail("cancelled"); return@registerForActivityResult }
+        EngineHost.profile.importRead(EngineHost.profile.opener(uri)) { r, err -> if (r != null) reply.ok(r) else reply.fail("import", err ?: "") }
+    }
+
+    fun pickImport(reply: Bridge.Reply) {
+        pendingImport?.fail("superseded")
+        pendingImport = reply
+        askImport.launch(arrayOf("application/zip", "application/octet-stream", "application/json", "text/plain"))
+    }
+
     fun pickAudio(reply: Bridge.Reply) {
         pendingPick?.fail("superseded")
         pendingPick = reply

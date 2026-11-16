@@ -57,14 +57,14 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `sendCamFrame` | Empty | |
 | `sendCamStatus` | Empty | |
 | `screenSources` | Empty | Resolves `[]`. Screen capture as a layer is not planned. |
-| `getPresets` | Real (2) | Studio presets from app storage. |
-| `milkdropPresetSource` | Real (2) | Source text of a MilkDrop preset. |
+| `getPresets` | Real (2) | User presets from `files/profile/presets/<id>.json` (the desktop layout). The list is lean as on the desktop (`preset-lean.js`): MilkDrop presets carry `lazy: true` and `fRating` (read from the source with the desktop pattern, `PresetRating.kt`) instead of the source. Order: last changed first, then id. |
+| `milkdropPresetSource` | Real (2) | Source text of a MilkDrop preset (`''` when missing; ids are checked, no paths). |
 | `getPowerSource` | Real (2) | `{ onBattery }`: the charger is unplugged (`ACTION_BATTERY_CHANGED`, `EXTRA_PLUGGED`), for the low-power mode. Sent to every new page on `hello`. |
 | `onPowerSource` | Real (2) | |
 | `onPresets` | Real (2) | |
 | `onPresetsDelta` | Real (2) | |
-| `presetsHead` | Real (2) | |
-| `presetsSince` | Real (2) | |
+| `presetsHead` | Real (2) | `{ gen }`, the list generation. |
+| `presetsSince` | Real (2) | `{ gen, upsert: [], remove: [] }`; `reset: true` when the generation changed (the page asks for the whole list). |
 | `milkdropTextures` | Real (4) | Texture pack listing. |
 | `milkdropTexture` | Real (4) | One texture, by name. |
 | `onMilkdropTexturesChanged` | Real (4) | |
@@ -130,12 +130,26 @@ open on the desktop.
 | `storeWrite { files }` | `{ name: text }`, written atomically; `settings.json` last, so an interrupted save leaves the old settings pointing at the old parts. |
 | `storeCopy { from, to, overwrite }` | Backup copies (`settings.v3-backup.json` once, `settings.broken.json` every time). |
 | event `flush` | Write the pending save now. |
+| `presetsList`, `presetsSource { id }`, `presetsHead`, `presetsSince { gen }` | User presets (see the engine table). |
+| `importPick`, `importOpen { media }` | Reads a desktop full backup (`.svbackup`) or a `settings.json` from the document picker or the app's media folder. A backup is read once as a stream (the phone's storage is not used for a copy); presets go to a staging folder because the desktop writes `backup.json` last. Resolves `{ kind: 'svbackup', meta, staged, skipped, later }` or `{ kind: 'settings', settings }`. |
+| `importCommit { ids }` | Moves the listed staged presets into the store (content must be an object whose `id` matches; `builtin` is dropped). Same id: the backup wins; other presets stay. |
+| `importDiscard` | Drops the staging folder. |
 
 **Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the
 phone does not have are off: `lighting`, `openrgb`, `artnet`, `sacn`, `wled`, `oscOut`. Measured on a copy of a desktop
 profile: with the light palette taken from MilkDrop, the engine read pixels back from the GPU about 30 times a second
 for lights that do not exist, and the emulator dropped from 60 to about 4 frames per second. Taking the profile back
 to the desktop turns the lights on again.
+
+**Import** (`SVAndroid.importProfile({ media? })`) gives the same result as the desktop's full-backup restore:
+
+- `backup.json` is checked with the desktop rules (`type`, `format`, a settings object). The error codes are the
+  desktop's: `NOT_BACKUP`, `FORMAT`; `NOT_SETTINGS` for a plain file that is not a settings object.
+- The settings and scenes are replaced with the backup's; the previous files stay as `*.before-import.json`. Presets
+  are added. The imported settings go through the same load path (migration, cleanup), are completed with the
+  defaults and get a layer stack, as in the panel's `adoptImportedSettings`.
+- Library files (logos, videos, lyrics) and MilkDrop textures are not opened yet; their counts come back in `later`
+  (phase 4). Scenes that use them miss those files until then.
 
 **Editor API** (`window.SVAndroid`, used by the mobile UI in phase 3):
 
@@ -146,6 +160,7 @@ to the desktop turns the lights on again.
 | `player.pick()`, `player.open(media, play)`, `player.reopen(uri, play)`, `player.play()`, `player.pause()`, `player.seek(ms)`, `player.stop()`, `player.state()`, `player.onState(cb)` | The in-app player (below). |
 | `audio.silent()`, `audio.onSilence(cb)` | About 3 s of digital silence while an app source runs: the playing app may not share its audio (PHASE0 R3). Fires once when silence starts and once when sound returns; a source change resets it. The UI offers the output mix or the microphone. |
 | `gl()` | WebGL context budget: `{ live, attached, limit: 8, created, lost }`. `live` counts every context that is not lost, also canvases outside the document (timeline layers), because those count toward the limit too. On in release builds. |
+| `importProfile({ media? })` | Import from the desktop (above). Resolves `{ kind, summary, scenes, presets, skipped, later, migrated }`. |
 | `onMemoryPressure(cb)` | The system asked for memory (`onTrimMemory`, level ≥ `RUNNING_LOW`, which includes going to the background). The pending save is written first. |
 
 ## Shell surface

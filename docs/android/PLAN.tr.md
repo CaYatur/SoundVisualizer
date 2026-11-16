@@ -138,6 +138,9 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
 - **Bitti:** PC kapıları yeşil, Android CI yeşil, PC paketinde mobil dosya yok.
 - **Durum (17.11.2026):** 1.1–1.3, Faz 0E PR'larıyla bitti (#1057, #1061, `android.yml`). Mobil CSS bekçisi Faz 3'e
   kaldı (henüz mobil CSS yok); `release-assets.js` Faz 6'ya.
+- **Faz 2 durumu (17.11.2026):** kayıt ve çökmeden dönüş (#1069); pil, bellek baskısı, sessizlik algılama, bağlam
+  bütçesi ve güvenlik (#1071); uygulama içi çalar, böylece dört ses kaynağı da motoru sürüyor (#1072); presetler ve
+  masaüstü yedeğini içe aktarma. Kitaplık dosyaları ve dokular (2.2) ekranlarıyla birlikte Faz 4'e kaldı.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

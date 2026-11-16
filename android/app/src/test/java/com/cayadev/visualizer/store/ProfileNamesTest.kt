@@ -14,7 +14,8 @@ import org.junit.Test
 class ProfileNamesTest {
     @Test
     fun knownNamesAreAllowed() {
-        for (n in listOf("settings.json", "scenes.json", "library.json", "settings.v3-backup.json", "settings.broken.json")) {
+        for (n in listOf("settings.json", "scenes.json", "library.json", "settings.v3-backup.json", "settings.broken.json",
+            "settings.before-import.json", "scenes.before-import.json", "library.before-import.json")) {
             assertTrue(n, ProfileNames.allowed(n))
         }
     }

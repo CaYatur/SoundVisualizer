@@ -51,8 +51,6 @@
   };
 
   let config = null;
-  const presets = [];
-  let presetsGen = 0;
   let geometryLock = false;
   let onBattery = false;
 
@@ -287,6 +285,60 @@
     return out;
   }
 
+  /* İÇE AKTARMA (PLAN 2.2). Masaüstündeki tam yedeğin geri yüklemesiyle aynı sonuç:
+     ayarlar ve sahneler yedektekiyle değişir, presetler eklenir (aynı kimlik varsa
+     yedekteki geçerli). Önceki hâl *.before-import.json olarak kalır. Kitaplık
+     dosyaları (logo, video, söz) ve dokular Faz 4'te; sayıları sonuçta döner. */
+  async function importProfile(opts) {
+    if (!native || !P) throw new Error('native-missing');
+    await profile.load();
+    const r = await request(opts.media ? 'importOpen' : 'importPick', opts.media ? { media: String(opts.media) } : {});
+    let incoming;
+    let summary = null;
+    let committed = { presets: 0, skipped: 0 };
+    if (r.kind === 'svbackup') {
+      const b = P.readBackup(r.meta);
+      if (b.error) { await request('importDiscard').catch(() => {}); throw new Error(b.error); }
+      incoming = b.settings;
+      summary = b.summary;
+      committed = await request('importCommit', { ids: b.presetIds });
+    } else {
+      try { incoming = P.parseSettings(r.settings); } catch (e) { throw new Error('NOT_SETTINGS'); }
+      if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('NOT_SETTINGS');
+    }
+    // Önceki hâl kenara: bekleyen kayıt önce yazılır ki kopya son hâli taşısın
+    await profile.flush();
+    for (let i = 0; i < P.FILES.length; i++) await request('storeCopy', { from: P.FILES[i], to: P.BEFORE_IMPORT[i], overwrite: true });
+    const loaded = P.load({ [P.MAIN]: JSON.stringify(incoming) }, migrateConfig);
+    if (!loaded.cfg) throw new Error('NOT_SETTINGS');
+    const cfg = adoptImported(loaded.cfg);
+    setConfig(cfg);
+    await profile.flush();
+    // Motor yeni presetleri görsün (onPresets: liste değişti, sahne yeniden kurulur)
+    if (committed.presets) ev.presets.emit(await request('presetsList').catch(() => []));
+    return {
+      kind: r.kind,
+      summary,
+      scenes: Array.isArray(cfg.scenes) ? cfg.scenes.length : 0,
+      presets: committed.presets || 0,
+      skipped: (committed.skipped || 0) + (r.skipped || 0),
+      later: r.later || null,
+      migrated: !!loaded.migrated,
+    };
+  }
+
+  /* Paneldeki adoptImportedSettings'in sayfada yapılabilen kısmı: varsayılanlarla
+     tamamlanır, katman yığını kurulur, resim öğeleri normalleştirilir. */
+  function adoptImported(c) {
+    const S = window.SV;
+    let out = S && S.deepMerge && S.defaultConfig ? S.deepMerge(S.defaultConfig(), c) : c;
+    if (window.SVLayers && typeof window.SVLayers.ensureStack === 'function') window.SVLayers.ensureStack(out);
+    if (S && S.normalizeImageItem && out.images && Array.isArray(out.images.items)) {
+      out.images.items = out.images.items.map((it) => S.normalizeImageItem(it));
+    }
+    return out;
+  }
+
   /* v4 göçü (src/shared/migrate-v4.js): masaüstünde ana süreç yapıyor. Katman
      kodu olmayan sayfada (dışa aktarım) yapılmaz; çevrilmemiş ayar yazılsa da
      docVersion eski kalır, sonraki açılışta çevrilir. */
@@ -349,6 +401,9 @@
     }),
     /* WebGL bağlam bütçesi: sayfa başına en çok GL_LIMIT etkin bağlam. */
     gl: () => glBudget(),
+    /* Bilgisayardan içe aktarma: masaüstünün tam yedeği (.svbackup) ya da settings.json.
+       media verilirse uygulamanın medya klasöründeki dosya, yoksa Android'in dosya seçicisi. */
+    importProfile: (opts) => importProfile(opts || {}),
     onMemoryPressure: (cb) => ev.memory.add(cb),
   });
 
@@ -380,14 +435,16 @@
     sendCamFrame: noop,
     sendCamStatus: noop,
     screenSources: () => resolved([]),
-    getPresets: () => resolved(presets.slice()),
-    milkdropPresetSource: () => resolved(null),
+    /* Kullanıcı presetleri uygulamanın profil klasöründen (masaüstündeki presets
+       klasörü). Liste MilkDrop kaynağını taşımaz; kaynak çizilecekken istenir. */
+    getPresets: () => (native ? request('presetsList').catch(() => []) : resolved([])),
+    milkdropPresetSource: (id) => (native ? request('presetsSource', { id: String(id || '') }).then((r) => (r && r.source) || '', () => '') : resolved('')),
     getPowerSource: () => resolved({ onBattery }),
     onPowerSource: (cb) => ev.powerSource.add(cb),
     onPresets: (cb) => ev.presets.add(cb),
     onPresetsDelta: (cb) => ev.presetsDelta.add(cb),
-    presetsHead: () => resolved(presetsGen),
-    presetsSince: () => resolved(null),
+    presetsHead: () => (native ? request('presetsHead').catch(() => ({ gen: 0 })) : resolved({ gen: 0 })),
+    presetsSince: (gen) => (native ? request('presetsSince', { gen: Number(gen) || 0 }).catch(() => null) : resolved(null)),
     milkdropTextures: () => resolved([]),
     milkdropTexture: () => resolved(null),
     onMilkdropTexturesChanged: (cb) => ev.texturesChanged.add(cb),
