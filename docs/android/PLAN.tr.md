@@ -140,7 +140,8 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   kaldı (henüz mobil CSS yok); `release-assets.js` Faz 6'ya.
 - **Faz 2 durumu (17.11.2026):** kayıt ve çökmeden dönüş (#1069); pil, bellek baskısı, sessizlik algılama, bağlam
   bütçesi ve güvenlik (#1071); uygulama içi çalar, böylece dört ses kaynağı da motoru sürüyor (#1072); presetler ve
-  masaüstü yedeğini içe aktarma. Kitaplık dosyaları ve dokular (2.2) ekranlarıyla birlikte Faz 4'e kaldı.
+  MilkDrop dokuları dahil masaüstü yedeğini içe aktarma. Kitaplık dosyaları (logo, video, söz; 2.2) ekranlarıyla
+  birlikte Faz 4'e kaldı.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

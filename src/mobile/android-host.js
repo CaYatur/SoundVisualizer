@@ -297,13 +297,13 @@
     const r = await request(opts.media ? 'importOpen' : 'importPick', opts.media ? { media: String(opts.media) } : {});
     let incoming;
     let summary = null;
-    let committed = { presets: 0, skipped: 0 };
+    let committed = { presets: 0, textures: 0, skipped: 0 };
     if (r.kind === 'svbackup') {
       const b = P.readBackup(r.meta);
       if (b.error) { await request('importDiscard').catch(() => {}); throw new Error(b.error); }
       incoming = b.settings;
       summary = b.summary;
-      committed = await request('importCommit', { ids: b.presetIds });
+      committed = await request('importCommit', { ids: b.presetIds, textures: b.textures });
     } else {
       try { incoming = P.parseSettings(r.settings); } catch (e) { throw new Error('NOT_SETTINGS'); }
       if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('NOT_SETTINGS');
@@ -313,16 +313,18 @@
     for (let i = 0; i < P.FILES.length; i++) await request('storeCopy', { from: P.FILES[i], to: P.BEFORE_IMPORT[i], overwrite: true });
     const loaded = P.load({ [P.MAIN]: JSON.stringify(incoming) }, migrateConfig);
     if (!loaded.cfg) throw new Error('NOT_SETTINGS');
-    const cfg = adoptImported(loaded.cfg);
+    const cfg = adoptImported(loaded.cfg, committed.textures > 0);
     setConfig(cfg);
     await profile.flush();
     // Motor yeni presetleri görsün (onPresets: liste değişti, sahne yeniden kurulur)
     if (committed.presets) ev.presets.emit(await request('presetsList').catch(() => []));
+    if (committed.textures) ev.texturesChanged.emit();
     return {
       kind: r.kind,
       summary,
       scenes: Array.isArray(cfg.scenes) ? cfg.scenes.length : 0,
       presets: committed.presets || 0,
+      textures: committed.textures || 0,
       skipped: (committed.skipped || 0) + (r.skipped || 0),
       later: r.later || null,
       migrated: !!loaded.migrated,
@@ -333,9 +335,18 @@
 
   /* Paneldeki adoptImportedSettings'in sayfada yapılabilen kısmı: varsayılanlarla
      tamamlanır, katman yığını kurulur, resim öğeleri normalleştirilir. */
-  function adoptImported(c) {
+  function adoptImported(c, texturesAdded) {
     const S = window.SV;
     let out = S && S.deepMerge && S.defaultConfig ? S.deepMerge(S.defaultConfig(), c) : c;
+    /* Başka makinenin doku klasörü burada yok (masaüstündeki restore da boşaltıyor);
+       dokular uygulamanın klasöründe. Yeni dokular geldiyse motor listeyi yeniden
+       istesin (paneldeki textureRev artışı). */
+    if (out.milkdrop && typeof out.milkdrop.textureDir === 'string') out.milkdrop.textureDir = '';
+    if (texturesAdded) {
+      out.milkdropLibrary = out.milkdropLibrary && typeof out.milkdropLibrary === 'object' ? out.milkdropLibrary : {};
+      const before = config && config.milkdropLibrary ? +config.milkdropLibrary.textureRev || 0 : 0;
+      out.milkdropLibrary.textureRev = Math.max(+out.milkdropLibrary.textureRev || 0, before) + 1;
+    }
     if (window.SVLayers && typeof window.SVLayers.ensureStack === 'function') window.SVLayers.ensureStack(out);
     if (S && S.normalizeImageItem && out.images && Array.isArray(out.images.items)) {
       out.images.items = out.images.items.map((it) => S.normalizeImageItem(it));
@@ -449,8 +460,10 @@
     onPresetsDelta: (cb) => ev.presetsDelta.add(cb),
     presetsHead: () => (native ? request('presetsHead').catch(() => ({ gen: 0 })) : resolved({ gen: 0 })),
     presetsSince: (gen) => (native ? request('presetsSince', { gen: Number(gen) || 0 }).catch(() => null) : resolved(null)),
-    milkdropTextures: () => resolved([]),
-    milkdropTexture: () => resolved(null),
+    /* MilkDrop dokuları uygulamanın doku klasöründen; yanıtlar masaüstündekiyle aynı
+       biçimde: liste `{ dir, names }`, tek doku `{ name, dataUrl }`. */
+    milkdropTextures: () => (native ? request('texturesList').catch(() => ({ dir: '', names: [] })) : resolved({ dir: '', names: [] })),
+    milkdropTexture: (name) => (native ? request('textureRead', { name: String(name || '') }).catch(() => null) : resolved(null)),
     onMilkdropTexturesChanged: (cb) => ev.texturesChanged.add(cb),
     logoLibRead: () => resolved(null),
     lyricsLibSnapshot: () => resolved([]),

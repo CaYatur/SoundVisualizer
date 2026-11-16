@@ -666,14 +666,16 @@ async function importCmd() {
         count: list.length, listMs, listKB: Math.round(JSON.stringify(list).length / 1024),
         presets: list.length > 50 ? list.slice(0, 2).map((p) => p.id) : list.map((p) => p.id),
         mdLazy: md && md.lazy, mdRating: md && md.fRating, mdHasSource: md ? 'source' in md : null, source: src.slice(0, 20),
-        head: await window.api.presetsHead(), traversal: await window.api.milkdropPresetSource('../settings') };
+        head: await window.api.presetsHead(), traversal: await window.api.milkdropPresetSource('../settings'),
+        textures: (await window.api.milkdropTextures()).names, texture: ((await window.api.milkdropTexture('noise.png')) || {}).dataUrl || '',
+        texTraversal: await window.api.milkdropTexture('../profile/settings.json'), textureRev: (c.milkdropLibrary || {}).textureRev || 0 };
     })()`);
   } finally { page.close(); }
   console.log(JSON.stringify(out, null, 1));
   const r = out.result || {};
   const o = out.reopen || {};
   const want = given ? true : (out.applied.theme === 'neon' && out.applied.scenes === 2 && !out.applied.phoneOnly && o.theme === 'neon' && o.scenes === 2);
-  const ok = !r.error && r.kind === 'svbackup' && (presetDir ? r.presets > 2 : r.presets === 2) && r.later && r.later.textures === 1 && want
+  const ok = !r.error && r.kind === 'svbackup' && (presetDir ? r.presets > 2 : r.presets === 2) && r.textures === 1 && o.textures.join() === 'noise.png' && o.texture.startsWith('data:image/png;base64,') && o.texTraversal === null && o.textureRev >= 1 && want
     && out.files.includes('settings.before-import.json') && out.files.includes('scenes.before-import.json')
     && (presetDir ? o.count >= r.presets - r.skipped : o.presets.join() === 'ps_probe_md,ps_probe_sh') && o.mdLazy === true && o.mdRating === 4 && o.mdHasSource === false
     && o.source.startsWith('[preset00]') && o.traversal === '';

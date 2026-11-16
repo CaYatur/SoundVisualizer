@@ -40,6 +40,14 @@
   const BACKUP_TYPE = 'cayadev-visualizer-backup';
   const BACKUP_FORMAT = 1;
   const PRESET_ENTRY = /^presets\/([A-Za-z0-9_-]{1,80})\.json$/;
+  const TEXTURE_ENTRY = /^textures\/\d{1,6}-[a-z0-9_.-]{1,60}$/;
+  const TEXTURE_EXT = /\.(jpe?g|png|gif|bmp|webp)$/i;
+  // full-backup.js plainName + portableName
+  const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+  function portableName(n) {
+    const plain = typeof n === 'string' && n.length > 0 && n.length <= 200 && !/[\\/:\0]/.test(n) && n !== '.' && n !== '..';
+    return plain && !/[<>"|?*\u0000-\u001f]/.test(n) && !/[. ]$/.test(n) && !RESERVED.test(n);
+  }
   const SAVE_DELAY_MS = 300;
   const SAVE_MAX_WAIT_MS = 2000;
 
@@ -119,11 +127,19 @@
       const m = PRESET_ENTRY.exec(String(name));
       if (m && ids.indexOf(m[1]) < 0) ids.push(m[1]);
     }
+    /* Dokular (full-backup.js restore): özgün ad her sistemde yazılabilir ve görsel
+       uzantılı olmalı, arşiv içi yol masaüstünün `textures/<sıra>-<slug>` biçiminde. */
+    const textures = [];
+    for (const t of Array.isArray(meta.textures) ? meta.textures : []) {
+      if (!t || !portableName(t.name) || !TEXTURE_EXT.test(t.name) || !TEXTURE_ENTRY.test(String(t.path))) continue;
+      textures.push({ name: t.name, path: t.path });
+    }
     const libs = meta.libraries && typeof meta.libraries === 'object' ? meta.libraries : {};
     const n = (k) => (libs[k] && Array.isArray(libs[k].items) ? libs[k].items.length : 0);
     return {
       settings: meta.settings,
       presetIds: ids,
+      textures,
       summary: {
         appVersion: String(meta.appVersion || ''),
         platform: String(meta.platform || ''),
@@ -224,7 +240,7 @@
     return { save, flush, serialize, pending: () => !!queued, stats };
   }
 
-  const api = { PARTS, FILES, MAIN, V3_BACKUP, BROKEN, BEFORE_IMPORT, BACKUP_TYPE, BACKUP_FORMAT, SAVE_DELAY_MS, SAVE_MAX_WAIT_MS, filled, parseSettings, merge, dropStrayLayerPostfx, load, readBackup, createSaver };
+  const api = { PARTS, FILES, MAIN, V3_BACKUP, BROKEN, BEFORE_IMPORT, BACKUP_TYPE, BACKUP_FORMAT, SAVE_DELAY_MS, SAVE_MAX_WAIT_MS, filled, parseSettings, merge, dropStrayLayerPostfx, load, readBackup, portableName, createSaver };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVProfileStore = api;
 })();

@@ -50,10 +50,12 @@ class BackupReaderTest {
         assertEquals(setOf("ps_a1"), r.presets.keys)
         assertTrue(r.presets.getValue("ps_a1").parentFile == staging)
         assertEquals("{\"type\":\"cayadev-visualizer-backup\"}", String(r.meta!!))
-        assertEquals(mapOf("libs" to 1, "textures" to 1, "media" to 2), r.later)
+        assertEquals(mapOf("libs" to 1, "media" to 2), r.later)
+        assertEquals(setOf("0-noise.jpg"), r.textures.keys)
+        assertArrayEquals(byteArrayOf(2), r.textures.getValue("0-noise.jpg").readBytes())
         // Yol taşıyan adlar hiç yazılmadı
         assertFalse(java.io.File(staging.parentFile, "evil.json").exists())
-        assertEquals(1, staging.listFiles()!!.size)
+        assertEquals(setOf("ps_a1.json", "textures"), staging.listFiles()!!.map { it.name }.toSet())
         staging.deleteRecursively()
     }
 
@@ -66,6 +68,15 @@ class BackupReaderTest {
         assertEquals(1, r.skipped)
         assertEquals(setOf("ok"), r.presets.keys)
         assertArrayEquals("{}".toByteArray(), r.meta)
+        staging.deleteRecursively()
+    }
+
+    @Test
+    fun textureEntriesOutsideTheDesktopNamingAreNotStaged() {
+        val data = zip("textures/../x.jpg" to byteArrayOf(1), "textures/Big Name.png" to byteArrayOf(1), "textures/a/b.png" to byteArrayOf(1), "textures/3-ok.png" to byteArrayOf(1))
+        val staging = Files.createTempDirectory("sv-import").toFile()
+        val r = BackupReader.read(ByteArrayInputStream(data), staging)
+        assertEquals(setOf("3-ok.png"), r.textures.keys)
         staging.deleteRecursively()
     }
 
