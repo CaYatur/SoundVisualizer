@@ -682,7 +682,177 @@ async function importCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd };
+/* MOBİL ARAYÜZ KABUĞU (Faz 3.2). Kabuk kuruluyor mu; her düğme en az 48 dp mi;
+   sekmeler açılıyor mu; geri tuşu önce sayfayı kapatıp sonra uygulamayı arkaya
+   alıyor mu (süreç ve motor yaşıyor); tema, tam ekran, yüzen pencere ve kenar
+   boşlukları. Ekran görüntüleri --shots=<klasör> verilirse oraya yazılır. */
+async function shellCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (name) => { if (shots) fs.writeFileSync(path.join(shots, name + '.png'), D.screencap()); };
+  const out = {};
+  D.adb(['shell', 'appops', 'set', D.PKG, 'SYSTEM_ALERT_WINDOW', 'allow']);
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  try {
+    for (let i = 0; i < 50 && !(await page.evaluate('!!(window.SVShell && document.getElementById("sv-shell"))')); i++) await D.sleep(200);
+    await D.sleep(1500);
+    const small = `(() => Array.from(document.querySelectorAll('#sv-shell button, #sv-shell a')).filter((b) => b.offsetParent !== null)
+      .map((b) => { const r = b.getBoundingClientRect(); return { t: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 20), w: Math.round(r.width), h: Math.round(r.height) }; })
+      .filter((x) => x.w < 48 || x.h < 48))()`;
+    out.main = await page.evaluate(`({ shell: !!document.getElementById('sv-shell'), buttons: document.querySelectorAll('#sv-shell button').length,
+      small: ${small}, insetTop: getComputedStyle(document.getElementById('sv-shell')).getPropertyValue('--inset-top').trim(),
+      font: getComputedStyle(document.querySelector('#sv-shell .nav button')).fontFamily, theme: document.documentElement.getAttribute('data-ui-theme'),
+      storedTheme: window.SVUiThemes.normalizeId((window.SVAndroid.config.get().ui || {}).theme) })`);
+    shot('1-main');
+    // Ölçümün değiştirdiği ayar sonda geri yazılır (tema, etkin sahne, Otomatik VJ)
+    await page.evaluate('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
+    const tapEl = async (sel) => {
+      const p = await page.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect();
+        return [Math.round((r.left + r.width / 2) * devicePixelRatio), Math.round((r.top + r.height / 2) * devicePixelRatio)]; })()`);
+      if (p) D.adb(['shell', 'input', 'tap', String(p[0]), String(p[1])]);
+      return !!p;
+    };
+    // Sahne çağırma: ikinci sahne kartına dokunulur. Sahneye ait olmayan anahtarlar aynı kalmalı.
+    const nonScene = `((c) => JSON.stringify(Object.keys(c).filter((k) => k !== '_activeSceneId' && window.SVSchema.SCENE_KEYS.indexOf(k) < 0).sort().map((k) => [k, c[k]])))`;
+    await page.evaluate(`(() => { const c = window.SVAndroid.config.get();
+      if (!Array.isArray(c.scenes) || c.scenes.length < 2) window.SVAndroid.config.patch({ scenes: [{ id: 'sc_a', name: 'Bir', data: {} }, { id: 'sc_b', name: 'İki', data: {} }] });
+      window.__probeKeys = ${nonScene}(window.SVAndroid.config.get()); return 1; })()`);
+    await D.sleep(400);
+    const want = await page.evaluate('(() => { const s = window.SVAndroid.config.get().scenes[1]; return { id: s.id, name: s.name }; })()');
+    out.sceneTapped = await tapEl('#sv-shell .scenes .scene:nth-child(2)');
+    await D.sleep(800);
+    await page.evaluate('window.SVAndroid.config.flush()');
+    out.scene = await page.evaluate(`(() => { const c = window.SVAndroid.config.get(); const t = document.querySelectorAll('#sv-shell .scenes .scene')[1];
+      return { active: c._activeSceneId, on: t.classList.contains('on'), pressed: t.getAttribute('aria-pressed'),
+        title: document.querySelector('#sv-shell .scene-card .title').textContent, othersKept: ${nonScene}(c) === window.__probeKeys }; })()`);
+    const stored = JSON.parse(D.adb(['shell', 'run-as', D.PKG, 'cat', 'files/profile/settings.json']).replace(/^﻿/, ''));
+    out.scene.saved = stored._activeSceneId;
+    out.scene.want = want;
+    // Otomatik VJ: dokununca açılır, yine dokununca kapanır
+    const vjOf = "(() => { const c = window.SVAndroid.config.get(); return { on: !!(c.autovj && c.autovj.enabled), pill: document.querySelector('#sv-shell .scene-card .pill').classList.contains('on') }; })()";
+    const vj0 = await page.evaluate(vjOf);
+    await tapEl('#sv-shell .scene-card .pill');
+    await D.sleep(600);
+    const vj1 = await page.evaluate(vjOf);
+    await tapEl('#sv-shell .scene-card .pill');
+    await D.sleep(600);
+    const vj2 = await page.evaluate(vjOf);
+    out.autoVj = { flips: vj1.on === !vj0.on && vj1.pill === vj1.on, back: vj2.on === vj0.on && vj2.pill === vj2.on };
+    await page.evaluate('window.SVAndroid.config.set(window.__probeOrig); 1');
+    await D.sleep(400);
+    out.tabs = {};
+    for (const t of ['layers', 'library', 'audio', 'settings']) {
+      await page.evaluate(`window.SVShell.open(${JSON.stringify(t)})`);
+      await D.sleep(500);
+      out.tabs[t] = await page.evaluate(`({ sheet: window.SVShell.state().sheet, title: (document.querySelector('#sv-shell .sheet h2') || {}).textContent, small: ${small} })`);
+      shot('2-' + t);
+    }
+    // Geri tuşu: önce sayfa kapanır
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(600);
+    out.backCloses = await page.evaluate('!window.SVShell.state().sheet');
+    // Kökte: uygulama arkaya alınır, süreç ve motor yaşar
+    await page.evaluate('window.__marker = 7; 1');
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(1200);
+    const top = D.adb(['shell', 'dumpsys', 'activity', 'activities']).split(/\r?\n/).find((l) => /topResumedActivity|mResumedActivity/.test(l)) || '';
+    out.backToBackground = { foreground: top.includes(D.PKG), samePid: D.pidOf() === pid };
+    D.adb(['shell', 'am', 'start', '-n', D.PKG + '/.MainActivity']);
+    await D.sleep(1500);
+    out.sameEngine = await page.evaluate('window.__marker === 7');
+    // Tema: ayarın ui.theme'i
+    await page.evaluate(`(() => { const c = window.SVAndroid.config.get() || {}; window.SVAndroid.config.patch({ ui: Object.assign({}, c.ui, { theme: 'light' }) }); return 1; })()`);
+    await D.sleep(400);
+    out.lightTheme = await page.evaluate("({ theme: document.documentElement.getAttribute('data-ui-theme'), bg: getComputedStyle(document.querySelector('#sv-shell .nav')).backgroundColor })");
+    shot('3-light');
+    await page.evaluate('window.SVAndroid.config.patch({ ui: window.__probeOrig.ui }); 1');
+    await D.sleep(300);
+    out.themeRestored = await page.evaluate("document.documentElement.getAttribute('data-ui-theme')") === out.main.storedTheme;
+    /* Cam bulanıklığının bedeli: motorun ölçtüğü kare hızı (ölçer iletisinin fps'i)
+       kabuk açıkken, sayfa açıkken, tam ekranda (kabuk yok) ve düz yüzeyle. Emülatörde
+       ana makinenin GPU'su çiziyor; sayılar telefonu değil farkı gösterir. */
+    // Dinleyici çıkarılamıyor; ölçüm bitince boşta kalır
+    const fpsOf = () => page.evaluate(`new Promise((res) => { const v = []; let done = false; setTimeout(() => { window.SVAndroid.onMeter((m) => { if (!done && m && m.fps) v.push(m.fps); });
+      setTimeout(() => { done = true; res(v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null); }, 3000); }, 1000); })`);
+    out.fps = { shell: await fpsOf() };
+    await page.evaluate("window.SVShell.open('layers')");
+    out.fps.sheet = await fpsOf();
+    await page.evaluate('window.SVShell.close()');
+    await page.evaluate("document.getElementById('sv-shell').classList.add('flat')");
+    out.fps.flat = await fpsOf();
+    await page.evaluate("document.getElementById('sv-shell').classList.remove('flat')");
+    // Tam ekran: kabuk gizlenir, dokununca geri gelir
+    await page.evaluate("document.querySelector('#sv-shell [aria-label=\"Tam ekran\"], #sv-shell [aria-label=\"Full screen\"]').click()");
+    await D.sleep(400);
+    out.fullscreenHidden = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display === 'none'");
+    shot('4-fullscreen');
+    out.fps.fullscreen = await fpsOf();
+    D.adb(['shell', 'input', 'tap', '540', '1200']);
+    await D.sleep(500);
+    out.tapRestores = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display !== 'none'");
+    // Yüzen pencere: kabuk gizlenir, kapanınca geri gelir
+    out.floatingOpen = await page.evaluate("window.SVAndroid.floating.open({ width: 540, height: 304 }).then(() => true, (e) => e.message)");
+    await D.sleep(1500);
+    out.floatingHidden = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display === 'none'");
+    await page.evaluate('window.SVAndroid.floating.close()');
+    await D.sleep(1500);
+    out.floatingRestored = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display !== 'none'");
+    /* Geniş düzen (840 dp ve üstü): telefon yatayda. Sol ray, sağ panel; üst bilgi ve
+       sahne şeridi ikisinin arasında kalmalı, hiçbir şey ekran dışına taşmamalı. */
+    const rot = ['accelerometer_rotation', 'user_rotation'].map((k) => D.adb(['shell', 'settings', 'get', 'system', k]).trim());
+    try {
+      D.adb(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0']);
+      D.adb(['shell', 'settings', 'put', 'system', 'user_rotation', '1']);
+      await D.sleep(2500);
+      const rects = `(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width) }; };
+        const st = getComputedStyle(document.getElementById('sv-shell'));
+        return { vw: innerWidth, vh: innerHeight, nav: r('#sv-shell .nav'), hud: r('#sv-shell .hud'), scenes: r('#sv-shell .scenes'), sheet: r('#sv-shell .sheet'),
+          card: getComputedStyle(document.querySelector('#sv-shell .scene-card')).display, insets: ['left', 'right', 'top', 'bottom'].map((k) => st.getPropertyValue('--inset-' + k).trim()), small: ${small} }; })()`;
+      out.wide = { main: await page.evaluate(rects) };
+      shot('5-wide');
+      await page.evaluate("window.SVShell.open('layers')");
+      await D.sleep(500);
+      out.wide.sheet = await page.evaluate(rects);
+      shot('6-wide-sheet');
+      /* Daha küçük yatay telefon (740 x 360 dp): sayfanın görüntü alanı DevTools ile
+         daraltılır (`wm density` WebView'in görüntü alanını değiştirmiyor, ölçüldü).
+         Panel daralır, üst bilgideki kaynak adı kısalır; düğmeler 48 dp'nin altına inmez. */
+      await page.call('Emulation.setDeviceMetricsOverride', { width: 740, height: 360, deviceScaleFactor: 0, mobile: true });
+      await D.sleep(800);
+      out.wide.narrow = await page.evaluate(rects);
+      shot('7-wide-narrow-sheet');
+      await page.evaluate('window.SVShell.close()');
+    } finally {
+      await page.call('Emulation.clearDeviceMetricsOverride').catch(() => {});
+      D.adb(['shell', 'settings', 'put', 'system', 'user_rotation', /^\d+$/.test(rot[1]) ? rot[1] : '0']);
+      D.adb(['shell', 'settings', 'put', 'system', 'accelerometer_rotation', /^\d+$/.test(rot[0]) ? rot[0] : '1']);
+      await D.sleep(1500);
+    }
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally { page.close(); }
+  const w = out.wide || {};
+  const m = w.main || {};
+  const s = w.sheet || {};
+  const n = w.narrow || {};
+  // Panel kapalıyken üst bilgi sağa kadar uzanır; açıkken şerit görünür kalır ve panele değmez
+  const fits = (x) => !!(x && x.sheet && x.nav && x.nav.r <= x.hud.l && x.sheet.r <= x.vw && x.hud.r <= x.sheet.l && x.scenes.w > 0 && x.scenes.r <= x.sheet.l
+    && x.nav.t >= 0 && x.nav.b <= x.vh && x.small.length === 0);
+  out.wideOk = !!(m.nav && m.vw >= 840 && m.nav.w <= 96 && m.nav.r <= m.hud.l && m.nav.r <= m.scenes.l && m.card === 'none' && m.small.length === 0
+    && m.hud.r > (s.hud || {}).r && fits(s) && s.sheet.w === 400 && fits(n) && n.vw < 840 && n.sheet.w < 400);
+  console.log(JSON.stringify(out, null, 1));
+  const tabsOk = Object.values(out.tabs).every((t) => t.sheet && t.small.length === 0);
+  const ok = out.main.shell && out.main.small.length === 0 && parseFloat(out.main.insetTop) > 0 && /Geist/.test(out.main.font) && tabsOk
+    && out.backCloses && !out.backToBackground.foreground && out.backToBackground.samePid && out.sameEngine
+    && out.lightTheme.theme === 'light' && out.fullscreenHidden && out.tapRestores && out.floatingHidden && out.floatingRestored
+    && out.main.theme === out.main.storedTheme && out.themeRestored
+    && out.sceneTapped && out.scene.active === out.scene.want.id && out.scene.on && out.scene.pressed === 'true' && out.scene.title === out.scene.want.name
+    && out.scene.othersKept && out.scene.saved === out.scene.want.id && out.autoVj.flips && out.autoVj.back && out.wideOk;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

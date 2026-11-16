@@ -1,0 +1,192 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+/* MOBİL ARAYÜZ KABUĞU (docs/android/PLAN.md Faz 3, onaylı taslaklar).
+
+   Renkler YALNIZ src/shared/ui-themes.js'ten: :root CaYaDev temasının aynısı
+   (SVUiThemes.apply CaYaDev'de satır içi değerleri siler), öbür temalar
+   değişkenleri <html>'e yazar. Bu dosyada :root dışında renk değeri yok
+   (tests/ui-themes.test.js ve android/js-tests/shell.test.js denetliyor).
+   Dokunma hedefleri en az 48 dp (PLAN 3.7). */
+:root {
+  --bg: #0b0910;
+  --bg2: #120d13;
+  --surface: #17111a;
+  --card: #1b141f;
+  --card2: #241a29;
+  --card3: #2c2032;
+  --card-end: rgba(16, 11, 18, .9);
+  --popover: rgba(20, 14, 22, .985);
+  --scrim: rgba(3, 3, 8, .62);
+  --glow-a: #3d1016;
+  --glow-b: #1d1030;
+  --line: #34222f;
+  --line2: #472c3a;
+  --text: #f4edf1;
+  --text-strong: #ffffff;
+  --muted: #b2969f;
+  --muted2: #a1858f;
+  --brand-ink: #ffffff;
+  --accent: #e11d2a;
+  --accent2: #ff4d5e;
+  --accent-grad: #ea2636;
+  --accent-rgb: 225 29 42;
+  --on-accent: #ffffff;
+  --accent-text: #ff9aa3;
+  --accent-label: #ffc7cd;
+  --on-solid: #ffffff;
+  --ok: #43d98a;
+  --ok-rgb: 67 217 138;
+  --ok-text: #9df0c4;
+  --warn: #ffc44d;
+  --warn-rgb: 255 196 77;
+  --warn-text: #f3cf82;
+  --on-warn: #1b141f;
+  --danger: #d93a40;
+  --danger-rgb: 255 80 80;
+  --danger-text: #ff8a8a;
+  --solo: #f5a524;
+  --on-solo: #1a1a1a;
+  --lock: #6e56cf;
+  --off: #6a4a52;
+  --sel-rgb: 124 92 255;
+  --info-rgb: 120 180 255;
+  --tempo: #50d2e6;
+  --fg-rgb: 255 255 255;
+  --shade-rgb: 0 0 0;
+  --shadow-rgb: 0 0 0;
+  --knob: #ffffff;
+  --cue-live: #2ea043;
+  --cue-armed: #f0b429;
+  --slot-default: #4f8cff;
+  --meter-mid: #ffd54a;
+  --meter-hot: #ff5e6c;
+  --code-bg: #0d0a11;
+  --code-gutter: #0a0810;
+  --code-fg: #e7dfe9;
+  --syn-kw: #ff7b8a;
+  --syn-type: #7fd6ff;
+  --syn-fn: #c39bff;
+  --syn-num: #ffc46b;
+  --syn-com: #9a8aa0;
+  --syn-pre: #8fdca0;
+  --media-bg: #05040a;
+  --media-scrim: rgba(0, 0, 0, .55);
+  --on-media-rgb: 255 255 255;
+}
+
+@font-face { font-family: 'Geist'; src: url('../admin/fonts/Geist-Variable.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('../admin/fonts/GeistMono-Variable.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+
+/* Kök: motorun tuvalinin ve ekran koruyucusunun (z 2147483000) üstünde.
+   Kendisi dokunuş almaz; yalnız arayüz öğeleri alır, gerisi sahneye gider. */
+#sv-shell {
+  --inset-top: 0px; --inset-right: 0px; --inset-bottom: 0px; --inset-left: 0px;
+  position: fixed; inset: 0; z-index: 2147483100; pointer-events: none;
+  font-family: 'Geist', system-ui, sans-serif; color: var(--text);
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+}
+#sv-shell * { box-sizing: border-box; }
+#sv-shell.hidden { display: none; }
+#sv-shell .live { pointer-events: auto; }
+#sv-shell button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+#sv-shell .svi { width: 20px; height: 20px; flex: none; }
+
+/* Cam yüzey. Bulanıklık her karede yeniden hesaplanıyor (canlı WebGL tuvalin
+   üstünde); düşük güçte ya da `flat` sınıfıyla düz yüzeye düşer. */
+#sv-shell .glass {
+  background: var(--card-end); border: 1px solid rgb(var(--fg-rgb) / .08);
+  backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .35);
+}
+#sv-shell.flat .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--popover); }
+
+/* Üst bilgi */
+#sv-shell .hud {
+  position: absolute; top: calc(var(--inset-top) + 8px); left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px);
+  display: flex; align-items: center; gap: 8px;
+}
+#sv-shell .chip { display: inline-flex; align-items: center; gap: 6px; height: 48px; min-width: 48px; flex: 0 1 auto; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+#sv-shell .chip .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .chip .dim { color: var(--muted); font-weight: 500; }
+#sv-shell .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+#sv-shell .spacer { flex: 1; }
+#sv-shell .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
+#sv-shell .dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgb(var(--ok-rgb) / .25); }
+#sv-shell .meter { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+#sv-shell .meter i { display: block; width: 3px; height: 2px; border-radius: 2px; background: var(--ok); }
+#sv-shell .meter i.m { background: var(--meter-mid); }
+#sv-shell .meter i.h { background: var(--meter-hot); }
+#sv-shell .iconbtn { width: 48px; height: 48px; flex: none; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; }
+#sv-shell .iconbtn.plain { background: var(--card2); }
+
+/* Sahne kartı ve sahne şeridi */
+#sv-shell .scene-card {
+  position: absolute; left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px);
+  bottom: calc(var(--inset-bottom) + 216px); border-radius: 20px; padding: 10px 10px 10px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+#sv-shell .scene-card .title { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .scene-card .sub { font-size: 12.5px; color: var(--muted); }
+#sv-shell .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#sv-shell .pill { display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+#sv-shell .pill.on { background: rgb(var(--accent-rgb) / .22); border-color: rgb(var(--accent-rgb) / .6); color: var(--text-strong); }
+#sv-shell .scenes {
+  position: absolute; left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px);
+  bottom: calc(var(--inset-bottom) + 100px); display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+}
+#sv-shell .scenes::-webkit-scrollbar { display: none; }
+/* Şerit kaydırılabilir kutu: gölge kutunun kenarında kırpılıp dikdörtgen bir
+   bant bırakıyordu (ekran görüntüsünde görüldü); şeritteki kartlar gölgesiz. */
+#sv-shell .scene { width: 112px; min-height: 48px; flex: none; border-radius: 14px; padding: 4px; text-align: left; box-shadow: none; }
+#sv-shell .scene .tile { height: 62px; border-radius: 10px; background: linear-gradient(135deg, rgb(var(--accent-rgb) / .55), var(--card3)); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--text-strong); }
+#sv-shell .scene .cap { font-size: 12px; font-weight: 600; padding: 6px 4px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .scene.on { outline: 2px solid var(--accent); }
+
+/* Alt gezinme */
+#sv-shell .nav {
+  position: absolute; left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 16px);
+  height: 68px; border-radius: 24px; display: flex; padding: 6px; gap: 4px;
+}
+#sv-shell .nav button { flex: 1; min-width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 18px; color: var(--muted); font-size: 11px; font-weight: 600; }
+#sv-shell .nav button.on { color: var(--text-strong); background: rgb(var(--accent-rgb) / .22); }
+#sv-shell .nav button.on .svi { color: var(--accent2); }
+html[data-ui-scheme="light"] #sv-shell .nav button.on { color: var(--accent-label); }
+html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent); }
+
+/* Alttan açılan sayfa */
+#sv-shell .sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; top: 34%; border-radius: 26px 26px 0 0;
+  background: var(--popover); border-top: 1px solid rgb(var(--fg-rgb) / .08); box-shadow: 0 -12px 40px rgb(var(--shadow-rgb) / .4);
+  display: flex; flex-direction: column; padding-bottom: calc(var(--inset-bottom) + 100px);
+  padding-left: var(--inset-left); padding-right: var(--inset-right);
+}
+#sv-shell .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line2); margin: 10px auto 4px; flex: none; }
+#sv-shell .sheet-head { display: flex; align-items: center; gap: 10px; padding: 8px 16px 12px; }
+#sv-shell .sheet-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+#sv-shell .sheet-body { flex: 1; overflow-y: auto; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+#sv-shell .hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; padding: 0 4px; }
+/* Dar ekranda sayfa açıkken sahne kartı ve şerit sayfanın altında kalır */
+#sv-shell.has-sheet .scene-card, #sv-shell.has-sheet .scenes { display: none; }
+
+/* Geniş ekran: tablet ve yatay telefon (taslak 13). Sol ray, sağda panel. Yatay
+   telefonda dar düzen sahneyi neredeyse tümüyle örtüyordu (360 dp yükseklikte
+   kart, şerit ve gezinme üst üste), bu yüzden yatayda 600 dp'den başlıyor.
+   Panel sahnenin en çok yarısını alır; üst bilgi ve şerit yalnız panel açıkken
+   ona yer bırakır. */
+@media (min-width: 840px), (orientation: landscape) and (min-width: 600px) {
+  #sv-shell { --panel: min(400px, 46vw); }
+  #sv-shell .nav { left: calc(var(--inset-left) + 12px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); width: 80px; height: auto; flex-direction: column; }
+  #sv-shell .nav button { height: 56px; flex: none; }
+  #sv-shell .hud { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 12px); }
+  #sv-shell .scene-card { display: none; }
+  #sv-shell .scenes { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 16px); }
+  #sv-shell.has-sheet .hud, #sv-shell.has-sheet .scenes { right: calc(var(--inset-right) + var(--panel) + 24px); }
+  #sv-shell.has-sheet .scenes { display: flex; }
+  #sv-shell .sheet { left: auto; top: calc(var(--inset-top) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 12px); width: var(--panel); border-radius: 24px; padding: 0; }
+  #sv-shell .grabber { display: none; }
+}

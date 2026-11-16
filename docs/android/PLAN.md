@@ -129,6 +129,10 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   context budget and security (#1071); the in-app player, so all four audio sources drive the engine (#1072); presets
   and import of desktop backups, including MilkDrop textures. Library files (logos, videos, lyrics; 2.2) move to
   phase 4, where their screens are.
+- **Phase 3 status (17.11.2026):** mock-ups approved (3.1). The shell (3.2) sits over the visualizer page: the HUD,
+  scene card, scene strip, bottom navigation and bottom sheets. Colours come from the desktop themes; Back closes a
+  sheet, then leaves full screen, then sends the app to the back. The mobile CSS guard from 1.x is part of
+  `tests/ui-themes.test.js`.
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.
