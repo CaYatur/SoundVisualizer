@@ -16,6 +16,7 @@ import android.webkit.WebView
 import com.cayadev.visualizer.bridge.Bridge
 import com.cayadev.visualizer.bridge.Messages
 import com.cayadev.visualizer.export.ExportHub
+import com.cayadev.visualizer.player.PlayerHub
 import com.cayadev.visualizer.store.ProfileStore
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
@@ -80,6 +81,7 @@ object EngineHost {
        uygulama dinliyor, çünkü motor yüzen pencerede Activity'siz de yaşıyor. */
     private fun watchApp(app: Context) {
         PowerWatch.listener = { b -> bridge?.event("powerSource", JSONObject().put("onBattery", b)) }
+        PlayerHub.events = { v -> bridge?.event("playerState", v) }
         PowerWatch.start(app)
         app.registerComponentCallbacks(object : ComponentCallbacks2 {
             /* Arka plana geçiş (UI_HIDDEN) ve sistemin bellek istemesi: sayfa bekleyen

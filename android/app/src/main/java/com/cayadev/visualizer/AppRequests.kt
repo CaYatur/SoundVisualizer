@@ -10,12 +10,17 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
+import com.cayadev.visualizer.export.ExportHub
+import com.cayadev.visualizer.player.PlayerHub
+import com.cayadev.visualizer.player.PlayerService
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -60,6 +65,38 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "storeCopy" -> EngineHost.profile.copy(args.optString("from"), args.optString("to"), args.optBoolean("overwrite", false)) { r, err ->
                 if (r != null) reply.ok(r) else reply.fail("store-copy", err ?: "")
             }
+            /* Uygulama içi çalar (2.3). Şarkı ya kullanıcının seçtiği belge (Android
+               dosya seçici, izni kalıcı) ya da uygulamanın medya klasöründeki bir dosya. */
+            "playerPick" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.pickAudio(reply)
+            }
+            "playerOpen" -> {
+                val uri = when {
+                    args.has("media") -> try {
+                        Uri.fromFile(mediaFile(args.optString("media")))
+                    } catch (e: IllegalArgumentException) {
+                        reply.fail("bad-media"); return
+                    }
+                    args.has("uri") -> args.optString("uri").toUri().takeIf { it.scheme == "content" && hasGrant(it) }
+                        ?: run { reply.fail("bad-uri"); return }
+                    else -> { reply.fail("bad-args"); return }
+                }
+                PlayerHub.with(app, { reply.fail("player-$it") }) { p ->
+                    p.open(uri)
+                    if (args.optBoolean("play", false)) p.player.play()
+                    reply.ok(p.state())
+                }
+            }
+            "playerPlay" -> player(reply) { it.player.play() }
+            "playerPause" -> player(reply) { it.player.pause() }
+            "playerStop" -> player(reply) { it.player.stop() }
+            "playerSeek" -> player(reply) { it.player.seekTo(args.optLong("ms", 0).coerceAtLeast(0)) }
+            "playerState" -> {
+                val p = PlayerHub.service
+                reply.ok(p?.state() ?: JSONObject().put("has", false).put("playing", false).put("state", "idle"))
+            }
+            "playerStats" -> reply.ok(PlayerHub.service?.stats() ?: JSONObject())
             "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
             // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
             "exportBegin" -> EngineHost.exportHub.begin(args) { r, err -> if (r != null) reply.ok(r) else reply.fail("export-begin", err ?: "") }
@@ -108,6 +145,25 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             else -> reply.fail("unknown-op", op)
         }
     }
+
+    /* Çalara komut: servis yoksa (hiç şarkı açılmadıysa) hata. */
+    private fun player(reply: Bridge.Reply, action: (PlayerService) -> Unit) {
+        val p = PlayerHub.service ?: run { reply.fail("no-player"); return }
+        action(p)
+        reply.ok(p.state())
+    }
+
+    /* Uygulamanın medya klasöründeki dosya; klasör dışına çıkamaz. */
+    private fun mediaFile(name: String): File {
+        val dir = ExportHub.mediaDir(app)
+        val f = File(dir, name).canonicalFile
+        require(name.isNotEmpty() && f.path.startsWith(dir.canonicalPath + File.separator)) { "klasör dışı yol" }
+        return f
+    }
+
+    /* Kalıcı okuma izni olan belge (playerPick'te alınmış). */
+    private fun hasGrant(uri: Uri): Boolean =
+        app.contentResolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission }
 
     private fun floatingState(): JSONObject {
         val b = FloatingWindow.bounds()

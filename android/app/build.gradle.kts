@@ -109,5 +109,8 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
+    // Uygulama içi çalar (PLAN 2.3, K11): şarkı çözme, oynatma ve medya bildirimi
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
     testImplementation(libs.junit)
 }

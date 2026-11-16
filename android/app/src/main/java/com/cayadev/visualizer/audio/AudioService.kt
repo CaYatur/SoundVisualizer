@@ -208,6 +208,8 @@ class AudioService : Service() {
         val SOURCES = setOf(SOURCE_CAPTURE, SOURCE_MIC, SOURCE_VISUALIZER)
 
         fun start(context: Context, source: String, code: Int = 0, data: Intent? = null) {
+            // Tek kaynak: yakalama başlayınca uygulama içi çalar duraklar
+            com.cayadev.visualizer.player.PlayerHub.pause()
             val i = Intent(context, AudioService::class.java).putExtra(EXTRA_SOURCE, source)
             if (data != null) i.putExtra(EXTRA_RESULT_CODE, code).putExtra(EXTRA_RESULT_DATA, data)
             context.startForegroundService(i)

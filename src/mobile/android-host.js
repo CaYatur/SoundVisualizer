@@ -47,7 +47,7 @@
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
     texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(),
-    silence: listeners(), audioStatus: listeners(), memory: listeners(),
+    silence: listeners(), audioStatus: listeners(), memory: listeners(), player: listeners(),
   };
 
   let config = null;
@@ -147,6 +147,8 @@
       if (silence) silence.reset();
       if (state.silent) { state.silent = false; ev.silence.emit({ silent: false, source: v && v.source }); }
       ev.audioStatus.emit(v);
+    } else if (name === 'playerState') {
+      onPlayerState(v);
     } else if (name === 'memoryPressure') {
       /* Sistem bellek istiyor (onTrimMemory): bekleyen kayıt hemen yazılır, uygulama
          haber vermeden kapatılabilir. Düzenleyici isterse ağır katmanları uyarır. */
@@ -156,6 +158,35 @@
     } else if (name === 'exportAck' || name === 'exportError') {
       onExportEvent(name, v);
     }
+  }
+
+  /* ---- Uygulama içi çalar (PLAN 2.3) ----
+     Çaların durumu masaüstündeki "şimdi çalıyor" biçimine çevrilir
+     (src/main/media-session.js): şarkı bilgisi katmanı ve şarkı sözü saati
+     masaüstündeki gibi çalışır. Konum saniye; `updated` konumun ölçüldüğü an,
+     motor aradaki süreyi kendisi ekliyor. */
+  let player = { has: false, playing: false, state: 'idle' };
+  let nowPlaying = null;
+  function onPlayerState(v) {
+    if (!v || typeof v !== 'object') return;
+    player = v;
+    ev.player.emit(v);
+    const t = Date.now();
+    nowPlaying = v.has ? {
+      has: true,
+      playing: !!v.playing,
+      title: String(v.title || ''),
+      artist: String(v.artist || ''),
+      album: String(v.album || ''),
+      artwork: String(v.artwork || ''),
+      subtitle: '',
+      app: 'SoundVisualizer',
+      position: (Number(v.position) || 0) / 1000,
+      duration: (Number(v.duration) || 0) / 1000,
+      updated: t,
+      received: t,
+    } : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', subtitle: '', app: '', position: 0, duration: 0, updated: 0, received: t };
+    ev.nowPlaying.emit(nowPlaying);
   }
 
   // ---- Demo ses (0E) ----
@@ -303,6 +334,19 @@
       onStatus: (cb) => ev.audioStatus.add(cb),
       onSilence: (cb) => ev.silence.add(cb),
     }),
+    /* Uygulama içi çalar: pick() Android'in dosya seçicisini açar; open(media)
+       uygulamanın medya klasöründeki bir dosyayı açar. Durum `onState` ile gelir. */
+    player: Object.freeze({
+      pick: () => request('playerPick'),
+      open: (media, play) => request('playerOpen', { media, play: !!play }),
+      reopen: (uri, play) => request('playerOpen', { uri, play: !!play }),
+      play: () => request('playerPlay'),
+      pause: () => request('playerPause'),
+      stop: () => request('playerStop'),
+      seek: (ms) => request('playerSeek', { ms }),
+      state: () => player,
+      onState: (cb) => ev.player.add(cb),
+    }),
     /* WebGL bağlam bütçesi: sayfa başına en çok GL_LIMIT etkin bağlam. */
     gl: () => glBudget(),
     onMemoryPressure: (cb) => ev.memory.add(cb),
@@ -326,7 +370,7 @@
     getSharedClock: () => resolved(null),
     onLyricsClock: (cb) => ev.lyricsClock.add(cb),
     onNowPlaying: (cb) => ev.nowPlaying.add(cb),
-    nowPlayingCurrent: () => resolved(null),
+    nowPlayingCurrent: () => resolved(nowPlaying),
     onNativeAudio: (cb) => { ev.audio.add(cb); startDemo(); },
     sendAudioMeter: noop,
     sendOscHit: noop, // OSC yok
@@ -499,6 +543,7 @@
       audioStart(source) { return request('audioStart', { source }); },
       audioStop() { return request('audioStop'); },
       audioStats() { return input ? Object.assign({}, input.stats) : null; },
+      playerStats() { return request('playerStats'); },
       /* Son gerçek karenin kopyası (ölçüm: tayftaki tepeler doğru yerde mi). */
       peekFrame() {
         if (!lastFrame) return null;

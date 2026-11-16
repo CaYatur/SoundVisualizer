@@ -46,7 +46,7 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `onSharedClock` | Empty | Redundancy session clock, desktop only. |
 | `getSharedClock` | Empty | Resolves `null`. |
 | `onLyricsClock` | Local (4) | Clock of manually loaded lyrics. |
-| `onNowPlaying` | Real (2) | The in-app player's track. Other apps' tracks would need notification access; not planned. |
+| `onNowPlaying` | Real (2) | The in-app player's track, in the desktop shape (`src/main/media-session.js`: `has`, `playing`, `title`, `artist`, `album`, `artwork` as a data URL, `position`/`duration` in seconds, `updated`). Other apps' tracks would need notification access; not planned. |
 | `nowPlayingCurrent` | Real (2) | Same source as `onNowPlaying`. |
 | `onNativeAudio` | Real (0E) | Audio frames in the desktop layout (`src/main/audio-frame.js`), built in the page from PCM. |
 | `sendAudioMeter` | Local (2) | Level meter for the audio-source screen. |
@@ -143,6 +143,7 @@ to the desktop turns the lights on again.
 |---|---|
 | `config.get()`, `config.set(cfg)`, `config.patch(keys)`, `config.flush()`, `config.ready()` | Configuration, as above. |
 | `audio.start(source)`, `audio.stop()`, `audio.status()`, `audio.onStatus(cb)` | Audio source (`capture`, `mic`, `visualizer`). |
+| `player.pick()`, `player.open(media, play)`, `player.reopen(uri, play)`, `player.play()`, `player.pause()`, `player.seek(ms)`, `player.stop()`, `player.state()`, `player.onState(cb)` | The in-app player (below). |
 | `audio.silent()`, `audio.onSilence(cb)` | About 3 s of digital silence while an app source runs: the playing app may not share its audio (PHASE0 R3). Fires once when silence starts and once when sound returns; a source change resets it. The UI offers the output mix or the microphone. |
 | `gl()` | WebGL context budget: `{ live, attached, limit: 8, created, lost }`. `live` counts every context that is not lost, also canvases outside the document (timeline layers), because those count toward the limit too. On in release builds. |
 | `onMemoryPressure(cb)` | The system asked for memory (`onTrimMemory`, level ≥ `RUNNING_LOW`, which includes going to the background). The pending save is written first. |
@@ -165,6 +166,10 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `floatingSet { opacity?, clickThrough?, locked? }` | Same settings as the desktop floating window. With pass-through on, opacity is capped at the system limit (`maxPassThroughOpacity`, 0.8 on Android 12+). |
 | `floatingClose` | Closes the window and brings the app back; the same engine returns to full screen. |
 | `floatingState` | `{ showing, opacity, clickThrough, locked, maxPassThroughOpacity, bounds, activity }`. |
+| `playerPick` | Opens Android's document picker for an audio file, keeps a persistent read grant and opens it in the player. Resolves the player state plus `uri`, or fails with `cancelled`. Needs the Activity. |
+| `playerOpen { media? , uri?, play? }` | Opens a file from the app's media folder (`media`, must resolve inside `files/media/`) or a document picked earlier (`uri`, only with a persistent grant). |
+| `playerPlay`, `playerPause`, `playerStop`, `playerSeek { ms }`, `playerState` | Resolve the player state: `{ has, playing, state, position, duration, title, artist, album, artwork, name, error }` (times in ms). |
+| event `playerState` | The same object, on every change (play/pause, track, metadata, seek, end, error). |
 | `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
 | event `windowChrome` | `{ pip }` when picture-in-picture starts or ends. |
 | event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |
@@ -174,6 +179,23 @@ The engine (the one WebView) belongs to the app, not to the screen (`EngineHost`
 context and moved between the full-screen Activity and the floating window. If the system destroys the Activity while
 the floating window is up, the engine keeps drawing; reopening the app shows the same engine without rebuilding the scene.
 
+
+## In-app player (phase 2.3)
+
+The fourth audio source and the one with the best quality: no permission, no consent dialog, and the app's own
+decoded samples, not a recording (`player/PlayerService.kt`, media3).
+
+- **In time with the speaker.** Decoded audio reaches the audio output well before it is heard; on the emulator about
+  0.6 s was queued in the output. A copy of each buffer (`TeeAudioProcessor`) waits in `PcmClock` until the player's
+  playback position reaches it, in 512-sample blocks like the desktop helper. Measured: blocks are released 2 to 4 ms
+  after the playhead reaches them (`probe.js player`).
+- **One source at a time.** Starting playback stops system-audio, microphone and Visualizer capture; starting one of
+  those pauses the player.
+- **Media session** (media3-session): notification, lock screen and headset buttons; the service is in the foreground
+  (`mediaPlayback`) while playing. Only controllers the system trusts may connect (system UI, holders of
+  `MEDIA_CONTENT_CONTROL`, the app itself). The session is added to the service explicitly, because the app drives the
+  player directly; without that, no notification appeared and the service never went to the foreground (measured).
+- Swiping the app away stops playback unless the floating window is showing.
 
 ## Security (phase 2.5)
 
