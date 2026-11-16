@@ -110,13 +110,15 @@
   // Koyu temaların ortak durum ve kod renkleri CaYaDev'den
   function darkFrom(over) { return Object.assign({}, CAYADEV, over); }
 
+  /* #5b6170 çıkış notlarında 4.46:1 ölçüldü (öz test, Aydınlık). #545a68 aynı
+     zeminde 4.5 eşiğinin üstünde kalır; --muted (#454b58) hâlâ daha koyu. */
   const LIGHT = Object.assign({
     '--bg': '#eef0f4', '--bg2': '#e6e9ee', '--surface': '#f4f5f8',
     '--card': '#ffffff', '--card2': '#f4f5f8', '--card3': '#e8ebf0', '--card-end': 'rgba(249, 250, 252, .96)',
     '--popover': 'rgba(255, 255, 255, .99)', '--scrim': 'rgba(24, 28, 40, .42)',
     '--glow-a': '#fbe3e6', '--glow-b': '#e3e7fb',
     '--line': '#d8dce4', '--line2': '#bfc5d0',
-    '--text': '#16181d', '--text-strong': '#000000', '--muted': '#454b58', '--muted2': '#5b6170',
+    '--text': '#16181d', '--text-strong': '#000000', '--muted': '#454b58', '--muted2': '#545a68',
     '--brand-ink': '#16181d',
     '--accent': '#c8102e', '--accent2': '#b3132b', '--accent-grad': '#e0213d', '--accent-rgb': '200 16 46', '--on-accent': '#ffffff',
     '--accent-text': '#a00d24', '--accent-label': '#8f0c20', '--on-solid': '#ffffff',

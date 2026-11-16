@@ -273,6 +273,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   threshold (5.8 in High Contrast against 7). It now uses the secondary colour as is: 5.8–13.8.
   The note only appears while a multi-process program plays sound, so the self-test caught it
   only on such a machine.
+- **Light theme notes clear the contrast check.** The quieter text colour `#5b6170` measured 4.46:1
+  on the display and frame-rate notes (threshold 4.5). It is now `#545a68`. The primary muted colour
+  stays darker.
 - **Application audio shows program names, not paths.** Some processes appeared as
   `C:\Windows\System32\cmd.exe`; the list now shows `cmd.exe`, and capture still matches the full
   path.
@@ -488,6 +491,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Control and show
 
+- **DDP LED count for large matrices** (#1065). The WLED (DDP) card takes the LED count, columns,
+  rows and update rate as numbers. The panel ceiling of 1500 and the sender ceiling of 4096 are
+  gone. The remaining ceiling is the DDP byte offset, 1,431,655,765 RGB pixels, which covers a
+  128×128 matrix (16384 LEDs). Each packet still holds at most 480 pixels, and the update rate
+  stays 1–60 Hz. Get LED Count keeps the number the controller reports. The address does not have
+  to be a WLED device. With the color source set to Matrix and the MilkDrop card set to the live
+  picture, the grid shows that frame. The top left stays the top left; serpentine only changes the
+  wiring. MilkDrop is read one frame late so the visualizer does not wait. Other visuals are read
+  from their own canvas, at most 256×256 samples. The eight-slice palette is unchanged for strips
+  and for the other light outputs. Checked with a fake WLED server, a loopback listener and a fake
+  WebGL readback, not a physical panel.
 - **Full backup and restore.** Back Up / Restore Settings wrote only the settings: saved scenes and
   color presets were left out, and so were the files the scenes use, so a setup moved to another
   computer opened with empty layers. **Create Full Backup** writes one `.svbackup` file:

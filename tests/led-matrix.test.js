@@ -164,7 +164,7 @@ function legacyChannels(cfg, frame) {
 
 function legacyPixels(cfg, frame) {
   const c = cfg || {};
-  const n = Math.max(1, Math.min(4096, c.ledCount | 0 || 60));
+  const n = ddp.ledCount(c);
   const brightness = Math.max(0, Math.min(1, c.brightness == null ? 1 : c.brightness));
   const out = Buffer.alloc(n * 3);
   for (let i = 0; i < n; i++) {

@@ -137,7 +137,7 @@ test('panel galeriye resmi boşta istiyor, ana süreç protokol ve IPC ile veriy
 test('çeviri sözlüğü anahtara girmiyor: arayüz metni eklemek resimleri eskitmiyor', () => {
   // Sayfa sözlüğü yüklüyor (modlar hata ve varsayılan metni çeviriyor) ama resim ona bağlı değil
   assert.ok(M.pageFiles(ROOT).includes('src/shared/i18n.js'));
-  assert.deepStrictEqual(Array.from(M.KEY_SKIP), ['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js', 'src/shared/templates.js']);
+  assert.deepStrictEqual(Array.from(M.KEY_SKIP), ['src/shared/i18n.js', 'src/shared/presets-milkdrop-pack.js', 'src/shared/presets.js', 'src/shared/presets-shaders.js', 'src/shared/templates.js', 'src/shared/schema.js']);
   // Şablonlar da yükleniyor (zaman çizelgesinin preset klipleri) ama mod resmi onlara bağlı değil
   assert.ok(M.pageFiles(ROOT).includes('src/shared/templates.js'));
   const os = require('os');
@@ -154,6 +154,8 @@ test('çeviri sözlüğü anahtara girmiyor: arayüz metni eklemek resimleri esk
     assert.strictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before, 'sözlük değişti, anahtar aynı');
     fs.appendFileSync(path.join(tmp, 'src/shared/templates.js'), '\n// şablon düzeltildi\n');
     assert.strictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before, 'şablon değişti, anahtar aynı');
+    fs.appendFileSync(path.join(tmp, 'src/shared/schema.js'), '\n// sınır değişti\n');
+    assert.strictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before, 'şema değişti, anahtar aynı');
     // Motor dosyası değişince anahtar değişmeye devam ediyor
     fs.appendFileSync(path.join(tmp, 'src/visualizer/layers.js'), '\n// motor değişti\n');
     assert.notStrictEqual(M.keyOf(M.context(tmp), 'vis', 'wave'), before);
