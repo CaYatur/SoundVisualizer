@@ -353,20 +353,80 @@
      karelerinde eksik kalabiliyordu. Değişim listesindeki her görsel de
      render başlamadan yüklenip çözülür — sıra canlıdakiyle aynı olsun ve
      geçiş anında görsel hazır olsun. */
+  function collectLogoIds(node, ids, seen) {
+    if (!node || typeof node !== 'object' || seen.has(node)) return;
+    seen.add(node);
+    const lg = node.logo;
+    if (lg && typeof lg === 'object') {
+      if (lg.libraryId) ids.add(lg.libraryId);
+      const items = lg.swap && lg.swap.items;
+      if (Array.isArray(items)) items.forEach((id) => { if (id) ids.add(id); });
+    }
+    if (Array.isArray(node)) node.forEach((child) => collectLogoIds(child, ids, seen));
+    else Object.keys(node).forEach((k) => collectLogoIds(node[k], ids, seen));
+  }
+
+  /* sv-logo sayfadan ayrı köken. crossOrigin, src yazılmadan önce
+     konmalı. Katman motoruna yazılırsa bütün mod küçük resimleri eskir;
+     bu sayfa yalnız dışa aktarımda yüklendiği için yama burada. */
+  function allowLogoCors() {
+    const proto = window.HTMLImageElement && window.HTMLImageElement.prototype;
+    if (!proto || proto.__svLogoCors) return;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'src');
+    if (!desc || typeof desc.set !== 'function' || typeof desc.get !== 'function') return;
+    Object.defineProperty(proto, 'src', {
+      configurable: true,
+      enumerable: desc.enumerable,
+      get() { return desc.get.call(this); },
+      set(v) {
+        if (/^sv-logo:/i.test(String(v || ''))) this.crossOrigin = 'anonymous';
+        desc.set.call(this, v);
+      },
+    });
+    proto.__svLogoCors = true;
+  }
+
+  async function waitLibraryLogos(ids) {
+    const rt = window.SVLogoRuntime;
+    if (!rt || typeof rt.warm !== 'function' || !ids.size) return;
+    ids.forEach((id) => rt.warm(id));
+    const left = new Set(ids);
+    const deadline = Date.now() + 20000;
+    while (left.size && Date.now() < deadline) {
+      for (const id of left) {
+        if (rt.urlFor(id) || (typeof rt.isPending === 'function' && !rt.isPending(id))) left.delete(id);
+      }
+      if (!left.size) return;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
   async function preloadLayerLogos() {
     const L = window.SVLayers;
-    if (!L || !stack || typeof L.logoFileSrc !== 'function' || !Array.isArray(cfg.layers)) return;
+    if (!L || !stack || typeof L.logoFileSrc !== 'function') return;
+    /* Kitaplık görseli blob olana kadar bekle. Aksi halde sv-logo:// tuvali
+       kirletir ve ilk karede GPU okuması düşer. Çizelge kliplerindeki
+       logolar da cfg'nin içinde. */
+    allowLogoCors();
+    const ids = new Set();
+    collectLogoIds(cfg, ids, new Set());
+    await waitLibraryLogos(ids);
     const urls = new Set();
-    cfg.layers.forEach((l) => {
-      if (!l || l.kind !== 'logo' || l.enabled === false) return;
-      const lg = (l.settings && l.settings.logo) || cfg.logo;
+    const gifs = [];
+    const addLogo = (lg) => {
       if (!lg) return;
       const own = L.logoFileSrc(lg);
       if (own) urls.add(own);
+      if (window.SVGif && window.SVGif.isAnimatedLogo(lg, own || lg.src || '')) gifs.push(lg);
       const sw = lg.swap;
       if (sw && sw.enabled && Array.isArray(sw.items)) {
         sw.items.forEach((id) => { const u = L.logoFileSrc({ source: 'manual', libraryId: id }); if (u) urls.add(u); });
       }
+    };
+    if (cfg.logo) addLogo(cfg.logo);
+    if (Array.isArray(cfg.layers)) cfg.layers.forEach((l) => {
+      if (!l || l.kind !== 'logo' || l.enabled === false) return;
+      addLogo((l.settings && l.settings.logo) || cfg.logo);
     });
     await Promise.all(Array.from(urls).map((u) => {
       const img = stack._getImage(u);
@@ -374,6 +434,16 @@
       if (img.complete && img.naturalWidth) return null;
       return (img.decode ? img.decode() : new Promise((r) => { img.onload = r; img.onerror = r; })).catch(() => null);
     }));
+    if (window.SVGifPlayer && gifs.length) {
+      const waits = [];
+      gifs.forEach((lg) => {
+        const src = L.logoFileSrc(lg);
+        if (!src) return;
+        const entry = window.SVGifPlayer.get(src);
+        if (entry && entry.promise) waits.push(entry.promise.catch(() => null));
+      });
+      if (waits.length) await Promise.all(waits);
+    }
   }
 
   /* Arkaplanın koyu yerlerini saydamlaştıran süzgeç. Görselleştirici

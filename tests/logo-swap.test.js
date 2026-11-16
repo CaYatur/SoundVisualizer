@@ -90,6 +90,11 @@ test('çizici, dışa aktarıcı ve panel bağlı; Math.random yok', () => {
   const ex = read('src/exporter/exporter.js');
   assert.match(ex, /await preloadLayerLogos\(\);/);
   assert.match(ex, /sw\.items\.forEach\(\(id\) => \{ const u = L\.logoFileSrc/);
+  assert.match(ex, /await waitLibraryLogos\(ids\)/);
+  assert.match(ex, /this\.crossOrigin = 'anonymous'/);
+  assert.match(read('src/main/preload-exporter.js'), /logoLibRead: \(id\) => ipcRenderer\.invoke\('logo-lib:read', id\)/);
+  assert.match(read('src/main/main.js'), /scheme: 'sv-logo', privileges: \{[^}]*corsEnabled: true/);
+  assert.match(read('src/main/main.js'), /protocol\.handle\('sv-logo'[\s\S]{0,800}Access-Control-Allow-Origin/);
   ['src/admin/index.html', 'src/exporter/index.html', 'src/visualizer/index.html'].forEach((f) => {
     const h = read(f);
     assert.ok(h.indexOf('logo-swap.js') > 0 && h.indexOf('logo-swap.js') < h.indexOf('layers.js', h.indexOf('logo-runtime.js')), f + ': layers.js\'ten önce');

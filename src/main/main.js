@@ -60,7 +60,7 @@ const faultGuardLib = require('./fault-guard');
 // kullanmadığı için orada aynı dosya oynar.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false } },
-  { scheme: 'sv-logo', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
+  { scheme: 'sv-logo', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false } },
   // MilkDrop küçük resimleri (#575): yalnız anahtar, yalnız kendi klasörü
   { scheme: 'sv-thumb', privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: false } },
 ]);
@@ -9783,6 +9783,9 @@ app.whenReady().then(async () => {
       const headers = new Headers();
       if (entry.mime) headers.set('Content-Type', entry.mime);
       headers.set('Cache-Control', 'private, max-age=300');
+      /* corsEnabled açıkken tuval crossOrigin=anonymous ile okur. Başlık
+         yoksa görsel hiç gelmez; başlık varken tuval temiz kalır. */
+      headers.set('Access-Control-Allow-Origin', '*');
       return new Response(new Uint8Array(entry.buf), { status: 200, headers });
     } catch {
       return new Response('error', { status: 500 });
