@@ -44,6 +44,7 @@ const LIVE_ONLY = {
   'src/shared/milkdrop-sprites.js': 'MilkDrop sprite\'ları elle (K + numara) canlı başlatılıyor',
   'src/shared/low-power.js': 'düşük güç kipi yalnız canlı çizim; video aynı kalıyor',
   'src/shared/adaptive-scale.js': 'uyarlanır çözünürlük yalnız canlı çıkış penceresi; video hep tam çözünürlükte',
+  'src/shared/matrix-picture.js': 'DDP matris örneklemesi yalnız canlı ışık ölçerinde; video karesi ışık paketi üretmez',
 };
 
 test('canlı sayfada çizime giren her betik dışa aktarıcıda ve yayın katmanında da var', () => {

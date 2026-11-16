@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4551%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4557%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1249,15 +1249,20 @@ makineye, öncelik ve kaynak adıyla.
 **WLED / DDP.** Pikseller UDP `4048` üzerinden herhangi bir DDP alıcısına gidiyor, WLED dahil. LED
 sayısı, sütun, satır ve gönderim hızı sayı olarak yazılıyor. 128×128 bir matris 16384 LED'dir. Tavan
 DDP ofsetinin kendisidir: 1431655765 RGB piksel. Her pakette en çok 480 piksel gider ve gönderim
-hızı 1 ile 60 Hz arasında kalır. **Ağda WLED Bul** ve **LED Sayısını Al** ağa yalnız siz bastığınızda
+hızı 1 ile 60 Hz arasında kalır. Renk kaynağı Matris ve MilkDrop kartında canlı görüntü seçiliyken
+ızgara o kareyi basar: görüntünün sol üstü sol üst LEDdir, yılan dizilim yalnız kablo sırasını
+çevirir. MilkDrop okuması bir kare gecikir, görselleştirici beklemez. Diğer görseller kendi
+tuvalinden, en çok 256×256 örnekle okunur.
+**Ağda WLED Bul** ve **LED Sayısını Al** ağa yalnız siz bastığınızda
 dokunuyor ve okudukları sayı olduğu gibi duruyor. **WLED Ses Senkronu**
 seviyeyi, vuruşu ve 16 bandı yayınlıyor; WLED'in kendi sese tepkili efektleri uygulamayı izliyor.
 
 Yedekli bir çiftte Art-Net, sACN ve WLED'i yalnız çıkış yetkisindeki makine gönderiyor.
 
-**Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
-izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
-ekranın solundaki renkleri alıyor.
+**Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı görüntüyü** (MilkDrop ya da ekrandaki
+görsel) izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki
+armatürler ekranın solundaki renkleri alıyor. WLED matrisi aynı seçimle sekiz dilim yerine
+görüntünün kendisini ızgaraya basıyor.
 
 ---
 
@@ -2260,7 +2265,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4551 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4557 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

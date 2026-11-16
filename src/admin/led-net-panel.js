@@ -209,7 +209,7 @@
       colorRows(nodes, 'wled', w);
       nodes.push(intBox('Gönderim Hızı (Hz)', 'wled.fps', '5em'));
     }
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Pikseller DDP (UDP 4048) ile bu adrese gider; alıcı WLED olmak zorunda değil. LED sayısı, sütun, satır ve gönderim hızı sayı olarak yazılır. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Pikseller DDP (UDP 4048) ile bu adrese gider; alıcı WLED olmak zorunda değil. LED sayısı, sütun, satır ve gönderim hızı sayı olarak yazılır. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır. Renk kaynağı Matris ve MilkDrop kartında görüntü seçiliyken ızgara ekrandaki kareyi basar. Değilse sütunlar renk tonu, satırlar ses seviyesidir.' }));
     return el('div', { class: 'lednet-panel' }, nodes);
   }
 

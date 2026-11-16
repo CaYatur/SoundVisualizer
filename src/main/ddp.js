@@ -57,8 +57,12 @@ function renderPixels(cfg, frame) {
   const n = ledCount(c);
   const brightness = Math.max(0, Math.min(1, c.brightness == null ? 1 : c.brightness));
   const out = Buffer.alloc(n * 3);
+  // Görüntü karede varsa matris onu basar. Bayrak ayara yazılmaz.
+  const colorCfg = frame && frame.matrixPixels && c.mode === 'matrix'
+    ? Object.assign({}, c, { matrixPicture: true })
+    : c;
   for (let i = 0; i < n; i++) {
-    const rgb = artnet.colorAt(c, frame, i, n);
+    const rgb = artnet.colorAt(colorCfg, frame, i, n);
     out[i * 3] = artnet.clamp255(rgb[0] * 255 * brightness);
     out[i * 3 + 1] = artnet.clamp255(rgb[1] * 255 * brightness);
     out[i * 3 + 2] = artnet.clamp255(rgb[2] * 255 * brightness);

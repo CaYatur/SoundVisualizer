@@ -4240,6 +4240,18 @@ ipcMain.on('audio-meter', (e, data) => {
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
   if (data && (data.mdPreset || data.mdLayers)) relayMdFollow(e.sender, data.mdPreset, data.mdLayers);
+  /* Matris görüntüsü on binlerce bayt. Yönetici paneli bunu çizmiyor;
+     DDP gönderimi kendi kopyasını alır. */
+  const shot = data && data.matrixPixels ? {
+    matrixPixels: data.matrixPixels,
+    matrixSampleCols: data.matrixSampleCols,
+    matrixSampleRows: data.matrixSampleRows,
+  } : null;
+  if (shot) {
+    delete data.matrixPixels;
+    delete data.matrixSampleCols;
+    delete data.matrixSampleRows;
+  }
   notifyAdmin('audio-meter', data);
   /* Çıkış yetkisi (#814): ışık ve OSC yalnız kapısı açıksa. Kapı yetki
      değişince bir kez hesaplanır (redAuth.gates); burada tek okuma. */
@@ -4253,7 +4265,9 @@ ipcMain.on('audio-meter', (e, data) => {
      yollamaz. Kapalıyken send() hiçbir şey yapmaz. */
   if (g.artnet && currentConfig) {
     if (currentConfig.sacn && currentConfig.sacn.enabled) sacn.send(currentConfig.sacn, data);
-    if (currentConfig.wled && currentConfig.wled.enabled) ddp.send(currentConfig.wled, data);
+    if (currentConfig.wled && currentConfig.wled.enabled) {
+      ddp.send(currentConfig.wled, shot ? Object.assign({}, data, shot) : data);
+    }
     if (currentConfig.wledSync && currentConfig.wledSync.enabled) wledSync.send(currentConfig.wledSync, data);
   }
   if (g.oscOut && currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {

@@ -677,9 +677,9 @@
       // palette() gradyan katmanında gl.readPixels kullanır ve GPU işlem
       // hattını senkron olarak bekletir. Yalnızca Dynamic Lighting gerçekten
       // arkaplan renklerini istediğinde çağrılır.
-      /* Kaynak `milkdrop` ise (#589) palet MilkDrop'un o anki
-         görüntüsünden: hangi ışık çıkışı açıksa — Dynamic Lighting, OpenRGB
-         ya da Art-Net — onun için. Yığında MilkDrop yoksa arkaplana
+      /* Kaynak `milkdrop` ise (#589) palet o anki görüntüden: hangi ışık
+         çıkışı açıksa onun için. Şerit sekiz dilim ister. WLED matrisi
+         karenin kendisini ister (#1065). Yığında görüntü yoksa arkaplana
          düşülüyor, ışık sönmesin. */
       const lightSrc = cfg.lighting?.paletteSource;
       const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled
@@ -690,6 +690,17 @@
         if (!backgroundColors.length) backgroundColors = stack.palette(cfg);
       } else if (!!cfg.lighting?.enabled && lightSrc === 'background') {
         backgroundColors = stack.palette(cfg);
+      }
+      let matrixPixels = null;
+      let matrixSampleCols = 0;
+      let matrixSampleRows = 0;
+      const MP = window.SVMatrixPicture;
+      if (lightSrc === 'milkdrop' && cfg.wled && cfg.wled.enabled && cfg.wled.mode === 'matrix' && MP) {
+        const grid = MP.gridOf(MP.ledCount(cfg.wled), cfg.wled);
+        const size = MP.sampleSize(grid.cols, grid.rows);
+        matrixPixels = MP.capture(stack, size.cols, size.rows);
+        matrixSampleCols = size.cols;
+        matrixSampleRows = size.rows;
       }
       /* Sayfanın o an çizdiği preset tanı için de saklanıyor (#585): her
          ekranın aynı preseti gösterip göstermediği buradan okunuyor. */
@@ -719,6 +730,9 @@
         mdLayers: stack.milkdropLayers(),
         analysis: oscAnalysis(audio),
         spectrum: oscSpectrum(audio),
+        matrixPixels: matrixPixels && matrixPixels.length ? matrixPixels : undefined,
+        matrixSampleCols: matrixPixels && matrixPixels.length ? matrixSampleCols : undefined,
+        matrixSampleRows: matrixPixels && matrixPixels.length ? matrixSampleRows : undefined,
       });
     }
   }

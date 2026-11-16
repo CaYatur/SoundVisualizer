@@ -134,11 +134,38 @@ function matrixColor(cfg, frame, index, count) {
   return hsvToRgb(hue, 1, v);
 }
 
+/* Ekran görüntüsü, görsel hücrede. Yılan dizilim kablo sırasını çevirir,
+   karenin sol üstü sol üstte kalır. Örnek ızgaradan küçükse en yakın hücre.
+   Piksel yoksa null: çağıran sentetik matrise düşer. */
+function matrixPictureColor(cfg, frame, index, count) {
+  if (!cfg || !cfg.matrixPicture || !frame) return null;
+  const pix = frame.matrixPixels;
+  const sw = frame.matrixSampleCols | 0;
+  const sh = frame.matrixSampleRows | 0;
+  if (!pix || sw < 1 || sh < 1 || pix.length < sw * sh * 3) return null;
+  const n = count | 0;
+  const i = index | 0;
+  if (i < 0 || i >= n) return [0, 0, 0];
+  const grid = matrixGrid(n, cfg);
+  const cell = matrixCell(i, grid.cols, !!cfg.matrixSerpentine);
+  if (cell.r < 0 || cell.c < 0 || cell.r >= grid.rows || cell.c >= grid.cols) return [0, 0, 0];
+  const x = Math.min(sw - 1, Math.floor((cell.c * sw) / grid.cols));
+  const y = Math.min(sh - 1, Math.floor((cell.r * sh) / grid.rows));
+  const o = (y * sw + x) * 3;
+  return [pix[o] / 255, pix[o + 1] / 255, pix[o + 2] / 255];
+}
+
 /* Ağ çıkışlarının ortak rengi. Matris değilse şerit yolu (fixtureColor)
-   birebir aynıdır; parlaklık ve RGBW bu işlevin dışında uygulanır. */
+   birebir aynıdır; parlaklık ve RGBW bu işlevin dışında uygulanır.
+   Görüntü yalnız DDP `matrixPicture` dediğinde kullanılır. Art-Net ve sACN
+   aynı kareyi görse de sentetik ızgarada kalır. */
 function colorAt(cfg, frame, index, count) {
   const n = count | 0;
-  if (cfg && cfg.mode === 'matrix') return matrixColor(cfg, frame, index, n);
+  if (cfg && cfg.mode === 'matrix') {
+    const pic = matrixPictureColor(cfg, frame, index, n);
+    if (pic) return pic;
+    return matrixColor(cfg, frame, index, n);
+  }
   const f = n > 1 ? index / (n - 1) : 0;
   return fixtureColor(cfg, frame, f);
 }

@@ -1466,13 +1466,14 @@
     })));
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır: görüntü soldan sağa sekiz dilime bölünür ve her dilimin parlak bölgelerinin rengi saniyede yaklaşık 30 kez okunur; ışıkların sırası dilimlerin sırasını izler. Işığın parlaklığını yine ışık kipi sesle belirler. Dynamic Lighting, OpenRGB ve Art-Net\'te çalışır; sahnede MilkDrop yoksa arkaplan renklerine döner.',
+      text: 'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır. Şerit ve sahne ışıkları görüntüyü soldan sağa sekiz dilime böler; her dilimin parlak yerlerinin rengi saniyede yaklaşık 30 kez okunur ve ışıkların sırası dilimlerin sırasını izler. WLED (DDP) renk kaynağı Matris ise görüntünün kendisi sütun ve satır ızgarasına basılır: sol üst köşe sol üst LEDdir, yılan dizilim kablo sırasını çevirir. MilkDrop okuması bir kare gecikir, böylece görselleştirici beklemez. Diğer görseller kendi tuvalinden matris boyutunda okunur. Sahnede görsel yoksa arkaplan renklerine dönülür. Dynamic Lighting, OpenRGB, Art-Net, sACN ve WLED bu kaynağı kullanır.',
     }));
     if (light.paletteSource === 'milkdrop' && !light.enabled
-        && !(cfg.openrgb && cfg.openrgb.enabled) && !(cfg.artnet && cfg.artnet.enabled)) {
+        && !(cfg.openrgb && cfg.openrgb.enabled) && !(cfg.artnet && cfg.artnet.enabled)
+        && !(cfg.sacn && cfg.sacn.enabled) && !(cfg.wled && cfg.wled.enabled)) {
       nodes.push(el('div', {
         class: 'studio-note md-err',
-        text: 'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
+        text: 'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB, Art-Net, sACN ya da WLED (DDP) çıkışını açın.',
       }));
     }
 
