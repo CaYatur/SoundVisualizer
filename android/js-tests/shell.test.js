@@ -60,6 +60,11 @@ test('dokunma hedefleri en az 48 dp (PLAN 3.7)', () => {
   // Gezinme çubuğu 68 px, iç boşluk 6: düğmeler 56 px
   assert.ok(px(nav.height) - 12 >= 48);
   assert.ok(px(ruleProps('#sv-shell .nav button')['min-width']) >= 48);
+  // Geniş düzende ray düğmeleri: boy en az 48, ray 80 px (düğme genişliği 80 − 12)
+  const wide = css.slice(css.indexOf('@media (min-width: 840px)'));
+  const railBtn = /#sv-shell \.nav button \{([^}]*)\}/.exec(wide);
+  assert.ok(railBtn && px(/height:\s*([\d.]+)px/.exec(railBtn[1])[1]) >= 48);
+  assert.ok(/\.iconbtn \{[^}]*flex: none/.test(css), 'üst bilgide sıkışınca ikon düğmeleri küçülmesin');
 });
 
 test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {

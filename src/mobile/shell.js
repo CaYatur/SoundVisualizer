@@ -37,7 +37,9 @@
   ];
   const renderers = {};
 
-  const state = { tab: 'scene', fullscreen: false, pip: false, floating: false, level: 0, source: null };
+  /* ready: ayar yüklenene kadar kabuk gizli. Yoksa açılışta bir an varsayılan tema
+     ve boş sahne şeridi görünürdü (neon kullanan biri önce CaYaDev'i görüyordu). */
+  const state = { tab: 'scene', ready: false, fullscreen: false, pip: false, floating: false, level: 0, source: null };
   let root = null;
   let refs = {};
 
@@ -68,14 +70,15 @@
     const T = window.SVUiThemes;
     if (!T) return;
     const c = cfg();
-    const id = T.normalizeId(c && c.ui && c.ui.theme);
+    if (!c) return; // ayar gelmeden tema seçilmez (:root zaten CaYaDev)
+    const id = T.normalizeId(c.ui && c.ui.theme);
     T.apply(document, id, darkQuery ? darkQuery.matches : true, false);
   }
 
   // ---- Görünürlük ----
   function updateVisibility() {
     if (!root) return;
-    root.classList.toggle('hidden', state.fullscreen || state.pip || state.floating);
+    root.classList.toggle('hidden', !state.ready || state.fullscreen || state.pip || state.floating);
   }
   function setFullscreen(on) {
     state.fullscreen = !!on;
@@ -104,13 +107,11 @@
     root.insertBefore(sheet, refs.nav);
     if (renderers[id]) renderers[id](body, { close: closeSheet });
     else body.appendChild(h('div', { class: 'hint', text: 'Bu bölüm henüz hazır değil.' }));
-    refs.sceneCard.style.display = 'none';
-    refs.scenes.style.display = 'none';
+    root.classList.add('has-sheet');
   }
   function closeSheet() {
     if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; }
-    if (refs.sceneCard) refs.sceneCard.style.display = '';
-    if (refs.scenes) refs.scenes.style.display = '';
+    if (root) root.classList.remove('has-sheet');
     if (refs.navButtons && state.tab !== 'scene') {
       state.tab = 'scene';
       for (const b of refs.navButtons) b.classList.toggle('on', b.dataset.tab === 'scene');
@@ -206,7 +207,7 @@
   function build() {
     const meterBars = [h('i'), h('i'), h('i', { class: 'm' }), h('i', { class: 'h' })];
     const sourceDot = h('span', { class: 'dot', 'aria-hidden': 'true' });
-    const sourceLabel = h('span', { text: 'Demo ses' });
+    const sourceLabel = h('span', { class: 'label', text: 'Demo ses' });
     const hud = h('div', { class: 'hud' }, [
       h('button', { class: 'chip glass live', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
       h('div', { class: 'spacer' }),
@@ -237,6 +238,7 @@
     if (!S || document.getElementById('sv-shell')) return;
     document.head.appendChild(h('link', { rel: 'stylesheet', href: '../mobile/shell.css' }));
     build();
+    updateVisibility();
     applyTheme();
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
     setInsets(S.insets());
@@ -254,7 +256,11 @@
     window.api.onConfigPatch(() => { applyTheme(); renderScenes(); });
     // Tam ekrandayken sahneye dokunmak arayüzü geri getirir
     document.addEventListener('pointerup', () => { if (state.fullscreen) setFullscreen(false); }, true);
-    S.config.ready().then(() => { applyTheme(); renderScenes(); renderSource(); });
+    S.config.ready().then(() => {
+      applyTheme(); renderScenes(); renderSource();
+      state.ready = true;
+      updateVisibility();
+    });
   }
 
   window.SVShell = Object.freeze({

@@ -110,7 +110,8 @@
   position: absolute; top: calc(var(--inset-top) + 8px); left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px);
   display: flex; align-items: center; gap: 8px;
 }
-#sv-shell .chip { display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+#sv-shell .chip { display: inline-flex; align-items: center; gap: 6px; height: 48px; min-width: 48px; flex: 0 1 auto; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+#sv-shell .chip .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #sv-shell .chip .dim { color: var(--muted); font-weight: 500; }
 #sv-shell .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 #sv-shell .spacer { flex: 1; }
@@ -120,7 +121,7 @@
 #sv-shell .meter i { display: block; width: 3px; height: 2px; border-radius: 2px; background: var(--ok); }
 #sv-shell .meter i.m { background: var(--meter-mid); }
 #sv-shell .meter i.h { background: var(--meter-hot); }
-#sv-shell .iconbtn { width: 48px; height: 48px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; }
+#sv-shell .iconbtn { width: 48px; height: 48px; flex: none; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; }
 #sv-shell .iconbtn.plain { background: var(--card2); }
 
 /* Sahne kartı ve sahne şeridi */
@@ -169,14 +170,23 @@ html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent
 #sv-shell .sheet-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
 #sv-shell .sheet-body { flex: 1; overflow-y: auto; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .hint { font-size: 12.5px; color: var(--muted); line-height: 1.45; padding: 0 4px; }
+/* Dar ekranda sayfa açıkken sahne kartı ve şerit sayfanın altında kalır */
+#sv-shell.has-sheet .scene-card, #sv-shell.has-sheet .scenes { display: none; }
 
-/* Geniş ekran (tablet, telefon yatay): sol ray ve sağ panel (taslak 13) */
-@media (min-width: 840px) {
+/* Geniş ekran: tablet ve yatay telefon (taslak 13). Sol ray, sağda panel. Yatay
+   telefonda dar düzen sahneyi neredeyse tümüyle örtüyordu (360 dp yükseklikte
+   kart, şerit ve gezinme üst üste), bu yüzden yatayda 600 dp'den başlıyor.
+   Panel sahnenin en çok yarısını alır; üst bilgi ve şerit yalnız panel açıkken
+   ona yer bırakır. */
+@media (min-width: 840px), (orientation: landscape) and (min-width: 600px) {
+  #sv-shell { --panel: min(400px, 46vw); }
   #sv-shell .nav { left: calc(var(--inset-left) + 12px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); width: 80px; height: auto; flex-direction: column; }
-  #sv-shell .nav button { height: 64px; flex: none; }
-  #sv-shell .hud { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 424px); }
+  #sv-shell .nav button { height: 56px; flex: none; }
+  #sv-shell .hud { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 12px); }
   #sv-shell .scene-card { display: none; }
-  #sv-shell .scenes { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 424px); bottom: calc(var(--inset-bottom) + 16px); }
-  #sv-shell .sheet { left: auto; top: calc(var(--inset-top) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 12px); width: 400px; border-radius: 24px; padding: 0; }
+  #sv-shell .scenes { left: calc(var(--inset-left) + 112px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 16px); }
+  #sv-shell.has-sheet .hud, #sv-shell.has-sheet .scenes { right: calc(var(--inset-right) + var(--panel) + 24px); }
+  #sv-shell.has-sheet .scenes { display: flex; }
+  #sv-shell .sheet { left: auto; top: calc(var(--inset-top) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 12px); width: var(--panel); border-radius: 24px; padding: 0; }
   #sv-shell .grabber { display: none; }
 }
