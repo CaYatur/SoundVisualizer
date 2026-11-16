@@ -43,10 +43,8 @@ class ProfileStore(context: Context) {
        bir preset kimliği. */
     private val presetsDir = File(dir, "presets")
     private val presetsIndex = AtomicFile(File(dir, "presets-index.json"))
-    /* Geçici klasör presetlerle AYNI ağaçta: Android önbellek klasörünü ayrı bir disk
-       kotası kimliğiyle izliyor ve oradan buraya ad değiştirme EXDEV ile başarısız
-       oluyordu; her preset diske zorlamalı yeniden yazıma düşüyordu (ölçüldü: 10.392
-       presette 55 sn, dosya başına 5,3 ms). */
+    /* Geçici klasör presetlerle aynı ağaçta (profil klasöründe): presetler oradan ad
+       değiştirilerek taşınıyor, sistem önbelleği temizlese de yarım iş kalmıyor. */
     private val staging = File(dir, ".import-staging")
     private val thread = HandlerThread("sv-store").also { it.start() }
     private val worker = Handler(thread.looper)
