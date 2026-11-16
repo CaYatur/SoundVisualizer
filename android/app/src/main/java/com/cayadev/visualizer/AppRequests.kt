@@ -62,6 +62,30 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val files = args.optJSONObject("files") ?: JSONObject()
                 EngineHost.profile.write(files) { r, err -> if (r != null) reply.ok(r) else reply.fail("store-write", err ?: "") }
             }
+            /* Kullanıcı presetleri (masaüstündeki presets klasörü) ve içe aktarma. */
+            "presetsList" -> EngineHost.profile.presetsList { r, err -> if (r != null) reply.ok(r) else reply.fail("presets-list", err ?: "") }
+            "presetsSource" -> EngineHost.profile.presetSource(args.optString("id")) { r, err -> if (r != null) reply.ok(r) else reply.fail("presets-source", err ?: "") }
+            "presetsHead" -> reply.ok(JSONObject().put("gen", EngineHost.profile.presetGen))
+            "presetsSince" -> {
+                val gen = EngineHost.profile.presetGen
+                val r = JSONObject().put("gen", gen).put("upsert", JSONArray()).put("remove", JSONArray())
+                // Ayrıntılı fark tutulmuyor: değiştiyse sayfa listeyi baştan ister
+                if (args.optLong("gen", 0) != gen) r.put("reset", true)
+                reply.ok(r)
+            }
+            "importPick" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.pickImport(reply)
+            }
+            "importOpen" -> {
+                val f = try { mediaFile(args.optString("media")) } catch (e: IllegalArgumentException) { reply.fail("bad-media"); return }
+                EngineHost.profile.importRead(EngineHost.profile.opener(Uri.fromFile(f))) { r, err -> if (r != null) reply.ok(r) else reply.fail("import", err ?: "") }
+            }
+            "importCommit" -> {
+                val a = args.optJSONArray("ids") ?: JSONArray()
+                EngineHost.profile.importCommit((0 until a.length()).map { a.optString(it) }) { r, err -> if (r != null) reply.ok(r) else reply.fail("import-commit", err ?: "") }
+            }
+            "importDiscard" -> EngineHost.profile.importDiscard { r, err -> if (r != null) reply.ok(r) else reply.fail("import", err ?: "") }
             "storeCopy" -> EngineHost.profile.copy(args.optString("from"), args.optString("to"), args.optBoolean("overwrite", false)) { r, err ->
                 if (r != null) reply.ok(r) else reply.fail("store-copy", err ?: "")
             }

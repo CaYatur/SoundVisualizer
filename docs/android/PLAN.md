@@ -125,6 +125,9 @@ Each phase ends with a "done when" line. The owner approves each phase before th
 - **Done when** the desktop gates and the Android CI are green and no mobile file is in the desktop package.
 - **Status (17.11.2026):** 1.1–1.3 were done with the phase 0E pull requests (#1057, #1061, `android.yml`). The
   mobile CSS guard moves to phase 3 (there is no mobile CSS yet); `release-assets.js` moves to phase 6.
+- **Phase 2 status (17.11.2026):** storage and crash recovery (#1069); battery, memory pressure, silence detection,
+  context budget and security (#1071); the in-app player, so all four audio sources drive the engine (#1072); presets
+  and import of desktop backups. Library files and textures (2.2) move to phase 4, where their screens are.
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.
