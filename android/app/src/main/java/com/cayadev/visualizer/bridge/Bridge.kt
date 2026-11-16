@@ -99,8 +99,9 @@ class Bridge(
                     .put("sdk", Build.VERSION.SDK_INT)
                     .put("webview", WebShell.webViewVersion(context))
                 proxy.postMessage(out.toString())
-                // Yeni sayfa pil durumunu hemen bilsin (düşük güç kipi)
+                // Yeni sayfa pil durumunu ve ekran kenarı boşluklarını hemen bilsin
                 event("powerSource", JSONObject().put("onBattery", PowerWatch.onBattery))
+                com.cayadev.visualizer.EngineHost.activity?.lastInsets?.let { event("insets", it) }
             }
             "req" -> {
                 val r = Reply(msg.optInt("id"), proxy)

@@ -23,8 +23,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -134,8 +136,31 @@ class MainActivity : ComponentActivity() {
         if (FloatingWindow.isShowing) FloatingWindow.close(this)
         EngineHost.attach(frame)
         frame.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updatePipParams() }
+        /* Ekran kenarı boşlukları (çentik, sistem çubukları) sayfaya dp olarak gider:
+           uygulama tam ekran, sayfanın kendi viewport'u bunları bilmiyor. Çubuklar
+           gizliyken de yer ayrılır (kaydırınca geçici olarak görünüyorlar). */
+        ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
+            val i = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val d = resources.displayMetrics.density
+            lastInsets = JSONObject().put("top", Math.round(i.top / d)).put("right", Math.round(i.right / d))
+                .put("bottom", Math.round(i.bottom / d)).put("left", Math.round(i.left / d))
+            EngineHost.bridge?.event("insets", lastInsets)
+            insets
+        }
+        /* Geri tuşu sayfaya gider: önce açık sayfa kapanır; sayfa karşılamazsa uygulama
+           arkaya alınır (appToBack). Varsayılan davranış Activity'yi kapatırdı. */
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val b = EngineHost.bridge
+                if (b?.reply != null) b.event("back", null) else moveTaskToBack(true)
+            }
+        })
         Log.i(TAG, "sayfa: $page, WebView ${WebShell.webViewVersion(this)}")
     }
+
+    /** Son ölçülen kenar boşlukları; yeni sayfa `hello` dediğinde yeniden gönderilir. */
+    var lastInsets: JSONObject? = null
+        private set
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

@@ -28,7 +28,7 @@ const S = require('./helpers/theme-scan');
 
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
-const CSS_FILES = ['src/admin/admin.css', 'src/admin/studio.css'];
+const CSS_FILES = ['src/admin/admin.css', 'src/admin/studio.css', 'src/mobile/shell.css'];
 
 // ---------------------------------------------------------------------------
 // Tablo
@@ -279,7 +279,8 @@ CSS_FILES.forEach((file) => {
   });
 
   test(file + ': kullanılan her değişken tanımlı', () => {
-    const local = new Set([...S.cssLocalVars(read('src/admin/admin.css')), ...S.cssLocalVars(read('src/admin/studio.css'))]);
+    // Dosyaların kendi tanımladığı düzen değişkenleri (ör. mobil kabuğun --inset-*)
+    const local = new Set(CSS_FILES.flatMap((f) => [...S.cssLocalVars(read(f))]));
     // Betiğin satır içi yazdığı düzen değişkenleri (renk değil)
     const fromJs = ['--cols'];
     const known = new Set([...T.TOKEN_NAMES, ...Object.keys(S.rootVars(read('src/admin/admin.css'))), ...local, ...fromJs]);

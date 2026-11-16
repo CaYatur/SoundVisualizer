@@ -682,7 +682,81 @@ async function importCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd };
+/* MOBİL ARAYÜZ KABUĞU (Faz 3.2). Kabuk kuruluyor mu; her düğme en az 48 dp mi;
+   sekmeler açılıyor mu; geri tuşu önce sayfayı kapatıp sonra uygulamayı arkaya
+   alıyor mu (süreç ve motor yaşıyor); tema, tam ekran, yüzen pencere ve kenar
+   boşlukları. Ekran görüntüleri --shots=<klasör> verilirse oraya yazılır. */
+async function shellCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (name) => { if (shots) fs.writeFileSync(path.join(shots, name + '.png'), D.screencap()); };
+  const out = {};
+  D.adb(['shell', 'appops', 'set', D.PKG, 'SYSTEM_ALERT_WINDOW', 'allow']);
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  try {
+    for (let i = 0; i < 50 && !(await page.evaluate('!!(window.SVShell && document.getElementById("sv-shell"))')); i++) await D.sleep(200);
+    await D.sleep(1500);
+    const small = `(() => Array.from(document.querySelectorAll('#sv-shell button, #sv-shell a')).filter((b) => b.offsetParent !== null)
+      .map((b) => { const r = b.getBoundingClientRect(); return { t: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 20), w: Math.round(r.width), h: Math.round(r.height) }; })
+      .filter((x) => x.w < 48 || x.h < 48))()`;
+    out.main = await page.evaluate(`({ shell: !!document.getElementById('sv-shell'), buttons: document.querySelectorAll('#sv-shell button').length,
+      small: ${small}, insetTop: getComputedStyle(document.getElementById('sv-shell')).getPropertyValue('--inset-top').trim(),
+      font: getComputedStyle(document.querySelector('#sv-shell .nav button')).fontFamily, theme: document.documentElement.getAttribute('data-ui-theme') })`);
+    shot('1-main');
+    out.tabs = {};
+    for (const t of ['layers', 'library', 'audio', 'settings']) {
+      await page.evaluate(`window.SVShell.open(${JSON.stringify(t)})`);
+      await D.sleep(500);
+      out.tabs[t] = await page.evaluate(`({ sheet: window.SVShell.state().sheet, title: (document.querySelector('#sv-shell .sheet h2') || {}).textContent, small: ${small} })`);
+      shot('2-' + t);
+    }
+    // Geri tuşu: önce sayfa kapanır
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(600);
+    out.backCloses = await page.evaluate('!window.SVShell.state().sheet');
+    // Kökte: uygulama arkaya alınır, süreç ve motor yaşar
+    await page.evaluate('window.__marker = 7; 1');
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(1200);
+    const top = D.adb(['shell', 'dumpsys', 'activity', 'activities']).split(/\r?\n/).find((l) => /topResumedActivity|mResumedActivity/.test(l)) || '';
+    out.backToBackground = { foreground: top.includes(D.PKG), samePid: D.pidOf() === pid };
+    D.adb(['shell', 'am', 'start', '-n', D.PKG + '/.MainActivity']);
+    await D.sleep(1500);
+    out.sameEngine = await page.evaluate('window.__marker === 7');
+    // Tema: ayarın ui.theme'i
+    await page.evaluate(`(() => { const c = window.SVAndroid.config.get() || {}; window.SVAndroid.config.patch({ ui: Object.assign({}, c.ui, { theme: 'light' }) }); return 1; })()`);
+    await D.sleep(400);
+    out.lightTheme = await page.evaluate("({ theme: document.documentElement.getAttribute('data-ui-theme'), bg: getComputedStyle(document.querySelector('#sv-shell .nav')).backgroundColor })");
+    shot('3-light');
+    await page.evaluate(`(() => { const c = window.SVAndroid.config.get() || {}; window.SVAndroid.config.patch({ ui: Object.assign({}, c.ui, { theme: 'cayadev' }) }); return 1; })()`);
+    // Tam ekran: kabuk gizlenir, dokununca geri gelir
+    await page.evaluate("document.querySelector('#sv-shell [aria-label=\"Tam ekran\"], #sv-shell [aria-label=\"Full screen\"]').click()");
+    await D.sleep(400);
+    out.fullscreenHidden = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display === 'none'");
+    shot('4-fullscreen');
+    D.adb(['shell', 'input', 'tap', '540', '1200']);
+    await D.sleep(500);
+    out.tapRestores = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display !== 'none'");
+    // Yüzen pencere: kabuk gizlenir, kapanınca geri gelir
+    out.floatingOpen = await page.evaluate("window.SVAndroid.floating.open({ width: 540, height: 304 }).then(() => true, (e) => e.message)");
+    await D.sleep(1500);
+    out.floatingHidden = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display === 'none'");
+    await page.evaluate('window.SVAndroid.floating.close()');
+    await D.sleep(1500);
+    out.floatingRestored = await page.evaluate("getComputedStyle(document.getElementById('sv-shell')).display !== 'none'");
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally { page.close(); }
+  console.log(JSON.stringify(out, null, 1));
+  const tabsOk = Object.values(out.tabs).every((t) => t.sheet && t.small.length === 0);
+  const ok = out.main.shell && out.main.small.length === 0 && parseFloat(out.main.insetTop) > 0 && /Geist/.test(out.main.font) && tabsOk
+    && out.backCloses && !out.backToBackground.foreground && out.backToBackground.samePid && out.sameEngine
+    && out.lightTheme.theme === 'light' && out.fullscreenHidden && out.tapRestores && out.floatingHidden && out.floatingRestored;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

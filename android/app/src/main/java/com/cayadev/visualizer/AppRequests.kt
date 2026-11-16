@@ -159,6 +159,12 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 reply.ok()
             }
             "floatingState" -> reply.ok(floatingState())
+            /* Geri tuşu kökte: uygulama arkaya alınır, Activity KAPATILMAZ (onDestroy
+               motoru ve sesi kapatırdı). Medya uygulamalarındaki davranış. */
+            "appToBack" -> {
+                live?.moveTaskToBack(true)
+                reply.ok(JSONObject().put("moved", live != null))
+            }
             "pipEnter" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 reply.ok(JSONObject().put("entered", live.enterPip(args.optInt("w", 16), args.optInt("h", 9))))

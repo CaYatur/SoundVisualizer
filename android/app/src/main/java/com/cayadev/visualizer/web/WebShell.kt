@@ -113,7 +113,8 @@ object WebShell {
     /* Sayfanın betiklerinden önce çalışan betikler, YALNIZ kendi adresimizde.
        Sıra önemli: önce ortam, sonra ses karesini kuran ortak kod (masaüstüyle
        aynı tayf ve halka), demo ses, ayar dosyalarının biçimi ve v4 göçü,
-       ileti biçimi, ses girişi ve sessizlik algılama, en son window.api. */
+       ileti biçimi, ses girişi ve sessizlik algılama, window.api; en son arayüz
+       temaları ve mobil arayüz kabuğu (sayfanın betikleri bitince kurulur). */
     private val HOST_SCRIPTS = listOf(
         "web/src/shared/audio-spectrum.js",
         "web/src/shared/demo-audio.js",
@@ -123,6 +124,8 @@ object WebShell {
         "web/src/mobile/audio-input.js",
         "web/src/mobile/silence.js",
         "web/src/mobile/android-host.js",
+        "web/src/shared/ui-themes.js",
+        "web/src/mobile/shell.js",
     )
 
     private fun installHostScripts(context: Context, web: WebView, debug: Boolean, page: String) {

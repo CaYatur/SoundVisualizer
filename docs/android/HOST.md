@@ -172,6 +172,13 @@ to the desktop turns the lights on again.
 | `gl()` | WebGL context budget: `{ live, attached, limit: 8, created, lost }`. `live` counts every context that is not lost, also canvases outside the document (timeline layers), because those count toward the limit too. On in release builds. |
 | `importProfile({ media? })` | Import from the desktop (above). Resolves `{ kind, summary, scenes, presets, skipped, later, migrated }`. |
 | `onMemoryPressure(cb)` | The system asked for memory (`onTrimMemory`, level ≥ `RUNNING_LOW`, which includes going to the background). The pending save is written first. |
+| `insets()`, `onInsets(cb)` | Space taken by the status and navigation bars and the display cutout, `{ top, right, bottom, left }` in CSS pixels (dp). Measured even while the bars are hidden, so the layout does not jump. |
+| `onBack(cb)` | The system Back gesture. With a listener, the page decides; without one, the app goes to the back. |
+| `app.toBackground()` | Sends the app to the back (`moveTaskToBack`). The Activity is not closed: the engine and the audio keep running. |
+| `onChrome(cb)` | `{ pip }` or `{ floating }` when picture-in-picture or the floating window starts or ends. The interface hides itself in both. |
+| `onMeter(cb)` | The engine's level message (`level`, `bass`, `mid`, `treble`, `fps`…), about 30 times a second. |
+| `onLowPower(cb)` | `true` while low power is on (`SVLowPower.active`: set to on, or set to battery while on battery). The interface drops the glass blur. |
+| `floating.open(o)`, `floating.close()`, `floating.set(o)`, `floating.state()` | The floating window requests below. |
 
 ## Shell surface
 
@@ -196,7 +203,10 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `playerPlay`, `playerPause`, `playerStop`, `playerSeek { ms }`, `playerState` | Resolve the player state: `{ has, playing, state, position, duration, title, artist, album, artwork, name, error }` (times in ms). |
 | event `playerState` | The same object, on every change (play/pause, track, metadata, seek, end, error). |
 | `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
-| event `windowChrome` | `{ pip }` when picture-in-picture starts or ends. |
+| event `windowChrome` | `{ pip }` when picture-in-picture starts or ends, `{ floating }` when the floating window opens or closes. Only the interface gets it; the engine's `onWindowChrome` is the desktop window bar's (`{ show }`). |
+| `appToBack` | `moveTaskToBack`; the Activity stays. |
+| event `insets` | `{ top, right, bottom, left }` in dp; sent on every change and again on `hello`. |
+| event `back` | The Back gesture while the page is connected. |
 | event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |
 | event `memoryPressure` | `{ level }` (`onTrimMemory`, registered on the application, so it also arrives while only the floating window is up). |
 

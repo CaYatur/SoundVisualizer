@@ -142,6 +142,10 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   bütçesi ve güvenlik (#1071); uygulama içi çalar, böylece dört ses kaynağı da motoru sürüyor (#1072); presetler ve
   MilkDrop dokuları dahil masaüstü yedeğini içe aktarma. Kitaplık dosyaları (logo, video, söz; 2.2) ekranlarıyla
   birlikte Faz 4'e kaldı.
+- **Faz 3 durumu (17.11.2026):** taslaklar onaylandı (3.1). Kabuk (3.2) görselleştirici sayfasının üstünde duruyor:
+  üst bilgi, sahne kartı, sahne şeridi, alt gezinme ve alttan açılan sayfalar. Renkler masaüstünün temalarından; geri
+  tuşu önce sayfayı kapatıyor, sonra tam ekrandan çıkıyor, en son uygulamayı arkaya alıyor. 1.x'teki mobil CSS bekçisi
+  `tests/ui-themes.test.js`'in parçası.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

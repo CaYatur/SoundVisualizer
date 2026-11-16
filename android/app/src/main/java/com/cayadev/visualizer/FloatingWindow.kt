@@ -79,6 +79,8 @@ object FloatingWindow {
             EngineHost.attach(root!!)
         }
         apply(app, opacity, clickThrough)
+        // Kabuk yüzen pencerede gizlenir (sayfa aynı motor)
+        EngineHost.bridge?.event("windowChrome", org.json.JSONObject().put("floating", true))
         return true
     }
 
@@ -99,6 +101,7 @@ object FloatingWindow {
         context.applicationContext.getSystemService(WindowManager::class.java).removeView(r)
         root = null
         params = null
+        EngineHost.bridge?.event("windowChrome", org.json.JSONObject().put("floating", false))
     }
 
     fun bounds(): IntArray? = params?.let { intArrayOf(it.x, it.y, it.width, it.height) }

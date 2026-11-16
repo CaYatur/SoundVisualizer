@@ -48,6 +48,7 @@
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
     texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(),
     silence: listeners(), audioStatus: listeners(), memory: listeners(), player: listeners(),
+    insets: listeners(), back: listeners(), chrome: listeners(), meter: listeners(), lowPower: listeners(),
   };
 
   let config = null;
@@ -132,13 +133,26 @@
     send({ t: 'hello', v: 1, page: env.page || '' });
   }
 
+  let insets = { top: 0, right: 0, bottom: 0, left: 0 };
   function onEvent(name, v) {
-    if (name === 'flush') {
+    if (name === 'insets') {
+      // Çentik ve sistem çubukları (dp = CSS piksel)
+      insets = Object.assign({ top: 0, right: 0, bottom: 0, left: 0 }, v);
+      ev.insets.emit(insets);
+    } else if (name === 'back') {
+      // Kimse karşılamazsa uygulama arkaya alınır (Activity kapatılmaz)
+      if (ev.back.size) ev.back.emit(v); else request('appToBack').catch(() => {});
+    } else if (name === 'windowChrome') {
+      /* PiP ve yüzen pencere: yalnız kabuk için. Motorun onWindowChrome'u masaüstündeki
+         pencere çubuğunun ({ show }) işi, ona gönderilmez. */
+      ev.chrome.emit(v);
+    } else if (name === 'flush') {
       state.flushEvents++;
       profile.flush();
     } else if (name === 'powerSource') {
       onBattery = !!(v && v.onBattery);
       ev.powerSource.emit({ onBattery });
+      emitLowPower();
     } else if (name === 'audioStatus') {
       state.audioStatus = v;
       // Kaynak değişti ya da durdu: sessizlik sayacı baştan
@@ -371,6 +385,16 @@
     config = cfg;
     ev.config.emit(engineView(cfg));
     profile.save(cfg);
+    emitLowPower();
+  }
+  /* Düşük güç kipi (src/shared/low-power.js): arayüz de cam bulanıklığını bırakır. */
+  let lowPowerOn = null;
+  function emitLowPower() {
+    const L = window.SVLowPower;
+    const on = !!(L && config && L.active(config, onBattery));
+    if (on === lowPowerOn) return;
+    lowPowerOn = on;
+    ev.lowPower.emit(on);
   }
   function patchConfig(p) {
     if (!config || !p || typeof p !== 'object') return;
@@ -416,6 +440,21 @@
     }),
     /* WebGL bağlam bütçesi: sayfa başına en çok GL_LIMIT etkin bağlam. */
     gl: () => glBudget(),
+    /* Kabuk (src/mobile/shell.js): ekran kenarı boşlukları, geri tuşu, PiP/yüzen
+       pencere durumu, seviye ölçer, düşük güç. */
+    insets: () => Object.assign({}, insets),
+    onInsets: (cb) => ev.insets.add(cb),
+    onBack: (cb) => ev.back.add(cb),
+    onChrome: (cb) => ev.chrome.add(cb),
+    onMeter: (cb) => ev.meter.add(cb),
+    onLowPower: (cb) => { ev.lowPower.add(cb); if (lowPowerOn != null) cb(lowPowerOn); },
+    app: Object.freeze({ toBackground: () => request('appToBack') }),
+    floating: Object.freeze({
+      open: (o) => request('floatingOpen', o || {}),
+      close: () => request('floatingClose'),
+      set: (o) => request('floatingSet', o || {}),
+      state: () => request('floatingState'),
+    }),
     /* Bilgisayardan içe aktarma: masaüstünün tam yedeği (.svbackup) ya da settings.json.
        media verilirse uygulamanın medya klasöründeki dosya, yoksa Android'in dosya seçicisi. */
     importProfile: (opts) => importProfile(opts || {}),
@@ -442,7 +481,8 @@
     onNowPlaying: (cb) => ev.nowPlaying.add(cb),
     nowPlayingCurrent: () => resolved(nowPlaying),
     onNativeAudio: (cb) => { ev.audio.add(cb); startDemo(); },
-    sendAudioMeter: noop,
+    // Seviye ölçer: arayüzün üst bilgisindeki çubuklar (~30 Hz)
+    sendAudioMeter: (m) => { if (ev.meter.size) ev.meter.emit(m); },
     sendOscHit: noop, // OSC yok
     sendMessage: noop,
     claimCamRelay: () => resolved(false), // kamera aktarımı yayın istemcileri içindir
