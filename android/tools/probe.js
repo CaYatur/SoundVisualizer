@@ -21,7 +21,7 @@
    yakalama). Siyah ekran denetimi YALNIZ "çizmeli" grupta hata sayılır; öbür
    ikisi Android'le ilgisiz sebeplerle siyah kalabilir.
 
-     node android/tools/probe.js import [--settings=<settings.json>]
+     node android/tools/probe.js import [--settings=<settings.json>] [--presets=<klasör>]
        Masaüstü tam yedeğini (.svbackup) içe aktarma ve kalıcılık. Uygulamanın verisini siler.
 
      node android/tools/probe.js player
@@ -611,14 +611,28 @@ async function importCmd() {
     { id: 'ps_probe_md', kind: 'milkdrop', name: 'Probe MD', source: '[preset00]\nfRating=4.000000\nzoom=1.01\n', updatedAt: 2 },
     { id: 'ps_probe_sh', kind: 'shader', name: 'Probe Shader', code: 'void main(){}', updatedAt: 1 },
   ];
+  /* --presets=<klasör>: masaüstünün preset klasörü (yalnız okunur) da yedeğe girer;
+     gerçek ölçekte süre ölçümü için. */
+  const presetDir = arg('presets');
+  const eachPreset = async (fn) => {
+    for (const p of presets) await fn(p);
+    if (!presetDir) return;
+    for (const n of fs.readdirSync(presetDir)) {
+      if (!n.endsWith('.json')) continue;
+      let p = null;
+      try { p = JSON.parse(fs.readFileSync(path.join(presetDir, n), 'utf8')); } catch { continue; }
+      await fn(p);
+    }
+  };
   const file = path.join(dir, 'probe.svbackup');
-  await FB.writeBackup(file, { appVersion: '4.0.0', platform: 'win32', settings, eachPreset: async (fn) => { for (const p of presets) await fn(p); }, textures: [{ name: 'noise.png', file: tex }] });
+  await FB.writeBackup(file, { appVersion: '4.0.0', platform: 'win32', settings, eachPreset, textures: [{ name: 'noise.png', file: tex }] });
   const name = 'probe.svbackup';
   D.adb(['shell', 'pm', 'clear', D.PKG]);
   D.adb(['push', file, '/data/local/tmp/' + name]);
   D.adb(['shell', `run-as ${D.PKG} sh -c 'mkdir -p files/media && cp /data/local/tmp/${name} files/media/${name}'`]);
+  D.adb(['shell', 'rm', '/data/local/tmp/' + name]);
+  const out = { backupMB: Math.round(fs.statSync(file).size / 1e5) / 10 };
   fs.rmSync(dir, { recursive: true, force: true });
-  const out = { bytes: fs.existsSync(file) ? 0 : undefined };
   const ready = async (page) => { for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.__svHost.state.hello)')); i++) await D.sleep(200); };
   let pid = await D.launch();
   let page = await D.connect(pid);
@@ -626,7 +640,12 @@ async function importCmd() {
     await ready(page);
     // Önce kullanıcının "telefondaki" ayarı: içe aktarma bunu kenara almalı
     await page.evaluate(`(async () => { await window.api.requestConfig(); window.__svHost.saveConfig({ ui: { theme: 'cayadev' }, phoneOnly: true, scenes: [{ id: 'phone' }] }); await window.__svHost.flushConfig(); return 1; })()`);
-    out.result = await page.evaluate(`window.SVAndroid.importProfile({ media: ${JSON.stringify(name)} }).then((r) => r, (e) => ({ error: e.message }))`);
+    out.result = await page.evaluate(`(async () => {
+      const t = performance.now();
+      const r = await window.SVAndroid.importProfile({ media: ${JSON.stringify(name)} }).then((v) => v, (e) => ({ error: e.message }));
+      r.ms = Math.round(performance.now() - t);
+      return r;
+    })()`);
     out.applied = await page.evaluate('(() => { const c = window.SVAndroid.config.get(); return { theme: c.ui && c.ui.theme, scenes: (c.scenes || []).length, phoneOnly: !!c.phoneOnly }; })()');
     const ls = D.adb(['shell', `run-as ${D.PKG} ls files/profile files/profile/presets`]);
     out.files = ls.split(/\s+/).filter((x) => /\.json$/.test(x)).sort();
@@ -638,10 +657,14 @@ async function importCmd() {
     await ready(page);
     out.reopen = await page.evaluate(`(async () => {
       const c = await window.api.requestConfig();
+      const t = performance.now();
       const list = await window.api.getPresets();
+      const listMs = Math.round(performance.now() - t);
       const md = list.find((p) => p.id === 'ps_probe_md');
       const src = await window.api.milkdropPresetSource('ps_probe_md');
-      return { theme: c && c.ui && c.ui.theme, scenes: c && c.scenes ? c.scenes.length : 0, presets: list.map((p) => p.id),
+      return { theme: c && c.ui && c.ui.theme, scenes: c && c.scenes ? c.scenes.length : 0,
+        count: list.length, listMs, listKB: Math.round(JSON.stringify(list).length / 1024),
+        presets: list.length > 50 ? list.slice(0, 2).map((p) => p.id) : list.map((p) => p.id),
         mdLazy: md && md.lazy, mdRating: md && md.fRating, mdHasSource: md ? 'source' in md : null, source: src.slice(0, 20),
         head: await window.api.presetsHead(), traversal: await window.api.milkdropPresetSource('../settings') };
     })()`);
@@ -650,9 +673,9 @@ async function importCmd() {
   const r = out.result || {};
   const o = out.reopen || {};
   const want = given ? true : (out.applied.theme === 'neon' && out.applied.scenes === 2 && !out.applied.phoneOnly && o.theme === 'neon' && o.scenes === 2);
-  const ok = !r.error && r.kind === 'svbackup' && r.presets === 2 && r.later && r.later.textures === 1 && want
+  const ok = !r.error && r.kind === 'svbackup' && (presetDir ? r.presets > 2 : r.presets === 2) && r.later && r.later.textures === 1 && want
     && out.files.includes('settings.before-import.json') && out.files.includes('scenes.before-import.json')
-    && o.presets.join() === 'ps_probe_md,ps_probe_sh' && o.mdLazy === true && o.mdRating === 4 && o.mdHasSource === false
+    && (presetDir ? o.count >= r.presets - r.skipped : o.presets.join() === 'ps_probe_md,ps_probe_sh') && o.mdLazy === true && o.mdRating === 4 && o.mdHasSource === false
     && o.source.startsWith('[preset00]') && o.traversal === '';
   if (!ok) process.exitCode = 1;
 }

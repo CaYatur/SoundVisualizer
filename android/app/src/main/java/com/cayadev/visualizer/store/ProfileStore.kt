@@ -36,9 +36,18 @@ class ProfileStore(context: Context) {
     private val app = context.applicationContext
     val dir: File = File(app.filesDir, "profile")
 
-    /* Kullanıcı presetleri masaüstündeki gibi tek tek dosyada (presets/<kimlik>.json). */
+    /* Kullanıcı presetleri masaüstündeki gibi tek tek dosyada (presets/<kimlik>.json).
+       Sayfaya giden hafif liste ayrıca bir dizin dosyasında tutulur: gerçek bir
+       masaüstü kitaplığı 10.392 preset, 147 MB (ölçüldü); her açılışta hepsini
+       çözmek saniyeler sürerdi. Dizin klasörün DIŞINDA, çünkü "index" de geçerli
+       bir preset kimliği. */
     private val presetsDir = File(dir, "presets")
-    private val staging = File(app.cacheDir, "import-presets")
+    private val presetsIndex = AtomicFile(File(dir, "presets-index.json"))
+    /* Geçici klasör presetlerle AYNI ağaçta: Android önbellek klasörünü ayrı bir disk
+       kotası kimliğiyle izliyor ve oradan buraya ad değiştirme EXDEV ile başarısız
+       oluyordu; her preset diske zorlamalı yeniden yazıma düşüyordu (ölçüldü: 10.392
+       presette 55 sn, dosya başına 5,3 ms). */
+    private val staging = File(dir, ".import-staging")
     private val thread = HandlerThread("sv-store").also { it.start() }
     private val worker = Handler(thread.looper)
     private val main = Handler(Looper.getMainLooper())
@@ -122,7 +131,24 @@ class ProfileStore(context: Context) {
        `lazy: true` ve kaynaktan okunan puan (`fRating`) eklenir. Sıra masaüstündeki
        gibi: son değişen önce, eşitlikte kimlik. */
     fun presetsList(done: (JSONArray?, String?) -> Unit) = run(done) {
-        presetCache ?: buildPresetList().also { presetCache = it }
+        presetCache ?: loadPresetList().also { presetCache = it }
+    }
+
+    /* Dizin dosyası varsa o; yoksa ya da bozuksa klasör bir kez taranır ve dizin yazılır. */
+    private fun loadPresetList(): JSONArray {
+        if (presetsIndex.baseFile.exists()) {
+            try {
+                return JSONArray(String(presetsIndex.readFully(), Charsets.UTF_8))
+            } catch (e: Exception) {
+                Log.w(tag, "preset dizini okunamadı, klasör taranıyor")
+            }
+        }
+        return buildPresetList().also { if (it.length() > 0) writeAtomic(presetsIndex, it.toString().toByteArray(Charsets.UTF_8)) }
+    }
+
+    private fun sortPresets(items: MutableList<JSONObject>): JSONArray {
+        items.sortWith(compareByDescending<JSONObject> { it.optDouble("updatedAt", 0.0).let { v -> if (v.isNaN()) 0.0 else v } }.thenBy { it.optString("id") })
+        return JSONArray(items)
     }
 
     private fun buildPresetList(): JSONArray {
@@ -136,8 +162,7 @@ class ProfileStore(context: Context) {
             }
             items.add(lean(p))
         }
-        items.sortWith(compareByDescending<JSONObject> { it.optDouble("updatedAt", 0.0).let { v -> if (v.isNaN()) 0.0 else v } }.thenBy { it.optString("id") })
-        return JSONArray(items)
+        return sortPresets(items)
     }
 
     private fun lean(p: JSONObject): JSONObject {
@@ -162,6 +187,7 @@ class ProfileStore(context: Context) {
      * sayfaya gider (doğrulama ve işleme sayfada); düz JSON ise ayar metni gider.
      */
     fun importRead(open: () -> InputStream?, done: (JSONObject?, String?) -> Unit) = run(done) {
+        val t0 = android.os.SystemClock.elapsedRealtime()
         val input = BufferedInputStream(open() ?: throw FileNotFoundException("open"))
         input.use { s ->
             s.mark(8)
@@ -173,6 +199,7 @@ class ProfileStore(context: Context) {
                 val meta = r.meta ?: throw IllegalArgumentException("not-backup")
                 JSONObject().put("kind", "svbackup").put("meta", String(meta, Charsets.UTF_8))
                     .put("staged", JSONArray(r.presets.keys.toList())).put("skipped", r.skipped).put("later", JSONObject(r.later as Map<*, *>))
+                    .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
             } else {
                 val bytes = BackupReader.readLimited(s, BackupReader.MAX_META) ?: throw IllegalArgumentException("too-large")
                 JSONObject().put("kind", "settings").put("settings", String(bytes, Charsets.UTF_8))
@@ -188,6 +215,10 @@ class ProfileStore(context: Context) {
      */
     fun importCommit(ids: List<String>, done: (JSONObject?, String?) -> Unit) = run(done) {
         presetsDir.mkdirs()
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        val byId = LinkedHashMap<String, JSONObject>()
+        val existing = presetCache ?: loadPresetList()
+        for (i in 0 until existing.length()) existing.optJSONObject(i)?.let { byId[it.optString("id")] = it }
         var saved = 0
         var skipped = 0
         for (id in ids) {
@@ -195,16 +226,31 @@ class ProfileStore(context: Context) {
             if (!ID.matches(id) || !f.isFile) { skipped++; continue }
             val p = try { JSONObject(f.readText(Charsets.UTF_8)) } catch (e: Exception) { null }
             if (p == null || p.optString("id") != id) { skipped++; continue }
+            val dst = File(presetsDir, "$id.json")
+            /* Dosya olduğu gibi TAŞINIR (aynı ağaç, ad değiştirme atomik). Masaüstü
+               `builtin`'i siliyor ki içe alınan preset yerleşik sayılmasın; yalnız o
+               alan DOĞRUYSA yeniden yazılır. Ölçüldü: gerçek bir 10.392 presetlik
+               kitaplıkta 10.390'ı `builtin: false` taşıyordu ve her birini diske
+               zorlamalı yeniden yazmak 58 sn sürüyordu (dosya başına 5,6 ms). */
+            if (truthy(p.opt("builtin"))) {
+                p.remove("builtin")
+                writeAtomic(AtomicFile(dst), p.toString().toByteArray(Charsets.UTF_8))
+            } else if (!f.renameTo(dst)) {
+                writeAtomic(AtomicFile(dst), f.readBytes())
+            }
             p.remove("builtin")
-            writeAtomic(AtomicFile(File(presetsDir, "$id.json")), p.toString().toByteArray(Charsets.UTF_8))
+            byId[id] = lean(p)
             saved++
         }
         staging.deleteRecursively()
         if (saved > 0) {
+            val list = sortPresets(byId.values.toMutableList())
+            writeAtomic(presetsIndex, list.toString().toByteArray(Charsets.UTF_8))
             presetGen++
-            presetCache = null
+            presetCache = list
         }
         JSONObject().put("presets", saved).put("skipped", skipped).put("gen", presetGen)
+            .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
     }
 
     /** İçe aktarma vazgeçildi: geçici klasör silinir. */
@@ -232,5 +278,13 @@ class ProfileStore(context: Context) {
 
     companion object {
         val ID = Regex("^[A-Za-z0-9_-]{1,80}$")
+
+        /** JavaScript'teki doğruluk (masaüstündeki `preset.builtin` denetimi). */
+        fun truthy(v: Any?): Boolean = when (v) {
+            null, JSONObject.NULL, false -> false
+            is Number -> v.toDouble().let { it != 0.0 && !it.isNaN() }
+            is String -> v.isNotEmpty()
+            else -> true
+        }
     }
 }

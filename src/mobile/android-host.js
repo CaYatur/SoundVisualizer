@@ -292,6 +292,8 @@
   async function importProfile(opts) {
     if (!native || !P) throw new Error('native-missing');
     await profile.load();
+    // Ayarlar okunamadıysa kayıt kapalı: içe aktarılan hiçbir şey yazılmazdı
+    if (profile.state.readError) throw new Error('store-read');
     const r = await request(opts.media ? 'importOpen' : 'importPick', opts.media ? { media: String(opts.media) } : {});
     let incoming;
     let summary = null;
@@ -324,6 +326,8 @@
       skipped: (committed.skipped || 0) + (r.skipped || 0),
       later: r.later || null,
       migrated: !!loaded.migrated,
+      // Ölçüm: arşivi okuma ve presetleri işleme süresi (uygulamada, ms)
+      timing: { read: r.ms || 0, commit: committed.ms || 0 },
     };
   }
 

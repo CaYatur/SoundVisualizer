@@ -180,3 +180,16 @@ test('sunucu: preset istekleri uygulamaya gidiyor (masaüstündeki yanıt biçim
   const reqs = () => h.sent.filter((m) => m.t === 'req').map((m) => m.op);
   assert.ok(reqs().includes('presetsList'));
 });
+
+test('sunucu: ayarlar okunamadıysa içe aktarma başarı demiyor (hiçbir şey yazılmazdı)', async () => {
+  const h = host(new Map(), { kind: 'settings', settings: '{}' });
+  const native = h.window.SVNative;
+  const post = native.postMessage;
+  native.postMessage = (m) => {
+    const msg = JSON.parse(m);
+    if (msg.op === 'storeRead') return Promise.resolve().then(() => native.onmessage({ data: JSON.stringify({ t: 'res', id: msg.id, ok: false, err: 'store-read' }) }));
+    return post(m);
+  };
+  await assert.rejects(h.window.SVAndroid.importProfile({ media: 'a.json' }), /store-read/);
+  assert.ok(!h.sent.some((m) => m.op === 'importOpen'), 'dosya hiç açılmadı');
+});

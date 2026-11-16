@@ -132,7 +132,7 @@ open on the desktop.
 | event `flush` | Write the pending save now. |
 | `presetsList`, `presetsSource { id }`, `presetsHead`, `presetsSince { gen }` | User presets (see the engine table). |
 | `importPick`, `importOpen { media }` | Reads a desktop full backup (`.svbackup`) or a `settings.json` from the document picker or the app's media folder. A backup is read once as a stream (the phone's storage is not used for a copy); presets go to a staging folder because the desktop writes `backup.json` last. Resolves `{ kind: 'svbackup', meta, staged, skipped, later }` or `{ kind: 'settings', settings }`. |
-| `importCommit { ids }` | Moves the listed staged presets into the store (content must be an object whose `id` matches; `builtin` is dropped). Same id: the backup wins; other presets stay. |
+| `importCommit { ids }` | Moves the listed staged presets into the store (content must be an object whose `id` matches; a true `builtin` is dropped, as on the desktop). Same id: the backup wins; other presets stay. |
 | `importDiscard` | Drops the staging folder. |
 
 **Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the
@@ -150,6 +150,11 @@ to the desktop turns the lights on again.
   defaults and get a layer stack, as in the panel's `adoptImportedSettings`.
 - Library files (logos, videos, lyrics) and MilkDrop textures are not opened yet; their counts come back in `later`
   (phase 4). Scenes that use them miss those files until then.
+- **Scale** (measured with a real desktop library, 10,392 presets, 147 MB; backup 33 MB): import 22 s on the emulator
+  (reading 7.5 s, committing 11.7 s); the list after a cold start 212 ms (1.8 MB). The lean list is kept in
+  `presets-index.json` next to the presets folder, so a start does not read 147 MB. Staged presets live in the profile
+  folder and are moved, not rewritten: a preset is rewritten only when its `builtin` is true (10,390 of these presets
+  carried `builtin: false`, and rewriting each with a forced sync took 58 s).
 
 **Editor API** (`window.SVAndroid`, used by the mobile UI in phase 3):
 
