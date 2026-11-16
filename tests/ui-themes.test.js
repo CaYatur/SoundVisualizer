@@ -87,6 +87,13 @@ test('aydınlık temalar aydınlık, koyu temalar koyu', () => {
 // ---------------------------------------------------------------------------
 // Karşıtlık
 // ---------------------------------------------------------------------------
+test('aydınlık ikincil yazı çizgi grisinde de eşiğin üstünde', () => {
+  // Öz test çıkış notlarını #5b6170 ile 4.46:1 ölçtü. Çizgi grisi beyazdan koyu.
+  const fg = T.byId('light').tokens['--muted2'];
+  assert.ok(T.contrast(fg, '#d8dce4') >= 4.8, fg);
+  assert.ok(T.luminance(T.parseColor(fg)) > T.luminance(T.parseColor(T.byId('light').tokens['--muted'])));
+});
+
 test('karşıtlık: her temada her kural eşiğin üstünde', () => {
   const all = [];
   T.THEMES.forEach((t) => all.push(...C.check(t).fails));
