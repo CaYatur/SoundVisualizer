@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
+import com.cayadev.visualizer.player.PlayerHub
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
 
@@ -67,6 +68,30 @@ class MainActivity : ComponentActivity() {
         } else {
             p.second.fail("consent-denied")
         }
+    }
+
+    /* Uygulama içi çalar için şarkı seçimi (Android'in dosya seçicisi). İzin kalıcı
+       alınır: uygulama yeniden açılınca aynı şarkı yine çalınabilir. */
+    private var pendingPick: Bridge.Reply? = null
+    private val askAudio = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val reply = pendingPick ?: return@registerForActivityResult
+        pendingPick = null
+        if (uri == null) { reply.fail("cancelled"); return@registerForActivityResult }
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "kalıcı izin alınamadı: $uri")
+        }
+        PlayerHub.with(this, { reply.fail("player-$it") }) { p ->
+            p.open(uri)
+            reply.ok(p.state().put("uri", uri.toString()))
+        }
+    }
+
+    fun pickAudio(reply: Bridge.Reply) {
+        pendingPick?.fail("superseded")
+        pendingPick = reply
+        askAudio.launch(arrayOf("audio/*"))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

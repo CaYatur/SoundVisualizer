@@ -21,6 +21,9 @@
    yakalama). Siyah ekran denetimi YALNIZ "çizmeli" grupta hata sayılır; öbür
    ikisi Android'le ilgisiz sebeplerle siyah kalabilir.
 
+     node android/tools/probe.js player
+       Uygulama içi çalar: tayf, "şimdi çalıyor", bildirim, eşzamanlama, atlama.
+
      node android/tools/probe.js lifecycle
        Döndürme, WebGL bağlam kaybı, bellek baskısı ve pil durumu.
 
@@ -507,7 +510,77 @@ async function lifecycleCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd };
+/* UYGULAMA İÇİ ÇALAR (PLAN 2.3). ffmpeg ile 20 sn'lik bir deneme şarkısı üretilir
+   (solda 110 Hz, sağda 3500 Hz; başlık ve sanatçı etiketli) ve uygulamanın medya
+   klasörüne konur. Çalınca tayfta iki tepe, "şimdi çalıyor"da etiketler, medya
+   bildirimi ve oynatma konumuna göre bırakılan ses (gecikme) denetlenir; sonra
+   duraklatma, ileri sarma ve "tek kaynak" (mikrofon başlayınca çalar durur). */
+async function playerCmd() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const FF = require(path.join(__dirname, '..', '..', 'node_modules', 'ffmpeg-static'));
+  const name = 'sv-probe-tone.m4a';
+  const local = path.join(os.tmpdir(), name);
+  execFileSync(FF, ['-hide_banner', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=110:duration=20:sample_rate=48000',
+    '-f', 'lavfi', '-i', 'sine=frequency=3500:duration=20:sample_rate=48000', '-filter_complex', '[0][1]amerge=inputs=2',
+    '-ac', '2', '-c:a', 'aac', '-b:a', '160k', '-metadata', 'title=Probe Tone', '-metadata', 'artist=CaYaDev', local]);
+  D.adb(['push', local, '/data/local/tmp/' + name]);
+  D.adb(['shell', `run-as ${D.PKG} sh -c 'mkdir -p files/media && cp /data/local/tmp/${name} files/media/${name}'`]);
+  for (const p of ['RECORD_AUDIO', 'POST_NOTIFICATIONS']) {
+    try { D.adb(['shell', 'pm', 'grant', D.PKG, 'android.permission.' + p]); } catch { /* eski sürüm */ }
+  }
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  try {
+    for (let i = 0; i < 50 && !(await page.evaluate('!!(window.__svHost && window.__svHost.state.hello)')); i++) await D.sleep(200);
+    out.open = await page.evaluate(`window.SVAndroid.player.open(${JSON.stringify(name)}, true).then((v) => ({ ok: true, title: v.title }), (e) => ({ ok: false, err: e.message }))`);
+    await D.sleep(2000);
+    const a = await page.evaluate('window.__svHost.state.nativeFrames');
+    await D.sleep(4000);
+    const b = await page.evaluate('window.__svHost.state.nativeFrames');
+    out.fps = Math.round((b - a) / 4);
+    const f = await page.evaluate('window.__svHost.peekFrame()');
+    out.spectrum = f ? peaks(f.freq) : null;
+    const sp = out.spectrum;
+    out.heard = !!(sp && sp.low > sp.median + 60 && sp.high > sp.median + 60);
+    out.nowPlaying = await page.evaluate('window.api.nowPlayingCurrent().then((n) => n && { has: n.has, playing: n.playing, title: n.title, artist: n.artist, position: Math.round(n.position), duration: Math.round(n.duration) })');
+    out.status = await page.evaluate('window.__svHost.state.audioStatus');
+    out.stats = await page.evaluate('window.__svHost.playerStats()');
+    /* Medya bildirimi: çalar servisi ön planda, türü mediaPlayback (0x2) ve
+       bildirimi sistemde kayıtlı. */
+    const svc = D.adb(['shell', 'dumpsys', 'activity', 'services', D.PKG]);
+    const fg = /PlayerService[\s\S]*?isForeground=true foregroundId=(\d+) types=0x0*2\b/.exec(svc);
+    out.notification = !!fg && D.adb(['shell', 'dumpsys', 'notification', '--noredact']).includes(`key=0|${D.PKG}|${fg[1]}|`);
+    // Duraklat: kareler durur
+    await page.evaluate('window.SVAndroid.player.pause()');
+    await D.sleep(800);
+    const c = await page.evaluate('window.__svHost.state.nativeFrames');
+    await D.sleep(1500);
+    out.pausedFrames = (await page.evaluate('window.__svHost.state.nativeFrames')) - c;
+    // İleri sar ve çal: konum 15 sn civarı
+    await page.evaluate('window.SVAndroid.player.seek(15000)');
+    await page.evaluate('window.SVAndroid.player.play()');
+    await D.sleep(1500);
+    out.afterSeek = await page.evaluate('window.__svHost.request("playerState").then((s) => ({ playing: s.playing, position: s.position }))');
+    out.seekStats = await page.evaluate('window.__svHost.playerStats()');
+    // Tek kaynak: mikrofon başlayınca çalar duraklar
+    out.mic = await page.evaluate('window.SVAndroid.audio.start("mic").then((v) => v.source, (e) => "err:" + e.message)');
+    await D.sleep(1200);
+    out.afterMic = await page.evaluate('window.__svHost.request("playerState").then((s) => s.playing)');
+    await page.evaluate('window.SVAndroid.audio.stop()');
+    await page.evaluate('window.SVAndroid.player.stop()');
+  } finally { page.close(); }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.open.ok && out.heard && out.fps >= 80 && out.nowPlaying && out.nowPlaying.title === 'Probe Tone' && out.nowPlaying.artist === 'CaYaDev'
+    && out.nowPlaying.duration === 20 && out.status && out.status.source === 'player' && Math.abs(out.stats.lagMs) <= 25
+    && out.pausedFrames === 0 && out.afterSeek.playing && out.afterSeek.position >= 15000 && out.afterSeek.position < 18000
+    && out.mic === 'mic' && out.afterMic === false && out.notification;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

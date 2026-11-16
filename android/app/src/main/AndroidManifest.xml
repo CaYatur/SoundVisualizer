@@ -5,7 +5,8 @@
   https://github.com/CaYatur/SoundVisualizer
   SPDX-License-Identifier: MIT
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Güncelleme denetimi ve web katmanı için. Uygulamanın kendi sayfaları
          ağa çıkmıyor: WebViewAssetLoader onları APK'dan veriyor. -->
@@ -19,6 +20,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Uygulama içi çalar (PLAN 2.3): şarkı arka planda ve yüzen pencerede de çalar -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Serbest yüzen pencere (PLAN D3): "diğer uygulamaların üzerinde göster".
@@ -45,6 +48,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Uygulama içi çalar. Medya oturumu (bildirim, kilit ekranı, kulaklık
+             düğmeleri) için dışa açık olmak zorunda; bağlanan denetleyici serviste
+             denetleniyor (yalnız sistemin güvendikleri: PlayerService.trustedOnly). -->
+        <service
+            android:name=".player.PlayerService"
+            android:exported="true"
+            tools:ignore="ExportedService"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".audio.AudioService"
