@@ -7,7 +7,9 @@
 package com.cayadev.visualizer
 
 import android.annotation.SuppressLint
+import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.res.Configuration
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -16,6 +18,7 @@ import com.cayadev.visualizer.bridge.Messages
 import com.cayadev.visualizer.export.ExportHub
 import com.cayadev.visualizer.store.ProfileStore
 import com.cayadev.visualizer.web.WebShell
+import org.json.JSONObject
 import java.lang.ref.WeakReference
 
 /* TEK MOTORUN SAHİBİ (docs/android/PLAN.md D2, 0E7).
@@ -56,7 +59,10 @@ object EngineHost {
         destroy()
         val app = context.applicationContext
         if (!::exportHub.isInitialized) exportHub = ExportHub(app) { name, v -> bridge?.event(name, v) }
-        if (!::profile.isInitialized) profile = ProfileStore(app)
+        if (!::profile.isInitialized) {
+            profile = ProfileStore(app)
+            watchApp(app)
+        }
         val w = WebShell.create(app, debug, page) { dead -> rebuild(app, dead, debug, handler) }
         val b = Bridge(app, handler) { head, bytes ->
             if (head.type == Messages.TYPE_VIDEO_FRAME) exportHub.frame(bytes)
@@ -68,6 +74,28 @@ object EngineHost {
         this.page = page
         Log.i(TAG, "motor kuruldu: $page")
         return w
+    }
+
+    /* Uygulama düzeyinde bir kez: pil durumu ve bellek baskısı. Activity değil
+       uygulama dinliyor, çünkü motor yüzen pencerede Activity'siz de yaşıyor. */
+    private fun watchApp(app: Context) {
+        PowerWatch.listener = { b -> bridge?.event("powerSource", JSONObject().put("onBattery", b)) }
+        PowerWatch.start(app)
+        app.registerComponentCallbacks(object : ComponentCallbacks2 {
+            /* Arka plana geçiş (UI_HIDDEN) ve sistemin bellek istemesi: sayfa bekleyen
+               kaydı yazar. Android 14'ten beri yalnız UI_HIDDEN ve BACKGROUND geliyor. */
+            override fun onTrimMemory(level: Int) {
+                if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
+                bridge?.event("memoryPressure", JSONObject().put("level", level))
+            }
+
+            override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+            @Deprecated("Deprecated in Java")
+            override fun onLowMemory() {
+                bridge?.event("memoryPressure", JSONObject().put("level", ComponentCallbacks2.TRIM_MEMORY_COMPLETE))
+            }
+        })
     }
 
     /** Motoru [parent]'a taşır (öncekinden çıkararak). WebGL bağlamı korunur (0E7'de ölçüldü). */
