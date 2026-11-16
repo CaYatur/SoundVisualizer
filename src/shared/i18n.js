@@ -2170,6 +2170,7 @@
     'Adres yok': 'No address',
     'WLED (DDP) Çıkışı': 'WLED (DDP) Output',
     'WLED LED şeritlerini ağ üzerinden DDP ile doğrudan sürer; aygıtı ağda bulabilir.': 'Drives WLED LED strips directly over the network with DDP; can find the device on the network.',
+    'DDP (UDP 4048) ile LED şerit ve matris sürer. Adres WLED olmak zorunda değil; WLED aygıtı ağda bulunabilir.': 'Drives an LED strip or matrix over DDP (UDP 4048). The address does not have to be WLED; a WLED device can still be found on the network.',
     'WLED Adresi': 'WLED Address',
     'Ağda WLED Bul': 'Find WLED on Network',
     'Ağda WLED bulunamadı.': 'No WLED found on the network.',
@@ -2178,6 +2179,7 @@
     'LED Sayısı': 'LED Count',
     'Kullan': 'Use',
     'WLED piksellerini DDP (UDP 4048) ile doğrudan sürer; Art-Net evren ayarı gerekmez. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır.': 'Drives WLED pixels directly with DDP (UDP 4048); no Art-Net universe setup needed. The network is only scanned when you press "Find WLED on Network" or "Get LED Count".',
+    'Pikseller DDP (UDP 4048) ile bu adrese gider; alıcı WLED olmak zorunda değil. LED sayısı, sütun, satır ve gönderim hızı sayı olarak yazılır. Ağ yalnız "Ağda WLED Bul" ya da "LED Sayısını Al" düğmesine basınca taranır. Renk kaynağı Matris ve MilkDrop kartında görüntü seçiliyken ızgara ekrandaki kareyi basar. Değilse sütunlar renk tonu, satırlar ses seviyesidir.': 'Pixels go to this address over DDP (UDP 4048); the receiver does not have to be WLED. LED count, columns, rows and the update rate are typed as numbers. The network is only scanned when you press "Find WLED on Network" or "Get LED Count". With Matrix selected and the picture chosen on the MilkDrop card, the grid shows the frame. Otherwise columns are hue and rows are the level.',
     'WLED Ses Senkronu': 'WLED Audio Sync',
     'Ses analizini WLED Audio Sync paketi olarak ağdaki ses tepkili WLED aygıtlarına yayınlar.': 'Broadcasts the audio analysis as WLED Audio Sync packets to sound-reactive WLED devices on the network.',
     'Ses seviyesini, 16 frekans bandını ve vuruşları WLED Audio Sync (v2) paketi olarak yayınlar. Ses tepkili WLED aygıtında Audio Sync kipini "Receive" yapın; aygıt kendi mikrofonu yerine bu analizi kullanır.': 'Broadcasts the level, 16 frequency bands and beats as WLED Audio Sync (v2) packets. Set Audio Sync to "Receive" on the sound-reactive WLED device; it then uses this analysis instead of its own microphone.',
@@ -3029,10 +3031,10 @@
     'Işık Renkleri': 'Light Colors',
     'Işık ayarındaki kaynak': 'Source set in Lighting',
     'MilkDrop görüntüsü (canlı)': 'MilkDrop picture (live)',
-    'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır: görüntü soldan sağa sekiz dilime bölünür ve her dilimin parlak bölgelerinin rengi saniyede yaklaşık 30 kez okunur; ışıkların sırası dilimlerin sırasını izler. Işığın parlaklığını yine ışık kipi sesle belirler. Dynamic Lighting, OpenRGB ve Art-Net\'te çalışır; sahnede MilkDrop yoksa arkaplan renklerine döner.':
-      'With the MilkDrop picture selected, the lights take their color from the current frame: the picture is cut into eight slices from left to right and the color of each slice\'s bright areas is read about 30 times a second; the order of the lights follows the order of the slices. The lighting mode still sets the brightness from the audio. Works with Dynamic Lighting, OpenRGB and Art-Net; with no MilkDrop in the scene it falls back to the background colors.',
-    'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.':
-      'No light output is on: turn on Dynamic Lighting, OpenRGB or Art-Net on the Lighting page.',
+    'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır. Şerit ve sahne ışıkları görüntüyü soldan sağa sekiz dilime böler; her dilimin parlak yerlerinin rengi saniyede yaklaşık 30 kez okunur ve ışıkların sırası dilimlerin sırasını izler. WLED (DDP) renk kaynağı Matris ise görüntünün kendisi sütun ve satır ızgarasına basılır: sol üst köşe sol üst LEDdir, yılan dizilim kablo sırasını çevirir. MilkDrop okuması bir kare gecikir, böylece görselleştirici beklemez. Diğer görseller kendi tuvalinden matris boyutunda okunur. Sahnede görsel yoksa arkaplan renklerine dönülür. Dynamic Lighting, OpenRGB, Art-Net, sACN ve WLED bu kaynağı kullanır.':
+      'With the MilkDrop picture selected, the lights take their color from the current frame. Strips and stage lights cut the picture into eight slices from left to right; the bright parts of each slice are read about 30 times a second and the lights follow that order. When the WLED (DDP) color source is Matrix, the picture itself is placed on the columns and rows: the top left corner is the top left LED, and serpentine only changes the wiring order. The MilkDrop read is one frame late, so the visualizer does not wait. Other visuals are read from their own canvas at the matrix size. With no visual in the scene it falls back to the background colors. Dynamic Lighting, OpenRGB, Art-Net, sACN and WLED all use this source.',
+    'Işık çıkışı kapalı: Işık sayfasından Dynamic Lighting, OpenRGB, Art-Net, sACN ya da WLED (DDP) çıkışını açın.':
+      'No light output is on: turn on Dynamic Lighting, OpenRGB, Art-Net, sACN or WLED (DDP) on the Lighting page.',
     /* Her ekranda aynı preset (#585) */
     'Hepsinde aynı preset': 'Same preset on all',
     'Her ekran kendi seçer': 'Each display picks its own',
@@ -3886,6 +3888,7 @@
     'Aşağı taşı': 'Move down',
     'Kaldır': 'Remove',
     'Gönderim Hızı': 'Send Rate',
+    'Gönderim Hızı (Hz)': 'Update Rate (Hz)',
     'Kaynakları Listele': 'List Sources',
     'Bu Makinedeki Kaynaklar': 'Sources on This Machine',
     'Gelişmiş ayarlar': 'Advanced settings',

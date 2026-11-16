@@ -3275,18 +3275,45 @@
   // ART-NET / DMX
   // ==========================================================================
   // Matris ölçüleri şemada yok: boş değer yakına kare demektir (artnet.matrixGrid).
-  function matrixDimSliders(obj, count) {
+  function matrixDimSliders(obj, count, form) {
     const n = Math.max(1, count | 0 || 1);
     const whole = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 0);
     const colsNow = () => whole(obj.matrixCols) || Math.ceil(Math.sqrt(n));
     const rowsNow = () => whole(obj.matrixRows) || Math.ceil(n / colsNow());
     const opt = { min: 1, max: Math.max(n, 64), step: 1, fmt: (v) => String(Math.round(v)) };
-    return [
-      miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
-      miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+    const dims = form && form.numeric
+      ? [
+        matrixCountBox('Matris Sütunu', whole(obj.matrixCols), colsNow, (v) => { obj.matrixCols = v; }),
+        matrixCountBox('Matris Satırı', whole(obj.matrixRows), rowsNow, (v) => { obj.matrixRows = v; }),
+      ]
+      : [
+        miniSlider('Matris Sütunu', colsNow, (v) => { obj.matrixCols = Math.max(1, Math.round(v)); }, opt),
+        miniSlider('Matris Satırı', rowsNow, (v) => { obj.matrixRows = Math.max(1, Math.round(v)); }, opt),
+      ];
+    return dims.concat([
       miniToggle('Yılan Dizilim (Zigzag Kablolama)', () => !!obj.matrixSerpentine, (v) => { obj.matrixSerpentine = !!v; }),
       P().el('div', { class: 'studio-note dim-hint', text: 'Şerit her satırın sonunda geri dönüyorsa açın: tek numaralı satırlar sağdan sola sayılır. Kapalıyken her satır soldan başlar.' }),
-    ];
+    ]);
+  }
+
+  /* Boş kutu ölçü yok demektir: ızgara LED sayısından yakına kare olur. */
+  function matrixCountBox(label, stored, auto, set) {
+    const el = P().el;
+    const inp = el('input', {
+      type: 'number', class: 'num', min: '1', step: '1', placeholder: String(auto()),
+      value: stored ? String(stored) : '',
+      onchange: () => {
+        const t = String(inp.value || '').trim();
+        if (!t) { set(undefined); P().push(true); return; }
+        const v = Math.round(Number(t));
+        if (!Number.isInteger(v) || v < 1) { inp.value = stored ? String(stored) : ''; return; }
+        set(v);
+        P().push(true);
+      },
+    });
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), inp]),
+    ]);
   }
 
   const ARTNET_MODES = [

@@ -32,7 +32,9 @@ const { createSender } = require('./udp-sender');
 
 const DDP_PORT = 4048;
 const MAX_PIXELS_PER_PACKET = 480;
-const MAX_LEDS = 4096;
+/* Ofset 32 bitlik bir bayt adresi. RGB üç bayt: son pikselin adresi sığmalı.
+   Bu protokolün kendi tavanı. 128×128 (16384) bunun içinde. */
+const MAX_LEDS = Math.floor(0xFFFFFFFF / 3);
 const TYPE_RGB24 = 0x0b;
 const WLED_SERVICE = '_wled._tcp.local';
 
@@ -40,7 +42,13 @@ const sender = createSender('ddp');
 let sequence = 1;
 
 function ledCount(cfg) {
-  return Math.max(1, Math.min(MAX_LEDS, (cfg && cfg.ledCount) | 0 || 60));
+  const raw = cfg && cfg.ledCount;
+  // 0 ve boş, eski varsayılan 60. |0 kullanılmaz: 2^31 üstü sayı eksiye sarılır.
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw === 0) return 60;
+  const n = Math.round(raw);
+  if (n < 1) return 1;
+  if (n > MAX_LEDS) return MAX_LEDS;
+  return n;
 }
 
 // LED sayısı kadar RGB bayt üretir
@@ -49,8 +57,12 @@ function renderPixels(cfg, frame) {
   const n = ledCount(c);
   const brightness = Math.max(0, Math.min(1, c.brightness == null ? 1 : c.brightness));
   const out = Buffer.alloc(n * 3);
+  // Görüntü karede varsa matris onu basar. Bayrak ayara yazılmaz.
+  const colorCfg = frame && frame.matrixPixels && c.mode === 'matrix'
+    ? Object.assign({}, c, { matrixPicture: true })
+    : c;
   for (let i = 0; i < n; i++) {
-    const rgb = artnet.colorAt(c, frame, i, n);
+    const rgb = artnet.colorAt(colorCfg, frame, i, n);
     out[i * 3] = artnet.clamp255(rgb[0] * 255 * brightness);
     out[i * 3 + 1] = artnet.clamp255(rgb[1] * 255 * brightness);
     out[i * 3 + 2] = artnet.clamp255(rgb[2] * 255 * brightness);
@@ -243,5 +255,5 @@ function discover(opts) {
 
 module.exports = {
   start, stop, send, status, renderPixels, buildPackets, parsePacket, parseHost, fetchInfo,
-  buildQuery, parseResponse, discover, DDP_PORT, MAX_PIXELS_PER_PACKET, WLED_SERVICE,
+  buildQuery, parseResponse, discover, ledCount, DDP_PORT, MAX_PIXELS_PER_PACKET, MAX_LEDS, WLED_SERVICE,
 };

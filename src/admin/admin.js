@@ -3052,7 +3052,7 @@
         category: 'lighting',
         icon: 'rainbow',
         title: 'WLED (DDP) Çıkışı',
-        desc: 'WLED LED şeritlerini ağ üzerinden DDP ile doğrudan sürer; aygıtı ağda bulabilir.',
+        desc: 'DDP (UDP 4048) ile LED şerit ve matris sürer. Adres WLED olmak zorunda değil; WLED aygıtı ağda bulunabilir.',
         roots: ['wled'],
         controls: [{ type: 'lednetpanel', kind: 'wled' }],
       },
