@@ -1,7 +1,8 @@
 # SoundVisualizer Android (#1054). Yalnız Android tarafı değişince koşar ve
 # masaüstünün zorunlu beş denetiminden biri DEĞİLDİR (docs/android/PLAN.md, D14).
-# src/shared de süzgeçte: uygulama oradaki dosyaları sayfadan önce yüklüyor ve
-# testler masaüstündeki ayar deposuyla karşılaştırıyor.
+# src/shared de süzgeçte: uygulama oradaki dosyaları sayfadan önce yüklüyor.
+# src/main'den yalnız Android testlerinin karşılaştırdığı dosyalar: ayar deposu,
+# tam yedek (ve zip okuyucu/yazıcısı), "şimdi çalıyor" biçimi.
 name: android
 
 on:
@@ -16,6 +17,10 @@ on:
       - 'src/main/preload-exporter.js'
       - 'src/main/settings-store.js'
       - 'src/main/settings-guard.js'
+      - 'src/main/full-backup.js'
+      - 'src/main/zip-reader.js'
+      - 'src/main/zip-writer.js'
+      - 'src/main/media-session.js'
       - '.github/workflows/android.yml'
   pull_request:
     paths:
@@ -27,6 +32,10 @@ on:
       - 'src/main/preload-exporter.js'
       - 'src/main/settings-store.js'
       - 'src/main/settings-guard.js'
+      - 'src/main/full-backup.js'
+      - 'src/main/zip-reader.js'
+      - 'src/main/zip-writer.js'
+      - 'src/main/media-session.js'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
