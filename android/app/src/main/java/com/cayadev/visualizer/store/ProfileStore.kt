@@ -46,6 +46,9 @@ class ProfileStore(context: Context) {
     /* Geçici klasör presetlerle aynı ağaçta (profil klasöründe): presetler oradan ad
        değiştirilerek taşınıyor, sistem önbelleği temizlese de yarım iş kalmıyor. */
     private val staging = File(dir, ".import-staging")
+
+    /* MilkDrop dokuları (masaüstünde uygulamanın doku klasörü): düz klasör, özgün adlarıyla. */
+    private val texturesDir = File(app.filesDir, "textures")
     private val thread = HandlerThread("sv-store").also { it.start() }
     private val worker = Handler(thread.looper)
     private val main = Handler(Looper.getMainLooper())
@@ -178,6 +181,23 @@ class ProfileStore(context: Context) {
         JSONObject().put("source", src)
     }
 
+    // ---- MilkDrop dokuları (HOST.md milkdropTextures, milkdropTexture) ----
+
+    /** Masaüstündeki yanıt: `{ dir, names }`, adlar sıralı. */
+    fun texturesList(done: (JSONObject?, String?) -> Unit) = run(done) {
+        val names = TextureNames.list(texturesDir.list()?.toList().orEmpty())
+        JSONObject().put("dir", "").put("names", JSONArray(names))
+    }
+
+    /** `{ name, dataUrl }` ya da yoksa / kabul edilmiyorsa null (masaüstündeki gibi 8 MB sınırı). */
+    fun textureRead(name: String, done: (Any?, String?) -> Unit) = run(done) {
+        if (!TextureNames.readable(name)) return@run JSONObject.NULL
+        val f = File(texturesDir, name)
+        if (!f.isFile || f.length() > TextureNames.MAX_BYTES) return@run JSONObject.NULL
+        val b64 = android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP)
+        JSONObject().put("name", name).put("dataUrl", "data:" + TextureNames.mime(name) + ";base64," + b64)
+    }
+
     // ---- İçe aktarma (masaüstü tam yedeği ya da settings.json) ----
 
     /**
@@ -196,7 +216,8 @@ class ProfileStore(context: Context) {
                 val r = BackupReader.read(s, staging)
                 val meta = r.meta ?: throw IllegalArgumentException("not-backup")
                 JSONObject().put("kind", "svbackup").put("meta", String(meta, Charsets.UTF_8))
-                    .put("staged", JSONArray(r.presets.keys.toList())).put("skipped", r.skipped).put("later", JSONObject(r.later as Map<*, *>))
+                    .put("staged", JSONArray(r.presets.keys.toList())).put("stagedTextures", JSONArray(r.textures.keys.toList()))
+                    .put("skipped", r.skipped).put("later", JSONObject(r.later as Map<*, *>))
                     .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
             } else {
                 val bytes = BackupReader.readLimited(s, BackupReader.MAX_META) ?: throw IllegalArgumentException("too-large")
@@ -211,7 +232,7 @@ class ProfileStore(context: Context) {
      * adıyla aynı olmalı; `builtin` atılır. Aynı kimlik varsa yedekteki geçerli olur,
      * yedekte olmayan presetler silinmez.
      */
-    fun importCommit(ids: List<String>, done: (JSONObject?, String?) -> Unit) = run(done) {
+    fun importCommit(ids: List<String>, textures: List<Pair<String, String>>, done: (JSONObject?, String?) -> Unit) = run(done) {
         presetsDir.mkdirs()
         val t0 = android.os.SystemClock.elapsedRealtime()
         val byId = LinkedHashMap<String, JSONObject>()
@@ -240,6 +261,19 @@ class ProfileStore(context: Context) {
             byId[id] = lean(p)
             saved++
         }
+        /* Dokular: backup.json'daki özgün ad (masaüstünün portableName kuralı ve görsel
+           uzantı) ve arşiv içi yol. Aynı ad varsa yedekteki geçerli. */
+        var tex = 0
+        for ((name, path) in textures) {
+            val key = BackupReader.TEXTURE.matchEntire(path)?.groupValues?.get(1)
+            val f = key?.let { File(File(staging, "textures"), it) }
+            if (f == null || !f.isFile || !TextureNames.portable(name)) { skipped++; continue }
+            texturesDir.mkdirs()
+            val dst = File(texturesDir, name)
+            if (dst.exists()) dst.delete()
+            if (!f.renameTo(dst)) dst.writeBytes(f.readBytes())
+            tex++
+        }
         staging.deleteRecursively()
         if (saved > 0) {
             val list = sortPresets(byId.values.toMutableList())
@@ -247,7 +281,7 @@ class ProfileStore(context: Context) {
             presetGen++
             presetCache = list
         }
-        JSONObject().put("presets", saved).put("skipped", skipped).put("gen", presetGen)
+        JSONObject().put("presets", saved).put("textures", tex).put("skipped", skipped).put("gen", presetGen)
             .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
     }
 

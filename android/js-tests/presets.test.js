@@ -80,6 +80,8 @@ test('masaüstünün yazdığı yedek telefonda aynı kurallarla okunuyor', asyn
     assert.ok(!r.error, r.error);
     assert.deepStrictEqual(r.settings, b.settings);
     assert.deepStrictEqual(r.presetIds, ['ps_a', 'ps_b'], 'yerleşik preset yedekte yok');
+    // Doku: özgün ad ve masaüstünün arşiv içi yolu (0-<slug>)
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(r.textures)), [{ name: 'noise.png', path: 'textures/0-noise.png' }]);
     const desk = FB.inspect(b.file);
     for (const k of Object.keys(r.summary)) assert.deepStrictEqual(r.summary[k], desk[k], k);
     assert.strictEqual(r.summary.textures, 1);
@@ -112,7 +114,7 @@ function host(disk, importReply) {
       else if (msg.op === 'storeWrite') { for (const [n, t] of Object.entries(a.files)) disk.set(n, t); v = {}; }
       else if (msg.op === 'storeCopy') { if (disk.has(a.from)) disk.set(a.to, disk.get(a.from)); else if (a.overwrite) disk.delete(a.to); v = {}; }
       else if (msg.op === 'importOpen' || msg.op === 'importPick') v = importReply;
-      else if (msg.op === 'importCommit') v = { presets: a.ids.length, skipped: 0, gen: 2 };
+      else if (msg.op === 'importCommit') v = { presets: a.ids.length, textures: (a.textures || []).length, skipped: 0, gen: 2 };
       else if (msg.op === 'importDiscard') v = {};
       else if (msg.op === 'presetsList') v = [{ id: 'ps_a', kind: 'milkdrop', lazy: true, fRating: 4 }];
       Promise.resolve().then(() => native.onmessage({ data: JSON.stringify({ t: 'res', id: msg.id, ok: true, v }) }));
@@ -126,15 +128,17 @@ function host(disk, importReply) {
 }
 
 test('sunucu: tam yedek içe aktarılıyor; önceki hâl kenarda, presetler motora gidiyor', async () => {
-  const b = await makeBackup();
+  const b = await makeBackup({ milkdrop: { textureDir: 'C:/Users/biri/textures' } });
   try {
     const old = { ui: { theme: 'cayadev' }, scenes: [{ id: 'eski' }] };
     const disk = new Map(Object.entries(PS.createSaver({ write: async () => {} }).serialize(old)));
     const h = host(disk, { kind: 'svbackup', meta: metaText(b.file), staged: ['ps_a', 'ps_b'], skipped: 0, later: { libs: 0, textures: 1, media: 0 } });
     let engine = null;
     let presets = null;
+    let texturesChanged = 0;
     h.window.api.onConfig((c) => { engine = c; });
     h.window.api.onPresets((l) => { presets = l; });
+    h.window.api.onMilkdropTexturesChanged(() => { texturesChanged++; });
     const r = await h.window.SVAndroid.importProfile({ media: 'test.svbackup' });
     assert.strictEqual(r.kind, 'svbackup');
     assert.strictEqual(r.scenes, 2);
@@ -150,6 +154,12 @@ test('sunucu: tam yedek içe aktarılıyor; önceki hâl kenarda, presetler moto
     assert.strictEqual(presets.length, 1);
     const commit = h.sent.find((m) => m.op === 'importCommit');
     assert.deepStrictEqual(commit.a.ids, ['ps_a', 'ps_b']);
+    assert.deepStrictEqual(commit.a.textures, [{ name: 'noise.png', path: 'textures/0-noise.png' }]);
+    // Dokular geldi: motor listeyi yeniden ister; başka makinenin doku klasörü boşaltılır
+    assert.strictEqual(r.textures, 1);
+    assert.strictEqual(texturesChanged, 1);
+    assert.strictEqual(engine.milkdropLibrary.textureRev, 1);
+    assert.strictEqual(engine.milkdrop.textureDir, '');
   } finally { fs.rmSync(b.dir, { recursive: true, force: true }); }
 });
 
@@ -192,4 +202,18 @@ test('sunucu: ayarlar okunamadıysa içe aktarma başarı demiyor (hiçbir şey 
   };
   await assert.rejects(h.window.SVAndroid.importProfile({ media: 'a.json' }), /store-read/);
   assert.ok(!h.sent.some((m) => m.op === 'importOpen'), 'dosya hiç açılmadı');
+});
+
+test('yedekteki doku adları masaüstünün portableName kuralıyla süzülüyor', () => {
+  const FBsrc = read('src/main/full-backup.js');
+  for (const n of ['a.png', 'a?b.png', 'con.png', 'x.png ', 'a/b.png', 'a:b.png', '..', 'ok name.webp', 'a'.repeat(201)]) {
+    // Masaüstündeki işlevle aynı sonuç
+    assert.strictEqual(PS.portableName(n), FB.portableName(n), n);
+  }
+  assert.ok(FBsrc.includes("'textures/' + meta.textures.length + '-' + slug(t.name)"), 'arşiv içi doku yolu biçimi');
+  const r = PS.readBackup(JSON.stringify({ type: PS.BACKUP_TYPE, format: 1, settings: {}, textures: [
+    { name: 'ok.png', path: 'textures/0-ok.png' }, { name: 'bad?.png', path: 'textures/1-bad.png' },
+    { name: 'x.txt', path: 'textures/2-x.txt' }, { name: 'y.png', path: '../y.png' },
+  ] }));
+  assert.deepStrictEqual(r.textures.map((t) => t.name), ['ok.png']);
 });

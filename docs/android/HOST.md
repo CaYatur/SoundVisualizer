@@ -65,9 +65,9 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `onPresetsDelta` | Real (2) | |
 | `presetsHead` | Real (2) | `{ gen }`, the list generation. |
 | `presetsSince` | Real (2) | `{ gen, upsert: [], remove: [] }`; `reset: true` when the generation changed (the page asks for the whole list). |
-| `milkdropTextures` | Real (4) | Texture pack listing. |
-| `milkdropTexture` | Real (4) | One texture, by name. |
-| `onMilkdropTexturesChanged` | Real (4) | |
+| `milkdropTextures` | Real (2) | `{ dir: '', names }` from the app's texture folder (`files/textures/`), sorted and unique ignoring case as on the desktop (`TextureNames.kt`, rules of `milkdrop-textures.js`). |
+| `milkdropTexture` | Real (2) | `{ name, dataUrl }`, at most 8 MB, or `null` (names with paths, drive prefixes or non-image extensions are refused). |
+| `onMilkdropTexturesChanged` | Real (2) | After an import brought textures. |
 | `logoLibRead` | Real (4) | |
 | `lyricsLibSnapshot` | Real (4) | |
 | `lyricsLibRead` | Real (4) | |
@@ -134,6 +134,7 @@ open on the desktop.
 | `importPick`, `importOpen { media }` | Reads a desktop full backup (`.svbackup`) or a `settings.json` from the document picker or the app's media folder. A backup is read once as a stream (the phone's storage is not used for a copy); presets go to a staging folder because the desktop writes `backup.json` last. Resolves `{ kind: 'svbackup', meta, staged, skipped, later }` or `{ kind: 'settings', settings }`. |
 | `importCommit { ids }` | Moves the listed staged presets into the store (content must be an object whose `id` matches; a true `builtin` is dropped, as on the desktop). Same id: the backup wins; other presets stay. |
 | `importDiscard` | Drops the staging folder. |
+| `texturesList`, `textureRead { name }` | MilkDrop textures (see the engine table). |
 
 **Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the
 phone does not have are off: `lighting`, `openrgb`, `artnet`, `sacn`, `wled`, `oscOut`. Measured on a copy of a desktop
@@ -148,8 +149,12 @@ to the desktop turns the lights on again.
 - The settings and scenes are replaced with the backup's; the previous files stay as `*.before-import.json`. Presets
   are added. The imported settings go through the same load path (migration, cleanup), are completed with the
   defaults and get a layer stack, as in the panel's `adoptImportedSettings`.
-- Library files (logos, videos, lyrics) and MilkDrop textures are not opened yet; their counts come back in `later`
-  (phase 4). Scenes that use them miss those files until then.
+- MilkDrop textures are imported as on the desktop: the original name must be portable (`portableName`) with an
+  image extension, the archive entry must have the desktop's `textures/<n>-<slug>` form, and the same name is replaced.
+  The other machine's texture folder is cleared and `milkdropLibrary.textureRev` goes up, so the engine lists them
+  again (the panel does the same).
+- Library files (logos, videos, lyrics) are not opened yet; their counts come back in `later` (phase 4). Scenes that
+  use them miss those files until then.
 - **Scale** (measured with a real desktop library, 10,392 presets, 147 MB; backup 33 MB): import 22 s on the emulator
   (reading 7.5 s, committing 11.7 s); the list after a cold start 212 ms (1.8 MB). The lean list is kept in
   `presets-index.json` next to the presets folder, so a start does not read 147 MB. Staged presets live in the profile

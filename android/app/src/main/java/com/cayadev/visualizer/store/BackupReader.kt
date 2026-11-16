@@ -19,11 +19,16 @@ import java.util.zip.ZipInputStream
    doğruladıktan sonra karar veriyor (importCommit).
 
    Arşiv güvenilmez veri (masaüstündeki kural): hiçbir yol arşivden alınmıyor,
-   preset kimliği ve boyutu denetleniyor. Kitaplık dosyaları, dokular ve
-   videolar bu aşamada açılmıyor, yalnız sayılıyor (Faz 4).
+   preset kimliği ve boyutu denetleniyor. MilkDrop dokuları da geçici klasöre
+   alınır (arşiv içi ad masaüstünün `<sıra>-<slug>` biçiminde); özgün adlarını
+   backup.json taşıyor. Kitaplık dosyaları ve videolar bu aşamada açılmıyor,
+   yalnız sayılıyor (Faz 4).
    Android çerçevesine bağlı değil, JVM birim testinde denetleniyor. */
 object BackupReader {
     val PRESET = Regex("^presets/([A-Za-z0-9_-]{1,80})\\.json$")
+
+    /** full-backup.js: `textures/` + sıra + `-` + slug (ASCII, kısa). */
+    val TEXTURE = Regex("^textures/(\\d{1,6}-[a-z0-9_.-]{1,60})$")
     const val MAX_META = 64 * 1024 * 1024
     const val MAX_PRESET = 8 * 1024 * 1024
 
@@ -34,7 +39,9 @@ object BackupReader {
         val presets: Map<String, File>,
         /** Okunamayan ya da sınırı aşan öğeler. */
         val skipped: Int,
-        /** Bu aşamada açılmayanlar: libs, textures, media. */
+        /** Geçici klasöre alınan dokular: arşiv içi ad (textures/ sonrası) → dosya. */
+        val textures: Map<String, File>,
+        /** Bu aşamada açılmayanlar: libs, media. */
         val later: Map<String, Int>,
     )
 
@@ -62,14 +69,17 @@ object BackupReader {
         staging.mkdirs()
         var meta: ByteArray? = null
         val presets = LinkedHashMap<String, File>()
+        val textures = LinkedHashMap<String, File>()
+        val texDir = File(staging, "textures")
         var skipped = 0
-        val later = linkedMapOf("libs" to 0, "textures" to 0, "media" to 0)
+        val later = linkedMapOf("libs" to 0, "media" to 0)
         ZipInputStream(input).use { z ->
             while (true) {
                 val e = z.nextEntry ?: break
                 if (e.isDirectory) continue
                 val name = e.name
                 val m = PRESET.matchEntire(name)
+                val t = TEXTURE.matchEntire(name)
                 when {
                     name == "backup.json" -> meta = readLimited(z, MAX_META) ?: run { skipped++; null }
                     m != null -> {
@@ -81,6 +91,16 @@ object BackupReader {
                             presets[m.groupValues[1]] = f
                         }
                     }
+                    t != null -> {
+                        val bytes = readLimited(z, TextureNames.MAX_BYTES)
+                        if (bytes == null) skipped++
+                        else {
+                            texDir.mkdirs()
+                            val f = File(texDir, t.groupValues[1])
+                            f.writeBytes(bytes)
+                            textures[t.groupValues[1]] = f
+                        }
+                    }
                     else -> {
                         val top = name.substringBefore('/')
                         if (top in later) later[top] = later.getValue(top) + 1
@@ -88,6 +108,6 @@ object BackupReader {
                 }
             }
         }
-        return Result(meta, presets, skipped, later)
+        return Result(meta = meta, presets = presets, skipped = skipped, textures = textures, later = later)
     }
 }

@@ -83,8 +83,12 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "importCommit" -> {
                 val a = args.optJSONArray("ids") ?: JSONArray()
-                EngineHost.profile.importCommit((0 until a.length()).map { a.optString(it) }) { r, err -> if (r != null) reply.ok(r) else reply.fail("import-commit", err ?: "") }
+                val t = args.optJSONArray("textures") ?: JSONArray()
+                val tex = (0 until t.length()).mapNotNull { t.optJSONObject(it) }.map { it.optString("name") to it.optString("path") }
+                EngineHost.profile.importCommit((0 until a.length()).map { a.optString(it) }, tex) { r, err -> if (r != null) reply.ok(r) else reply.fail("import-commit", err ?: "") }
             }
+            "texturesList" -> EngineHost.profile.texturesList { r, err -> if (r != null) reply.ok(r) else reply.fail("textures", err ?: "") }
+            "textureRead" -> EngineHost.profile.textureRead(args.optString("name")) { r, err -> if (err == null) reply.ok(r) else reply.fail("texture", err) }
             "importDiscard" -> EngineHost.profile.importDiscard { r, err -> if (r != null) reply.ok(r) else reply.fail("import", err ?: "") }
             "storeCopy" -> EngineHost.profile.copy(args.optString("from"), args.optString("to"), args.optBoolean("overwrite", false)) { r, err ->
                 if (r != null) reply.ok(r) else reply.fail("store-copy", err ?: "")
