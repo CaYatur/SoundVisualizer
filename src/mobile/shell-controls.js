@@ -63,14 +63,32 @@
     return r;
   }
 
+  /* Seçim kutusu: dokununca kabuğun seçenek listesi açılır (SVShell.choose). Yerel
+     <select> kullanılmıyor: uygulama bağlamıyla kurulan WebView'de Android'in seçicisi
+     açılmıyordu. Değer düğmenin data-v'sinde, görünen ad seçeneğin metni. */
   function select(o) {
-    const sel = h('select', { 'aria-label': o.label }, (o.options || []).map(([v, t]) => h('option', { value: String(v), text: t })));
-    sel.value = String(o.value);
-    sel.addEventListener('change', () => o.onChange && o.onChange(sel.value));
-    const box = h('div', { class: 'select' }, [sel, icon('chevron-down')]);
+    const opts = (o.options || []).map(([v, t]) => [String(v), t]);
+    const text = h('span', { class: 'select-text' });
+    const btn = h('button', { class: 'select-btn', 'aria-haspopup': 'listbox' }, [text, icon('chevron-down')]);
+    let value = '';
+    const set = (v) => {
+      value = String(v);
+      btn.dataset.v = value;
+      const hit = opts.find(([k]) => k === value);
+      text.textContent = hit ? hit[1] : value;
+    };
+    set(o.value);
+    btn.addEventListener('click', async () => {
+      if (btn.disabled || !window.SVShell.choose) return;
+      const v = await window.SVShell.choose(o.label, opts, value);
+      if (v == null || v === value) return;
+      set(v);
+      if (o.onChange) o.onChange(v);
+    });
+    const box = h('div', { class: 'select' }, [btn]);
     const r = row(o.label, [box]);
-    r.set = (v) => { sel.value = String(v); };
-    r.input = sel;
+    r.set = set;
+    r.input = btn;
     return r;
   }
 
@@ -105,12 +123,25 @@
     return r;
   }
 
+  /* Renk: dokununca kabuğun renk seçicisi (SVShell.pickColor); input type=color'ın
+     Android penceresi de uygulama bağlamlı WebView'de açılmıyordu. Sürüklerken onInput
+     (canlı), Tamam'da onChange; Vazgeç ilk rengi onInput ile geri koyar. */
   function color(o) {
-    const input = h('input', { type: 'color', class: 'swatch', 'aria-label': o.label, value: o.value || '#ffffff' });
-    input.addEventListener('input', () => o.onInput && o.onInput(input.value));
-    input.addEventListener('change', () => o.onChange && o.onChange(input.value));
-    const r = row(o.label, [h('div', { class: 'spacer' }), input]);
-    r.set = (v) => { input.value = v; };
+    let value = o.value || '#ffffff';
+    const btn = h('button', { class: 'swatch', 'aria-label': o.label });
+    const set = (v) => { value = v || '#ffffff'; btn.style.background = value; btn.dataset.v = value; };
+    set(value);
+    btn.addEventListener('click', async () => {
+      if (btn.disabled || !window.SVShell.pickColor) return;
+      const live = o.onInput || o.onChange;
+      const v = await window.SVShell.pickColor(o.label, value, (x) => { btn.style.background = x; if (live) live(x); });
+      if (v == null) { btn.style.background = value; return; }
+      set(v);
+      if (o.onChange) o.onChange(v);
+    });
+    const r = row(o.label, [h('div', { class: 'spacer' }), btn]);
+    r.set = set;
+    r.input = btn;
     return r;
   }
 

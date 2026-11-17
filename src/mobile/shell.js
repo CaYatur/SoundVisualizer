@@ -191,6 +191,132 @@
       ok.focus();
     });
   }
+  /* Seçenek listesi (açılır seçim kutusu yerine). WebView uygulama bağlamıyla kuruluyor
+     (yüzen pencere için Activity dışında); bu yüzden <select> için Android seçicisi
+     hiç açılmıyordu (ölçüldü: dokununca kutu odaklanıyor, pencere gelmiyor). Liste kabuğun
+     içinde: geri tuşu ve dışına dokunma kapatır. Promise<seçilen değer | null>. */
+  function chooseBox(title, options, value) {
+    return new Promise((resolve) => {
+      const cancel = () => done(null);
+      const done = (v) => {
+        const i = dialogs.indexOf(cancel);
+        if (i >= 0) dialogs.splice(i, 1);
+        box.remove();
+        resolve(v);
+      };
+      let current = null;
+      const items = (options || []).map(([v, t]) => {
+        const on = String(v) === String(value);
+        const b = h('button', { class: 'choice' + (on ? ' on' : ''), role: 'option', 'aria-selected': on ? 'true' : 'false', 'data-v': String(v), onclick: () => done(String(v)) }, [
+          h('span', { class: 'grow-text', text: t }),
+          on ? icon('check') : null,
+        ]);
+        if (on) current = b;
+        return b;
+      });
+      const list = h('div', { class: 'choice-list', role: 'listbox', 'aria-label': title || '' }, items);
+      const box = h('div', { class: 'dialog-scrim live', role: 'presentation', onclick: (e) => { if (e.target === box) done(null); } }, [
+        h('div', { class: 'dialog choose', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' }, [
+          title ? h('div', { class: 'dialog-text', text: title }) : null,
+          list,
+        ]),
+      ]);
+      dialogs.push(cancel);
+      root.appendChild(box);
+      if (current) { current.scrollIntoView({ block: 'center' }); current.focus(); }
+    });
+  }
+  /* Renk seçici (input type=color yerine; o da Android penceresini açamıyordu).
+     Ton, doygunluk ve parlaklık kaydırıcıları, renk kodu ve hazır renkler (masaüstünün
+     renk şablonlarından). Sürüklerken onLive canlı uygular; Vazgeç ilk rengi geri koyar.
+     Promise<'#rrggbb' | null>. */
+  const hexRe = /^#?([0-9a-f]{6})$/i;
+  function hexToHsv(hex) {
+    const m = hexRe.exec(String(hex || '').trim());
+    const n = m ? parseInt(m[1], 16) : 0xffffff;
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+    let hh = 0;
+    if (d) hh = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return { h: (hh * 60 + 360) % 360, s: max ? d / max : 0, v: max };
+  }
+  function hsvToHex(c) {
+    const f = (k) => { const x = (k + c.h / 60) % 6; return c.v - c.v * c.s * Math.max(0, Math.min(x, 4 - x, 1)); };
+    return '#' + [f(5), f(3), f(1)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+  }
+  function quickColors() {
+    const out = [];
+    for (const p of (window.SV && window.SV.GRADIENT_PRESETS) || []) {
+      for (const c of (p && p.colors) || []) {
+        const k = String(c).toLowerCase();
+        if (hexRe.test(k) && out.indexOf(k) < 0) out.push(k);
+        if (out.length >= 24) return out;
+      }
+    }
+    return out;
+  }
+  function colorBox(title, value, onLive) {
+    return new Promise((resolve) => {
+      const first = hexRe.test(String(value || '')) ? ('#' + hexRe.exec(value)[1]).toLowerCase() : '#ffffff';
+      const c = hexToHsv(first);
+      const cancel = () => done(null);
+      const done = (v) => {
+        const i = dialogs.indexOf(cancel);
+        if (i >= 0) dialogs.splice(i, 1);
+        box.remove();
+        if (v == null && onLive && hsvToHex(c) !== first) onLive(first);
+        resolve(v);
+      };
+      const preview = h('div', { class: 'color-preview', 'aria-hidden': 'true' });
+      const code = h('input', { type: 'text', class: 'field mono', 'aria-label': 'Renk', maxlength: '7', spellcheck: 'false', autocapitalize: 'off' });
+      const mk = (label, max, key, scale) => {
+        const input = h('input', { type: 'range', min: '0', max: String(max), step: '1', 'aria-label': label });
+        input.addEventListener('input', () => { c[key] = +input.value / scale; paint(true); });
+        return { input, scale, key, row: h('div', { class: 'ctl-row col' }, [h('div', { class: 'ctl-label', text: label }), input]) };
+      };
+      const sliders = [mk('Renk Tonu', 360, 'h', 1), mk('Doygunluk', 100, 's', 100), mk('Parlaklık', 100, 'v', 100)];
+      sliders[0].input.style.setProperty('--track', 'linear-gradient(90deg, ' + [0, 60, 120, 180, 240, 300, 360].map((x) => hsvToHex({ h: x % 360, s: 1, v: 1 })).join(', ') + ')');
+      function paint(live, fromCode) {
+        const hex = hsvToHex(c);
+        preview.style.background = hex;
+        if (!fromCode) code.value = hex;
+        for (const s of sliders) {
+          s.input.value = String(Math.round(c[s.key] * s.scale));
+          s.input.style.setProperty('--p', (c[s.key] * s.scale / (+s.input.max) * 100) + '%');
+        }
+        // İzlerin renkleri seçilen renkten (CSS'te renk değeri yok, değişkenle)
+        sliders[1].input.style.setProperty('--track', 'linear-gradient(90deg, ' + hsvToHex({ h: c.h, s: 0, v: c.v }) + ', ' + hsvToHex({ h: c.h, s: 1, v: c.v }) + ')');
+        sliders[2].input.style.setProperty('--track', 'linear-gradient(90deg, ' + hsvToHex({ h: 0, s: 0, v: 0 }) + ', ' + hsvToHex({ h: c.h, s: c.s, v: 1 }) + ')');
+        if (live && onLive) onLive(hex);
+      }
+      code.addEventListener('input', () => {
+        if (!hexRe.test(code.value.trim())) return;
+        Object.assign(c, hexToHsv(code.value));
+        paint(true, true);
+      });
+      const swatches = quickColors().map((hex) => h('button', {
+        class: 'qcolor', 'aria-label': hex, style: 'background:' + hex,
+        onclick: () => { Object.assign(c, hexToHsv(hex)); paint(true); },
+      }));
+      const box = h('div', { class: 'dialog-scrim live', role: 'presentation', onclick: (e) => { if (e.target === box) done(null); } }, [
+        h('div', { class: 'dialog color-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Renk' }, [
+          title ? h('div', { class: 'dialog-text', text: title }) : null,
+          h('div', { class: 'color-head' }, [preview, code]),
+        ].concat(sliders.map((s) => s.row), swatches.length ? [
+          h('div', { class: 'section-label', text: 'Hazır renkler' }),
+          h('div', { class: 'qcolors' }, swatches),
+        ] : [], [
+          h('div', { class: 'btn-row' }, [
+            h('button', { class: 'btn ghost', text: 'Vazgeç', onclick: () => done(null) }),
+            h('button', { class: 'btn primary', text: 'Tamam', onclick: () => done(hsvToHex(c)) }),
+          ]),
+        ])),
+      ]);
+      paint(false);
+      dialogs.push(cancel);
+      root.appendChild(box);
+    });
+  }
   const dialogs = [];
   function closeDialog() {
     const open = root && root.querySelector('.dialog-scrim');
@@ -451,6 +577,8 @@
     icon,
     A,
     confirm: confirmBox,
+    choose: chooseBox,
+    pickColor: colorBox,
     countLabel,
     /** Kayıtlı sahneyi kimliğiyle çağırır (Otomatik VJ, Kitaplık). true: bulundu. */
     recallScene(id) {

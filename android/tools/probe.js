@@ -1497,7 +1497,61 @@ async function exportUiCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+/* SEÇİM KUTUSU VE RENK SEÇİCİ, GERÇEK DOKUNUŞLA. Yerel <select> ve input type=color
+   uygulama bağlamlı WebView'de Android'in penceresini açamıyordu; değer JS ile yazıldığı
+   için öbür yoklamalar bunu görmedi. Burada adb ile dokunulur: liste açılmalı, seçilen
+   değer ayara yazılmalı, geri tuşu listeyi kapatmalı; renk seçici açılmalı, hazır renk ve
+   Tamam değeri vermeli. */
+async function pickersCmd() {
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const tapAt = async (sel) => {
+    const p = await ev(`(() => { const s = document.querySelector(${JSON.stringify(sel)}); if (!s) return null; s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return [Math.round((b.left + b.width / 2) * devicePixelRatio), Math.round((b.top + b.height / 2) * devicePixelRatio)]; })()`);
+    if (!p) return false;
+    await D.sleep(300);
+    D.adb(['shell', 'input', 'tap', String(p[0]), String(p[1])]);
+    await D.sleep(900);
+    return true;
+  };
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(800);
+    const vj0 = await ev('JSON.stringify(window.SVAndroid.config.get().autovj || {})');
+    await ev("window.SVAndroid.config.patch({ autovj: Object.assign({}, window.SVAndroid.config.get().autovj, { enabled: true, source: 'visualizers' }) }); 1");
+    await ev("document.querySelector('#sv-shell nav [data-tab=audio]').click(); 1");
+    await D.sleep(1200);
+    await tapAt('#sv-shell .sheet .select-btn');
+    out.choices = await ev("document.querySelectorAll('#sv-shell .choice').length");
+    await tapAt('#sv-shell .choice[data-v=scenes]');
+    out.source = await ev('window.SVAndroid.config.get().autovj.source');
+    await tapAt('#sv-shell .sheet .select-btn');
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+    await D.sleep(800);
+    out.back = await ev("({ dialog: !!document.querySelector('#sv-shell .dialog-scrim'), sheet: window.SVShell.state().sheet })");
+    await ev(`window.SVAndroid.config.patch({ autovj: ${vj0} }); window.SVShell.close(); 1`);
+    await D.sleep(500);
+    await ev("(() => { window.__pk = []; const r = window.SVShellUI.color({ label: 'Renk', value: '#ff2d3a', onChange: (v) => window.__pk.push(v) }); const d = document.createElement('div'); d.id = 'pk'; d.className = 'live'; d.style.cssText = 'position:absolute;left:20px;right:20px;top:300px;z-index:4'; d.appendChild(r); document.querySelector('#sv-shell').appendChild(d); })(); 1");
+    await tapAt('#pk .swatch');
+    out.colorOpen = await ev("!!document.querySelector('#sv-shell .color-dialog')");
+    const want = await ev("document.querySelectorAll('#sv-shell .qcolor')[3] ? document.querySelectorAll('#sv-shell .qcolor')[3].getAttribute('aria-label') : ''");
+    await tapAt('#sv-shell .qcolor:nth-child(4)');
+    await tapAt('#sv-shell .color-dialog .btn.primary');
+    out.color = await ev("({ got: window.__pk.slice(-1)[0] || '', open: !!document.querySelector('#sv-shell .color-dialog') })");
+    out.color.want = want;
+    await ev("document.getElementById('pk').remove(); 1");
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.choices === 5 && out.source === 'scenes' && !out.back.dialog && out.back.sheet
+    && out.colorOpen && out.color.want && out.color.got === out.color.want && !out.color.open && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);
