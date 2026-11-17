@@ -1103,10 +1103,14 @@ async function pagesCmd() {
     out.library.search = await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length");
     await tapSel('#sv-shell .tabs button:nth-child(4)', 700);
     const n0 = await ev('(window.SVAndroid.config.get().scenes || []).length');
-    await tapSel('#sv-shell .sheet-body > .btn.block', 800);
+    // Yeni Sahne Olarak Kaydet (sıranın son düğmesi) → ad sorulur → Kaydet
+    await tapSel('#sv-shell .sheet-body > .btn-row .btn:last-child', 800);
+    await tapSel('#sv-shell .dialog .btn.primary', 800);
     out.library.saved = await ev('(window.SVAndroid.config.get().scenes || []).length') === n0 + 1;
     shot('4-scenes');
+    // Sahnenin menüsü → Sil → onay
     await tapSel('#sv-shell .grid2 .tile:last-child .star', 600);
+    await tapSel('#sv-shell .choice[data-v=delete]', 600);
     await tapSel('#sv-shell .dialog .btn.danger', 700);
     out.library.deleted = await ev('(window.SVAndroid.config.get().scenes || []).length') === n0;
     out.library.scenesCheck = await ev(check);
