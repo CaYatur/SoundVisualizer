@@ -167,6 +167,16 @@ html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent
 }
 #sv-shell .sheet[data-size="tall"] { top: calc(var(--inset-top) + 150px); }
 #sv-shell .sheet[data-size="full"] { top: calc(var(--inset-top) + 16px); }
+/* Tam ekran sayfa (taslak 5, 6, 8: Ses, Kitaplık, Ayarlar): sahnenin yerine geçer,
+   büyük başlık, telefonun kendi zemini */
+#sv-shell .sheet[data-size="screen"] {
+  top: 0; border-radius: 0; border-top: 0; box-shadow: none; padding-top: calc(var(--inset-top) + 8px);
+  background: radial-gradient(120% 60% at 0% 0%, var(--glow-a), transparent 60%), radial-gradient(120% 60% at 100% 100%, var(--glow-b), transparent 60%), var(--bg);
+}
+#sv-shell .sheet[data-size="screen"] .grabber { display: none; }
+#sv-shell .sheet[data-size="screen"] .sheet-head { padding-top: 4px; }
+#sv-shell .sheet[data-size="screen"] .sheet-head h2 { font-size: 26px; }
+#sv-shell .sheet[data-size="screen"] .sheet-body { gap: 12px; }
 #sv-shell .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line2); margin: 10px auto 4px; flex: none; }
 #sv-shell .sheet-head { display: flex; align-items: center; gap: 10px; padding: 8px 16px 12px; }
 #sv-shell .sheet-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
@@ -305,7 +315,51 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); }
 #sv-shell .bpm { font-size: 34px; font-weight: 700; letter-spacing: -.02em; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 #sv-shell .tap { width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--tempo); color: var(--tempo); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none; }
-#sv-shell .tap.hit { background: rgb(var(--fg-rgb) / .08); }
+#sv-shell .tap.hit, #sv-shell .tap.beat { background: rgb(var(--fg-rgb) / .08); }
+
+/* Kitaplık kutuları (taslak 6): ana düğme ve köşedeki yıldız ayrı dokunma hedefleri */
+#sv-shell .tile-main { display: block; width: 100%; text-align: left; min-height: 48px; }
+#sv-shell .tile .ph.art { position: relative; color: var(--text-strong); }
+#sv-shell .art-initial { font-size: 30px; font-weight: 700; opacity: .9; }
+#sv-shell .tile .cap .kind { font-size: 11.5px; font-weight: 600; color: var(--muted); flex: none; }
+#sv-shell .tile .star.on { color: var(--warn); }
+
+/* Görüntüleme sayfası (taslak 7) */
+#sv-shell .card.big { height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text); font-size: 13px; font-weight: 600; text-align: center; padding: 0 6px; line-height: 1.2; }
+#sv-shell .card.big .svi { width: 24px; height: 24px; }
+#sv-shell .card.big.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+#sv-shell .row-title.small { font-size: 14px; font-weight: 500; }
+#sv-shell .banner.info.warn { background: rgb(var(--warn-rgb) / .12); border-color: rgb(var(--warn-rgb) / .45); }
+#sv-shell .banner.ok .svi { color: var(--ok); }
+
+/* Ayarlar (taslak 8) */
+#sv-shell .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+#sv-shell .sw { width: 48px; height: 48px; border-radius: 12px; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; }
+#sv-shell .sw.on { border-color: var(--accent); }
+#sv-shell .sw i { display: block; width: 34px; height: 34px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .12); }
+#sv-shell .nav-card { padding: 4px 14px; flex: none; }
+#sv-shell .nav-row { width: 100%; text-align: left; }
+#sv-shell .nav-row .svi:last-child { color: var(--muted); }
+#sv-shell .logo { width: 32px; height: 32px; border-radius: 9px; display: block; }
+#sv-shell .logo.lg { width: 64px; height: 64px; border-radius: 16px; }
+#sv-shell .about-head { display: flex; align-items: center; gap: 14px; padding: 4px 4px 8px; }
+
+/* Ses sayfası (taslak 5) */
+#sv-shell .level-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+#sv-shell .level-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+#sv-shell .level-card .bigmeter { height: 36px; }
+#sv-shell .source-list { display: flex; flex-direction: column; gap: 10px; }
+#sv-shell .source-list .source { min-height: 60px; padding: 6px 12px; }
+#sv-shell .player-card { padding: 4px 14px; flex: none; }
+#sv-shell .tempo-card { padding: 4px 14px 12px; display: flex; flex-direction: column; gap: 8px; flex: none; }
+#sv-shell .tempo-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
+#sv-shell .grow-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#sv-shell .grow-text { flex: 1; min-width: 0; }
+#sv-shell .tempo-row .tap { width: 60px; height: 60px; }
+#sv-shell .bpm .unit { font-size: 15px; color: var(--muted); font-weight: 600; }
+#sv-shell .divider.flush { margin: 0; }
+#sv-shell .warn-text { color: var(--warn-text); }
+#sv-shell .ctl-row > .svi { color: var(--muted); }
 /* Dar ekranda sayfa açıkken sahne kartı ve şerit sayfanın altında kalır */
 #sv-shell.has-sheet .scene-card, #sv-shell.has-sheet .scenes { display: none; }
 
@@ -326,3 +380,8 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
   #sv-shell .sheet, #sv-shell .sheet[data-size] { left: auto; top: calc(var(--inset-top) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 12px); width: var(--panel); border-radius: 24px; padding: 0; }
   #sv-shell .grabber { display: none; }
 }
+
+/* Anahtar satırında etiket esner (taslak 7: "Oranı koru", "Konumu kilitle") */
+#sv-shell .ctl-row.sw-row .ctl-label { flex: 1; width: auto; }
+/* Durum rozeti: kaynak yokken nötr */
+#sv-shell .badge { background: rgb(var(--fg-rgb) / .08); color: var(--muted); }

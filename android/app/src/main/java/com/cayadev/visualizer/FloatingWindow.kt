@@ -44,8 +44,19 @@ object FloatingWindow {
     var clickThrough = false
         private set
     var locked = false
+    /** İki parmakla boyutlandırırken oran korunur (taslak 7 "Oranı koru"); kapalıyken eksenler ayrı. */
+    var keepAspect = true
 
     val isShowing: Boolean get() = root != null
+
+    /** Açık pencerenin boyutu (piksel); sol üst köşe yerinde kalır. */
+    fun resize(context: Context, widthPx: Int, heightPx: Int) {
+        val r = root ?: return
+        val p = params ?: return
+        p.width = max(160, widthPx)
+        p.height = max(90, heightPx)
+        context.applicationContext.getSystemService(WindowManager::class.java).updateViewLayout(r, p)
+    }
 
     fun canShow(context: Context): Boolean = Settings.canDrawOverlays(context)
 
@@ -106,7 +117,8 @@ object FloatingWindow {
 
     fun bounds(): IntArray? = params?.let { intArrayOf(it.x, it.y, it.width, it.height) }
 
-    /* Sürükle = taşı, iki parmak = boyutlandır (oran korunur). Konum kilitliyse ikisi de yok. */
+    /* Sürükle = taşı, iki parmak = boyutlandır (oran korunuyorsa iki eksen birlikte,
+       değilse parmakların yatay ve dikey açıklığına göre ayrı). Kilitliyse ikisi de yok. */
     @SuppressLint("ClickableViewAccessibility")
     private fun gestureLayer(context: Context, wm: WindowManager): View {
         val v = View(context)
@@ -115,10 +127,15 @@ object FloatingWindow {
         val scaler = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(d: ScaleGestureDetector): Boolean {
                 val p = params ?: return false
-                val f = d.scaleFactor
-                val w = max(160, (p.width * f).roundToInt())
-                p.height = max(90, (p.height * w / p.width.toFloat()).roundToInt())
-                p.width = w
+                if (keepAspect || d.previousSpanX <= 0f || d.previousSpanY <= 0f) {
+                    val f = d.scaleFactor
+                    val w = max(160, (p.width * f).roundToInt())
+                    p.height = max(90, (p.height * w / p.width.toFloat()).roundToInt())
+                    p.width = w
+                } else {
+                    p.width = max(160, (p.width * d.currentSpanX / d.previousSpanX).roundToInt())
+                    p.height = max(90, (p.height * d.currentSpanY / d.previousSpanY).roundToInt())
+                }
                 wm.updateViewLayout(root, p)
                 return true
             }

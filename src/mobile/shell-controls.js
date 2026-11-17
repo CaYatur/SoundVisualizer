@@ -81,7 +81,7 @@
       b.setAttribute('aria-checked', on ? 'true' : 'false');
       if (o.onChange) o.onChange(on);
     });
-    const r = row(o.label, [h('div', { class: 'spacer' }), b]);
+    const r = row(o.label, [b], 'sw-row');
     r.set = (v) => b.setAttribute('aria-checked', v ? 'true' : 'false');
     r.input = b;
     return r;

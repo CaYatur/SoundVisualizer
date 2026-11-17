@@ -449,6 +449,8 @@
     onMeter: (cb) => ev.meter.add(cb),
     onLowPower: (cb) => { ev.lowPower.add(cb); if (lowPowerOn != null) cb(lowPowerOn); },
     app: Object.freeze({ toBackground: () => request('appToBack') }),
+    /* Sistemin resim içinde resmi; w:h görüntünün oranı (1:2,39 … 2,39:1 arası). */
+    pip: (w, h) => request('pipEnter', { w: w || 16, h: h || 9 }),
     floating: Object.freeze({
       open: (o) => request('floatingOpen', o || {}),
       close: () => request('floatingClose'),

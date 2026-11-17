@@ -150,6 +150,8 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "floatingSet" -> {
                 FloatingWindow.locked = args.optBoolean("locked", FloatingWindow.locked)
+                FloatingWindow.keepAspect = args.optBoolean("keepAspect", FloatingWindow.keepAspect)
+                if (args.has("width") && args.has("height")) FloatingWindow.resize(app, args.optInt("width"), args.optInt("height"))
                 FloatingWindow.apply(app, args.optDouble("opacity", FloatingWindow.opacity.toDouble()).toFloat(), args.optBoolean("clickThrough", FloatingWindow.clickThrough))
                 reply.ok(floatingState())
             }
@@ -202,7 +204,7 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
     private fun floatingState(): JSONObject {
         val b = FloatingWindow.bounds()
         return JSONObject().put("showing", FloatingWindow.isShowing).put("opacity", FloatingWindow.opacity.toDouble())
-            .put("clickThrough", FloatingWindow.clickThrough).put("locked", FloatingWindow.locked)
+            .put("clickThrough", FloatingWindow.clickThrough).put("locked", FloatingWindow.locked).put("keepAspect", FloatingWindow.keepAspect)
             .put("maxPassThroughOpacity", FloatingWindow.maxPassThroughOpacity(app).toDouble())
             .put("bounds", if (b != null) JSONArray(b.toList()) else JSONObject.NULL)
             .put("activity", EngineHost.activity != null)

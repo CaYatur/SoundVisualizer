@@ -1,0 +1,250 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+'use strict';
+/* SES SEKMESİ (docs/android/PLAN.md Faz 3.5; onaylı taslak 5).
+
+   Tam ekran sayfa: seviye (16 bant, dB), ses kaynağı (uygulama içi çalar, sistem sesi,
+   çıkış karışımı, mikrofon), sessizlik uyarısı (çalan uygulama sesini paylaşmıyorsa
+   çıkış karışımı önerilir), tempo (BPM, elle vuruş) ve Otomatik VJ.
+
+   Seviye çubukları motorun KENDİ ses nesnesinden (src/mobile/autovj.js yakalıyor):
+   ekranda çizilen sesle aynı. Kaynak hiç açılmadıysa motor demo sesi çalıyor. */
+(function () {
+  if (typeof window === 'undefined' || !window.SVShell || !window.SVShellUI) return;
+  const S = window.SVShell;
+  const U = window.SVShellUI;
+  const { h, icon, A } = S;
+  const VJ = () => window.SVMobileVJ;
+  const R = () => window.SVAutoVJRules;
+  const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+  const en = () => !!(window.SVI18n && window.SVI18n.locale === 'en');
+  const cfg = () => (A() && A().config.get()) || {};
+
+  const SOURCES = [
+    { id: 'player', icon: 'music', title: 'Uygulama içi çalar', sub: 'Şarkı seçin; en temiz ses, izin gerekmez' },
+    { id: 'capture', icon: 'phone', title: 'Sistem sesi', sub: 'Diğer uygulamaların sesi · her oturumda onay' },
+    { id: 'visualizer', icon: 'wave', title: 'Çıkış karışımı', sub: 'Sesini paylaşmayan uygulamalar için, düşük kalite' },
+    { id: 'mic', icon: 'mic', title: 'Mikrofon', sub: 'Ortamdaki ses' },
+  ];
+  const ERRORS = {
+    'permission-denied': 'Mikrofon izni verilmedi.',
+    'consent-denied': 'Ekran kaydı onayı verilmedi; sistem sesi alınamıyor.',
+    cancelled: 'Şarkı seçilmedi.',
+  };
+  const VJ_SOURCES = [['visualizers', 'Görselleştiriciler'], ['scenes', 'Sahneler'], ['palettes', 'Renk Şablonları'], ['backgrounds', 'Arkaplanlar'], ['all', 'Hepsi (sırayla)']];
+
+  let refs = null;
+  let error = '';
+
+  const status = () => (A() && A().audio.status()) || null;
+  const running = () => { const st = status(); return st && st.state === 'running' ? st.source : null; };
+  /* Seçili kaynak: çalışan kaynak; çalar duraklatılmışsa da çalar seçili sayılır. */
+  function activeSource() {
+    const st = status();
+    if (!st) return null;
+    if (st.state === 'running') return st.source;
+    if (st.source === 'player' && (st.state === 'paused' || st.state === 'ended')) return 'player';
+    return null;
+  }
+
+  function badge() {
+    const src = running();
+    const silent = src && A().audio.silent();
+    if (!src) return h('span', { class: 'badge', text: 'Demo ses' });
+    if (silent) return h('span', { class: 'badge warn', text: 'Ses yok' });
+    return h('span', { class: 'badge ok', text: 'Dinleniyor' });
+  }
+
+  async function choose(id) {
+    error = '';
+    const S0 = A();
+    try {
+      if (id === 'player') {
+        const p = S0.player.state && S0.player.state();
+        if (p && p.has) await S0.player.play();
+        else await S0.player.pick();
+      } else {
+        if (activeSource() === 'player') await S0.player.pause().catch(() => {});
+        await S0.audio.start(id);
+      }
+    } catch (e) {
+      const code = String((e && e.message) || e);
+      error = ERRORS[code] || ('Başlatılamadı: ' + code);
+    }
+    paint();
+  }
+  async function stopAll() {
+    error = '';
+    const S0 = A();
+    if (activeSource() === 'player') await S0.player.stop().catch(() => {});
+    await S0.audio.stop().catch(() => {});
+    paint();
+  }
+
+  function sourceCard(s) {
+    const on = activeSource() === s.id;
+    return h('button', {
+      class: 'source' + (on ? ' on' : ''), role: 'radio', 'aria-checked': on ? 'true' : 'false', 'data-source': s.id,
+      onclick: () => choose(s.id),
+    }, [
+      h('div', { class: 'ic', 'aria-hidden': 'true' }, [icon(s.icon)]),
+      h('div', { class: 'row-text' }, [h('div', { class: 'row-title', text: s.title }), h('div', { class: 'row-sub', text: s.sub })]),
+      h('span', { class: 'radio' + (on ? ' on' : ''), 'aria-hidden': 'true' }),
+    ]);
+  }
+
+  /* Çalar açıkken: parça adı, oynat/duraklat, başka şarkı. */
+  function playerCard() {
+    const p = A().player.state ? A().player.state() : null;
+    if (!p || !p.has) return null;
+    const playing = !!p.playing;
+    const name = p.title || p.name || '';
+    return h('div', { class: 'card player-card' }, [
+      h('div', { class: 'ctl-row' }, [
+        h('div', { class: 'row-text' }, [
+          h('div', { class: 'row-title', text: name }),
+          p.artist ? h('div', { class: 'row-sub', text: p.artist }) : null,
+        ]),
+        h('button', { class: 'iconbtn plain', 'aria-label': playing ? 'Duraklat' : 'Oynat', onclick: () => (playing ? A().player.pause() : A().player.play()).then(paint, paint) }, [icon(playing ? 'pause' : 'play')]),
+        h('button', { class: 'iconbtn plain', 'aria-label': 'Başka şarkı', title: 'Başka şarkı', onclick: () => A().player.pick().then(paint, paint) }, [icon('folder-open')]),
+      ]),
+    ]);
+  }
+
+  function silenceBanner() {
+    const src = running();
+    if (!src || !A().audio.silent() || src === 'visualizer' || src === 'player') return null;
+    return h('div', { class: 'banner', role: 'status' }, [
+      icon('warning'),
+      h('div', { class: 'grow-text' }, [
+        h('b', { text: '3 saniyedir ses gelmiyor.' }), ' ',
+        h('span', { text: 'Çalan uygulama sesini paylaşmıyor olabilir.' }), ' ',
+        h('button', { class: 'link', onclick: () => choose('visualizer') }, [h('span', { text: 'Çıkış karışımına geç' })]),
+      ]),
+    ]);
+  }
+
+  function vjText(a) {
+    const n = a.interval;
+    if (a.unit === 'seconds') return en() ? 'Changes every ' + n + ' s' : 'Her ' + n + ' saniyede değişir';
+    return en() ? 'Changes every ' + n + (n === 1 ? ' bar' : ' bars') : 'Her ' + n + ' ölçüde değişir';
+  }
+
+  function tempoCard() {
+    const a = R() ? R().normalize(cfg().autovj) : { enabled: false, unit: 'bars', interval: 8, source: 'visualizers' };
+    const bpm = h('div', { class: 'bpm' });
+    const conf = h('div', { class: 'row-sub tempo-src' });
+    const tap = h('button', { class: 'tap', 'aria-label': 'Tempoya dokun', onclick: () => { if (VJ()) VJ().tap(); tap.classList.add('hit'); setTimeout(() => tap.classList.remove('hit'), 120); } }, ['TAP']);
+    const setVJ = (patch) => {
+      const c = cfg();
+      A().config.patch({ autovj: Object.assign({}, c.autovj, patch) });
+      if (VJ()) VJ().restart();
+    };
+    const toggle = h('button', { class: 'toggle', role: 'switch', 'aria-label': 'Otomatik VJ', 'aria-checked': a.enabled ? 'true' : 'false', onclick: () => setVJ({ enabled: !(cfg().autovj && cfg().autovj.enabled) }) });
+    const kids = [
+      h('div', { class: 'tempo-row' }, [
+        h('div', { class: 'grow-col' }, [conf, bpm]),
+        tap,
+      ]),
+      h('div', { class: 'divider flush' }),
+      h('div', { class: 'ctl-row' }, [
+        icon('dice'),
+        h('div', { class: 'row-text' }, [h('div', { class: 'row-title', text: 'Otomatik VJ' }), h('div', { class: 'row-sub', text: vjText(a) })]),
+        toggle,
+      ]),
+    ];
+    if (a.enabled) {
+      kids.push(U.select({ label: 'Değişen', options: VJ_SOURCES, value: a.source === 'custom' ? 'all' : a.source, onChange: (v) => setVJ({ source: v }) }));
+      kids.push(U.seg({ label: 'Aralık', options: [['4', '4'], ['8', '8'], ['16', '16'], ['32', '32']], value: String(a.unit === 'bars' ? a.interval : 8), onChange: (v) => setVJ({ unit: 'bars', interval: +v }) }));
+      kids.push(h('button', { class: 'btn', onclick: () => { const r = VJ() && VJ().switchNow(); paint(); return r; } }, [icon('next'), 'Şimdi Değiştir']));
+      const st = VJ() ? VJ().status() : null;
+      if (st && st.lastFailure) kids.push(h('div', { class: 'hint warn-text', text: st.lastFailure.code === 'EMPTY' || st.lastFailure.code === 'NONE' ? 'Bu kaynakta değiştirilecek bir şey yok.' : 'Otomatik VJ değiştiremedi.' }));
+      else if (st && st.lastResult) kids.push(h('div', { class: 'hint' }, [h('span', { text: 'Son değişim' }), ': ' + st.lastResult.label]));
+    }
+    refs.bpm = bpm;
+    refs.conf = conf;
+    refs.tap = tap;
+    return h('div', { class: 'card tempo-card' }, kids);
+  }
+
+  // ---- Canlı çizim: seviye, dB, BPM (yalnız sayfa açıkken) ----
+  const BANDS = 16;
+  let raf = 0;
+  function frame() {
+    raf = 0;
+    if (!refs || !refs.meter || !refs.meter.isConnected) return;
+    raf = requestAnimationFrame(frame);
+    const audio = VJ() && VJ().audio();
+    if (audio && audio.ready && audio.getBars) {
+      const bars = audio.getBars(BANDS, 30, 16000);
+      for (let i = 0; i < BANDS; i++) {
+        const v = Math.sqrt(Math.max(0, Math.min(1, bars[i] || 0)));
+        const hp = Math.round(4 + 96 * v) + '%';
+        if (refs.bars[i].style.height !== hp) refs.bars[i].style.height = hp;
+      }
+      const lvl = Math.max(1e-4, audio.level || 0);
+      const db = Math.max(-60, Math.round(20 * Math.log10(lvl)));
+      const txt = db <= -60 ? '−∞ dB' : (db < 0 ? '−' + Math.abs(db) : String(db)) + ' dB';
+      if (refs.db.textContent !== txt) refs.db.textContent = txt;
+    }
+    const t = VJ() ? VJ().tempo() : null;
+    if (t && refs.bpm) {
+      const b = t.bpm ? String(Math.round(t.bpm)) : '—';
+      if (refs.bpm.firstChild === null || refs.bpm.dataset.v !== b) {
+        refs.bpm.dataset.v = b;
+        refs.bpm.textContent = '';
+        refs.bpm.appendChild(document.createTextNode(b));
+        refs.bpm.appendChild(h('span', { class: 'unit', text: ' BPM' }));
+      }
+      const src = t.locked ? 'Tempo · elle' : 'Tempo · sesten';
+      if (refs.conf.dataset.v !== src) { refs.conf.dataset.v = src; refs.conf.textContent = src; }
+      refs.tap.classList.toggle('beat', t.energy > 0.35);
+    }
+  }
+
+  function render(body, ctx) {
+    refs = { bars: [] };
+    for (let i = 0; i < BANDS; i++) refs.bars.push(h('i'));
+    refs.db = h('span', { class: 'mono', text: '' });
+    refs.meter = h('div', { class: 'bigmeter', 'aria-hidden': 'true' }, refs.bars);
+    body.appendChild(h('div', { class: 'card level-card' }, [
+      h('div', { class: 'level-head' }, [h('span', { text: 'Seviye' }), refs.db]),
+      refs.meter,
+    ]));
+    body.appendChild(h('div', { class: 'section-label', text: 'Kaynak' }));
+    const group = h('div', { class: 'source-list', role: 'radiogroup', 'aria-label': 'Kaynak' }, SOURCES.map(sourceCard));
+    body.appendChild(group);
+    const pc = playerCard();
+    if (pc) body.appendChild(pc);
+    if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: error })]));
+    const sb = silenceBanner();
+    if (sb) body.appendChild(sb);
+    if (activeSource()) body.appendChild(h('button', { class: 'btn ghost', onclick: stopAll }, [icon('stop'), 'Demo sese dön']));
+    body.appendChild(tempoCard());
+    if (!raf) raf = requestAnimationFrame(frame);
+    refs.ctx = ctx;
+  }
+  /* Kaynak, sessizlik ya da çalar değişince sayfa yeniden çizilir (açıksa). */
+  function paint() {
+    if (refs && refs.ctx && refs.meter && refs.meter.isConnected) refs.ctx.refresh();
+  }
+
+  const page = {
+    size: 'screen',
+    title: 'Ses',
+    actions(slot) { slot.appendChild(badge()); },
+    render,
+    onConfig() { /* Otomatik VJ düğmesi kendi yamasıyla değişiyor; yeniden çizim sayfayı başa atmasın */ paint(); },
+  };
+  S.tab('audio', page);
+  if (A()) {
+    A().audio.onStatus(paint);
+    A().audio.onSilence(paint);
+    if (A().player.onState) A().player.onState(paint);
+  }
+  window.SVShellAudio = Object.freeze({ choose, stopAll });
+})();
