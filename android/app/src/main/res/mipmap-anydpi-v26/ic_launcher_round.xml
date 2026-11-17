@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Uygulama simgesi: masaüstündeki simgenin (build/icon.png) aynısı, lacivert zemin üstünde.
-     Ön katman PNG'leri android/tools/launcher-icon.py üretiyor. -->
+<!-- Uygulama simgesi: masaüstündeki simgenin (assets/icon.svg) vektör çizimi. Arka katman zemin,
+     ön katman ses çubukları; tek renkli (Android 13 temalı simge) aynı çubuklar. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <background android:drawable="@drawable/ic_launcher_bg" />
+    <foreground android:drawable="@drawable/ic_launcher_fg" />
+    <monochrome android:drawable="@drawable/ic_launcher_fg" />
 </adaptive-icon>

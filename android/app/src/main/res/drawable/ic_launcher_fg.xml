@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UYGULAMA SİMGESİ, ÖN KATMAN (ses çubukları ve beyaz çekirdek): masaüstünün simgesinden (assets/icon.svg) aynı çizim. Masaüstündeki
+     karo (64..960 px) launcher'ın gösterdiği ortadaki 72 dp'ye oturuyor, yani çubukların karoya
+     oranı masaüstündekiyle aynı; zemin 108 dp tuvalin tamamını kaplıyor (kenarda boşluk ya da
+     kesik köşe yok). Simge değişirse bu iki dosya assets/icon.svg'ye göre güncellenir. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.080357" android:scaleY="0.080357" android:translateX="12.857143" android:translateY="12.857143">
+        <path android:fillColor="#DC2727" android:pathData="M288,412h0 a36,36 0 0 1 36,36 v128 a36,36 0 0 1 -36,36 h-0 a36,36 0 0 1 -36,-36 v-128 a36,36 0 0 1 36,-36 z M400,342h0 a36,36 0 0 1 36,36 v268 a36,36 0 0 1 -36,36 h-0 a36,36 0 0 1 -36,-36 v-268 a36,36 0 0 1 36,-36 z M512,277h0 a36,36 0 0 1 36,36 v398 a36,36 0 0 1 -36,36 h-0 a36,36 0 0 1 -36,-36 v-398 a36,36 0 0 1 36,-36 z M624,342h0 a36,36 0 0 1 36,36 v268 a36,36 0 0 1 -36,36 h-0 a36,36 0 0 1 -36,-36 v-268 a36,36 0 0 1 36,-36 z M736,412h0 a36,36 0 0 1 36,36 v128 a36,36 0 0 1 -36,36 h-0 a36,36 0 0 1 -36,-36 v-128 a36,36 0 0 1 36,-36 z" />
+        <path android:fillColor="#EBFFFFFF" android:pathData="M502,486h20 a26,26 0 0 1 26,26 v0 a26,26 0 0 1 -26,26 h-20 a26,26 0 0 1 -26,-26 v-0 a26,26 0 0 1 26,-26 z" />
+    </group>
+</vector>
