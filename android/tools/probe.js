@@ -1463,7 +1463,10 @@ async function exportUiCmd() {
     await D.sleep(800);
     out.page = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
     await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose/.test(b.textContent)).click(); 1");
-    out.songPicked = await pickInDocumentsUi('sv-test-song.m4a');
+    // --song=sv-test-song.mp3: AAC olmayan şarkı (AudioPrep çevirir); varsayılan m4a
+    const songFile = arg('song') || 'sv-test-song.m4a';
+    out.songFile = songFile;
+    out.songPicked = await pickInDocumentsUi(songFile);
     await D.sleep(1500);
     out.song = await ev("(document.querySelector('#sv-shell .sheet-body .row-title') || {}).textContent || ''");
     shot('export-1-sheet');
@@ -1484,6 +1487,17 @@ async function exportUiCmd() {
     // Galeride mi
     const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration:width:height']);
     out.gallery = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
+    // Videoda ses izi var mı: galerideki dosya bilgisayara alınıp ffprobe ile bakılır
+    const mp4 = (/_display_name=([^,]+\.mp4)/.exec(out.gallery) || [])[1];
+    if (mp4) {
+      const local = path.join(require('node:os').tmpdir(), 'sv-export-check.mp4');
+      try {
+        D.adb(['pull', '/sdcard/Movies/SoundVisualizer/' + mp4, local], { timeout: 60000 });
+        const pr = require('node:child_process').execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,duration', '-of', 'json', local], { encoding: 'utf8' });
+        out.streams = JSON.parse(pr).streams.map((x) => x.codec_type + ':' + x.codec_name + ':' + Math.round(+x.duration || 0));
+      } catch (e) { out.streams = ['probe-failed: ' + String(e.message).split('\n')[0]]; }
+      fs.rmSync(local, { force: true });
+    }
     // Bitti → sahne
     await ev("Array.from(document.querySelectorAll('#sv-shell .export-card .btn')).find((b) => /Bitti|Done/.test(b.textContent)).click(); 1");
     let back = false;
@@ -1492,8 +1506,10 @@ async function exportUiCmd() {
     out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
   } finally { page.close(); }
   console.log(JSON.stringify(out, null, 1));
-  const ok = out.page && out.songPicked && /sv-test-song/.test(out.song) && out.export && !out.export.error && out.export.page === 'src/exporter/index.html'
-    && out.export.result && out.export.result.frames === 600 && /Movies\/SoundVisualizer/.test(out.gallery) && /width=1280/.test(out.gallery) && out.backToScene;
+  const ok = out.page && out.songPicked && out.song.indexOf(out.songFile.replace(/\.[^.]+$/, '')) >= 0 && out.export && !out.export.error && out.export.page === 'src/exporter/index.html'
+    && out.export.result && out.export.result.frames > 0 && out.export.result.frames === out.export.progress[1] && /Movies\/SoundVisualizer/.test(out.gallery) && /width=1280/.test(out.gallery) && out.backToScene
+    // Videoda AAC ses izi olmalı (şarkı MP3 olsa da)
+    && Array.isArray(out.streams) && out.streams.some((x) => /^audio:aac:/.test(x)) && out.streams.some((x) => /^video:/.test(x));
   if (!ok) process.exitCode = 1;
 }
 

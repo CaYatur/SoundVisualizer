@@ -32,6 +32,8 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
     private var job = 0
     private var started = 0L
     private var receivedBytes = 0L
+    // AAC olmayan şarkının çevrilmiş geçici hali (AudioPrep); iş bitince silinir
+    private var prepared: File? = null
 
     fun begin(args: JSONObject, done: (JSONObject?, String?) -> Unit) {
         worker.post {
@@ -41,16 +43,23 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
                 val h = args.getInt("height")
                 val fps = args.optInt("fps", 30)
                 val bitrate = args.optInt("bitrate", (w * h * fps * 0.15).toInt())
-                val audio = args.optString("audio").takeIf { it.isNotEmpty() }?.let { mediaFile(it) }
+                val song = args.optString("audio").takeIf { it.isNotEmpty() }?.let { mediaFile(it) }?.takeIf { it.exists() }
+                dropPrepared()
+                // MP4'e yalnız AAC girer: MP3/OGG/FLAC/WAV önce çevrilir (videonun süresi kadar, bir saniye payla)
+                val total = args.optInt("total", 0)
+                val maxSec = if (total > 0) total.toDouble() / fps else 0.0
+                val maxUs = if (maxSec > 0) ((maxSec + 1.0) * 1_000_000L).toLong() else Long.MAX_VALUE
+                val audio = song?.let { AudioPrep.aacFor(it, maxUs) }
+                if (audio != null && audio != song) prepared = audio
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
                 // Ad sayfadan geliyor: klasör dışına çıkamaz (ExportNames)
                 val out = File(dir, ExportNames.output(args.optString("name", ""), System.currentTimeMillis()))
-                val s = ExportSession(out, w, h, fps, bitrate, audio?.takeIf { it.exists() })
+                val s = ExportSession(out, w, h, fps, bitrate, audio)
                 session = s
                 job++
                 started = SystemClock.elapsedRealtime()
                 receivedBytes = 0
-                val r = JSONObject().put("job", job).put("codec", s.codecName).put("path", out.path)
+                val r = JSONObject().put("job", job).put("codec", s.codecName).put("path", out.path).put("audio", audio != null)
                 main.post { done(r, null) }
             } catch (e: Exception) {
                 Log.e(tag, "başlatılamadı", e)
@@ -93,6 +102,8 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
                 Log.e(tag, "bitirilemedi", e)
                 s.abort()
                 main.post { done(null, e.javaClass.simpleName + ": " + e.message) }
+            } finally {
+                dropPrepared()
             }
         }
     }
@@ -101,7 +112,13 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
         worker.post {
             session?.abort()
             session = null
+            dropPrepared()
         }
+    }
+
+    private fun dropPrepared() {
+        prepared?.let { if (it.exists() && !it.delete()) Log.w(tag, "çevrilen ses silinemedi") }
+        prepared = null
     }
 
     /* Uygulamanın medya klasöründeki dosya (sayfa da aynı dosyayı /files/ altından okuyor). */
