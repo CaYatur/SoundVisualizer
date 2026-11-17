@@ -69,6 +69,29 @@
     }, [h('span', { class: 'art-initial', text: String(tr(name || '?')).trim().charAt(0).toUpperCase() })]);
   }
 
+  /* ŞABLON VE MİLKDROP ÖNİZLEMELERİ: derlemeden önce çizilip APK'ya konuyor
+     (android/tools/previews.js, web/previews/). Dizin bir kez okunuyor; resmi olmayan
+     (kullanıcının eklediği) preset desenle kalıyor. */
+  let previews = null;
+  let previewsAsked = false;
+  function loadPreviews() {
+    if (previewsAsked) return;
+    previewsAsked = true;
+    fetch('../../previews/index.json').then((r) => (r.ok ? r.json() : null)).then((j) => {
+      previews = j && typeof j === 'object' ? j : { tpl: {}, md: {} };
+    }, () => { previews = { tpl: {}, md: {} }; });
+  }
+  // Sayfa açılırken okunur: Kitaplık ilk açıldığında hazır olsun
+  loadPreviews();
+  function previewSrc(kind, id) {
+    loadPreviews();
+    return previews && previews[kind] && previews[kind][id] ? '../../previews/' + kind + '/' + encodeURIComponent(id) + '.webp' : '';
+  }
+  function mdArt(p) {
+    const src = previewSrc('md', p.id);
+    return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : art(p.id, p.name);
+  }
+
   // ---- MilkDrop ----
   function mdList() {
     const p = P();
@@ -136,7 +159,7 @@
     const sel = p.id === cur;
     return h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
       h('button', { class: 'tile-main', 'aria-pressed': sel ? 'true' : 'false', 'aria-label': p.name, onclick: () => applyMd(p, ctx) }, [
-        art(p.id, p.name),
+        mdArt(p),
         h('div', { class: 'cap' }, [h('span', { text: p.name || p.id })]),
       ]),
       h('button', {
@@ -351,11 +374,13 @@
     }))));
     const grid = h('div', { class: 'grid2' });
     for (const t of T.TEMPLATES.filter((x) => x.group === tplGroup)) {
-      const key = tplThumb(t);
+      // Şablonun kendi önizlemesi; yoksa en üstteki görselleştiricinin mod resmi
+      const shot = previewSrc('tpl', t.id);
+      const key = shot ? '' : tplThumb(t);
       const sel = t.id === lastTemplate;
       grid.appendChild(h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
         h('button', { class: 'tile-main', 'aria-pressed': sel ? 'true' : 'false', 'aria-label': t.name, onclick: () => applyTemplate(t, ctx) }, [
-          key ? h('img', { src: '../../assets/mode-thumbs/' + key + '.webp', alt: '', loading: 'lazy', decoding: 'async' }) : art(t.id, t.name),
+          shot || key ? h('img', { src: shot || '../../assets/mode-thumbs/' + key + '.webp', alt: '', loading: 'lazy', decoding: 'async' }) : art(t.id, t.name),
           h('div', { class: 'cap' }, [h('span', { text: t.name })]),
         ]),
       ]));

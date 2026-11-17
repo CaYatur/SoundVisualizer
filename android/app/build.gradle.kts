@@ -90,6 +90,8 @@ val copyWebAssets = tasks.register<CopyWebAssets>("copyWebAssets") {
             // Paketleme ya da ölçümden kalan üretilmiş tek paketler (bundle-pages.js)
             exclude("**/*.gen.js", "**/*.gen.html", "**/.DS_Store")
         },
+        // Şablon ve MilkDrop önizlemeleri (android/tools/previews.js): APK'da web/previews/
+        fileTree(File(repoRoot, "android")) { include("previews/**") },
         // assets/mode-thumbs/index.json
         thumbIndex.flatMap { it.outputDir },
     )
