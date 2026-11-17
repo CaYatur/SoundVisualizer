@@ -1117,6 +1117,8 @@ async function pagesCmd() {
     await tapSel('#sv-shell .card.big.primary', 2000);
     const fs0 = await ev('window.SVAndroid.floating.state()');
     out.display.floating = { showing: fs0.showing, width: fs0.bounds && fs0.bounds[2] };
+    // Ekranı açık tut yüzen pencerede de (pencere bayrağı; kök görünümünkü pencereye geçmiyordu)
+    out.display.floating.hold = /mHoldScreenWindow=Window\{[^}]* u0 com\.cayadev\.visualizer\}/.test(D.adb(['shell', 'dumpsys', 'window']));
     await ev('window.SVAndroid.floating.close()');
     await D.sleep(1500);
     out.display.expectW = await ev("Math.round(Math.min(screen.width, screen.height) * devicePixelRatio * 0.85)");
@@ -1135,11 +1137,17 @@ async function pagesCmd() {
     const setAwake = (on) => ev(`(() => { const c = window.SVAndroid.config.get(); window.SVAndroid.config.patch({ power: Object.assign({}, c.power, { keepAwake: ${on} }) }); return 1; })()`);
     await setAwake(false);
     await D.sleep(800);
-    // Bilgi: kapalıyken ekranı tutan pencere (uzun akışta hâlâ MainActivity görülüyor; PR'da açık)
+    // Kapalıyken ekranı hiçbir pencere tutmamalı (Chromium WebView'in bayrağını açıyordu; WebShell süzüyor)
     out.settings.awake.off = !flag();
     out.settings.awake.hold = (/mHoldScreenWindow=[^\n]*/.exec(D.adb(['shell', 'dumpsys', 'window'])) || [''])[0].trim();
     out.settings.awake.activities = D.adb(['shell', 'dumpsys', 'activity', 'activities']).split(/\r?\n/).filter((l) => /ActivityRecord\{[^}]*MainActivity/.test(l) && /Hist|\* /.test(l)).map((l) => l.trim().slice(0, 90));
     out.settings.awake.toggle = await ev("(() => { const b = Array.from(document.querySelectorAll('#sv-shell [role=switch]')).find((x) => /Ekranı açık tut|Keep the screen on/.test(x.getAttribute('aria-label'))); return b && b.getAttribute('aria-checked'); })()");
+    // Uygulama arkaya alınıp yeniden açılınca da kapalı kalmalı (Chromium o an yeniden açıyordu)
+    D.adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+    await D.sleep(1200);
+    D.adb(['shell', 'am', 'start', '-n', D.PKG + '/.MainActivity']);
+    await D.sleep(2500);
+    out.settings.awake.offAfterResume = !flag();
     await setAwake(true);
     await D.sleep(800);
     out.settings.awake.on = flag();
@@ -1161,9 +1169,9 @@ async function pagesCmd() {
   const ok = out.audio.sources === 4 && out.audio.moving && clean(out.audio.check) && out.audio.mic.st && out.audio.mic.st.source === 'mic' && out.audio.mic.on === 'true'
     && out.audio.stopped !== 'running' && out.audio.bpm >= 60 && out.vj.enabled && out.vj.hud && out.vj.changed && out.vj.off
     && out.templates.applied && clean(out.templates.check) && out.library.tiles > 0 && clean(out.library.check) && out.library.pickedOk && out.library.fav && out.library.search >= 1 && out.library.saved && out.library.deleted && clean(out.library.scenesCheck)
-    && clean(out.display.check) && out.display.floating.showing && Math.abs(out.display.floating.width - out.display.expectW) <= 2
+    && clean(out.display.check) && out.display.floating.showing && out.display.floating.hold && Math.abs(out.display.floating.width - out.display.expectW) <= 2
     && out.settings.swatches === 8 && clean(out.settings.check) && out.settings.theme.cfg === 'light' && out.settings.theme.page === 'light'
-    && out.settings.fpsCap === 30 && out.settings.awake.before && out.settings.awake.toggle === 'false' && out.settings.awake.on && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
+    && out.settings.fpsCap === 30 && out.settings.awake.before && out.settings.awake.off && out.settings.awake.offAfterResume && out.settings.awake.toggle === 'false' && out.settings.awake.on && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
   if (!ok) process.exitCode = 1;
 }
 

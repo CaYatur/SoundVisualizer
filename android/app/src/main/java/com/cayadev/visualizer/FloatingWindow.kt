@@ -90,9 +90,24 @@ object FloatingWindow {
             EngineHost.attach(root!!)
         }
         apply(app, opacity, clickThrough)
+        keepAwake(EngineHost.keepAwake)
         // Kabuk yüzen pencerede gizlenir (sayfa aynı motor)
         EngineHost.bridge?.event("windowChrome", org.json.JSONObject().put("floating", true))
         return true
+    }
+
+    /** Ekranı açık tut (EngineHost.keepAwake) bu pencerede doğrudan pencere bayrağıyla. Kök
+        görünümün keepScreenOn'u pencereye geçmiyordu (ölçüldü: yüzen pencerenin fl= satırında
+        KEEP_SCREEN_ON yok, mHoldScreenWindow boş; apply()'ın updateViewLayout'u görünümden
+        gelen bayrağı eziyor). apply() bu bayrağa dokunmaz. */
+    fun keepAwake(on: Boolean) {
+        val r = root ?: return
+        val p = params ?: return
+        val f = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        val next = if (on) p.flags or f else p.flags and f.inv()
+        if (next == p.flags) return
+        p.flags = next
+        r.context.getSystemService(WindowManager::class.java).updateViewLayout(r, p)
     }
 
     fun apply(context: Context, opacity: Float, clickThrough: Boolean) {
