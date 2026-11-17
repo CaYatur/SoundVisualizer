@@ -451,6 +451,9 @@
     app: Object.freeze({ toBackground: () => request('appToBack') }),
     /* Sistemin resim içinde resmi; w:h görüntünün oranı (1:2,39 … 2,39:1 arası). */
     pip: (w, h) => request('pipEnter', { w: w || 16, h: h || 9 }),
+    /* Galeriden dosya: 'video' → { url, name, mime } (kopyalanmaz, akıtılır),
+       'image' → { dataUrl, name, width, height } (uzun kenar en çok 1024 px). */
+    media: Object.freeze({ pick: (kind) => request('mediaPick', { kind }) }),
     floating: Object.freeze({
       open: (o) => request('floatingOpen', o || {}),
       close: () => request('floatingClose'),

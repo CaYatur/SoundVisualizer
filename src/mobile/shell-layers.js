@@ -48,6 +48,10 @@
   }
   const KIND_ICONS = { media: 'video', sprites: 'sparkles', logo: 'image', nowplaying: 'music', input: 'monitor', web: 'globe' };
   function thumbOf(l, cls) {
+    const own = l.kind === 'sprites' ? ((l.settings && l.settings.images && l.settings.images.items) || [])[0]
+      : l.kind === 'logo' ? (l.settings && l.settings.logo) : null;
+    const src = own && typeof own.src === 'string' && own.src.indexOf('data:image/') === 0 ? own.src : '';
+    if (src) return h('img', { class: cls || 'thumb', src, alt: '', decoding: 'async' });
     const key = thumbKey(l.kind, l.type);
     if (key) return h('img', { class: cls || 'thumb', src: THUMB_DIR + key + '.webp', alt: '', loading: 'lazy', decoding: 'async' });
     const name = l.kind === 'visualizer' && l.type === 'text' ? 'text' : (KIND_ICONS[l.kind] || (l.kind === 'background' ? 'background' : 'bars'));
@@ -334,8 +338,9 @@
   function sourceControls(l, set, ctx) {
     const c = cfg();
     const def = defaults();
+    if (l.kind === 'media' || l.kind === 'sprites' || l.kind === 'logo') return [U.card(mediaControls(l, set, ctx, def))];
     if (l.kind !== 'visualizer' && l.kind !== 'background') {
-      return [h('div', { class: 'hint', text: 'Bu katman türünün ayrıntılı ayarları kitaplıkla birlikte gelecek (Faz 4). Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
+      return [h('div', { class: 'hint', text: 'Bu katman türünün ayarları masaüstündeki panelde. Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
     }
     const mode = U.select({
       label: 'Mod', options: MC().layerPairs(l.kind), value: l.type,
@@ -349,6 +354,71 @@
     });
     const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def) : backgroundControls(l, set, c, def);
     return [U.card([mode].concat(parts))];
+  }
+
+  /* Galeriden gelen katmanlar: dosya ve en çok kullanılan ayarlar (masaüstündeki adlarla). */
+  function filePick(kind, onFile) {
+    return A().media.pick(kind).then(onFile, (e) => {
+      const code = String((e && e.message) || e);
+      if (code !== 'cancelled') S.confirm(tr('Dosya açılamadı.') + ' (' + code + ')', 'Tamam');
+    });
+  }
+  function fileRow(label, name, preview, onChange) {
+    return U.row(label, [
+      preview || null,
+      h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: name || '—' })]),
+      h('button', { class: 'btn', onclick: onChange }, [h('span', { text: 'Değiştir' })]),
+    ]);
+  }
+  function mediaControls(l, set, ctx, def) {
+    const out = [];
+    if (l.kind === 'media') {
+      const m = Object.assign({}, def.media, l.settings && l.settings.media);
+      const setM = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, { [k]: v }); });
+      if ((m.source || 'webcam') !== 'file') out.push(h('div', { class: 'hint', text: 'Kamera ve ekran kaynağı telefonda yok; bir video seçin.' }));
+      out.push(fileRow('Video', m.source === 'file' ? m.fileName : '', null, () => filePick('video', (f) => {
+        set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, { enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' }); });
+        ctx.refresh();
+      })));
+      out.push(U.select({ label: 'Sığdırma', options: [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']], value: m.fit || 'cover', onChange: (v) => setM('fit', v) }));
+      out.push(U.slider({ label: 'Hız', min: 0.25, max: 2, step: 0.05, value: m.speed == null ? 1 : m.speed, format: (v) => U.num(v, 2) + '×', onInput: (v) => setM('speed', v) }));
+      out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, onChange: (v) => setM('loop', v) }));
+      out.push(U.toggle({ label: 'Aynala', value: !!m.mirror, onChange: (v) => setM('mirror', v) }));
+      return out;
+    }
+    if (l.kind === 'sprites') {
+      const items = (l.settings && l.settings.images && l.settings.images.items) || [];
+      const it = Object.assign({}, items[0] || {});
+      const setI = (k, v) => set((x) => {
+        x.settings = x.settings || {};
+        const imgs = Object.assign({ enabled: true }, x.settings.images);
+        const list = (imgs.items || []).slice();
+        list[0] = Object.assign({}, list[0], { [k]: v });
+        imgs.items = list;
+        x.settings.images = imgs;
+      });
+      out.push(fileRow('Görsel', it.name || '', it.src ? h('img', { class: 'thumb xs', src: it.src, alt: '' }) : null, () => filePick('image', (f) => {
+        setI('src', f.dataUrl);
+        setI('name', f.name || 'Görsel');
+        ctx.refresh();
+      })));
+      out.push(U.slider({ label: 'Sayı', min: 1, max: 60, step: 1, value: it.count == null ? 14 : it.count, onInput: (v) => setI('count', Math.round(v)) }));
+      out.push(U.slider({ label: 'Boyut', min: 0.02, max: 0.4, step: 0.01, percent: true, value: it.size == null ? 0.07 : it.size, onInput: (v) => setI('size', v) }));
+      out.push(U.select({ label: 'Hareket', options: LF().SPRITE_MOTIONS, value: it.motion || 'float', onChange: (v) => setI('motion', v) }));
+      out.push(U.seg({ label: 'Konum', options: [['front', 'Önde'], ['back', 'Arkada']], value: l.type === 'front' ? 'front' : 'back', onChange: (v) => set((x) => { x.type = v; }) }));
+      return out;
+    }
+    const lg = Object.assign({}, def.logo, l.settings && l.settings.logo);
+    const setL = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { [k]: v }); });
+    out.push(fileRow('Resim', '', lg.src && String(lg.src).indexOf('data:') === 0 ? h('img', { class: 'thumb xs', src: lg.src, alt: '' }) : null, () => filePick('image', (f) => {
+      set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { enabled: true, source: 'manual', src: f.dataUrl, libraryId: '' }); });
+      ctx.refresh();
+    })));
+    out.push(U.slider({ label: 'Boyut', min: 0.05, max: 0.9, step: 0.01, percent: true, value: lg.scale == null ? 0.22 : lg.scale, onInput: (v) => setL('scale', v) }));
+    out.push(U.slider({ label: 'Yatay Konum', min: 0, max: 1, step: 0.01, percent: true, value: lg.x == null ? 0.5 : lg.x, onInput: (v) => setL('x', v) }));
+    out.push(U.slider({ label: 'Dikey Konum', min: 0, max: 1, step: 0.01, percent: true, value: lg.y == null ? 0.5 : lg.y, onInput: (v) => setL('y', v) }));
+    out.push(U.slider({ label: 'Nabız', min: 0, max: 1, step: 0.01, percent: true, value: lg.pulse == null ? 0.3 : lg.pulse, onInput: (v) => setL('pulse', v) }));
+    return out;
   }
 
   function visualizerControls(l, set, c, def) {
@@ -520,6 +590,14 @@
             return LF().TEXT_ADD_PRESETS.map((p, i) => ({ what: { kind: 'text', preset: i }, label: p.label, l: { kind: 'visualizer', type: 'text' } }))
               .concat([{ what: { kind: 'nowplaying' }, label: 'Çalan Parça', l: { kind: 'nowplaying', type: 'nowplaying' } }]);
           }
+          if (addCat === 'media') {
+            // Galeriden seçilir; ekle düğmesi önce Android'in seçicisini açar
+            return [
+              { what: { media: 'video' }, label: 'Video', l: { kind: 'media' }, icon: 'video' },
+              { what: { media: 'image' }, label: 'Görsel Nesneler', l: { kind: 'sprites' }, icon: 'sparkles' },
+              { what: { media: 'logo' }, label: 'Logo', l: { kind: 'logo' }, icon: 'image' },
+            ];
+          }
           return [];
         };
         /* "Barlar katmanını ekle" / "Add Bars layer": sözcük sırası dile göre */
@@ -533,22 +611,18 @@
         };
         const paintGrid = () => {
           grid.textContent = '';
-          if (addCat === 'media') {
-            grid.appendChild(h('div', { class: 'empty span2', text: 'Video, resim ve logo katmanları telefonun kitaplığıyla birlikte gelecek (Faz 4). Masaüstünden aktarılan sahnelerdeki bu katmanlar burada da görünür.' }));
-            return;
-          }
           const q = fold(query);
           const list = items().filter((it) => !q || fold(tr(it.label)).indexOf(q) >= 0 || fold(it.label).indexOf(q) >= 0);
           if (!list.length) grid.appendChild(h('div', { class: 'empty span2', text: 'Sonuç yok.' }));
           for (const it of list) {
-            const sel = pick && pick.label === it.label && pick.what.kind === it.what.kind;
+            const sel = pick && pick.label === it.label && pick.what.kind === it.what.kind && pick.what.media === it.what.media;
             grid.appendChild(h('button', {
               class: 'tile' + (sel ? ' sel' : ''), 'aria-pressed': sel ? 'true' : 'false',
               onclick: () => { pick = it; paintGrid(); paintFoot(); },
               ondblclick: () => { pick = it; doAdd(); },
             }, [
               thumbKey(it.l.kind, it.l.type) ? h('img', { src: THUMB_DIR + thumbKey(it.l.kind, it.l.type) + '.webp', alt: '', loading: 'lazy', decoding: 'async' })
-                : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.l.type === 'text' ? 'text' : it.l.kind === 'nowplaying' ? 'music' : it.l.type === 'milkdrop' ? 'drop' : 'background')]),
+                : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.icon || (it.l.type === 'text' ? 'text' : it.l.kind === 'nowplaying' ? 'music' : it.l.type === 'milkdrop' ? 'drop' : 'background'))]),
               h('div', { class: 'cap' }, [h('span', { text: it.label })]),
             ]));
           }
@@ -576,8 +650,22 @@
             ]),
           ]));
         };
-        const doAdd = () => {
+        const doAdd = async () => {
           if (!pick) return;
+          if (pick.what.media) {
+            // Galeriden dosya; vazgeçilirse sayfa yerinde kalır
+            let file;
+            try { file = await A().media.pick(pick.what.media === 'video' ? 'video' : 'image'); } catch (e) {
+              const code = String((e && e.message) || e);
+              if (code !== 'cancelled') S.confirm(tr('Dosya açılamadı.') + ' (' + code + ')', 'Tamam');
+              return;
+            }
+            const made = LF().makeMedia(pick.what.media, file);
+            own(() => A().config.patch({ layers: layers().concat([made]) }));
+            ctx.pop();
+            ctx.push(editPage(made.id));
+            return;
+          }
           const next = layers().slice();
           const c = JSON.parse(JSON.stringify(cfg()));
           let made;

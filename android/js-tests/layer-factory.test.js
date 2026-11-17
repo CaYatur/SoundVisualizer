@@ -45,6 +45,7 @@ test('karışım, bant ve metin kalıpları panelinkilerle aynı', () => {
   assert.deepStrictEqual(F.BLEND_LABELS, panelConst('BLEND_LABELS'));
   assert.deepStrictEqual(F.BAND_LABELS, panelConst('BAND_LABELS'));
   assert.deepStrictEqual(F.TEXT_ADD_PRESETS, panelConst('TEXT_ADD_PRESETS'));
+  assert.deepStrictEqual(F.SPRITE_MOTIONS, panelConst('SPRITE_MOTIONS'));
   // Karışım listesi motorun kümesini ve 'add'i kapsıyor
   const ids = F.BLEND_LABELS.map(([v]) => v);
   for (const b of L.BLEND_MODES) assert.ok(ids.includes(b), b);
@@ -99,6 +100,17 @@ test('yeni katmanlar masaüstündeki gibi kuruluyor', () => {
   assert.strictEqual(txt.settings.text.source, 'static');
   assert.strictEqual(F.make({ kind: 'text', preset: 1 }, cfg).settings.text.lyricsFollow, false, 'telefonda sistem sözü izleme yok');
   assert.strictEqual(F.make({ kind: 'nowplaying' }, cfg).kind, 'nowplaying');
+  // Galeriden: video → medya (dosya kaynağı), görsel → görsel nesne, logo → elle seçilen resim
+  const v = F.makeMedia('video', { url: 'https://appassets.androidplatform.net/content/eA', name: 'klip.mp4' }, def);
+  assert.strictEqual(v.kind, 'media');
+  assert.deepStrictEqual([v.settings.media.enabled, v.settings.media.source, v.settings.media.file, v.settings.media.fileName], [true, 'file', 'https://appassets.androidplatform.net/content/eA', 'klip.mp4']);
+  assert.strictEqual(v.settings.media.fit, def.media.fit);
+  const im = F.makeMedia('image', { dataUrl: 'data:image/png;base64,AA', name: 'yıldız.png' }, def);
+  assert.strictEqual(im.kind, 'sprites');
+  assert.strictEqual(im.settings.images.items.length, 1);
+  assert.strictEqual(im.settings.images.items[0].src, 'data:image/png;base64,AA');
+  const lg = F.makeMedia('logo', { dataUrl: 'data:image/png;base64,AA' }, def);
+  assert.deepStrictEqual([lg.kind, lg.settings.logo.enabled, lg.settings.logo.source, lg.settings.logo.src], ['logo', true, 'manual', 'data:image/png;base64,AA']);
   // Kopya: yeni kimlik, solo kapalı, ad "(kopya)"
   const dup = F.duplicate(Object.assign({}, bars, { solo: true, name: 'Tayf' }));
   assert.notStrictEqual(dup.id, bars.id);

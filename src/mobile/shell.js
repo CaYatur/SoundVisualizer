@@ -288,6 +288,13 @@
     const list = scenes();
     const act = activeScene();
     refs.scenes.textContent = '';
+    // İlk kurulumda sahne yok: hazır şablonlara götüren kutu
+    if (!list.length && window.SVShellLibrary) {
+      refs.scenes.appendChild(h('button', { class: 'scene glass live start', onclick: () => window.SVShellLibrary.templates() }, [
+        h('div', { class: 'art', 'aria-hidden': 'true' }, [icon('sparkles')]),
+        h('div', { class: 'cap', text: 'Şablonlar' }),
+      ]));
+    }
     for (const sc of list) {
       const on = act && act.id === sc.id;
       refs.scenes.appendChild(h('button', {

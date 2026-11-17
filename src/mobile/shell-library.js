@@ -37,7 +37,8 @@
 
   const PAGE_SIZE = 60;
   const RECENT_KEY = 'sv-md-recent';
-  let section = 'milkdrop';
+  let section = 'templates';
+  let tplGroup = '';
   let filter = 'all';
   let query = '';
   let shown = PAGE_SIZE;
@@ -265,21 +266,77 @@
     ctx.refresh();
   }
 
-  const SECTIONS = [['milkdrop', 'MilkDrop'], ['shader', 'Shader'], ['scenes', 'Sahneler'], ['media', 'Medya']];
+  // ---- Şablonlar (src/shared/templates.js; masaüstünün hazır sahneleri) ----
+  /* Kutunun resmi: şablonun en üstteki görselleştiricisi, yoksa arkaplanı. */
+  function tplThumb(t) {
+    const L = window.SVShellLayers;
+    if (!L) return '';
+    const p = t.patch || {};
+    const list = Array.isArray(p.layers) ? p.layers : [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const l = list[i];
+      if (l && l.kind === 'visualizer' && l.type && l.type !== 'text') { const k = L.thumbKey('visualizer', l.type); if (k) return k; }
+    }
+    if (p.visualizer && p.visualizer.type) { const k = L.thumbKey('visualizer', p.visualizer.type); if (k) return k; }
+    for (let i = list.length - 1; i >= 0; i--) {
+      const l = list[i];
+      if (l && l.kind === 'background' && l.type) { const k = L.thumbKey('background', l.type); if (k) return k; }
+    }
+    return p.background && p.background.type ? L.thumbKey('background', p.background.type) : '';
+  }
+  let lastTemplate = '';
+  /* Panelin applyTemplate'i (src/admin/template-panel.js): şablon sahne anahtarlarını
+     değiştirir, kullanıcının kurulumu (ses, ekran, logo dosyası) korunur. */
+  function applyTemplate(t, ctx) {
+    const T = window.SVTemplates;
+    const SV = window.SV;
+    if (!T || !SV) return;
+    const next = T.apply(JSON.parse(JSON.stringify(cfg())), t, { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone });
+    if (next.layerStack && next.layerStack.enabled && window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(next);
+    next._activeSceneId = null;
+    A().config.set(next);
+    lastTemplate = t.id;
+    if (ctx) ctx.refresh();
+  }
+  function renderTemplates(body, ctx) {
+    const T = window.SVTemplates;
+    if (!T) { body.appendChild(h('div', { class: 'empty', text: 'Sonuç yok.' })); return; }
+    const groups = T.groups();
+    if (!tplGroup || groups.indexOf(tplGroup) < 0) tplGroup = groups[0];
+    body.appendChild(h('div', { class: 'hint', text: 'Bitmiş sahneler; dokununca uygulanır. Beğendiğinizi Sahneler bölümünden kaydedin.' }));
+    body.appendChild(h('div', { class: 'pills' }, groups.map((g) => h('button', {
+      class: 'pill' + (g === tplGroup ? ' on' : ''), 'aria-pressed': g === tplGroup ? 'true' : 'false', text: g,
+      onclick: () => { tplGroup = g; ctx.refresh(); },
+    }))));
+    const grid = h('div', { class: 'grid2' });
+    for (const t of T.TEMPLATES.filter((x) => x.group === tplGroup)) {
+      const key = tplThumb(t);
+      const sel = t.id === lastTemplate;
+      grid.appendChild(h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
+        h('button', { class: 'tile-main', 'aria-pressed': sel ? 'true' : 'false', 'aria-label': t.name, onclick: () => applyTemplate(t, ctx) }, [
+          key ? h('img', { src: '../../assets/mode-thumbs/' + key + '.webp', alt: '', loading: 'lazy', decoding: 'async' }) : art(t.id, t.name),
+          h('div', { class: 'cap' }, [h('span', { text: t.name })]),
+        ]),
+      ]));
+    }
+    body.appendChild(grid);
+  }
+
+  const SECTIONS = [['templates', 'Şablonlar'], ['milkdrop', 'MilkDrop'], ['shader', 'Shader'], ['scenes', 'Sahneler'], ['media', 'Medya']];
+  /* Taslakta tam ekran sayfaydı; preset ve şablon seçerken sonucu görmek için sahnenin
+     üstü açık kalan uzun sayfa (dokununca değişen görüntü hemen izlenir). */
   const page = {
-    size: 'screen',
+    size: 'tall',
     title: 'Kitaplık',
     actions(slot, ctx) {
       slot.appendChild(h('button', { class: 'btn', onclick: () => { if (window.SVShellSettings) window.SVShellSettings.startImport(ctx); } }, [icon('upload'), 'İçe aktar']));
     },
     render(body, ctx) {
-      const seg = h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Kitaplık' }, SECTIONS.map(([id, t]) => h('button', {
-        class: id === section ? 'on' : '', role: 'tab', 'aria-selected': id === section ? 'true' : 'false', text: t,
-        onclick: () => { section = id; query = ''; shown = PAGE_SIZE; ctx.refresh(); },
-      })));
-      body.appendChild(seg);
+      // Beş bölüm dar ekrana parçalı seçimle sığmıyordu ("Templa…"): kayan sekmeler
+      body.appendChild(window.SVShellUI.tabs(SECTIONS, section, (id) => { section = id; query = ''; shown = PAGE_SIZE; ctx.refresh(); }));
       if (window.SVShellSettings) { const st = window.SVShellSettings.importStatus(); if (st) body.appendChild(st); }
-      if (section === 'milkdrop') renderMilkdrop(body, ctx);
+      if (section === 'templates') renderTemplates(body, ctx);
+      else if (section === 'milkdrop') renderMilkdrop(body, ctx);
       else if (section === 'shader') renderShaders(body, ctx);
       else if (section === 'scenes') renderScenes(body, ctx);
       else body.appendChild(h('div', { class: 'empty', text: 'Videolar, resimler, logolar ve şarkı sözleri telefonun kitaplığıyla birlikte gelecek (Faz 4). Masaüstünden aktarılan sahnelerdeki bu dosyalar o zamana kadar eksik görünür.' }));
@@ -290,5 +347,7 @@
   window.SVShellLibrary = Object.freeze({
     /** Katman ayarlarından: seçilen preset bu katmana gitsin. */
     pickFor(layerId) { target = layerId ? { layerId } : null; section = 'milkdrop'; S.open('library'); },
+    /** Şablonlar bölümüyle aç (boş sahne şeridindeki kutu). */
+    templates() { section = 'templates'; S.open('library'); },
   });
 })();
