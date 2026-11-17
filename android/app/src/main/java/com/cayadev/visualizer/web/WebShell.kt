@@ -125,7 +125,12 @@ object WebShell {
         "web/src/mobile/silence.js",
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",
+        "web/src/shared/mode-catalog.js",
+        "web/src/shared/layer-factory.js",
+        "web/src/shared/text-fold.js",
         "web/src/mobile/shell.js",
+        "web/src/mobile/shell-controls.js",
+        "web/src/mobile/shell-layers.js",
     )
 
     private fun installHostScripts(context: Context, web: WebView, debug: Boolean, page: String) {

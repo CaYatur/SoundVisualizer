@@ -58,6 +58,8 @@
     text('--on-solid', '--lock', 'kilit bayrağı');
     text('--on-warn', '--warn', 'uyarı bandı düğmesi');
     text('--on-solo', '--solo', 'solo bayrağı');
+    // Ters renkli seçili sekme (mobil arayüz, src/mobile/shell.css)
+    text('--bg', '--text', 'seçili sekme (ters renk)');
     // Kod düzenleyicileri
     ['--code-fg', '--syn-kw', '--syn-type', '--syn-fn', '--syn-num', '--syn-com', '--syn-pre'].forEach((fg) => {
       text(fg, '--code-bg', 'kod ' + fg);

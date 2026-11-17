@@ -37,7 +37,43 @@ abstract class CopyWebAssets : DefaultTask() {
     }
 }
 
+/* MOD KÜÇÜK RESİMLERİNİN DİZİNİ (android/tools/thumb-index.js): resimlerin adı
+   içeriğe bağlı bir anahtar; eşleme masaüstünün kendi koduyla derlemede çıkarılıyor
+   (Node gerekir). Resimler eskiyse derleme durur. */
+abstract class ThumbIndex : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val script: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val exec: ExecOperations
+
+    @TaskAction
+    fun run() {
+        val out = outputDir.file("assets/mode-thumbs/index.json").get().asFile
+        exec.exec { commandLine("node", script.get().asFile.absolutePath, out.absolutePath) }
+    }
+}
+
 val repoRoot: File = rootProject.projectDir.parentFile
+
+val thumbIndex = tasks.register<ThumbIndex>("thumbIndex") {
+    sources.from(
+        fileTree(repoRoot) {
+            include("src/**", "scripts/gen-mode-thumbs.js", "assets/mode-thumbs/**")
+            exclude("**/*.gen.js", "**/*.gen.html", "**/.DS_Store")
+        },
+    )
+    script.set(File(repoRoot, "android/tools/thumb-index.js"))
+    outputDir.set(layout.buildDirectory.dir("generated/thumbIndex"))
+}
 
 val copyWebAssets = tasks.register<CopyWebAssets>("copyWebAssets") {
     webFiles.from(
@@ -54,6 +90,8 @@ val copyWebAssets = tasks.register<CopyWebAssets>("copyWebAssets") {
             // Paketleme ya da ölçümden kalan üretilmiş tek paketler (bundle-pages.js)
             exclude("**/*.gen.js", "**/*.gen.html", "**/.DS_Store")
         },
+        // assets/mode-thumbs/index.json
+        thumbIndex.flatMap { it.outputDir },
     )
     outputDir.set(layout.buildDirectory.dir("generated/webAssets"))
 }

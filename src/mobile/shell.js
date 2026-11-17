@@ -87,6 +87,28 @@
   }
 
   // ---- Sayfalar ----
+  /* Bir sekmenin içeriği bir sayfa YIĞINI: kök sayfa (ör. katman listesi) ve onun
+     üstüne açılanlar (katman ayarları, katman ekle). Geri tuşu önce üstteki sayfayı
+     kapatır. Sayfa: { title, render(body, ctx), actions?(slot, ctx), onConfig?(ctx) }.
+     onConfig: ayar başka yerden değişti (Otomatik VJ, sahne çağırma); sayfa
+     kendini yenileyip yenilemeyeceğine kendisi karar verir. */
+  let stack = [];
+  const ctx = {
+    get foot() { return refs.sheetParts ? refs.sheetParts.foot : null; },
+    close: () => closeSheet(),
+    push: (page) => { stack.push(page); showPage(); },
+    pop: () => { if (stack.length > 1) { stack.pop(); showPage(); } },
+    refresh: () => showPage(),
+    depth: () => stack.length,
+    get top() { return stack[stack.length - 1] || null; },
+  };
+  function pageOf(id) {
+    const tab = TABS.find((t) => t.id === id);
+    const r = renderers[id];
+    if (typeof r === 'function') return { title: tab.label, render: r };
+    if (r && typeof r === 'object') return Object.assign({ title: tab.label }, r);
+    return { title: tab.label, render: (body) => body.appendChild(h('div', { class: 'hint', text: 'Bu bölüm henüz hazır değil.' })) };
+  }
   function openTab(id) {
     state.tab = id;
     for (const b of refs.navButtons) {
@@ -96,22 +118,87 @@
     }
     if (id === 'scene') { closeSheet(); return; }
     const tab = TABS.find((t) => t.id === id);
+    const backBtn = h('button', { class: 'iconbtn plain', 'aria-label': 'Geri', title: 'Geri', onclick: () => ctx.pop() }, [icon('chevron-left')]);
+    const lead = h('div', { class: 'sheet-lead' });
+    const title = h('h2');
+    const sub = h('div', { class: 'sheet-sub' });
+    const actions = h('div', { class: 'sheet-actions' });
     const body = h('div', { class: 'sheet-body' });
+    const foot = h('div', { class: 'sheet-foot' });
     const sheet = h('section', { class: 'sheet live', 'aria-label': tab.label }, [
       h('div', { class: 'grabber' }),
-      h('div', { class: 'sheet-head' }, [h('h2', { text: tab.label })]),
+      h('div', { class: 'sheet-head' }, [backBtn, lead, h('div', { class: 'sheet-titles' }, [title, sub]), actions]),
       body,
+      foot,
     ]);
     if (refs.sheet) refs.sheet.remove();
     refs.sheet = sheet;
+    refs.sheetParts = { backBtn, lead, title, sub, actions, body, foot };
     root.insertBefore(sheet, refs.nav);
-    if (renderers[id]) renderers[id](body, { close: closeSheet });
-    else body.appendChild(h('div', { class: 'hint', text: 'Bu bölüm henüz hazır değil.' }));
+    stack = [pageOf(id)];
+    showPage();
     root.classList.add('has-sheet');
   }
+  function showPage() {
+    const p = refs.sheetParts;
+    const page = stack[stack.length - 1];
+    if (!p || !page) return;
+    const keep = page === shown ? p.body.scrollTop : 0;
+    shown = page;
+    // Sayfa boyu (taslak 2/3/4): liste alttan üçte iki, ayarlar daha uzun, ekleme tam boy
+    refs.sheet.dataset.size = page.size || 'normal';
+    root.classList.toggle('sheet-full', page.size === 'full' || page.size === 'screen');
+    p.backBtn.hidden = stack.length < 2;
+    p.title.textContent = typeof page.title === 'function' ? page.title() : page.title;
+    const sub = page.subtitle ? (typeof page.subtitle === 'function' ? page.subtitle() : page.subtitle) : '';
+    p.sub.textContent = sub || '';
+    p.sub.hidden = !sub;
+    for (const k of ['lead', 'actions', 'body', 'foot']) p[k].textContent = '';
+    if (page.lead) page.lead(p.lead, ctx);
+    p.lead.hidden = !p.lead.firstChild;
+    if (page.actions) page.actions(p.actions, ctx);
+    page.render(p.body, ctx);
+    p.foot.hidden = !p.foot.firstChild;
+    // Aynı sayfa yeniden çizildiyse kaydırma yeri korunur (düğmeye basınca başa atlamasın)
+    p.body.scrollTop = keep;
+  }
+  let shown = null;
+
+  /* Onay penceresi. WebView'in yerel confirm'ü sayfayı (motoru da) bekletiyordu;
+     bu, kabuğun içinde. Promise<boolean>. */
+  function confirmBox(text, okText, danger) {
+    return new Promise((resolve) => {
+      const cancel = () => done(false);
+      const done = (v) => {
+        const i = dialogs.indexOf(cancel);
+        if (i >= 0) dialogs.splice(i, 1);
+        box.remove();
+        resolve(v);
+      };
+      const ok = h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), text: okText || 'Tamam', onclick: () => done(true) });
+      const box = h('div', { class: 'dialog-scrim live', role: 'presentation', onclick: (e) => { if (e.target === box) done(false); } }, [
+        h('div', { class: 'dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': text }, [
+          h('div', { class: 'dialog-text', text }),
+          h('div', { class: 'btn-row' }, [h('button', { class: 'btn ghost', text: 'Vazgeç', onclick: () => done(false) }), ok]),
+        ]),
+      ]);
+      dialogs.push(cancel);
+      root.appendChild(box);
+      ok.focus();
+    });
+  }
+  const dialogs = [];
+  function closeDialog() {
+    const open = root && root.querySelector('.dialog-scrim');
+    if (!open) return false;
+    const f = dialogs.pop();
+    if (f) f(); else open.remove();
+    return true;
+  }
   function closeSheet() {
-    if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; }
-    if (root) root.classList.remove('has-sheet');
+    if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; refs.sheetParts = null; }
+    stack = [];
+    if (root) root.classList.remove('has-sheet', 'sheet-full');
     if (refs.navButtons && state.tab !== 'scene') {
       state.tab = 'scene';
       for (const b of refs.navButtons) b.classList.toggle('on', b.dataset.tab === 'scene');
@@ -120,6 +207,8 @@
 
   /* Geri tuşu: true dönerse kabuk karşıladı. */
   function back() {
+    if (closeDialog()) return true;
+    if (refs.sheet && stack.length > 1) { ctx.pop(); return true; }
     if (refs.sheet) { closeSheet(); return true; }
     if (state.fullscreen) { setFullscreen(false); return true; }
     return false;
@@ -152,6 +241,11 @@
     next._activeSceneId = sc.id;
     A().config.set(next);
   }
+  /* "3 katman" / "3 layers": sayı metnin içinde, sözlük çeviremez; dil burada seçilir. */
+  function countLabel(n) {
+    const en = !!(window.SVI18n && window.SVI18n.locale === 'en');
+    return en ? n + (n === 1 ? ' layer' : ' layers') : n + ' katman';
+  }
   function initials(name) {
     const w = String(name || '?').trim().split(/\s+/).filter(Boolean);
     return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase();
@@ -165,12 +259,12 @@
       refs.scenes.appendChild(h('button', {
         class: 'scene glass live' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false',
         onclick: () => recallScene(sc),
-      }, [h('div', { class: 'tile', 'aria-hidden': 'true', text: initials(sc.name) }), h('div', { class: 'cap', text: sc.name || '' })]));
+      }, [h('div', { class: 'art', 'aria-hidden': 'true', text: initials(sc.name) }), h('div', { class: 'cap', text: sc.name || '' })]));
     }
     const c = cfg();
     refs.sceneTitle.textContent = act ? act.name : 'Sahne';
     const n = c && Array.isArray(c.layers) ? c.layers.filter((l) => l && l.enabled !== false).length : 0;
-    refs.sceneSub.textContent = 'Katman · ' + n;
+    refs.sceneSub.textContent = countLabel(n);
     const vj = !!(c && c.autovj && c.autovj.enabled);
     refs.vj.classList.toggle('on', vj);
     refs.vj.setAttribute('aria-pressed', vj ? 'true' : 'false');
@@ -252,8 +346,13 @@
     S.onLowPower((on) => root.classList.toggle('flat', !!on));
     S.audio.onStatus(renderSource);
     S.onMeter((m) => renderMeter(m && m.level));
-    window.api.onConfig(() => { applyTheme(); renderScenes(); });
-    window.api.onConfigPatch(() => { applyTheme(); renderScenes(); });
+    const changed = () => {
+      applyTheme(); renderScenes();
+      const top = ctx.top;
+      if (top && top.onConfig) top.onConfig(ctx);
+    };
+    window.api.onConfig(changed);
+    window.api.onConfigPatch(changed);
     // Tam ekrandayken sahneye dokunmak arayüzü geri getirir
     document.addEventListener('pointerup', () => { if (state.fullscreen) setFullscreen(false); }, true);
     S.config.ready().then(() => {
@@ -264,12 +363,18 @@
   }
 
   window.SVShell = Object.freeze({
-    /** Bir sekmenin içeriğini çizen işlev: render(body, { close }). */
-    tab(id, render) { renderers[id] = render; if (state.tab === id && root) openTab(id); },
+    /** Bir sekmenin kök sayfası: render(body, ctx) işlevi ya da { title, render, actions, onConfig }. */
+    tab(id, page) { renderers[id] = page; if (state.tab === id && refs.sheet) openTab(id); },
     open: (id) => openTab(id),
     close: closeSheet,
     back,
-    state: () => Object.assign({}, state, { sheet: !!refs.sheet }),
+    state: () => Object.assign({}, state, { sheet: !!refs.sheet, depth: stack.length }),
+    /** Ortak yardımcılar: sekme dosyaları aynı DOM ve simge yolunu kullansın. */
+    h,
+    icon,
+    A,
+    confirm: confirmBox,
+    countLabel,
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

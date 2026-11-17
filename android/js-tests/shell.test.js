@@ -67,22 +67,38 @@ test('dokunma hedefleri en az 48 dp (PLAN 3.7)', () => {
   assert.ok(/\.iconbtn \{[^}]*flex: none/.test(css), 'üst bilgide sıkışınca ikon düğmeleri küçülmesin');
 });
 
+/* Arayüz metinleri: dosyadaki tırnaklı Türkçe dizgiler (yorum satırları dışında).
+   Eşleşme sırayla ilerliyor; tek harflik dizgiler ('b') sırayı kaydırmasın diye
+   önce bütün dizgiler alınıyor, sonra süzülüyor. */
+function uiStrings(text) {
+  const src = text.split('\n').filter((l) => !/^\s*(\/\/|\/\*|\*)/.test(l)).join('\n');
+  const out = new Set();
+  for (const m of src.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) {
+    const t = m[1];
+    if (t.length < 2 || /^(web|src|\.\.|#|--|data-|aria-|ly_|md_|svi|sv-)/.test(t) || /^[A-Z_]+$/.test(t)) continue;
+    if (!/^[A-ZÇĞİÖŞÜ]/.test(t) && !/[çğıöşüÇĞİÖŞÜ]/.test(t)) continue;
+    out.add(t);
+  }
+  return out;
+}
+// Arayüz metni olmayan dizgiler (iç adlar, hata iletileri, birleşik metnin parçaları)
+const NOT_UI = new Set(['DOMContentLoaded', 'SVLayers yok', 'Add ', ' katmanını ekle', 'Ekran\\u200B']);
+
 test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {
   const i18n = read('src/shared/i18n.js');
   const strings = new Set();
-  for (const m of js.matchAll(/label: '([^']+)'/g)) strings.add(m[1]);
-  for (const m of js.matchAll(/(?:text|'aria-label'|title): '([^']+)'/g)) strings.add(m[1]);
-  for (const m of js.matchAll(/(?:capture|mic|visualizer|player): '([^']+)'/g)) strings.add(m[1]);
-  for (const s of ['Otomatik VJ', 'Demo ses', 'Katman']) strings.add(s);
-  assert.ok(strings.size >= 12, 'metinler okunamadı: ' + [...strings].join(', '));
+  for (const f of ['src/mobile/shell.js', 'src/mobile/shell-controls.js', 'src/mobile/shell-layers.js', 'src/shared/layer-factory.js']) {
+    for (const s of uiStrings(read(f))) if (!NOT_UI.has(s)) strings.add(s);
+  }
+  for (const s of ['Otomatik VJ', 'Demo ses', 'Sistem sesi', 'Katmanlar', 'Sahne sınıra yakın:']) assert.ok(strings.has(s), 'okunamadı: ' + s);
   const missing = [...strings].filter((s) => !i18n.includes("'" + s + "':"));
   assert.deepStrictEqual(missing, []);
 });
 
 test('kabuk uygulamada sunucudan ve temalardan sonra yükleniyor, yalnız görselleştirici sayfasında kuruluyor', () => {
   const kt = read('android/app/src/main/java/com/cayadev/visualizer/web/WebShell.kt');
-  const order = ['android-host.js', 'ui-themes.js', 'shell.js'].map((f) => kt.indexOf(f));
-  assert.ok(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], 'sıra: ' + order);
+  const order = ['android-host.js', 'ui-themes.js', 'mode-catalog.js', 'layer-factory.js', 'text-fold.js', 'mobile/shell.js', 'shell-controls.js', 'shell-layers.js'].map((f) => kt.indexOf(f));
+  assert.ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), 'sıra: ' + order);
   assert.ok(js.includes("indexOf('src/visualizer/') !== 0) return;"));
   // Yazı tipi APK'ya kopyalanıyor (shell.css ../admin/fonts'u istiyor)
   assert.ok(read('android/app/build.gradle.kts').includes('"src/admin/fonts/**"'));
