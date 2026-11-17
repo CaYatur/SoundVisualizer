@@ -304,7 +304,12 @@
     }
     const c = cfg();
     refs.sceneTitle.textContent = act ? act.name : 'Sahne';
-    const n = c && Array.isArray(c.layers) ? c.layers.filter((l) => l && l.enabled !== false).length : 0;
+    /* Yeni kurulumda liste ayarda yok, motor eski alanlardan sentezliyor (layers.js resolve):
+       sayı çizilen listeden; yoksa "0 katman" yazıyordu. */
+    const stackOn = !!(c && c.layerStack && c.layerStack.enabled);
+    const drawn = c && Array.isArray(c.layers) && (c.layers.length || stackOn) ? c.layers
+      : (c && window.SVLayers && window.SVLayers.synthesize ? window.SVLayers.synthesize(c) : []);
+    const n = drawn.filter((l) => l && l.enabled !== false).length;
     /* "5 katman · MilkDrop: Aurora" (taslak 1): çizilen ortak MilkDrop presetinin adı */
     refs.sceneSub.textContent = '';
     refs.sceneSub.appendChild(document.createTextNode(countLabel(n)));

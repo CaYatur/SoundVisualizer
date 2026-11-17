@@ -261,6 +261,15 @@
         this.saver = P.createSaver({ write: (files) => request('storeWrite', { files }), seed: r.broken ? null : texts });
         this.state.loaded = true;
         if (r.cfg && !config) config = r.cfg;
+        /* İlk açılış (dosya yok) ya da okunamayan dosya: masaüstündeki yeni kurulum gibi
+           varsayılanlar ve katman yığını (admin.js effectiveDefaults). Yoksa sayfanın ayarı
+           boş kalıyordu: motor kendi varsayılanıyla çiziyor, arayüz "0 katman" gösteriyor ve
+           ilk düzenleme motora eksik bir ayar gönderebiliyordu. İlk değişiklikte yazılır. */
+        if (!config && window.SV && typeof window.SV.defaultConfig === 'function') {
+          config = window.SV.defaultConfig();
+          if (window.SVLayers && typeof window.SVLayers.ensureStack === 'function') window.SVLayers.ensureStack(config);
+          this.state.fresh = true;
+        }
         syncAwake();
         return config;
       }, (e) => {
