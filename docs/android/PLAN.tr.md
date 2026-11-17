@@ -148,7 +148,10 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   `tests/ui-themes.test.js`'in parçası. Katmanlar (3.3, #1076): liste, katmanın efekt zinciriyle ayarlar, derlemede
   çıkarılan mod küçük resimleriyle katman ekleme. Ses (3.5), Kitaplık, Görüntüleme (3.4) ve Ayarlar (3.6): bütün
   sekmeler çalışıyor; Otomatik VJ ve tempo telefonda (`src/mobile/autovj.js`: masaüstünün kuralları ve tempo motoru,
-  motorun kendi ses nesnesiyle).
+  motorun kendi ses nesnesiyle). Seçim kutuları ve renk kutuları kabuğun kendi seçicilerini açıyor (yerel `<select>` ve
+  renk penceresi uygulama bağlamlı WebView'de açılamıyor). Sahne ayarları (Katmanlar → sahne satırı ya da sahne
+  kartının başlığı): ad, güncelle, yeni sahne olarak kaydet, renk teması, geçiş, ana efektler, sıfırla; masaüstündeki
+  gibi ayar başına "varsayılana döndür" düğmesi.
 - **Faz 4 durumu (17.11.2026):** MilkDrop tarayıcısı, arama, favoriler, dokular ve Studio shader'ları Kitaplık
   sekmesinde. Şablonlar (masaüstünün 83 hazır sahnesi) Kitaplığın ilk bölümü ve boş sahne şeridinin ilk kutusu. Galeri
   katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Telefonda seçilen `.milk` ve `.milk2`
@@ -156,11 +159,13 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   tekrar sayılır; `store/MilkImport.kt`); dokular yine masaüstü yedeğiyle geliyor. Kamera katmanı: Katman Ekle → Medya →
   Kamera ya da medya katmanının ayarlarında Kaynak; Android izni ilk açılışta soruyor, reddedilince motorun iletisi ve
   Yeniden Dene çıkıyor, "Sıradaki" telefonun kameraları arasında geziyor. Kamera uygulama öndeyken çalışıyor (kamera ön
-  plan servisi henüz yok, yüzen pencerede değil). Açık kalanlar: şarkı sözü dosyaları ve masaüstü yedeğindeki logo/video
-  kitaplığı.
+  plan servisi henüz yok, yüzen pencerede değil). Şablon ve yerleşik MilkDrop önizlemeleri derlemeden önce çiziliyor
+  (`android/tools/gen-previews.js`, `android/previews/`); kayıtlı sahnelerde sahnenin kendi karesi. Açık kalanlar: şarkı
+  sözü dosyaları, masaüstü yedeğindeki logo/video kitaplığı, kullanıcının eklediği presetlerin önizlemesi.
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
   dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
-  görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. Dokunmatik zaman çizelgesi düzenleyicisi başlamadı.
+  görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. AAC olmayan şarkılar (MP3, OGG, FLAC, WAV)
+  MP4 için AAC'ye çevriliyor (`export/AudioPrep.kt`). Dokunmatik zaman çizelgesi düzenleyicisi başlamadı.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

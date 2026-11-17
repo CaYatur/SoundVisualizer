@@ -135,7 +135,10 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   `tests/ui-themes.test.js`. Layers tab (3.3, #1076): list, settings with the layer's effect chain, add layer with
   build-time mode thumbnails. Audio (3.5), Library, Display (3.4) and Settings (3.6): all tabs work; Auto VJ and
   the tempo tracker run on the phone (`src/mobile/autovj.js`, the desktop's rules and tempo engine fed by the
-  engine's own audio object).
+  engine's own audio object). Drop-downs and color swatches open in-shell pickers (the native `<select>` and color
+  popups cannot open in the application-context WebView). Scene settings (Layers → scene row, or the scene card
+  title): rename, update, save as new, color theme, transition, main effects, reset; per-setting "reset to default"
+  buttons as on the desktop.
 - **Phase 4 status (17.11.2026):** MilkDrop browser, search, favourites, textures and Studio shaders are in the Library
   tab. Templates (the desktop's 83 ready scenes) are the Library's first section and the empty scene strip's first tile.
   Gallery layers: video (streamed from the picked file, not copied), image sprites and logo. `.milk` and `.milk2` files
@@ -143,11 +146,13 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   content is a duplicate; `store/MilkImport.kt`); textures still come with a desktop backup. Camera layer: Add Layer →
   Media → Camera, or Source in a media layer's settings; Android asks for the permission the first time, a denial shows
   the engine's message with Retry, "Next" cycles the phone's cameras. The camera works while the app is in front (no
-  camera foreground service yet, so not in the floating window). Still open: lyrics files and the logo/video library
-  from desktop backups.
+  camera foreground service yet, so not in the floating window). Template and built-in MilkDrop previews are drawn
+  before the build (`android/tools/gen-previews.js`, `android/previews/`); saved scenes show a frame of the scene
+  itself. Still open: lyrics files, the logo/video library from desktop backups, previews of user-added presets.
 - **Phase 5 status (17.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
   landscape or portrait, 720p or 1080p, 30 or 60 fps; the one WebView switches to the export page (frames shown as a
-  preview, progress, cancel), the MP4 goes to the gallery and can be shared. The touch timeline editor is not started.
+  preview, progress, cancel), the MP4 goes to the gallery and can be shared. Songs that are not AAC (MP3, OGG, FLAC,
+  WAV) are converted to AAC for the MP4 (`export/AudioPrep.kt`). The touch timeline editor is not started.
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.
