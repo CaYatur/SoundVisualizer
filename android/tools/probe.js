@@ -1742,7 +1742,49 @@ async function lyricsCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+/* YÜZEN PENCEREDE KAMERA (media/CameraService.kt). Kamera katmanı açıkken yüzen pencere
+   açılır; uygulama arkadayken kamera yeniden açılır (retry damgası). Kamera ön plan hizmeti
+   çalışmalı ve kamera kare vermeli (zaman ilerlemeli). Ölçüldü: hizmet olmadan yeniden
+   açılan kamera hiç kare vermiyor (zaman 0'da kalıyor). Pencere kapanınca hizmet durmalı. */
+async function floatCamCmd() {
+  D.adb(['shell', 'pm', 'grant', D.PKG, 'android.permission.CAMERA']);
+  D.adb(['shell', 'appops', 'set', D.PKG, 'SYSTEM_ALERT_WINDOW', 'allow']);
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  let layers0 = '[]';
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(800);
+    layers0 = await ev('JSON.stringify(window.SVAndroid.config.get().layers || [])');
+    await ev("(() => { const c = window.SVAndroid.config.get(); const made = window.SVLayerFactory.makeMedia('camera', {}, window.SV.defaultConfig()); made.id = 'ly_camprobe'; window.SVAndroid.config.patch({ layers: (c.layers || []).concat([made]) }); return 1; })()");
+    const cam = "(() => { const st = window.SVStage.stack(); const pool = st && st._mediaPool ? [...st._mediaPool.values()] : []; const m = pool.find((x) => x._source === 'webcam'); return m ? { ready: !!m.ready, w: m.video ? m.video.videoWidth : 0, t: m.video ? m.video.currentTime : 0, err: m.error || '' } : null; })()";
+    for (let i = 0; i < 30; i++) { await D.sleep(500); out.before = await ev(cam); if (out.before && (out.before.ready || out.before.err)) break; }
+    out.open = await ev("window.SVAndroid.floating.open().then(() => 'ok', (e) => e.message)");
+    await D.sleep(3000);
+    out.service = /CameraService/.test(D.adb(['shell', 'dumpsys', 'activity', 'services', D.PKG]));
+    // Uygulama arkadayken kamera yeniden açılır
+    await ev("(() => { const c = window.SVAndroid.config.get(); const l = (c.layers || []).map((x) => x.id === 'ly_camprobe' ? Object.assign({}, x, { settings: Object.assign({}, x.settings, { media: Object.assign({}, x.settings.media, { retry: Date.now() }) }) }) : x); window.SVAndroid.config.patch({ layers: l }); return 1; })()");
+    await D.sleep(5000);
+    const a = await ev(cam);
+    await D.sleep(2000);
+    const b = await ev(cam);
+    out.reopened = { w: a && a.w, advanced: !!(a && b && b.t > a.t + 1) };
+    await ev('window.SVAndroid.floating.close()');
+    await D.sleep(2500);
+    out.serviceAfter = /CameraService/.test(D.adb(['shell', 'dumpsys', 'activity', 'services', D.PKG]));
+    out.logs = page.logs.filter((l) => /exception/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVAndroid.config.patch({ layers: ' + layers0 + ' }); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.before && out.before.ready && out.open === 'ok' && out.service && out.reopened.w > 0 && out.reopened.advanced && !out.serviceAfter && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { floatcam: floatCamCmd,lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

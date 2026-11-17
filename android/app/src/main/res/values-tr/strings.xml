@@ -8,4 +8,6 @@
     <string name="webview_update_reopen">Uygulamayı yeniden aç</string>
     <string name="audio_channel">Ses girişi</string>
     <string name="audio_running">Görselleştirici için ses dinleniyor</string>
+    <string name="camera_channel">Kamera</string>
+    <string name="camera_running">Görselleştirici kamerayı kullanıyor</string>
 </resources>
