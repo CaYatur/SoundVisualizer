@@ -364,7 +364,12 @@
     const sceneTitle = h('div', { class: 'title' });
     const sceneSub = h('div', { class: 'sub' });
     const vj = h('button', { class: 'pill', onclick: toggleVj }, [icon('dice'), 'Otomatik VJ']);
-    const sceneCard = h('div', { class: 'scene-card glass live' }, [h('div', { class: 'grow' }, [sceneTitle, sceneSub]), vj]);
+    // Dışa aktar (taslak 1): şu anki sahne bir şarkıyla videoya (src/mobile/shell-export.js)
+    const exportBtn = h('button', {
+      class: 'iconbtn plain', 'aria-label': 'Dışa Aktar', title: 'Dışa Aktar',
+      onclick: () => { if (window.SVShellExport) openSheetWith(window.SVShellExport.page()); },
+    }, [icon('export')]);
+    const sceneCard = h('div', { class: 'scene-card glass live' }, [h('div', { class: 'grow' }, [sceneTitle, sceneSub]), vj, exportBtn]);
     const scenesStrip = h('div', { class: 'scenes live', role: 'group', 'aria-label': 'Sahneler' });
     const navButtons = TABS.map((t) => h('button', {
       'data-tab': t.id, class: t.id === state.tab ? 'on' : '', onclick: () => (state.tab === t.id && t.id !== 'scene' ? closeSheet() : openTab(t.id)),

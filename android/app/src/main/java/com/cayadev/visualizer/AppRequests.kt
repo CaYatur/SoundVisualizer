@@ -17,6 +17,7 @@ import androidx.core.net.toUri
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
+import com.cayadev.visualizer.export.ExportFlow
 import com.cayadev.visualizer.export.ExportHub
 import com.cayadev.visualizer.player.PlayerHub
 import com.cayadev.visualizer.player.PlayerService
@@ -98,8 +99,30 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "mediaPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 val kind = args.optString("kind")
-                if (kind != "video" && kind != "image") { reply.fail("bad-kind"); return }
+                if (kind != "video" && kind != "image" && kind != "audio") { reply.fail("bad-kind"); return }
                 live.pickMedia(kind, reply)
+            }
+            /* Dışa aktarma ekranı (export/ExportFlow.kt): iş bırakılır, motor dışa aktarım
+               sayfasına geçer; o sayfa işi alır, bitince galeriye kaydeder ve sahneye döner. */
+            "exportOpen" -> try {
+                reply.ok(ExportFlow.open(app, args))
+            } catch (e: Exception) {
+                reply.fail("export-open", e.message ?: e.javaClass.simpleName)
+            }
+            "exportJob" -> reply.ok(ExportFlow.job() ?: JSONObject.NULL)
+            "exportSave" -> try {
+                reply.ok(ExportFlow.save(app, args.optString("path")))
+            } catch (e: Exception) {
+                reply.fail("export-save", e.message ?: e.javaClass.simpleName)
+            }
+            "exportShare" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.startActivity(ExportFlow.shareIntent(args.optString("uri")))
+                reply.ok()
+            }
+            "exportClose" -> {
+                ExportFlow.close()
+                reply.ok()
             }
             "playerPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }

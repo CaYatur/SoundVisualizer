@@ -153,6 +153,9 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   sekmesinde. Şablonlar (masaüstünün 83 hazır sahnesi) Kitaplığın ilk bölümü ve boş sahne şeridinin ilk kutusu. Galeri
   katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Açık kalanlar: telefonda `.milk`
   dosyası içe aktarma, kamera katmanı, şarkı sözü dosyaları ve masaüstü yedeğindeki logo/video kitaplığı.
+- **Faz 5 durumu (18.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
+  dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
+  görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. Dokunmatik zaman çizelgesi düzenleyicisi başlamadı.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

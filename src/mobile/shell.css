@@ -396,3 +396,16 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .scene.start .art .svi { width: 28px; height: 28px; }
 #sv-shell .seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #sv-shell .thumb.xs { width: 40px; height: 40px; border-radius: 10px; }
+
+/* Dışa aktarma ekranı (src/mobile/export-ui.js): kareler ekranda, altta ilerleme kartı */
+#sv-shell .export-card { position: absolute; left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px); bottom: calc(var(--inset-bottom) + 16px); border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+#sv-shell .export-head { display: flex; align-items: center; gap: 12px; }
+#sv-shell .export-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
+#sv-shell .export-pct { font-size: 22px; font-weight: 700; flex: none; }
+#sv-shell .export-bar { height: 6px; margin-top: 0; }
+@media (min-width: 840px), (orientation: landscape) and (min-width: 600px) {
+  #sv-shell .export-card { left: auto; width: min(420px, 60vw); }
+}
+/* Dışa aktarım sayfasında önizleme: birleştirme tuvali ekrana sığar, katman tuvalleri saklı */
+html.sv-export-page #stage { opacity: 0; }
+html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: auto !important; height: auto !important; max-width: 100vw; max-height: 70vh; transform: translate(-50%, -50%); }
