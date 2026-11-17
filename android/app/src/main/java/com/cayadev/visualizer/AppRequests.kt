@@ -95,6 +95,12 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             /* Uygulama içi çalar (2.3). Şarkı ya kullanıcının seçtiği belge (Android
                dosya seçici, izni kalıcı) ya da uygulamanın medya klasöründeki bir dosya. */
+            "mediaPick" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                val kind = args.optString("kind")
+                if (kind != "video" && kind != "image") { reply.fail("bad-kind"); return }
+                live.pickMedia(kind, reply)
+            }
             "playerPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 live.pickAudio(reply)

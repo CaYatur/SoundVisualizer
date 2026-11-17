@@ -32,6 +32,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.cayadev.visualizer.audio.AudioHub
 import com.cayadev.visualizer.audio.AudioService
 import com.cayadev.visualizer.bridge.Bridge
+import com.cayadev.visualizer.media.MediaPick
 import com.cayadev.visualizer.player.PlayerHub
 import com.cayadev.visualizer.web.WebShell
 import org.json.JSONObject
@@ -103,6 +104,36 @@ class MainActivity : ComponentActivity() {
         pendingImport?.fail("superseded")
         pendingImport = reply
         askImport.launch(arrayOf("application/zip", "application/octet-stream", "application/json", "text/plain"))
+    }
+
+    /* Galeriden video ya da görsel (Faz 4 medya katmanları, media/MediaPick.kt). Video için
+       kalıcı okuma izni alınır: sayfa dosyayı her açılışta ContentPathHandler'dan okur. */
+    private var pendingMedia: Pair<String, Bridge.Reply>? = null
+    private val askMedia = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val (kind, reply) = pendingMedia ?: return@registerForActivityResult
+        pendingMedia = null
+        if (uri == null) { reply.fail("cancelled"); return@registerForActivityResult }
+        if (kind == "video") {
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: SecurityException) {
+                reply.fail("no-grant"); return@registerForActivityResult
+            }
+            reply.ok(MediaPick.video(this, uri))
+            return@registerForActivityResult
+        }
+        // Görselin çözülmesi ve sıkıştırılması ana iş parçacığında yapılmaz
+        val main = android.os.Handler(mainLooper)
+        Thread {
+            val r = try { MediaPick.image(this, uri) } catch (e: Exception) { null }
+            main.post { if (r != null) reply.ok(r) else reply.fail("bad-image") }
+        }.start()
+    }
+
+    fun pickMedia(kind: String, reply: Bridge.Reply) {
+        pendingMedia?.second?.fail("superseded")
+        pendingMedia = Pair(kind, reply)
+        askMedia.launch(arrayOf(if (kind == "video") "video/*" else "image/*"))
     }
 
     fun pickAudio(reply: Bridge.Reply) {

@@ -149,6 +149,10 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   çıkarılan mod küçük resimleriyle katman ekleme. Ses (3.5), Kitaplık, Görüntüleme (3.4) ve Ayarlar (3.6): bütün
   sekmeler çalışıyor; Otomatik VJ ve tempo telefonda (`src/mobile/autovj.js`: masaüstünün kuralları ve tempo motoru,
   motorun kendi ses nesnesiyle).
+- **Faz 4 durumu (18.11.2026):** MilkDrop tarayıcısı, arama, favoriler, dokular ve Studio shader'ları Kitaplık
+  sekmesinde. Şablonlar (masaüstünün 83 hazır sahnesi) Kitaplığın ilk bölümü ve boş sahne şeridinin ilk kutusu. Galeri
+  katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Açık kalanlar: telefonda `.milk`
+  dosyası içe aktarma, kamera katmanı, şarkı sözü dosyaları ve masaüstü yedeğindeki logo/video kitaplığı.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

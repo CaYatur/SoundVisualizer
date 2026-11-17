@@ -30,6 +30,9 @@
 
   const BAND_LABELS = [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']];
 
+  const SPRITE_MOTIONS = [['static', 'Sabit'], ['float', 'Süzülme'], ['orbit', 'Yörünge'], ['swirl', 'Girdap'],
+    ['scatter', 'Saçılma (sese)'], ['rise', 'Yükselme'], ['fall', 'Düşme']];
+
   const TEXT_ADD_PRESETS = [
     { label: 'Metin', spec: { name: 'Metin', source: 'static' } },
     { label: 'Şarkı Sözü', spec: { name: 'Şarkı Sözü', source: 'lyrics' } },
@@ -101,6 +104,30 @@
     return made;
   }
 
+  /* Galeriden seçilen dosyadan katman (telefon; masaüstünde panel aynı alanları yazıyor):
+       'video' { url, name }      → medya katmanı, kaynak dosya
+       'image' { dataUrl, name }  → görsel nesne katmanı, tek görsel
+       'logo'  { dataUrl, name }  → logo katmanı, elle seçilen resim */
+  function makeMedia(kind, file, defIn) {
+    const S = L();
+    const def = defIn || ((W().SV && W().SV.defaultConfig) ? W().SV.defaultConfig() : {});
+    const f = file || {};
+    if (kind === 'video') {
+      return S.normalizeLayer({
+        kind: 'media', name: f.name || 'Video',
+        settings: { media: Object.assign({}, def.media, { enabled: true, source: 'file', file: f.url || '', fileName: f.name || '', libraryId: '' }) },
+      });
+    }
+    if (kind === 'logo') {
+      return S.normalizeLayer({
+        kind: 'logo', name: 'Logo',
+        settings: { logo: Object.assign({}, def.logo, { enabled: true, source: 'manual', src: f.dataUrl || null, libraryId: '' }) },
+      });
+    }
+    const item = W().SV && W().SV.imageItem ? W().SV.imageItem({ src: f.dataUrl || null, name: f.name || 'Görsel' }) : { src: f.dataUrl || null };
+    return S.normalizeLayer({ kind: 'sprites', type: 'back', name: f.name || 'Görsel Nesneler', settings: { images: { enabled: true, items: [item] } } });
+  }
+
   /* Katmanın kopyası (panelin "Çoğalt"ı): yeni kimlik, solo kapalı, ad "(kopya)". */
   function duplicate(layer) {
     const copy = JSON.parse(JSON.stringify(layer));
@@ -110,7 +137,7 @@
     return L().normalizeLayer(copy);
   }
 
-  const api = { BLEND_LABELS, BAND_LABELS, TEXT_ADD_PRESETS, seedFactoryVisualizer, milkdropPreset, make, duplicate };
+  const api = { BLEND_LABELS, BAND_LABELS, SPRITE_MOTIONS, TEXT_ADD_PRESETS, seedFactoryVisualizer, milkdropPreset, make, makeMedia, duplicate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayerFactory = api;
 })();

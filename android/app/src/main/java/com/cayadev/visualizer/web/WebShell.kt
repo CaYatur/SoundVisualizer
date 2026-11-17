@@ -60,6 +60,8 @@ object WebShell {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             // Uygulamanın kendi medya klasörü, salt okunur (MESSAGES.md "Reading files")
             .addPathHandler("/files/", WebViewAssetLoader.InternalStoragePathHandler(context, ExportHub.mediaDir(context)))
+            // Galeriden seçilen videolar, kopyalanmadan; yalnız kalıcı izni olanlar
+            .addPathHandler(ContentPathHandler.PREFIX, ContentPathHandler(context))
             .build()
 
         val web = WebView(context)

@@ -181,6 +181,7 @@ to the desktop turns the lights on again.
 | `onLowPower(cb)` | `true` while low power is on (`SVLowPower.active`: set to on, or set to battery while on battery). The interface drops the glass blur. |
 | `floating.open(o)`, `floating.close()`, `floating.set(o)`, `floating.state()` | The floating window requests below. |
 | `pip(w, h)` | System picture-in-picture with aspect `w:h` (`pipEnter`). |
+| `media.pick(kind)` | Android's document picker (`mediaPick`). `'video'` resolves `{ url, name, mime }`: the file is not copied, the app keeps a persistent read grant and serves it at `https://appassets.androidplatform.net/content/<base64url of the content URI>`; only URIs with a persisted grant are served (others 404). `'image'` resolves `{ dataUrl, name, width, height }`, the long side at most 1024 px (PNG with alpha, else JPEG), as the desktop stores images in the settings. |
 
 ## Shell surface
 

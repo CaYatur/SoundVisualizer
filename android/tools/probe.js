@@ -1056,6 +1056,12 @@ async function pagesCmd() {
     await ev("(() => { const c = window.SVAndroid.config.get(); window.SVAndroid.config.patch({ layers: (c.layers || []).filter((l) => !(l.kind === 'visualizer' && l.type === 'milkdrop')) }); return 1; })()");
     await ev("window.SVShell.open('library'); 1");
     await D.sleep(900);
+    // İlk bölüm Şablonlar: ikinci kutuya dokununca şablonun katmanları sahneye gelir
+    const tplWant = await ev("(() => { const T = window.SVTemplates; const t = T.TEMPLATES.filter((x) => x.group === T.groups()[0])[1]; return t.id; })()");
+    await tapSel('#sv-shell .grid2 .tile:nth-child(2) .tile-main', 1500);
+    out.templates = { applied: await ev("document.querySelector('#sv-shell .grid2 .tile:nth-child(2)').classList.contains('sel')"), want: tplWant, check: await ev(check) };
+    shot('3-templates');
+    await tapSel('#sv-shell .tabs button:nth-child(2)', 900);
     out.library = { tiles: await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length"), check: await ev(check) };
     shot('3-library');
     const firstId = await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop')[0].id");
@@ -1067,7 +1073,7 @@ async function pagesCmd() {
     await ev(`(() => { const i = document.querySelector('#sv-shell .search input'); i.value = 'aurora'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
     await D.sleep(400);
     out.library.search = await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length");
-    await tapSel('#sv-shell .seg button:nth-child(3)', 700);
+    await tapSel('#sv-shell .tabs button:nth-child(4)', 700);
     const n0 = await ev('(window.SVAndroid.config.get().scenes || []).length');
     await tapSel('#sv-shell .sheet-body > .btn.block', 800);
     out.library.saved = await ev('(window.SVAndroid.config.get().scenes || []).length') === n0 + 1;
@@ -1113,14 +1119,110 @@ async function pagesCmd() {
   const clean = (c) => c && !c.small.length && (out.lang !== 'en' || !c.turkish.length);
   const ok = out.audio.sources === 4 && out.audio.moving && clean(out.audio.check) && out.audio.mic.st && out.audio.mic.st.source === 'mic' && out.audio.mic.on === 'true'
     && out.audio.stopped !== 'running' && out.audio.bpm >= 60 && out.vj.enabled && out.vj.hud && out.vj.changed && out.vj.off
-    && out.library.tiles > 0 && clean(out.library.check) && out.library.pickedOk && out.library.fav && out.library.search >= 1 && out.library.saved && out.library.deleted && clean(out.library.scenesCheck)
+    && out.templates.applied && clean(out.templates.check) && out.library.tiles > 0 && clean(out.library.check) && out.library.pickedOk && out.library.fav && out.library.search >= 1 && out.library.saved && out.library.deleted && clean(out.library.scenesCheck)
     && clean(out.display.check) && out.display.floating.showing && Math.abs(out.display.floating.width - out.display.expectW) <= 2
     && out.settings.swatches === 8 && clean(out.settings.check) && out.settings.theme.cfg === 'light' && out.settings.theme.page === 'light'
     && out.settings.fpsCap === 30 && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd };
+/* Android'in belge seçicisinde (DocumentsUI) bir öğeye dokunur: ekran ağacı uiautomator ile
+   alınır, metni ya da açıklaması desene uyan ilk düğümün ortasına dokunulur. */
+function uiTap(re) {
+  let xml = '';
+  try { xml = D.adb(['exec-out', 'uiautomator', 'dump', '/dev/tty'], { timeout: 20000 }); } catch (e) { console.error('[uiTap] döküm alınamadı: ' + e.message); return false; }
+  // Her düğümün metni ve açıklaması ayrı okunur (çoğunda biri boş)
+  for (const m of xml.matchAll(/<node ([^>]*)>/g)) {
+    const attr = (k) => { const r = new RegExp(k + '="([^"]*)"').exec(m[1]); return r ? r[1] : ''; };
+    if (!re.test(attr('text')) && !re.test(attr('content-desc'))) continue;
+    const b = /\[(\d+),(\d+)\]\[(\d+),(\d+)\]/.exec(attr('bounds'));
+    if (!b) continue;
+    D.adb(['shell', 'input', 'tap', String((+b[1] + +b[3]) >> 1), String((+b[2] + +b[4]) >> 1)]);
+    return true;
+  }
+  return false;
+}
+async function pickInDocumentsUi(name) {
+  for (let i = 0; i < 12; i++) {
+    await D.sleep(900);
+    // Satır açıklaması "ad, boyut, saat" biçiminde
+    if (uiTap(new RegExp('^' + name.replace(/\./g, '\\.') + '(,|$)'))) return true;
+    // Dosya görünmüyorsa kök listesinden İndirilenler
+    if (uiTap(/^(Show roots|Kökleri göster)$/)) { await D.sleep(900); uiTap(/^(Downloads|İndirilenler)$/); }
+  }
+  return false;
+}
+
+/* GALERİDEN KATMANLAR (Faz 4). Test dosyaları önce İndirilenler'e konur:
+     adb push sv-test-clip.mp4 /sdcard/Download/   (640x360, 4 sn)
+     adb push sv-test-star.png /sdcard/Download/   (512x512, saydam)
+   Katman Ekle → Medya → Video / Görsel Nesneler / Logo; belge seçicide dosyaya dokunulur.
+   Video kopyalanmadan /content/ yolundan akmalı ve motorun video öğesi yüklenmeli; görsel
+   dataURL olarak ayara girmeli (en çok 1024 px). */
+async function mediaCmd() {
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const last = () => ev("(() => { const l = (window.SVAndroid.config.get().layers || []).slice(-1)[0] || {}; return { kind: l.kind, s: JSON.stringify(l.settings || {}).slice(0, 400) }; })()");
+  const add = async (n) => {
+    await ev("window.SVShell.open('layers'); 1");
+    await D.sleep(700);
+    await ev("document.querySelector('#sv-shell .sheet-actions .btn').click(); 1");
+    await D.sleep(700);
+    await ev("document.querySelectorAll('#sv-shell .pills .pill')[3].click(); 1");
+    await D.sleep(400);
+    await ev(`document.querySelectorAll('#sv-shell .grid2 .tile')[${n}].click(); document.querySelector('#sv-shell .sheet-foot .btn').click(); 1`);
+  };
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1200);
+    await ev('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
+    console.error('[media] video');
+    await add(0);
+    out.videoPicked = await pickInDocumentsUi('sv-test-clip.mp4');
+    await D.sleep(3500);
+    out.video = await last();
+    /* Motorun video öğesi DOM'da değil: adres doğrudan istenir. İzin alınmamış bir içerik
+       adresi (kişiler sağlayıcısı) bu yoldan okunamamalı. */
+    out.videoFetch = await ev(`(async () => { const l = window.SVAndroid.config.get().layers.slice(-1)[0]; const u = l.settings.media.file;
+      const r = await fetch(u); const b = await r.arrayBuffer();
+      const bad = 'https://appassets.androidplatform.net/content/' + btoa('content://com.android.contacts/contacts').replace(/=+$/, '').split('+').join('-').split('/').join('_');
+      const denied = await fetch(bad).then((x) => x.status, () => 'blocked');
+      return { status: r.status, type: r.headers.get('content-type'), bytes: b.byteLength, denied }; })()`);
+    out.editOpen = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
+    await ev('window.SVShell.close(); 1');
+    if (arg('shots')) fs.writeFileSync(require('node:path').join(arg('shots'), 'media-video.png'), D.screencap());
+    console.error('[media] görsel', JSON.stringify(out.video));
+    await add(1);
+    out.imagePicked = await pickInDocumentsUi('sv-test-star.png');
+    await D.sleep(2500);
+    out.image = await last();
+    await ev('window.SVShell.close(); 1');
+    console.error('[media] logo', JSON.stringify(out.image).slice(0, 80));
+    await add(2);
+    out.logoPicked = await pickInDocumentsUi('sv-test-star.png');
+    await D.sleep(2500);
+    out.logo = await last();
+    out.listThumbs = await (async () => { await ev("window.SVShell.close(); window.SVShell.open('layers'); 1"); await D.sleep(700);
+      return ev("Array.from(document.querySelectorAll('#sv-shell .layer-list img')).map((i) => i.src.slice(0, 22))"); })();
+    if (arg('shots')) fs.writeFileSync(require('node:path').join(arg('shots'), 'media-list.png'), D.screencap());
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); window.SVAndroid.config.set(window.__probeOrig); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const vf = out.videoFetch || {};
+  const ok = out.videoPicked && out.video.kind === 'media' && out.video.s.indexOf('/content/') >= 0 && vf.status === 200 && vf.type === 'video/mp4' && vf.bytes === 404641
+    && (vf.denied === 'blocked' || vf.denied >= 400)
+    && out.imagePicked && out.image.kind === 'sprites' && out.image.s.indexOf('data:image/png;base64') >= 0
+    && out.logoPicked && out.logo.kind === 'logo' && out.logo.s.indexOf('data:image/png;base64') >= 0
+    && out.listThumbs.filter((s) => s.indexOf('data:image/png') === 0).length === 2;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);
