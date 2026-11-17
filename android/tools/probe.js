@@ -628,8 +628,26 @@ async function importCmd() {
       await fn(p);
     }
   };
+  /* Kitaplıklar (Faz 4): söz, logo ve video; sahnede kitaplıktaki videoyu oynatan bir
+     medya katmanı. Telefonda video yeni adrese eşlenmeli, söz kitaplığa, logo motora gelmeli. */
+  const libDir = (k) => { const d = path.join(dir, 'lib-' + k); fs.mkdirSync(d, { recursive: true }); return d; };
+  const lyrDir = libDir('lyrics');
+  fs.writeFileSync(path.join(lyrDir, 'lyr_probe.lrc'), '[00:01.00]Probe satırı');
+  const logoDir = libDir('logos');
+  fs.writeFileSync(path.join(logoDir, 'img_probe.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const vidDir = libDir('media');
+  fs.writeFileSync(path.join(vidDir, 'vid_probe.mp4'), Buffer.alloc(2048, 7));
+  const MU = require(path.join(__dirname, '..', '..', 'src', 'shared', 'media-url.js'));
+  if (!given) {
+    settings.layers = [{ id: 'ly_vid', kind: 'media', name: 'Klip', settings: { media: { enabled: true, source: 'file', file: MU.toMediaUrl(path.join(vidDir, 'vid_probe.mp4')), libraryId: 'vid_probe' } } }];
+  }
+  const libraries = [
+    { key: 'lyrics', dir: lyrDir, items: [{ id: 'lyr_probe', file: 'lyr_probe.lrc', name: 'CaYaDev - Probe', artist: 'CaYaDev', title: 'Probe', size: 22 }] },
+    { key: 'logos', dir: logoDir, items: [{ id: 'img_probe', file: 'img_probe.png', name: 'Probe Logo', mime: 'image/png', kind: 'image' }] },
+    { key: 'media', dir: vidDir, items: [{ id: 'vid_probe', file: 'vid_probe.mp4', name: 'Probe Video', mime: 'video/mp4', kind: 'video' }] },
+  ];
   const file = path.join(dir, 'probe.svbackup');
-  await FB.writeBackup(file, { appVersion: '4.0.0', platform: 'win32', settings, eachPreset, textures: [{ name: 'noise.png', file: tex }] });
+  await FB.writeBackup(file, { appVersion: '4.0.0', platform: 'win32', settings, eachPreset, textures: [{ name: 'noise.png', file: tex }], libraries, includeVideos: true });
   const name = 'probe.svbackup';
   D.adb(['shell', 'pm', 'clear', D.PKG]);
   D.adb(['push', file, '/data/local/tmp/' + name]);
@@ -651,6 +669,16 @@ async function importCmd() {
       return r;
     })()`);
     out.applied = await page.evaluate('(() => { const c = window.SVAndroid.config.get(); return { theme: c.ui && c.ui.theme, scenes: (c.scenes || []).length, phoneOnly: !!c.phoneOnly }; })()');
+    out.libs = await page.evaluate(`(async () => {
+      const c = window.SVAndroid.config.get();
+      const vid = (c.layers || []).find((l) => l && l.id === 'ly_vid');
+      const lyr = await window.SVAndroid.lyrics.list();
+      const logo = await window.api.logoLibRead('img_probe');
+      const logos = await window.SVAndroid.libraries.list('logos');
+      const media = await window.SVAndroid.libraries.list('media');
+      return { video: vid && vid.settings.media.file, lyrics: lyr.map((x) => x.id + ':' + x.artist), logo: logo && logo.mime, logoB64: logo && logo.b64 && logo.b64.length,
+        logos: logos.map((x) => x.id), media: media.map((x) => x.id), engineLyrics: ((window.SVLyricsLib || {}).items || []).length };
+    })()`);
     const ls = D.adb(['shell', `run-as ${D.PKG} ls files/profile files/profile/presets`]);
     out.files = ls.split(/\s+/).filter((x) => /\.json$/.test(x)).sort();
   } finally { page.close(); }
@@ -679,7 +707,11 @@ async function importCmd() {
   const r = out.result || {};
   const o = out.reopen || {};
   const want = given ? true : (out.applied.theme === 'neon' && out.applied.scenes === 2 && !out.applied.phoneOnly && o.theme === 'neon' && o.scenes === 2);
-  const ok = !r.error && r.kind === 'svbackup' && (presetDir ? r.presets > 2 : r.presets === 2) && r.textures === 1 && o.textures.join() === 'noise.png' && o.texture.startsWith('data:image/png;base64,') && o.texTraversal === null && o.textureRev >= 1 && want
+  const L = out.libs || {};
+  const libsOk = given ? true : (L.video === 'https://appassets.androidplatform.net/files/lib-media/vid_probe.mp4' && L.lyrics.join() === 'lyr_probe:CaYaDev'
+    && L.logo === 'image/png' && L.logoB64 > 0 && L.logos.join() === 'img_probe' && L.media.join() === 'vid_probe'
+    && r.libraries && r.libraries.lyrics === 1 && r.libraries.logos === 1 && r.libraries.videos === 1);
+  const ok = libsOk && !r.error && r.kind === 'svbackup' && (presetDir ? r.presets > 2 : r.presets === 2) && r.textures === 1 && o.textures.join() === 'noise.png' && o.texture.startsWith('data:image/png;base64,') && o.texTraversal === null && o.textureRev >= 1 && want
     && out.files.includes('settings.before-import.json') && out.files.includes('scenes.before-import.json')
     && (presetDir ? o.count >= r.presets - r.skipped : o.presets.join() === 'ps_probe_md,ps_probe_sh') && o.mdLazy === true && o.mdRating === 4 && o.mdHasSource === false
     && o.source.startsWith('[preset00]') && o.traversal === '';

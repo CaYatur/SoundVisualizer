@@ -70,6 +70,13 @@ if (!tag) {
     '  node scripts/release-assets.js v' + version + ' [--dir=<klasör>] [--check] [--partial]');
   process.exit(2);
 }
+/* Yalnız masaüstü sürümü (v1.2.3). Android aynı Sürümler sayfasında android-v1.0.0
+   etiketiyle ve "Latest" işaretlenmeden yayımlanıyor (#1054); onun APK'sı ayrı betikle:
+   android/tools/release-apk.js. Masaüstü dosyaları yanlışlıkla Android sürümüne gitmesin. */
+if (!/^v\d+\.\d+\.\d+/.test(tag)) {
+  console.error('Bu betik yalnız masaüstü sürümleri içindir (v' + version + ' gibi). Android sürümü: node android/tools/release-apk.js ' + tag);
+  process.exit(2);
+}
 
 function gh(cmdArgs) {
   const r = spawnSync('gh', cmdArgs, { cwd: root, encoding: 'utf-8', maxBuffer: 32 * 1024 * 1024 });

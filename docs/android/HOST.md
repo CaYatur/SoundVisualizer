@@ -141,6 +141,7 @@ open on the desktop.
 | `lyricsLibList` / `lyricsLibSnapshot` / `lyricsLibRead` / `lyricsLibUpdate` / `lyricsLibRemove` / `lyricsLibAdd` | Lyrics library (`store/LyricsLibrary.kt`) with the desktop's rules (`src/main/lyrics-library.js`): `lyrics-library/manifest.json` + one file per lyric, `.lrc` / `.srt` / `.txt`, 1 MB, UTF-8 (BOM dropped, NUL rejected), same text is a duplicate; artist and title guessed from LRC tags or "Artist - Title" file names. `lyricsLibAdd` takes `{ name, artist, title, text }` (written by hand). Changes push the event `lyricsLib` `{ items }` (with text) to the engine. |
 | `lyricsLibImport` | Android's document picker, several files; resolves `{ added, duplicates, failed }`. Rejects `cancelled`. |
 | `lyricsLookup` / `lyricsCacheClear` | Automatic lyrics (`store/LyricsLookup.kt`, desktop `src/main/lyrics-lookup.js`): cache first, then the user's providers in order with a timeout; no providers means no network request. `{ config, meta }` → `{ text, source, provider? }` or `{}`. |
+| `logoLibRead` / `libraryList` | Logo and video libraries from a desktop backup (`store/LibraryRestore.kt`). `logoLibRead { id }` → `{ id, name, kind, mime, b64 }` (the engine's logo layer, as desktop `logo-lib:read`); `libraryList { key: 'logos' \| 'media' }` → manifest items. |
 | `texturesList`, `textureRead { name }` | MilkDrop textures (see the engine table). |
 
 **Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the

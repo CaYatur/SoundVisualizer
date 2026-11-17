@@ -50,13 +50,61 @@ class BackupReaderTest {
         assertEquals(setOf("ps_a1"), r.presets.keys)
         assertTrue(r.presets.getValue("ps_a1").parentFile == staging)
         assertEquals("{\"type\":\"cayadev-visualizer-backup\"}", String(r.meta!!))
-        assertEquals(mapOf("libs" to 1, "media" to 2), r.later)
+        // Kitaplık dosyaları ve videolar da geçici klasöre alınıyor (Faz 4); sınır aşılmadı
+        assertEquals(mapOf("libs" to 0, "media" to 0), r.later)
+        assertEquals(setOf("logos/a.png"), r.libs.keys)
+        assertEquals(setOf("0-clip.mp4", "1-clip.mp4"), r.media.keys)
         assertEquals(setOf("0-noise.jpg"), r.textures.keys)
         assertArrayEquals(byteArrayOf(2), r.textures.getValue("0-noise.jpg").readBytes())
         // Yol taşıyan adlar hiç yazılmadı
         assertFalse(java.io.File(staging.parentFile, "evil.json").exists())
-        assertEquals(setOf("ps_a1.json", "textures"), staging.listFiles()!!.map { it.name }.toSet())
+        assertEquals(setOf("ps_a1.json", "textures", "libs", "media", "backup.json"), staging.listFiles()!!.map { it.name }.toSet())
         staging.deleteRecursively()
+    }
+
+    @Test
+    fun librariesAreRestoredLikeTheDesktopAndVideosRemapped() {
+        val meta = org.json.JSONObject()
+            .put("type", "cayadev-visualizer-backup")
+            .put("libraries", org.json.JSONObject()
+                .put("lyrics", org.json.JSONObject().put("items", org.json.JSONArray()
+                    .put(org.json.JSONObject().put("id", "lyr_1").put("file", "lyr_1.lrc").put("path", "libs/lyrics/lyr_1.lrc").put("artist", "Ayna").put("title", "Gece").put("name", "Ayna - Gece"))))
+                .put("logos", org.json.JSONObject().put("items", org.json.JSONArray()
+                    .put(org.json.JSONObject().put("id", "img_1").put("file", "img_1.png").put("path", "libs/logos/img_1.png").put("mime", "image/png").put("name", "Logo"))
+                    // Yolu tutmayan kayıt atlanır
+                    .put(org.json.JSONObject().put("id", "img_2").put("file", "img_2.png").put("path", "libs/logos/başka.png"))))
+                .put("media", org.json.JSONObject().put("items", org.json.JSONArray()
+                    .put(org.json.JSONObject().put("id", "vid_1").put("file", "vid_1.mp4").put("path", "libs/media/vid_1.mp4").put("ref", "C:\\Videolar\\klip.mp4")))))
+            .put("media", org.json.JSONArray().put(org.json.JSONObject().put("ref", "D:\\a b.mp4").put("path", "media/0-a-b.mp4").put("name", "a b.mp4")))
+        val data = zip(
+            "libs/lyrics/lyr_1.lrc" to "[00:01.00]Bir".toByteArray(),
+            "libs/logos/img_1.png" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),
+            "libs/logos/img_2.png" to byteArrayOf(1),
+            "libs/media/vid_1.mp4" to byteArrayOf(9, 9),
+            "media/0-a-b.mp4" to byteArrayOf(7),
+            "backup.json" to meta.toString().toByteArray(),
+        )
+        val staging = Files.createTempDirectory("sv-import").toFile()
+        val files = Files.createTempDirectory("sv-files").toFile()
+        BackupReader.read(ByteArrayInputStream(data), staging)
+        val r = LibraryRestore.restore(staging, files, "https://appassets.androidplatform.net")
+        assertEquals(1, r.getInt("lyrics"))
+        assertEquals(1, r.getInt("logos"))
+        assertEquals(2, r.getInt("videos"))
+        assertEquals(1, r.getInt("skipped"))
+        val map = r.getJSONObject("map")
+        assertEquals("https://appassets.androidplatform.net/files/lib-media/vid_1.mp4", map.getString("C:\\Videolar\\klip.mp4"))
+        assertEquals("https://appassets.androidplatform.net/files/restored/0-a-b.mp4", map.getString("D:\\a b.mp4"))
+        // Söz kitaplığı telefonun biçiminde okunur
+        val lyr = LyricsLibrary(java.io.File(files, "lyrics-library")).read("lyr_1")
+        assertEquals("[00:01.00]Bir", lyr!!.getString("text"))
+        assertEquals("Ayna", lyr.getString("artist"))
+        // Logo motora base64 gider
+        val logo = LibraryRestore.readLogo(files, "img_1")
+        assertEquals("image/png", logo!!.getString("mime"))
+        assertTrue(LibraryRestore.readLogo(files, "../x") == null)
+        staging.deleteRecursively()
+        files.deleteRecursively()
     }
 
     @Test

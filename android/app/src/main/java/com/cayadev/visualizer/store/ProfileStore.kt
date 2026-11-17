@@ -274,9 +274,12 @@ class ProfileStore(context: Context) {
             if (!f.renameTo(dst)) dst.writeBytes(f.readBytes())
             tex++
         }
+        // Logo, video ve söz kitaplıkları; videoların yeni adresleri sayfaya (sahneler eşlenir)
+        val libs = try { LibraryRestore.restore(staging, app.filesDir, com.cayadev.visualizer.web.WebShell.ORIGIN) } catch (e: Exception) { JSONObject().put("map", JSONObject()) }
         staging.deleteRecursively()
         if (saved > 0) commitIndex(byId)
-        JSONObject().put("presets", saved).put("textures", tex).put("skipped", skipped).put("gen", presetGen)
+        JSONObject().put("presets", saved).put("textures", tex).put("skipped", skipped + libs.optInt("skipped")).put("gen", presetGen)
+            .put("libraries", libs)
             .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
     }
 

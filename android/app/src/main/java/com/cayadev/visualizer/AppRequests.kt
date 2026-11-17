@@ -123,6 +123,14 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val name = args.optString("name").ifBlank { "lyrics" }
                 LyricsHub.library.add(if (LyricsLibrary.isLyricFile(name)) name else "$name.lrc", text.toByteArray(Charsets.UTF_8), args.optString("artist"), args.optString("title"))
             }
+            /* Masaüstü yedeğinden gelen logo kitaplığı (store/LibraryRestore.kt): motorun
+               logo katmanı görseli kimlikle ister (masaüstündeki logo-lib:read). */
+            "logoLibRead" -> LyricsHub.run({ r, e -> if (e == null) reply.ok(r ?: JSONObject.NULL) else reply.fail("logo", e) }) {
+                com.cayadev.visualizer.store.LibraryRestore.readLogo(app.filesDir, args.optString("id"))
+            }
+            "libraryList" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("library", e ?: "") }) {
+                com.cayadev.visualizer.store.LibraryRestore.list(app.filesDir, args.optString("key"))
+            }
             "lyricsLibImport" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 live.pickLyrics(reply)
