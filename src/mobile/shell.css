@@ -196,7 +196,17 @@ html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent
 #sv-shell .edit-pane { display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .fx-title { font-size: 14px; flex: 1; min-width: 0; }
 #sv-shell .empty.span2 { grid-column: 1 / -1; }
-#sv-shell input.swatch { width: 48px; height: 48px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); flex: none; }
+#sv-shell .swatch { width: 48px; height: 48px; padding: 0; border: 1px solid var(--line2); border-radius: 12px; background: var(--card2); flex: none; box-shadow: inset 0 0 0 3px var(--card2); }
+#sv-shell .swatch:disabled { opacity: .5; }
+/* Renk seçici (SVShell.pickColor) */
+#sv-shell .dialog.color-dialog { gap: 10px; max-height: 88vh; overflow-y: auto; }
+#sv-shell .color-head { display: flex; gap: 10px; align-items: center; }
+#sv-shell .color-preview { width: 64px; height: 48px; border-radius: 12px; border: 1px solid var(--line2); flex: none; }
+#sv-shell .color-dialog input[type="range"] { --track: var(--line2); }
+#sv-shell .color-dialog input[type="range"]::-webkit-slider-runnable-track { height: 14px; border-radius: 7px; background: var(--track); }
+#sv-shell .color-dialog input[type="range"]::-webkit-slider-thumb { margin-top: -5px; }
+#sv-shell .qcolors { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; }
+#sv-shell .qcolor { height: 48px; min-width: 40px; border-radius: 10px; border: 1px solid var(--line2); padding: 0; }
 #sv-shell input.field { flex: 1; min-width: 0; height: 48px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 14px; padding: 0 12px; }
 #sv-shell .dialog-scrim { position: absolute; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 5; }
 #sv-shell .dialog { width: 100%; max-width: 360px; background: var(--popover); border: 1px solid var(--line); border-radius: 20px; padding: 20px 16px 16px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 50px rgb(var(--shadow-rgb) / .5); }
@@ -251,9 +261,17 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 
 /* Seçim kutusu: yerel select (Android'in kendi seçicisini açar), taslaktaki kutu görünümünde */
 #sv-shell .select { flex: 1; min-width: 0; height: 48px; position: relative; display: flex; align-items: center; }
-#sv-shell .select select { -webkit-appearance: none; appearance: none; width: 100%; height: 48px; border: 1px solid var(--line); background: var(--card2); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; padding: 0 36px 0 12px; border-radius: 12px; }
-#sv-shell .select select option { background: var(--popover); color: var(--text); }
-#sv-shell .select .svi { position: absolute; right: 10px; width: 16px; height: 16px; pointer-events: none; color: var(--muted); }
+#sv-shell .select-btn { width: 100%; height: 48px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card2); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; padding: 0 10px 0 12px; border-radius: 12px; text-align: left; }
+#sv-shell .select-btn:disabled { opacity: .5; }
+#sv-shell .select-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sv-shell .select .svi { width: 16px; height: 16px; flex: none; pointer-events: none; color: var(--muted); }
+/* Seçenek listesi (SVShell.choose) */
+#sv-shell .dialog.choose { padding: 16px 8px 8px; gap: 8px; max-height: min(78vh, 560px); }
+#sv-shell .dialog.choose .dialog-text { padding: 0 12px; }
+#sv-shell .choice-list { overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+#sv-shell .choice { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 0; border-radius: 12px; background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 500; text-align: left; flex: none; }
+#sv-shell .choice.on { background: var(--card2); font-weight: 700; }
+#sv-shell .choice .svi { width: 18px; height: 18px; flex: none; color: var(--accent-text); }
 
 /* Anahtar: görünen iz 48×28, dokunulan alan 48×48 */
 #sv-shell .toggle { width: 48px; height: 48px; flex: none; position: relative; }

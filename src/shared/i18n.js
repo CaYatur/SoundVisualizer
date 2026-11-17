@@ -98,6 +98,7 @@
     'Arka kamera': 'Back camera',
     'Önce kamera izni verilmeli.': 'Camera permission is needed first.',
     'Kamera bulunamadı.': 'No camera was found.',
+    'Hazır renkler': 'Quick colors',
     'Ekran kaynağı telefonda yok; bir video ya da kamera seçin.': 'Screen capture is not available on the phone; pick a video or a camera.',
     'Presetler okunuyor…': 'Reading presets…',
     'Presetler eklenemedi.': 'The presets could not be added.',
