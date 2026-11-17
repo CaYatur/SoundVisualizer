@@ -1571,7 +1571,74 @@ async function pickersCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+/* ÇALAN PARÇA (media/NowPlaying.kt). Bildirim erişimi adb ile verilir; emülatörde oturum
+   açılmadan çalan başka bir uygulama olmadığı için, yalnız geliştirme sürümündeki
+   `debugNowPlayingSelf` ile uygulamanın kendi çaları "başka uygulama" sayılır. Medya
+   oturumundan ad, sanatçı, süre ve ilerleyen konum gelmeli; Ses sekmesindeki kart parçayı
+   göstermeli. Sonda erişim geri alınır. */
+async function nowPlayingCmd() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const FF = require(path.join(__dirname, '..', '..', 'node_modules', 'ffmpeg-static'));
+  const name = 'sv-probe-np.m4a';
+  const local = path.join(os.tmpdir(), name);
+  execFileSync(FF, ['-hide_banner', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=30:sample_rate=48000',
+    '-ac', '2', '-c:a', 'aac', '-b:a', '128k', '-metadata', 'title=Probe Session', '-metadata', 'artist=CaYaDev', '-metadata', 'album=Probe Album', local]);
+  D.adb(['push', local, '/data/local/tmp/' + name]);
+  D.adb(['shell', `run-as ${D.PKG} sh -c 'mkdir -p files/media && cp /data/local/tmp/${name} files/media/${name}'`]);
+  const comp = D.PKG + '/' + D.PKG + '.media.NowPlayingService';
+  const out = {};
+  // Önce erişimsiz: kart erişim istemeli
+  D.adb(['shell', 'cmd', 'notification', 'disallow_listener', comp]);
+  let pid = await D.launch();
+  let page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    out.before = await ev('window.SVAndroid.nowPlaying.status()');
+    await ev("document.querySelector('#sv-shell nav [data-tab=audio]').click(); 1");
+    await D.sleep(1200);
+    out.askCard = await ev("!!Array.from(document.querySelectorAll('#sv-shell .np-card .btn')).find((b) => /Erişim ver|Grant access/.test(b.textContent))");
+  } finally { page.close(); }
+  D.adb(['shell', 'cmd', 'notification', 'allow_listener', comp]);
+  pid = await D.launch();
+  page = await D.connect(pid);
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    out.after = await ev('window.SVAndroid.nowPlaying.status().then((r) => r.enabled)');
+    await ev("window.__svHost.request('debugNowPlayingSelf', { on: true })");
+    out.open = await ev(`window.SVAndroid.player.open(${JSON.stringify(name)}, true).then((v) => ({ ok: true, title: v.title }), (e) => ({ ok: false, err: e.message }))`);
+    await D.sleep(2500);
+    const a = await ev('window.SVAndroid.nowPlaying.system()');
+    await D.sleep(3000);
+    const b = await ev('window.SVAndroid.nowPlaying.system()');
+    const posAt = (s) => s.position + (s.playing ? (Date.now() - s.updated) / 1000 : 0);
+    out.session = a && { has: a.has, playing: a.playing, title: a.title, artist: a.artist, album: a.album, app: a.app, duration: Math.round(a.duration) };
+    out.moved = !!(a && b && b.playing && b.position + 0.5 >= a.position);
+    await ev("document.querySelector('#sv-shell nav [data-tab=audio]').click(); 1");
+    await D.sleep(1200);
+    out.card = await ev("(document.querySelector('#sv-shell .np-card .row-title') || {}).textContent || ''");
+    await ev('window.SVAndroid.player.pause()');
+    await D.sleep(1500);
+    const c = await ev('window.SVAndroid.nowPlaying.system()');
+    out.paused = c && c.playing === false;
+    await ev("window.__svHost.request('debugNowPlayingSelf', { on: false })");
+    void posAt;
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); window.SVAndroid.player.stop && window.SVAndroid.player.stop(); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+    D.adb(['shell', 'cmd', 'notification', 'disallow_listener', comp]);
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.before && out.before.enabled === false && out.askCard && out.after === true && out.open.ok
+    && out.session && out.session.has && out.session.playing && out.session.title === 'Probe Session' && out.session.artist === 'CaYaDev' && out.session.duration === 30
+    && out.moved && out.card === 'Probe Session' && out.paused && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

@@ -182,6 +182,7 @@
       isWindows: os === 'win32',
       isMac: os === 'darwin',
       isLinux: os === 'linux',
+      isAndroid: os === 'android',
     };
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), window.SVTimelineCompose.exportJobConfig(job.cfg || {}));
     // Video katmanlarının ara kopyaları (ana süreç hazırladı, #539)

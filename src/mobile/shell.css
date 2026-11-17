@@ -395,6 +395,12 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .source-list { display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .source-list .source { min-height: 60px; padding: 6px 12px; }
 #sv-shell .player-card { padding: 4px 14px; flex: none; }
+/* Çalan parça kartı */
+#sv-shell .np-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+#sv-shell .np-card.row-card { flex-direction: row; align-items: center; gap: 12px; }
+#sv-shell .np-art { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; background: var(--card3); }
+#sv-shell .np-art.ph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
+#sv-shell .np-art .svi { width: 22px; height: 22px; }
 #sv-shell .tempo-card { padding: 4px 14px 12px; display: flex; flex-direction: column; gap: 8px; flex: none; }
 #sv-shell .tempo-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
 #sv-shell .grow-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

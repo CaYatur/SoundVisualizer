@@ -167,7 +167,8 @@
       /* Geçen süre, kalan süre, çubuk ve oynatıcı adı sistem oturumundan gelir.
          macOS/Linux bunu okuyamaz. Elle yazılan toplam süre gösterilir;
          geçen süre uydurulmaz. */
-      const platWin = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false);
+      // Android'de de sistem oturumu var (medya oturumları, src/mobile/android-host.js)
+      const platWin = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false && !window.SV_PLATFORM.isAndroid);
       const fromSystem = platWin && (c.source || 'system') === 'system';
       const manualDur = Math.max(0, Number((c.manual && c.manual.duration) || 0));
       const show = fromSystem ? c.show : Object.assign({}, c.show, {

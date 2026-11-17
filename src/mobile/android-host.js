@@ -161,6 +161,8 @@
       ev.audioStatus.emit(v);
     } else if (name === 'playerState') {
       onPlayerState(v);
+    } else if (name === 'mediaSession') {
+      onMediaSession(v);
     } else if (name === 'memoryPressure') {
       /* Sistem bellek istiyor (onTrimMemory): bekleyen kayıt hemen yazılır, uygulama
          haber vermeden kapatılabilir. Düzenleyici isterse ağır katmanları uyarır. */
@@ -179,12 +181,14 @@
      motor aradaki süreyi kendisi ekliyor. */
   let player = { has: false, playing: false, state: 'idle' };
   let nowPlaying = null;
+  let playerNow = null; // uygulama içi çalar
+  let systemNow = null; // başka uygulamalar (medya oturumu)
   function onPlayerState(v) {
     if (!v || typeof v !== 'object') return;
     player = v;
     ev.player.emit(v);
     const t = Date.now();
-    nowPlaying = v.has ? {
+    playerNow = v.has ? {
       has: true,
       playing: !!v.playing,
       title: String(v.title || ''),
@@ -198,7 +202,22 @@
       updated: t,
       received: t,
     } : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', subtitle: '', app: '', position: 0, duration: 0, updated: 0, received: t };
-    ev.nowPlaying.emit(nowPlaying);
+    publishNow();
+  }
+  /* Başka uygulamalarda çalan parça (media/NowPlaying.kt, bildirim erişimiyle): masaüstündeki
+     Windows medya oturumunun karşılığı. Uygulamanın kendi çaları çalıyorsa o kazanır;
+     çalmıyorsa sistemde çalan parça. */
+  function onMediaSession(v) {
+    if (!v || typeof v !== 'object') return;
+    systemNow = Object.assign({}, v, { received: Date.now() });
+    publishNow();
+  }
+  function publishNow() {
+    const p = playerNow;
+    const sys = systemNow && systemNow.has ? systemNow : null;
+    const next = p && p.has && (p.playing || !(sys && sys.playing)) ? p : (sys || p || nowPlaying);
+    nowPlaying = next;
+    ev.nowPlaying.emit(next);
   }
 
   // ---- Demo ses (0E) ----
@@ -447,6 +466,15 @@
       patch: patchConfig,
       flush: () => profile.flush(),
       ready: () => profile.load(),
+    }),
+    /* Çalan parça: uygulama içi çalar ya da (bildirim erişimiyle) başka uygulamalar. */
+    nowPlaying: Object.freeze({
+      current: () => nowPlaying,
+      /** Yalnız başka uygulamalardan gelen (medya oturumu); kart ve sınama için. */
+      system: () => systemNow,
+      status: () => request('nowPlayingStatus'),
+      openAccess: () => request('nowPlayingAccess'),
+      onChange: (cb) => ev.nowPlaying.add(cb),
     }),
     /* Ses kaynağı (HOST.md "Shell surface"): capture, mic, visualizer. */
     audio: Object.freeze({
