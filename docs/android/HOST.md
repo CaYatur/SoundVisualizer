@@ -209,6 +209,7 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
 | event `windowChrome` | `{ pip }` when picture-in-picture starts or ends, `{ floating }` when the floating window opens or closes. Only the interface gets it; the engine's `onWindowChrome` is the desktop window bar's (`{ show }`). |
 | `appToBack` | `moveTaskToBack`; the Activity stays. |
+| `keepAwake { on }` | Keeps the screen on while the engine is shown (the page sends the desktop's `power.keepAwake`, default on; always on on the export page). Set on the engine's container view, so it follows the engine into the floating window and survives an Activity rebuild; not on the WebView itself, because Chromium manages that one for media. |
 | event `insets` | `{ top, right, bottom, left }` in dp; sent on every change and again on `hello`. |
 | event `back` | The Back gesture while the page is connected. |
 | event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |

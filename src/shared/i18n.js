@@ -128,6 +128,7 @@
     'Bilgisayardan içe aktar': 'Import from computer',
     '.svbackup ya da settings.json': '.svbackup or settings.json',
     'Orta boy': 'Medium',
+    'Ekranı açık tut': 'Keep the screen on',
     'Şu anki sahne seçtiğiniz şarkıyla videoya dönüşür; dosya galeriye kaydedilir. Uzun şarkılar telefonda birkaç dakika sürebilir.': 'The current scene becomes a video with the song you pick; the file is saved to the gallery. Long songs can take a few minutes on a phone.',
     'Şarkı': 'Song',
     'Seç': 'Choose',

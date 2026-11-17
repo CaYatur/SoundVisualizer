@@ -159,6 +159,7 @@
             },
           }),
         ]),
+        U.toggle({ label: 'Ekranı açık tut', value: power.keepAwake !== false, onChange: (v) => patchPower({ keepAwake: v }) }),
       ]));
       body.appendChild(h('div', { class: 'section-label', text: 'Veri' }));
       body.appendChild(h('div', { class: 'card nav-card' }, [

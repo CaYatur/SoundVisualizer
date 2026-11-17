@@ -120,6 +120,12 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 live.startActivity(ExportFlow.shareIntent(args.optString("uri")))
                 reply.ok()
             }
+            /* Ekranı açık tut (masaüstündeki power.keepAwake; dışa aktarımda her zaman). */
+            "keepAwake" -> {
+                val on = args.optBoolean("on", true)
+                EngineHost.keepAwake = on
+                reply.ok(JSONObject().put("on", on))
+            }
             "exportClose" -> {
                 ExportFlow.close()
                 reply.ok()

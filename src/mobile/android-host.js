@@ -261,6 +261,7 @@
         this.saver = P.createSaver({ write: (files) => request('storeWrite', { files }), seed: r.broken ? null : texts });
         this.state.loaded = true;
         if (r.cfg && !config) config = r.cfg;
+        syncAwake();
         return config;
       }, (e) => {
         this.state.readError = String((e && e.message) || e);
@@ -386,6 +387,17 @@
     ev.config.emit(engineView(cfg));
     profile.save(cfg);
     emitLowPower();
+    syncAwake();
+  }
+  /* Ekranı açık tut (masaüstündeki power.keepAwake, varsayılan açık): görselleştirici
+     izlenirken telefon kararmasın. Dışa aktarım sayfasında her zaman açık. */
+  let awake = null;
+  function syncAwake() {
+    const exporting = String(env.page || '').indexOf('src/exporter/') === 0;
+    const on = exporting || !(config && config.power && config.power.keepAwake === false);
+    if (on === awake || !native) return;
+    awake = on;
+    request('keepAwake', { on }).catch(() => { awake = null; });
   }
   /* Düşük güç kipi (src/shared/low-power.js): arayüz de cam bulanıklığını bırakır. */
   let lowPowerOn = null;
@@ -401,6 +413,7 @@
     config = Object.assign({}, config, p);
     ev.configPatch.emit(engineView(p));
     profile.save(config);
+    if (p.power) syncAwake();
   }
   if (typeof document !== 'undefined' && document.addEventListener) {
     // Arka plana geçerken ve sayfa kapanırken bekleyen kayıt hemen yazılır

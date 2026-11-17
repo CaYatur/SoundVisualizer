@@ -11,6 +11,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import com.cayadev.visualizer.bridge.Bridge
@@ -49,6 +50,14 @@ object EngineHost {
     /** Ayar dosyaları (profil klasörü); motor yeniden kurulsa da aynı depo. */
     lateinit var profile: ProfileStore
         private set
+
+    /** Ekranı açık tut (sayfanın power.keepAwake'i; dışa aktarımda her zaman). Motorun
+        bağlı olduğu kapsayıcıda (View.keepScreenOn): motor hangi penceredeyse (tam ekran,
+        yüzen pencere) orada geçerli, Activity'nin yeniden kurulmasından etkilenmez.
+        WebView'in kendisine konmuyor: Chromium medya için onu kendisi yönetip eziyor
+        (ölçüldü: WebView'e konunca mHoldScreenWindow boş kaldı). */
+    var keepAwake = true
+        set(v) { field = v; (web?.parent as? View)?.keepScreenOn = v }
 
     fun register(a: MainActivity) { activityRef = WeakReference(a) }
 
@@ -105,9 +114,12 @@ object EngineHost {
         val w = web ?: return
         val old = w.parent as? ViewGroup
         if (old === parent) return
+        // Bırakılan kapsayıcı ekranı tutmaya devam etmesin (yüzen pencereden dönüşte ölçüldü)
+        old?.keepScreenOn = false
         old?.removeView(w)
         // En alta: yüzen pencerede üstte dokunuş katmanı var
         parent.addView(w, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        parent.keepScreenOn = keepAwake
     }
 
     /* Aynı motorda başka bir sayfa (dışa aktarım, export/ExportFlow.kt). Mantıksal sayfa
@@ -119,7 +131,7 @@ object EngineHost {
 
     fun detach() {
         val w = web ?: return
-        (w.parent as? ViewGroup)?.removeView(w)
+        (w.parent as? ViewGroup)?.let { it.keepScreenOn = false; it.removeView(w) }
     }
 
     private fun rebuild(context: Context, dead: WebView, debug: Boolean, handler: Bridge.RequestHandler) {
