@@ -6,17 +6,23 @@
  */
 package com.cayadev.visualizer.web
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.cayadev.visualizer.EngineHost
 import com.cayadev.visualizer.export.ExportHub
 
 /* WEBVIEW KURULUMU (docs/android/PLAN.md, D1/D2).
@@ -113,6 +119,26 @@ object WebShell {
                 Log.e(TAG, "çizim süreci bitti (çökme: ${detail.didCrash()})")
                 onRendererGone(view)
                 return true
+            }
+        }
+
+        /* Kamera katmanı (Faz 4): yalnız kendi adresimizin yalnız kamera isteği onaylanır.
+           Uygulamanın kamera izni yoksa Android sorar (Activity açıksa; yüzen pencerede
+           sorulamaz, istek reddedilir ve katman "izin verilmedi" der). Mikrofon WebView'den
+           istenmez: ses uygulamanın kendi yakalamasından gelir. */
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val video = PermissionRequest.RESOURCE_VIDEO_CAPTURE
+                val ours = request.origin?.host == HOST && request.origin?.scheme == "https"
+                if (!ours || request.resources.isEmpty() || request.resources.any { it != video }) { request.deny(); return }
+                val app = context.applicationContext
+                if (ContextCompat.checkSelfPermission(app, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(arrayOf(video))
+                    return
+                }
+                val a = EngineHost.activity
+                if (a == null) { request.deny(); return }
+                a.requestCamera { ok -> if (ok) request.grant(arrayOf(video)) else request.deny() }
             }
         }
 

@@ -118,6 +118,13 @@
         settings: { media: Object.assign({}, def.media, { enabled: true, source: 'file', file: f.url || '', fileName: f.name || '', libraryId: '' }) },
       });
     }
+    // Kamera (telefon: { deviceId, label } boşsa varsayılan kamera; izin ilk açılışta sorulur)
+    if (kind === 'camera') {
+      return S.normalizeLayer({
+        kind: 'media', name: f.label || 'Kamera',
+        settings: { media: Object.assign({}, def.media, { enabled: true, source: 'webcam', deviceId: f.deviceId || '', deviceLabel: f.label || '', file: null, fileName: '', libraryId: '' }) },
+      });
+    }
     if (kind === 'logo') {
       return S.normalizeLayer({
         kind: 'logo', name: 'Logo',

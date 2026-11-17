@@ -153,8 +153,11 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   sekmesinde. Şablonlar (masaüstünün 83 hazır sahnesi) Kitaplığın ilk bölümü ve boş sahne şeridinin ilk kutusu. Galeri
   katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Telefonda seçilen `.milk` ve `.milk2`
   dosyaları masaüstünün kurallarıyla ekleniyor (450 KB, bir `ad=değer` satırı, UTF-8 değilse latin1, aynı ad ve içerik
-  tekrar sayılır; `store/MilkImport.kt`); dokular yine masaüstü yedeğiyle geliyor. Açık kalanlar: kamera katmanı, şarkı
-  sözü dosyaları ve masaüstü yedeğindeki logo/video kitaplığı.
+  tekrar sayılır; `store/MilkImport.kt`); dokular yine masaüstü yedeğiyle geliyor. Kamera katmanı: Katman Ekle → Medya →
+  Kamera ya da medya katmanının ayarlarında Kaynak; Android izni ilk açılışta soruyor, reddedilince motorun iletisi ve
+  Yeniden Dene çıkıyor, "Sıradaki" telefonun kameraları arasında geziyor. Kamera uygulama öndeyken çalışıyor (kamera ön
+  plan servisi henüz yok, yüzen pencerede değil). Açık kalanlar: şarkı sözü dosyaları ve masaüstü yedeğindeki logo/video
+  kitaplığı.
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
   dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
   görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. Dokunmatik zaman çizelgesi düzenleyicisi başlamadı.

@@ -370,19 +370,81 @@
       h('button', { class: 'btn', onclick: onChange }, [h('span', { text: 'Değiştir' })]),
     ]);
   }
+  /* Kamera (Faz 4). Motorun kamera uyarısı (izin verilmedi, bulunamadı …) motorun kendi
+     kaydından okunur (window.SVMediaWarning; masaüstünün paneli de onu okuyor). Kamera satırı
+     açıkken saniyede bir bakılır, değişince sayfa yenilenir. Kameralar Android'in verdiği adla
+     gelir ("camera2 1, facing front" → Ön kamera). */
+  const camWarning = (id) => (typeof window.SVMediaWarning === 'function' ? window.SVMediaWarning(id || '') : '');
+  let camTimer = 0;
+  function watchCamera(row, id, shown, ctx) {
+    clearInterval(camTimer);
+    camTimer = setInterval(() => {
+      if (!row.isConnected) { clearInterval(camTimer); return; }
+      if (camWarning(id) !== shown) { clearInterval(camTimer); ctx.refresh(); }
+    }, 1000);
+  }
+  function cameraName(label) {
+    const s = String(label || '');
+    if (/facing front/i.test(s)) return 'Ön kamera';
+    if (/facing back/i.test(s)) return 'Arka kamera';
+    return s || 'Varsayılan kamera';
+  }
+  /* Sıradaki kamera. İzin verilmeden Android kimlikleri boş verir: katman ilk açılınca
+     sorulan izinden sonra dolar. */
+  async function nextCamera(cur) {
+    const md = typeof navigator !== 'undefined' && navigator.mediaDevices;
+    if (!md || !md.enumerateDevices) return null;
+    const all = (await md.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    const list = all.filter((d) => d.deviceId);
+    if (!list.length) { S.confirm(tr(all.length ? 'Önce kamera izni verilmeli.' : 'Kamera bulunamadı.'), 'Tamam'); return null; }
+    const i = list.findIndex((d) => d.deviceId === cur);
+    const d = list[(i + 1) % list.length];
+    return { deviceId: d.deviceId, label: d.label || '' };
+  }
+
   function mediaControls(l, set, ctx, def) {
     const out = [];
     if (l.kind === 'media') {
       const m = Object.assign({}, def.media, l.settings && l.settings.media);
-      const setM = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, { [k]: v }); });
-      if ((m.source || 'webcam') !== 'file') out.push(h('div', { class: 'hint', text: 'Kamera ve ekran kaynağı telefonda yok; bir video seçin.' }));
-      out.push(fileRow('Video', m.source === 'file' ? m.fileName : '', null, () => filePick('video', (f) => {
-        set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, { enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' }); });
-        ctx.refresh();
-      })));
+      const setMany = (o) => set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, o); });
+      const setM = (k, v) => setMany({ [k]: v });
+      const src = m.source === 'file' ? 'file' : m.source === 'screen' ? 'screen' : 'webcam';
+      out.push(U.seg({
+        label: 'Kaynak', options: [['file', 'Video'], ['webcam', 'Kamera']], value: src === 'screen' ? '' : src,
+        onChange: (v) => {
+          if (v === 'webcam') { setMany({ enabled: true, source: 'webcam' }); ctx.refresh(); return; }
+          if (m.file) { setMany({ source: 'file' }); ctx.refresh(); return; }
+          filePick('video', (f) => { setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' }); ctx.refresh(); });
+        },
+      }));
+      if (src === 'screen') out.push(h('div', { class: 'hint', text: 'Ekran kaynağı telefonda yok; bir video ya da kamera seçin.' }));
+      if (src === 'file') {
+        out.push(fileRow('Video', m.fileName, null, () => filePick('video', (f) => {
+          setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' });
+          ctx.refresh();
+        })));
+      }
+      if (src === 'webcam') {
+        const row = U.row('Kamera', [
+          h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: cameraName(m.deviceLabel) })]),
+          h('button', { class: 'btn', onclick: () => nextCamera(m.deviceId).then((d) => { if (d) { setMany({ deviceId: d.deviceId, deviceLabel: d.label }); ctx.refresh(); } }) }, [icon('swap'), h('span', { text: 'Sıradaki' })]),
+        ]);
+        out.push(row);
+        const warn = camWarning(m.deviceId);
+        /* Yeniden dene: damga motorun kaynak anahtarını değiştirir, kamera yeniden istenir
+           (izin reddedildiyse Android bir kez daha sorar; iki kez reddedilince sistem ayarlarından).
+           Katmanı kapatıp açmak yetmiyordu: motorun medya havuzu kaynağı tutuyor (ölçüldü). */
+        if (warn) {
+          out.push(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr(warn) }),
+            h('button', { class: 'btn', onclick: () => { setMany({ retry: Date.now() }); ctx.refresh(); } }, [icon('refresh'), h('span', { text: 'Yeniden Dene' })])]));
+        }
+        watchCamera(row, m.deviceId, warn, ctx);
+      }
       out.push(U.select({ label: 'Sığdırma', options: [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']], value: m.fit || 'cover', onChange: (v) => setM('fit', v) }));
-      out.push(U.slider({ label: 'Hız', min: 0.25, max: 2, step: 0.05, value: m.speed == null ? 1 : m.speed, format: (v) => U.num(v, 2) + '×', onInput: (v) => setM('speed', v) }));
-      out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, onChange: (v) => setM('loop', v) }));
+      if (src === 'file') {
+        out.push(U.slider({ label: 'Hız', min: 0.25, max: 2, step: 0.05, value: m.speed == null ? 1 : m.speed, format: (v) => U.num(v, 2) + '×', onInput: (v) => setM('speed', v) }));
+        out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, onChange: (v) => setM('loop', v) }));
+      }
       out.push(U.toggle({ label: 'Aynala', value: !!m.mirror, onChange: (v) => setM('mirror', v) }));
       return out;
     }
@@ -596,6 +658,7 @@
               { what: { media: 'video' }, label: 'Video', l: { kind: 'media' }, icon: 'video' },
               { what: { media: 'image' }, label: 'Görsel Nesneler', l: { kind: 'sprites' }, icon: 'sparkles' },
               { what: { media: 'logo' }, label: 'Logo', l: { kind: 'logo' }, icon: 'image' },
+              { what: { media: 'camera' }, label: 'Kamera', l: { kind: 'media' }, icon: 'camera' },
             ];
           }
           return [];
@@ -652,6 +715,14 @@
         };
         const doAdd = async () => {
           if (!pick) return;
+          if (pick.what.media === 'camera') {
+            // Dosya yok: motor kamerayı açarken Android izni sorar (WebShell, onPermissionRequest)
+            const made = LF().makeMedia('camera', {});
+            own(() => A().config.patch({ layers: layers().concat([made]) }));
+            ctx.pop();
+            ctx.push(editPage(made.id));
+            return;
+          }
           if (pick.what.media) {
             // Galeriden dosya; vazgeçilirse sayfa yerinde kalır
             let file;
@@ -695,5 +766,5 @@
   }
 
   S.tab('layers', listPage);
-  window.SVShellLayers = Object.freeze({ thumbKey, thumbsReady: () => thumbsReady, typeLabel });
+  window.SVShellLayers = Object.freeze({ thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id) });
 })();
