@@ -1235,7 +1235,13 @@ async function pickInDocumentsUi(name) {
     // Satır açıklaması "ad, boyut, saat" biçiminde
     if (uiTap(new RegExp('^' + name.replace(/\./g, '\\.') + '(,|$)'))) return true;
     // Dosya görünmüyorsa kök listesinden İndirilenler
-    if (uiTap(/^(Show roots|Kökleri göster)$/)) { await D.sleep(900); uiTap(/^(Downloads|İndirilenler)$/); }
+    // "Kökleri göster" her ekranda var; İndirilenler'e yalnız ilk denemede gidilir. Sonra
+    // ızgara ada göre sıralıysa dosya ekranın altında kalabilir: aşağı kaydırılır.
+    let xml = '';
+    try { xml = D.adb(['exec-out', 'uiautomator', 'dump', '/dev/tty'], { timeout: 20000 }); } catch (e) { continue; }
+    if (!/text="(Files in Downloads|İndirilenler'deki dosyalar)"/.test(xml)) {
+      if (uiTap(/^(Show roots|Kökleri göster)$/)) { await D.sleep(900); uiTap(/^(Downloads|İndirilenler)$/); }
+    } else D.adb(['shell', 'input', 'swipe', '540', '1900', '540', '900', '300']);
   }
   return false;
 }
@@ -1784,7 +1790,108 @@ async function floatCamCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { floatcam: floatCamCmd,lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+/* ZAMAN ÇİZELGESİ (src/mobile/shell-timeline.js). İki şablondan iki sahne ve iki sahne klibi
+   (0–4 sn, 4–8 sn). Sayfa iki klibi çizmeli; ikinci klip gerçek dokunuşla sağa sürüklenince
+   başlangıcı ölçüye hizalı kaymalı; cetvelde 1. ve 5. saniyeye dokununca o klibin sahnesi
+   uygulanmalı. Sonra çizelgeyle dışa aktarma (m4a şarkı): videoda 2. ve 6. saniyedeki kareler
+   farklı sahneler olmalı. Sonda önceki ayar geri gelir. */
+async function timelineCmd() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const FF = require(path.join(__dirname, '..', '..', 'node_modules', 'ffmpeg-static'));
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const pos = (sel, idx) => ev(`(() => { const s = document.querySelectorAll(${JSON.stringify(sel)})[${idx || 0}]; if (!s) return null; const b = s.getBoundingClientRect(); return [b.left * devicePixelRatio, b.top * devicePixelRatio, b.width * devicePixelRatio, b.height * devicePixelRatio]; })()`);
+  let keep = null;
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(800);
+    keep = await ev('JSON.stringify({ scenes: window.SVAndroid.config.get().scenes || [], timeline: window.SVAndroid.config.get().timeline || null })');
+    // İki şablondan iki sahne; iki sahne klibi
+    await ev(`(() => {
+      const T = window.SVTemplates; const SV = window.SV; const keys = window.SVSchema.SCENE_KEYS;
+      const mk = (id, tid) => { const next = T.apply(JSON.parse(JSON.stringify(window.SVAndroid.config.get())), T.TEMPLATES.find((x) => x.id === tid), { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone }); const data = {}; for (const k of keys) if (next[k] !== undefined) data[k] = next[k]; return { id, name: id, data }; };
+      const scenes = [mk('sc_tl_a', 'amb-aurora'), mk('sc_tl_b', 'club-laser')];
+      const TL = window.SVTimeline;
+      const track = TL.makeTrack({ kind: 'clip', name: 'Sahneler', clips: [TL.makeClip({ id: 'clip_tl_a', type: 'scene', ref: 'sc_tl_a', start: 0, dur: 4 }), TL.makeClip({ id: 'clip_tl_b', type: 'scene', ref: 'sc_tl_b', start: 4, dur: 4 })] });
+      const tl = Object.assign({}, window.SVAndroid.config.get().timeline || {}, { id: 'tl1', tempo: [{ t: 0, bpm: 120, beatsPerBar: 4 }], tracks: [track], snap: 'bar' });
+      window.SVAndroid.config.patch({ scenes, timeline: tl });
+      return 1;
+    })()`);
+    await ev("document.querySelector('#sv-shell .scene-card [aria-label=\"Zaman Çizelgesi\"], #sv-shell .scene-card [aria-label=\"Timeline\"]').click(); 1");
+    await D.sleep(1200);
+    out.clips = await ev("document.querySelectorAll('#sv-shell .tl-clip').length");
+    // İkinci klibi gerçek dokunuşla sağa sürükle (yaklaşık 1,3 ölçü): ölçüye hizalı olmalı
+    const p = await pos('#sv-shell .tl-clip', 1);
+    const zoom = await ev("(() => { const c = document.querySelectorAll('#sv-shell .tl-clip'); return c[1].getBoundingClientRect().left - c[0].getBoundingClientRect().left; })()") / 4;
+    const x = p[0] + p[2] / 2, y = p[1] + p[3] / 2, dx = zoom * 2.6 * (await ev('devicePixelRatio'));
+    D.adb(['shell', 'input', 'swipe', String(Math.round(x)), String(Math.round(y)), String(Math.round(x + dx)), String(Math.round(y)), '700']);
+    await D.sleep(1200);
+    out.moved = await ev("(() => { const t = window.SVAndroid.config.get().timeline.tracks.find((x) => x.kind === 'clip'); const c = t.clips.find((x) => x.id === 'clip_tl_b'); return c && c.start; })()");
+    // Cetvelde 1. ve 5+ saniye: o anki klibin sahnesi
+    const r = await pos('#sv-shell .tl-ruler');
+    const dpr = await ev('devicePixelRatio');
+    const at = async (sec) => { D.adb(['shell', 'input', 'tap', String(Math.round(r[0] + sec * zoom * dpr + 2)), String(Math.round(r[1] + r[3] / 2))]); await D.sleep(1500); return ev('window.SVAndroid.config.get()._activeSceneId'); };
+    out.at1 = await at(1);
+    out.at7 = await at(out.moved + 1);
+    out.state = await ev('window.SVShellTimeline._state()');
+    out.info = await ev('window.SVShellTimeline.info()');
+    // Çizelgeyle dışa aktarma (m4a şarkı, 10+ sn)
+    await ev('window.SVShell.close(); 1');
+    await D.sleep(500);
+    await ev("document.querySelector('#sv-shell .scene-card [aria-label=\"Dışa Aktar\"], #sv-shell .scene-card [aria-label=\"Export\"]').click(); 1");
+    await D.sleep(900);
+    await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose|Değiştir|Change/.test(b.textContent)).click(); 1");
+    out.songPicked = await pickInDocumentsUi('sv-test-song.m4a');
+    await D.sleep(1500);
+    out.toggle = await ev("(() => { const t = Array.from(document.querySelectorAll('#sv-shell .sheet-body button[role=switch]')).find((b) => /Zaman çizelgesiyle|With the timeline/.test(b.getAttribute('aria-label') || '')); if (!t) return false; if (t.getAttribute('aria-checked') !== 'true') t.click(); return true; })()");
+    await ev("document.querySelector('#sv-shell .sheet-foot .btn').click(); 1");
+    let st = null;
+    for (let i = 0; i < 400; i++) {
+      await D.sleep(1000);
+      try { st = await ev("window.SVExport ? Object.assign(window.SVExport.state(), { title: (document.querySelector('#sv-shell .export-card h2') || {}).textContent }) : null"); } catch (e) { st = null; }
+      if (st && (/Galeriye kaydedildi|Saved to the gallery/.test(st.title || '') || st.error)) break;
+    }
+    out.export = st && { title: st.title, error: st.error, frames: st.result && st.result.frames };
+    const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration']);
+    const row = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
+    const mp4 = (/_display_name=([^,]+\.mp4)/.exec(row) || [])[1];
+    if (mp4) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-tl-'));
+      const local = path.join(dir, 'tl.mp4');
+      D.adb(['pull', '/sdcard/Movies/SoundVisualizer/' + mp4, local], { timeout: 60000 });
+      const mean = (sec) => {
+        const raw = execFileSync(FF, ['-v', 'error', '-ss', String(sec), '-i', local, '-frames:v', '1', '-vf', 'scale=32:18', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 20 });
+        let r0 = 0, g0 = 0, b0 = 0;
+        for (let i = 0; i < raw.length; i += 3) { r0 += raw[i]; g0 += raw[i + 1]; b0 += raw[i + 2]; }
+        const n = raw.length / 3;
+        return [Math.round(r0 / n), Math.round(g0 / n), Math.round(b0 / n)];
+      };
+      out.frameA = mean(2);
+      out.frameB = mean(out.moved + 2);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    try { await ev("Array.from(document.querySelectorAll('#sv-shell .export-card .btn')).find((b) => /Bitti|Done/.test(b.textContent)).click(); 1"); } catch (e) { /* yok */ }
+    let back = false;
+    for (let i = 0; i < 30 && !back; i++) { await D.sleep(500); try { back = await ev("!!(window.SVShell && (window.__SV_ANDROID || {}).page === 'src/visualizer/index.html')"); } catch (e) { back = false; } }
+    out.logs = page.logs.filter((l) => /exception/i.test(l)).slice(0, 5);
+  } finally {
+    try { if (keep) await ev(`(() => { const k = ${keep}; window.SVAndroid.config.patch({ scenes: k.scenes, timeline: k.timeline || undefined, _activeSceneId: null }); return 1; })()`); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const diff = out.frameA && out.frameB ? Math.abs(out.frameA[0] - out.frameB[0]) + Math.abs(out.frameA[1] - out.frameB[1]) + Math.abs(out.frameA[2] - out.frameB[2]) : 0;
+  out.diff = diff;
+  const ok = out.clips === 2 && out.moved > 4 && Math.abs(out.moved / 2 - Math.round(out.moved / 2)) < 1e-6 && out.at1 === 'sc_tl_a' && out.at7 === 'sc_tl_b'
+    && out.songPicked && out.toggle && out.export && !out.export.error && out.frameA && diff > 30 && !out.logs.length;
+  console.log('diff', diff);
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { timeline: timelineCmd,floatcam: floatCamCmd,lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

@@ -41,6 +41,10 @@
     ctx.refresh();
     const sz = size();
     const cfg = JSON.parse(JSON.stringify(A().config.get() || {}));
+    /* Zaman çizelgesiyle (src/mobile/shell-timeline.js): dışa aktarıcı çizelgenin tam bileşimini
+       kare kare çizer (masaüstündeki exportJobConfig includeTimeline, geçişler dahil). */
+    const TLi = window.SVShellTimeline && window.SVShellTimeline.info();
+    if (prefs.timeline && TLi && TLi.clips > 0) cfg.export = Object.assign({}, cfg.export, { includeTimeline: true, timelineId: TLi.id });
     const job = {
       cfg, width: sz.width, height: sz.height, fps: +prefs.fps,
       durationSec: prefs.length === 'all' ? 0 : +prefs.length,
@@ -66,6 +70,8 @@
             }),
           }, [icon('music'), h('span', { text: song ? 'Değiştir' : 'Seç' })]),
         ]),
+        (window.SVShellTimeline && window.SVShellTimeline.info().clips > 0)
+          ? U.toggle({ label: 'Zaman çizelgesiyle', value: !!prefs.timeline, onChange: (v) => { prefs.timeline = !!v; save(prefs); } }) : null,
         U.seg({ label: 'Süre', options: [['30', '30 sn'], ['60', '60 sn'], ['all', 'Tamamı']], value: prefs.length, onChange: (v) => { prefs.length = v; save(prefs); } }),
         U.seg({ label: 'Yön', options: [['landscape', 'Yatay 16:9'], ['portrait', 'Dikey 9:16']], value: prefs.orient, onChange: (v) => { prefs.orient = v; save(prefs); } }),
         U.seg({ label: 'Çözünürlük', options: [['720', '720p'], ['1080', '1080p']], value: prefs.res, onChange: (v) => { prefs.res = v; save(prefs); } }),

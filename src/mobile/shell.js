@@ -596,7 +596,12 @@
     }, [icon('export')]);
     // Başlığa dokununca sahne ayarları (ad, kaydet, renk teması; src/mobile/shell-scene.js)
     const sceneOpen = h('button', { class: 'grow scene-open', onclick: () => { if (window.SVShellScene) openSheetWith(window.SVShellScene.page()); } }, [sceneTitle, sceneSub]);
-    const sceneCard = h('div', { class: 'scene-card glass live' }, [sceneOpen, vj, exportBtn]);
+    // Zaman çizelgesi (src/mobile/shell-timeline.js): şarkı üzerine sahne klipleri
+    const timelineBtn = h('button', {
+      class: 'iconbtn plain', 'aria-label': 'Zaman Çizelgesi', title: 'Zaman Çizelgesi',
+      onclick: () => { if (window.SVShellTimeline) openSheetWith(window.SVShellTimeline.page()); },
+    }, [icon('timeline')]);
+    const sceneCard = h('div', { class: 'scene-card glass live' }, [sceneOpen, vj, timelineBtn, exportBtn]);
     const scenesStrip = h('div', { class: 'scenes live', role: 'group', 'aria-label': 'Sahneler' });
     const navButtons = TABS.map((t) => h('button', {
       'data-tab': t.id, class: t.id === state.tab ? 'on' : '', onclick: () => (state.tab === t.id && t.id !== 'scene' ? closeSheet() : openTab(t.id)),
