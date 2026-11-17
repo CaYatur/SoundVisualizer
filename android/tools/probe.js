@@ -388,7 +388,10 @@ async function profileCmd() {
   const marker = 'p' + Date.now();
   try {
     await ready(page);
-    out.first = await page.evaluate('window.api.requestConfig().then((c) => ({ cfg: c, st: window.__svHost.profileState() }))');
+    // İlk açılış masaüstünün yeni kurulumu gibi: varsayılanlar ve katman yığını; dosya ilk değişiklikte yazılır
+    out.first = await page.evaluate('window.api.requestConfig().then((c) => ({ cfg: c ? { layers: (c.layers || []).length, stack: !!(c.layerStack && c.layerStack.enabled), hasVis: !!c.visualizer } : null, st: window.__svHost.profileState() }))');
+    // Klasör henüz yoksa ls hata verir: dosya da yok demektir
+    out.firstFiles = (() => { try { return D.adb(['shell', 'run-as', D.PKG, 'ls', 'files/profile']); } catch (e) { return ''; } })().split(/\s+/).filter(Boolean);
     // Masaüstündeki gibi tam bir yapılandırma ve bir sahne
     out.saved = await page.evaluate(`(async () => {
       const c = window.SV.deepMerge(window.SV.defaultConfig(), {});
@@ -432,7 +435,8 @@ async function profileCmd() {
   process.off('exit', partial);
   console.log(JSON.stringify(out, null, 1));
   const a = out.crash.after || {};
-  const ok = out.first.cfg === null && out.first.st.loaded && out.saved.saver && out.saved.saver.writes >= 1
+  const ok = out.first.cfg && out.first.cfg.layers === 2 && out.first.cfg.stack && out.first.cfg.hasVis && out.first.st.fresh === true
+    && out.firstFiles.indexOf('settings.json') < 0 && out.first.st.loaded && out.saved.saver && out.saved.saver.writes >= 1
     && out.files.settingsMarker && !out.files.settingsHasScenes && /"probe"/.test(out.files.scenes || '')
     && out.pendingBeforeHome && out.afterHome.flushEvents >= 1 && out.files.homeMarker
     && out.crash.appPidSame && a.newPage && a.marker === marker && a.home === marker && a.scenes === 1;
@@ -704,7 +708,7 @@ async function shellCmd() {
     out.main = await page.evaluate(`({ shell: !!document.getElementById('sv-shell'), buttons: document.querySelectorAll('#sv-shell button').length,
       small: ${small}, insetTop: getComputedStyle(document.getElementById('sv-shell')).getPropertyValue('--inset-top').trim(),
       font: getComputedStyle(document.querySelector('#sv-shell .nav button')).fontFamily, theme: document.documentElement.getAttribute('data-ui-theme'),
-      storedTheme: window.SVUiThemes.normalizeId((window.SVAndroid.config.get().ui || {}).theme) })`);
+      storedTheme: window.SVUiThemes.resolve((window.SVAndroid.config.get().ui || {}).theme, !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches).id })`);
     shot('1-main');
     // Ölçümün değiştirdiği ayar sonda geri yazılır (tema, etkin sahne, Otomatik VJ)
     await page.evaluate('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
@@ -881,6 +885,19 @@ async function layersCmd() {
     return !!p;
   };
   const layersNow = () => ev('(window.SVAndroid.config.get().layers || []).map((l) => ({ id: l.id, kind: l.kind, type: l.type, enabled: l.enabled !== false, opacity: l.opacity == null ? 1 : l.opacity, md: l.settings && l.settings.milkdrop || null }))');
+  /* Motor sahne değişiminde geçiş yapıyor (varsayılan 0,7 sn); emülatör yük altındayken
+     kare süresi uzadığı için geçiş duvar saatinde 2 sn'yi geçebiliyor (ölçüldü: 1,3 sn'de
+     hâlâ eski kare, 2,5 sn'de yeni). Parlaklık beklenen yöne geçene dek, en çok 6 sn bekle. */
+  const settle = async (name, done, region = STAGE) => {
+    const t0 = Date.now();
+    let v = 0;
+    for (;;) {
+      await D.sleep(400);
+      const b = D.screencap();
+      v = PNG.luma(b, 4, region).mean;
+      if (done(v) || Date.now() - t0 > 6000) { if (name && shots) fs.writeFileSync(path.join(shots, name + '.png'), b); return v; }
+    }
+  };
   try {
     for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
     await D.sleep(1200);
@@ -888,8 +905,12 @@ async function layersCmd() {
     // Bilinen başlangıç: arkaplan (gradyan) ve görselleştirici (barlar), yığın açık
     await ev(`(() => { const L = window.SVLayers; const c = JSON.parse(JSON.stringify(window.SVAndroid.config.get()));
       c.layers = [L.normalizeLayer({ kind: 'background', type: 'gradient', name: '' }), L.normalizeLayer({ kind: 'visualizer', type: 'bars', name: '' })];
-      c.layerStack = Object.assign({}, c.layerStack, { enabled: true }); window.SVAndroid.config.set(c); return 1; })()`);
-    await D.sleep(1200);
+      c.layerStack = Object.assign({}, c.layerStack, { enabled: true });
+      // Arkaplan katmanı gizlenince motor sahnenin arkaplanını çiziyor; ölçüm siyah zeminle
+      c.background = Object.assign({}, c.background, { type: 'solid', solidColor: '#000000' });
+      window.SVAndroid.config.set(c); return 1; })()`);
+    // Katmanların ilk karesi hazırlansın (yeni açılan uygulamada daha uzun sürüyor)
+    await D.sleep(2000);
     await ev("window.SVShell.open('layers'); 1");
     await D.sleep(1200);
     out.list = await ev(`({ rows: Array.from(document.querySelectorAll('#sv-shell .layer-list .row')).map((r) => r.dataset.id),
@@ -901,19 +922,22 @@ async function layersCmd() {
     const before = PNG.luma(D.screencap(), 4, STAGE).mean;
     const bgId = l0[0].id;
     await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .iconbtn`);
-    await D.sleep(600);
-    const hidden = PNG.luma(shot('2-hidden'), 4, STAGE).mean;
+    const hidden = await settle('2-hidden', (v) => v < before * 0.6);
     out.eye = { config: (await layersNow())[0].enabled === false, before: Math.round(before), after: Math.round(hidden) };
     await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .iconbtn`);
-    await D.sleep(600);
     out.eye.back = (await layersNow())[0].enabled === true;
+    out.eye.restored = Math.round(await settle(null, (v) => v > before * 0.85));
     // Ayarlar: görünürlük 0,2 → sahne kararmalı (yerel range'e input olayı)
     await tap(`#sv-shell .layer-list .row[data-id="${bgId}"] .row-main`);
     out.editDepth = await ev('window.SVShell.state().depth');
+    /* Ayar sayfası listeden uzun: şerit sayfanın üstünde biter (açık temada beyaz sayfa
+       ölçüme karışıyordu, ölçüldü: sahne %20'de 206 → 40 iken şerit ortalaması 137) */
+    const top = await ev("document.querySelector('#sv-shell .sheet').getBoundingClientRect().top / innerHeight");
+    const EDIT = { y0: STAGE.y0, y1: Math.min(STAGE.y1, top - 0.02) };
+    const ref = PNG.luma(D.screencap(), 4, EDIT).mean;
     await ev(`(() => { const r = document.querySelector('#sv-shell .sheet-body input[type=range]'); r.value = '0.2'; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await D.sleep(800);
-    const dim = PNG.luma(shot('3-edit'), 4, STAGE).mean;
-    out.opacity = { config: (await layersNow())[0].opacity, after: Math.round(dim) };
+    const dim = await settle('3-edit', (v) => v < ref * 0.4, EDIT);
+    out.opacity = { config: (await layersNow())[0].opacity, ref: Math.round(ref), after: Math.round(dim), band: [EDIT.y0, +EDIT.y1.toFixed(3)] };
     out.editSmall = await ev(small);
     for (let t = 1; t < 4; t++) {
       await ev(`document.querySelectorAll('#sv-shell .tabs button')[${t}].click(); 1`);
@@ -980,8 +1004,8 @@ async function layersCmd() {
   }
   console.log(JSON.stringify(out, null, 1));
   const ok = out.listOrder && out.list.thumbs.length === 2 && out.list.thumbs.every((w) => w > 0) && !out.list.small.length
-    && out.eye.config && out.eye.back && out.eye.after < out.eye.before * 0.6
-    && out.editDepth === 2 && Math.abs(out.opacity.config - 0.2) < 0.01 && out.opacity.after < out.eye.before * 0.75 && !out.editSmall.length
+    && out.eye.config && out.eye.back && out.eye.after < out.eye.before * 0.6 && out.eye.restored > out.eye.before * 0.85
+    && out.editDepth === 2 && Math.abs(out.opacity.config - 0.2) < 0.01 && out.opacity.after < out.opacity.ref * 0.4 && !out.editSmall.length
     && out.backToList && !out.addSmall.length && out.addThumbs.every((w) => w > 0)
     && out.added.top === 'bars' && out.added.depth === 2 && out.milkdrop.count === 2 && out.milkdrop.secondIndependent
     && out.drag.moved && out.confirmShown && out.deleted && (out.lang !== 'en' || !out.turkish.length);
