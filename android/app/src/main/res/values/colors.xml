@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Simgenin zemini (assets/icon.svg, "cayadev lacivert zemin") -->
+    <color name="ic_launcher_background">#111827</color>
+    <!-- Yerel ekranlar (WebView çok eski): CaYaDev teması, src/shared/ui-themes.js ile aynı -->
+    <color name="sv_bg">#0b0910</color>
+    <color name="sv_card">#1b141f</color>
+    <color name="sv_line">#34222f</color>
+    <color name="sv_text">#f4edf1</color>
+    <color name="sv_muted">#b2969f</color>
+    <color name="sv_accent">#e11d2a</color>
+    <color name="sv_on_accent">#ffffff</color>
+    <color name="sv_warn_text">#f3cf82</color>
+</resources>

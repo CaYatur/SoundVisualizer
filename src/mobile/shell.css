@@ -385,3 +385,11 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .ctl-row.sw-row .ctl-label { flex: 1; width: auto; }
 /* Durum rozeti: kaynak yokken nötr */
 #sv-shell .badge { background: rgb(var(--fg-rgb) / .08); color: var(--muted); }
+
+/* Sahne kutusunda sahnenin kendi görselleştiricisinin resmi (taslak 1) */
+#sv-shell .scene .art.img { background: var(--card3); overflow: hidden; }
+#sv-shell .scene .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#sv-shell .bpm-chip { gap: 4px; }
+/* Kaynak kartlarının ve ayar satırlarının açıklaması kesilmez, iki satıra iner
+   ("her oturumda onay" gibi bilgiler dar ekranda kayboluyordu, 360 dp'de ölçüldü) */
+#sv-shell .source .row-sub, #sv-shell .nav-row .row-sub, #sv-shell .ctl-row .row-text .row-sub { white-space: normal; }

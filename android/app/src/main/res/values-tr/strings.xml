@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="webview_too_old">Android System WebView çok eski (%1$s). Google Play\'den güncelleyip uygulamayı yeniden açın.\n\nEksik: %2$s</string>
+    <string name="webview_update_title">Android System WebView\'i güncelleyin</string>
+    <string name="webview_update_body">Görüntü motoru telefonun WebView bileşeninde çalışıyor. Bu telefondaki sürüm, ses ve görüntü aktarımı için gereken özellikleri taşımıyor.</string>
+    <string name="webview_update_installed">Yüklü sürüm</string>
+    <string name="webview_update_missing">Eksik özellik</string>
+    <string name="webview_update_store">Play Store\'da güncelle</string>
+    <string name="webview_update_reopen">Uygulamayı yeniden aç</string>
     <string name="audio_channel">Ses girişi</string>
     <string name="audio_running">Görselleştirici için ses dinleniyor</string>
 </resources>

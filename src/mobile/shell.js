@@ -250,6 +250,36 @@
     const en = !!(window.SVI18n && window.SVI18n.locale === 'en');
     return en ? n + (n === 1 ? ' layer' : ' layers') : n + ' katman';
   }
+  /* Çizilen ortak MilkDrop presetinin adı: otomatik geçişin seçimi (ölçer iletisi), yoksa
+     ayardaki seçim, o da yoksa preset deposundaki adı. */
+  let liveMd = '';
+  function mdName(c) {
+    if (liveMd) return liveMd;
+    const m = c.milkdrop || {};
+    if (m.name) return m.name;
+    const P = window.SVPresets;
+    const p = P && P.get ? P.get(m.presetId || '') : null;
+    return (p && p.name) || '';
+  }
+  /* Sahne kutusunun resmi: sahnenin en üstteki görselleştiricisinin (yoksa arkaplanının)
+     mod küçük resmi; ikisi de yoksa adının baş harfleri. */
+  function sceneArt(sc) {
+    const L = window.SVShellLayers;
+    const list = sc && sc.data && Array.isArray(sc.data.layers) ? sc.data.layers : [];
+    let key = '';
+    if (L) {
+      for (let i = list.length - 1; i >= 0 && !key; i--) {
+        const l = list[i];
+        if (l && l.kind === 'visualizer' && l.type !== 'text' && l.enabled !== false) key = L.thumbKey('visualizer', l.type);
+      }
+      for (let i = list.length - 1; i >= 0 && !key; i--) {
+        const l = list[i];
+        if (l && l.kind === 'background' && l.enabled !== false) key = L.thumbKey('background', l.type);
+      }
+    }
+    if (key) return h('div', { class: 'art img', 'aria-hidden': 'true' }, [h('img', { src: '../../assets/mode-thumbs/' + key + '.webp', alt: '', decoding: 'async' })]);
+    return h('div', { class: 'art', 'aria-hidden': 'true', text: initials(sc.name) });
+  }
   function initials(name) {
     const w = String(name || '?').trim().split(/\s+/).filter(Boolean);
     return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase();
@@ -263,12 +293,17 @@
       refs.scenes.appendChild(h('button', {
         class: 'scene glass live' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false',
         onclick: () => recallScene(sc),
-      }, [h('div', { class: 'art', 'aria-hidden': 'true', text: initials(sc.name) }), h('div', { class: 'cap', text: sc.name || '' })]));
+      }, [sceneArt(sc), h('div', { class: 'cap', text: sc.name || '' })]));
     }
     const c = cfg();
     refs.sceneTitle.textContent = act ? act.name : 'Sahne';
     const n = c && Array.isArray(c.layers) ? c.layers.filter((l) => l && l.enabled !== false).length : 0;
-    refs.sceneSub.textContent = countLabel(n);
+    /* "5 katman · MilkDrop: Aurora" (taslak 1): çizilen ortak MilkDrop presetinin adı */
+    refs.sceneSub.textContent = '';
+    refs.sceneSub.appendChild(document.createTextNode(countLabel(n)));
+    const md = c && Array.isArray(c.layers) && c.layers.some((l) => l && l.kind === 'visualizer' && l.type === 'milkdrop' && l.enabled !== false)
+      ? mdName(c) : '';
+    if (md) refs.sceneSub.append(' · MilkDrop: ', h('span', { text: md }));
     const vj = !!(c && c.autovj && c.autovj.enabled);
     refs.vj.classList.toggle('on', vj);
     refs.vj.setAttribute('aria-pressed', vj ? 'true' : 'false');
@@ -306,8 +341,12 @@
     const meterBars = [h('i'), h('i'), h('i', { class: 'm' }), h('i', { class: 'h' })];
     const sourceDot = h('span', { class: 'dot', 'aria-hidden': 'true' });
     const sourceLabel = h('span', { class: 'label', text: 'Demo ses' });
+    // Tempo çipi (taslak 1): telefonun tempo motorundan; tempo bulunmadıysa gizli
+    const bpmValue = h('span');
+    const bpmChip = h('div', { class: 'chip glass mono bpm-chip', hidden: true }, [bpmValue, h('span', { class: 'dim', text: 'BPM' })]);
     const hud = h('div', { class: 'hud' }, [
       h('button', { class: 'chip glass live', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
+      bpmChip,
       h('div', { class: 'spacer' }),
       h('button', {
         class: 'iconbtn glass live', 'aria-label': 'Görüntüleme', title: 'Görüntüleme',
@@ -325,7 +364,7 @@
     }, [icon(t.icon), t.label]));
     const nav = h('nav', { class: 'nav glass live', 'aria-label': 'Ana gezinme' }, navButtons);
     root = h('div', { id: 'sv-shell' }, [hud, sceneCard, scenesStrip, nav]);
-    refs = { meterBars, sourceDot, sourceLabel, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
+    refs = { meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
     document.body.appendChild(root);
   }
 
@@ -352,7 +391,11 @@
     S.onBack(() => { if (!back()) S.app.toBackground(); });
     S.onLowPower((on) => root.classList.toggle('flat', !!on));
     S.audio.onStatus(renderSource);
-    S.onMeter((m) => renderMeter(m && m.level));
+    S.onMeter((m) => {
+      renderMeter(m && m.level);
+      const n = (m && m.mdPreset && m.mdPreset.name) || '';
+      if (n !== liveMd) { liveMd = n; if (state.ready) renderScenes(); }
+    });
     const changed = () => {
       applyTheme(); renderScenes();
       const top = ctx.top;
@@ -362,6 +405,16 @@
     window.api.onConfigPatch(changed);
     // Tam ekrandayken sahneye dokunmak arayüzü geri getirir
     document.addEventListener('pointerup', () => { if (state.fullscreen) setFullscreen(false); }, true);
+    // Tempo çipi saniyede dört kez; arayüz gizliyken yazılmaz
+    setInterval(() => {
+      if (!root || root.classList.contains('hidden') || !window.SVMobileVJ) return;
+      const b = Math.round(window.SVMobileVJ.tempo().bpm || 0);
+      refs.bpmChip.hidden = !b;
+      const t = String(b);
+      if (b && refs.bpmValue.textContent !== t) refs.bpmValue.textContent = t;
+    }, 250);
+    // Sahne kutularının resimleri küçük resim dizini gelince
+    if (window.SVShellLayers) window.SVShellLayers.thumbsReady().then(() => { if (state.ready) renderScenes(); });
     S.config.ready().then(() => {
       applyTheme(); renderScenes(); renderSource();
       state.ready = true;
