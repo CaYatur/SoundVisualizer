@@ -87,10 +87,15 @@
     loadPreviews();
     return previews && previews[kind] && previews[kind][id] ? '../../previews/' + kind + '/' + encodeURIComponent(id) + '.webp' : '';
   }
-  function mdArt(p) {
-    const src = previewSrc('md', p.id);
-    return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : art(p.id, p.name);
+  /* Kutunun resmi: derlemede çizilen (yerleşik); yoksa telefonda çizilir (kullanıcının
+     eklediği ya da yedekten gelen preset, src/mobile/preview-live.js), o sırada desen. */
+  function presetArt(kind, p) {
+    const src = previewSrc(kind, p.id);
+    if (src) return h('img', { src, alt: '', loading: 'lazy', decoding: 'async' });
+    const fb = art(p.id, p.name);
+    return window.SVPreviewLive ? window.SVPreviewLive.art(kind, p, fb) : fb;
   }
+  function mdArt(p) { return presetArt('md', p); }
 
   // ---- MilkDrop ----
   function mdList() {
@@ -263,7 +268,7 @@
       const sel = bgIds.has(p.id);
       grid.appendChild(h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
         h('button', { class: 'tile-main', 'aria-label': p.name, onclick: () => { applyShader(p); ctx.refresh(); } }, [
-          art(p.id, p.name),
+          presetArt('sh', p),
           h('div', { class: 'cap' }, [h('span', { text: p.name }), h('span', { class: 'kind', text: p.kind === 'background' ? 'Arkaplan' : 'Görselleştirici' })]),
         ]),
       ]));

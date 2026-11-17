@@ -412,7 +412,9 @@
   function sceneShot(id) {
     try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch (e) { return ''; }
   }
-  function grabSceneThumb(id, tries) {
+  /* now: kaydedilen/güncellenen görünüm zaten ekranda, beklemeden çekilir (kutu bir an bile
+     mod resmini göstermesin); sahne açılınca geçiş bitene dek beklenir. */
+  function grabSceneThumb(id, tries, now) {
     setTimeout(() => {
       const c = cfg();
       if (!c || c._activeSceneId !== id) return;
@@ -437,10 +439,11 @@
           try { g.drawImage(n, (n.width - sw) / 2, (n.height - sh) / 2, sw, sh, 0, 0, cv.width, cv.height); } catch (e) { /* henüz çizilmedi */ }
         });
         try { localStorage.setItem(SCENE_THUMB + id, cv.toDataURL('image/webp', 0.7)); } catch (e) { /* depo dolu: mod resmi kalır */ }
-        if (refs && refs.scenes) renderScenes();
-        if (refs && refs.sheet && stack.length) { const top = stack[stack.length - 1]; if (top && top.onThumb) top.onThumb(); }
+        // Ekrandaki bütün kutular (şerit, Kitaplık → Sahneler) hemen yeni resme geçer: sayfa
+        // yeniden çizilmeden mod resmi kalıyordu (telefonda görüldü)
+        paintSceneThumbs(id);
       });
-    }, tries ? 400 : 1400);
+    }, tries ? 400 : (now ? 30 : 1400));
   }
   /* "3 katman" / "3 layers": sayı metnin içinde, sözlük çeviremez; dil burada seçilir. */
   function countLabel(n) {
@@ -462,7 +465,25 @@
      mod küçük resmi; ikisi de yoksa adının baş harfleri. */
   function sceneArt(sc) {
     const shot = sc && sc.id ? sceneShot(sc.id) : '';
-    if (shot) return h('div', { class: 'art img', 'aria-hidden': 'true' }, [h('img', { src: shot, alt: '', decoding: 'async' })]);
+    if (shot) return h('div', { class: 'art img', 'aria-hidden': 'true', 'data-scene': sc.id }, [h('img', { src: shot, alt: '', decoding: 'async' })]);
+    const box = sceneArtFallback(sc);
+    if (sc && sc.id) box.setAttribute('data-scene', sc.id);
+    return box;
+  }
+  /* Sahnenin karesi alınınca o sahneyi gösteren her kutu yeni resme geçer. */
+  function paintSceneThumbs(id) {
+    if (!root) return;
+    const shot = sceneShot(id);
+    if (!shot) return;
+    for (const el of root.querySelectorAll('[data-scene]')) {
+      if (el.getAttribute('data-scene') !== id) continue;
+      const fresh = h('div', { class: 'art img', 'aria-hidden': 'true', 'data-scene': id }, [h('img', { src: shot, alt: '', decoding: 'async' })]);
+      // Kitaplık kutusunda .ph sınıfı da var (boyut kuralları)
+      if (el.classList.contains('ph')) fresh.classList.add('ph');
+      el.replaceWith(fresh);
+    }
+  }
+  function sceneArtFallback(sc) {
     const L = window.SVShellLayers;
     const list = sc && sc.data && Array.isArray(sc.data.layers) ? sc.data.layers : [];
     let key = '';
@@ -655,7 +676,7 @@
     choose: chooseBox,
     prompt: promptBox,
     /** Sahnenin küçük resmi: sahneden alınan kare; yoksa en üstteki görselleştiricinin mod resmi. */
-    grabSceneThumb: (id) => grabSceneThumb(id),
+    grabSceneThumb: (id, now) => grabSceneThumb(id, 0, !!now),
     sceneArt: (sc) => sceneArt(sc),
     pickColor: colorBox,
     countLabel,

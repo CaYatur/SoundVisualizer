@@ -50,6 +50,20 @@
       const t = window.SVTemplates.TEMPLATES.find((x) => x.id === job.id);
       if (!t) throw new Error('NO_TEMPLATE');
       cfg = window.SVTemplates.apply(SV.defaultConfig(), t, { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone });
+    } else if (job.kind === 'sh') {
+      // Studio shader (src/thumbs/mode-thumbs.js'teki Studio resmi gibi): tek katman, kendi türünde
+      const p = window.SVPresets.get(job.id);
+      if (!p) throw new Error('NO_SHADER');
+      const want = p.kind === 'background' ? 'background' : 'visualizer';
+      cfg = SV.deepMerge(SV.defaultConfig(), {});
+      const layer = L.normalizeLayer({ id: 'sh', kind: want, type: 'custom', name: p.name });
+      layer.settings = {};
+      layer.settings[want] = { type: 'custom' };
+      layer.presetId = p.id;
+      cfg.layers = [layer];
+      cfg.postfx = [];
+      if (cfg[want]) cfg[want].type = 'custom';
+      cfg.custom = Object.assign({}, cfg.custom, want === 'background' ? { backgroundId: p.id } : { visualizerId: p.id });
     } else {
       const p = (window.SVMilkdropBuiltins || []).find((x) => x.id === job.id);
       if (!p) throw new Error('NO_PRESET');
@@ -62,10 +76,49 @@
       // Motor kaynağı ayardan okuyor (Kitaplık da seçince kaynağı yazıyor)
       cfg.milkdrop = Object.assign({}, cfg.milkdrop, { presetId: p.id, source: p.source, name: p.name });
     }
+    if (job.kind === 'tpl') sampleTrack(cfg);
     if (cfg.images) cfg.images.enabled = false;
     if (cfg.timeline) cfg.timeline.enabled = false;
     if (cfg.layerStack && cfg.layerStack.enabled && L.syncStackState) L.syncStackState(cfg);
     return cfg;
+  }
+
+  /* ÇALAN PARÇA ÖRNEĞİ. Şablonların bir kısmı çalan parçanın adını ve kapağını gösteriyor;
+     önizlemede gerçek parça yok, o öğe boş kalıyordu. Elle yazılmış bir parça ve çizilmiş
+     soyut bir kapak (dosya değil): adlar iki dilde aynı okunuyor (mod resmindeki örnekle aynı). */
+  let cover = '';
+  function sampleCover() {
+    if (cover) return cover;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 256, 256);
+    bg.addColorStop(0, '#2b0a3d');
+    bg.addColorStop(0.55, '#c2185b');
+    bg.addColorStop(1, '#ff9e40');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, 256, 256);
+    g.globalAlpha = 0.85;
+    g.fillStyle = '#ffe0b2';
+    g.beginPath();
+    g.arc(170, 92, 46, 0, Math.PI * 2);
+    g.fill();
+    g.globalAlpha = 0.6;
+    g.fillStyle = '#12051c';
+    for (let i = 0; i < 9; i++) g.fillRect(18 + i * 25, 256 - (40 + ((i * 37) % 90)), 16, 256);
+    cover = c.toDataURL('image/png');
+    return cover;
+  }
+  function sampleTrack(cfg) {
+    const SV = window.SV;
+    const manual = { title: 'Midnight Signal', artist: 'CaYaDev', album: 'Live Set', duration: 214, artwork: sampleCover() };
+    cfg.nowplaying = SV.deepMerge(cfg.nowplaying || {}, { source: 'manual', manual });
+    for (const l of cfg.layers || []) {
+      if (!l || l.kind !== 'nowplaying') continue;
+      l.settings = l.settings || {};
+      l.settings.nowplaying = SV.deepMerge(l.settings.nowplaying || {}, { source: 'manual', manual });
+    }
   }
 
   const probe = document.createElement('canvas');
