@@ -45,8 +45,10 @@ const DIR = 'android/previews';
 const KINDS = Object.freeze(['tpl', 'md']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
+/* Satır sonu normalize: Windows'ta CRLF ile alınan depo aynı anahtarları versin (preset
+   kaynakları dosyada çok satırlı; mod resimlerinin anahtarı da böyle). */
 function keyOf(kind, body) {
-  return sha1(JSON.stringify(RECIPE) + '\n' + kind + '\n' + body);
+  return sha1(JSON.stringify(RECIPE) + '\n' + kind + '\n' + String(body).replace(/\r\n/g, '\n'));
 }
 
 /* Çizilmesi gerekenler: [{ kind, id, key }]. Şablonlar ve yerleşik MilkDrop presetleri. */
