@@ -111,6 +111,10 @@ test('yeni katmanlar masaüstündeki gibi kuruluyor', () => {
   assert.strictEqual(im.settings.images.items[0].src, 'data:image/png;base64,AA');
   const lg = F.makeMedia('logo', { dataUrl: 'data:image/png;base64,AA' }, def);
   assert.deepStrictEqual([lg.kind, lg.settings.logo.enabled, lg.settings.logo.source, lg.settings.logo.src], ['logo', true, 'manual', 'data:image/png;base64,AA']);
+  // Kamera: medya katmanı, kamera kaynağı; boş kimlik varsayılan kamera, dosya yok
+  const cam = F.makeMedia('camera', {}, def);
+  assert.deepStrictEqual([cam.kind, cam.settings.media.enabled, cam.settings.media.source, cam.settings.media.deviceId, cam.settings.media.file], ['media', true, 'webcam', '', null]);
+  assert.strictEqual(F.makeMedia('camera', { deviceId: 'abc', label: 'camera2 1, facing front' }, def).settings.media.deviceLabel, 'camera2 1, facing front');
   // Kopya: yeni kimlik, solo kapalı, ad "(kopya)"
   const dup = F.duplicate(Object.assign({}, bars, { solo: true, name: 'Tayf' }));
   assert.notStrictEqual(dup.id, bars.id);

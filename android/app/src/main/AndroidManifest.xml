@@ -28,6 +28,11 @@
          Kullanıcı ayarlardan açar; açılmazsa yalnız sistem PiP'i kullanılır. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Kamera katmanı (Faz 4): izin yalnız kamera katmanı ilk açıldığında sorulur.
+         Kamerası olmayan cihazlar da kurabilsin diye özellik zorunlu değil. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

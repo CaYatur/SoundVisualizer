@@ -278,7 +278,9 @@
     apply(m) {
       const cfg = m || {};
       this._m = cfg;
-      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.screenId || '', cfg.screenFps || '', cfg.loop ? 1 : 0].join('|');
+      /* `retry`: telefondaki "Yeniden Dene" damgası (izin reddinden sonra kamera yeniden istenir);
+         masaüstünün ayarlarında yok, anahtar değişmez. */
+      const key = [cfg.enabled ? '1' : '0', cfg.source, cfg.deviceId || '', cfg.deviceLabel || '', cfg.file || '', cfg.screenId || '', cfg.screenFps || '', cfg.loop ? 1 : 0, cfg.retry || ''].join('|');
       if (key === this.key) return;
       this.key = key;
       this._source = cfg.source === 'file' ? 'file' : (cfg.source === 'screen' ? 'screen' : 'webcam');
@@ -363,6 +365,9 @@
     }
 
     _webPage() {
+      /* Android uygulamasının sayfası da https'ten açılıyor (uygulamanın kendi yerel adresi)
+         ama yayın istemcisi değil: kamerayı kendisi açar (izin WebView'den, Android sorar). */
+      if (typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isAndroid) return false;
       return typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
     }
 

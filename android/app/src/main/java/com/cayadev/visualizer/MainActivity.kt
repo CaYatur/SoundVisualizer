@@ -106,6 +106,21 @@ class MainActivity : ComponentActivity() {
         askImport.launch(arrayOf("application/zip", "application/octet-stream", "application/json", "text/plain"))
     }
 
+    /* Kamera katmanı (Faz 4): sayfa kamerayı istediğinde (WebShell, onPermissionRequest)
+       uygulamanın izni yoksa sistem sorar; yanıt bekleyen WebView isteğine gider. */
+    private var pendingCamera: ((Boolean) -> Unit)? = null
+    private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        val done = pendingCamera ?: return@registerForActivityResult
+        pendingCamera = null
+        done(ok)
+    }
+
+    fun requestCamera(done: (Boolean) -> Unit) {
+        pendingCamera?.invoke(false)
+        pendingCamera = done
+        askCamera.launch(Manifest.permission.CAMERA)
+    }
+
     /* MilkDrop presetleri (.milk, .milk2): birden çok dosya. Uzantının kayıtlı bir türü yok,
        Android onları genel ikili dosya sayar; süzme adla, depoda (store/MilkImport.kt). */
     private var pendingMilk: Bridge.Reply? = null

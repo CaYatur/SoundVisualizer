@@ -249,9 +249,12 @@ Measured or enforced in code; nothing here depends on the page behaving well.
   Multiple windows are not enabled, so `window.open` goes through the same guard. A request to our own host that
   no handler answers gets 404 (204 for `/favicon.ico`) and never reaches the network.
 - **WebView settings:** file and content access off, mixed content never, zoom off.
-- **Web permissions:** there is no `WebChromeClient`, so the page's permission requests (`getUserMedia` and the like)
-  are refused. Audio comes from the app, not from the page. The camera layer (phase 4) will grant the camera only to
-  our origin and only with the app's own camera permission.
+- **Web permissions:** the `WebChromeClient` (`WebShell.create`) grants only the camera, only to our origin, and only
+  with the app's own `CAMERA` permission. When the app has no permission yet, Android asks (`MainActivity.requestCamera`)
+  and the pending request is granted or denied by the answer; in the floating window there is no activity to ask, so the
+  request is denied. Every other request (microphone, several resources at once) is refused: audio comes from the app,
+  not from the page. The engine opens the camera itself on Android (`media.js` `_webPage()` is false there; the https
+  origin is not a stream client).
 - **Files:** the profile store accepts only the names in `ProfileNames.kt`. A song for export must resolve inside
   `files/media/` (canonical path). The export file name comes from the page and is cleaned by `ExportNames.kt`:
   no path parts, no leading dots, `.mp4` (unit test).

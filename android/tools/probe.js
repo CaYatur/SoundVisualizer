@@ -908,6 +908,8 @@ async function layersCmd() {
       c.layerStack = Object.assign({}, c.layerStack, { enabled: true });
       // Arkaplan katmanı gizlenince motor sahnenin arkaplanını çiziyor; ölçüm siyah zeminle
       c.background = Object.assign({}, c.background, { type: 'solid', solidColor: '#000000' });
+      // Sahne efektleri yok: önceki bir şablonun bloom'u %20'lik katmanı yine beyaza boğuyordu (ölçüldü)
+      c.postfx = [];
       window.SVAndroid.config.set(c); return 1; })()`);
     // Katmanların ilk karesi hazırlansın (yeni açılan uygulamada daha uzun sürüyor)
     await D.sleep(2000);
@@ -1367,6 +1369,79 @@ async function milkCmd() {
   if (!ok) process.exitCode = 1;
 }
 
+/* KAMERA KATMANI (Faz 4). Uygulamanın kamera izni önce geri alınır; Katmanlar → Ekle →
+   Medya → Kamera. Motor kamerayı açarken WebView izin ister, Android'in izin penceresi açılır,
+   "uygulamayı kullanırken" seçilir; kamera hazır olmalı (motorun bildirimi, hata yok) ve sahne
+   değişmeli. Emülatörün arka kamerası (emulated) kullanılır. Sonda katman silinir. */
+async function cameraCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (n) => { if (shots) fs.writeFileSync(path.join(shots, n + '.png'), D.screencap()); };
+  const out = {};
+  try { D.adb(['shell', 'pm', 'revoke', D.PKG, 'android.permission.CAMERA']); } catch (e) { /* zaten yok */ }
+  try { D.adb(['shell', 'pm', 'clear-permission-flags', D.PKG, 'android.permission.CAMERA', 'user-set', 'user-fixed']); } catch (e) { /* eski sürüm */ }
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1200);
+    await ev('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
+    await ev("window.SVShell.open('layers'); 1");
+    await D.sleep(700);
+    await ev("document.querySelector('#sv-shell .sheet-actions .btn').click(); 1");
+    await D.sleep(700);
+    // Medya bölümü, Kamera kutusu, alttaki ekle düğmesi
+    out.tile = await ev(`(() => { const p = Array.from(document.querySelectorAll('#sv-shell .pills .pill')).find((b) => /Medya|Media/.test(b.textContent)); if (!p) return 'no-pill'; p.click(); return 1; })()`);
+    await D.sleep(600);
+    out.tile = await ev(`(() => { const t = Array.from(document.querySelectorAll('#sv-shell .grid2 button, #sv-shell .grid2 .tile-main')).find((b) => /^(Kamera|Camera)$/.test((b.getAttribute('aria-label') || b.textContent || '').trim())); if (!t) return false; t.click(); return true; })()`);
+    await D.sleep(400);
+    await ev("document.querySelector('#sv-shell .sheet-foot .btn').click(); 1");
+    // Android'in izin penceresi: önce reddedilir → uyarı ve "Yeniden Dene"; sonra izin verilir
+    out.denied = false;
+    for (let i = 0; i < 12 && !out.denied; i++) {
+      await D.sleep(800);
+      out.denied = uiPress(/^(Don.t allow|İzin verme)$/i);
+    }
+    for (let i = 0; i < 20 && !(await ev("!!document.querySelector('#sv-shell .sheet-body .banner[role=alert]')")); i++) await D.sleep(500);
+    out.deniedBanner = await ev("(() => { const b = document.querySelector('#sv-shell .sheet-body .banner[role=alert]'); return b ? b.innerText.replace(/\\s+/g, ' ').trim() : ''; })()");
+    shot('camera-denied');
+    await ev("(() => { const b = document.querySelector('#sv-shell .sheet-body .banner[role=alert] .btn'); if (b) b.click(); return !!b; })()");
+    out.dialog = false;
+    for (let i = 0; i < 12 && !out.dialog; i++) {
+      await D.sleep(800);
+      out.dialog = uiPress(/^(While using the app|Uygulamayı kullanırken|Only this time|Yalnızca bu sefer)$/i);
+    }
+    // Motorun kamera kaynağı (katman yığınının medya havuzu) ve kabuğun gösterdiği uyarı
+    const camState = () => ev(`(() => { const s = window.SVStage && window.SVStage.stack(); const pool = s && s._mediaPool ? [...s._mediaPool.values()] : [];
+      const m = pool.find((x) => x._source === 'webcam'); return { found: !!m, ready: !!(m && m.ready), width: m && m.video ? m.video.videoWidth : 0, error: m ? (m.error || '') : '', warning: window.SVShellLayers.cameraWarning('') }; })()`);
+    let st = {};
+    for (let i = 0; i < 30; i++) {
+      await D.sleep(500);
+      st = await camState();
+      if (st.ready || st.error) break;
+    }
+    out.status = st;
+    out.banner = await ev("!!document.querySelector('#sv-shell .sheet-body .banner[role=alert]')");
+    out.granted = /granted=true/.test((/android\.permission\.CAMERA: granted=\w+/.exec(D.adb(['shell', 'dumpsys', 'package', D.PKG])) || [''])[0]);
+    out.layer = await ev("(() => { const l = (window.SVAndroid.config.get().layers || []).slice(-1)[0] || {}; const m = (l.settings || {}).media || {}; return { kind: l.kind, source: m.source, deviceId: m.deviceId }; })()");
+    out.page = await ev("(() => { const rows = Array.from(document.querySelectorAll('#sv-shell .sheet-body .row')).map((r) => r.innerText.replace(/\\s+/g, ' ').trim()); return { depth: window.SVShell.state().depth, rows: rows.slice(0, 4) }; })()");
+    shot('camera-on');
+    // Kamera değiştir: emülatörde tek kamera var, aynı kalır ama ad gelir (izinden sonra kimlik dolu)
+    const cams = await ev("navigator.mediaDevices.enumerateDevices().then((l) => l.filter((d) => d.kind === 'videoinput').map((d) => ({ id: !!d.deviceId, label: d.label })))");
+    out.cameras = cams;
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l) && !/favicon/.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); window.SVAndroid.config.set(window.__probeOrig); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.tile === true && out.denied && /(permission|izni)/i.test(out.deniedBanner) && /(Retry|Yeniden Dene)/.test(out.deniedBanner) && out.dialog && out.granted && out.layer.kind === 'media' && out.layer.source === 'webcam'
+    && out.status.ready && out.status.width > 0 && !out.status.error && !out.status.warning && !out.banner && out.cameras.length >= 1 && out.cameras.every((c) => c.id) && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
 /* DIŞA AKTARMA EKRANI (Faz 5). Şarkı önce İndirilenler'e konur:
      adb push sv-test-song.m4a /sdcard/Download/   (AAC, 20 sn)
    Sahne kartındaki düğme → Dışa Aktar sayfası → şarkı belge seçiciden → 720p 30 fps, 30 sn
@@ -1422,7 +1497,7 @@ async function exportUiCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd };
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);
