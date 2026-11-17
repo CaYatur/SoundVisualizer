@@ -44,7 +44,9 @@
     /* Zaman çizelgesiyle (src/mobile/shell-timeline.js): dışa aktarıcı çizelgenin tam bileşimini
        kare kare çizer (masaüstündeki exportJobConfig includeTimeline, geçişler dahil). */
     const TLi = window.SVShellTimeline && window.SVShellTimeline.info();
-    if (prefs.timeline && TLi && TLi.clips > 0) cfg.export = Object.assign({}, cfg.export, { includeTimeline: true, timelineId: TLi.id });
+    // Düğme kapalıysa masaüstü yedeğinden gelen includeTimeline da yok sayılır
+    const useTl = !!(prefs.timeline && TLi && TLi.clips > 0);
+    cfg.export = Object.assign({}, cfg.export, { includeTimeline: useTl, timelineId: useTl ? TLi.id : '' });
     const job = {
       cfg, width: sz.width, height: sz.height, fps: +prefs.fps,
       durationSec: prefs.length === 'all' ? 0 : +prefs.length,
