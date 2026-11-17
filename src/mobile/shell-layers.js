@@ -377,7 +377,10 @@
       const name = md.independent ? md.name : (c.milkdrop && c.milkdrop.name);
       return [
         U.row('Preset', [h('div', { class: 'row-text' }, [h('div', { class: 'row-title', text: name || 'Yerleşik varsayılan' })])]),
-        h('button', { class: 'btn', onclick: () => { if (window.SVShell) window.SVShell.open('library'); } }, [icon('library'), 'Kitaplıktan Seç']),
+        h('button', {
+          class: 'btn',
+          onclick: () => (window.SVShellLibrary ? window.SVShellLibrary.pickFor(md.independent ? l.id : null) : S.open('library')),
+        }, [icon('library'), 'Kitaplıktan Seç']),
         sens(1),
       ];
     }

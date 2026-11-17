@@ -987,7 +987,137 @@ async function layersCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd };
+/* SES, KİTAPLIK, GÖRÜNTÜLEME, AYARLAR (Faz 3.4–3.6). Her sayfa açılıyor, 48 dp ve
+   İngilizce arayüzde Türkçe metin denetleniyor; düğmeler gerçekten iş yapıyor mu:
+   mikrofon kaynağı açılıp kapanıyor, tempo bulunuyor, Otomatik VJ görselleştiriciyi
+   değiştiriyor, preset seçimi ortak MilkDrop'a gidiyor (katman yoksa ekleniyor), favori
+   ve sahne kaydı ayara yazılıyor, yüzen pencere seçilen boyutla açılıyor, tema ve kare
+   sınırı değişiyor. Ayar sonda geri yazılır. */
+async function pagesCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (name) => { const b = D.screencap(); if (shots) fs.writeFileSync(path.join(shots, name + '.png'), b); return b; };
+  const out = {};
+  D.adb(['shell', 'appops', 'set', D.PKG, 'SYSTEM_ALERT_WINDOW', 'allow']);
+  D.adb(['shell', 'pm', 'grant', D.PKG, 'android.permission.RECORD_AUDIO']);
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const check = `(() => { const el = document.getElementById('sv-shell');
+    const small = Array.from(el.querySelectorAll('button, a, input, select, [role=switch]')).filter((b) => b.offsetParent !== null && b.getClientRects().length)
+      .map((b) => { const r = b.getBoundingClientRect(); return { t: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 24), w: Math.round(r.width), h: Math.round(r.height) }; })
+      .filter((x) => x.w < 47.5 || x.h < 47.5);
+    const sheet = el.querySelector('.sheet');
+    // Sahne/katman adları, kutulardaki baş harfler ve dil seçicideki "Türkçe" kendi dilinde kalır
+    const turkish = (sheet ? sheet.innerText : '').split(/\\n+/).map((s) => s.replace(/\\u200B/g, '').trim())
+      .filter((s) => s.length > 2 && /[çğıöşüÇĞİÖŞÜ]/.test(s) && !/^(Bir|İki|Türkçe)$/.test(s));
+    return { small, turkish }; })()`;
+  const tapSel = async (sel, wait) => {
+    const p = await ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
+      return [Math.round((r.left + r.width / 2) * devicePixelRatio), Math.round((r.top + r.height / 2) * devicePixelRatio)]; })()`);
+    if (p) D.adb(['shell', 'input', 'tap', String(p[0]), String(p[1])]);
+    await D.sleep(wait || 700);
+    return !!p;
+  };
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1500);
+    await ev('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
+    // ---- Ses ----
+    await ev("window.SVShell.open('audio'); 1");
+    await D.sleep(800);
+    const bars = [];
+    for (let k = 0; k < 4; k++) { bars.push(await ev("Array.from(document.querySelectorAll('#sv-shell .bigmeter i')).map((i) => parseFloat(i.style.height) || 0).join()")); await D.sleep(250); }
+    out.audio = { sources: await ev("document.querySelectorAll('#sv-shell .source').length"), moving: new Set(bars).size > 1, check: await ev(check) };
+    shot('1-audio');
+    await tapSel('#sv-shell .source[data-source="mic"]', 2500);
+    out.audio.mic = await ev("({ st: window.SVAndroid.audio.status(), on: document.querySelector('#sv-shell .source[data-source=\"mic\"]').getAttribute('aria-checked') })");
+    await tapSel('#sv-shell .sheet-body .btn.ghost', 1500);
+    out.audio.stopped = await ev('(window.SVAndroid.audio.status() || {}).state');
+    for (let i = 0; i < 20 && !(await ev('window.SVMobileVJ.tempo().bpm > 0')); i++) await D.sleep(500);
+    out.audio.bpm = Math.round(await ev('window.SVMobileVJ.tempo().bpm'));
+    // Otomatik VJ: aç, şimdi değiştir → görselleştirici değişir, kapat
+    const visBefore = await ev("(window.SVAndroid.config.get().layers || []).filter((l) => l.kind === 'visualizer' && l.type !== 'text').map((l) => l.type).join()");
+    await tapSel('#sv-shell .tempo-card [role=switch]', 900);
+    out.vj = { enabled: await ev('!!(window.SVAndroid.config.get().autovj || {}).enabled'), hud: await ev("document.querySelector('#sv-shell .scene-card .pill').classList.contains('on')") };
+    // Sıralı kipte ilk seçim şu anki tür olabilir: iki kez
+    await tapSel('#sv-shell .tempo-card .btn', 900);
+    await tapSel('#sv-shell .tempo-card .btn', 900);
+    out.vj.changed =await ev("(window.SVAndroid.config.get().layers || []).filter((l) => l.kind === 'visualizer' && l.type !== 'text').map((l) => l.type).join()") !== visBefore;
+    out.vj.status = await ev('window.SVMobileVJ.status()');
+    shot('2-autovj');
+    await tapSel('#sv-shell .tempo-card [role=switch]', 700);
+    out.vj.off = !(await ev('!!(window.SVAndroid.config.get().autovj || {}).enabled'));
+    // ---- Kitaplık ----
+    await ev("(() => { const c = window.SVAndroid.config.get(); window.SVAndroid.config.patch({ layers: (c.layers || []).filter((l) => !(l.kind === 'visualizer' && l.type === 'milkdrop')) }); return 1; })()");
+    await ev("window.SVShell.open('library'); 1");
+    await D.sleep(900);
+    out.library = { tiles: await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length"), check: await ev(check) };
+    shot('3-library');
+    const firstId = await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop')[0].id");
+    await tapSel('#sv-shell .grid2 .tile:first-child .tile-main', 1500);
+    out.library.picked = await ev(`(() => { const c = window.SVAndroid.config.get(); return { id: c.milkdrop && c.milkdrop.presetId, src: !!(c.milkdrop && c.milkdrop.source), layer: (c.layers || []).some((l) => l.type === 'milkdrop') }; })()`);
+    out.library.pickedOk = out.library.picked.id === firstId && out.library.picked.src && out.library.picked.layer;
+    await tapSel('#sv-shell .grid2 .tile:first-child .star', 700);
+    out.library.fav = await ev(`!!((window.SVAndroid.config.get().milkdropLibrary || {}).favorites || {})[${JSON.stringify(firstId)}]`);
+    await ev(`(() => { const i = document.querySelector('#sv-shell .search input'); i.value = 'aurora'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await D.sleep(400);
+    out.library.search = await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length");
+    await tapSel('#sv-shell .seg button:nth-child(3)', 700);
+    const n0 = await ev('(window.SVAndroid.config.get().scenes || []).length');
+    await tapSel('#sv-shell .sheet-body > .btn.block', 800);
+    out.library.saved = await ev('(window.SVAndroid.config.get().scenes || []).length') === n0 + 1;
+    shot('4-scenes');
+    await tapSel('#sv-shell .grid2 .tile:last-child .star', 600);
+    await tapSel('#sv-shell .dialog .btn.danger', 700);
+    out.library.deleted = await ev('(window.SVAndroid.config.get().scenes || []).length') === n0;
+    out.library.scenesCheck = await ev(check);
+    // ---- Görüntüleme ----
+    await ev('window.SVShell.close(); 1');
+    await tapSel('#sv-shell .hud .iconbtn', 900);
+    out.display = { open: await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''"), check: await ev(check) };
+    shot('5-display');
+    await tapSel('#sv-shell .seg button:nth-child(3)', 400);
+    await tapSel('#sv-shell .card.big.primary', 2000);
+    const fs0 = await ev('window.SVAndroid.floating.state()');
+    out.display.floating = { showing: fs0.showing, width: fs0.bounds && fs0.bounds[2] };
+    await ev('window.SVAndroid.floating.close()');
+    await D.sleep(1500);
+    out.display.expectW = await ev("Math.round(Math.min(screen.width, screen.height) * devicePixelRatio * 0.85)");
+    // ---- Ayarlar ----
+    await ev("window.SVShell.open('settings'); 1");
+    await D.sleep(800);
+    out.settings = { swatches: await ev("document.querySelectorAll('#sv-shell .sw').length"), check: await ev(check) };
+    shot('6-settings');
+    await tapSel('#sv-shell .sw:nth-child(4)', 700);
+    out.settings.theme = await ev("({ cfg: (window.SVAndroid.config.get().ui || {}).theme, page: document.documentElement.getAttribute('data-ui-theme') })");
+    shot('7-settings-light');
+    // İlk parçalı seçim dil (dokunmak sayfayı yeniden yükler); kare sınırı etiketinden
+    await tapSel('#sv-shell .seg[aria-label="Kare sınırı"] button:first-child, #sv-shell .seg[aria-label="Frame limit"] button:first-child', 600);
+    out.settings.fpsCap = await ev('(window.SVAndroid.config.get().power || {}).fpsCap');
+    await tapSel('#sv-shell .nav-card .nav-row:last-child', 700);
+    out.settings.about = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
+    out.settings.aboutCheck = await ev(check);
+    shot('8-about');
+    out.lang = await ev('window.SVI18n && window.SVI18n.locale');
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); window.SVAndroid.config.set(window.__probeOrig); window.SVAndroid.audio.stop(); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const clean = (c) => c && !c.small.length && (out.lang !== 'en' || !c.turkish.length);
+  const ok = out.audio.sources === 4 && out.audio.moving && clean(out.audio.check) && out.audio.mic.st && out.audio.mic.st.source === 'mic' && out.audio.mic.on === 'true'
+    && out.audio.stopped !== 'running' && out.audio.bpm >= 60 && out.vj.enabled && out.vj.hud && out.vj.changed && out.vj.off
+    && out.library.tiles > 0 && clean(out.library.check) && out.library.pickedOk && out.library.fav && out.library.search >= 1 && out.library.saved && out.library.deleted && clean(out.library.scenesCheck)
+    && clean(out.display.check) && out.display.floating.showing && Math.abs(out.display.floating.width - out.display.expectW) <= 2
+    && out.settings.swatches === 8 && clean(out.settings.check) && out.settings.theme.cfg === 'light' && out.settings.theme.page === 'light'
+    && out.settings.fpsCap === 30 && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

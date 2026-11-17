@@ -126,17 +126,25 @@ object WebShell {
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",
         "web/src/shared/mode-catalog.js",
+        "web/src/shared/autovj.js",
         "web/src/shared/layer-factory.js",
         "web/src/shared/text-fold.js",
+        // Motorun ses nesnesini kurulduğu an yakalar (sayfanın betiklerinden önce olmalı)
+        "web/src/mobile/autovj.js",
         "web/src/mobile/shell.js",
         "web/src/mobile/shell-controls.js",
         "web/src/mobile/shell-layers.js",
+        "web/src/mobile/shell-audio.js",
+        "web/src/mobile/shell-library.js",
+        "web/src/mobile/shell-display.js",
+        "web/src/mobile/shell-settings.js",
     )
 
     private fun installHostScripts(context: Context, web: WebView, debug: Boolean, page: String) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         val origins = setOf(ORIGIN)
-        val env = "window.__SV_ANDROID = Object.freeze({ debug: $debug, page: ${jsString(page)} });"
+        val env = "window.__SV_ANDROID = Object.freeze({ debug: $debug, page: ${jsString(page)}, " +
+            "version: ${jsString(com.cayadev.visualizer.BuildConfig.VERSION_NAME)}, webview: ${jsString(webViewVersion(context))} });"
         WebViewCompat.addDocumentStartJavaScript(web, env, origins)
         for (path in HOST_SCRIPTS) WebViewCompat.addDocumentStartJavaScript(web, readAsset(context, path), origins)
     }

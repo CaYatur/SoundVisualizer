@@ -132,7 +132,10 @@ Each phase ends with a "done when" line. The owner approves each phase before th
 - **Phase 3 status (17.11.2026):** mock-ups approved (3.1). The shell (3.2) sits over the visualizer page: the HUD,
   scene card, scene strip, bottom navigation and bottom sheets. Colours come from the desktop themes; Back closes a
   sheet, then leaves full screen, then sends the app to the back. The mobile CSS guard from 1.x is part of
-  `tests/ui-themes.test.js`.
+  `tests/ui-themes.test.js`. Layers tab (3.3, #1076): list, settings with the layer's effect chain, add layer with
+  build-time mode thumbnails. Audio (3.5), Library, Display (3.4) and Settings (3.6): all tabs work; Auto VJ and
+  the tempo tracker run on the phone (`src/mobile/autovj.js`, the desktop's rules and tempo engine fed by the
+  engine's own audio object).
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.

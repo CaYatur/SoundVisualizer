@@ -145,7 +145,10 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
 - **Faz 3 durumu (17.11.2026):** taslaklar onaylandı (3.1). Kabuk (3.2) görselleştirici sayfasının üstünde duruyor:
   üst bilgi, sahne kartı, sahne şeridi, alt gezinme ve alttan açılan sayfalar. Renkler masaüstünün temalarından; geri
   tuşu önce sayfayı kapatıyor, sonra tam ekrandan çıkıyor, en son uygulamayı arkaya alıyor. 1.x'teki mobil CSS bekçisi
-  `tests/ui-themes.test.js`'in parçası.
+  `tests/ui-themes.test.js`'in parçası. Katmanlar (3.3, #1076): liste, katmanın efekt zinciriyle ayarlar, derlemede
+  çıkarılan mod küçük resimleriyle katman ekleme. Ses (3.5), Kitaplık, Görüntüleme (3.4) ve Ayarlar (3.6): bütün
+  sekmeler çalışıyor; Otomatik VJ ve tempo telefonda (`src/mobile/autovj.js`: masaüstünün kuralları ve tempo motoru,
+  motorun kendi ses nesnesiyle).
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

@@ -117,7 +117,11 @@
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     }
     if (id === 'scene') { closeSheet(); return; }
-    const tab = TABS.find((t) => t.id === id);
+    openSheetWith(pageOf(id));
+  }
+  /* Sayfayı yeni bir alttan açılan sayfada açar (sekme ya da sekme dışı sayfa). */
+  function openSheetWith(page) {
+    const label = typeof page.title === 'function' ? page.title() : page.title;
     const backBtn = h('button', { class: 'iconbtn plain', 'aria-label': 'Geri', title: 'Geri', onclick: () => ctx.pop() }, [icon('chevron-left')]);
     const lead = h('div', { class: 'sheet-lead' });
     const title = h('h2');
@@ -125,7 +129,7 @@
     const actions = h('div', { class: 'sheet-actions' });
     const body = h('div', { class: 'sheet-body' });
     const foot = h('div', { class: 'sheet-foot' });
-    const sheet = h('section', { class: 'sheet live', 'aria-label': tab.label }, [
+    const sheet = h('section', { class: 'sheet live', 'aria-label': label }, [
       h('div', { class: 'grabber' }),
       h('div', { class: 'sheet-head' }, [backBtn, lead, h('div', { class: 'sheet-titles' }, [title, sub]), actions]),
       body,
@@ -135,7 +139,7 @@
     refs.sheet = sheet;
     refs.sheetParts = { backBtn, lead, title, sub, actions, body, foot };
     root.insertBefore(sheet, refs.nav);
-    stack = [pageOf(id)];
+    stack = [page];
     showPage();
     root.classList.add('has-sheet');
   }
@@ -305,7 +309,10 @@
     const hud = h('div', { class: 'hud' }, [
       h('button', { class: 'chip glass live', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
       h('div', { class: 'spacer' }),
-      h('button', { class: 'iconbtn glass live', 'aria-label': 'Yüzen pencere', title: 'Yüzen pencere', onclick: () => A().floating.open() }, [icon('window')]),
+      h('button', {
+        class: 'iconbtn glass live', 'aria-label': 'Görüntüleme', title: 'Görüntüleme',
+        onclick: () => (window.SVShellDisplay ? openSheetWith(window.SVShellDisplay.page()) : A().floating.open()),
+      }, [icon('window')]),
       h('button', { class: 'iconbtn glass live', 'aria-label': 'Tam ekran', title: 'Tam ekran', onclick: () => setFullscreen(true) }, [icon('fullscreen')]),
     ]);
     const sceneTitle = h('div', { class: 'title' });
@@ -375,6 +382,16 @@
     A,
     confirm: confirmBox,
     countLabel,
+    /** Kayıtlı sahneyi kimliğiyle çağırır (Otomatik VJ, Kitaplık). true: bulundu. */
+    recallScene(id) {
+      const sc = scenes().find((s) => s && String(s.id) === String(id));
+      if (!sc) return false;
+      recallScene(sc);
+      return true;
+    },
+    /** Sekme dışı bir sayfa açar (ör. Görüntüleme): alt gezinmede Sahne seçili kalır. */
+    openPage(page) { openSheetWith(page); },
+    fullscreen: (on) => setFullscreen(on),
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

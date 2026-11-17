@@ -27,6 +27,7 @@ desktop (panel → main process → output window) become local calls inside one
 | `SV_PLATFORM` | `{ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true }` |
 | `SV_DISPLAY_ID` | `null`. Projection mapping is per display and not part of the Android app. |
 | `SV_SHARED_EPOCH` | `null`. The shared session clock belongs to redundancy (desktop only). |
+| `__SV_ANDROID` | `{ debug, page, version, webview }`, set before every script of our pages. |
 | `SV_FLOATING` | `false`. The floating window on Android is the same page, not a second one (D2/D3). |
 
 ## Engine surface (`window.api`)
@@ -179,6 +180,7 @@ to the desktop turns the lights on again.
 | `onMeter(cb)` | The engine's level message (`level`, `bass`, `mid`, `treble`, `fps`…), about 30 times a second. |
 | `onLowPower(cb)` | `true` while low power is on (`SVLowPower.active`: set to on, or set to battery while on battery). The interface drops the glass blur. |
 | `floating.open(o)`, `floating.close()`, `floating.set(o)`, `floating.state()` | The floating window requests below. |
+| `pip(w, h)` | System picture-in-picture with aspect `w:h` (`pipEnter`). |
 
 ## Shell surface
 
@@ -195,7 +197,7 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `exportCancel` | Drops the job and deletes the partial file. |
 | events `exportAck` / `exportError` | `{ job, index }` per frame; see VIDEO-FRAME in MESSAGES.md. |
 | `floatingOpen { width?, height?, opacity?, clickThrough? }` | Moves the one engine into a free-size floating window over other apps and sends the app to the back. Needs "display over other apps"; without it, opens that setting and fails with `overlay-permission`. |
-| `floatingSet { opacity?, clickThrough?, locked? }` | Same settings as the desktop floating window. With pass-through on, opacity is capped at the system limit (`maxPassThroughOpacity`, 0.8 on Android 12+). |
+| `floatingSet { opacity?, clickThrough?, locked?, keepAspect?, width?, height? }` | Same settings as the desktop floating window. With pass-through on, opacity is capped at the system limit (`maxPassThroughOpacity`, 0.8 on Android 12+). `keepAspect` (default on): pinch keeps the ratio; off, the two axes follow the fingers separately. `width` and `height` (px, both) resize the open window. |
 | `floatingClose` | Closes the window and brings the app back; the same engine returns to full screen. |
 | `floatingState` | `{ showing, opacity, clickThrough, locked, maxPassThroughOpacity, bounds, activity }`. |
 | `playerPick` | Opens Android's document picker for an audio file, keeps a persistent read grant and opens it in the player. Resolves the player state plus `uri`, or fails with `cancelled`. Needs the Activity. |
