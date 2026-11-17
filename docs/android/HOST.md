@@ -40,7 +40,7 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `requestConfig` | Real (2) | The saved configuration from the profile folder (see "Profile" below), or `null` on first start. Desktop-only outputs arrive switched off ("Engine view"). |
 | `onConfig` | Real (2) | Full configuration after a load or a large change (`SVAndroid.config.set`). |
 | `onConfigPatch` | Local (2) | Only the changed top-level keys while a slider moves, as on the desktop (`SVAndroid.config.patch`). |
-| `onShowClock` | Local (5) | Timeline show-clock anchor. |
+| `onShowClock` | Local (5) | Timeline show-clock anchor. The shell's timeline sends it with `SVAndroid.showClock(anchor)` (the desktop panel uses `sendShowClock`). |
 | `onMomentaryFx` | Empty | Momentary effects are a VJ tool that is not on Android (D6). |
 | `onMediaScrub` | Local (5) | Scrubbing a media layer from the timeline. |
 | `onTbar` | Empty | No T-bar on Android (D6). |

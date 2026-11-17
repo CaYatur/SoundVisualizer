@@ -639,6 +639,10 @@
        birden çok dosya. { added, duplicates, invalid, skipped }; vazgeçilirse 'cancelled'. */
     presets: Object.freeze({ importMilk: () => importMilk() }),
     onMemoryPressure: (cb) => ev.memory.add(cb),
+    /* Zaman çizelgesinin gösteri saati çıpası (src/shared/showclock.js). Masaüstünde
+       panel `sendShowClock` ile pencerelere yollar; burada motor aynı sayfada, olay
+       doğrudan `api.onShowClock` dinleyicisine gider (src/mobile/shell-timeline.js). */
+    showClock: (anchor) => ev.showClock.emit(anchor),
   });
 
   window.SV_PLATFORM = Object.freeze({ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true });

@@ -45,7 +45,7 @@
        kare kare çizer (masaüstündeki exportJobConfig includeTimeline, geçişler dahil). */
     const TLi = window.SVShellTimeline && window.SVShellTimeline.info();
     // Düğme kapalıysa masaüstü yedeğinden gelen includeTimeline da yok sayılır
-    const useTl = !!(prefs.timeline && TLi && TLi.clips > 0);
+    const useTl = !!(prefs.timeline && TLi && TLi.clips > 0 && TLi.enabled);
     cfg.export = Object.assign({}, cfg.export, { includeTimeline: useTl, timelineId: useTl ? TLi.id : '' });
     const job = {
       cfg, width: sz.width, height: sz.height, fps: +prefs.fps,
@@ -72,7 +72,7 @@
             }),
           }, [icon('music'), h('span', { text: song ? 'Değiştir' : 'Seç' })]),
         ]),
-        (window.SVShellTimeline && window.SVShellTimeline.info().clips > 0)
+        (window.SVShellTimeline && window.SVShellTimeline.info().clips > 0 && window.SVShellTimeline.info().enabled)
           ? U.toggle({ label: 'Zaman çizelgesiyle', value: !!prefs.timeline, onChange: (v) => { prefs.timeline = !!v; save(prefs); } }) : null,
         U.seg({ label: 'Süre', options: [['30', '30 sn'], ['60', '60 sn'], ['all', 'Tamamı']], value: prefs.length, onChange: (v) => { prefs.length = v; save(prefs); } }),
         U.seg({ label: 'Yön', options: [['landscape', 'Yatay 16:9'], ['portrait', 'Dikey 9:16']], value: prefs.orient, onChange: (v) => { prefs.orient = v; save(prefs); } }),
