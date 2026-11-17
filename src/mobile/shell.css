@@ -280,7 +280,7 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 /* Seçim kutusu: yerel select (Android'in kendi seçicisini açar), taslaktaki kutu görünümünde */
 #sv-shell .select { flex: 1; min-width: 0; height: 48px; position: relative; display: flex; align-items: center; }
 /* Varsayılana döndür (değer değişince görünür) */
-#sv-shell .ctl-reset { width: 40px; height: 48px; flex: none; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; padding: 0; margin-right: -8px; }
+#sv-shell .ctl-reset { width: 48px; height: 48px; flex: none; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; padding: 0; margin: 0 -12px 0 -6px; }
 #sv-shell .ctl-reset .svi { width: 16px; height: 16px; }
 #sv-shell .ctl-reset[hidden] { display: none; }
 #sv-shell .ctl-row.col.has-reset { position: relative; }
