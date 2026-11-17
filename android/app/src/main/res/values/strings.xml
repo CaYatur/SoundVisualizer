@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">CAYADEV Visualizer</string>
+    <string name="app_name" translatable="false">CaYaDev SoundVisualizer</string>
     <string name="webview_update_title">Update Android System WebView</string>
     <string name="webview_update_body">The visual engine runs in the phone\'s WebView component. The version on this phone lacks features needed for audio and image transfer.</string>
     <string name="webview_update_installed">Installed version</string>
