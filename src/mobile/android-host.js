@@ -415,6 +415,11 @@
       try { incoming = P.parseSettings(r.settings); } catch (e) { throw new Error('NOT_SETTINGS'); }
       if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('NOT_SETTINGS');
     }
+    /* Masaüstü kitaplıklarından gelen videolar (store/LibraryRestore.kt): sahnelerdeki eski
+       yollar telefondaki adrese eşlenir (masaüstündeki remapMedia; yedek çoğu kez Windows'tan,
+       yol karşılaştırması büyük/küçük harf duyarsız). */
+    const libs = committed.libraries || null;
+    if (libs && libs.map && typeof libs.map === 'object' && Object.keys(libs.map).length) remapMedia(incoming, libs.map);
     // Önceki hâl kenara: bekleyen kayıt önce yazılır ki kopya son hâli taşısın
     await profile.flush();
     for (let i = 0; i < P.FILES.length; i++) await request('storeCopy', { from: P.FILES[i], to: P.BEFORE_IMPORT[i], overwrite: true });
@@ -426,6 +431,8 @@
     // Motor yeni presetleri görsün (onPresets: liste değişti, sahne yeniden kurulur)
     if (committed.presets) ev.presets.emit(await request('presetsList').catch(() => []));
     if (committed.textures) ev.texturesChanged.emit();
+    // Sözler geldiyse motorun söz listesi yenilenir
+    if (libs && libs.lyrics) lyricsSnapshot().then(() => emitLyrics(), () => {});
     return {
       kind: r.kind,
       summary,
@@ -434,10 +441,33 @@
       textures: committed.textures || 0,
       skipped: (committed.skipped || 0) + (r.skipped || 0),
       later: r.later || null,
+      libraries: libs ? { logos: libs.logos || 0, lyrics: libs.lyrics || 0, videos: libs.videos || 0 } : null,
       migrated: !!loaded.migrated,
       // Ölçüm: arşivi okuma ve presetleri işleme süresi (uygulamada, ms)
       timing: { read: r.ms || 0, commit: committed.ms || 0 },
     };
+  }
+
+  /* src/main/show-space.js remapMedia: { source: 'file', file } olan her nesnede eski yol
+     tabloda varsa yeni adres yazılır. sv-media:// adresi önce yola çevrilir. */
+  function remapMedia(obj, map) {
+    const table = new Map();
+    for (const k of Object.keys(map)) table.set(String(k).toLowerCase(), map[k]);
+    const U = window.SVMediaUrl;
+    const seen = new Set();
+    let n = 0;
+    (function walk(v) {
+      if (!v || typeof v !== 'object' || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (v.source === 'file' && typeof v.file === 'string' && v.file) {
+        const raw = U && U.fromMediaUrl ? U.fromMediaUrl(v.file) : v.file;
+        const hit = table.get(String(raw).toLowerCase());
+        if (hit) { v.file = hit; n++; }
+      }
+      for (const k of Object.keys(v)) walk(v[k]);
+    })(obj);
+    return n;
   }
 
   /* Paneldeki adoptImportedSettings'in sayfada yapılabilen kısmı: varsayılanlarla
@@ -531,6 +561,11 @@
       status: () => request('nowPlayingStatus'),
       openAccess: () => request('nowPlayingAccess'),
       onChange: (cb) => ev.nowPlaying.add(cb),
+    }),
+    /* Masaüstü yedeğinden gelen logo ve video kitaplıkları (Kitaplık → Medya). */
+    libraries: Object.freeze({
+      list: (key) => request('libraryList', { key }),
+      logo: (id) => request('logoLibRead', { id }),
     }),
     /* Şarkı sözü kitaplığı ve otomatik bulma (Kitaplık → Sözler, Ayarlar). */
     lyrics: Object.freeze({
@@ -644,7 +679,8 @@
     milkdropTextures: () => (native ? request('texturesList').catch(() => ({ dir: '', names: [] })) : resolved({ dir: '', names: [] })),
     milkdropTexture: (name) => (native ? request('textureRead', { name: String(name || '') }).catch(() => null) : resolved(null)),
     onMilkdropTexturesChanged: (cb) => ev.texturesChanged.add(cb),
-    logoLibRead: () => resolved(null),
+    // Masaüstü yedeğinden gelen logo kitaplığı (store/LibraryRestore.kt)
+    logoLibRead: (id) => (native ? request('logoLibRead', { id }).catch(() => null) : resolved(null)),
     lyricsLibSnapshot: () => lyricsSnapshot(),
     lyricsLibRead: (id) => (native ? request('lyricsLibRead', { id }) : resolved(null)),
     onLyricsLib: (cb) => ev.lyricsLib.add(cb),

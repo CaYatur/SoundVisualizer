@@ -148,7 +148,7 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   the engine's message with Retry, "Next" cycles the phone's cameras. The camera works while the app is in front (no
   camera foreground service yet, so not in the floating window). Template and built-in MilkDrop previews are drawn
   before the build (`android/tools/gen-previews.js`, `android/previews/`); saved scenes show a frame of the scene
-  itself. Still open: lyrics files, the logo/video library from desktop backups, previews of user-added presets.
+  itself. Lyrics library (files or by hand), automatic lyrics (cache + user providers, LRCLIB optional) and lyrics layers that follow the playing track; now playing from other apps via notification access; logo, video and lyrics libraries come with a desktop backup (videos remapped in scenes). User-added presets get previews drawn on the phone.
 - **Phase 5 status (17.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
   landscape or portrait, 720p or 1080p, 30 or 60 fps; the one WebView switches to the export page (frames shown as a
   preview, progress, cancel), the MP4 goes to the gallery and can be shared. Songs that are not AAC (MP3, OGG, FLAC,
