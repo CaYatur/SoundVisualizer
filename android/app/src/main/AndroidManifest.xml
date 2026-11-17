@@ -39,6 +39,8 @@
     <!-- Kamera katmanı (Faz 4): izin yalnız kamera katmanı ilk açıldığında sorulur.
          Kamerası olmayan cihazlar da kurabilsin diye özellik zorunlu değil. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Yüzen pencerede kamera (media/CameraService.kt): arka planda kamera ön plan hizmetiyle -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
@@ -80,6 +82,11 @@
             android:name=".audio.AudioService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|microphone" />
+
+        <service
+            android:name=".media.CameraService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
 
         <!-- Çalan parça (media/NowPlaying.kt): başka uygulamaların medya oturumlarını okumak
              için bildirim erişimi. Hizmet bildirimleri okumuyor; yalnız sistem bağlanabilir. -->

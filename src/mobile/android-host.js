@@ -396,6 +396,11 @@
     return { added: r.added || 0, duplicates: r.duplicates || 0, invalid: r.invalid || 0, skipped: r.skipped || 0, ids: up.map((p) => p.id) };
   }
 
+  function usesCamera(c) {
+    const list = c && Array.isArray(c.layers) ? c.layers : [];
+    return list.some((l) => l && l.kind === 'media' && l.enabled !== false && l.settings && l.settings.media && l.settings.media.enabled !== false && l.settings.media.source === 'webcam');
+  }
+
   async function importProfile(opts) {
     if (!native || !P) throw new Error('native-missing');
     await profile.load();
@@ -586,7 +591,8 @@
        iş: { cfg, width, height, fps, durationSec (0 = şarkının tamamı), audioUri, outputName } */
     exportOpen: (job) => request('exportOpen', job),
     floating: Object.freeze({
-      open: (o) => request('floatingOpen', o || {}),
+      // Sahnede açık kamera katmanı varsa uygulama kamera ön plan hizmetini kurar (CameraService)
+      open: (o) => request('floatingOpen', Object.assign({ camera: usesCamera(config) }, o || {})),
       close: () => request('floatingClose'),
       set: (o) => request('floatingSet', o || {}),
       state: () => request('floatingState'),

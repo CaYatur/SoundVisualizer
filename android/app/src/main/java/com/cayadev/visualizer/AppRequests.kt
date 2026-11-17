@@ -222,6 +222,8 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val w = args.optInt("width", (d.widthPixels * 0.6).toInt())
                 val h = args.optInt("height", w * 9 / 16)
                 FloatingWindow.show(app, w, h, args.optDouble("opacity", 1.0).toFloat(), args.optBoolean("clickThrough", false))
+                // Sahnede kamera katmanı varsa yüzen pencerede de çalışsın (uygulama henüz öndeyken başlatılır)
+                if (args.optBoolean("camera", false)) com.cayadev.visualizer.media.CameraService.start(app)
                 // Görünen pencere telefonun ana ekranı olsun: uygulama arkaya
                 live?.moveTaskToBack(true)
                 reply.ok(floatingState())
@@ -235,6 +237,7 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "floatingClose" -> {
                 FloatingWindow.close(app)
+                com.cayadev.visualizer.media.CameraService.stop(app)
                 app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                 reply.ok()
             }

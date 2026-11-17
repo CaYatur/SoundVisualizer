@@ -210,6 +210,8 @@ class MainActivity : ComponentActivity() {
         EngineHost.ensure(this, page, BuildConfig.DEBUG, AppRequests(applicationContext))
         // Uygulamaya dönülünce yüzen pencere kapanır, aynı motor tam ekrana geçer
         if (FloatingWindow.isShowing) FloatingWindow.close(this)
+        // Uygulamaya dönüldü: kamera artık ön planda, hizmet gerekmez
+        com.cayadev.visualizer.media.CameraService.stop(this)
         EngineHost.attach(frame)
         frame.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updatePipParams() }
         /* Ekran kenarı boşlukları (çentik, sistem çubukları) sayfaya dp olarak gider:
@@ -241,6 +243,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (FloatingWindow.isShowing) FloatingWindow.close(this)
+        // Uygulamaya dönüldü: kamera artık ön planda, hizmet gerekmez
+        com.cayadev.visualizer.media.CameraService.stop(this)
         if (::frame.isInitialized) EngineHost.attach(frame)
     }
 

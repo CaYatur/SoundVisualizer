@@ -158,8 +158,8 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   dosyaları masaüstünün kurallarıyla ekleniyor (450 KB, bir `ad=değer` satırı, UTF-8 değilse latin1, aynı ad ve içerik
   tekrar sayılır; `store/MilkImport.kt`); dokular yine masaüstü yedeğiyle geliyor. Kamera katmanı: Katman Ekle → Medya →
   Kamera ya da medya katmanının ayarlarında Kaynak; Android izni ilk açılışta soruyor, reddedilince motorun iletisi ve
-  Yeniden Dene çıkıyor, "Sıradaki" telefonun kameraları arasında geziyor. Kamera uygulama öndeyken çalışıyor (kamera ön
-  plan servisi henüz yok, yüzen pencerede değil). Şablon ve yerleşik MilkDrop önizlemeleri derlemeden önce çiziliyor
+  Yeniden Dene çıkıyor, "Sıradaki" telefonun kameraları arasında geziyor. Kamera yüzen pencerede de çalışıyor: sahnede kamera
+  katmanı varsa pencereyle birlikte kamera ön plan hizmeti başlıyor (`media/CameraService.kt`). Şablon ve yerleşik MilkDrop önizlemeleri derlemeden önce çiziliyor
   (`android/tools/gen-previews.js`, `android/previews/`); kayıtlı sahnelerde sahnenin kendi karesi. Açık kalanlar: şarkı
   sözü dosyaları, masaüstü yedeğindeki logo/video kitaplığı, kullanıcının eklediği presetlerin önizlemesi.
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da

@@ -9,4 +9,6 @@
     <string name="webview_update_reopen">Open the app again</string>
     <string name="audio_channel">Audio input</string>
     <string name="audio_running">Listening to audio for the visualizer</string>
+    <string name="camera_channel">Camera</string>
+    <string name="camera_running">The visualizer is using the camera</string>
 </resources>

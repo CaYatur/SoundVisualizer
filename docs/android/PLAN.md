@@ -145,8 +145,8 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   picked on the phone are added with the desktop's rules (450 KB, a `name=value` line, UTF-8 else Latin-1, same name and
   content is a duplicate; `store/MilkImport.kt`); textures still come with a desktop backup. Camera layer: Add Layer →
   Media → Camera, or Source in a media layer's settings; Android asks for the permission the first time, a denial shows
-  the engine's message with Retry, "Next" cycles the phone's cameras. The camera works while the app is in front (no
-  camera foreground service yet, so not in the floating window). Template and built-in MilkDrop previews are drawn
+  the engine's message with Retry, "Next" cycles the phone's cameras. The camera also works in the floating window: a camera foreground
+  service starts with the window when the scene has a camera layer (`media/CameraService.kt`). Template and built-in MilkDrop previews are drawn
   before the build (`android/tools/gen-previews.js`, `android/previews/`); saved scenes show a frame of the scene
   itself. Still open: lyrics files, the logo/video library from desktop backups, previews of user-added presets.
 - **Phase 5 status (17.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
