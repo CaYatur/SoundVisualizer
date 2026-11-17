@@ -64,6 +64,13 @@ abstract class ThumbIndex : DefaultTask() {
 
 val repoRoot: File = rootProject.projectDir.parentFile
 
+/* UYGULAMANIN SÜRÜMÜ (android/version.properties, PLAN K9): masaüstünden ayrı çizgi.
+   versionCode sürümden: büyük*10000 + küçük*100 + yama (1.2.3 → 10203), her yayında artar. */
+val appVersion: String = Regex("(?m)^version=(\\d+\\.\\d+\\.\\d+)\\s*$")
+    .find(File(rootProject.projectDir, "version.properties").readText())?.groupValues?.get(1)
+    ?: error("android/version.properties: version=X.Y.Z yok")
+val appVersionCode: Int = appVersion.split('.').map { it.toInt() }.let { (a, b, c) -> a * 10000 + b * 100 + c }
+
 val thumbIndex = tasks.register<ThumbIndex>("thumbIndex") {
     sources.from(
         fileTree(repoRoot) {
@@ -107,13 +114,17 @@ android {
         // Android 10: sistem sesini yakalamanın (AudioPlaybackCapture) alt sınırı
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0-dev"
+        versionCode = appVersionCode
+        versionName = appVersion
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+        // Geliştirme sürümü ayırt edilsin (Hakkında: "1.0.0-dev")
+        debug {
+            versionNameSuffix = "-dev"
         }
     }
 
