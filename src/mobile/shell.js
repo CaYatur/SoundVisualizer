@@ -400,6 +400,47 @@
     }
     next._activeSceneId = sc.id;
     A().config.set(next);
+    grabSceneThumb(sc.id);
+  }
+  /* SAHNENİN KÜÇÜK RESMİ (masaüstündeki grabSceneThumb, src/admin/admin.js): sahne açılınca,
+     kaydedilince ya da güncellenince sahnenin kendi görüntüsünden 240x135 bir kare. Mod
+     resmi sahnenin renklerini ve katmanlarını göstermiyordu (yanlış görünüyordu). Ayara
+     girmiyor: tarayıcı deposunda, sahne başına ~10 KB. Geçiş sürerken iki sahnenin karışımı
+     çekilmesin diye geçiş bitene dek beklenir; sahne değiştiyse çekilmez. Kare motorun çizdiği
+     animasyon karesinde alınır (WebGL tuvalleri kareden sonra temizleniyor). */
+  const SCENE_THUMB = 'sv-scene-thumb:';
+  function sceneShot(id) {
+    try { return localStorage.getItem(SCENE_THUMB + id) || ''; } catch (e) { return ''; }
+  }
+  function grabSceneThumb(id, tries) {
+    setTimeout(() => {
+      const c = cfg();
+      if (!c || c._activeSceneId !== id) return;
+      const st = window.SVStage && window.SVStage.stack ? window.SVStage.stack() : null;
+      if (st && st.trans) { if ((tries || 0) < 40) grabSceneThumb(id, (tries || 0) + 1); return; }
+      requestAnimationFrame(() => {
+        if ((cfg() || {})._activeSceneId !== id) return;
+        const stage = document.getElementById('stage');
+        const list = stage ? stage.querySelectorAll('canvas') : [];
+        if (!list.length) return;
+        const cv = document.createElement('canvas');
+        cv.width = 240;
+        cv.height = 135;
+        const g = cv.getContext('2d');
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, cv.width, cv.height);
+        list.forEach((n) => {
+          if (!n.width || !n.height || n.style.display === 'none') return;
+          // Tuval sahnenin oranında değilse ortası (telefon dik tutulunca)
+          const k = Math.min(n.width / 16, n.height / 9);
+          const sw = 16 * k, sh = 9 * k;
+          try { g.drawImage(n, (n.width - sw) / 2, (n.height - sh) / 2, sw, sh, 0, 0, cv.width, cv.height); } catch (e) { /* henüz çizilmedi */ }
+        });
+        try { localStorage.setItem(SCENE_THUMB + id, cv.toDataURL('image/webp', 0.7)); } catch (e) { /* depo dolu: mod resmi kalır */ }
+        if (refs && refs.scenes) renderScenes();
+        if (refs && refs.sheet && stack.length) { const top = stack[stack.length - 1]; if (top && top.onThumb) top.onThumb(); }
+      });
+    }, tries ? 400 : 1400);
   }
   /* "3 katman" / "3 layers": sayı metnin içinde, sözlük çeviremez; dil burada seçilir. */
   function countLabel(n) {
@@ -420,6 +461,8 @@
   /* Sahne kutusunun resmi: sahnenin en üstteki görselleştiricisinin (yoksa arkaplanının)
      mod küçük resmi; ikisi de yoksa adının baş harfleri. */
   function sceneArt(sc) {
+    const shot = sc && sc.id ? sceneShot(sc.id) : '';
+    if (shot) return h('div', { class: 'art img', 'aria-hidden': 'true' }, [h('img', { src: shot, alt: '', decoding: 'async' })]);
     const L = window.SVShellLayers;
     const list = sc && sc.data && Array.isArray(sc.data.layers) ? sc.data.layers : [];
     let key = '';
@@ -611,7 +654,8 @@
     confirm: confirmBox,
     choose: chooseBox,
     prompt: promptBox,
-    /** Sahnenin küçük resmi (en üstteki görselleştiricinin mod resmi; yoksa baş harfler). */
+    /** Sahnenin küçük resmi: sahneden alınan kare; yoksa en üstteki görselleştiricinin mod resmi. */
+    grabSceneThumb: (id) => grabSceneThumb(id),
     sceneArt: (sc) => sceneArt(sc),
     pickColor: colorBox,
     countLabel,
