@@ -1501,7 +1501,7 @@ async function exportUiCmd() {
   try {
     for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
     await D.sleep(1500);
-    await ev("document.querySelector('#sv-shell .scene-card .iconbtn').click(); 1");
+    await ev(`document.querySelector('#sv-shell .scene-card [aria-label="Dışa Aktar"], #sv-shell .scene-card [aria-label="Export"]').click(); 1`);
     await D.sleep(800);
     out.page = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
     await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose/.test(b.textContent)).click(); 1");
