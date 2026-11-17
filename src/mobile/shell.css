@@ -221,7 +221,7 @@ html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent
 #sv-shell .opbar b { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent2); border-radius: 2px; }
 html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 #sv-shell .row .iconbtn { color: var(--muted); background: transparent; }
-#sv-shell .row .iconbtn.off { color: var(--off); }
+#sv-shell .row .iconbtn.off { color: var(--muted2); }
 #sv-shell .grip { width: 48px; height: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted2); touch-action: none; cursor: grab; }
 
 /* Ayar satırları */
@@ -284,8 +284,10 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 #sv-shell .banner { display: flex; gap: 10px; padding: 12px; border-radius: 14px; background: rgb(var(--warn-rgb) / .12); border: 1px solid rgb(var(--warn-rgb) / .45); font-size: 13px; line-height: 1.45; flex: none; }
 #sv-shell .banner .svi { color: var(--warn); margin-top: 1px; }
 #sv-shell .banner b { color: var(--text-strong); }
-#sv-shell .banner.info { background: rgb(var(--info-rgb) / .1); border-color: rgb(var(--info-rgb) / .4); }
-#sv-shell .banner.info .svi { color: rgb(var(--info-rgb)); }
+/* Bilgi şeridi (taslak 7): nötr zemin, ikon soluk */
+#sv-shell .banner.info { background: rgb(var(--fg-rgb) / .05); border-color: var(--line); }
+#sv-shell .banner.info .svi { color: var(--muted); }
+#sv-shell .banner .link { color: var(--accent-text); font-weight: 600; text-decoration: none; min-height: 48px; display: inline-flex; align-items: center; }
 #sv-shell .empty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
 
 /* Ses kaynakları ve tempo */
