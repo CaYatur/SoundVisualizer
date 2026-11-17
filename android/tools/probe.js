@@ -1263,6 +1263,102 @@ async function mediaCmd() {
   if (!ok) process.exitCode = 1;
 }
 
+/* TELEFONDAN .milk (Faz 4). Dosyalar bu komut yazar ve İndirilenler'e koyar: iki preset
+   (.milk ve .milk2, içerikleri her koşuda damgalı ki önceki koşunun tekrarı sayılmasın),
+   preset olmayan bir .milk ve bir .txt. Kitaplık → MilkDrop → ".milk dosyası ekle" → belge
+   seçicide uzun basışla çoklu seçim → "Seç". Beklenen: 2 eklendi, 1 preset değil, 1 atlandı;
+   "Yeni eklenen" süzgecinde iki kutu; motorun listesinde ikisi; kaynak dosyayla aynı (latin1
+   "é" dahil). Aynı dosya yeniden seçilince eklenmez, tekrar sayılır. */
+function uiPress(re, long) {
+  let xml = '';
+  try { xml = D.adb(['exec-out', 'uiautomator', 'dump', '/dev/tty'], { timeout: 20000 }); } catch (e) { return false; }
+  for (const m of xml.matchAll(/<node ([^>]*)>/g)) {
+    const attr = (k) => { const r = new RegExp(k + '="([^"]*)"').exec(m[1]); return r ? r[1] : ''; };
+    if (!re.test(attr('text')) && !re.test(attr('content-desc'))) continue;
+    const b = /\[(\d+),(\d+)\]\[(\d+),(\d+)\]/.exec(attr('bounds'));
+    if (!b) continue;
+    const x = String((+b[1] + +b[3]) >> 1);
+    const y = String((+b[2] + +b[4]) >> 1);
+    D.adb(['shell', 'input', long ? 'swipe' : 'tap'].concat(long ? [x, y, x, y, '900'] : [x, y]));
+    return true;
+  }
+  return false;
+}
+async function milkCmd() {
+  const os = require('node:os');
+  const path = require('node:path');
+  const out = {};
+  const shots = arg('shots');
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  const shot = (n) => { if (shots) fs.writeFileSync(path.join(shots, n + '.png'), D.screencap()); };
+  const stamp = Date.now().toString(36);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-milk-'));
+  const files = {
+    'sv-probe-a.milk': Buffer.from('[preset00]\nfRating=3.000000\nzoom=1.010000\n// ' + stamp + '\nper_frame_1=wave_r = 0.5 + 0.5*sin(time);\n', 'utf8'),
+    // Windows'un 8 bitlik kodlamasıyla "é": UTF-8 değil, latin1 okunmalı
+    'sv-probe-b.milk2': Buffer.concat([Buffer.from('[preset00]\nfRating=2.000000\n// caf'), Buffer.from([0xe9]), Buffer.from(' ' + stamp + '\nrot=0.020000\n')]),
+    'sv-probe-bad.milk': Buffer.from('bu bir preset değil ' + stamp + '\n', 'utf8'),
+    'sv-probe-note.txt': Buffer.from('zoom=1\n', 'utf8'),
+  };
+  D.adb(['shell', 'rm', '-f', '/sdcard/Download/sv-probe-*']);
+  for (const [n, b] of Object.entries(files)) { fs.writeFileSync(path.join(tmp, n), b); D.adb(['push', path.join(tmp, n), '/sdcard/Download/' + n]); }
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  const pick = async (names) => {
+    for (let i = 0; i < 12; i++) {
+      await D.sleep(900);
+      if (uiPress(new RegExp('^' + names[0].replace(/\./g, '\\.') + '(,|$)'), true)) break;
+      if (uiPress(/^(Show roots|Kökleri göster)$/)) { await D.sleep(900); uiPress(/^(Downloads|İndirilenler)$/); }
+    }
+    for (const n of names.slice(1)) { await D.sleep(600); uiPress(new RegExp('^' + n.replace(/\./g, '\\.') + '(,|$)')); }
+    await D.sleep(700);
+    return uiPress(/^(Select|Seç|SELECT|SEÇ|Open|Aç)$/);
+  };
+  const status = () => ev("(() => { const b = document.querySelector('#sv-shell .sheet-body .banner'); return b ? b.innerText.trim() : ''; })()");
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1200);
+    const before = await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop').length");
+    await ev('window.SVShellLibrary.pickFor(null); 1');
+    await D.sleep(900);
+    out.button = await ev("(() => { const b = Array.from(document.querySelectorAll('#sv-shell .md-import .btn')); if (!b.length) return false; b[0].click(); return true; })()");
+    out.picked = await pick(['sv-probe-a.milk', 'sv-probe-b.milk2', 'sv-probe-bad.milk', 'sv-probe-note.txt']);
+    for (let i = 0; i < 30 && (i === 0 || /okunuyor|Reading/i.test(await status())); i++) await D.sleep(500);
+    out.status = await status();
+    out.list = await ev(`(() => { const on = document.querySelector('#sv-shell .pills .pill.on'); return { pill: on ? on.innerText.trim() : '', tiles: Array.from(document.querySelectorAll('#sv-shell .grid2 .tile-main')).map((t) => t.getAttribute('aria-label')) }; })()`);
+    const all = await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop').map((p) => ({ id: p.id, name: p.name }))");
+    out.engine = { before, after: all.length };
+    const mine = all.filter((p) => /^sv-probe-/.test(p.name));
+    out.sources = {};
+    for (const p of mine) {
+      const src = await ev(`window.api.milkdropPresetSource(${JSON.stringify(p.id)})`);
+      if (src.indexOf(stamp) >= 0) out.sources[p.name] = { id: p.id, ok: src === files[p.name + (p.name.endsWith('-b') ? '.milk2' : '.milk')].toString(p.name.endsWith('-b') ? 'latin1' : 'utf8') };
+    }
+    shot('milk-added');
+    // Aynı dosya yeniden: eklenmez, tekrar sayılır
+    await ev("document.querySelector('#sv-shell .md-import .btn').click(); 1");
+    out.repicked = await pick(['sv-probe-a.milk']);
+    for (let i = 0; i < 30 && (i === 0 || /okunuyor|Reading/i.test(await status())); i++) await D.sleep(500);
+    out.again = { status: await status(), count: await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop').length") };
+    out.lang = await ev('window.SVI18n && window.SVI18n.locale');
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev('window.SVShell.close(); 1'); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const en = out.lang === 'en';
+  const ok = out.button && out.picked && out.engine.after === out.engine.before + 2
+    && (en ? /^2 presets added · 1 not a preset · 1 skipped$/ : /^2 preset eklendi · 1 preset değil · 1 atlandı$/).test(out.status)
+    && /Just added|Yeni eklenen/.test(out.list.pill) && out.list.tiles.length === 2
+    && out.sources['sv-probe-a'] && out.sources['sv-probe-a'].ok && out.sources['sv-probe-b'] && out.sources['sv-probe-b'].ok
+    && out.repicked && out.again.count === out.engine.after && (en ? /^0 presets added · 1 already in the library$/ : /^0 preset eklendi · 1 zaten kitaplıkta$/).test(out.again.status)
+    && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
 /* DIŞA AKTARMA EKRANI (Faz 5). Şarkı önce İndirilenler'e konur:
      adb push sv-test-song.m4a /sdcard/Download/   (AAC, 20 sn)
    Sahne kartındaki düğme → Dışa Aktar sayfası → şarkı belge seçiciden → 720p 30 fps, 30 sn
@@ -1318,7 +1414,7 @@ async function exportUiCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd };
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

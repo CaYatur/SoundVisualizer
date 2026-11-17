@@ -275,15 +275,86 @@ class ProfileStore(context: Context) {
             tex++
         }
         staging.deleteRecursively()
-        if (saved > 0) {
-            val list = sortPresets(byId.values.toMutableList())
-            writeAtomic(presetsIndex, list.toString().toByteArray(Charsets.UTF_8))
-            presetGen++
-            presetCache = list
-        }
+        if (saved > 0) commitIndex(byId)
         JSONObject().put("presets", saved).put("textures", tex).put("skipped", skipped).put("gen", presetGen)
             .put("ms", android.os.SystemClock.elapsedRealtime() - t0)
     }
+
+    /** Dizin yeniden yazılır, kuşak artar (presetsHead/Since), önbellek yenilenir. */
+    private fun commitIndex(byId: Map<String, JSONObject>) {
+        val list = sortPresets(byId.values.toMutableList())
+        writeAtomic(presetsIndex, list.toString().toByteArray(Charsets.UTF_8))
+        presetGen++
+        presetCache = list
+    }
+
+    /**
+     * Telefonda seçilen .milk / .milk2 dosyaları kullanıcı presetlerine eklenir (kurallar
+     * MilkImport'ta, masaüstüyle aynı). [files]: dosya adı ve açıcı; ikisi de içerik
+     * sağlayıcısına gider, bu yüzden bu iş parçacığında çağrılır. Yanıt: eklenen, tekrar,
+     * preset olmayan, atlanan sayıları ve motorun listesine gidecek hafif öğeler (`upsert`).
+     */
+    fun importMilk(files: List<Pair<() -> String, () -> InputStream?>>, done: (JSONObject?, String?) -> Unit) = run(done) {
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        presetsDir.mkdirs()
+        val existing = presetCache ?: loadPresetList()
+        val byId = LinkedHashMap<String, JSONObject>()
+        // Tekrar denetimi için yalnız aynı addaki presetlerin kaynağı okunur (liste kaynaksız)
+        val idsByName = HashMap<String, MutableList<String>>()
+        for (i in 0 until existing.length()) existing.optJSONObject(i)?.let { p ->
+            byId[p.optString("id")] = p
+            if (p.optString("kind") == "milkdrop") idsByName.getOrPut(p.optString("name")) { mutableListOf() }.add(p.optString("id"))
+        }
+        val keys = HashSet<String>()
+        val checkedNames = HashSet<String>()
+        fun knownKey(name: String, k: String): Boolean {
+            if (checkedNames.add(name)) {
+                for (id in idsByName[name].orEmpty()) {
+                    val f = File(presetsDir, "$id.json")
+                    val src = try { JSONObject(String(AtomicFile(f).readFully(), Charsets.UTF_8)).optString("source", "") } catch (e: Exception) { continue }
+                    keys.add(MilkImport.key(name, src))
+                }
+            }
+            return keys.contains(k)
+        }
+        var added = 0
+        var duplicates = 0
+        var invalid = 0
+        var skipped = 0
+        var total = 0L
+        val upsert = JSONArray()
+        val now = System.currentTimeMillis()
+        for ((i, f) in files.withIndex()) {
+            if (i >= MilkImport.MAX_FILES) { skipped++; continue }
+            val file = try { f.first() } catch (e: Exception) { "" }
+            if (!MilkImport.isPresetFile(file)) { skipped++; continue }
+            val bytes = try { f.second()?.use { MilkImport.readCapped(it, MilkImport.MAX_BYTES) } } catch (e: Exception) { null }
+            if (bytes == null) { skipped++; continue }
+            total += bytes.size
+            if (total > MilkImport.MAX_TOTAL) { skipped++; continue }
+            val source = MilkImport.decode(bytes)
+            if (!MilkImport.looksLikePreset(source)) { invalid++; continue }
+            val name = MilkImport.stem(file)
+            val k = MilkImport.key(name, source)
+            if (knownKey(name, k)) { duplicates++; continue }
+            keys.add(k)
+            var id = MilkImport.newId()
+            while (byId.containsKey(id)) id = MilkImport.newId()
+            val p = JSONObject().put("id", id).put("kind", "milkdrop").put("name", name).put("source", source).put("updatedAt", now)
+            writeAtomic(AtomicFile(File(presetsDir, "$id.json")), p.toString().toByteArray(Charsets.UTF_8))
+            val l = lean(p)
+            byId[id] = l
+            upsert.put(JSONObject(l.toString()))
+            added++
+        }
+        if (added > 0) commitIndex(byId)
+        JSONObject().put("added", added).put("duplicates", duplicates).put("invalid", invalid).put("skipped", skipped)
+            .put("gen", presetGen).put("upsert", upsert).put("ms", android.os.SystemClock.elapsedRealtime() - t0)
+    }
+
+    /** Seçilen belgeler: ad ve açıcı (MediaPick.displayName, içerik çözücü). */
+    fun documents(uris: List<Uri>): List<Pair<() -> String, () -> InputStream?>> =
+        uris.map { u -> Pair({ com.cayadev.visualizer.media.MediaPick.displayName(app, u) }, opener(u)) }
 
     /** İçe aktarma vazgeçildi: geçici klasör silinir. */
     fun importDiscard(done: (JSONObject?, String?) -> Unit) = run(done) {

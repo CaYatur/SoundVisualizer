@@ -313,6 +313,16 @@
      ayarlar ve sahneler yedektekiyle değişir, presetler eklenir (aynı kimlik varsa
      yedekteki geçerli). Önceki hâl *.before-import.json olarak kalır. Kitaplık
      dosyaları (logo, video, söz) ve dokular Faz 4'te; sayıları sonuçta döner. */
+  /* Eklenenler motorun listesine fark olarak gider (sahne yeniden kurulmaz; kaynak
+     seçilince istenir). Kuşak da taşınır: motor sonraki yoklamada listeyi baştan istemez. */
+  async function importMilk() {
+    if (!native) throw new Error('native-missing');
+    const r = (await request('milkImport')) || {};
+    const up = Array.isArray(r.upsert) ? r.upsert : [];
+    if (up.length) ev.presetsDelta.emit({ upsert: up, remove: [], gen: Number(r.gen) || 0 });
+    return { added: r.added || 0, duplicates: r.duplicates || 0, invalid: r.invalid || 0, skipped: r.skipped || 0, ids: up.map((p) => p.id) };
+  }
+
   async function importProfile(opts) {
     if (!native || !P) throw new Error('native-missing');
     await profile.load();
@@ -488,6 +498,9 @@
     /* Bilgisayardan içe aktarma: masaüstünün tam yedeği (.svbackup) ya da settings.json.
        media verilirse uygulamanın medya klasöründeki dosya, yoksa Android'in dosya seçicisi. */
     importProfile: (opts) => importProfile(opts || {}),
+    /* Telefondan MilkDrop presetleri (.milk, .milk2; Faz 4): Android'in dosya seçicisi,
+       birden çok dosya. { added, duplicates, invalid, skipped }; vazgeçilirse 'cancelled'. */
+    presets: Object.freeze({ importMilk: () => importMilk() }),
     onMemoryPressure: (cb) => ev.memory.add(cb),
   });
 

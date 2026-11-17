@@ -149,11 +149,13 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   çıkarılan mod küçük resimleriyle katman ekleme. Ses (3.5), Kitaplık, Görüntüleme (3.4) ve Ayarlar (3.6): bütün
   sekmeler çalışıyor; Otomatik VJ ve tempo telefonda (`src/mobile/autovj.js`: masaüstünün kuralları ve tempo motoru,
   motorun kendi ses nesnesiyle).
-- **Faz 4 durumu (18.11.2026):** MilkDrop tarayıcısı, arama, favoriler, dokular ve Studio shader'ları Kitaplık
+- **Faz 4 durumu (17.11.2026):** MilkDrop tarayıcısı, arama, favoriler, dokular ve Studio shader'ları Kitaplık
   sekmesinde. Şablonlar (masaüstünün 83 hazır sahnesi) Kitaplığın ilk bölümü ve boş sahne şeridinin ilk kutusu. Galeri
-  katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Açık kalanlar: telefonda `.milk`
-  dosyası içe aktarma, kamera katmanı, şarkı sözü dosyaları ve masaüstü yedeğindeki logo/video kitaplığı.
-- **Faz 5 durumu (18.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
+  katmanları: video (seçilen dosyadan akıtılır, kopyalanmaz), görsel nesne ve logo. Telefonda seçilen `.milk` ve `.milk2`
+  dosyaları masaüstünün kurallarıyla ekleniyor (450 KB, bir `ad=değer` satırı, UTF-8 değilse latin1, aynı ad ve içerik
+  tekrar sayılır; `store/MilkImport.kt`); dokular yine masaüstü yedeğiyle geliyor. Açık kalanlar: kamera katmanı, şarkı
+  sözü dosyaları ve masaüstü yedeğindeki logo/video kitaplığı.
+- **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
   dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
   görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. Dokunmatik zaman çizelgesi düzenleyicisi başlamadı.
 

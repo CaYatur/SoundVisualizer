@@ -299,6 +299,8 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 #sv-shell .banner.info .svi { color: var(--muted); }
 #sv-shell .banner .link { color: var(--accent-text); font-weight: 600; text-decoration: none; min-height: 48px; display: inline-flex; align-items: center; }
 #sv-shell .empty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+/* Kitaplık → MilkDrop: telefondan .milk ekleme (açıklama ve düğme) */
+#sv-shell .md-import { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 
 /* Ses kaynakları ve tempo */
 #sv-shell .source { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); min-height: 72px; width: 100%; text-align: left; }

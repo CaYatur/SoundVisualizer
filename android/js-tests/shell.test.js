@@ -83,7 +83,7 @@ function uiStrings(text) {
 }
 // Arayüz metni olmayan dizgiler (iç adlar, hata iletileri, birleşik metnin parçaları)
 const NOT_UI = new Set(['DOMContentLoaded', 'About ', 'Kalan yaklaşık ', 'SVLayers yok', 'Add ', ' katmanını ekle', 'SVAudio', 'Türkçe\\u200B', 'Başlatılamadı: ', 'İçe aktarılamadı: ', 'Import failed: ',
-  'Changes every ', 'Her ', ' saniyede değişir', ' ölçüde değişir', ' atlandı', 'Scene ', 'Sahne ', 'Version ', 'Sürüm ', 'WebView ',
+  'Changes every ', 'Her ', ' saniyede değişir', ' ölçüde değişir', ' atlandı', ' zaten kitaplıkta', ' preset değil', 'Scene ', 'Sahne ', 'Version ', 'Sürüm ', 'WebView ',
   'SoundVisualizer', 'English', 'AndroidX, Media3', 'Apache License 2.0', 'Geist, Geist Mono', 'SIL Open Font License 1.1',
   'nin yaptığı gibi), görselleştirici shader', 'Ekran\\u200B']);
 
