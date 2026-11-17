@@ -160,8 +160,10 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   Kamera ya da medya katmanının ayarlarında Kaynak; Android izni ilk açılışta soruyor, reddedilince motorun iletisi ve
   Yeniden Dene çıkıyor, "Sıradaki" telefonun kameraları arasında geziyor. Kamera uygulama öndeyken çalışıyor (kamera ön
   plan servisi henüz yok, yüzen pencerede değil). Şablon ve yerleşik MilkDrop önizlemeleri derlemeden önce çiziliyor
-  (`android/tools/gen-previews.js`, `android/previews/`); kayıtlı sahnelerde sahnenin kendi karesi. Açık kalanlar: şarkı
-  sözü dosyaları, masaüstü yedeğindeki logo/video kitaplığı, kullanıcının eklediği presetlerin önizlemesi.
+  (`android/tools/gen-previews.js`, `android/previews/`); kayıtlı sahnelerde sahnenin kendi karesi. Söz kitaplığı (dosya ya da elle),
+  otomatik söz bulma (önbellek + kullanıcının sağlayıcıları, LRCLIB isteğe bağlı) ve çalan parçayı izleyen söz katmanı;
+  bildirim erişimiyle başka uygulamalarda çalan parça; logo, video ve söz kitaplıkları masaüstü yedeğiyle geliyor (sahnelerde
+  video yolları eşleniyor). Kullanıcının eklediği presetlerin önizlemesi telefonda çiziliyor.
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
   dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
   görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. AAC olmayan şarkılar (MP3, OGG, FLAC, WAV)

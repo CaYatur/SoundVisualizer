@@ -335,6 +335,74 @@
     });
   }
 
+  // ---- Medya: masaüstü yedeğinden gelen logo ve video kitaplıkları ----
+  /* Dokununca sahneye katman olarak eklenir (logo: kitaplık kimliğiyle, masaüstündeki gibi;
+     video: telefondaki dosyanın adresiyle). Telefondan yeni video ya da görsel eklemek
+     Katmanlar → Ekle → Medya'dan (galeriden seçilir, kopyalanmaz). */
+  let mediaLibs = null;
+  function loadMedia(ctx) {
+    const Lb = A().libraries;
+    if (!Lb) { mediaLibs = { logos: [], media: [] }; return; }
+    Promise.all([Lb.list('logos').catch(() => []), Lb.list('media').catch(() => [])]).then(([logos, media]) => {
+      mediaLibs = { logos: Array.isArray(logos) ? logos : [], media: Array.isArray(media) ? media : [] };
+      ctx.refresh();
+    });
+  }
+  function addLayer(made, ctx) {
+    const c = cfg();
+    A().config.patch({ layers: (Array.isArray(c.layers) ? c.layers : []).concat([made]) });
+    if (ctx) ctx.refresh();
+  }
+  function renderMedia(body, ctx) {
+    if (mediaLibs === null) { loadMedia(ctx); body.appendChild(h('div', { class: 'hint', text: 'Kitaplık okunuyor…' })); return; }
+    const LF = window.SVLayerFactory;
+    if (!mediaLibs.logos.length && !mediaLibs.media.length) {
+      body.appendChild(h('div', { class: 'empty', text: 'Masaüstü yedeğinden gelen logo ve videolar burada görünür. Telefondan video ya da görsel eklemek için: Katmanlar → Ekle → Medya.' }));
+      return;
+    }
+    body.appendChild(h('div', { class: 'hint', text: 'Dokununca sahneye katman olarak eklenir.' }));
+    if (mediaLibs.logos.length) {
+      body.appendChild(h('div', { class: 'section-label', text: 'Logolar' }));
+      const grid = h('div', { class: 'grid2' });
+      for (const it of mediaLibs.logos) {
+        const ph = h('div', { class: 'ph' }, [icon('image')]);
+        A().libraries.logo(it.id).then((r) => {
+          if (!r || !r.b64) return;
+          ph.replaceWith(h('img', { src: 'data:' + (r.mime || 'image/png') + ';base64,' + r.b64, alt: '', decoding: 'async', style: 'object-fit:contain;background:var(--card3)' }));
+        }, () => {});
+        grid.appendChild(h('div', { class: 'tile' }, [h('button', {
+          class: 'tile-main', 'aria-label': it.name || '',
+          onclick: () => {
+            if (!LF) return;
+            const made = LF.makeMedia('logo', {}, window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {});
+            made.name = it.name || made.name;
+            made.settings.logo = Object.assign({}, made.settings.logo, { src: null, libraryId: it.id });
+            addLayer(made, ctx);
+          },
+        }, [ph, h('div', { class: 'cap' }, [h('span', { text: it.name || '' })])])]));
+      }
+      body.appendChild(grid);
+    }
+    if (mediaLibs.media.length) {
+      body.appendChild(h('div', { class: 'section-label', text: 'Videolar' }));
+      const list = h('div', { class: 'card nav-card' });
+      mediaLibs.media.forEach((it, i) => {
+        if (i) list.appendChild(h('div', { class: 'divider flush' }));
+        list.appendChild(h('button', {
+          class: 'ctl-row nav-row',
+          onclick: () => {
+            if (!LF) return;
+            const url = 'https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(it.file || '');
+            const made = LF.makeMedia('video', { url, name: it.name || it.file || '' }, window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {});
+            made.settings.media.libraryId = it.id || '';
+            addLayer(made, ctx);
+          },
+        }, [icon('video'), h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: it.name || it.file || '' })]), icon('plus')]));
+      });
+      body.appendChild(list);
+    }
+  }
+
   // ---- Şablonlar (src/shared/templates.js; masaüstünün hazır sahneleri) ----
   /* Kutunun resmi: şablonun en üstteki görselleştiricisi, yoksa arkaplanı. */
   function tplThumb(t) {
@@ -411,7 +479,7 @@
       else if (section === 'shader') renderShaders(body, ctx);
       else if (section === 'scenes') renderScenes(body, ctx);
       else if (section === 'lyrics' && window.SVShellLyrics) window.SVShellLyrics.render(body, ctx);
-      else body.appendChild(h('div', { class: 'empty', text: 'Videolar, resimler, logolar ve şarkı sözleri telefonun kitaplığıyla birlikte gelecek (Faz 4). Masaüstünden aktarılan sahnelerdeki bu dosyalar o zamana kadar eksik görünür.' }));
+      else renderMedia(body, ctx);
     },
   };
 

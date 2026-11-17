@@ -92,10 +92,17 @@
     const lines = en()
       ? [(r.scenes || 0) + ' scenes', (r.presets || 0) + ' presets'].concat(r.skipped ? [r.skipped + ' skipped'] : [])
       : [(r.scenes || 0) + ' sahne', (r.presets || 0) + ' preset'].concat(r.skipped ? [r.skipped + ' atlandı'] : []);
+    const lb = r.libraries || {};
+    if (lb.logos || lb.lyrics || lb.videos) {
+      lines.push.apply(lines, en()
+        ? [].concat(lb.logos ? [lb.logos + ' logos'] : [], lb.videos ? [lb.videos + ' videos'] : [], lb.lyrics ? [lb.lyrics + ' lyrics'] : [])
+        : [].concat(lb.logos ? [lb.logos + ' logo'] : [], lb.videos ? [lb.videos + ' video'] : [], lb.lyrics ? [lb.lyrics + ' söz'] : []));
+    }
+    // Sınırı aşan ya da tanınmayan kitaplık dosyaları
     const later = r.later && Object.values(r.later).some((n) => n > 0);
     return h('div', { class: 'banner info ok', role: 'status' }, [icon('check-circle'), h('div', { class: 'grow-text' }, [
       h('b', { text: 'İçe aktarıldı.' }), ' ' + lines.join(' · '),
-      later ? h('div', { class: 'row-sub', text: 'Videolar, logolar ve şarkı sözleri kitaplıkla birlikte gelecek (Faz 4).' }) : null,
+      later ? h('div', { class: 'row-sub', text: 'Bazı kitaplık dosyaları alınamadı (boyut sınırı ya da tanınmayan dosya).' }) : null,
     ])]);
   }
 

@@ -167,6 +167,8 @@ object WebShell {
         "web/src/shared/text-fold.js",
         // LRCLIB hazır şablonu (Kitaplık → Sözler → Otomatik Bul)
         "web/src/shared/lyrics-providers.js",
+        // Yedekteki sahne video yolları (sv-media://) eşlenirken
+        "web/src/shared/media-url.js",
         // Motorun ses nesnesini kurulduğu an yakalar (sayfanın betiklerinden önce olmalı)
         "web/src/mobile/autovj.js",
         // Kullanıcı presetlerinin önizlemesi telefonda (Kitaplık kullanır)
