@@ -110,6 +110,13 @@ object EngineHost {
         parent.addView(w, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     }
 
+    /* Aynı motorda başka bir sayfa (dışa aktarım, export/ExportFlow.kt). Mantıksal sayfa
+       değişmez: Activity yeniden kurulurken (döndürme) ensure() motoru baştan kurmasın,
+       süren iş kesilmesin. */
+    fun loadPage(path: String) {
+        web?.loadUrl(WebShell.pageUrl(path))
+    }
+
     fun detach() {
         val w = web ?: return
         (w.parent as? ViewGroup)?.removeView(w)

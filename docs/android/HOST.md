@@ -27,7 +27,7 @@ desktop (panel → main process → output window) become local calls inside one
 | `SV_PLATFORM` | `{ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true }` |
 | `SV_DISPLAY_ID` | `null`. Projection mapping is per display and not part of the Android app. |
 | `SV_SHARED_EPOCH` | `null`. The shared session clock belongs to redundancy (desktop only). |
-| `__SV_ANDROID` | `{ debug, page, version, webview }`, set before every script of our pages. |
+| `__SV_ANDROID` | `{ debug, page, version, webview }`, set before every script of our pages. `page` comes from the address, since the one WebView can switch to the export page. |
 | `SV_FLOATING` | `false`. The floating window on Android is the same page, not a second one (D2/D3). |
 
 ## Engine surface (`window.api`)
@@ -181,7 +181,8 @@ to the desktop turns the lights on again.
 | `onLowPower(cb)` | `true` while low power is on (`SVLowPower.active`: set to on, or set to battery while on battery). The interface drops the glass blur. |
 | `floating.open(o)`, `floating.close()`, `floating.set(o)`, `floating.state()` | The floating window requests below. |
 | `pip(w, h)` | System picture-in-picture with aspect `w:h` (`pipEnter`). |
-| `media.pick(kind)` | Android's document picker (`mediaPick`). `'video'` resolves `{ url, name, mime }`: the file is not copied, the app keeps a persistent read grant and serves it at `https://appassets.androidplatform.net/content/<base64url of the content URI>`; only URIs with a persisted grant are served (others 404). `'image'` resolves `{ dataUrl, name, width, height }`, the long side at most 1024 px (PNG with alpha, else JPEG), as the desktop stores images in the settings. |
+| `exportOpen(job)` | Export (phase 5): `{ cfg, width, height, fps, durationSec (0 = whole song, clamped to the song), audioUri, outputName }`. The app copies the song into the media folder for the muxer and switches the one WebView to the export page; the page takes the job (`exportJob`), renders, and the result is copied to the gallery (`exportSave`: MediaStore, `Movies/SoundVisualizer`); `exportShare` opens Android's share sheet, `exportClose` returns to the scene page and deletes the copied song. |
+| `media.pick(kind)` | Android's document picker (`mediaPick`). `'video'` resolves `{ url, name, mime }`: the file is not copied, the app keeps a persistent read grant and serves it at `https://appassets.androidplatform.net/content/<base64url of the content URI>`; only URIs with a persisted grant are served (others 404). `'audio'` resolves `{ uri, name }` (for export). `'image'` resolves `{ dataUrl, name, width, height }`, the long side at most 1024 px (PNG with alpha, else JPEG), as the desktop stores images in the settings. |
 
 ## Shell surface
 

@@ -140,12 +140,17 @@ object WebShell {
         "web/src/mobile/shell-library.js",
         "web/src/mobile/shell-display.js",
         "web/src/mobile/shell-settings.js",
+        "web/src/mobile/shell-export.js",
+        "web/src/mobile/export-ui.js",
     )
 
     private fun installHostScripts(context: Context, web: WebView, debug: Boolean, page: String) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
         val origins = setOf(ORIGIN)
-        val env = "window.__SV_ANDROID = Object.freeze({ debug: $debug, page: ${jsString(page)}, " +
+        /* Sayfa adı adresten: aynı motor sayfa değiştirebiliyor (dışa aktarım, ExportFlow).
+           [page] yalnız ilk yükleme için; belge başı betiği her sayfada yeniden çalışır. */
+        val env = "window.__SV_ANDROID = Object.freeze({ debug: $debug, " +
+            "page: (location.pathname.indexOf('/assets/web/') === 0 ? location.pathname.slice(12) : ${jsString(page)}), " +
             "version: ${jsString(com.cayadev.visualizer.BuildConfig.VERSION_NAME)}, webview: ${jsString(webViewVersion(context))} });"
         WebViewCompat.addDocumentStartJavaScript(web, env, origins)
         for (path in HOST_SCRIPTS) WebViewCompat.addDocumentStartJavaScript(web, readAsset(context, path), origins)

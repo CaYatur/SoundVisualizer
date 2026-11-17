@@ -1222,7 +1222,62 @@ async function mediaCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd };
+/* DIŞA AKTARMA EKRANI (Faz 5). Şarkı önce İndirilenler'e konur:
+     adb push sv-test-song.m4a /sdcard/Download/   (AAC, 20 sn)
+   Sahne kartındaki düğme → Dışa Aktar sayfası → şarkı belge seçiciden → 720p 30 fps, 30 sn
+   (şarkı 20 sn: tamamı) → motor dışa aktarım sayfasına geçer, ilerleme kartı görünür → dosya
+   galeriye (MediaStore, Movies/SoundVisualizer) kaydedilir → Bitti → sahneye dönülür.
+   Galerideki dosyanın süresi ve boyutu ffprobe yerine MediaStore'dan okunur. */
+async function exportUiCmd() {
+  const path = require('node:path');
+  const shots = arg('shots');
+  const shot = (n) => { if (shots) fs.writeFileSync(path.join(shots, n + '.png'), D.screencap()); };
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(1500);
+    await ev("document.querySelector('#sv-shell .scene-card .iconbtn').click(); 1");
+    await D.sleep(800);
+    out.page = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
+    await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose/.test(b.textContent)).click(); 1");
+    out.songPicked = await pickInDocumentsUi('sv-test-song.m4a');
+    await D.sleep(1500);
+    out.song = await ev("(document.querySelector('#sv-shell .sheet-body .row-title') || {}).textContent || ''");
+    shot('export-1-sheet');
+    const t0 = Date.now();
+    await ev("document.querySelector('#sv-shell .sheet-foot .btn').click(); 1");
+    // Motor dışa aktarım sayfasına geçer; aynı DevTools hedefi yeni sayfayı yükler
+    let st = null;
+    for (let i = 0; i < 600; i++) {
+      await D.sleep(1000);
+      try {
+        st = await ev("window.SVExport ? Object.assign(window.SVExport.state(), { page: (window.__SV_ANDROID || {}).page, title: (document.querySelector('#sv-shell .export-card h2') || {}).textContent }) : null");
+      } catch (e) { st = null; }
+      if (st && i === 8) shot('export-2-running');
+      if (st && (/Galeriye kaydedildi|Saved to the gallery/.test(st.title || '') || st.error)) break;
+    }
+    out.export = st && { page: st.page, title: st.title, progress: st.progress, result: st.result && { bytes: st.result.bytes, frames: st.result.frames }, error: st.error, seconds: Math.round((Date.now() - t0) / 1000) };
+    shot('export-3-done');
+    // Galeride mi
+    const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration:width:height']);
+    out.gallery = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
+    // Bitti → sahne
+    await ev("Array.from(document.querySelectorAll('#sv-shell .export-card .btn')).find((b) => /Bitti|Done/.test(b.textContent)).click(); 1");
+    let back = false;
+    for (let i = 0; i < 30 && !back; i++) { await D.sleep(500); try { back = await ev("!!(window.SVShell && (window.__SV_ANDROID || {}).page === 'src/visualizer/index.html')"); } catch (e) { back = false; } }
+    out.backToScene = back;
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally { page.close(); }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.page && out.songPicked && /sv-test-song/.test(out.song) && out.export && !out.export.error && out.export.page === 'src/exporter/index.html'
+    && out.export.result && out.export.result.frames === 600 && /Movies\/SoundVisualizer/.test(out.gallery) && /width=1280/.test(out.gallery) && out.backToScene;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

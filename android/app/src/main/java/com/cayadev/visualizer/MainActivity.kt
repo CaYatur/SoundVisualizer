@@ -113,13 +113,14 @@ class MainActivity : ComponentActivity() {
         val (kind, reply) = pendingMedia ?: return@registerForActivityResult
         pendingMedia = null
         if (uri == null) { reply.fail("cancelled"); return@registerForActivityResult }
-        if (kind == "video") {
+        if (kind == "video" || kind == "audio") {
             try {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (e: SecurityException) {
                 reply.fail("no-grant"); return@registerForActivityResult
             }
-            reply.ok(MediaPick.video(this, uri))
+            // Şarkı dışa aktarım için: adresi ve adı yeter (iş başlarken kopyalanır)
+            reply.ok(if (kind == "audio") JSONObject().put("uri", uri.toString()).put("name", MediaPick.displayName(this, uri)) else MediaPick.video(this, uri))
             return@registerForActivityResult
         }
         // Görselin çözülmesi ve sıkıştırılması ana iş parçacığında yapılmaz
@@ -133,7 +134,7 @@ class MainActivity : ComponentActivity() {
     fun pickMedia(kind: String, reply: Bridge.Reply) {
         pendingMedia?.second?.fail("superseded")
         pendingMedia = Pair(kind, reply)
-        askMedia.launch(arrayOf(if (kind == "video") "video/*" else "image/*"))
+        askMedia.launch(arrayOf(when (kind) { "video" -> "video/*"; "audio" -> "audio/*"; else -> "image/*" }))
     }
 
     fun pickAudio(reply: Bridge.Reply) {

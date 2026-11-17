@@ -140,6 +140,9 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   tab. Templates (the desktop's 83 ready scenes) are the Library's first section and the empty scene strip's first tile.
   Gallery layers: video (streamed from the picked file, not copied), image sprites and logo. Still open: `.milk` file
   import on the phone, camera layers, lyrics files and the logo/video library from desktop backups.
+- **Phase 5 status (18.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
+  landscape or portrait, 720p or 1080p, 30 or 60 fps; the one WebView switches to the export page (frames shown as a
+  preview, progress, cancel), the MP4 goes to the gallery and can be shared. The touch timeline editor is not started.
 
 ### 2 — Android host
 - 2.1 The full `android-host.js` and its contract test.

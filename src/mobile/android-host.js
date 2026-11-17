@@ -454,6 +454,9 @@
     /* Galeriden dosya: 'video' → { url, name, mime } (kopyalanmaz, akıtılır),
        'image' → { dataUrl, name, width, height } (uzun kenar en çok 1024 px). */
     media: Object.freeze({ pick: (kind) => request('mediaPick', { kind }) }),
+    /* Dışa aktarma (Faz 5): iş uygulamaya, motor dışa aktarım sayfasına geçer.
+       iş: { cfg, width, height, fps, durationSec (0 = şarkının tamamı), audioUri, outputName } */
+    exportOpen: (job) => request('exportOpen', job),
     floating: Object.freeze({
       open: (o) => request('floatingOpen', o || {}),
       close: () => request('floatingClose'),
@@ -584,6 +587,50 @@
       analysis: (data) => { exportState.analysis = data ? Object.keys(data).length : 0; },
       cancelRequested: () => resolved(exportState.cancel),
     };
+
+    /* ÜRÜN AKIŞI (Faz 5, android/.../export/ExportFlow.kt): sahne sayfası işi uygulamaya
+       bıraktı, motor bu sayfaya geçti. İş alınır, şarkı medya klasöründen okunur ve
+       dışa aktarım başlar. Ölçüm araçları (geliştirme) işi __svHost.runExport ile verir;
+       uygulamada iş yoksa burada bir şey olmaz. */
+    const startFromApp = async () => {
+      const j = await request('exportJob').catch(() => null);
+      if (!j || !j.audioUrl) return;
+      let ab;
+      try { ab = await (await fetch(j.audioUrl)).arrayBuffer(); } catch (e) { exportState.error = 'audio'; return; }
+      /* "30 sn" seçilip şarkı daha kısaysa video şarkıyla biter (yoksa sonu sessiz kalıyordu,
+         ölçüldü: 20 sn şarkıdan 30 sn video). */
+      let want = Number(j.durationSec) > 0 ? Number(j.durationSec) : 0;
+      if (want > 0 && typeof AudioContext === 'function') {
+        try {
+          const ctx = new AudioContext();
+          const buf = await ctx.decodeAudioData(ab.slice(0));
+          ctx.close();
+          if (buf.duration > 0 && buf.duration < want) want = 0;
+        } catch (e) { /* çözülemezse istenen süre kalır */ }
+      }
+      const job = {
+        cfg: j.cfg || {}, width: j.width, height: j.height, fps: j.fps, pix: 'yuv420p',
+        durationSec: want,
+        audioBuffer: ab, audioName: j.audioName, outputName: j.outputName || '', platform: 'android',
+      };
+      Object.assign(exportState, { job, began: null, sent: 0, acked: 0, bytes: 0, cancel: false, result: null, error: null, t0: now(), song: j.songName || '' });
+      if (jobListeners.size) jobListeners.emit(job);
+      else pendingJob = job;
+    };
+    domReady().then(startFromApp);
+
+    /* Dışa aktarma ekranının (src/mobile/export-ui.js) yüzü. */
+    window.SVExport = Object.freeze({
+      state: () => ({
+        progress: exportState.progress.slice(), sent: exportState.sent, acked: exportState.acked, song: exportState.song || '',
+        result: exportState.result, error: exportState.error, cancel: exportState.cancel, started: !!exportState.job, t0: exportState.t0,
+        size: exportState.job ? { width: exportState.job.width, height: exportState.job.height, fps: exportState.job.fps } : null,
+      }),
+      cancel: () => { exportState.cancel = true; },
+      save: (path) => request('exportSave', { path }),
+      share: (uri) => request('exportShare', { uri }),
+      close: () => request('exportClose'),
+    });
   }
 
   /* WEBGL BAĞLAM SAYACI. Android WebView'de sayfa başına en çok 8 etkin bağlam
