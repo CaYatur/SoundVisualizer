@@ -15,6 +15,7 @@
 
      android/previews/tpl/<şablon kimliği>.webp
      android/previews/md/<preset kimliği>.webp
+     android/previews/sh/<shader preset kimliği>.webp
      android/previews/index.json   { tpl: { kimlik: anahtar }, md: { … } }
 
    Yalnız Android'in dosyaları: PC paketine girmez (electron-builder android/'ı almıyor),
@@ -30,6 +31,8 @@ const fs = require('fs');
 const path = require('path');
 
 const RECIPE = Object.freeze({
+  // Çizicinin (preview-runner.js) sahne kuruluşu değişince artırılır: bütün resimler yenilenir
+  rev: 2,
   renderW: 480,
   renderH: 270,
   // 6 saniye; 2. saniyeden sonra her 0,2 saniyede bir aday, en dolu kare (mod resimleriyle aynı)
@@ -42,7 +45,7 @@ const RECIPE = Object.freeze({
   quality: 0.75,
 });
 const DIR = 'android/previews';
-const KINDS = Object.freeze(['tpl', 'md']);
+const KINDS = Object.freeze(['tpl', 'md', 'sh']);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 /* Satır sonu normalize: Windows'ta CRLF ile alınan depo aynı anahtarları versin (preset
@@ -71,6 +74,11 @@ function wanted(root) {
     for (const p of window.SVMilkdropBuiltins || []) {
       if (p && p.id && p.source) out.push({ kind: 'md', id: p.id, key: keyOf('md', p.source) });
     }
+    // Studio shader presetleri (yerleşik): görüntüyü belirleyen alanlar
+    for (const p of (window.SVPresets && window.SVPresets.all ? window.SVPresets.all() : [])) {
+      if (!p || !p.builtin || p.engine !== 'shader' || !p.id) continue;
+      out.push({ kind: 'sh', id: p.id, key: keyOf('sh', JSON.stringify({ kind: p.kind, base: p.base, overrides: p.overrides, shader: p.shader, controls: p.controls })) });
+    }
     return out;
   } finally {
     global.window = keepWindow;
@@ -78,7 +86,10 @@ function wanted(root) {
 }
 
 function readIndex(root) {
-  try { return JSON.parse(fs.readFileSync(path.join(root, DIR, 'index.json'), 'utf8')); } catch (e) { return { tpl: {}, md: {} }; }
+  let j = null;
+  try { j = JSON.parse(fs.readFileSync(path.join(root, DIR, 'index.json'), 'utf8')); } catch (e) { j = {}; }
+  for (const k of KINDS) j[k] = j[k] || {};
+  return j;
 }
 
 /* Eksik ya da eskimiş resimler: index'teki anahtar istenenle aynı değilse ya da dosya yoksa. */

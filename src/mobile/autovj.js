@@ -35,7 +35,9 @@
       get() { return Real; },
       set(C) {
         Real = typeof C === 'function'
-          ? new Proxy(C, { construct(t, args, nt) { const o = Reflect.construct(t, args, nt); engineAudio = o; return o; } })
+          // Yalnız ilk kurulan: motorun kendisi. Sonrakiler (telefonda çizilen önizlemeler,
+          // src/mobile/preview-live.js) motorun ses nesnesinin yerine geçmesin.
+          ? new Proxy(C, { construct(t, args, nt) { const o = Reflect.construct(t, args, nt); if (!engineAudio) engineAudio = o; return o; } })
           : C;
       },
     });

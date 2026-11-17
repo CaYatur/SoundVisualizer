@@ -167,6 +167,8 @@ object WebShell {
         "web/src/shared/text-fold.js",
         // Motorun ses nesnesini kurulduğu an yakalar (sayfanın betiklerinden önce olmalı)
         "web/src/mobile/autovj.js",
+        // Kullanıcı presetlerinin önizlemesi telefonda (Kitaplık kullanır)
+        "web/src/mobile/preview-live.js",
         "web/src/mobile/shell.js",
         "web/src/mobile/shell-controls.js",
         "web/src/mobile/shell-layers.js",

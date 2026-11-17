@@ -44,13 +44,13 @@
   function saveNew(name) {
     const id = uid('sc_');
     A().config.patch({ scenes: scenes().concat([{ id, name: name || nextName(), createdAt: Date.now(), data: snapshot() }]), _activeSceneId: id });
-    if (S.grabSceneThumb) S.grabSceneThumb(id);
+    if (S.grabSceneThumb) S.grabSceneThumb(id, true);
     return id;
   }
   function update(id) {
     const list = scenes().map((s) => (s && s.id === id ? Object.assign({}, s, { data: snapshot(), updatedAt: Date.now() }) : s));
     A().config.patch({ scenes: list, _activeSceneId: id });
-    if (S.grabSceneThumb) S.grabSceneThumb(id);
+    if (S.grabSceneThumb) S.grabSceneThumb(id, true);
   }
   function rename(id, name) {
     const n = String(name || '').trim();

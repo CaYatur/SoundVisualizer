@@ -47,5 +47,5 @@ test('önizlemeler APK\'ya giriyor, PC paketine girmiyor; Kitaplık onları kull
   assert.ok(!files.some((f) => /^android/.test(f)), 'PC paketine android/ girmemeli');
   const lib = fs.readFileSync(path.join(root, 'src/mobile/shell-library.js'), 'utf8');
   assert.ok(lib.includes("fetch('../../previews/index.json')"));
-  assert.ok(lib.includes("previewSrc('tpl', t.id)") && lib.includes("previewSrc('md', p.id)"));
+  assert.ok(lib.includes("previewSrc('tpl', t.id)") && lib.includes("presetArt('md', p)") && lib.includes("presetArt('sh', p)"));
 });
