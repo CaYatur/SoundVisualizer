@@ -50,5 +50,6 @@ test('dışa aktarma dosyanın kapağını ve söz kuralını taşır', () => {
   assert.match(exp, /isWindows: os === 'win32'/);
   assert.match(exp, /publishExportTrack\(t\)/);
   assert.match(exp, /playing: false/);
-  assert.match(text, /windows: !!\(window\.SV_PLATFORM && window\.SV_PLATFORM\.isWindows\)/);
+  // Sistem medya oturumu: Windows'ta SMTC, Android'de medya oturumları (dev/android)
+  assert.match(text, /windows: !!\(window\.SV_PLATFORM && \(window\.SV_PLATFORM\.isWindows \|\| window\.SV_PLATFORM\.isAndroid\)\)/);
 });
