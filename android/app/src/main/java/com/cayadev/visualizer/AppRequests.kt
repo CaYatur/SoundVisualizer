@@ -48,6 +48,23 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 }
                 live.startAudio(source, reply)
             }
+            /* Çalan parça (media/NowPlaying.kt): durum ve bildirim erişimi ekranı. */
+            "nowPlayingStatus" -> reply.ok(com.cayadev.visualizer.media.NowPlaying.status(app))
+            "debugNowPlayingSelf" -> {
+                if (!BuildConfig.DEBUG) { reply.fail("unknown-op", op); return }
+                com.cayadev.visualizer.media.NowPlaying.includeSelf = args.optBoolean("on")
+                reply.ok()
+            }
+            "nowPlayingAccess" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                try {
+                    live.startActivity(com.cayadev.visualizer.media.NowPlaying.accessIntent(live))
+                    reply.ok()
+                } catch (e: Exception) {
+                    // Ayrıntı ekranı yoksa genel liste
+                    try { live.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); reply.ok() } catch (e2: Exception) { reply.fail("no-settings", e2.message ?: "") }
+                }
+            }
             "audioStop" -> {
                 AudioService.stop(app)
                 reply.ok()

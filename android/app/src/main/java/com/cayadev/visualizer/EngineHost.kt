@@ -92,6 +92,10 @@ object EngineHost {
     private fun watchApp(app: Context) {
         PowerWatch.listener = { b -> bridge?.event("powerSource", JSONObject().put("onBattery", b)) }
         PlayerHub.events = { v -> bridge?.event("playerState", v) }
+        // Başka uygulamalarda çalan parça (bildirim erişimi verildiyse)
+        com.cayadev.visualizer.media.NowPlaying.init(app)
+        com.cayadev.visualizer.media.NowPlaying.events = { v -> bridge?.event("mediaSession", v) }
+        com.cayadev.visualizer.media.NowPlaying.start(app)
         PowerWatch.start(app)
         app.registerComponentCallbacks(object : ComponentCallbacks2 {
             /* Arka plana geçiş (UI_HIDDEN) ve sistemin bellek istemesi: sayfa bekleyen

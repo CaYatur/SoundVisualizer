@@ -150,7 +150,8 @@
         /* İzleme yalnız Windows oturumunda açılır. Dışa aktarma da aynı
            kuralı kullanır: macOS ve Linux yüklenen söz dosyasında kalır. */
         const use = (sync && sync.playback) ? sync.playback({
-          windows: !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows),
+          // Sistem medya oturumu: Windows'ta SMTC, Android'de medya oturumları (bildirim erişimi)
+          windows: !!(window.SV_PLATFORM && (window.SV_PLATFORM.isWindows || window.SV_PLATFORM.isAndroid)),
           follow: T.lyricsFollow === true,
           match: T.lyricsMatch || 'exact',
           library: (window.SVLyricsLib && window.SVLyricsLib.items) || [],

@@ -115,6 +115,51 @@
     ]);
   }
 
+  /* ÇALAN PARÇA (media/NowPlaying.kt): başka uygulamalarda çalanı okumak için bildirim
+     erişimi. Erişim yoksa neden gerektiği ve düğme; varsa parça kapağıyla. Şarkı bilgisi
+     katmanı, söz katmanının saati ve otomatik söz bulma bunu kullanır. */
+  let npEnabled = null;
+  function askNowPlaying() {
+    const N = A().nowPlaying;
+    if (!N) return;
+    N.status().then((r) => {
+      const on = !!(r && r.enabled);
+      if (on !== npEnabled) { npEnabled = on; paint(); }
+    }, () => {});
+  }
+  function nowPlayingCard() {
+    const N = A().nowPlaying;
+    if (!N) return null;
+    if (npEnabled === null) askNowPlaying();
+    const cur = N.current();
+    const kids = [h('div', { class: 'section-label', text: 'Çalan parça' })];
+    if (npEnabled === false && !(cur && cur.has)) {
+      kids.push(h('div', { class: 'card np-card' }, [
+        h('div', { class: 'row-text' }, [
+          h('div', { class: 'row-title small', text: 'Başka uygulamalarda çalan parça' }),
+          h('div', { class: 'row-sub', text: 'Parçanın adı, kapağı ve söz zamanlaması için bildirim erişimi gerekir. Uygulama bildirimlerinizi okumaz; yalnız çalan parçayı görür.' }),
+        ]),
+        h('button', { class: 'btn', onclick: () => N.openAccess().catch(() => {}) }, [icon('gear'), 'Erişim ver']),
+      ]));
+      return kids;
+    }
+    if (!cur || !cur.has) {
+      kids.push(h('div', { class: 'card np-card' }, [h('div', { class: 'row-sub', text: 'Şu an hiçbir uygulama çalmıyor.' })]));
+      return kids;
+    }
+    const art = cur.artwork ? h('img', { class: 'np-art', src: cur.artwork, alt: '' }) : h('div', { class: 'np-art ph' }, [icon('music')]);
+    const sub = [cur.artist, cur.app].filter(Boolean).join(' · ');
+    kids.push(h('div', { class: 'card np-card row-card' }, [
+      art,
+      h('div', { class: 'row-text' }, [
+        h('div', { class: 'row-title', text: cur.title || '' }),
+        sub ? h('div', { class: 'row-sub', text: sub }) : null,
+      ]),
+      h('span', { class: 'badge' + (cur.playing ? ' ok' : ''), text: cur.playing ? 'Çalıyor' : 'Duraklatıldı' }),
+    ]));
+    return kids;
+  }
+
   function silenceBanner() {
     const src = running();
     if (!src || !A().audio.silent() || src === 'visualizer' || src === 'player') return null;
@@ -220,6 +265,7 @@
     body.appendChild(group);
     const pc = playerCard();
     if (pc) body.appendChild(pc);
+    for (const k of nowPlayingCard() || []) body.appendChild(k);
     if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: error })]));
     const sb = silenceBanner();
     if (sb) body.appendChild(sb);
@@ -245,6 +291,9 @@
     A().audio.onStatus(paint);
     A().audio.onSilence(paint);
     if (A().player.onState) A().player.onState(paint);
+    // Çalan parça değişince kart yenilenir; erişim ayarlardan dönünce yeniden sorulur
+    if (A().nowPlaying) A().nowPlaying.onChange(() => { npEnabled = null; paint(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { npEnabled = null; paint(); } });
   }
   window.SVShellAudio = Object.freeze({ choose, stopAll });
 })();

@@ -305,6 +305,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         EngineHost.web?.onResume()
+        // Bildirim erişimi ayarlardan yeni verilmiş olabilir
+        com.cayadev.visualizer.media.NowPlaying.start(this)
     }
 
     override fun onPause() {

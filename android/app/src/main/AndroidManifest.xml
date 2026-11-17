@@ -12,6 +12,14 @@
          ağa çıkmıyor: WebViewAssetLoader onları APK'dan veriyor. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Çalan parçanın uygulama adı: müzik uygulamaları medya tarayıcı hizmeti bildiriyor
+         (Android 11+ paket görünürlüğü); ad okunamazsa paket adı yazılır. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+    </queries>
+
     <!-- Ses kaynakları (PLAN D4): sistem sesi, mikrofon ve Visualizer yedeği
          hepsi RECORD_AUDIO istiyor; Visualizer çıkış karışımı (oturum 0) için
          ayrıca MODIFY_AUDIO_SETTINGS. Yakalama ön plan servisinde çalışır. -->
@@ -72,5 +80,17 @@
             android:name=".audio.AudioService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|microphone" />
+
+        <!-- Çalan parça (media/NowPlaying.kt): başka uygulamaların medya oturumlarını okumak
+             için bildirim erişimi. Hizmet bildirimleri okumuyor; yalnız sistem bağlanabilir. -->
+        <service
+            android:name=".media.NowPlayingService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
