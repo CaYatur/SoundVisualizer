@@ -64,7 +64,15 @@ object WebShell {
             .addPathHandler(ContentPathHandler.PREFIX, ContentPathHandler(context))
             .build()
 
-        val web = WebView(context)
+        /* Ekranı açık tutmaya yalnız kullanıcının ayarı karar verir (EngineHost.keepAwake,
+           motorun kapsayıcısında). Chromium WebView'in kendi keepScreenOn'unu açıyor ve
+           uygulama her öne geldiğinde yeniden açıyordu: ayar kapalıyken ekran yine de
+           kararmıyordu (ölçüldü: boş ölçüm sayfasında bile WebView'in bayrağı açık,
+           kapsayıcınınki kapalı; WebView'inki indirilince mHoldScreenWindow boşaldı, uygulama
+           arkaya alınıp açılınca geri geldi). Ayar açıkken kapsayıcı zaten tutuyor. */
+        val web = object : WebView(context) {
+            override fun setKeepScreenOn(keepScreenOn: Boolean) = super.setKeepScreenOn(false)
+        }
         web.setBackgroundColor(android.graphics.Color.BLACK)
         web.settings.apply {
             javaScriptEnabled = true

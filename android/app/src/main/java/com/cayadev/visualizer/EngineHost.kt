@@ -54,10 +54,11 @@ object EngineHost {
     /** Ekranı açık tut (sayfanın power.keepAwake'i; dışa aktarımda her zaman). Motorun
         bağlı olduğu kapsayıcıda (View.keepScreenOn): motor hangi penceredeyse (tam ekran,
         yüzen pencere) orada geçerli, Activity'nin yeniden kurulmasından etkilenmez.
-        WebView'in kendisine konmuyor: Chromium medya için onu kendisi yönetip eziyor
-        (ölçüldü: WebView'e konunca mHoldScreenWindow boş kaldı). */
+        WebView'in kendisine konmuyor: Chromium onu kendisi yönetip eziyor (ölçüldü: WebView'e
+        konunca mHoldScreenWindow boş kaldı). Chromium'un o bayrağı açması da süzülüyor
+        (WebShell.create): ayar kapalıyken ekranı tutan başka bir görünüm kalmıyor. */
     var keepAwake = true
-        set(v) { field = v; (web?.parent as? View)?.keepScreenOn = v }
+        set(v) { field = v; (web?.parent as? View)?.keepScreenOn = v; FloatingWindow.keepAwake(v) }
 
     fun register(a: MainActivity) { activityRef = WeakReference(a) }
 
