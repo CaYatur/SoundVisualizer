@@ -34,6 +34,7 @@
   const MC = () => window.SVModeCatalog;
   const FX = () => window.SVPostFX;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+  const en = () => !!(window.SVI18n && window.SVI18n.locale === 'en');
   const cfg = () => (A() && A().config.get()) || {};
 
   // ---- Küçük resimler (derlemede çıkarılan dizin: android/tools/thumb-index.js) ----
@@ -360,7 +361,7 @@
         ctx.refresh();
       },
     });
-    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def) : backgroundControls(l, set, c, def);
+    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx) : backgroundControls(l, set, c, def);
     return [U.card([mode].concat(parts))];
   }
 
@@ -491,7 +492,7 @@
     return out;
   }
 
-  function visualizerControls(l, set, c, def) {
+  function visualizerControls(l, set, c, def, ctx) {
     const out = [];
     const vs = (l.settings && l.settings.visualizer) || {};
     const scene = Object.assign({}, def.visualizer || {}, c.visualizer || {});
@@ -506,7 +507,8 @@
       const setT = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.text = Object.assign({}, x.settings.text, { [k]: v }); });
       const kids = [];
       if ((t.source || 'static') === 'static') kids.push(U.text({ label: 'Metin', value: t.content || '', onInput: (v) => setT('content', v) }));
-      else kids.push(h('div', { class: 'hint', text: t.source === 'lyrics' ? 'Şarkı sözü dosyası kitaplıkla birlikte gelecek (Faz 4).' : 'Çalan parçanın adı.' }));
+      else if (t.source === 'lyrics') for (const k of lyricsControls(t, setT, ctx)) kids.push(k);
+      else kids.push(h('div', { class: 'hint', text: 'Çalan parçanın adı.' }));
       kids.push(U.slider({ label: 'Yazı Boyutu', min: 0.02, max: 0.3, step: 0.005, percent: true, value: t.size == null ? 0.09 : t.size, onInput: (v) => setT('size', v) }));
       kids.push(U.slider({ label: 'Dikey Konum', min: 0, max: 1, step: 0.01, percent: true, value: t.y == null ? 0.5 : t.y, onInput: (v) => setT('y', v) }));
       kids.push(U.color({ label: 'Metin Rengi', value: t.color || '#ffffff', onChange: (v) => setT('color', v) }));
@@ -547,6 +549,34 @@
     if (['bars', 'wave', 'radialWave'].indexOf(l.type) >= 0) kids.push(U.toggle({ label: 'Ayna', value: !!getV('mirror', false), def: !!fd('mirror', false), onChange: (v) => setV('mirror', v) }));
     if (l.type === 'bars') kids.push(U.toggle({ label: 'Tepe Noktaları', value: getV('cap', true) !== false, def: fd('cap', true) !== false, onChange: (v) => setV('cap', v) }));
     return kids;
+  }
+
+  /* ŞARKI SÖZÜ KATMANI (masaüstündeki src/admin/lyrics-lib-ui.js block ve scene-panels
+     söz denetimleri): söz kitaplıktan, çalan parçayla eşleşerek; saat parçanın konumu. */
+  function lyricsStatus(t) {
+    const Sy = window.SVLyricsSync;
+    const live = window.SVNowLive && window.SVNowLive.state;
+    if (!live || !live.has || !(live.title || live.artist)) return 'Çalan parça yok: Ses sekmesinden bildirim erişimi verin ya da uygulama içi çaları kullanın.';
+    const lib = (window.SVLyricsLib && window.SVLyricsLib.items) || [];
+    const hit = Sy && Sy.matchTrack ? Sy.matchTrack({ title: live.title, artist: live.artist }, lib, t.lyricsMatch || 'exact') : null;
+    if (hit && hit.item) return tr('Eşleşen söz') + ': ' + (hit.item.name || hit.item.title || '') + (hit.item.auto ? ' (' + tr('otomatik') + ')' : '');
+    return tr('Bu parça için kitaplıkta söz yok') + ': ' + [live.artist, live.title].filter(Boolean).join(' - ');
+  }
+  function lyricsControls(t, setT, ctx) {
+    const follow = t.lyricsFollow === true;
+    const redraw = () => { if (ctx) ctx.refresh(); };
+    const out = [
+      U.toggle({ label: 'Çalan Parçayı İzle', value: follow, def: true, onChange: (v) => { setT('lyricsFollow', !!v); redraw(); } }),
+      h('div', { class: 'hint', text: 'Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.' }),
+    ];
+    if (follow) {
+      out.push(U.select({ label: 'Eşleme', options: [['exact', 'Tam Eşleme'], ['partial', 'Kısmen Eşleme']], value: t.lyricsMatch || 'exact', def: 'exact', onChange: (v) => { setT('lyricsMatch', v === 'partial' ? 'partial' : 'exact'); redraw(); } }));
+      out.push(h('div', { class: 'hint', text: lyricsStatus(t) }));
+    }
+    out.push(h('button', { class: 'btn', onclick: () => { if (window.SVShellLibrary && window.SVShellLibrary.lyrics) window.SVShellLibrary.lyrics(); } }, [icon('library'), 'Söz Kütüphanesi']));
+    out.push(U.slider({ label: 'Senkron Kayması', min: -10, max: 10, step: 0.05, value: t.offset || 0, def: 0, format: (v) => (v > 0 ? '+' : '') + U.num(v, 2) + (en() ? ' s' : ' sn'), onChange: (v) => setT('offset', v) }));
+    out.push(U.toggle({ label: 'Karaoke Vurgusu', value: t.karaoke !== false, def: true, onChange: (v) => setT('karaoke', !!v) }));
+    return out;
   }
 
   function backgroundControls(l, set, c, def) {
@@ -750,7 +780,8 @@
           const next = layers().slice();
           const c = JSON.parse(JSON.stringify(cfg()));
           let made;
-          try { made = LF().make(pick.what, c); } catch (e) { console.error('[shell-layers]', e); return; }
+          // Söz katmanı çalan parçayı izler (masaüstünde Windows'ta olduğu gibi; telefonda medya oturumu)
+          try { made = LF().make(pick.what, c, { lyricsFollow: true }); } catch (e) { console.error('[shell-layers]', e); return; }
           next.push(made);
           // MilkDrop'ta ortak preset boşsa üretici sahnenin milkdrop'una yazıyor
           const patch = { layers: next };

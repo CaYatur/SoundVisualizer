@@ -163,6 +163,9 @@
       onPlayerState(v);
     } else if (name === 'mediaSession') {
       onMediaSession(v);
+    } else if (name === 'lyricsLib') {
+      lyricsItems = Array.isArray(v && v.items) ? v.items : [];
+      emitLyrics();
     } else if (name === 'memoryPressure') {
       /* Sistem bellek istiyor (onTrimMemory): bekleyen kayıt hemen yazılır, uygulama
          haber vermeden kapatılabilir. Düzenleyici isterse ağır katmanları uyarır. */
@@ -218,6 +221,57 @@
     const next = p && p.has && (p.playing || !(sys && sys.playing)) ? p : (sys || p || nowPlaying);
     nowPlaying = next;
     ev.nowPlaying.emit(next);
+    lookupLyrics(next);
+  }
+
+  /* ---- Şarkı sözleri (store/LyricsHub.kt; masaüstündeki lyrics-lib ve lyrics-lookup) ----
+     Kitaplık uygulamada; motor metinli listeyi `onLyricsLib` ile alır ve çalan parçayla
+     eşleştirir (src/shared/lyrics-sync.js). Otomatik bulunan söz listenin SONUNA eklenir:
+     kullanıcının kitaplığındaki eşleşme önce gelir. Arama yalnız ayar açıksa ve sahnede
+     parçayı izleyen bir söz katmanı varsa yapılır (masaüstündeki configFollowsLyrics). */
+  let lyricsItems = null;
+  let lyricsAuto = null;
+  let lyricsSig = '';
+  let lyricsCfgSig = '';
+  function withAuto(items) {
+    const out = Array.isArray(items) ? items.slice() : [];
+    if (lyricsAuto && lyricsAuto.text) out.push(lyricsAuto);
+    return out;
+  }
+  function emitLyrics() { ev.lyricsLib.emit(withAuto(lyricsItems || [])); }
+  function followsLyrics(cfg) {
+    if (!cfg) return false;
+    const texts = [];
+    if (cfg.text) texts.push(cfg.text);
+    for (const l of Array.isArray(cfg.layers) ? cfg.layers : []) if (l && l.settings && l.settings.text) texts.push(l.settings.text);
+    return texts.some((t) => t && (t.source || 'static') === 'lyrics' && t.lyricsFollow === true);
+  }
+  function lookupLyrics(st) {
+    const cfg = config;
+    const L = cfg && cfg.lyricsLookup;
+    const enabled = !!(L && L.enabled === true);
+    const cs = enabled ? JSON.stringify(L) : '';
+    if (cs !== lyricsCfgSig) {
+      lyricsCfgSig = cs;
+      lyricsSig = '';
+      if (!enabled && lyricsAuto) { lyricsAuto = null; emitLyrics(); }
+    }
+    if (!enabled || !native || !followsLyrics(cfg) || !st || !st.has || !st.title) return;
+    const meta = { title: st.title || '', artist: st.artist || '', album: st.album || '', duration: st.duration > 0 ? st.duration : 0 };
+    const sig = meta.artist + '\u0001' + meta.title;
+    if (sig === lyricsSig) return;
+    lyricsSig = sig;
+    request('lyricsLookup', { config: L, meta }).then((r) => {
+      if (sig !== lyricsSig) return;
+      const next = r && r.text ? { id: 'auto:' + sig, name: r.provider || r.source, artist: meta.artist, title: meta.title, text: r.text, auto: r.source } : null;
+      if (!next && !lyricsAuto) return;
+      lyricsAuto = next;
+      emitLyrics();
+    }, () => { /* söz yoksa oynatma sürer */ });
+  }
+  function lyricsSnapshot() {
+    if (!native) return resolved([]);
+    return request('lyricsLibSnapshot').then((items) => { lyricsItems = Array.isArray(items) ? items : []; return withAuto(lyricsItems); }, () => withAuto(lyricsItems || []));
   }
 
   // ---- Demo ses (0E) ----
@@ -424,6 +478,7 @@
     config = cfg;
     ev.config.emit(engineView(cfg));
     profile.save(cfg);
+    lookupLyrics(nowPlaying);
     emitLowPower();
     syncAwake();
   }
@@ -452,6 +507,7 @@
     ev.configPatch.emit(engineView(p));
     profile.save(config);
     if (p.power) syncAwake();
+    if (p.lyricsLookup || p.layers || p.text) lookupLyrics(nowPlaying);
   }
   if (typeof document !== 'undefined' && document.addEventListener) {
     // Arka plana geçerken ve sayfa kapanırken bekleyen kayıt hemen yazılır
@@ -475,6 +531,18 @@
       status: () => request('nowPlayingStatus'),
       openAccess: () => request('nowPlayingAccess'),
       onChange: (cb) => ev.nowPlaying.add(cb),
+    }),
+    /* Şarkı sözü kitaplığı ve otomatik bulma (Kitaplık → Sözler, Ayarlar). */
+    lyrics: Object.freeze({
+      list: () => request('lyricsLibList'),
+      read: (id) => request('lyricsLibRead', { id }),
+      import: () => request('lyricsLibImport'),
+      add: (item) => request('lyricsLibAdd', item || {}),
+      update: (id, patch) => request('lyricsLibUpdate', { id, patch }),
+      remove: (id) => request('lyricsLibRemove', { id }),
+      clearCache: () => request('lyricsCacheClear').then((r) => { lyricsSig = ''; if (lyricsAuto) { lyricsAuto = null; emitLyrics(); } lookupLyrics(nowPlaying); return r; }),
+      auto: () => lyricsAuto,
+      follows: () => followsLyrics(config),
     }),
     /* Ses kaynağı (HOST.md "Shell surface"): capture, mic, visualizer. */
     audio: Object.freeze({
@@ -577,8 +645,8 @@
     milkdropTexture: (name) => (native ? request('textureRead', { name: String(name || '') }).catch(() => null) : resolved(null)),
     onMilkdropTexturesChanged: (cb) => ev.texturesChanged.add(cb),
     logoLibRead: () => resolved(null),
-    lyricsLibSnapshot: () => resolved([]),
-    lyricsLibRead: () => resolved(null),
+    lyricsLibSnapshot: () => lyricsSnapshot(),
+    lyricsLibRead: (id) => (native ? request('lyricsLibRead', { id }) : resolved(null)),
     onLyricsLib: (cb) => ev.lyricsLib.add(cb),
     floatingClose: noop,
     floatingSnap: noop,

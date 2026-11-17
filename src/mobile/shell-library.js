@@ -393,7 +393,7 @@
     body.appendChild(grid);
   }
 
-  const SECTIONS = [['templates', 'Şablonlar'], ['milkdrop', 'MilkDrop'], ['shader', 'Shader'], ['scenes', 'Sahneler'], ['media', 'Medya']];
+  const SECTIONS = [['templates', 'Şablonlar'], ['milkdrop', 'MilkDrop'], ['shader', 'Shader'], ['scenes', 'Sahneler'], ['lyrics', 'Sözler'], ['media', 'Medya']];
   /* Taslakta tam ekran sayfaydı; preset ve şablon seçerken sonucu görmek için sahnenin
      üstü açık kalan uzun sayfa (dokununca değişen görüntü hemen izlenir). */
   const page = {
@@ -410,6 +410,7 @@
       else if (section === 'milkdrop') renderMilkdrop(body, ctx);
       else if (section === 'shader') renderShaders(body, ctx);
       else if (section === 'scenes') renderScenes(body, ctx);
+      else if (section === 'lyrics' && window.SVShellLyrics) window.SVShellLyrics.render(body, ctx);
       else body.appendChild(h('div', { class: 'empty', text: 'Videolar, resimler, logolar ve şarkı sözleri telefonun kitaplığıyla birlikte gelecek (Faz 4). Masaüstünden aktarılan sahnelerdeki bu dosyalar o zamana kadar eksik görünür.' }));
     },
   };
@@ -420,5 +421,7 @@
     pickFor(layerId) { target = layerId ? { layerId } : null; section = 'milkdrop'; S.open('library'); },
     /** Şablonlar bölümüyle aç (boş sahne şeridindeki kutu). */
     templates() { section = 'templates'; S.open('library'); },
+    /** Sözler bölümüyle aç (söz katmanının ayarlarından). */
+    lyrics() { section = 'lyrics'; S.open('library'); },
   });
 })();

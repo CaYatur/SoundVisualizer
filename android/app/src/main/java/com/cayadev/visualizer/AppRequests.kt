@@ -23,6 +23,8 @@ import com.cayadev.visualizer.player.PlayerHub
 import com.cayadev.visualizer.player.PlayerService
 import java.io.File
 import org.json.JSONArray
+import com.cayadev.visualizer.store.LyricsHub
+import com.cayadev.visualizer.store.LyricsLibrary
 import org.json.JSONObject
 
 /* SAYFANIN İSTEKLERİ, uygulama düzeyinde. Motor (EngineHost) Activity'den uzun
@@ -107,6 +109,26 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "texturesList" -> EngineHost.profile.texturesList { r, err -> if (r != null) reply.ok(r) else reply.fail("textures", err ?: "") }
             "textureRead" -> EngineHost.profile.textureRead(args.optString("name")) { r, err -> if (err == null) reply.ok(r) else reply.fail("texture", err) }
+            /* Şarkı sözleri (store/LyricsHub.kt): kitaplık masaüstündeki gibi, otomatik bulma
+               yalnız kullanıcının eklediği sağlayıcılara (liste boşsa ağa çıkılmaz). */
+            "lyricsLibSnapshot" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }) { LyricsHub.library.snapshot() }
+            "lyricsLibList" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }) { LyricsHub.library.list() }
+            "lyricsLibRead" -> LyricsHub.run({ r, e -> if (e == null) reply.ok(r ?: JSONObject.NULL) else reply.fail("lyrics", e) }) { LyricsHub.library.read(args.optString("id")) }
+            "lyricsLibRemove" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }, publish = true) { LyricsHub.library.remove(args.optString("id")) }
+            "lyricsLibUpdate" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }, publish = true) {
+                LyricsHub.library.update(args.optString("id"), args.optJSONObject("patch") ?: JSONObject())
+            }
+            "lyricsLibAdd" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }, publish = true) {
+                val text = args.optString("text")
+                val name = args.optString("name").ifBlank { "lyrics" }
+                LyricsHub.library.add(if (LyricsLibrary.isLyricFile(name)) name else "$name.lrc", text.toByteArray(Charsets.UTF_8), args.optString("artist"), args.optString("title"))
+            }
+            "lyricsLibImport" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.pickLyrics(reply)
+            }
+            "lyricsLookup" -> LyricsHub.lookup(args.optJSONObject("config"), args.optJSONObject("meta") ?: JSONObject()) { r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics-lookup", e ?: "") }
+            "lyricsCacheClear" -> LyricsHub.clearCache { r, e -> if (r != null) reply.ok(r) else reply.fail("lyrics", e ?: "") }
             "milkImport" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 live.pickMilk(reply)

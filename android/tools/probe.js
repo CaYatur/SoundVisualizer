@@ -1638,7 +1638,79 @@ async function nowPlayingCmd() {
   if (!ok) process.exitCode = 1;
 }
 
-const cmds = { nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+/* ŞARKI SÖZLERİ (store/LyricsLibrary.kt, src/mobile/shell-lyrics.js). Söz dosyası belge
+   seçiciyle eklenir; sanatçı ve parça adı dosya adından çıkmalı ("CaYaDev - Probe Lyrics").
+   Motor kitaplığı almalı; aynı adlı parça uygulama içi çalarda çalarken söz katmanının
+   eşleşmesi kitaplıktan ve saati parçanın konumundan olmalı. Sonda kayıtlar silinir. */
+async function lyricsCmd() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const FF = require(path.join(__dirname, '..', '..', 'node_modules', 'ffmpeg-static'));
+  const stamp = Date.now().toString(36);
+  const lrcName = 'CaYaDev - Probe Lyrics.lrc';
+  const lrc = '[00:00.50]Birinci satır ' + stamp + '\n[00:02.00]İkinci satır\n[00:04.00]Üçüncü satır\n[00:30.00]Son\n';
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-lyr-'));
+  fs.writeFileSync(path.join(tmp, lrcName), lrc);
+  D.adb(['shell', 'rm', '-f', '/sdcard/Download/' + lrcName.replace(/ /g, '\\ ')]);
+  D.adb(['push', path.join(tmp, lrcName), '/sdcard/Download/' + lrcName]);
+  const song = 'sv-probe-lyr.m4a';
+  execFileSync(FF, ['-hide_banner', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=30:sample_rate=48000',
+    '-ac', '2', '-c:a', 'aac', '-b:a', '128k', '-metadata', 'title=Probe Lyrics', '-metadata', 'artist=CaYaDev', path.join(tmp, song)]);
+  D.adb(['push', path.join(tmp, song), '/data/local/tmp/' + song]);
+  D.adb(['shell', `run-as ${D.PKG} sh -c 'mkdir -p files/media && cp /data/local/tmp/${song} files/media/${song}'`]);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  let layers0 = null;
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(800);
+    layers0 = await ev('JSON.stringify(window.SVAndroid.config.get().layers || [])');
+    const n0 = await ev('window.SVAndroid.lyrics.list().then((l) => l.length)');
+    // Kitaplık → Sözler → Söz Dosyası Ekle
+    await ev("window.SVShellLibrary.lyrics(); 1");
+    await D.sleep(1200);
+    await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Söz Dosyası Ekle|Add Lyrics Files/.test(b.textContent)).click(); 1");
+    let picked = false;
+    for (let i = 0; i < 12 && !picked; i++) {
+      await D.sleep(900);
+      picked = uiPress(/^CaYaDev - Probe Lyrics\.lrc(,|$)/, true);
+      if (!picked && uiPress(/^(Show roots|Kökleri göster)$/)) { await D.sleep(900); uiPress(/^(Downloads|İndirilenler)$/); }
+    }
+    await D.sleep(700);
+    out.picked = picked && uiPress(/^(Select|Seç|SELECT|SEÇ|Open|Aç)$/);
+    for (let i = 0; i < 20; i++) { await D.sleep(500); if (await ev("!!document.querySelector('#sv-shell .sheet-body .banner')")) break; }
+    out.status = await ev("(document.querySelector('#sv-shell .sheet-body .banner') || {}).innerText || ''");
+    const list = await ev('window.SVAndroid.lyrics.list()');
+    out.count = list.length - n0;
+    const mine = list.find((x) => x.artist === 'CaYaDev' && x.title === 'Probe Lyrics');
+    out.guessed = !!mine;
+    await D.sleep(600);
+    out.engine = await ev(`(window.SVLyricsLib && window.SVLyricsLib.items || []).some((x) => x.text && x.text.indexOf(${JSON.stringify(stamp)}) >= 0)`);
+    // Söz katmanı (çalan parçayı izler) ve aynı adlı parça
+    await ev(`(() => { const c = window.SVAndroid.config.get(); const L = window.SVLayerFactory || null; const made = window.SVLayers.makeTextLayer({ source: 'lyrics', lyricsFollow: true, content: '' }); window.SVAndroid.config.patch({ layers: (c.layers || []).concat([made]) }); return 1; })()`);
+    out.open = await ev(`window.SVAndroid.player.open(${JSON.stringify(song)}, true).then((v) => ({ ok: true }), (e) => ({ ok: false, err: e.message }))`);
+    await D.sleep(3500);
+    out.playback = await ev(`(() => { const S = window.SVLyricsSync; const live = window.SVNowLive && window.SVNowLive.state; const r = S.playback({ windows: true, follow: true, match: 'exact', library: window.SVLyricsLib.items, live, nowMs: Date.now() }); return r && { source: r.source, time: r.time == null ? null : Math.round(r.time * 10) / 10, item: r.item && r.item.title, live: live && live.title }; })()`);
+    out.follows = await ev('window.SVAndroid.lyrics.follows()');
+    // Temizlik: eklenen söz silinir
+    if (mine) await ev(`window.SVAndroid.lyrics.remove(${JSON.stringify(mine.id)})`);
+    out.after = await ev('window.SVAndroid.lyrics.list().then((l) => l.length)') - n0;
+    out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev(`window.SVAndroid.player.pause(); window.SVAndroid.config.patch({ layers: ${layers0 || '[]'} }); window.SVShell.close(); 1`); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.picked && out.count === 1 && out.guessed && out.engine && out.open.ok && out.follows
+    && out.playback && out.playback.source === 'library' && out.playback.item === 'Probe Lyrics' && out.playback.time > 1 && out.after === 0 && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+const cmds = { lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

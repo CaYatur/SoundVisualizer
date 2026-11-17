@@ -165,6 +165,8 @@ object WebShell {
         "web/src/shared/autovj.js",
         "web/src/shared/layer-factory.js",
         "web/src/shared/text-fold.js",
+        // LRCLIB hazır şablonu (Kitaplık → Sözler → Otomatik Bul)
+        "web/src/shared/lyrics-providers.js",
         // Motorun ses nesnesini kurulduğu an yakalar (sayfanın betiklerinden önce olmalı)
         "web/src/mobile/autovj.js",
         // Kullanıcı presetlerinin önizlemesi telefonda (Kitaplık kullanır)
@@ -174,6 +176,7 @@ object WebShell {
         "web/src/mobile/shell-layers.js",
         "web/src/mobile/shell-scene.js",
         "web/src/mobile/shell-audio.js",
+        "web/src/mobile/shell-lyrics.js",
         "web/src/mobile/shell-library.js",
         "web/src/mobile/shell-display.js",
         "web/src/mobile/shell-settings.js",

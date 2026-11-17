@@ -96,6 +96,9 @@ object EngineHost {
         com.cayadev.visualizer.media.NowPlaying.init(app)
         com.cayadev.visualizer.media.NowPlaying.events = { v -> bridge?.event("mediaSession", v) }
         com.cayadev.visualizer.media.NowPlaying.start(app)
+        // Söz kitaplığı değişince motor yeni listeyi alır (masaüstündeki lyrics-lib yayını)
+        com.cayadev.visualizer.store.LyricsHub.init(app)
+        com.cayadev.visualizer.store.LyricsHub.events = { items -> bridge?.event("lyricsLib", org.json.JSONObject().put("items", items)) }
         PowerWatch.start(app)
         app.registerComponentCallbacks(object : ComponentCallbacks2 {
             /* Arka plana geçiş (UI_HIDDEN) ve sistemin bellek istemesi: sayfa bekleyen
