@@ -1068,8 +1068,10 @@ async function pagesCmd() {
     await tapSel('#sv-shell .grid2 .tile:first-child .tile-main', 1500);
     out.library.picked = await ev(`(() => { const c = window.SVAndroid.config.get(); return { id: c.milkdrop && c.milkdrop.presetId, src: !!(c.milkdrop && c.milkdrop.source), layer: (c.layers || []).some((l) => l.type === 'milkdrop') }; })()`);
     out.library.pickedOk = out.library.picked.id === firstId && out.library.picked.src && out.library.picked.layer;
+    // Önceki bir koşudan açık kalmış olabilir: yıldızın durumu değişmeli
+    const favBefore = await ev(`!!((window.SVAndroid.config.get().milkdropLibrary || {}).favorites || {})[${JSON.stringify(firstId)}]`);
     await tapSel('#sv-shell .grid2 .tile:first-child .star', 700);
-    out.library.fav = await ev(`!!((window.SVAndroid.config.get().milkdropLibrary || {}).favorites || {})[${JSON.stringify(firstId)}]`);
+    out.library.fav = (await ev(`!!((window.SVAndroid.config.get().milkdropLibrary || {}).favorites || {})[${JSON.stringify(firstId)}]`)) !== favBefore;
     await ev(`(() => { const i = document.querySelector('#sv-shell .search input'); i.value = 'aurora'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
     await D.sleep(400);
     out.library.search = await ev("document.querySelectorAll('#sv-shell .grid2 .tile').length");
@@ -1102,6 +1104,21 @@ async function pagesCmd() {
     await tapSel('#sv-shell .sw:nth-child(4)', 700);
     out.settings.theme = await ev("({ cfg: (window.SVAndroid.config.get().ui || {}).theme, page: document.documentElement.getAttribute('data-ui-theme') })");
     shot('7-settings-light');
+    // Ekranı açık tut: pencere bayrağı ayarı izler (varsayılan açık)
+    // Ekranı açık tutan pencere (güç yöneticisinin gördüğü; pencere bayrağı değil)
+    const flag = () => (/mHoldScreenWindow=Window\{[^}]*/.exec(D.adb(['shell', 'dumpsys', 'window'])) || [''])[0].indexOf(D.PKG) >= 0;
+    out.settings.awake = { before: flag() };
+    const setAwake = (on) => ev(`(() => { const c = window.SVAndroid.config.get(); window.SVAndroid.config.patch({ power: Object.assign({}, c.power, { keepAwake: ${on} }) }); return 1; })()`);
+    await setAwake(false);
+    await D.sleep(800);
+    // Bilgi: kapalıyken ekranı tutan pencere (uzun akışta hâlâ MainActivity görülüyor; PR'da açık)
+    out.settings.awake.off = !flag();
+    out.settings.awake.hold = (/mHoldScreenWindow=[^\n]*/.exec(D.adb(['shell', 'dumpsys', 'window'])) || [''])[0].trim();
+    out.settings.awake.activities = D.adb(['shell', 'dumpsys', 'activity', 'activities']).split(/\r?\n/).filter((l) => /ActivityRecord\{[^}]*MainActivity/.test(l) && /Hist|\* /.test(l)).map((l) => l.trim().slice(0, 90));
+    out.settings.awake.toggle = await ev("(() => { const b = Array.from(document.querySelectorAll('#sv-shell [role=switch]')).find((x) => /Ekranı açık tut|Keep the screen on/.test(x.getAttribute('aria-label'))); return b && b.getAttribute('aria-checked'); })()");
+    await setAwake(true);
+    await D.sleep(800);
+    out.settings.awake.on = flag();
     // İlk parçalı seçim dil (dokunmak sayfayı yeniden yükler); kare sınırı etiketinden
     await tapSel('#sv-shell .seg[aria-label="Kare sınırı"] button:first-child, #sv-shell .seg[aria-label="Frame limit"] button:first-child', 600);
     out.settings.fpsCap = await ev('(window.SVAndroid.config.get().power || {}).fpsCap');
@@ -1122,7 +1139,7 @@ async function pagesCmd() {
     && out.templates.applied && clean(out.templates.check) && out.library.tiles > 0 && clean(out.library.check) && out.library.pickedOk && out.library.fav && out.library.search >= 1 && out.library.saved && out.library.deleted && clean(out.library.scenesCheck)
     && clean(out.display.check) && out.display.floating.showing && Math.abs(out.display.floating.width - out.display.expectW) <= 2
     && out.settings.swatches === 8 && clean(out.settings.check) && out.settings.theme.cfg === 'light' && out.settings.theme.page === 'light'
-    && out.settings.fpsCap === 30 && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
+    && out.settings.fpsCap === 30 && out.settings.awake.before && out.settings.awake.toggle === 'false' && out.settings.awake.on && /About|Hakkında/.test(out.settings.about) && clean(out.settings.aboutCheck) && !out.logs.length;
   if (!ok) process.exitCode = 1;
 }
 
