@@ -385,6 +385,8 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .sw.on { border-color: var(--accent); }
 #sv-shell .sw i { display: block; width: 34px; height: 34px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .12); }
 #sv-shell .nav-card { padding: 4px 14px; flex: none; }
+/* Söz metni (Kitaplık → Sözler → Düzenle) */
+#sv-shell textarea.lyrics-text { width: 100%; min-height: 240px; resize: vertical; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); color: var(--text); font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 1.5; padding: 10px 12px; }
 #sv-shell .nav-row { width: 100%; text-align: left; }
 #sv-shell .nav-row .svi:last-child { color: var(--muted); }
 #sv-shell .logo { width: 32px; height: 32px; border-radius: 9px; display: block; }

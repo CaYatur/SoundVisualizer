@@ -98,7 +98,8 @@ test('yeni katmanlar masaüstündeki gibi kuruluyor', () => {
   const txt = F.make({ kind: 'text', preset: 0 }, cfg);
   assert.strictEqual(txt.type, 'text');
   assert.strictEqual(txt.settings.text.source, 'static');
-  assert.strictEqual(F.make({ kind: 'text', preset: 1 }, cfg).settings.text.lyricsFollow, false, 'telefonda sistem sözü izleme yok');
+  assert.strictEqual(F.make({ kind: 'text', preset: 1 }, cfg).settings.text.lyricsFollow, false, 'seçenek verilmezse izleme kapalı');
+  assert.strictEqual(F.make({ kind: 'text', preset: 1 }, cfg, { lyricsFollow: true }).settings.text.lyricsFollow, true, 'telefonda söz katmanı çalan parçayı izler');
   assert.strictEqual(F.make({ kind: 'nowplaying' }, cfg).kind, 'nowplaying');
   // Galeriden: video → medya (dosya kaynağı), görsel → görsel nesne, logo → elle seçilen resim
   const v = F.makeMedia('video', { url: 'https://appassets.androidplatform.net/content/eA', name: 'klip.mp4' }, def);

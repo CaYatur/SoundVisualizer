@@ -131,6 +131,21 @@ class MainActivity : ComponentActivity() {
         EngineHost.profile.importMilk(EngineHost.profile.documents(uris)) { r, err -> if (r != null) reply.ok(r) else reply.fail("milk-import", err ?: "") }
     }
 
+    /* Söz dosyaları (.lrc .srt .txt; türleri kayıtlı değil, süzgeç kitaplıkta). */
+    private var pendingLyrics: Bridge.Reply? = null
+    private val askLyrics = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val reply = pendingLyrics ?: return@registerForActivityResult
+        pendingLyrics = null
+        if (uris.isNullOrEmpty()) { reply.fail("cancelled"); return@registerForActivityResult }
+        com.cayadev.visualizer.store.LyricsHub.importUris(uris) { r, err -> if (r != null) reply.ok(r) else reply.fail("lyrics-import", err ?: "") }
+    }
+
+    fun pickLyrics(reply: Bridge.Reply) {
+        pendingLyrics?.fail("superseded")
+        pendingLyrics = reply
+        askLyrics.launch(arrayOf("*/*"))
+    }
+
     fun pickMilk(reply: Bridge.Reply) {
         pendingMilk?.fail("superseded")
         pendingMilk = reply
