@@ -231,6 +231,24 @@ html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent
 #sv-shell .row.dim .thumb, #sv-shell .row.dim .row-text { opacity: .5; }
 #sv-shell .row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 48px; border-radius: 12px; text-align: left; }
 #sv-shell .scene-row { min-height: 52px; padding: 8px 12px; }
+#sv-shell .scene-open { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; }
+#sv-shell button.scene-row { width: 100%; display: flex; align-items: center; gap: 12px; border: 0; color: var(--text); font: inherit; text-align: left; min-height: 56px; }
+#sv-shell .scene-row > .svi { width: 18px; height: 18px; flex: none; color: var(--muted); }
+#sv-shell .scene-swatch { width: 36px; height: 36px; border-radius: 10px; background: var(--card3); flex: none; border: 1px solid var(--line2); }
+#sv-shell .scene-swatch.lg { width: 48px; height: 48px; border-radius: 12px; }
+/* Sahne ayarları (src/mobile/shell-scene.js) */
+#sv-shell .scene-head { display: flex; align-items: center; gap: 12px; padding: 12px; }
+#sv-shell .sub-label { font-size: 12px; font-weight: 600; color: var(--muted); padding: 2px 4px 0; }
+#sv-shell .pal-dots { display: flex; gap: 8px; justify-content: space-between; }
+#sv-shell .pal-dots .swatch { flex: 1; min-width: 44px; width: auto; }
+#sv-shell .pal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#sv-shell .pal { position: relative; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+#sv-shell .pal.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+#sv-shell .pal-main { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; min-height: 48px; }
+#sv-shell .pal-sw { display: block; height: 28px; border-radius: 8px; }
+#sv-shell .pal-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 36px; }
+#sv-shell .pal-x { position: absolute; right: 2px; bottom: 2px; width: 48px; height: 40px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+#sv-shell .pal-x .svi { width: 16px; height: 16px; }
 #sv-shell .thumb { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; flex: none; background: var(--card3); display: block; }
 #sv-shell .thumb.icon { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 #sv-shell .row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -261,6 +279,12 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 
 /* Seçim kutusu: yerel select (Android'in kendi seçicisini açar), taslaktaki kutu görünümünde */
 #sv-shell .select { flex: 1; min-width: 0; height: 48px; position: relative; display: flex; align-items: center; }
+/* Varsayılana döndür (değer değişince görünür) */
+#sv-shell .ctl-reset { width: 40px; height: 48px; flex: none; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; padding: 0; margin-right: -8px; }
+#sv-shell .ctl-reset .svi { width: 16px; height: 16px; }
+#sv-shell .ctl-reset[hidden] { display: none; }
+#sv-shell .ctl-row.col.has-reset { position: relative; }
+#sv-shell .ctl-row.col.has-reset > .ctl-reset { position: absolute; right: 0; top: -12px; }
 #sv-shell .select-btn { width: 100%; height: 48px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card2); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; padding: 0 10px 0 12px; border-radius: 12px; text-align: left; }
 #sv-shell .select-btn:disabled { opacity: .5; }
 #sv-shell .select-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

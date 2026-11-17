@@ -267,47 +267,44 @@
     }
   }
 
-  // ---- Sahneler ----
+  // ---- Sahneler (kayıt işleri src/mobile/shell-scene.js'te, masaüstünün biçiminde) ----
   function renderScenes(body, ctx) {
     const c = cfg();
+    const SC = window.SVShellScene;
     const list = Array.isArray(c.scenes) ? c.scenes : [];
-    body.appendChild(h('button', { class: 'btn block', onclick: () => saveScene(ctx) }, [icon('save'), 'Şu Anki Görüntüyü Sahne Olarak Kaydet']));
+    const act = list.find((x) => x && x.id === c._activeSceneId) || null;
+    const btns = [];
+    if (act && SC) btns.push(h('button', { class: 'btn primary', onclick: () => { SC.update(act.id); ctx.refresh(); } }, [icon('save'), 'Sahneyi Güncelle']));
+    btns.push(h('button', { class: 'btn' + (act ? '' : ' primary'), onclick: () => { if (SC) SC.askSaveNew().then((n) => { if (n) ctx.refresh(); }); } }, [icon('plus'), 'Yeni Sahne Olarak Kaydet']));
+    body.appendChild(h('div', { class: 'btn-row' }, btns));
     if (!list.length) { body.appendChild(h('div', { class: 'empty', text: 'Kayıtlı sahne yok.' })); return; }
+    body.appendChild(h('div', { class: 'hint', text: 'Dokununca sahne açılır. Ana ekrandaki sahne şeridinden de geçebilirsiniz.' }));
     const grid = h('div', { class: 'grid2' });
     for (const sc of list) {
       if (!sc) continue;
       const on = sc.id === c._activeSceneId;
       grid.appendChild(h('div', { class: 'tile' + (on ? ' sel' : '') }, [
         h('button', { class: 'tile-main', 'aria-pressed': on ? 'true' : 'false', 'aria-label': sc.name || '', onclick: () => { S.recallScene(sc.id); ctx.refresh(); } }, [
-          art(sc.id, sc.name),
+          S.sceneArt ? S.sceneArt(sc) : art(sc.id, sc.name),
           h('div', { class: 'cap' }, [h('span', { text: sc.name || '' })]),
         ]),
         h('button', {
-          class: 'star', 'aria-label': 'Sil', title: 'Sil',
-          onclick: () => S.confirm(tr('Sahne silinsin mi?'), 'Sil', true).then((ok) => {
-            if (!ok) return;
-            const cc = cfg();
-            const patch = { scenes: (cc.scenes || []).filter((x) => x && x.id !== sc.id) };
-            if (cc._activeSceneId === sc.id) patch._activeSceneId = null;
-            A().config.patch(patch);
-            ctx.refresh();
-          }),
-        }, [icon('trash')]),
+          class: 'star', 'aria-label': 'Düzenle', title: 'Düzenle',
+          onclick: () => sceneMenu(sc, ctx),
+        }, [icon('pencil')]),
       ]));
     }
     body.appendChild(grid);
   }
-  /* Sahne: sahneye ait anahtarların kopyası (SVSchema.SCENE_KEYS), masaüstündeki biçim. */
-  function saveScene(ctx) {
-    const c = cfg();
-    const keys = window.SVSchema ? window.SVSchema.SCENE_KEYS : [];
-    const data = {};
-    for (const k of keys) if (c[k] !== undefined) data[k] = JSON.parse(JSON.stringify(c[k]));
-    const list = Array.isArray(c.scenes) ? c.scenes : [];
-    const name = (en() ? 'Scene ' : 'Sahne ') + (list.length + 1);
-    const id = 'sc_' + Date.now().toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
-    A().config.patch({ scenes: list.concat([{ id, name, data, createdAt: Date.now() }]), _activeSceneId: id });
-    ctx.refresh();
+  /* Sahnenin işleri: yeniden adlandır, şu anki görünümle güncelle, sil. */
+  function sceneMenu(sc, ctx) {
+    const SC = window.SVShellScene;
+    if (!SC || !S.choose) return;
+    S.choose(sc.name || '', [['rename', tr('Yeniden Adlandır')], ['update', tr('Mevcut görünümle güncelle')], ['delete', tr('Sil')]], '').then((v) => {
+      if (v === 'rename') SC.askRename(sc).then((n) => { if (n) ctx.refresh(); });
+      else if (v === 'update') { SC.update(sc.id); ctx.refresh(); }
+      else if (v === 'delete') SC.askRemove(sc).then((ok) => { if (ok) ctx.refresh(); });
+    });
   }
 
   // ---- Şablonlar (src/shared/templates.js; masaüstünün hazır sahneleri) ----
