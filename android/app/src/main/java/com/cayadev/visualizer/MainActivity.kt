@@ -21,7 +21,6 @@ import android.util.Log
 import android.util.Rational
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -116,14 +115,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         immersive()
 
-        val missing = WebShell.missingFeatures()
+        // Geliştirme sürümünde ekran denenebilsin: --ez forceWebViewUpdate true
+        val missing = if (BuildConfig.DEBUG && intent?.getBooleanExtra("forceWebViewUpdate", false) == true) WebShell.REQUIRED_FEATURES
+        else WebShell.missingFeatures()
         if (missing.isNotEmpty()) {
-            // Faz 3'te tasarım diliyle bir ekran olacak; şimdilik düz metin
+            // Motor kurulamaz: tasarım dilindeki yerel ekran (taslak 12)
             Log.e(TAG, "eksik WebView özellikleri: $missing")
-            setContentView(TextView(this).apply {
-                text = getString(R.string.webview_too_old, WebShell.webViewVersion(this@MainActivity), missing.joinToString())
-                setPadding(48, 48, 48, 48)
-            })
+            WebViewUpdateScreen.show(this, WebShell.webViewVersion(this), missing)
             return
         }
         frame = FrameLayout(this)

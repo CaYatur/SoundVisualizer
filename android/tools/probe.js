@@ -720,7 +720,7 @@ async function shellCmd() {
       if (!Array.isArray(c.scenes) || c.scenes.length < 2) window.SVAndroid.config.patch({ scenes: [{ id: 'sc_a', name: 'Bir', data: {} }, { id: 'sc_b', name: 'İki', data: {} }] });
       window.__probeKeys = ${nonScene}(window.SVAndroid.config.get()); return 1; })()`);
     await D.sleep(400);
-    const want = await page.evaluate('(() => { const s = window.SVAndroid.config.get().scenes[1]; return { id: s.id, name: s.name }; })()');
+    const want = await page.evaluate('(() => { const s = window.SVAndroid.config.get().scenes[1]; return { id: s.id, name: (window.SVI18n ? window.SVI18n.t(s.name) : s.name) }; })()');
     out.sceneTapped = await tapEl('#sv-shell .scenes .scene:nth-child(2)');
     await D.sleep(800);
     await page.evaluate('window.SVAndroid.config.flush()');
@@ -970,7 +970,8 @@ async function layersCmd() {
     out.deleted = (await layersNow()).length === n4 - 1 && await ev('window.SVShell.state().depth') === 1;
     // İngilizce arayüzde Türkçe metin (katman ve sahne adları dışında)
     out.turkish = await ev(`(() => { const t = document.getElementById('sv-shell').innerText.split(/\\n+/);
-      return t.filter((s) => /[çğıöşüÇĞİÖŞÜ]/.test(s) && !/^(Bir|İki)$/.test(s.trim())); })()`);
+      const c = window.SVAndroid.config.get(); const own = new Set([].concat((c.scenes || []).map((x) => x && x.name), (c.layers || []).map((x) => x && x.name)).filter(Boolean));
+      return t.filter((s) => /[çğıöşüÇĞİÖŞÜ]/.test(s) && !own.has(s.trim())); })()`);
     out.lang = await ev('window.SVI18n && window.SVI18n.locale');
     out.logs = page.logs.filter((l) => /exception|error/i.test(l)).slice(0, 5);
   } finally {
@@ -1009,9 +1010,11 @@ async function pagesCmd() {
       .map((b) => { const r = b.getBoundingClientRect(); return { t: (b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 24), w: Math.round(r.width), h: Math.round(r.height) }; })
       .filter((x) => x.w < 47.5 || x.h < 47.5);
     const sheet = el.querySelector('.sheet');
+    const c = window.SVAndroid.config.get();
+    const own = new Set([].concat((c.scenes || []).map((x) => x && x.name), (c.layers || []).map((x) => x && x.name)).filter(Boolean));
     // Sahne/katman adları, kutulardaki baş harfler ve dil seçicideki "Türkçe" kendi dilinde kalır
     const turkish = (sheet ? sheet.innerText : '').split(/\\n+/).map((s) => s.replace(/\\u200B/g, '').trim())
-      .filter((s) => s.length > 2 && /[çğıöşüÇĞİÖŞÜ]/.test(s) && !/^(Bir|İki|Türkçe)$/.test(s));
+      .filter((s) => s.length > 2 && /[çğıöşüÇĞİÖŞÜ]/.test(s) && s !== 'Türkçe' && !own.has(s));
     return { small, turkish }; })()`;
   const tapSel = async (sel, wait) => {
     const p = await ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();

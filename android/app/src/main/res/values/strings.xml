@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">CAYADEV Visualizer</string>
-    <!-- %1$s: kurulu WebView sürümü, %2$s: eksik özellikler -->
-    <string name="webview_too_old">Android System WebView is too old (%1$s). Update it from Google Play and open the app again.\n\nMissing: %2$s</string>
+    <string name="webview_update_title">Update Android System WebView</string>
+    <string name="webview_update_body">The visual engine runs in the phone\'s WebView component. The version on this phone lacks features needed for audio and image transfer.</string>
+    <string name="webview_update_installed">Installed version</string>
+    <string name="webview_update_missing">Missing features</string>
+    <string name="webview_update_store">Update in Play Store</string>
+    <string name="webview_update_reopen">Open the app again</string>
     <string name="audio_channel">Audio input</string>
     <string name="audio_running">Listening to audio for the visualizer</string>
 </resources>
