@@ -170,6 +170,7 @@ object WebShell {
         "web/src/mobile/shell.js",
         "web/src/mobile/shell-controls.js",
         "web/src/mobile/shell-layers.js",
+        "web/src/mobile/shell-scene.js",
         "web/src/mobile/shell-audio.js",
         "web/src/mobile/shell-library.js",
         "web/src/mobile/shell-display.js",

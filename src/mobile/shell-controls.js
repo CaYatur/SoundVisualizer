@@ -40,6 +40,31 @@
     return h('div', { class: 'ctl-row' + (cls ? ' ' + cls : '') }, [label ? h('div', { class: 'ctl-label', text: label }) : null].concat(kids));
   }
 
+  /* VARSAYILANA DÖNDÜR (masaüstündeki ayar başı düğme). o.def verilmişse satırın sonunda
+     bir düğme; yalnız değer varsayılandan farklıyken görünür. Dokununca değer varsayılana
+     döner ve onInput/onChange ile yazılır. same: değerlerin eşitliği (sayıda adımın yarısı). */
+  function same(a, b, step) {
+    if (typeof a === 'number' || typeof b === 'number') return Math.abs(+a - +b) <= (step ? step / 2 : 1e-9);
+    if (typeof a === 'string' && typeof b === 'string') return a.toLowerCase() === b.toLowerCase();
+    return a === b;
+  }
+  function withReset(r, o, current, set) {
+    if (o.def === undefined || o.def === null) return r;
+    const b = h('button', { class: 'ctl-reset', 'aria-label': 'Varsayılana döndür', title: 'Varsayılana döndür' }, [icon('reset')]);
+    const sync = () => { b.hidden = same(current(), o.def, o.step); };
+    b.addEventListener('click', () => {
+      set(o.def);
+      if (o.onInput) o.onInput(o.def);
+      if (o.onChange) o.onChange(o.def);
+      sync();
+    });
+    r.appendChild(b);
+    r.classList.add('has-reset');
+    r.syncReset = sync;
+    sync();
+    return r;
+  }
+
   /* Kaydırıcı. onInput sürüklerken (canlı), onChange bırakınca. */
   function slider(o) {
     const fmt = formatter(o);
@@ -55,12 +80,12 @@
     };
     const set = (v) => { const n = Math.max(min, Math.min(max, +v)); input.value = String(n); paint(n); };
     set(o.value == null ? min : o.value);
-    input.addEventListener('input', () => { const v = +input.value; paint(v); if (o.onInput) o.onInput(v); });
+    input.addEventListener('input', () => { const v = +input.value; paint(v); if (r.syncReset) r.syncReset(); if (o.onInput) o.onInput(v); });
     input.addEventListener('change', () => { if (o.onChange) o.onChange(+input.value); });
     const r = row(o.label, [input, val]);
     r.set = set;
     r.input = input;
-    return r;
+    return withReset(r, o, () => +input.value, set);
   }
 
   /* Seçim kutusu: dokununca kabuğun seçenek listesi açılır (SVShell.choose). Yerel
@@ -83,13 +108,14 @@
       const v = await window.SVShell.choose(o.label, opts, value);
       if (v == null || v === value) return;
       set(v);
+      if (r.syncReset) r.syncReset();
       if (o.onChange) o.onChange(v);
     });
     const box = h('div', { class: 'select' }, [btn]);
     const r = row(o.label, [box]);
     r.set = set;
     r.input = btn;
-    return r;
+    return withReset(r, Object.assign({}, o, { def: o.def == null ? o.def : String(o.def) }), () => value, set);
   }
 
   function toggle(o) {
@@ -97,12 +123,13 @@
     b.addEventListener('click', () => {
       const on = b.getAttribute('aria-checked') !== 'true';
       b.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (r.syncReset) r.syncReset();
       if (o.onChange) o.onChange(on);
     });
     const r = row(o.label, [b], 'sw-row');
     r.set = (v) => b.setAttribute('aria-checked', v ? 'true' : 'false');
     r.input = b;
-    return r;
+    return withReset(r, Object.assign({}, o, { def: o.def == null ? o.def : !!o.def }), () => b.getAttribute('aria-checked') === 'true', r.set);
   }
 
   /* Parçalı seçim: az seçenekli ayarlar (Renk modu, Bant). */
@@ -116,11 +143,13 @@
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       }
     };
-    for (const b of btns) b.addEventListener('click', () => { set(b.dataset.v); if (o.onChange) o.onChange(b.dataset.v); });
+    let cur = String(o.value);
+    const setCur = (v) => { cur = String(v); set(v); };
+    for (const b of btns) b.addEventListener('click', () => { setCur(b.dataset.v); if (r.syncReset) r.syncReset(); if (o.onChange) o.onChange(b.dataset.v); });
     set(o.value);
     const r = row(o.label, [box], 'col');
-    r.set = set;
-    return r;
+    r.set = setCur;
+    return withReset(r, Object.assign({}, o, { def: o.def == null ? o.def : String(o.def) }), () => cur, setCur);
   }
 
   /* Renk: dokununca kabuğun renk seçicisi (SVShell.pickColor); input type=color'ın
@@ -137,12 +166,13 @@
       const v = await window.SVShell.pickColor(o.label, value, (x) => { btn.style.background = x; if (live) live(x); });
       if (v == null) { btn.style.background = value; return; }
       set(v);
+      if (r.syncReset) r.syncReset();
       if (o.onChange) o.onChange(v);
     });
     const r = row(o.label, [h('div', { class: 'spacer' }), btn]);
     r.set = set;
     r.input = btn;
-    return r;
+    return withReset(r, o, () => value, set);
   }
 
   function text(o) {

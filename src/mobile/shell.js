@@ -191,6 +191,36 @@
       ok.focus();
     });
   }
+  /* Metin sorma (window.prompt yerine; o da yerel pencere). Ad girme gibi kısa metinler.
+     Promise<metin | null>; boş metin null. */
+  function promptBox(title, value, okText) {
+    return new Promise((resolve) => {
+      const cancel = () => done(null);
+      const done = (v) => {
+        const i = dialogs.indexOf(cancel);
+        if (i >= 0) dialogs.splice(i, 1);
+        box.remove();
+        resolve(v == null ? null : (String(v).trim() || null));
+      };
+      const input = h('input', { type: 'text', class: 'field', 'aria-label': title || '', maxlength: '80', value: value || '' });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value); });
+      const box = h('div', { class: 'dialog-scrim live', role: 'presentation', onclick: (e) => { if (e.target === box) done(null); } }, [
+        h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' }, [
+          title ? h('div', { class: 'dialog-text', text: title }) : null,
+          input,
+          h('div', { class: 'btn-row' }, [
+            h('button', { class: 'btn ghost', text: 'Vazgeç', onclick: () => done(null) }),
+            h('button', { class: 'btn primary', text: okText || 'Tamam', onclick: () => done(input.value) }),
+          ]),
+        ]),
+      ]);
+      dialogs.push(cancel);
+      root.appendChild(box);
+      input.focus();
+      input.select();
+    });
+  }
+
   /* Seçenek listesi (açılır seçim kutusu yerine). WebView uygulama bağlamıyla kuruluyor
      (yüzen pencere için Activity dışında); bu yüzden <select> için Android seçicisi
      hiç açılmıyordu (ölçüldü: dokununca kutu odaklanıyor, pencere gelmiyor). Liste kabuğun
@@ -500,7 +530,9 @@
       class: 'iconbtn plain', 'aria-label': 'Dışa Aktar', title: 'Dışa Aktar',
       onclick: () => { if (window.SVShellExport) openSheetWith(window.SVShellExport.page()); },
     }, [icon('export')]);
-    const sceneCard = h('div', { class: 'scene-card glass live' }, [h('div', { class: 'grow' }, [sceneTitle, sceneSub]), vj, exportBtn]);
+    // Başlığa dokununca sahne ayarları (ad, kaydet, renk teması; src/mobile/shell-scene.js)
+    const sceneOpen = h('button', { class: 'grow scene-open', onclick: () => { if (window.SVShellScene) openSheetWith(window.SVShellScene.page()); } }, [sceneTitle, sceneSub]);
+    const sceneCard = h('div', { class: 'scene-card glass live' }, [sceneOpen, vj, exportBtn]);
     const scenesStrip = h('div', { class: 'scenes live', role: 'group', 'aria-label': 'Sahneler' });
     const navButtons = TABS.map((t) => h('button', {
       'data-tab': t.id, class: t.id === state.tab ? 'on' : '', onclick: () => (state.tab === t.id && t.id !== 'scene' ? closeSheet() : openTab(t.id)),
@@ -578,6 +610,9 @@
     A,
     confirm: confirmBox,
     choose: chooseBox,
+    prompt: promptBox,
+    /** Sahnenin küçük resmi (en üstteki görselleştiricinin mod resmi; yoksa baş harfler). */
+    sceneArt: (sc) => sceneArt(sc),
     pickColor: colorBox,
     countLabel,
     /** Kayıtlı sahneyi kimliğiyle çağırır (Otomatik VJ, Kitaplık). true: bulundu. */

@@ -126,21 +126,29 @@
     onConfig(ctx) { if (!selfDepth) ctx.refresh(); },
   };
 
-  function sceneRow() {
+  /* Sahnenin kendisi (masaüstünde katman seçili değilken denetçi): dokununca sahne
+     ayarları (ad, kaydet, renk teması, geçiş, ana efektler; src/mobile/shell-scene.js). */
+  function sceneRow(ctx) {
     const c = cfg();
     const sc = (Array.isArray(c.scenes) ? c.scenes : []).find((s) => s && s.id === c._activeSceneId);
     const n = layers().length;
-    return h('div', { class: 'row card2 scene-row' }, [
+    const cols = (c.background && c.background.gradient && Array.isArray(c.background.gradient.colors)) ? c.background.gradient.colors : [];
+    const sw = h('span', { class: 'scene-swatch', 'aria-hidden': 'true' });
+    if (cols.length > 1) sw.style.background = 'linear-gradient(135deg,' + cols.join(',') + ')';
+    const SC = window.SVShellScene;
+    return h('button', { class: 'row card2 scene-row', onclick: () => { if (SC) ctx.push(SC.page()); } }, [
+      sw,
       h('div', { class: 'row-text' }, [
         h('div', { class: 'row-title', text: sc ? sc.name : 'Sahne' }),
-        h('div', { class: 'row-sub', text: S.countLabel(n) }),
+        h('div', { class: 'row-sub' }, [S.countLabel(n), ' · ', h('span', { text: 'Sahne ayarları' })]),
       ]),
+      icon('chevron-right'),
     ]);
   }
 
   function renderList(body, ctx) {
     const list = layers();
-    body.appendChild(sceneRow());
+    body.appendChild(sceneRow(ctx));
     if (!list.length) {
       body.appendChild(h('div', { class: 'empty', text: 'Katman listesi boş. Listeyi oluşturursanız sahne arkaplan ve görselleştirici katmanlarıyla yeniden başlar, üzerine yenilerini ekleyebilirsiniz.' }));
       body.appendChild(h('button', {
@@ -296,8 +304,8 @@
       return;
     }
     body.appendChild(U.card([
-      U.select({ label: 'Karışım', options: LF().BLEND_LABELS, value: l.blend || 'normal', onChange: (v) => set((x) => { x.blend = v; }) }),
-      U.slider({ label: 'Görünürlük', min: 0, max: 1, step: 0.01, percent: true, value: l.opacity == null ? 1 : l.opacity, onInput: (v) => set((x) => { x.opacity = v; }) }),
+      U.select({ label: 'Karışım', options: LF().BLEND_LABELS, value: l.blend || 'normal', def: 'normal', onChange: (v) => set((x) => { x.blend = v; }) }),
+      U.slider({ label: 'Görünürlük', min: 0, max: 1, step: 0.01, percent: true, value: l.opacity == null ? 1 : l.opacity, def: 1, onInput: (v) => set((x) => { x.opacity = v; }) }),
     ]));
     const pane = h('div', { class: 'edit-pane' });
     const show = (tab) => {
@@ -491,7 +499,7 @@
     const getV = (k, fb) => (vs[k] != null ? vs[k] : (scene[k] != null ? scene[k] : fb));
     const fd = (k, fb) => (fact[k] != null ? fact[k] : fb);
     const setV = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { [k]: v }); });
-    const sens = (fb) => U.slider({ label: 'Hassasiyet', min: 0.2, max: 3, step: 0.05, value: getV('sensitivity', fd('sensitivity', fb)), onInput: (v) => setV('sensitivity', v) });
+    const sens = (fb) => U.slider({ label: 'Hassasiyet', min: 0.2, max: 3, step: 0.05, value: getV('sensitivity', fd('sensitivity', fb)), def: fd('sensitivity', fb), onInput: (v) => setV('sensitivity', v) });
 
     if (l.type === 'text') {
       const t = (l.settings && l.settings.text) || {};
@@ -522,22 +530,22 @@
     const mode = vs.colorMode || (vs.rainbow !== undefined ? (vs.rainbow ? 'rainbow' : 'custom') : (scene.colorMode || (scene.rainbow ? 'rainbow' : 'custom')));
     const kids = [
       U.seg({
-        label: 'Renk Modu', options: [['custom', 'Sabit Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode,
+        label: 'Renk Modu', options: [['custom', 'Sabit Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode, def: fact.colorMode || (fact.rainbow ? 'rainbow' : 'custom'),
         onChange: (m) => { set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { colorMode: m, rainbow: m === 'rainbow' }); }); },
       }),
     ];
     if (mode === 'custom') {
-      kids.push(U.color({ label: 'Renk', value: getV('color', '#ff2d3a'), onChange: (v) => setV('color', v) }));
-      if (MC().is('visualizer', l.type, 'color2')) kids.push(U.color({ label: 'İkincil Renk', value: getV('color2', '#3aa6ff'), onChange: (v) => setV('color2', v) }));
+      kids.push(U.color({ label: 'Renk', value: getV('color', '#ff2d3a'), def: fd('color', '#ff2d3a'), onChange: (v) => setV('color', v) }));
+      if (MC().is('visualizer', l.type, 'color2')) kids.push(U.color({ label: 'İkincil Renk', value: getV('color2', '#3aa6ff'), def: fd('color2', '#3aa6ff'), onChange: (v) => setV('color2', v) }));
     }
     kids.push(sens(1));
-    if (l.type !== 'spectrogram') kids.push(U.slider({ label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, value: getV('glow', fd('glow', 0.2)), onInput: (v) => setV('glow', v) }));
-    if (MC().is('visualizer', l.type, 'bands')) kids.push(U.slider({ label: 'Bar Sayısı', min: 16, max: 160, step: 1, value: getV('barCount', fd('barCount', 64)), onInput: (v) => setV('barCount', Math.round(v)) }));
-    if (MC().is('visualizer', l.type, 'gap')) kids.push(U.slider({ label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, value: getV('gap', fd('gap', 0.3)), onInput: (v) => setV('gap', v) }));
-    if (MC().is('visualizer', l.type, 'wave')) kids.push(U.slider({ label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, value: getV('lineWidth', fd('lineWidth', 3)), onInput: (v) => setV('lineWidth', v) }));
-    if (MC().is('visualizer', l.type, 'thick')) kids.push(U.slider({ label: 'Genlik', min: 0.1, max: 1, step: 0.02, percent: true, value: getV('thickness', fd('thickness', 0.42)), onInput: (v) => setV('thickness', v) }));
-    if (['bars', 'wave', 'radialWave'].indexOf(l.type) >= 0) kids.push(U.toggle({ label: 'Ayna', value: !!getV('mirror', false), onChange: (v) => setV('mirror', v) }));
-    if (l.type === 'bars') kids.push(U.toggle({ label: 'Tepe Noktaları', value: getV('cap', true) !== false, onChange: (v) => setV('cap', v) }));
+    if (l.type !== 'spectrogram') kids.push(U.slider({ label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, value: getV('glow', fd('glow', 0.2)), def: fd('glow', 0.2), onInput: (v) => setV('glow', v) }));
+    if (MC().is('visualizer', l.type, 'bands')) kids.push(U.slider({ label: 'Bar Sayısı', min: 16, max: 160, step: 1, value: getV('barCount', fd('barCount', 64)), def: fd('barCount', 64), onInput: (v) => setV('barCount', Math.round(v)) }));
+    if (MC().is('visualizer', l.type, 'gap')) kids.push(U.slider({ label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, value: getV('gap', fd('gap', 0.3)), def: fd('gap', 0.3), onInput: (v) => setV('gap', v) }));
+    if (MC().is('visualizer', l.type, 'wave')) kids.push(U.slider({ label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, value: getV('lineWidth', fd('lineWidth', 3)), def: fd('lineWidth', 3), onInput: (v) => setV('lineWidth', v) }));
+    if (MC().is('visualizer', l.type, 'thick')) kids.push(U.slider({ label: 'Genlik', min: 0.1, max: 1, step: 0.02, percent: true, value: getV('thickness', fd('thickness', 0.42)), def: fd('thickness', 0.42), onInput: (v) => setV('thickness', v) }));
+    if (['bars', 'wave', 'radialWave'].indexOf(l.type) >= 0) kids.push(U.toggle({ label: 'Ayna', value: !!getV('mirror', false), def: !!fd('mirror', false), onChange: (v) => setV('mirror', v) }));
+    if (l.type === 'bars') kids.push(U.toggle({ label: 'Tepe Noktaları', value: getV('cap', true) !== false, def: fd('cap', true) !== false, onChange: (v) => setV('cap', v) }));
     return kids;
   }
 
@@ -547,19 +555,21 @@
     const kids = [];
     const setBg = (fn) => set((x) => { x.settings = x.settings || {}; x.settings.background = JSON.parse(JSON.stringify(x.settings.background || {})); fn(x.settings.background); });
     if (l.type === 'solid') {
-      kids.push(U.color({ label: 'Renk', value: bgS.solidColor || scene.solidColor || '#000000', onChange: (v) => setBg((b) => { b.solidColor = v; }) }));
+      kids.push(U.color({ label: 'Renk', value: bgS.solidColor || scene.solidColor || '#000000', def: (def.background && def.background.solidColor) || '#000000', onChange: (v) => setBg((b) => { b.solidColor = v; }) }));
     } else if (l.type === 'gradient') {
       const g = Object.assign({}, scene.gradient || {}, bgS.gradient || {});
+      const gd = (def.background && def.background.gradient) || {};
       const G = [['speed', 'Akış Hızı', 0, 2, 0.02, false], ['audioReactivity', 'Ses Tepkisi', 0, 2, 0.02, false], ['brightness', 'Parlaklık', 0.4, 1.6, 0.02, false], ['audioHue', 'Renk Kayması', 0, 1, 0.01, true], ['vignette', 'Vinyet', 0, 1, 0.01, true]];
       for (const [k, t, mn, mx, st, pc] of G) {
-        kids.push(U.slider({ label: t, min: mn, max: mx, step: st, percent: pc, value: g[k] == null ? mn : g[k], onInput: (v) => setBg((b) => { b.gradient = Object.assign({}, b.gradient, { [k]: v }); }) }));
+        kids.push(U.slider({ label: t, min: mn, max: mx, step: st, percent: pc, value: g[k] == null ? mn : g[k], def: gd[k] == null ? mn : gd[k], onInput: (v) => setBg((b) => { b.gradient = Object.assign({}, b.gradient, { [k]: v }); }) }));
       }
     }
     for (const [k, t, mn, mx, st, pc] of MC().settingsOf('background', l.type)) {
       const own = bgS[l.type] || {};
       const base = (scene[l.type] || {});
       const v = own[k] != null ? own[k] : (base[k] != null ? base[k] : mn);
-      kids.push(U.slider({ label: t, min: mn, max: mx, step: st, percent: !!pc, value: v, onInput: (nv) => setBg((b) => { b[l.type] = Object.assign({}, b[l.type], { [k]: nv }); }) }));
+      const fb = (def.background && def.background[l.type]) || {};
+      kids.push(U.slider({ label: t, min: mn, max: mx, step: st, percent: !!pc, value: v, def: fb[k] != null ? fb[k] : mn, onInput: (nv) => setBg((b) => { b[l.type] = Object.assign({}, b[l.type], { [k]: nv }); }) }));
     }
     if (!kids.length) kids.push(h('div', { class: 'hint', text: 'Bu arkaplanın ayarı yok.' }));
     return kids;
@@ -570,12 +580,12 @@
     const t = Object.assign({ scale: 1, rotate: 0, x: 0, y: 0, flipX: false, flipY: false }, l.transform);
     const setT = (k, v) => set((x) => { x.transform = Object.assign({}, x.transform, { [k]: v }); });
     return [U.card([
-      U.slider({ label: 'Boyut', min: 0.1, max: 3, step: 0.01, percent: true, value: t.scale, onInput: (v) => setT('scale', v) }),
-      U.slider({ label: 'Döndürme', min: -180, max: 180, step: 1, value: t.rotate, format: (v) => Math.round(v) + '°', onInput: (v) => setT('rotate', v) }),
-      U.slider({ label: 'Yatay Konum', min: -1, max: 1, step: 0.01, percent: true, value: t.x, onInput: (v) => setT('x', v) }),
-      U.slider({ label: 'Dikey Konum', min: -1, max: 1, step: 0.01, percent: true, value: t.y, onInput: (v) => setT('y', v) }),
-      U.toggle({ label: 'Yatay Çevir', value: !!t.flipX, onChange: (v) => setT('flipX', v) }),
-      U.toggle({ label: 'Dikey Çevir', value: !!t.flipY, onChange: (v) => setT('flipY', v) }),
+      U.slider({ label: 'Boyut', min: 0.1, max: 3, step: 0.01, percent: true, value: t.scale, def: 1, onInput: (v) => setT('scale', v) }),
+      U.slider({ label: 'Döndürme', min: -180, max: 180, step: 1, value: t.rotate, def: 0, format: (v) => Math.round(v) + '°', onInput: (v) => setT('rotate', v) }),
+      U.slider({ label: 'Yatay Konum', min: -1, max: 1, step: 0.01, percent: true, value: t.x, def: 0, onInput: (v) => setT('x', v) }),
+      U.slider({ label: 'Dikey Konum', min: -1, max: 1, step: 0.01, percent: true, value: t.y, def: 0, onInput: (v) => setT('y', v) }),
+      U.toggle({ label: 'Yatay Çevir', value: !!t.flipX, def: false, onChange: (v) => setT('flipX', v) }),
+      U.toggle({ label: 'Dikey Çevir', value: !!t.flipY, def: false, onChange: (v) => setT('flipY', v) }),
     ])];
   }
 
@@ -584,15 +594,15 @@
     const a = Object.assign({ band: 'bass', opacity: 0, scale: 0, rotate: 0 }, l.audio);
     const setA = (k, v) => set((x) => { x.audio = Object.assign({}, x.audio, { [k]: v }); });
     return [U.card([
-      U.seg({ label: 'Bant', options: LF().BAND_LABELS, value: a.band, onChange: (v) => setA('band', v) }),
-      U.slider({ label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, value: a.opacity, onInput: (v) => setA('opacity', v) }),
-      U.slider({ label: 'Ölçek', min: 0, max: 1, step: 0.02, percent: true, value: a.scale, onInput: (v) => setA('scale', v) }),
-      U.slider({ label: 'Döndürme', min: 0, max: 1, step: 0.02, percent: true, value: a.rotate, onInput: (v) => setA('rotate', v) }),
+      U.seg({ label: 'Bant', options: LF().BAND_LABELS, value: a.band, def: 'bass', onChange: (v) => setA('band', v) }),
+      U.slider({ label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, value: a.opacity, def: 0, onInput: (v) => setA('opacity', v) }),
+      U.slider({ label: 'Ölçek', min: 0, max: 1, step: 0.02, percent: true, value: a.scale, def: 0, onInput: (v) => setA('scale', v) }),
+      U.slider({ label: 'Döndürme', min: 0, max: 1, step: 0.02, percent: true, value: a.rotate, def: 0, onInput: (v) => setA('rotate', v) }),
     ]), h('div', { class: 'hint', text: 'Seçilen bant katmanın saydamlığını, ölçeğini ve dönüşünü sürer.' })];
   }
 
   // ---- Efektler (katmanın kendi zinciri) ----
-  function fxControls(l, set, redraw) {
+  function fxControls(l, set, redraw, emptyHint) {
     const F = FX();
     const out = [];
     const chain = Array.isArray(l.postfx) ? l.postfx : [];
@@ -608,12 +618,12 @@
       ])];
       for (const p of (d && d.params) || []) {
         const v = f.params && f.params[p.name] != null ? f.params[p.name] : p.default;
-        kids.push(U.slider({ label: p.label, min: p.min, max: p.max, step: p.step, value: v, onInput: (nv) => setF((x) => { x.params = Object.assign({}, x.params, { [p.name]: nv }); }) }));
+        kids.push(U.slider({ label: p.label, min: p.min, max: p.max, step: p.step, value: v, def: p.default, onInput: (nv) => setF((x) => { x.params = Object.assign({}, x.params, { [p.name]: nv }); }) }));
       }
       if (d && d.lutFile) kids.push(h('div', { class: 'hint', text: 'LUT dosyası seçimi kitaplıkla birlikte gelecek (Faz 4).' }));
       out.push(U.card(kids));
     });
-    if (!chain.length) out.push(h('div', { class: 'hint', text: 'Bu katmanın efekti yok. Eklenen efektler yalnız bu katmana uygulanır.' }));
+    if (!chain.length) out.push(h('div', { class: 'hint', text: emptyHint || 'Bu katmanın efekti yok. Eklenen efektler yalnız bu katmana uygulanır.' }));
     const ids = F.EFFECT_IDS.filter((k) => !F.EFFECTS[k].lutFile);
     out.push(U.card([U.select({
       label: 'Efekt Ekle', options: [['', '—']].concat(ids.map((k) => [k, F.EFFECTS[k].label])), value: '',
@@ -766,5 +776,5 @@
   }
 
   S.tab('layers', listPage);
-  window.SVShellLayers = Object.freeze({ thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id) });
+  window.SVShellLayers = Object.freeze({ thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
 })();
