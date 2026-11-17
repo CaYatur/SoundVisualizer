@@ -400,6 +400,22 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .source-list { display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .source-list .source { min-height: 60px; padding: 6px 12px; }
 #sv-shell .player-card { padding: 4px 14px; flex: none; }
+/* Zaman çizelgesi (src/mobile/shell-timeline.js) */
+#sv-shell .tl-transport { display: flex; align-items: center; gap: 8px; }
+#sv-shell .tl-time { font-size: 14px; color: var(--muted); }
+#sv-shell .tl-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 14px; background: var(--card); border: 1px solid var(--line); flex-shrink: 0; }
+#sv-shell .tl-inner { position: relative; height: 92px; }
+#sv-shell .tl-ruler { position: relative; height: 28px; border-bottom: 1px solid var(--line); touch-action: none; }
+#sv-shell .tl-tick { position: absolute; top: 14px; bottom: 0; border-left: 1px solid var(--line); font-size: 10px; color: var(--muted2); padding-left: 5px; line-height: 1; }
+#sv-shell .tl-tick.major { top: 0; border-left-color: var(--line2); }
+#sv-shell .tl-track { position: relative; height: 64px; }
+#sv-shell .tl-clip { position: absolute; top: 8px; height: 48px; border-radius: 10px; background: var(--card3); border: 1px solid var(--line2); color: var(--text); display: flex; align-items: center; overflow: hidden; touch-action: none; user-select: none; }
+#sv-shell .tl-clip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: rgb(var(--accent-rgb) / .25); }
+#sv-shell .tl-name { flex: 1; min-width: 0; padding: 0 6px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+#sv-shell .tl-handle { width: 22px; align-self: stretch; flex: none; background: rgb(var(--fg-rgb) / .08); touch-action: none; }
+#sv-shell .tl-empty { position: absolute; left: 12px; top: 22px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+#sv-shell .tl-head { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--accent); pointer-events: none; }
+#sv-shell .tl-tools { align-items: center; }
 /* Çalan parça kartı */
 #sv-shell .np-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .np-card.row-card { flex-direction: row; align-items: center; gap: 12px; }
