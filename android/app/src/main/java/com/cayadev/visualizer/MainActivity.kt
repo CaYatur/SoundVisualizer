@@ -106,6 +106,22 @@ class MainActivity : ComponentActivity() {
         askImport.launch(arrayOf("application/zip", "application/octet-stream", "application/json", "text/plain"))
     }
 
+    /* MilkDrop presetleri (.milk, .milk2): birden çok dosya. Uzantının kayıtlı bir türü yok,
+       Android onları genel ikili dosya sayar; süzme adla, depoda (store/MilkImport.kt). */
+    private var pendingMilk: Bridge.Reply? = null
+    private val askMilk = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val reply = pendingMilk ?: return@registerForActivityResult
+        pendingMilk = null
+        if (uris.isNullOrEmpty()) { reply.fail("cancelled"); return@registerForActivityResult }
+        EngineHost.profile.importMilk(EngineHost.profile.documents(uris)) { r, err -> if (r != null) reply.ok(r) else reply.fail("milk-import", err ?: "") }
+    }
+
+    fun pickMilk(reply: Bridge.Reply) {
+        pendingMilk?.fail("superseded")
+        pendingMilk = reply
+        askMilk.launch(arrayOf("*/*"))
+    }
+
     /* Galeriden video ya da görsel (Faz 4 medya katmanları, media/MediaPick.kt). Video için
        kalıcı okuma izni alınır: sayfa dosyayı her açılışta ContentPathHandler'dan okur. */
     private var pendingMedia: Pair<String, Bridge.Reply>? = null

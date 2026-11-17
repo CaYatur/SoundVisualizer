@@ -135,6 +135,7 @@ open on the desktop.
 | `importPick`, `importOpen { media }` | Reads a desktop full backup (`.svbackup`) or a `settings.json` from the document picker or the app's media folder. A backup is read once as a stream (the phone's storage is not used for a copy); presets go to a staging folder because the desktop writes `backup.json` last. Resolves `{ kind: 'svbackup', meta, staged, skipped, later }` or `{ kind: 'settings', settings }`. |
 | `importCommit { ids }` | Moves the listed staged presets into the store (content must be an object whose `id` matches; a true `builtin` is dropped, as on the desktop). Same id: the backup wins; other presets stay. |
 | `importDiscard` | Drops the staging folder. |
+| `milkImport` | Android's document picker, several files (`*/*`: `.milk` has no registered type). `.milk` and `.milk2` files are added as user presets with the desktop's rules (`store/MilkImport.kt`): at most 450 KB each, 600 files and 24 MB a time; strict UTF-8 else Latin-1; at least one `name=value` line; the same name and content is a duplicate. Resolves `{ added, duplicates, invalid, skipped, gen, upsert }`; `upsert` holds the lean items for the engine. Rejects `cancelled`. |
 | `texturesList`, `textureRead { name }` | MilkDrop textures (see the engine table). |
 
 **Engine view.** The editor and the files keep the user's values. The engine receives a view in which the outputs the
@@ -183,6 +184,7 @@ to the desktop turns the lights on again.
 | `pip(w, h)` | System picture-in-picture with aspect `w:h` (`pipEnter`). |
 | `exportOpen(job)` | Export (phase 5): `{ cfg, width, height, fps, durationSec (0 = whole song, clamped to the song), audioUri, outputName }`. The app copies the song into the media folder for the muxer and switches the one WebView to the export page; the page takes the job (`exportJob`), renders, and the result is copied to the gallery (`exportSave`: MediaStore, `Movies/SoundVisualizer`); `exportShare` opens Android's share sheet, `exportClose` returns to the scene page and deletes the copied song. |
 | `media.pick(kind)` | Android's document picker (`mediaPick`). `'video'` resolves `{ url, name, mime }`: the file is not copied, the app keeps a persistent read grant and serves it at `https://appassets.androidplatform.net/content/<base64url of the content URI>`; only URIs with a persisted grant are served (others 404). `'audio'` resolves `{ uri, name }` (for export). `'image'` resolves `{ dataUrl, name, width, height }`, the long side at most 1024 px (PNG with alpha, else JPEG), as the desktop stores images in the settings. |
+| `presets.importMilk()` | `.milk` / `.milk2` files from the phone (`milkImport`). Resolves `{ added, duplicates, invalid, skipped, ids }`; the added presets reach the engine as a delta (`onPresetsDelta`, with the new generation), so the scene is not rebuilt. |
 
 ## Shell surface
 

@@ -136,11 +136,13 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   build-time mode thumbnails. Audio (3.5), Library, Display (3.4) and Settings (3.6): all tabs work; Auto VJ and
   the tempo tracker run on the phone (`src/mobile/autovj.js`, the desktop's rules and tempo engine fed by the
   engine's own audio object).
-- **Phase 4 status (18.11.2026):** MilkDrop browser, search, favourites, textures and Studio shaders are in the Library
+- **Phase 4 status (17.11.2026):** MilkDrop browser, search, favourites, textures and Studio shaders are in the Library
   tab. Templates (the desktop's 83 ready scenes) are the Library's first section and the empty scene strip's first tile.
-  Gallery layers: video (streamed from the picked file, not copied), image sprites and logo. Still open: `.milk` file
-  import on the phone, camera layers, lyrics files and the logo/video library from desktop backups.
-- **Phase 5 status (18.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
+  Gallery layers: video (streamed from the picked file, not copied), image sprites and logo. `.milk` and `.milk2` files
+  picked on the phone are added with the desktop's rules (450 KB, a `name=value` line, UTF-8 else Latin-1, same name and
+  content is a duplicate; `store/MilkImport.kt`); textures still come with a desktop backup. Still open: camera layers,
+  lyrics files and the logo/video library from desktop backups.
+- **Phase 5 status (17.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
   landscape or portrait, 720p or 1080p, 30 or 60 fps; the one WebView switches to the export page (frames shown as a
   preview, progress, cancel), the MP4 goes to the gallery and can be shared. The touch timeline editor is not started.
 

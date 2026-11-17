@@ -12,7 +12,8 @@
      #etiket üzerinden (Türkçe harf farkı yok). Tümü / Favoriler / Son çalınan. Yıldız
      masaüstüyle aynı yere yazar (`milkdropLibrary.favorites`). Dokunulan preset ortak
      MilkDrop'a gider; katman ayarlarından "Kitaplıktan Seç" ile gelindiyse o katmana
-     (kendi preseti). Sahnede MilkDrop katmanı yoksa bir tane eklenir.
+     (kendi preseti). Sahnede MilkDrop katmanı yoksa bir tane eklenir. Telefondaki .milk ve
+     .milk2 dosyaları da eklenebilir (kurallar masaüstüyle aynı, store/MilkImport.kt).
      Aktarılan presetlerin listesi kaynaksız (10 binden fazla olabiliyor); kaynak
      seçilince istenir (window.api.milkdropPresetSource).
    - Shader: Studio presetleri. Arkaplan shader'ı arkaplan katmanlarına uygulanır
@@ -43,6 +44,9 @@
   let query = '';
   let shown = PAGE_SIZE;
   let target = null; // { layerId } katman ayarlarından gelindiyse
+  let mdImporting = false;
+  let mdImport = null; // { ok, r } ya da { ok: false, code }
+  let imported = []; // son içe aktarmada eklenenlerin kimlikleri ("Yeni eklenen" süzgeci)
 
   function recent() {
     try { const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -142,7 +146,37 @@
     ]);
   }
 
+  /* Telefondaki .milk / .milk2 dosyaları (android-host presets.importMilk). Eklenenler
+     "Yeni eklenen" süzgeciyle gösterilir: binlerce presetin arasında kaybolmasınlar. */
+  function importMilk(ctx) {
+    if (mdImporting || !A().presets) return;
+    mdImporting = true;
+    mdImport = null;
+    ctx.refresh();
+    A().presets.importMilk().then((r) => {
+      mdImport = { ok: true, r };
+      if (r.added) { imported = r.ids || []; filter = 'added'; query = ''; shown = PAGE_SIZE; }
+    }, (e) => {
+      const c = String((e && e.message) || e);
+      mdImport = c === 'cancelled' ? null : { ok: false, code: c };
+    }).then(() => { mdImporting = false; ctx.refresh(); });
+  }
+  function milkStatus() {
+    if (mdImporting) return h('div', { class: 'banner info', role: 'status' }, [icon('download'), h('div', { class: 'grow-text', text: 'Presetler okunuyor…' })]);
+    if (!mdImport) return null;
+    if (!mdImport.ok) return h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr('Presetler eklenemedi.') + ' (' + mdImport.code + ')' })]);
+    const r = mdImport.r;
+    const parts = en()
+      ? [r.added + (r.added === 1 ? ' preset added' : ' presets added')]
+        .concat(r.duplicates ? [r.duplicates + ' already in the library'] : [], r.invalid ? [r.invalid + ' not a preset'] : [], r.skipped ? [r.skipped + ' skipped'] : [])
+      : [r.added + ' preset eklendi']
+        .concat(r.duplicates ? [r.duplicates + ' zaten kitaplıkta'] : [], r.invalid ? [r.invalid + ' preset değil'] : [], r.skipped ? [r.skipped + ' atlandı'] : []);
+    return h('div', { class: 'banner info' + (r.added ? ' ok' : ''), role: 'status' }, [icon(r.added ? 'check-circle' : 'info'), h('div', { class: 'grow-text', text: parts.join(' · ') })]);
+  }
+
   function renderMilkdrop(body, ctx) {
+    const st = milkStatus();
+    if (st) body.appendChild(st);
     const all = mdList();
     const favs = all.filter((p) => isFav(p.id));
     const rec = recent();
@@ -152,7 +186,8 @@
     const more = h('div');
     const cur = currentId();
     const pick = () => {
-      let list = filter === 'fav' ? favs : filter === 'recent' ? rec.map((id) => byId.get(id)).filter(Boolean) : all;
+      let list = filter === 'fav' ? favs : filter === 'recent' ? rec.map((id) => byId.get(id)).filter(Boolean)
+        : filter === 'added' ? imported.map((id) => byId.get(id)).filter(Boolean) : all;
       list = list.filter((p) => matches(p, query));
       grid.textContent = '';
       more.textContent = '';
@@ -173,7 +208,10 @@
       class: 'pill' + (filter === id ? ' on' : ''), 'aria-pressed': filter === id ? 'true' : 'false',
       onclick: () => { filter = id; shown = PAGE_SIZE; ctx.refresh(); },
     }, [ic ? icon(ic) : null, h('span', { text: label }), n == null ? null : ' ' + n]);
-    body.appendChild(h('div', { class: 'pills' }, [pill('all', 'Tümü', all.length), pill('fav', 'Favoriler', favs.length, 'star'), pill('recent', 'Son çalınan', null)]));
+    if (filter === 'added' && !imported.length) filter = 'all';
+    // Yeni eklenenler başta: kayan satırın sonunda kalınca seçili süzgeç görünmüyordu
+    body.appendChild(h('div', { class: 'pills' }, (imported.length ? [pill('added', 'Yeni eklenen', imported.length, 'download')] : [])
+      .concat([pill('all', 'Tümü', all.length), pill('fav', 'Favoriler', favs.length, 'star'), pill('recent', 'Son çalınan', null)])));
     if (target && target.layerId) {
       body.appendChild(h('div', { class: 'banner info' }, [icon('layers'), h('div', { class: 'grow-text' }, [
         h('span', { text: 'Seçilen preset yalnız bu katmana gider.' }), ' ',
@@ -182,6 +220,12 @@
     }
     body.appendChild(grid);
     body.appendChild(more);
+    if (A().presets) {
+      body.appendChild(h('div', { class: 'md-import' }, [
+        h('div', { class: 'hint', text: 'Telefondaki .milk ve .milk2 dosyaları kitaplığa eklenir. Dokular bilgisayardan yedekle gelir.' }),
+        h('button', { class: 'btn block', disabled: mdImporting ? true : null, onclick: () => importMilk(ctx) }, [icon('plus'), h('span', { text: '.milk dosyası ekle' })]),
+      ]));
+    }
     pick();
   }
 

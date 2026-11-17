@@ -90,6 +90,10 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "texturesList" -> EngineHost.profile.texturesList { r, err -> if (r != null) reply.ok(r) else reply.fail("textures", err ?: "") }
             "textureRead" -> EngineHost.profile.textureRead(args.optString("name")) { r, err -> if (err == null) reply.ok(r) else reply.fail("texture", err) }
+            "milkImport" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.pickMilk(reply)
+            }
             "importDiscard" -> EngineHost.profile.importDiscard { r, err -> if (r != null) reply.ok(r) else reply.fail("import", err ?: "") }
             "storeCopy" -> EngineHost.profile.copy(args.optString("from"), args.optString("to"), args.optBoolean("overwrite", false)) { r, err ->
                 if (r != null) reply.ok(r) else reply.fail("store-copy", err ?: "")

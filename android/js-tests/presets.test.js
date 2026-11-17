@@ -113,7 +113,7 @@ function host(disk, importReply) {
       if (msg.op === 'storeRead') { v = {}; for (const n of a.names) v[n] = disk.has(n) ? disk.get(n) : null; }
       else if (msg.op === 'storeWrite') { for (const [n, t] of Object.entries(a.files)) disk.set(n, t); v = {}; }
       else if (msg.op === 'storeCopy') { if (disk.has(a.from)) disk.set(a.to, disk.get(a.from)); else if (a.overwrite) disk.delete(a.to); v = {}; }
-      else if (msg.op === 'importOpen' || msg.op === 'importPick') v = importReply;
+      else if (msg.op === 'importOpen' || msg.op === 'importPick' || msg.op === 'milkImport') v = importReply;
       else if (msg.op === 'importCommit') v = { presets: a.ids.length, textures: (a.textures || []).length, skipped: 0, gen: 2 };
       else if (msg.op === 'importDiscard') v = {};
       else if (msg.op === 'presetsList') v = [{ id: 'ps_a', kind: 'milkdrop', lazy: true, fRating: 4 }];
@@ -189,6 +189,27 @@ test('sunucu: preset istekleri uygulamaya gidiyor (masaüstündeki yanıt biçim
   assert.strictEqual(list[0].lazy, true);
   const reqs = () => h.sent.filter((m) => m.t === 'req').map((m) => m.op);
   assert.ok(reqs().includes('presetsList'));
+});
+
+test('sunucu: telefondan .milk — eklenenler motora fark olarak gidiyor, sahne yeniden kurulmuyor', async () => {
+  const up = [{ id: 'md_0a1b2c3d4e5f', kind: 'milkdrop', name: 'Aurora', lazy: true, fRating: 3 }];
+  const h = host(new Map(), { added: 1, duplicates: 2, invalid: 1, skipped: 0, gen: 7, upsert: up });
+  const deltas = [];
+  let full = 0;
+  h.window.api.onPresetsDelta((d) => deltas.push(d));
+  h.window.api.onPresets(() => { full++; });
+  const r = await h.window.SVAndroid.presets.importMilk();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r)), { added: 1, duplicates: 2, invalid: 1, skipped: 0, ids: ['md_0a1b2c3d4e5f'] });
+  assert.strictEqual(deltas.length, 1);
+  assert.strictEqual(deltas[0].gen, 7);
+  assert.strictEqual(deltas[0].upsert[0].name, 'Aurora');
+  assert.strictEqual(full, 0);
+  // Hiçbiri eklenmediyse fark yayılmıyor
+  const h2 = host(new Map(), { added: 0, duplicates: 1, invalid: 0, skipped: 0, gen: 3, upsert: [] });
+  let n = 0;
+  h2.window.api.onPresetsDelta(() => { n++; });
+  assert.strictEqual((await h2.window.SVAndroid.presets.importMilk()).duplicates, 1);
+  assert.strictEqual(n, 0);
 });
 
 test('sunucu: ayarlar okunamadıysa içe aktarma başarı demiyor (hiçbir şey yazılmazdı)', async () => {
