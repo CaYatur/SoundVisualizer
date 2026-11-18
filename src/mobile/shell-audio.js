@@ -119,12 +119,14 @@
      erişimi. Erişim yoksa neden gerektiği ve düğme; varsa parça kapağıyla. Şarkı bilgisi
      katmanı, söz katmanının saati ve otomatik söz bulma bunu kullanır. */
   let npEnabled = null;
+  let npSeen = ''; // medya oturumu görülen uygulamalar
   function askNowPlaying() {
     const N = A().nowPlaying;
     if (!N) return;
     N.status().then((r) => {
       const on = !!(r && r.enabled);
-      if (on !== npEnabled) { npEnabled = on; paint(); }
+      const seen = r && Array.isArray(r.sessions) ? r.sessions.map((x) => x.app).filter(Boolean).join(', ') : '';
+      if (on !== npEnabled || seen !== npSeen) { npEnabled = on; npSeen = seen; paint(); }
     }, () => {});
   }
   function nowPlayingCard() {
@@ -144,7 +146,10 @@
       return kids;
     }
     if (!cur || !cur.has) {
-      kids.push(h('div', { class: 'card np-card' }, [h('div', { class: 'row-sub', text: 'Şu an hiçbir uygulama çalmıyor.' })]));
+      kids.push(h('div', { class: 'card np-card' }, [
+        h('div', { class: 'row-sub', text: 'Şu an hiçbir uygulama çalmıyor.' }),
+        npSeen ? h('div', { class: 'row-sub' }, [h('span', { text: 'Parça bilgisi vermeyen uygulamalar' }), ': ', h('span', { 'data-user-text': '', text: npSeen })]) : null,
+      ]));
       return kids;
     }
     const art = cur.artwork ? h('img', { class: 'np-art', src: cur.artwork, alt: '' }) : h('div', { class: 'np-art ph' }, [icon('music')]);

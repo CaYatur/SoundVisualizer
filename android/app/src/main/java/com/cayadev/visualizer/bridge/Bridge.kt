@@ -102,6 +102,7 @@ class Bridge(
                 // Yeni sayfa pil durumunu ve ekran kenarı boşluklarını hemen bilsin
                 event("powerSource", JSONObject().put("onBattery", PowerWatch.onBattery))
                 com.cayadev.visualizer.EngineHost.activity?.lastInsets?.let { event("insets", it) }
+                com.cayadev.visualizer.EngineHost.sendUiMode(context.applicationContext.resources.configuration)
             }
             "req" -> {
                 val r = Reply(msg.optInt("id"), proxy)

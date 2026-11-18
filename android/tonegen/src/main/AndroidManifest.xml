@@ -13,5 +13,9 @@
         <activity
             android:name=".ToneActivity"
             android:exported="true" />
+        <!-- Sınama medya oturumları: SessionReceiver.kt -->
+        <receiver
+            android:name=".SessionReceiver"
+            android:exported="true" />
     </application>
 </manifest>

@@ -1000,6 +1000,7 @@
 
   function renderDock(body, ctx) {
     if (ui.lane) ui.lane.destroy();
+    if (ui.refs && ui.refs.ro) ui.refs.ro.disconnect();
     ui.ctx = ctx;
     if (!hist) history().sync(TE().snapshot(tlCfg()));
     body.classList.add('tl-dock');
@@ -1030,6 +1031,8 @@
     ui.lane = LANE().create(refs.laneHost, laneApi);
     // Genişlik: tablette başlıklar geniş, denetçi yanda
     const measure = () => {
+      // Üstüne başka sayfa açıldı: gövde artık onun
+      if (!body.classList.contains('tl-dock')) return;
       const w = body.getBoundingClientRect().width;
       const wide = w >= 900;
       // Tam taşıma satırı (önceki/sonraki, "Timeline kullan" yazısı) ~640 px ister; yatay telefonun yan

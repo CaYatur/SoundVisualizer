@@ -134,8 +134,13 @@
   }
 
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  let systemDark = null; // cihazın gece kipi (uygulamadan; WebView'in prefers-color-scheme'i izlemiyor)
+  const systemDarkEv = listeners();
   function onEvent(name, v) {
-    if (name === 'insets') {
+    if (name === 'uiMode') {
+      systemDark = !!(v && v.dark);
+      systemDarkEv.emit(systemDark);
+    } else if (name === 'insets') {
       // Çentik ve sistem çubukları (dp = CSS piksel)
       insets = Object.assign({ top: 0, right: 0, bottom: 0, left: 0 }, v);
       ev.insets.emit(insets);
@@ -634,6 +639,9 @@
     /* Kabuk (src/mobile/shell.js): ekran kenarı boşlukları, geri tuşu, PiP/yüzen
        pencere durumu, seviye ölçer, düşük güç. */
     insets: () => Object.assign({}, insets),
+    /** Cihaz koyu kipte mi; uygulama henüz bildirmediyse null. */
+    systemDark: () => systemDark,
+    onSystemDark: (cb) => systemDarkEv.add(cb),
     onInsets: (cb) => ev.insets.add(cb),
     onBack: (cb) => ev.back.add(cb),
     onChrome: (cb) => ev.chrome.add(cb),

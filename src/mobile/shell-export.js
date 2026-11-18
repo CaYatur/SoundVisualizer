@@ -20,15 +20,23 @@
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   const KEY = 'sv-export';
-  const DEF = { length: '30', orient: 'landscape', res: '720', fps: '30', quality: 'mid', codec: 'avc' };
+  const DEF = { length: 'all', orient: 'landscape', res: '720', fps: '30', quality: 'mid', codec: 'avc' };
   /* Kalite: piksel ve kare başına bit (1080p30'da ~5 / 9 / 19 Mbit/sn). H.265 aynı görüntüyü
      yaklaşık %40 daha az bitle verir. Kodek: H.265 yalnız cihazda kodlayıcısı varsa sunulur. */
   const QUALITY = { low: 0.08, mid: 0.15, high: 0.3 };
   let caps = null;
   function bitrate(sz) { return Math.round(sz.width * sz.height * (+prefs.fps) * (QUALITY[prefs.quality] || QUALITY.mid) * (codec() === 'hevc' ? 0.6 : 1)); }
   function codec() { return prefs.codec === 'hevc' && caps && caps.hevc ? 'hevc' : 'avc'; }
-  function load() { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return Object.assign({}, DEF); } }
-  function save(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) { /* depo yok */ } }
+  /* v2: varsayılan süre şarkının tamamı. Eski kayıtlar bütün seçimleri (30 sn dahil) yazıyordu;
+     onların süresi bir kez varsayılana döner. */
+  function load() {
+    try {
+      const p = JSON.parse(localStorage.getItem(KEY) || '{}');
+      if (p.v !== 2) delete p.length;
+      return Object.assign({}, DEF, p, { v: 2 });
+    } catch (e) { return Object.assign({ v: 2 }, DEF); }
+  }
+  function save(p) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign({}, p, { v: 2 }))); } catch (e) { /* depo yok */ } }
   let prefs = load();
   let song = null; // { uri, name }
   let busy = false;

@@ -109,6 +109,8 @@
     const cols = colorsNow();
     const cur = lower(cols);
     const out = [];
+    // Renkleri çalan parçadan al (varsayılan kapalı; src/mobile/dynamic-theme.js)
+    if (window.SVShellDynamicTheme) out.push(window.SVShellDynamicTheme.panel(ctx));
     // Beş renk noktası: her biri renk seçicide
     out.push(U().card([h('div', { class: 'ctl-row col' }, [
       h('div', { class: 'ctl-label', text: 'Renkler (5 nokta)' }),
