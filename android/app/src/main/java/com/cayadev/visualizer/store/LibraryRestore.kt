@@ -62,10 +62,11 @@ object LibraryRestore {
 
     /**
      * [staging]: BackupReader'ın klasörü (backup.json, libs/, media/). [filesDir]: uygulamanın
-     * klasörü. [origin]: sayfanın adresi (https://appassets.androidplatform.net).
+     * klasörü. [origin]: sayfanın adresi (https://appassets.androidplatform.net). [only]: işlenecek
+     * kitaplıklar (logos, media, lyrics); kitaplık dışı videolar `media` ile gelir.
      * Dönüş: { logos, media, lyrics, videos, skipped, map: { eski yol → yeni adres } }.
      */
-    fun restore(staging: File, filesDir: File, origin: String): JSONObject {
+    fun restore(staging: File, filesDir: File, origin: String, only: Set<String>? = null): JSONObject {
         val counts = linkedMapOf("logos" to 0, "media" to 0, "lyrics" to 0, "videos" to 0, "skipped" to 0)
         val map = JSONObject()
         val metaFile = File(staging, "backup.json")
@@ -79,6 +80,8 @@ object LibraryRestore {
         )
         val libs = meta.optJSONObject("libraries")
         for (key in listOf("logos", "media", "lyrics")) {
+            // Kullanıcının seçmediği kitaplık (null: hepsi)
+            if (only != null && key !in only) continue
             val items = libs?.optJSONObject(key)?.optJSONArray("items") ?: continue
             val kept = ArrayList<JSONObject>()
             for (i in 0 until items.length()) {
@@ -106,7 +109,7 @@ object LibraryRestore {
             if (key == "media") counts["videos"] = counts.getValue("videos") + kept.size
         }
         // Kitaplık dışı videolar
-        val media = meta.optJSONArray("media") ?: JSONArray()
+        val media = (if (only == null || "media" in only) meta.optJSONArray("media") else null) ?: JSONArray()
         val restored = File(File(filesDir, "media"), "restored")
         for (i in 0 until media.length()) {
             val m = media.optJSONObject(i) ?: continue

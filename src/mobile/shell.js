@@ -127,11 +127,13 @@
     get foot() { return refs.sheetParts ? refs.sheetParts.foot : null; },
     close: () => closeSheet(),
     push: (page) => { stack.push(page); showPage(); },
-    pop: () => { if (stack.length > 1) { stack.pop(); showPage(); } },
+    pop: () => { if (stack.length > 1) { leave(stack.pop()); showPage(); } },
     refresh: () => showPage(),
     depth: () => stack.length,
     get top() { return stack[stack.length - 1] || null; },
   };
+  // Sayfa kapanırken kendi işini bırakır (ör. okunmuş yedeğin geçici dosyaları)
+  function leave(page) { if (page && page.onLeave) { try { page.onLeave(); } catch (e) { console.error('[shell]', e); } } }
   function pageOf(id) {
     const tab = TABS.find((t) => t.id === id);
     const r = renderers[id];
@@ -418,6 +420,7 @@
   }
   function closeSheet() {
     if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; refs.sheetParts = null; }
+    stack.slice().reverse().forEach(leave);
     stack = [];
     if (root) root.classList.remove('has-sheet', 'sheet-full', 'sheet-dock', 'tl-tall');
     syncCovered();
