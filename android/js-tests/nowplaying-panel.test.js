@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Çalan Parça katmanının telefondaki ayarları masaüstündekilerle aynı alanları yazmalı; kapaktan
    renk teması da masaüstündeki hedef kurallarına uymalı. */
