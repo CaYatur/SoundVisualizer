@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..', '..');
+const NEWLINE = String.fromCharCode(10);
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 function desktopKeys() {
@@ -39,8 +40,24 @@ test('masaüstündeki bütün Çalan Parça alanları telefonda da var', () => {
   assert.deepStrictEqual(missing, []);
 });
 
+test('masaüstündeki bütün metin ve şarkı sözü alanları telefonda da var', () => {
+  const src = read('src/admin/scene-panels.js');
+  const parts = [
+    src.slice(src.indexOf('function textTypeKids('), src.indexOf('/* Kamera adları izin verilene kadar')),
+    src.slice(src.indexOf("if (l.kind === 'visualizer' && l.type === 'text') {"), src.indexOf('/* Studio görselleştirici katmanı')),
+    read('src/admin/lyrics-lib-ui.js').slice(read('src/admin/lyrics-lib-ui.js').indexOf('function block(ctx)'), read('src/admin/lyrics-lib-ui.js').indexOf('function library(ctx)')),
+  ].join(NEWLINE);
+  const keys = new Set([...parts.matchAll(/txt\.([a-zA-Z]+)/g)].map((m) => m[1]));
+  // enabled motora özel; placeholder şablon bayrağı; nowPlaying ve lyricsName ayrı denetlenmez
+  for (const k of ['enabled']) keys.delete(k);
+  assert.ok(keys.size > 30, 'masaüstü alanları okunamadı: ' + keys.size);
+  const mobile = read('src/mobile/shell-text.js');
+  const missing = [...keys].filter((k) => !new RegExp("'" + k + "'|\\b" + k + ":|\\bt\\." + k + '\\b').test(mobile));
+  assert.deepStrictEqual(missing, []);
+});
+
 test('yeni arayüzde renkli emoji yok', () => {
-  for (const f of ['src/mobile/shell-nowplaying.js', 'src/mobile/dynamic-theme.js']) {
+  for (const f of ['src/mobile/shell-nowplaying.js', 'src/mobile/dynamic-theme.js', 'src/mobile/shell-text.js']) {
     assert.strictEqual(/\p{Extended_Pictographic}/u.test(read(f).replace(/©|×/g, '')), false, f);
   }
 });

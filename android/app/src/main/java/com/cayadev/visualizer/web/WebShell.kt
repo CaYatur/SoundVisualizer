@@ -187,6 +187,7 @@ object WebShell {
         "web/src/mobile/shell.js",
         "web/src/mobile/shell-controls.js",
         "web/src/mobile/shell-nowplaying.js",
+        "web/src/mobile/shell-text.js",
         "web/src/mobile/shell-layers.js",
         "web/src/mobile/dynamic-theme.js",
         "web/src/mobile/shell-scene.js",
