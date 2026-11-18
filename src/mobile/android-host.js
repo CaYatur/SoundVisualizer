@@ -137,7 +137,9 @@
   let systemDark = null; // cihazın gece kipi (uygulamadan; WebView'in prefers-color-scheme'i izlemiyor)
   const systemDarkEv = listeners();
   function onEvent(name, v) {
-    if (name === 'uiMode') {
+    if (name === 'backupProgress') {
+      backupProgress.emit(v);
+    } else if (name === 'uiMode') {
       systemDark = !!(v && v.dark);
       systemDarkEv.emit(systemDark);
     } else if (name === 'insets') {
@@ -450,24 +452,51 @@
     return list.some((l) => l && l.kind === 'media' && l.enabled !== false && l.settings && l.settings.media && l.settings.media.enabled !== false && l.settings.media.source === 'webcam');
   }
 
-  async function importProfile(opts) {
+  /* İçe aktarma iki adım: dosya okunur (openImport), kullanıcı bölümleri seçer (applyImport).
+     Dosya okunduğunda telefondaki hiçbir şey değişmemiştir. */
+  let openedImport = null;
+  async function openImport(opts) {
     if (!native || !P) throw new Error('native-missing');
     await profile.load();
     // Ayarlar okunamadıysa kayıt kapalı: içe aktarılan hiçbir şey yazılmazdı
     if (profile.state.readError) throw new Error('store-read');
     const r = await request(opts.media ? 'importOpen' : 'importPick', opts.media ? { media: String(opts.media) } : {});
-    let incoming;
-    let summary = null;
-    let committed = { presets: 0, textures: 0, skipped: 0 };
+    const B = window.SVBackupSections;
     if (r.kind === 'svbackup') {
       const b = P.readBackup(r.meta);
       if (b.error) { await request('importDiscard').catch(() => {}); throw new Error(b.error); }
-      incoming = b.settings;
-      summary = b.summary;
-      committed = await request('importCommit', { ids: b.presetIds, textures: b.textures });
+      let extra = {};
+      try { const m = JSON.parse(r.meta); extra = { phone: m.phone, partial: Array.isArray(m.sections) && m.sections.length < B.SECTIONS.length }; } catch (e) { /* readBackup doğruladı */ }
+      openedImport = { r, b, incoming: b.settings, summary: b.summary, phone: extra.phone, partial: !!extra.partial };
     } else {
+      let incoming;
       try { incoming = P.parseSettings(r.settings); } catch (e) { throw new Error('NOT_SETTINGS'); }
       if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('NOT_SETTINGS');
+      openedImport = { r, b: null, incoming, summary: null, phone: null, partial: false };
+    }
+    return { kind: r.kind, summary: openedImport.summary, available: B.available(openedImport.incoming, openedImport.summary || {}) };
+  }
+  function discardImport() {
+    if (!openedImport) return resolved(null);
+    openedImport = null;
+    return request('importDiscard').catch(() => null);
+  }
+  /* sections: seçilen bölümler; verilmezse yedekteki her şey (önceki davranış). */
+  async function applyImport(sections) {
+    const open = openedImport;
+    if (!open) throw new Error('no-import');
+    openedImport = null;
+    const B = window.SVBackupSections;
+    const all = !sections;
+    const on = new Set(all ? B.SECTIONS : sections);
+    const { r, b, summary } = open;
+    let incoming = open.incoming;
+    let committed = { presets: 0, textures: 0, skipped: 0 };
+    if (b) {
+      committed = await request('importCommit', {
+        ids: on.has('presets') ? b.presetIds : [], textures: on.has('textures') ? b.textures : [],
+        libs: ['logos', 'lyrics', 'videos'].filter((k) => on.has(k)).map((k) => (k === 'videos' ? 'media' : k)),
+      });
     }
     /* Masaüstü kitaplıklarından gelen videolar (store/LibraryRestore.kt): sahnelerdeki eski
        yollar telefondaki adrese eşlenir (masaüstündeki remapMedia; yedek çoğu kez Windows'tan,
@@ -479,7 +508,15 @@
     for (let i = 0; i < P.FILES.length; i++) await request('storeCopy', { from: P.FILES[i], to: P.BEFORE_IMPORT[i], overwrite: true });
     const loaded = P.load({ [P.MAIN]: JSON.stringify(incoming) }, migrateConfig);
     if (!loaded.cfg) throw new Error('NOT_SETTINGS');
-    const cfg = adoptImported(loaded.cfg, committed.textures > 0);
+    // Seçilmeyen bölümler telefondaki gibi kalır (göç edilmiş hâlleriyle birleşir)
+    const cfg = adoptImported(all ? loaded.cfg : B.mergeSettings(config, loaded.cfg, Array.from(on), open.partial), committed.textures > 0);
+    // Telefon yedeğindeki yerel tercihler (Dışa Aktar seçimleri, dil, sahne resimleri)
+    const local = open.phone && open.phone.local;
+    if (local && typeof local === 'object') {
+      for (const k of Object.keys(local)) {
+        if (B.localFor(k, Array.from(on)) && typeof local[k] === 'string') { try { localStorage.setItem(k, local[k]); } catch (e) { /* depo dolu */ } }
+      }
+    }
     setConfig(cfg);
     await profile.flush();
     // Motor yeni presetleri görsün (onPresets: liste değişti, sahne yeniden kurulur)
@@ -500,6 +537,39 @@
       // Ölçüm: arşivi okuma ve presetleri işleme süresi (uygulamada, ms)
       timing: { read: r.ms || 0, commit: committed.ms || 0 },
     };
+  }
+  async function importProfile(opts) {
+    await openImport(opts);
+    return applyImport(null);
+  }
+
+  /* DIŞA AKTARMA (store/BackupWriter.kt). Sahnelerdeki kitaplık dışı videolar adresleriyle gider. */
+  function videoRefs(c) {
+    const out = new Set();
+    const seen = new Set();
+    (function walk(v) {
+      if (!v || typeof v !== 'object' || seen.has(v)) return;
+      seen.add(v);
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (v.source === 'file' && typeof v.file === 'string' && v.file) out.add(v.file);
+      for (const k of Object.keys(v)) walk(v[k]);
+    })(c);
+    return Array.from(out);
+  }
+  const backupProgress = listeners();
+  async function exportBackup(sections, opts) {
+    if (!native || !P) throw new Error('native-missing');
+    await profile.load();
+    await profile.flush();
+    const B = window.SVBackupSections;
+    const rows = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); rows.push([k, localStorage.getItem(k)]); } } catch (e) { /* depo yok */ }
+    const stamp = new Date().toISOString().slice(0, 10);
+    return request('backupExport', Object.assign({
+      sections, name: 'soundvisualizer-telefon-yedek-' + stamp + '.svbackup',
+      settings: JSON.stringify(B.pickSettings(config, sections)), local: JSON.stringify(B.pickLocal(rows, sections)),
+      refs: sections.indexOf('videos') >= 0 ? videoRefs(config) : [],
+    }, opts || {}));
   }
 
   /* src/main/show-space.js remapMedia: { source: 'file', file } olan her nesnede eski yol
@@ -695,6 +765,15 @@
     /* Bilgisayardan içe aktarma: masaüstünün tam yedeği (.svbackup) ya da settings.json.
        media verilirse uygulamanın medya klasöründeki dosya, yoksa Android'in dosya seçicisi. */
     importProfile: (opts) => importProfile(opts || {}),
+    /* Bölüm bölüm yedek: dışa aktarma ve seçerek geri yükleme (src/mobile/shell-backup.js). */
+    backup: Object.freeze({
+      plan: () => request('backupPlan', { refs: videoRefs(config || {}) }),
+      exportTo: (sections, opts) => exportBackup(sections, opts),
+      onProgress: (cb) => backupProgress.add(cb),
+      open: (opts) => openImport(opts || {}),
+      apply: (sections) => applyImport(sections),
+      discard: () => discardImport(),
+    }),
     /* Telefondan MilkDrop presetleri (.milk, .milk2; Faz 4): Android'in dosya seçicisi,
        birden çok dosya. { added, duplicates, invalid, skipped }; vazgeçilirse 'cancelled'. */
     presets: Object.freeze({ importMilk: () => importMilk() }),

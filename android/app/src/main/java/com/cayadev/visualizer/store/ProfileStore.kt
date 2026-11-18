@@ -232,7 +232,7 @@ class ProfileStore(context: Context) {
      * adıyla aynı olmalı; `builtin` atılır. Aynı kimlik varsa yedekteki geçerli olur,
      * yedekte olmayan presetler silinmez.
      */
-    fun importCommit(ids: List<String>, textures: List<Pair<String, String>>, done: (JSONObject?, String?) -> Unit) = run(done) {
+    fun importCommit(ids: List<String>, textures: List<Pair<String, String>>, only: Set<String>?, done: (JSONObject?, String?) -> Unit) = run(done) {
         presetsDir.mkdirs()
         val t0 = android.os.SystemClock.elapsedRealtime()
         val byId = LinkedHashMap<String, JSONObject>()
@@ -275,7 +275,7 @@ class ProfileStore(context: Context) {
             tex++
         }
         // Logo, video ve söz kitaplıkları; videoların yeni adresleri sayfaya (sahneler eşlenir)
-        val libs = try { LibraryRestore.restore(staging, app.filesDir, com.cayadev.visualizer.web.WebShell.ORIGIN) } catch (e: Exception) { JSONObject().put("map", JSONObject()) }
+        val libs = try { LibraryRestore.restore(staging, app.filesDir, com.cayadev.visualizer.web.WebShell.ORIGIN, only) } catch (e: Exception) { JSONObject().put("map", JSONObject()) }
         staging.deleteRecursively()
         if (saved > 0) commitIndex(byId)
         JSONObject().put("presets", saved).put("textures", tex).put("skipped", skipped + libs.optInt("skipped")).put("gen", presetGen)
@@ -358,6 +358,68 @@ class ProfileStore(context: Context) {
     /** Seçilen belgeler: ad ve açıcı (MediaPick.displayName, içerik çözücü). */
     fun documents(uris: List<Uri>): List<Pair<() -> String, () -> InputStream?>> =
         uris.map { u -> Pair({ com.cayadev.visualizer.media.MediaPick.displayName(app, u) }, opener(u)) }
+
+    // ---- Telefon yedeği (store/BackupWriter.kt) ----
+
+    /* Sahnedeki kitaplık dışı videolar: uygulamanın medya klasöründekiler ve kalıcı izni olan
+       seçilmiş belgeler. Kitaplık videoları kitaplıkla gider; başka adres yedeğe girmez. */
+    private fun videoSources(refs: List<String>): List<BackupWriter.Video> {
+        val origin = com.cayadev.visualizer.web.WebShell.ORIGIN
+        val media = File(app.filesDir, "media").canonicalFile
+        val granted = app.contentResolver.persistedUriPermissions.filter { it.isReadPermission }.map { it.uri }.toSet()
+        val out = ArrayList<BackupWriter.Video>()
+        for (ref in refs.distinct()) {
+            val path = ref.removePrefix(origin)
+            if (path.startsWith("/files/")) {
+                if (path.startsWith("/files/lib-media/")) continue
+                val f = File(media, Uri.decode(path.removePrefix("/files/").substringBefore('?'))).canonicalFile
+                if (f.isFile && f.path.startsWith(media.path + File.separator)) out.add(BackupWriter.Video(ref, f.name, f.length(), { f.inputStream() }))
+            } else if (path.startsWith(com.cayadev.visualizer.web.ContentPathHandler.PREFIX)) {
+                val uri = com.cayadev.visualizer.web.ContentPathHandler.decode(path.removePrefix(com.cayadev.visualizer.web.ContentPathHandler.PREFIX)) ?: continue
+                if (uri !in granted) continue
+                val size = try { app.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L } catch (_: Exception) { -1L }
+                if (size < 0) continue
+                val name = com.cayadev.visualizer.media.MediaPick.displayName(app, uri).ifEmpty { "video.mp4" }
+                out.add(BackupWriter.Video(ref, name, size, opener(uri)))
+            }
+        }
+        return out
+    }
+
+    fun backupPlan(refs: List<String>, done: (JSONObject?, String?) -> Unit) = run(done) {
+        BackupWriter.plan(app.filesDir, presetsDir, texturesDir, videoSources(refs))
+    }
+
+    /* Ayrı iş parçacığı: uzun yedek ayar kayıtlarını bekletmesin. Yarıda kalırsa dosya silinir. */
+    private val backupWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    fun backupWrite(
+        args: JSONObject, open: () -> java.io.OutputStream?, discard: () -> Unit,
+        progress: (Long, Long) -> Unit, done: (JSONObject?, String?) -> Unit,
+    ) {
+        backupWorker.execute {
+            try {
+                val a = args.optJSONArray("sections") ?: JSONArray()
+                val r = args.optJSONArray("refs") ?: JSONArray()
+                val src = BackupWriter.Source(
+                    app.filesDir, presetsDir, texturesDir, com.cayadev.visualizer.web.WebShell.ORIGIN,
+                    (0 until a.length()).map { a.optString(it) }.toSet(), args.optString("settings", "{}"), args.optString("local", "{}"),
+                    com.cayadev.visualizer.BuildConfig.VERSION_NAME, java.time.Instant.now().toString(),
+                    videoSources((0 until r.length()).map { r.optString(it) }),
+                )
+                var last = 0L
+                val out = open() ?: throw FileNotFoundException("open")
+                val res = out.use { BackupWriter.write(it, src, { d, t ->
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (now - last >= 250) { last = now; main.post { progress(d, t) } }
+                }) }
+                main.post { done(res, null) }
+            } catch (e: Exception) {
+                Log.e(tag, "yedek yazılamadı", e)
+                try { discard() } catch (_: Exception) {}
+                main.post { done(null, e.javaClass.simpleName) }
+            }
+        }
+    }
 
     /** İçe aktarma vazgeçildi: geçici klasör silinir. */
     fun importDiscard(done: (JSONObject?, String?) -> Unit) = run(done) {

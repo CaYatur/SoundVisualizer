@@ -223,6 +223,7 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `keepAwake { on }` | Keeps the screen on while the engine is shown (the page sends the desktop's `power.keepAwake`, default on; always on on the export page). Set on the engine's container view, so it follows the engine into the floating window and survives an Activity rebuild; not on the WebView itself, because Chromium manages that one for media. |
 | event `insets` | `{ top, right, bottom, left }` in dp; sent on every change and again on `hello`. |
 | event `uiMode` | `{ dark }`: the device's light or dark setting; sent on `hello` and on every change. WebView's `prefers-color-scheme` does not follow it. Read through `systemDark()` / `onSystemDark(cb)`. |
+| event `backupProgress` | `{ done, total }` in bytes while a phone backup is written. |
 | event `back` | The Back gesture while the page is connected. |
 | event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |
 | event `memoryPressure` | `{ level }` (`onTrimMemory`, registered on the application, so it also arrives while only the floating window is up). |

@@ -106,6 +106,20 @@ class MainActivity : ComponentActivity() {
         askImport.launch(arrayOf("application/zip", "application/octet-stream", "application/json", "text/plain"))
     }
 
+    /* Telefon yedeği: kullanıcı dosyanın yerini ve adını seçer (uygulamaya depolama izni gerekmez). */
+    private var pendingBackup: Pair<Bridge.Reply, (Uri) -> Unit>? = null
+    private val askBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val p = pendingBackup ?: return@registerForActivityResult
+        pendingBackup = null
+        if (uri == null) p.first.fail("cancelled") else p.second(uri)
+    }
+
+    fun pickBackupTarget(name: String, reply: Bridge.Reply, onUri: (Uri) -> Unit) {
+        pendingBackup?.first?.fail("superseded")
+        pendingBackup = reply to onUri
+        askBackup.launch(name)
+    }
+
     /* Kamera katmanı (Faz 4): sayfa kamerayı istediğinde (WebShell, onPermissionRequest)
        uygulamanın izni yoksa sistem sorar; yanıt bekleyen WebView isteğine gider. */
     private var pendingCamera: ((Boolean) -> Unit)? = null

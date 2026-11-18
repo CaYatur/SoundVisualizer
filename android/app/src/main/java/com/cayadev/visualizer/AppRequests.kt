@@ -105,7 +105,31 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val a = args.optJSONArray("ids") ?: JSONArray()
                 val t = args.optJSONArray("textures") ?: JSONArray()
                 val tex = (0 until t.length()).mapNotNull { t.optJSONObject(it) }.map { it.optString("name") to it.optString("path") }
-                EngineHost.profile.importCommit((0 until a.length()).map { a.optString(it) }, tex) { r, err -> if (r != null) reply.ok(r) else reply.fail("import-commit", err ?: "") }
+                val l = args.optJSONArray("libs")
+                val only = l?.let { x -> (0 until x.length()).map { x.optString(it) }.toSet() }
+                EngineHost.profile.importCommit((0 until a.length()).map { a.optString(it) }, tex, only) { r, err -> if (r != null) reply.ok(r) else reply.fail("import-commit", err ?: "") }
+            }
+            "backupPlan" -> {
+                val a = args.optJSONArray("refs") ?: JSONArray()
+                EngineHost.profile.backupPlan((0 until a.length()).map { a.optString(it) }) { r, err -> if (r != null) reply.ok(r) else reply.fail("backup-plan", err ?: "") }
+            }
+            "backupExport" -> {
+                val progress = { d: Long, t: Long -> EngineHost.bridge?.event("backupProgress", JSONObject().put("done", d).put("total", t)); Unit }
+                val name = args.optString("name", "soundvisualizer.svbackup")
+                // Sınama: belge seçicisiz, uygulamanın medya klasörüne (yalnız geliştirme sürümünde)
+                val direct = args.optString("debugMedia")
+                if (BuildConfig.DEBUG && direct.isNotEmpty()) {
+                    val f = try { mediaFile(direct) } catch (e: IllegalArgumentException) { reply.fail("bad-media"); return }
+                    EngineHost.profile.backupWrite(args, { f.outputStream() }, { f.delete() }, progress) { r, err -> if (r != null) reply.ok(r.put("name", f.name)) else reply.fail("backup-export", err ?: "") }
+                } else {
+                    if (live == null) { reply.fail("no-activity"); return }
+                    live.pickBackupTarget(name, reply) { uri ->
+                        val cr = app.contentResolver
+                        EngineHost.profile.backupWrite(args, { cr.openOutputStream(uri, "wt") }, { android.provider.DocumentsContract.deleteDocument(cr, uri) }, progress) { r, err ->
+                            if (r != null) reply.ok(r.put("name", com.cayadev.visualizer.media.MediaPick.displayName(app, uri).ifEmpty { name })) else reply.fail("backup-export", err ?: "")
+                        }
+                    }
+                }
             }
             "texturesList" -> EngineHost.profile.texturesList { r, err -> if (r != null) reply.ok(r) else reply.fail("textures", err ?: "") }
             "textureRead" -> EngineHost.profile.textureRead(args.optString("name")) { r, err -> if (err == null) reply.ok(r) else reply.fail("texture", err) }

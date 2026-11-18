@@ -12,7 +12,7 @@
      önce yazılır).
    - Performans: çizim ölçeği (`power.renderScale`), kare sınırı (`power.fpsCap`, 0 = ekran),
      pilde düşük güç (`power.lowPower` 'battery' / 'off').
-   - Veri: bilgisayardan içe aktarma (.svbackup ya da settings.json; SVAndroid.importProfile)
+   - Veri: bölüm bölüm yedek alma ve geri yükleme (src/mobile/shell-backup.js)
      ve Hakkında. */
 (function () {
   if (typeof window === 'undefined' || !window.SVShell || !window.SVShellUI) return;
@@ -171,11 +171,13 @@
       ]));
       body.appendChild(h('div', { class: 'section-label', text: 'Veri' }));
       body.appendChild(h('div', { class: 'card nav-card' }, [
-        navRow('upload', 'Bilgisayardan içe aktar', '.svbackup ya da settings.json', () => startImport(ctx)),
+        navRow('upload', 'Yedek Al', 'Bölümleri seçin; telefonda ve bilgisayarda açılır', () => ctx.push(window.SVShellBackup.exportPage())),
+        h('div', { class: 'divider flush' }),
+        navRow('download', 'Yedekten Geri Yükle', 'Telefon ya da bilgisayar yedeği (.svbackup, settings.json)', () => window.SVShellBackup.openRestore(ctx)),
         h('div', { class: 'divider flush' }),
         navRow('info', 'Hakkında ve lisanslar', (en() ? 'Version ' : 'Sürüm ') + (env.version || '?'), () => ctx.push(aboutPage)),
       ]));
-      const st = importStatus();
+      const st = importStatus() || window.SVShellBackup.status();
       if (st) body.appendChild(st);
     },
     onConfig(ctx) { ctx.refresh(); },
