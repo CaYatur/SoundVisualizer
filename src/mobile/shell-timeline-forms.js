@@ -113,10 +113,21 @@
     if (type === 'image') {
       try { const f = await A().media.pick('image'); return f && f.dataUrl ? { ref: f.dataUrl, name: f.name || '', target: firstTarget(core, 'image') } : null; } catch (e) { return null; }
     }
+    // Studio presetleri resimleriyle; arkaplan ve görselleştirici birlikte
+    const L = window.SVShellLayers;
+    if (type === 'shader' && L && L.pickStudio && core.pageCtx()) {
+      const p = await L.pickStudio(core.pageCtx(), null, current || '');
+      return p ? { ref: p.id, target: firstTarget(core, 'shader') } : null;
+    }
     const opts = refOptions(core, type) || [];
     if (!opts.length) { await S.confirm(core.tr(EMPTY[type] || EMPTY.action), core.tr('Tamam')); return null; }
     const v = await S.choose(core.typeLabel(type), opts, current || '');
     if (!v) return null;
+    /* Görselleştirici listesindeki Studio tek başına boş çiziyordu: preset seçilir, klip Studio klibi olur. */
+    if (type === 'visualizer' && v === 'custom') {
+      const r = await pickSource(core, 'shader', '');
+      return r ? Object.assign({ type: 'shader' }, r) : null;
+    }
     return type === 'shader' ? { ref: v, target: firstTarget(core, 'shader') } : { ref: v };
   }
   function firstTarget(core, type) { const o = targetOptions(core, type); return o.length ? o[0][0] : ''; }
@@ -164,6 +175,7 @@
     kids.push(U().select({ label: 'Tür', options: ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'].map((x) => [x, core.typeLabel(x)]), value: c.type, onChange: (v) => { if (v === c.type) return; c.type = v; c.ref = ''; c.target = ''; save(); rerender(); } }));
     kids.push(U().row('Kaynak', [h('button', { class: 'btn tl-src', onclick: () => pickSource(core, c.type, c.ref).then((r) => {
       if (!r) return;
+      if (r.type) c.type = r.type;
       c.ref = r.ref;
       if (r.name && !c.name && (c.type === 'video' || c.type === 'image')) c.name = r.name;
       if (r.target && !c.target) c.target = r.target;

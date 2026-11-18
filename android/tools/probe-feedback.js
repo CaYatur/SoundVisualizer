@@ -8,7 +8,7 @@
 /* TELEFON GERİ BİLDİRİMİ YOKLAMASI: gerçek dokunuşlarla (adb) ve sınama medya oturumlarıyla
    (android/tonegen SessionReceiver).
 
-   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [lyrics] [resets] [dynamic]
+   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [lyrics] [resets] [studio] [dynamic]
    Hiçbiri verilmezse hepsi koşar. Çıktı: her denetim için OK / FAIL, sonunda toplam. */
 const D = require('./lib/device.js');
 
@@ -352,6 +352,94 @@ async function resets(page) {
   check('dokunulmamış varsayılan ayarda düğme görünmez', !wrong.length, wrong);
 }
 
+/* Katman Ekle → Studio: görselleştirici ve arkaplan presetleri eklenir, çizilir ve ayarlanır. */
+async function studio(page) {
+  const keep = await page.evaluate('JSON.stringify((() => { const c = window.SVAndroid.config.get(); return { layers: c.layers, custom: c.custom }; })())');
+  const want = await page.evaluate(`['visualizer', 'background'].map((k) => window.SVPresets.byKind(k).filter((p) => p.engine === 'shader').length)`);
+  const addOne = async (kind) => {
+    await page.evaluate("window.SVShell.close(); window.SVShell.open('layers'); 1");
+    await D.sleep(700);
+    await page.evaluate(`[...document.querySelectorAll('#sv-shell .sheet-head .btn.primary')][0].click(); 1`);
+    await D.sleep(700);
+    await page.evaluate(`[...document.querySelectorAll('#sv-shell .sheet-body .pills .pill')].find((b) => /^Studio/.test(b.textContent)).click(); 1`);
+    await D.sleep(1200);
+    const n = await page.evaluate(`document.querySelectorAll('#sv-shell .sheet-body .grid2 .tile').length`);
+    const label = kind === 'background' ? /Arkaplan|Background/ : /Görselleştirici|Visualizer/;
+    await page.evaluate(`[...document.querySelectorAll('#sv-shell .sheet-body .grid2 .tile')].find((t) => ${label}.test(t.querySelector('.kind').textContent)).click(); 1`);
+    await D.sleep(400);
+    await page.evaluate(`document.querySelector('#sv-shell .sheet-foot .btn.primary').click(); 1`);
+    await D.sleep(1500);
+    return n;
+  };
+  const n = await addOne('visualizer');
+  check('Studio bölümünde bütün presetler var', n === want[0] + want[1], { n, want });
+  let l = await page.evaluate(`window.SVAndroid.config.get().layers.slice(-1)[0]`);
+  check('Studio görselleştiricisi eklenir', l.kind === 'visualizer' && l.type === 'custom' && !!l.presetId && !!l.id, { kind: l.kind, type: l.type, preset: l.presetId });
+  const ui = await page.evaluate(`({ sel: !!document.querySelector('#sv-shell .edit-pane .select-btn'), seg: document.querySelectorAll('#sv-shell .edit-pane .seg button').length, sliders: document.querySelectorAll('#sv-shell .edit-pane input[type=range]').length })`);
+  check('preset seçimi ve renk kipi görünür', ui.sel && ui.seg >= 3, ui);
+  // Kitaplıktan Seç: resimli sayfadan başka preset seçilir, katmana yazılır
+  const libBtn = "[...document.querySelectorAll('#sv-shell .edit-pane .btn.block')]";
+  const before = l.presetId;
+  await page.evaluate(`${libBtn}.filter((b) => /Kitaplıktan|Library/.test(b.textContent)).pop().click(); 1`);
+  await D.sleep(1500);
+  const tiles = await page.evaluate(`[...document.querySelectorAll('#sv-shell .sheet-body .grid2 .tile')].map((t) => t.dataset.id)`);
+  check('Kitaplıktan Seç presetleri gösterir', tiles.length === want[0], tiles.length);
+  const other = tiles.find((x) => x !== before);
+  await page.evaluate(`document.querySelector('#sv-shell .sheet-body .grid2 .tile[data-id="${other}"]').click(); 1`);
+  await D.sleep(1200);
+  l = await page.evaluate(`window.SVAndroid.config.get().layers.slice(-1)[0]`);
+  const depth = await page.evaluate('window.SVShell.state().depth');
+  check('seçilen preset katmana yazılır', l.presetId === other && depth === 2, { preset: l.presetId, depth });
+  // Mod da resimleriyle seçilebilir
+  await page.evaluate(`${libBtn}.filter((b) => /Kitaplıktan|Library/.test(b.textContent))[0].click(); 1`);
+  await D.sleep(1200);
+  const modes = await page.evaluate(`document.querySelectorAll('#sv-shell .sheet-body .grid2 .tile').length`);
+  check('modlar resimleriyle seçilebilir', modes > 10, modes);
+  await page.evaluate('window.SVShell.back(); 1');
+  await D.sleep(800);
+  await addOne('background');
+  l = await page.evaluate(`window.SVAndroid.config.get().layers.slice(-1)[0]`);
+  check('Studio arkaplanı eklenir', l.kind === 'background' && l.type === 'custom' && !!l.presetId, { kind: l.kind, type: l.type, preset: l.presetId });
+  // Denetimi olan bir preset: kaydırıcı presete yazılır
+  const p = await page.evaluate(`(() => { const list = window.SVPresets.byKind('background').filter((x) => x.engine === 'shader' && (x.controls || []).some((k) => k.type !== 'color' && k.type !== 'toggle')); return list[0] ? { id: list[0].id, name: list[0].controls.find((k) => k.type !== 'color' && k.type !== 'toggle').name } : null; })()`);
+  if (p) {
+    await page.evaluate(`(() => { const c = window.SVAndroid.config.get(); const L = c.layers.slice(); L[L.length - 1] = Object.assign({}, L[L.length - 1], { presetId: ${JSON.stringify(p.id)} }); window.SVAndroid.config.patch({ layers: L }); window.SVShell.close(); window.SVShell.open('layers'); return 1; })()`);
+    await D.sleep(800);
+    await page.evaluate(`document.querySelector('#sv-shell .layer-list .row .row-main').click(); 1`);
+    await D.sleep(900);
+    await page.evaluate(`(() => { const i = [...document.querySelectorAll('#sv-shell .edit-pane input[type=range]')].pop(); i.value = String((+i.min + +i.max) / 2 + (+i.step || 0)); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await D.sleep(500);
+    const st = await page.evaluate(`Object.keys(((window.SVAndroid.config.get().custom || {}).params || {})[${JSON.stringify(p.id)}] || {})`);
+    check('preset denetimi kaydedilir', st.length >= 1, st);
+  }
+  await D.sleep(1500);
+  const errs = (page.logs || []).filter((x) => /shader|compile|webgl/i.test(x) && /error|fail/i.test(x));
+  check('shader hatası yok', !errs.length, errs.slice(0, 3));
+  await page.evaluate(`(() => { window.SVShell.close(); window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  await D.sleep(600);
+}
+
+/* Zaman çizelgesi: Görselleştirici → Studio boş klip bırakmaz, preset seçilir. */
+async function studioClip(page) {
+  const keep = await page.evaluate('JSON.stringify({ timeline: window.SVAndroid.config.get().timeline || null })');
+  await page.evaluate(`(() => { const T = window.SVTimeline; const t = T.makeTrack({ id: 'trk_s', kind: 'clip', name: 'Parca', clips: [] }); window.SVAndroid.config.patch({ timeline: { id: 'tl_s', name: 'S', tempo: [{ t: 0, bpm: 120, beatsPerBar: 4 }], tracks: [t], markers: [], loop: { enabled: false, start: 0, end: 4 }, snap: 'bar', enabled: true } }); window.SVShell.openPage(window.SVShellTimeline.page()); return 1; })()`);
+  await D.sleep(1800);
+  await page.evaluate(`[...document.querySelectorAll('#sv-shell .tl-toolbar button')][0].click(); 1`);
+  await D.sleep(800);
+  await page.evaluate(`document.querySelector('#sv-shell .dialog .choice[data-v="visualizer"]').click(); 1`);
+  await D.sleep(800);
+  await page.evaluate(`document.querySelector('#sv-shell .dialog .choice[data-v="custom"]').click(); 1`);
+  await D.sleep(1500);
+  const n = await page.evaluate(`document.querySelectorAll('#sv-shell .sheet-body .grid2 .tile').length`);
+  check('zaman çizelgesinde Studio presetleri listelenir', n > 20, n);
+  await page.evaluate(`document.querySelector('#sv-shell .sheet-body .grid2 .tile[data-id="sh_plasma"]').click(); 1`);
+  await D.sleep(2000);
+  const c = await page.evaluate(`window.SVAndroid.config.get().timeline.tracks[0].clips.map((x) => ({ type: x.type, ref: x.ref }))`);
+  check('klip seçilen presetle eklenir', c.length === 1 && c[0].type === 'shader' && c[0].ref === 'sh_plasma', c);
+  await page.evaluate(`(() => { window.SVShellTimeline.unlinkOutput(); window.SVShell.close(); window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  await D.sleep(600);
+}
+
 async function dynamic(page) {
   D.adb(['shell', 'cmd', 'notification', 'allow_listener', D.PKG + '/' + D.PKG + '.media.NowPlayingService']);
   const keep = await page.evaluate('JSON.stringify({ background: window.SVAndroid.config.get().background, visualizer: window.SVAndroid.config.get().visualizer, layers: window.SVAndroid.config.get().layers, dynamicTheme: window.SVAndroid.config.get().dynamicTheme })');
@@ -387,6 +475,7 @@ async function dynamic(page) {
     if (on('nowplaying')) await nowplaying(page);
     if (on('lyrics')) await lyricsLayer(page);
     if (on('resets')) await resets(page);
+    if (on('studio')) { await studio(page); await studioClip(page); }
     if (on('dynamic')) await dynamic(page);
   } finally { page.close(); }
   const bad = results.filter((r) => !r.ok);

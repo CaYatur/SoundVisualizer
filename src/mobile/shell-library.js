@@ -491,6 +491,8 @@
     templates() { section = 'templates'; S.open('library'); },
     /** Şablonu kimliğiyle uygular (zaman çizelgesinin şablon klipleri). */
     applyTemplate(id) { const T = window.SVTemplates; const t = T && T.TEMPLATES.find((x) => x.id === id); if (t) applyTemplate(t, null); },
+    /** Presetin resmi (Katman Ekle → Studio). */
+    presetArt: (kind, p) => presetArt(kind, p),
     /** Sözler bölümüyle aç (söz katmanının ayarlarından). */
     lyrics() { section = 'lyrics'; S.open('library'); },
   });

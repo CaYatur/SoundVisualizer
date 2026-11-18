@@ -999,7 +999,7 @@ async function layersCmd() {
       await ev('window.SVShell.back(); 1');
       await D.sleep(400);
       await tap('#sv-shell .sheet-actions .btn');
-      await tap('#sv-shell .pills .pill:nth-child(3)');
+      await tap('#sv-shell .pills .pill:nth-child(4)');
       await tap('#sv-shell .sheet-foot .btn');
       await D.sleep(600);
     }

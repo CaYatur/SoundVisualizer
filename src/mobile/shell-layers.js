@@ -355,22 +355,131 @@
     if (l.kind !== 'visualizer' && l.kind !== 'background') {
       return [h('div', { class: 'hint', text: 'Bu katman türünün ayarları masaüstündeki panelde. Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
     }
-    const mode = U.select({
-      label: 'Mod', options: MC().layerPairs(l.kind), value: l.type,
-      onChange: (v) => {
-        set((x) => {
-          x.type = v;
-          if (x.kind === 'visualizer' && v !== 'milkdrop' && x.settings && x.settings.milkdrop) delete x.settings.milkdrop;
-        });
-        ctx.refresh();
-      },
-    });
+    const setMode = (v) => {
+      set((x) => {
+        x.type = v;
+        if (x.kind === 'visualizer' && v !== 'milkdrop' && x.settings && x.settings.milkdrop) delete x.settings.milkdrop;
+        // Studio'ya geçen katman boş kalmasın: ilk preset
+        if (v === 'custom' && !x.presetId) { const first = studioPresets(x.kind)[0]; if (first) x.presetId = first.id; }
+      });
+      ctx.refresh();
+    };
+    const modeSelect = U.select({ label: 'Mod', options: MC().layerPairs(l.kind), value: l.type, onChange: setMode });
+    // Modlar resimleriyle de seçilebilir
+    const modeLib = libraryButton(() => pickTile(ctx, {
+      title: 'Mod', value: l.type,
+      items: MC().layerPairs(l.kind).map(([id, label]) => ({ id, label, art: () => modeArt(l.kind, id) })),
+    }).then((it) => { if (it) setMode(it.id); }));
+    const mode = h('div', { class: 'edit-pane' }, [modeSelect, modeLib]);
     // Metin ve şarkı sözü: masaüstündeki bütün ayarlar (src/mobile/shell-text.js)
     if (l.kind === 'visualizer' && l.type === 'text' && window.SVShellText) {
       return [U.card([mode])].concat(window.SVShellText.controls(() => findLayer(l.id), set));
     }
+    if (l.type === 'custom') return [U.card([mode].concat(studioControls(l, set, c, def, ctx)))];
     const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx) : backgroundControls(l, set, c, def);
     return [U.card([mode].concat(parts))];
+  }
+
+  /* STUDIO KATMANI (masaüstündeki scene-panels.js Studio Preseti ve studio.js presetParams): preset,
+     presetin kendi denetimleri ve görselleştiricide renk kipi. Denetim değerleri presete göre
+     tutulur (custom.params): aynı preseti kullanan katmanlar aynı değeri görür. */
+  function studioPresets(kind) {
+    const P = window.SVPresets;
+    return P ? P.byKind(kind === 'background' ? 'background' : 'visualizer').filter((p) => p.engine === 'shader') : [];
+  }
+  /* KİTAPLIKTAN SEÇ: resimli seçim sayfası (Studio presetleri, modlar, logolar, videolar).
+     Promise<seçilen öğe | null>. Öğe: { id, label, sub?, art?() }. */
+  function libraryButton(onclick) { return h('button', { class: 'btn block', onclick }, [icon('library'), h('span', { text: 'Kitaplıktan Seç' })]); }
+  function modeArt(kind, id) {
+    const key = thumbKey(kind, id);
+    return key ? h('img', { src: THUMB_DIR + key + '.webp', alt: '', loading: 'lazy', decoding: 'async' }) : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon('background')]);
+  }
+  function pickTile(ctx, o) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      const fold = (s) => (window.SVText ? window.SVText.fold(s) : String(s).toLowerCase());
+      ctx.push({
+        size: 'full',
+        title: o.title || 'Kitaplıktan Seç',
+        onLeave() { finish(null); },
+        render(body) {
+          const grid = h('div', { class: 'grid2' });
+          const paint = (q) => {
+            grid.textContent = '';
+            const f = fold(q || '');
+            const list = o.items.filter((it) => !f || fold(tr(it.label)).indexOf(f) >= 0 || fold(it.label).indexOf(f) >= 0);
+            if (!list.length) grid.appendChild(h('div', { class: 'empty span2', text: o.items.length ? 'Sonuç yok.' : (o.empty || 'Kitaplık boş.') }));
+            for (const it of list) {
+              grid.appendChild(h('button', {
+                class: 'tile' + (it.id === o.value ? ' sel' : ''), 'aria-pressed': it.id === o.value ? 'true' : 'false', 'data-id': it.id,
+                onclick: () => { finish(it); ctx.pop(); },
+              }, [it.art ? it.art() : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.icon || 'image')]), h('div', { class: 'cap' }, [h('span', { text: it.label })].concat(it.sub ? [h('span', { class: 'kind', text: it.sub })] : []))]));
+            }
+          };
+          const search = h('input', { type: 'search', placeholder: 'Kitaplıkta ara', 'aria-label': 'Kitaplıkta ara' });
+          search.addEventListener('input', () => paint(search.value));
+          body.appendChild(h('label', { class: 'search' }, [icon('search'), search]));
+          body.appendChild(grid);
+          paint('');
+        },
+      });
+    });
+  }
+  /* Studio presetleri; kind verilmezse görselleştirici ve arkaplanın hepsi (zaman çizelgesi). */
+  function pickStudio(ctx, kind, value) {
+    const list = kind ? studioPresets(kind) : studioPresets('visualizer').concat(studioPresets('background'));
+    const L = window.SVShellLibrary;
+    return pickTile(ctx, {
+      title: 'Studio Shader', value, empty: 'Henüz Studio preseti yok.',
+      items: list.map((p) => ({ id: p.id, label: p.name || p.id, sub: p.kind === 'background' ? 'Arkaplan' : 'Görselleştirici', art: L ? () => L.presetArt('sh', p) : null })),
+    });
+  }
+  /* Kitaplıktaki logonun resmi istenince okunur (dosyalar uygulamada). */
+  function logoArt(id) {
+    const img = h('img', { alt: '', decoding: 'async' });
+    A().libraries.logo(id).then((r) => { if (r && r.b64) img.src = 'data:' + (r.mime || 'image/png') + ';base64,' + r.b64; }, () => {});
+    return img;
+  }
+  const libraryList = (key) => Promise.resolve(A().libraries.list(key)).then((r) => (Array.isArray(r) ? r : []), () => []);
+  function studioControls(l, set, c, def, ctx) {
+    const list = studioPresets(l.kind);
+    if (!list.length) return [h('div', { class: 'hint', text: 'Henüz Studio preseti yok.' })];
+    const out = [];
+    if (l.presetId && !list.some((p) => p.id === l.presetId)) {
+      out.push(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: 'Bu katmanın Studio preseti silinmiş; katman boş çiziliyor. Listeden başka bir preset seçin.' })]));
+    }
+    const id = l.presetId || list[0].id;
+    const setPreset = (v) => { set((x) => { x.presetId = v; }); ctx.refresh(); };
+    out.push(U.select({ label: 'Studio Preseti', options: list.map((p) => [p.id, p.name || p.id]), value: id, onChange: setPreset }));
+    out.push(libraryButton(() => pickStudio(ctx, l.kind, id).then((p) => { if (p) setPreset(p.id); })));
+    if (l.kind === 'visualizer') {
+      const vs = (l.settings && l.settings.visualizer) || {};
+      const scene = Object.assign({}, def.visualizer || {}, c.visualizer || {});
+      const getV = (k, fb) => (vs[k] != null ? vs[k] : (scene[k] != null ? scene[k] : fb));
+      const setV = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { [k]: v }); });
+      const mode = getV('studioColorMode', 'theme');
+      out.push(U.seg({ label: 'Renk Modu', options: [['custom', 'Sabit Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode, def: 'theme', onChange: (m) => { setV('studioColorMode', m); ctx.refresh(); } }));
+      if (mode === 'custom') {
+        out.push(U.color({ label: 'Renk', value: getV('color', '#ff2d3a'), onInput: (v) => setV('color', v) }));
+        out.push(U.color({ label: 'İkincil Renk', value: getV('color2', '#3aa6ff'), onInput: (v) => setV('color2', v) }));
+      }
+    }
+    const preset = list.find((p) => p.id === id);
+    const stored = () => ((cfg().custom || {}).params || {})[id] || {};
+    const put = (name, v) => {
+      const cur = cfg().custom || {};
+      const params = Object.assign({}, cur.params, { [id]: Object.assign({}, stored(), { [name]: v }) });
+      own(() => A().config.patch({ custom: Object.assign({}, cur, { params }) }));
+    };
+    for (const k of (preset && preset.controls) || []) {
+      const val = k.name in stored() ? stored()[k.name] : k.default;
+      const label = k.label || k.name;
+      if (k.type === 'color') out.push(U.color({ label, value: val || '#ffffff', def: k.default, onInput: (v) => put(k.name, v) }));
+      else if (k.type === 'toggle') out.push(U.toggle({ label, value: !!val, def: !!k.default, onChange: (v) => put(k.name, v) }));
+      else out.push(U.slider({ label, min: k.min == null ? 0 : k.min, max: k.max == null ? 1 : k.max, step: k.step == null ? 0.01 : k.step, value: val, def: k.default, onInput: (v) => put(k.name, v) }));
+    }
+    return out;
   }
 
   /* Galeriden gelen katmanlar: dosya ve en çok kullanılan ayarlar (masaüstündeki adlarla). */
@@ -440,6 +549,14 @@
           setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' });
           ctx.refresh();
         })));
+        out.push(libraryButton(() => libraryList('media').then((list) => pickTile(ctx, {
+          title: 'Video', value: m.libraryId, empty: 'Kitaplıkta video yok. Bilgisayar yedeğinden gelen videolar burada görünür.',
+          items: list.map((it) => ({ id: it.id, label: it.name || it.file, icon: 'video', file: it.file })),
+        })).then((it) => {
+          if (!it) return;
+          setMany({ enabled: true, source: 'file', file: 'https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(it.file), fileName: it.label, libraryId: it.id });
+          ctx.refresh();
+        })));
       }
       if (src === 'webcam') {
         const row = U.row('Kamera', [
@@ -491,6 +608,15 @@
     const setL = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { [k]: v }); });
     out.push(fileRow('Resim', '', lg.src && String(lg.src).indexOf('data:') === 0 ? h('img', { class: 'thumb xs', src: lg.src, alt: '' }) : null, () => filePick('image', (f) => {
       set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { enabled: true, source: 'manual', src: f.dataUrl, libraryId: '' }); });
+      ctx.refresh();
+    })));
+    out.push(libraryButton(() => libraryList('logos').then((list) => pickTile(ctx, {
+      title: 'Logo', value: lg.libraryId, empty: 'Kitaplıkta logo yok. Bilgisayar yedeğinden gelen logolar burada görünür.',
+      items: list.map((it) => ({ id: it.id, label: it.name || it.file, kind: it.kind || '', art: () => logoArt(it.id) })),
+    })).then((it) => {
+      if (!it) return;
+      set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { enabled: true, source: 'manual', src: '', libraryId: it.id, kind: it.kind }); });
+      if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
       ctx.refresh();
     })));
     out.push(U.slider({ label: 'Boyut', min: 0.05, max: 0.9, step: 0.01, percent: true, value: lg.scale == null ? 0.22 : lg.scale, onInput: (v) => setL('scale', v) }));
@@ -634,7 +760,7 @@
   // KATMAN EKLE
   // =====================================================================
   const CATS = [
-    ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['milkdrop', 'MilkDrop'], ['media', 'Medya'], ['text', 'Metin'],
+    ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['studio', 'Studio Shader'], ['milkdrop', 'MilkDrop'], ['media', 'Medya'], ['text', 'Metin'],
   ];
   let addCat = 'visualizer';
   function addPage() {
@@ -652,8 +778,14 @@
         const addBtn = h('button', { class: 'btn primary block' });
         const items = () => {
           if (addCat === 'visualizer' || addCat === 'background') {
-            return MC().layerPairs(addCat).filter(([id]) => !(addCat === 'visualizer' && (id === 'milkdrop' || id === 'text' || id === 'custom')))
+            // Studio kendi bölümünde: katman bir presetle eklenir, presetsiz katman boş çizilir
+            return MC().layerPairs(addCat).filter(([id]) => id !== 'custom' && !(addCat === 'visualizer' && (id === 'milkdrop' || id === 'text')))
               .map(([id, label]) => ({ what: { kind: addCat, type: id }, label, l: { kind: addCat, type: id } }));
+          }
+          if (addCat === 'studio') {
+            return studioPresets('visualizer').concat(studioPresets('background')).map((p) => ({
+              what: { kind: p.kind, studio: p.id }, label: p.name || p.id, preset: p, l: { kind: p.kind, type: 'custom' },
+            }));
           }
           if (addCat === 'milkdrop') return [{ what: { kind: 'milkdrop' }, label: 'MilkDrop', l: { kind: 'visualizer', type: 'milkdrop' } }];
           if (addCat === 'text') {
@@ -684,17 +816,18 @@
           grid.textContent = '';
           const q = fold(query);
           const list = items().filter((it) => !q || fold(tr(it.label)).indexOf(q) >= 0 || fold(it.label).indexOf(q) >= 0);
-          if (!list.length) grid.appendChild(h('div', { class: 'empty span2', text: 'Sonuç yok.' }));
+          if (!list.length) grid.appendChild(h('div', { class: 'empty span2', text: addCat === 'studio' && !q ? 'Henüz Studio preseti yok.' : 'Sonuç yok.' }));
           for (const it of list) {
-            const sel = pick && pick.label === it.label && pick.what.kind === it.what.kind && pick.what.media === it.what.media;
+            const sel = pick && pick.label === it.label && pick.what.kind === it.what.kind && pick.what.media === it.what.media && pick.what.studio === it.what.studio;
+            const lib = it.preset && window.SVShellLibrary;
             grid.appendChild(h('button', {
               class: 'tile' + (sel ? ' sel' : ''), 'aria-pressed': sel ? 'true' : 'false',
               onclick: () => { pick = it; paintGrid(); paintFoot(); },
               ondblclick: () => { pick = it; doAdd(); },
             }, [
-              thumbKey(it.l.kind, it.l.type) ? h('img', { src: THUMB_DIR + thumbKey(it.l.kind, it.l.type) + '.webp', alt: '', loading: 'lazy', decoding: 'async' })
+              lib ? lib.presetArt('sh', it.preset) : thumbKey(it.l.kind, it.l.type) ? h('img', { src: THUMB_DIR + thumbKey(it.l.kind, it.l.type) + '.webp', alt: '', loading: 'lazy', decoding: 'async' })
                 : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.icon || (it.l.type === 'text' ? 'text' : it.l.kind === 'nowplaying' ? 'music' : it.l.type === 'milkdrop' ? 'drop' : 'background'))]),
-              h('div', { class: 'cap' }, [h('span', { text: it.label })]),
+              h('div', { class: 'cap' }, [h('span', { text: it.label })].concat(it.preset ? [h('span', { class: 'kind', text: it.preset.kind === 'background' ? 'Arkaplan' : 'Görselleştirici' })] : [])),
             ]));
           }
         };
@@ -745,6 +878,13 @@
             ctx.push(editPage(made.id));
             return;
           }
+          if (pick.what.studio) {
+            const made = window.SVLayers.normalizeLayer({ kind: pick.what.kind, type: 'custom', presetId: pick.what.studio, name: pick.label });
+            own(() => A().config.patch({ layers: layers().concat([made]) }));
+            ctx.pop();
+            ctx.push(editPage(made.id));
+            return;
+          }
           const next = layers().slice();
           const c = JSON.parse(JSON.stringify(cfg()));
           let made;
@@ -775,5 +915,5 @@
   }
 
   S.tab('layers', listPage);
-  window.SVShellLayers = Object.freeze({ thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
+  window.SVShellLayers = Object.freeze({ pickStudio, thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
 })();

@@ -47,7 +47,7 @@
   const shellRoot = () => document.getElementById('sv-shell') || document.body;
 
   const MAGNET_PX = 10;
-  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', video: 'Video', image: 'Görsel', shader: 'Shader', action: 'Eylem' };
+  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', video: 'Video', image: 'Görsel', shader: 'Studio Shader', action: 'Eylem' };
   const TYPE_ICONS = { scene: 'image', preset: 'sparkles', palette: 'palette', visualizer: 'bars', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
   const PREF_KEY = 'sv-tl-dock';
   const prefs = (() => { try { return Object.assign({ tall: false }, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { return { tall: false }; } })();
@@ -909,6 +909,7 @@
       FORMS().pickSource(core, type, null).then((src) => {
         if (!src) return;
         const t = at == null ? snap(headTime()) : at;
+        // Kaynak seçimi türü değiştirebilir (Görselleştirici → Studio)
         addClipAt(trackById(trk.id) || targetClipTrack(), t, Object.assign({ type }, src));
         if (!modeOn() && type !== 'action') linkOutput();
       });
@@ -1256,6 +1257,7 @@
 
   // Formların (src/mobile/shell-timeline-forms.js) kullandığı çekirdek
   const core = {
+    pageCtx: () => ui.ctx,
     tr, en, fmt, cfg, tlCfg, model, commit, writeTl, invalidate, history,
     selection: () => selection, setSelection, selTrack, selClip, selMarker, pickedClips, multi: () => multi.slice(),
     trackById, trackIndex, headTime, seek, snap, applyTempo, tempoAtHead, addTempoAtHead, setLoopEdge, toggleLoop,
