@@ -68,4 +68,23 @@ object LyricsHub {
     }
 
     fun clearCache(done: (JSONObject?, String?) -> Unit) = run(done) { JSONObject().put("removed", LyricsLookup.clearCache(cacheDir)) }
+
+    /* Şarkının başındaki ID3 etiketi (gömülü söz; ayrıştırma sayfada, src/shared/id3-lyrics.js).
+       Yalnız etiket okunur, en çok 4 MB (kapak resmi büyük olabilir); etiket yoksa boş. */
+    fun audioHead(uri: Uri, done: (JSONObject?, String?) -> Unit) = run(done) {
+        app.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "açılamadı" }
+            val head = ByteArray(10)
+            var n = 0
+            while (n < 10) { val r = input.read(head, n, 10 - n); if (r < 0) break; n += r }
+            if (n < 10 || head[0] != 'I'.code.toByte() || head[1] != 'D'.code.toByte() || head[2] != '3'.code.toByte()) return@run JSONObject()
+            val size = ((head[6].toInt() and 0x7f) shl 21) or ((head[7].toInt() and 0x7f) shl 14) or ((head[8].toInt() and 0x7f) shl 7) or (head[9].toInt() and 0x7f)
+            val want = minOf(10 + size, 4 * 1024 * 1024)
+            val buf = ByteArray(want)
+            System.arraycopy(head, 0, buf, 0, 10)
+            var got = 10
+            while (got < want) { val r = input.read(buf, got, want - got); if (r < 0) break; got += r }
+            JSONObject().put("b64", android.util.Base64.encodeToString(buf, 0, got, android.util.Base64.NO_WRAP)).put("bytes", got)
+        }
+    }
 }

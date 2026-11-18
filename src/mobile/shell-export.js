@@ -20,7 +20,13 @@
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   const KEY = 'sv-export';
-  const DEF = { length: '30', orient: 'landscape', res: '720', fps: '30' };
+  const DEF = { length: '30', orient: 'landscape', res: '720', fps: '30', quality: 'mid', codec: 'avc' };
+  /* Kalite: piksel ve kare başına bit (1080p30'da ~5 / 9 / 19 Mbit/sn). H.265 aynı görüntüyü
+     yaklaşık %40 daha az bitle verir. Kodek: H.265 yalnız cihazda kodlayıcısı varsa sunulur. */
+  const QUALITY = { low: 0.08, mid: 0.15, high: 0.3 };
+  let caps = null;
+  function bitrate(sz) { return Math.round(sz.width * sz.height * (+prefs.fps) * (QUALITY[prefs.quality] || QUALITY.mid) * (codec() === 'hevc' ? 0.6 : 1)); }
+  function codec() { return prefs.codec === 'hevc' && caps && caps.hevc ? 'hevc' : 'avc'; }
   function load() { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return Object.assign({}, DEF); } }
   function save(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) { /* depo yok */ } }
   let prefs = load();
@@ -48,7 +54,7 @@
     const useTl = !!(prefs.timeline && TLi && TLi.clips > 0 && TLi.enabled);
     cfg.export = Object.assign({}, cfg.export, { includeTimeline: useTl, timelineId: useTl ? TLi.id : '' });
     const job = {
-      cfg, width: sz.width, height: sz.height, fps: +prefs.fps,
+      cfg, width: sz.width, height: sz.height, fps: +prefs.fps, codec: codec(), bitrate: bitrate(sz),
       durationSec: prefs.length === 'all' ? 0 : +prefs.length,
       audioUri: song.uri, outputName: (song.name || 'video').replace(/\.[^.]+$/, ''),
     };
@@ -61,6 +67,8 @@
     size: 'tall',
     title: 'Dışa Aktar',
     render(body, ctx) {
+      // Seçimler her açılışta depodan (başka bir sekmede ya da sınamada değişmiş olabilir)
+      if (!busy) prefs = load();
       body.appendChild(h('div', { class: 'hint', text: 'Şu anki sahne seçtiğiniz şarkıyla videoya dönüşür; dosya galeriye kaydedilir. Uzun şarkılar telefonda birkaç dakika sürebilir.' }));
       body.appendChild(U.card([
         U.row('Şarkı', [
@@ -78,7 +86,13 @@
         U.seg({ label: 'Yön', options: [['landscape', 'Yatay 16:9'], ['portrait', 'Dikey 9:16']], value: prefs.orient, onChange: (v) => { prefs.orient = v; save(prefs); } }),
         U.seg({ label: 'Çözünürlük', options: [['720', '720p'], ['1080', '1080p']], value: prefs.res, onChange: (v) => { prefs.res = v; save(prefs); } }),
         U.seg({ label: 'Kare hızı', options: [['30', '30 fps'], ['60', '60 fps']], value: prefs.fps, onChange: (v) => { prefs.fps = v; save(prefs); } }),
+        U.seg({ label: 'Kalite', options: [['low', 'Düşük'], ['mid', 'Orta'], ['high', 'Yüksek']], value: prefs.quality, onChange: (v) => { prefs.quality = v; save(prefs); } }),
+        caps && caps.hevc
+          ? U.seg({ label: 'Kodek', options: [['avc', 'H.264'], ['hevc', 'H.265']], value: codec(), onChange: (v) => { prefs.codec = v; save(prefs); } })
+          : U.row('Kodek', [h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: 'H.264' }), h('div', { class: 'row-sub', text: caps ? 'Bu cihazda H.265 kodlayıcısı yok.' : '' })])]),
       ]));
+      // Cihazın kodlayıcıları bir kez sorulur
+      if (!caps && A().exportCaps) A().exportCaps().then((c) => { caps = c || { avc: true, hevc: false }; if (body.isConnected) ctx.refresh(); }, () => { caps = { avc: true, hevc: false }; });
       if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr('Dışa aktarma başlatılamadı.') + ' (' + error + ')' })]));
       const go = h('button', { class: 'btn primary block', disabled: !song || busy ? true : null, onclick: () => start(ctx) }, [icon('export'), h('span', { text: busy ? 'Hazırlanıyor…' : 'Dışa Aktar' })]);
       ctx.foot.appendChild(go);
