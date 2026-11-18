@@ -140,11 +140,11 @@
   }
   async function pickTarget(core, trk) {
     const cat = targetCatalog(core);
-    const q = await S.prompt(core.tr('Hedef ayar ara (boş: hepsi)'), '');
+    const q = await S.prompt(core.tr('Hedef ayar ara (boş: hepsi)'), '', null, true);
     if (q == null) return;
     const list = TE().filterTargets ? TE().filterTargets(cat, q) : cat.filter((x) => (x.label + ' ' + x.path).toLowerCase().includes(String(q).toLowerCase()));
     if (!list.length) { await S.confirm(core.tr('Eşleşen ayar yok.'), core.tr('Tamam')); return; }
-    const v = await S.choose(core.tr('Hedef Ayar'), list.slice(0, 300).map((x) => [x.path, core.tr(x.group || '') + ' · ' + core.tr(x.label || x.path)]), trk.target || '');
+    const v = await S.choose(core.tr('Hedef Ayar'), list.map((x) => [x.path, core.tr(x.group || '') + ' · ' + core.tr(x.label || x.path)]), trk.target || '');
     if (!v) return;
     const hit = list.find((x) => x.path === v) || {};
     trk.target = v;

@@ -222,15 +222,17 @@
     });
   }
   /* Metin sorma (window.prompt yerine; o da yerel pencere). Ad girme gibi kısa metinler.
-     Promise<metin | null>; boş metin null. */
-  function promptBox(title, value, okText) {
+     Promise<metin | null>; boş metin null. allowEmpty: boş metin de geçerli yanıt ('' döner),
+     null yalnız Vazgeç (arama kutuları: boş = hepsi). */
+  function promptBox(title, value, okText, allowEmpty) {
     return new Promise((resolve) => {
       const cancel = () => done(null);
       const done = (v) => {
         const i = dialogs.indexOf(cancel);
         if (i >= 0) dialogs.splice(i, 1);
         box.remove();
-        resolve(v == null ? null : (String(v).trim() || null));
+        const text = v == null ? null : String(v).trim();
+        resolve(text || (allowEmpty && text === '' ? '' : null));
       };
       const input = h('input', { type: 'text', class: 'field', 'aria-label': title || '', maxlength: '80', value: value || '' });
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value); });
