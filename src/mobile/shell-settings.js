@@ -153,8 +153,9 @@
       body.appendChild(h('div', { class: 'section-label', text: 'Performans' }));
       const cap = power.fpsCap === 30 ? '30' : power.fpsCap === 60 ? '60' : '0';
       body.appendChild(U.card([
+        U.seg({ label: 'Çözünürlük sınırı', options: [['720', '720p'], ['1080', '1080p'], ['native', 'Ekran']], value: power.maxRes == null ? '720' : String(power.maxRes), def: '720', onChange: (v) => patchPower({ maxRes: v }) }),
         U.slider({ label: 'Çizim ölçeği', min: 0.5, max: 1, step: 0.05, percent: true, value: power.renderScale || 1, def: 1, onChange: (v) => patchPower({ renderScale: v }) }),
-        U.seg({ label: 'Kare sınırı', options: [['30', '30'], ['60', '60'], ['0', 'Ekran']], value: cap, def: '0', onChange: (v) => patchPower({ fpsCap: +v }) }),
+        U.seg({ label: 'Kare sınırı', options: [['30', '30'], ['60', '60'], ['0', 'Ekran']], value: cap, def: '30', onChange: (v) => patchPower({ fpsCap: +v }) }),
         h('div', { class: 'ctl-row' }, [
           h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: 'Pilde düşük güç' }), h('div', { class: 'row-sub', text: 'Şarj olmazken ölçek ve kare hızı düşer' })]),
           h('button', {

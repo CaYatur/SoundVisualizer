@@ -396,9 +396,32 @@
      kalıyordu, telefonda da boşa iş. Dosyadaki değer DEĞİŞMEZ: ayar bilgisayara
      geri götürülünce ışıklar yine açık. */
   const DESKTOP_OUTPUTS = ['lighting', 'openrgb', 'artnet', 'sacn', 'wled', 'oscOut'];
+  /* TELEFON PERFORMANSI. Yalnız motorun gördüğü kopyada; kayıtlı ayar değişmez.
+     - Çözünürlük sınırı (`power.maxRes`, varsayılan 720p): telefonun 1080x2400 ekranında her katman
+       tam çözünürlükte 2,6 milyon piksel çiziyordu. Sınır kısa kenara göre, Çizim ölçeğiyle çarpılır.
+     - Sayfa sahneyi tümüyle örtüyorsa görünmeyen kareler çizilmez (ölçerler akmaya devam etsin diye 12 fps). */
+  const isEnginePage = String(env.page || '').indexOf('src/visualizer/') === 0;
+  const MAX_RES = { 720: 720, 1080: 1080 };
+  const COVERED_FPS = 12;
+  let stageCovered = false;
+  function phonePower(p) {
+    const out = Object.assign({}, p);
+    const limit = MAX_RES[p.maxRes == null ? 720 : p.maxRes];
+    const dpr = window.devicePixelRatio || 1;
+    const short = Math.min(window.screen.width, window.screen.height) * dpr;
+    if (limit && short > limit) out.renderScale = Math.max(0.4, (Number(p.renderScale) || 1) * (limit / short));
+    if (stageCovered) out.fpsCap = COVERED_FPS;
+    return out;
+  }
+  function setStageCovered(on) {
+    if (on === stageCovered) return;
+    stageCovered = on;
+    if (config && config.power) ev.configPatch.emit({ power: phonePower(config.power) });
+  }
   function engineView(c) {
     if (!c || typeof c !== 'object') return c;
     let out = c;
+    if (isEnginePage && c.power) out = Object.assign({}, c, { power: phonePower(c.power) });
     for (const k of DESKTOP_OUTPUTS) {
       const v = c[k];
       if (!v || typeof v !== 'object' || v.enabled !== true) continue;
@@ -639,6 +662,8 @@
     /* Kabuk (src/mobile/shell.js): ekran kenarı boşlukları, geri tuşu, PiP/yüzen
        pencere durumu, seviye ölçer, düşük güç. */
     insets: () => Object.assign({}, insets),
+    /** Sahne bir sayfanın altında tümüyle kaldı: motor kare hızını düşürür. */
+    setStageCovered,
     /** Cihaz koyu kipte mi; uygulama henüz bildirmediyse null. */
     systemDark: () => systemDark,
     onSystemDark: (cb) => systemDarkEv.add(cb),

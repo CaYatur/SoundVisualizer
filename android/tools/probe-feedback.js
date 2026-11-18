@@ -8,7 +8,7 @@
 /* TELEFON GERİ BİLDİRİMİ YOKLAMASI: gerçek dokunuşlarla (adb) ve sınama medya oturumlarıyla
    (android/tonegen SessionReceiver).
 
-   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [layout] [nowplaying] [dynamic]
+   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [dynamic]
    Hiçbiri verilmezse hepsi koşar. Çıktı: her denetim için OK / FAIL, sonunda toplam. */
 const D = require('./lib/device.js');
 
@@ -155,6 +155,41 @@ async function target(page) {
   await D.sleep(600);
 }
 
+/* Yatay kayan sıralar: dokununca yerinde kalır (dar ekranda sıra taşsın diye 360 dp). */
+async function strips(page) {
+  D.adb(['shell', 'wm', 'size', '945x2100']);
+  await D.sleep(3000);
+  await page.evaluate("window.SVShell.open('library'); 1");
+  await D.sleep(1200);
+  const tapLast = (sel) => `(() => { const el = document.querySelector('#sv-shell .sheet-body ${sel}'); el.scrollLeft = el.scrollWidth; const left = el.scrollLeft; el.lastElementChild.click(); return left; })()`;
+  const leftOf = (sel) => `document.querySelector('#sv-shell .sheet-body ${sel}').scrollLeft`;
+  const a = await page.evaluate(tapLast('.tabs'));
+  await D.sleep(900);
+  const b = await page.evaluate(leftOf('.tabs'));
+  check('Kitaplık sekmeleri dokununca yerinde kalır', a > 0 && Math.abs(a - b) <= 1, { a, b });
+  await page.evaluate("document.querySelector('#sv-shell .sheet-body .tabs button').click(); 1");
+  await D.sleep(900);
+  const hasPills = await page.evaluate("(() => { const p = document.querySelector('#sv-shell .sheet-body .pills'); return !!p && p.scrollWidth > p.clientWidth; })()");
+  if (hasPills) {
+    const c = await page.evaluate(tapLast('.pills'));
+    await D.sleep(900);
+    const d = await page.evaluate(leftOf('.pills'));
+    check('şablon grupları dokununca yerinde kalır', c > 0 && Math.abs(c - d) <= 1, { c, d });
+  }
+  await page.evaluate('window.SVShell.close(); 1');
+  await D.sleep(500);
+  const keep = await page.evaluate('JSON.stringify({ scenes: window.SVAndroid.config.get().scenes || [] })');
+  await page.evaluate(`(() => { const scenes = []; for (let i = 0; i < 12; i++) scenes.push({ id: 'sc_s' + i, name: 'Sahne ' + i, data: {} }); window.SVAndroid.config.patch({ scenes }); return 1; })()`);
+  await D.sleep(1200);
+  const e = await page.evaluate(`(() => { const el = document.querySelector('#sv-shell .scenes'); el.scrollLeft = el.scrollWidth; const left = el.scrollLeft; el.lastElementChild.click(); return left; })()`);
+  await D.sleep(1500);
+  const f = await page.evaluate("document.querySelector('#sv-shell .scenes').scrollLeft");
+  check('sahne şeridi dokununca yerinde kalır', e > 0 && Math.abs(e - f) <= 1, { e, f });
+  await page.evaluate(`(() => { window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  D.adb(['shell', 'wm', 'size', 'reset']);
+  await D.sleep(2500);
+}
+
 const LAYOUT = `(() => {
   const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && getComputedStyle(el).visibility !== 'hidden'; };
   const q = (s) => document.querySelector('#sv-shell ' + s);
@@ -251,6 +286,7 @@ async function dynamic(page) {
     if (on('theme')) await theme(page);
     if (on('touch')) await touch(page);
     if (on('target')) await target(page);
+    if (on('strips')) await strips(page);
     if (on('layout')) await layout(page);
     if (on('nowplaying')) await nowplaying(page);
     if (on('dynamic')) await dynamic(page);

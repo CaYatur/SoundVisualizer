@@ -40,7 +40,10 @@ object WebShell {
     const val ORIGIN = "https://$HOST"
     private const val TAG = "SVWeb"
 
-    fun pageUrl(path: String): String = "$ORIGIN/assets/web/$path"
+    /* Görselleştirici sayfasında uyarlanır çözünürlük açık: kare kaçınca motor çizim ölçeğini
+       kendisi düşürür (src/shared/adaptive-scale.js; masaüstünde çıkış penceresi de böyle açılıyor). */
+    fun pageUrl(path: String): String =
+        "$ORIGIN/assets/web/$path" + if (path == "src/visualizer/index.html") "?svAdaptive=1" else ""
 
     /** Gereken WebView özellikleri; biri yoksa uygulama "WebView'i güncelleyin" der. */
     val REQUIRED_FEATURES = listOf(
