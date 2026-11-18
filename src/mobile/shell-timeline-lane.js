@@ -86,7 +86,9 @@
       canvas.height = Math.round(view.h * dpr);
       canvas.style.width = view.w + 'px';
       canvas.style.height = view.h + 'px';
-      draw();
+      // Boyut belli olunca hemen çiz: ağır sahnede kare sıklığı düşükken tuval bir sonraki kareye dek boş kalıyordu
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      paint();
     }
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => resize()) : null;
     if (ro) ro.observe(host);
@@ -459,8 +461,9 @@
       for (const m of tl.markers) {
         const x = xOf(m.t);
         if (x > view.w || x < -MARKER_MAX_W) continue;
-        const name = (m.hold ? '⏸ ' : '') + (m.name || fmtTime(m.t));
-        const w = Math.min(MARKER_MAX_W, ctx.measureText(name).width + 12);
+        const name = m.name || fmtTime(m.t);
+        const pad = m.hold ? 9 : 0; // bekleme (cue): adın önünde iki çubuk
+        const w = Math.min(MARKER_MAX_W, ctx.measureText(name).width + 12 + pad);
         const on = m.id === selMk;
         roundRect(x, RULER_H - 15, w, 13, 4);
         ctx.fillStyle = on ? colors.accent : m.hold ? colors.warn : fgA(0.22);
@@ -468,7 +471,8 @@
         ctx.save();
         ctx.beginPath(); ctx.rect(x, RULER_H - 15, w, 13); ctx.clip();
         ctx.fillStyle = on ? colors.onSolid : m.hold ? colors.onWarn : colors.text;
-        ctx.fillText(name, x + 5, RULER_H - 8);
+        if (m.hold) { ctx.fillRect(x + 5, RULER_H - 12, 2, 7); ctx.fillRect(x + 9, RULER_H - 12, 2, 7); }
+        ctx.fillText(name, x + 5 + pad, RULER_H - 8);
         ctx.restore();
         flagRects.push({ x, y: RULER_H - 17, w: Math.max(w, 28), h: 17, marker: m });
       }

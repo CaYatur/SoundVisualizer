@@ -164,9 +164,11 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
   kendi karesi. Söz kitaplığı (dosya ya da elle), otomatik söz bulma (önbellek + kullanıcının sağlayıcıları, LRCLIB isteğe
   bağlı) ve çalan parçayı izleyen söz katmanı; bildirim erişimiyle başka uygulamalarda çalan parça; logo, video ve söz
   kitaplıkları masaüstü yedeğiyle geliyor (sahnelerde video yolları eşleniyor). Kullanıcının eklediği presetlerin önizlemesi
-  telefonda çiziliyor.
+  telefonda çiziliyor. Logo katmanının "otomatik/çalan parça" kaynağı Android'de de çalan parçanın kapağını gösteriyor;
+  şarkıya gömülü söz (ID3 SYLT/USLT) uygulama içi çalarda ve dışa aktarmada bulunuyor (`src/shared/id3-lyrics.js`,
+  masaüstünün ayrıştırıcısıyla aynı çıktı: `android/js-tests/id3-lyrics.test.js`).
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
-  dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
+  dikey, 720p ya da 1080p, 30 ya da 60 fps, kalite (bit hızı) ve kodek (H.264; cihazda kodlayıcısı varsa H.265); tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
   görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. AAC olmayan şarkılar (MP3, OGG, FLAC, WAV)
   MP4 için AAC'ye çevriliyor (`export/AudioPrep.kt`). Masaüstüyle eşlikli dokunmatik zaman çizelgesi (sahne
   kartındaki düğme; `docs/android/TIMELINE.tr.md`): birden çok çizelge, klip ve otomasyon parçaları, bütün klip türleri,

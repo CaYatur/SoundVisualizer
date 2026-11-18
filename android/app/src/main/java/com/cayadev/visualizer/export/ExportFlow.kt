@@ -6,6 +6,7 @@
  */
 package com.cayadev.visualizer.export
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,9 @@ import com.cayadev.visualizer.EngineHost
 import com.cayadev.visualizer.media.MediaPick
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /* DIŞA AKTARMA AKIŞI (docs/android/PLAN.md Faz 5, dışa aktarma ekranı).
 
@@ -85,13 +89,39 @@ object ExportFlow {
         val uri = requireNotNull(r.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)) { "galeriye yazılamadı" }
         try {
             r.openOutputStream(uri).use { out -> src.inputStream().use { it.copyTo(requireNotNull(out)) } }
-            r.update(uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
+            publish(r, uri, src.name)
         } catch (e: Exception) {
             r.delete(uri, null, null)
             throw e
         }
         if (!src.delete()) Log.w(TAG, "ara dosya silinemedi")
-        return JSONObject().put("uri", uri.toString()).put("name", src.name)
+        // Galerideki asıl ad ("ad (3).mp4" ya da saatli ad)
+        val shown = r.query(uri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: src.name
+        return JSONObject().put("uri", uri.toString()).put("name", shown)
+    }
+
+    /* Bekleyen dosya yayımlanırken (IS_PENDING=0) MediaStore ona son adını verir. Aynı ad için
+       en çok 32 numara dener ("ad (1)" … "ad (31)"), sonra reddeder: aynı şarkıyı 32 kez dışa
+       aktaran kullanıcı "Kaydedilemedi" görüyordu (emülatörde ölçüldü, "Failed to build unique
+       file"). O durumda ada tarih ve saat eklenir. */
+    private fun publish(r: ContentResolver, uri: Uri, name: String) {
+        try {
+            r.update(uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "galeride bu adla yer yok: $name")
+            r.update(uri, ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, stampedName(name))
+                put(MediaStore.Video.Media.IS_PENDING, 0)
+            }, null, null)
+        }
+    }
+
+    private fun stampedName(name: String): String {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ".mp4"
+        return base + " " + SimpleDateFormat("yyyy-MM-dd HH-mm-ss", Locale.ROOT).format(Date()) + ext
     }
 
     fun shareIntent(uri: String): Intent =

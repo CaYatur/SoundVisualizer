@@ -173,6 +173,8 @@ object WebShell {
         "web/src/shared/export-formats.js",
         // LRCLIB hazır şablonu (Kitaplık → Sözler → Otomatik Bul)
         "web/src/shared/lyrics-providers.js",
+        // Şarkıya gömülü söz (ID3 USLT/SYLT): masaüstündeki ayrıştırıcının ortam bağımsız hâli
+        "web/src/shared/id3-lyrics.js",
         // Yedekteki sahne video yolları (sv-media://) eşlenirken
         "web/src/shared/media-url.js",
         // Motorun ses nesnesini kurulduğu an yakalar (sayfanın betiklerinden önce olmalı)

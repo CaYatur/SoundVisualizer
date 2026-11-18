@@ -1032,7 +1032,9 @@
     const measure = () => {
       const w = body.getBoundingClientRect().width;
       const wide = w >= 900;
-      const midW = w >= 560;
+      // Tam taşıma satırı (önceki/sonraki, "Timeline kullan" yazısı) ~640 px ister; yatay telefonun yan
+      // panelinde (~575 px) taşıp GO'yu düğmenin üstüne bindiriyordu. Daha darda bunlar araç çubuğunda.
+      const midW = w >= 700;
       body.classList.toggle('mid', midW);
       if (wide !== refs.wide) { refs.wide = wide; body.classList.toggle('wide', wide); ui.heads(); ui.inspector(); ui.lane.draw(); }
     };
@@ -1116,7 +1118,7 @@
         h('span', { class: 'tl-headcol', style: col ? 'background:' + col : null }),
         icon(trk.kind === 'clip' ? 'clapper' : 'wave'),
         h('span', { class: 'tl-headname', text: trk.name || '' }),
-        h('span', { class: 'tl-headstate', text: (recording.has(trk.id) ? '● ' : '') + (trk.muted ? 'M' : '') + (trk.solo ? 'S' : '') + (trk.locked ? '🔒' : '') }),
+        h('span', { class: 'tl-headstate' }, [h('span', { text: (recording.has(trk.id) ? '● ' : '') + (trk.muted ? 'M' : '') + (trk.solo ? 'S' : '') }), trk.locked ? icon('lock') : null]),
         refs.wide ? h('div', { class: 'tl-togs' }, [tog('M', 'muted', 'Sustur'), tog('S', 'solo', 'Solo'), tog('lock', 'locked', 'Kilitle')]) : null,
       ]);
       refs.headsList.appendChild(head);

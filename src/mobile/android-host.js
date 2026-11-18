@@ -246,6 +246,25 @@
     for (const l of Array.isArray(cfg.layers) ? cfg.layers : []) if (l && l.settings && l.settings.text) texts.push(l.settings.text);
     return texts.some((t) => t && (t.source || 'static') === 'lyrics' && t.lyricsFollow === true);
   }
+  // Sahnede söz katmanı var mı (masaüstündeki configUsesLyrics; dışa aktarma işi)
+  function usesLyrics(cfg) {
+    if (!cfg) return false;
+    const texts = [cfg.text].concat((Array.isArray(cfg.layers) ? cfg.layers : []).map((l) => l && l.settings && l.settings.text));
+    return texts.some((t) => t && (t.source || 'static') === 'lyrics');
+  }
+  /* Uygulama içi çaların şarkısına gömülü söz (masaüstündeki "gömülü" adımı): yalnız etiket
+     okunur (`playerHead`: uygulama dosyanın başındaki ID3 etiketini verir), ayrıştırma ortak
+     modülde (src/shared/id3-lyrics.js). Bulunamazsa önbellek ve sağlayıcılar (uygulama). */
+  function embeddedFromPlayer() {
+    if (!native || !window.SVId3Lyrics) return resolved(null);
+    return request('playerHead').then((r) => {
+      if (!r || !r.b64) return null;
+      const bin = atob(r.b64);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      return window.SVId3Lyrics.embedded(u8, '');
+    }, () => null);
+  }
   function lookupLyrics(st) {
     const cfg = config;
     const L = cfg && cfg.lyricsLookup;
@@ -261,7 +280,9 @@
     const sig = meta.artist + '\u0001' + meta.title;
     if (sig === lyricsSig) return;
     lyricsSig = sig;
-    request('lyricsLookup', { config: L, meta }).then((r) => {
+    // Önce gömülü (yalnız uygulama içi çalar: dosyası elimizde), sonra uygulamanın araması
+    const fromPlayer = st === playerNow && L.embedded !== false;
+    (fromPlayer ? embeddedFromPlayer() : resolved(null)).then((e) => (e ? { text: e.text, source: 'embedded' } : request('lyricsLookup', { config: L, meta }))).then((r) => {
       if (sig !== lyricsSig) return;
       const next = r && r.text ? { id: 'auto:' + sig, name: r.provider || r.source, artist: meta.artist, title: meta.title, text: r.text, auto: r.source } : null;
       if (!next && !lyricsAuto) return;
@@ -627,6 +648,8 @@
     /* Dışa aktarma (Faz 5): iş uygulamaya, motor dışa aktarım sayfasına geçer.
        iş: { cfg, width, height, fps, durationSec (0 = şarkının tamamı), audioUri, outputName } */
     exportOpen: (job) => request('exportOpen', job),
+    /* Dışa aktarma kodekleri: { avc: true, hevc } (cihazın kodlayıcıları) */
+    exportCaps: () => (native ? request('exportCaps') : resolved({ avc: true, hevc: false })),
     floating: Object.freeze({
       // Sahnede açık kamera katmanı varsa uygulama kamera ön plan hizmetini kurar (CameraService)
       open: (o) => request('floatingOpen', Object.assign({ camera: usesCamera(config) }, o || {})),
@@ -739,10 +762,10 @@
       },
       ready: (totalFrames) => {
         const j = exportState.job || {};
-        exportState.began = request('exportBegin', {
-          width: j.width, height: j.height, fps: j.fps, total: totalFrames,
-          audio: j.audioName || '', name: j.outputName || '',
-        }).then((r) => { exportState.id = r.job; return r; }, (e) => { exportState.error = e.message; throw e; });
+        // Kodek ve bit hızı dışa aktarma sayfasının seçiminden (H.265 cihazda yoksa uygulama H.264'e döner)
+        const opts = { width: j.width, height: j.height, fps: j.fps, total: totalFrames, audio: j.audioName || '', name: j.outputName || '', codec: j.codec === 'hevc' ? 'hevc' : 'avc' };
+        if (j.bitrate > 0) opts.bitrate = Math.round(j.bitrate);
+        exportState.began = request('exportBegin', opts).then((r) => { exportState.id = r.job; return r; }, (e) => { exportState.error = e.message; throw e; });
       },
       sendFrame: async (data, index) => {
         const began = await exportState.began;
@@ -791,7 +814,14 @@
         cfg: j.cfg || {}, width: j.width, height: j.height, fps: j.fps, pix: 'yuv420p',
         durationSec: want,
         audioBuffer: ab, audioName: j.audioName, outputName: j.outputName || '', platform: 'android',
+        codec: j.codec === 'hevc' ? 'hevc' : 'avc', bitrate: Number(j.bitrate) || 0,
       };
+      /* Şarkıya gömülü söz (masaüstünün dışa aktarma işindeki "gömülü" adımı, #937): otomatik söz
+         açıksa ve sahnede söz katmanı varsa şarkının ID3 etiketinden (src/shared/id3-lyrics.js). */
+      const L = job.cfg.lyricsLookup;
+      if (L && L.enabled === true && L.embedded !== false && usesLyrics(job.cfg) && window.SVId3Lyrics) {
+        try { const e = window.SVId3Lyrics.embedded(new Uint8Array(ab), ''); if (e) job.lyricsAuto = { text: e.text, source: 'embedded' }; } catch (e) { /* söz yoksa dışa aktarma sürer */ }
+      }
       Object.assign(exportState, { job, began: null, sent: 0, acked: 0, bytes: 0, cancel: false, result: null, error: null, t0: now(), song: j.songName || '' });
       if (jobListeners.size) jobListeners.emit(job);
       else pendingJob = job;

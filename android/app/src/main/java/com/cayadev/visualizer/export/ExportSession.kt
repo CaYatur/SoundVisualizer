@@ -35,6 +35,8 @@ class ExportSession(
     private val fps: Int,
     bitrate: Int,
     private val audio: File?,
+    // Kodek: H.264 (her cihazda) ya da cihazda kodlayıcısı varsa H.265 (ExportHub.caps)
+    mime: String = MediaFormat.MIMETYPE_VIDEO_AVC,
 ) {
     private val tag = "SVExport"
     private val codec: MediaCodec
@@ -50,13 +52,13 @@ class ExportSession(
     val codecName: String
 
     init {
-        val fmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
+        val fmt = MediaFormat.createVideoFormat(mime, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
         }
-        codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        codec = MediaCodec.createEncoderByType(mime)
         codecName = codec.name
         codec.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         codec.start()

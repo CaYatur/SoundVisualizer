@@ -1501,6 +1501,10 @@ async function exportUiCmd() {
   try {
     for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
     await D.sleep(1500);
+    // Kodek ve kalite (--codec=avc|hevc, --quality=low|mid|high): sayfanın yerel tercihine yazılır
+    out.caps = await ev('window.SVAndroid.exportCaps()');
+    const want = out.want = { codec: arg('codec') || 'avc', quality: arg('quality') || 'mid' };
+    await ev(`(() => { let p = {}; try { p = JSON.parse(localStorage.getItem('sv-export') || '{}'); } catch (e) { p = {}; } Object.assign(p, ${JSON.stringify(want)}); localStorage.setItem('sv-export', JSON.stringify(p)); return 1; })()`);
     await ev(`document.querySelector('#sv-shell .scene-card [aria-label="Dışa Aktar"], #sv-shell .scene-card [aria-label="Export"]').click(); 1`);
     await D.sleep(800);
     out.page = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");
@@ -1527,7 +1531,7 @@ async function exportUiCmd() {
     out.export = st && { page: st.page, title: st.title, progress: st.progress, result: st.result && { bytes: st.result.bytes, frames: st.result.frames }, error: st.error, seconds: Math.round((Date.now() - t0) / 1000) };
     shot('export-3-done');
     // Galeride mi
-    const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration:width:height']);
+    const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration:width:height:date_added', '--sort', 'date_added']);
     out.gallery = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
     // Videoda ses izi var mı: galerideki dosya bilgisayara alınıp ffprobe ile bakılır
     const mp4 = (/_display_name=([^,]+\.mp4)/.exec(out.gallery) || [])[1];
@@ -1535,8 +1539,11 @@ async function exportUiCmd() {
       const local = path.join(require('node:os').tmpdir(), 'sv-export-check.mp4');
       try {
         D.adb(['pull', '/sdcard/Movies/SoundVisualizer/' + mp4, local], { timeout: 60000 });
-        const pr = require('node:child_process').execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,duration', '-of', 'json', local], { encoding: 'utf8' });
-        out.streams = JSON.parse(pr).streams.map((x) => x.codec_type + ':' + x.codec_name + ':' + Math.round(+x.duration || 0));
+        const pr = require('node:child_process').execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,duration,bit_rate', '-of', 'json', local], { encoding: 'utf8' });
+        const st = JSON.parse(pr).streams;
+        out.streams = st.map((x) => x.codec_type + ':' + x.codec_name + ':' + Math.round(+x.duration || 0));
+        const v = st.find((x) => x.codec_type === 'video');
+        out.videoKbps = v ? Math.round((+v.bit_rate || 0) / 1000) : 0;
       } catch (e) { out.streams = ['probe-failed: ' + String(e.message).split('\n')[0]]; }
       fs.rmSync(local, { force: true });
     }
@@ -1551,7 +1558,9 @@ async function exportUiCmd() {
   const ok = out.page && out.songPicked && out.song.indexOf(out.songFile.replace(/\.[^.]+$/, '')) >= 0 && out.export && !out.export.error && out.export.page === 'src/exporter/index.html'
     && out.export.result && out.export.result.frames > 0 && out.export.result.frames === out.export.progress[1] && /Movies\/SoundVisualizer/.test(out.gallery) && /width=1280/.test(out.gallery) && out.backToScene
     // Videoda AAC ses izi olmalı (şarkı MP3 olsa da)
-    && Array.isArray(out.streams) && out.streams.some((x) => /^audio:aac:/.test(x)) && out.streams.some((x) => /^video:/.test(x));
+    && Array.isArray(out.streams) && out.streams.some((x) => /^audio:aac:/.test(x)) && out.streams.some((x) => /^video:/.test(x))
+    // İstenen kodek (H.265 yalnız cihazda varsa; yoksa H.264'e düşer)
+    && out.streams.some((x) => x.indexOf('video:' + (out.want && out.want.codec === 'hevc' && out.caps && out.caps.hevc ? 'hevc' : 'h264') + ':') === 0);
   if (!ok) process.exitCode = 1;
 }
 
@@ -1673,6 +1682,44 @@ async function nowPlayingCmd() {
   const ok = out.before && out.before.enabled === false && out.askCard && out.after === true && out.open.ok
     && out.session && out.session.has && out.session.playing && out.session.title === 'Probe Session' && out.session.artist === 'CaYaDev' && out.session.duration === 30
     && out.moved && out.card === 'Probe Session' && out.paused && !out.logs.length;
+  if (!ok) process.exitCode = 1;
+}
+
+/* GÖMÜLÜ SÖZ (masaüstündeki otomatik söz bulmanın "gömülü" adımı). Şarkı önce İndirilenler'e:
+     adb push sv-test-lyrics.mp3 /sdcard/Download/   (ID3v2.4: SYLT milisaniye + USLT)
+   Otomatik söz açık, sahnede çalan parçayı izleyen söz katmanı; şarkı uygulama içi çalarda
+   açılınca motorun söz listesine "gömülü" kaynaklı otomatik söz gelmeli (zamanlı olan, SYLT).
+   Ayrıştırma ortak modülde (src/shared/id3-lyrics.js), uygulama yalnız etiketi okur. */
+async function embeddedCmd() {
+  const out = {};
+  const pid = await D.launch();
+  const page = await D.connect(pid);
+  const ev = (js) => page.evaluate(js);
+  let keep = null;
+  try {
+    for (let i = 0; i < 50 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await D.sleep(200);
+    await D.sleep(800);
+    keep = await ev('JSON.stringify({ layers: window.SVAndroid.config.get().layers || [], lyricsLookup: window.SVAndroid.config.get().lyricsLookup || null })');
+    await ev(`(() => { const c = window.SVAndroid.config.get(); const made = window.SVLayers.makeTextLayer({ source: 'lyrics', lyricsFollow: true, content: '' }); window.SVAndroid.config.patch({ layers: (c.layers || []).concat([made]), lyricsLookup: Object.assign({}, c.lyricsLookup, { enabled: true, embedded: true, providers: [] }) }); return 1; })()`);
+    await D.sleep(400);
+    await ev('window.SVAndroid.player.pick().catch(() => {}); 1');
+    out.picked = await pickInDocumentsUi('sv-test-lyrics.mp3');
+    for (let i = 0; i < 30 && !(await ev('!!(window.SVAndroid.player.state() || {}).has')); i++) await D.sleep(300);
+    await ev('window.SVAndroid.player.play(); 1');
+    let item = null;
+    for (let i = 0; i < 30 && !item; i++) {
+      await D.sleep(400);
+      item = await ev("((window.SVLyricsLib && window.SVLyricsLib.items) || []).find((x) => x && x.auto) || null");
+    }
+    out.item = item && { auto: item.auto, title: item.title, artist: item.artist, text: String(item.text || '').slice(0, 80) };
+    out.player = await ev('(() => { const p = window.SVAndroid.player.state(); return { title: p.title, artist: p.artist }; })()');
+    out.logs = page.logs.filter((l) => /exception/i.test(l)).slice(0, 5);
+  } finally {
+    try { await ev(`window.SVAndroid.player.pause(); (() => { const k = ${keep || '{}'}; window.SVAndroid.config.patch({ layers: k.layers || [], lyricsLookup: k.lyricsLookup || undefined }); return 1; })()`); } catch (e) { /* sayfa gitti */ }
+    page.close();
+  }
+  console.log(JSON.stringify(out, null, 1));
+  const ok = out.picked && out.item && out.item.auto === 'embedded' && /^\[00:00\.50\]Gömülü söz bir/.test(out.item.text) && !out.logs.length;
   if (!ok) process.exitCode = 1;
 }
 
@@ -2093,7 +2140,7 @@ async function timelineCmd() {
   if (Object.values(checks).some((v) => !v)) process.exitCode = 1;
 }
 
-const cmds = { timeline: timelineCmd,floatcam: floatCamCmd,lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
+const cmds = { embedded: embeddedCmd, timeline: timelineCmd,floatcam: floatCamCmd,lyrics: lyricsCmd, nowplaying: nowPlayingCmd, pickers: pickersCmd, caps, templates, audio, export: exportCmd, floating, profile: profileCmd, lifecycle: lifecycleCmd, player: playerCmd, import: importCmd, shell: shellCmd, layers: layersCmd, pages: pagesCmd, media: mediaCmd, exportui: exportUiCmd, milk: milkCmd, camera: cameraCmd };
 if (!cmds[cmd]) {
   console.error('kullanım: node android/tools/probe.js caps|templates [--only=] [--wait=] [--out=]');
   process.exit(2);

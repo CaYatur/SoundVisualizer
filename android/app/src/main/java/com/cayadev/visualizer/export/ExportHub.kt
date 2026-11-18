@@ -7,6 +7,8 @@
 package com.cayadev.visualizer.export
 
 import android.content.Context
+import android.media.MediaCodecList
+import android.media.MediaFormat
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
@@ -35,6 +37,21 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
     // AAC olmayan şarkının çevrilmiş geçici hali (AudioPrep); iş bitince silinir
     private var prepared: File? = null
 
+    /* Dışa aktarma seçenekleri (Faz 5: kodek): cihazda H.265 kodlayıcısı var mı. 1080p'yi
+       kodlayabilen bir kodlayıcı aranır; yoksa sayfa yalnız H.264 sunar. */
+    fun caps(): JSONObject = JSONObject()
+        .put("avc", true)
+        .put("hevc", encoderFor(MediaFormat.MIMETYPE_VIDEO_HEVC, 1920, 1080))
+
+    private fun encoderFor(mime: String, w: Int, h: Int): Boolean = try {
+        MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+            info.isEncoder && info.supportedTypes.any { it.equals(mime, ignoreCase = true) } &&
+                (info.getCapabilitiesForType(mime).videoCapabilities?.let { v -> v.isSizeSupported(w, h) || v.isSizeSupported(h, w) } ?: false)
+        }
+    } catch (e: Exception) {
+        false
+    }
+
     fun begin(args: JSONObject, done: (JSONObject?, String?) -> Unit) {
         worker.post {
             try {
@@ -54,7 +71,9 @@ class ExportHub(private val context: Context, private val event: (String, JSONOb
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
                 // Ad sayfadan geliyor: klasör dışına çıkamaz (ExportNames)
                 val out = File(dir, ExportNames.output(args.optString("name", ""), System.currentTimeMillis()))
-                val s = ExportSession(out, w, h, fps, bitrate, audio)
+                // H.265 yalnız istenirse ve cihazda bu boyutta kodlayıcısı varsa; yoksa H.264
+                val mime = if (args.optString("codec") == "hevc" && encoderFor(MediaFormat.MIMETYPE_VIDEO_HEVC, w, h)) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
+                val s = ExportSession(out, w, h, fps, bitrate, audio, mime)
                 session = s
                 job++
                 started = SystemClock.elapsedRealtime()

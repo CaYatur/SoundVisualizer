@@ -212,9 +212,15 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             "playerPosition" -> reply.ok(PlayerHub.service?.position() ?: JSONObject().put("has", false).put("playing", false).put("state", "idle"))
             "playerStats" -> reply.ok(PlayerHub.service?.stats() ?: JSONObject())
+            // Uygulama içi çaların şarkısının ID3 etiketi (gömülü söz, src/mobile/android-host.js)
+            "playerHead" -> {
+                val uri = PlayerHub.service?.currentUri()
+                if (uri == null) reply.ok(JSONObject()) else LyricsHub.audioHead(uri) { r, e -> if (r != null) reply.ok(r) else reply.fail("player-head", e ?: "") }
+            }
             "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
             // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
             "exportBegin" -> EngineHost.exportHub.begin(args) { r, err -> if (r != null) reply.ok(r) else reply.fail("export-begin", err ?: "") }
+            "exportCaps" -> reply.ok(EngineHost.exportHub.caps())
             "exportEnd" -> EngineHost.exportHub.end { r, err -> if (r != null) reply.ok(r) else reply.fail("export-end", err ?: "") }
             "exportCancel" -> {
                 EngineHost.exportHub.cancel()

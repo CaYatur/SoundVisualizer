@@ -187,6 +187,9 @@ class PlayerService : MediaSessionService() {
         emit()
     }
 
+    /** Çalan şarkının adresi (gömülü söz için etiket okunur: LyricsHub.audioHead). */
+    fun currentUri(): Uri? = player.currentMediaItem?.localConfiguration?.uri
+
     /** Yalnız çalma durumu ve konum (sık sorulur: kapak resmi gibi büyük alanlar yok). */
     fun position(): JSONObject = JSONObject()
         .put("has", player.currentMediaItem != null)

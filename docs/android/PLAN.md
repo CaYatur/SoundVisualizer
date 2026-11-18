@@ -149,8 +149,12 @@ Each phase ends with a "done when" line. The owner approves each phase before th
   service starts with the window when the scene has a camera layer (`media/CameraService.kt`). Template and built-in MilkDrop previews are drawn
   before the build (`android/tools/gen-previews.js`, `android/previews/`); saved scenes show a frame of the scene
   itself. Lyrics library (files or by hand), automatic lyrics (cache + user providers, LRCLIB optional) and lyrics layers that follow the playing track; now playing from other apps via notification access; logo, video and lyrics libraries come with a desktop backup (videos remapped in scenes). User-added presets get previews drawn on the phone.
+  The logo layer's "auto/track" source shows the playing track's cover on Android too; lyrics embedded in the song
+  (ID3 SYLT/USLT) are found for the in-app player and for export (`src/shared/id3-lyrics.js`, same output as the
+  desktop parser, checked in `android/js-tests/id3-lyrics.test.js`).
 - **Phase 5 status (17.11.2026):** export screen from the scene card: song from the phone, 30 s / 60 s / whole song,
-  landscape or portrait, 720p or 1080p, 30 or 60 fps; the one WebView switches to the export page (frames shown as a
+  landscape or portrait, 720p or 1080p, 30 or 60 fps, quality (bitrate) and codec (H.264, or H.265 when the device
+  has an encoder for it); the one WebView switches to the export page (frames shown as a
   preview, progress, cancel), the MP4 goes to the gallery and can be shared. Songs that are not AAC (MP3, OGG, FLAC,
   WAV) are converted to AAC for the MP4 (`export/AudioPrep.kt`). Touch timeline with desktop parity (scene card
   button; `docs/android/TIMELINE.md`): several timelines, clip and automation tracks, all clip types, markers and cues,

@@ -506,7 +506,8 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-headcol { position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 0 3px 3px 0; background: var(--line2); }
 #sv-shell .tl-headrow > .svi { flex: none; width: 18px; height: 18px; color: var(--muted); }
 #sv-shell .tl-headname { display: none; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#sv-shell .tl-headstate { position: absolute; right: 4px; bottom: 3px; font-size: 9.5px; font-weight: 700; color: var(--accent-text); letter-spacing: .02em; }
+#sv-shell .tl-headstate { position: absolute; right: 4px; bottom: 3px; display: flex; align-items: center; gap: 2px; font-size: 9.5px; font-weight: 700; color: var(--accent-text); letter-spacing: .02em; }
+#sv-shell .tl-headstate svg { width: 11px; height: 11px; }
 #sv-shell .tl-togs { display: flex; gap: 4px; flex: none; }
 #sv-shell .tl-tog { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line2); color: var(--muted); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 #sv-shell .tl-tog .svi { width: 16px; height: 16px; }

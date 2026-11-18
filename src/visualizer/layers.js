@@ -1028,8 +1028,10 @@
     if (!lg) return null;
     const mode = lg.source || 'auto';
     /* macOS/Linux albüm kapağını okuyamaz. auto ve track orada özel resmi
-       göstermeli; aksi halde çalan parça kapağı logonun yerine geçer. */
-    const winOk = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false);
+       göstermeli; aksi halde çalan parça kapağı logonun yerine geçer. Android
+       okur (uygulama içi çalar ve medya oturumu: src/mobile/android-host.js). */
+    const plat = typeof window !== 'undefined' ? window.SV_PLATFORM : null;
+    const winOk = !(plat && plat.isWindows === false && !plat.isAndroid);
     if (mode === 'manual' || !winOk) return logoFileSrc(lg);
 
     const live = (typeof window !== 'undefined' && window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
