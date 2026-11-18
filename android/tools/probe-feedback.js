@@ -8,7 +8,7 @@
 /* TELEFON GERİ BİLDİRİMİ YOKLAMASI: gerçek dokunuşlarla (adb) ve sınama medya oturumlarıyla
    (android/tonegen SessionReceiver).
 
-   node android/tools/probe-feedback.js [sessions] [theme] [touch] [layout] [nowplaying] [dynamic]
+   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [layout] [nowplaying] [dynamic]
    Hiçbiri verilmezse hepsi koşar. Çıktı: her denetim için OK / FAIL, sonunda toplam. */
 const D = require('./lib/device.js');
 
@@ -119,6 +119,42 @@ async function touch(page) {
   await D.sleep(600);
 }
 
+/* Otomasyon hedefi: arama boş bırakılınca bütün ayarlar listelenir, yazılınca süzülür, Vazgeç kapatır. */
+async function target(page) {
+  const keep = await page.evaluate('JSON.stringify({ timeline: window.SVAndroid.config.get().timeline || null })');
+  await page.evaluate(`(() => {
+    const TL = window.SVTimeline;
+    const t = TL.makeTrack({ id: 'trk_auto', kind: 'automation', name: 'Otomasyon' });
+    window.SVAndroid.config.patch({ timeline: { id: 'tl_fb', name: 'Probe', tempo: [{ t: 0, bpm: 120, beatsPerBar: 4 }], tracks: [t], markers: [], loop: { enabled: false, start: 0, end: 4 }, snap: 'bar', enabled: true } });
+    window.SVShell.openPage(window.SVShellTimeline.page());
+    return 1; })()`);
+  await D.sleep(1500);
+  await page.evaluate(`(() => { const c = window.SVShellTimeline._core; c.setSelection({ kind: 'track', trackId: 'trk_auto' }); c.openInspector(); return 1; })()`);
+  await D.sleep(1200);
+  const openSearch = `(() => { const b = [...document.querySelectorAll('#sv-shell .sheet-body button')].find((x) => x.querySelector('.svi') && /Hedef|target/i.test(x.textContent)); b.click(); return 1; })()`;
+  const answer = (text, ok) => `(() => { const box = document.querySelector('#sv-shell .dialog-scrim'); const i = box.querySelector('input'); i.value = ${JSON.stringify(text)}; box.querySelector('${ok ? '.btn.primary' : '.btn.ghost'}').click(); return 1; })()`;
+  const count = "document.querySelectorAll('#sv-shell .choice-list .choice').length";
+  await page.evaluate(openSearch); await D.sleep(500);
+  const t0 = Date.now();
+  await page.evaluate(answer('', true));
+  await D.sleep(1500);
+  const all = await page.evaluate(count);
+  check('boş aramada bütün ayarlar listelenir', all > 50, { all, ms: Date.now() - t0 - 1500 });
+  await page.evaluate('window.SVShell.back(); 1'); await D.sleep(500);
+  await page.evaluate(openSearch); await D.sleep(500);
+  await page.evaluate(answer('glow', true));
+  await D.sleep(1200);
+  const some = await page.evaluate(count);
+  check('yazınca süzülür', some > 0 && some < all, { some, all });
+  await page.evaluate('window.SVShell.back(); 1'); await D.sleep(500);
+  await page.evaluate(openSearch); await D.sleep(500);
+  await page.evaluate(answer('', false));
+  await D.sleep(800);
+  check('Vazgeç listeyi açmaz', (await page.evaluate(count)) === 0);
+  await page.evaluate(`(() => { window.SVShell.close(); window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  await D.sleep(600);
+}
+
 const LAYOUT = `(() => {
   const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && getComputedStyle(el).visibility !== 'hidden'; };
   const q = (s) => document.querySelector('#sv-shell ' + s);
@@ -214,6 +250,7 @@ async function dynamic(page) {
     if (on('sessions')) await sessions(page);
     if (on('theme')) await theme(page);
     if (on('touch')) await touch(page);
+    if (on('target')) await target(page);
     if (on('layout')) await layout(page);
     if (on('nowplaying')) await nowplaying(page);
     if (on('dynamic')) await dynamic(page);
