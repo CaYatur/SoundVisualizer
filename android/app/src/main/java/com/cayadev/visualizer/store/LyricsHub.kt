@@ -67,6 +67,11 @@ object LyricsHub {
         ) ?: JSONObject()
     }
 
+    /** Seçilen şarkının etiketleri (Dışa Aktar sayfası gösterir). */
+    fun audioTags(uri: Uri, done: (JSONObject?, String?) -> Unit) = run(done) {
+        com.cayadev.visualizer.export.ExportFlow.trackOf(app, uri, com.cayadev.visualizer.media.MediaPick.displayName(app, uri))
+    }
+
     fun clearCache(done: (JSONObject?, String?) -> Unit) = run(done) { JSONObject().put("removed", LyricsLookup.clearCache(cacheDir)) }
 
     /* Şarkının başındaki ID3 etiketi (gömülü söz; ayrıştırma sayfada, src/shared/id3-lyrics.js).

@@ -9,6 +9,11 @@ package com.cayadev.visualizer.export
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
@@ -65,6 +70,7 @@ object ExportFlow {
             .put("audioName", copy.name)
             .put("audioUrl", "/files/" + copy.name)
             .put("songName", name)
+            .put("track", trackOf(app, uri, name))
         j.remove("audioUri")
         job = j
         EngineHost.loadPage(EXPORT_PAGE)
@@ -72,6 +78,38 @@ object ExportFlow {
     }
 
     fun job(): JSONObject? = job
+
+    /* Şarkının etiketleri (masaüstündeki src/shared/audio-tags.js): ad, sanatçı, albüm, süre ve
+       kapak. Çalan Parça, söz ve logo katmanları videoda bunları çizer. Etiket yoksa dosya adı. */
+    fun trackOf(context: Context, uri: Uri, fileName: String): JSONObject {
+        val out = JSONObject().put("title", fileName.substringBeforeLast('.')).put("artist", "").put("album", "").put("artwork", "").put("duration", 0.0)
+        val r = MediaMetadataRetriever()
+        try {
+            r.setDataSource(context.applicationContext, uri)
+            r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }?.let { out.put("title", it) }
+            val artist = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?: r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+            out.put("artist", artist ?: "")
+            out.put("album", r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: "")
+            out.put("duration", (r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L) / 1000.0)
+            r.embeddedPicture?.let { out.put("artwork", coverData(it)) }
+        } catch (e: Exception) {
+            Log.w(TAG, "şarkı etiketleri okunamadı", e)
+        } finally {
+            try { r.release() } catch (_: Exception) {}
+        }
+        return out
+    }
+
+    /** Kapak en çok 800 px JPEG (iş sayfaya tek iletiyle gider). */
+    private fun coverData(bytes: ByteArray): String {
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return ""
+        val k = minOf(1f, 800f / maxOf(bmp.width, bmp.height))
+        val small = if (k < 1f) Bitmap.createScaledBitmap(bmp, maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), true) else bmp
+        val out = ByteArrayOutputStream()
+        small.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
 
     /** Bitmiş dosyayı galeriye kopyalar; ara dosyayı siler. Döner: { uri, name }. */
     fun save(context: Context, path: String): JSONObject {
