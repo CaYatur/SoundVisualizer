@@ -74,10 +74,27 @@
     const id = T.normalizeId(c.ui && c.ui.theme);
     // WebView gece kipini izlemiyor (ölçüldü: koyu cihazda da "açık" diyor); tercih uygulamadan gelir
     const sys = A() && A().systemDark ? A().systemDark() : null;
-    T.apply(document, id, sys != null ? sys : (darkQuery ? darkQuery.matches : true), false);
+    const dark = sys != null ? sys : (darkQuery ? darkQuery.matches : true);
+    // Her ayar değişiminde 70 değişken yazılıp bütün sayfanın stili yeniden hesaplanıyordu
+    const key = id + '|' + dark;
+    if (key === themeKey) return;
+    themeKey = key;
+    T.apply(document, id, dark, false);
   }
+  let themeKey = '';
   /* Eski sürümlerden kalan CaYaDev seçimi bir kez "Cihaz varsayılanı"na döner (masaüstünün
      varsayılanı). Bundan sonra elle seçilen ya da yedekten gelen tema olduğu gibi kalır. */
+  /* Telefonun varsayılan kare sınırı 30: ekran hızında çizmek telefonu ısıtıp kasıyordu. Eski
+     kayıtlardaki "ekran" değeri bir kez 30 olur; Ayarlar'dan yeniden seçilebilir. */
+  function migratePerf() {
+    const KEY = 'sv-perf-default-v1';
+    try {
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+    } catch (e) { return; }
+    const c = cfg();
+    if (c && c.power && !c.power.fpsCap) A().config.patch({ power: Object.assign({}, c.power, { fpsCap: 30 }) });
+  }
   function migrateTheme() {
     const KEY = 'sv-theme-default-v2';
     try {
@@ -162,6 +179,8 @@
     if (!p || !page) return;
     const fresh = page !== shown;
     const keep = fresh ? 0 : p.body.scrollTop;
+    // Yatay kayan sekmeler de yerinde kalır (dokununca sıra başa dönüyordu)
+    const strips = fresh ? [] : Array.from(p.body.querySelectorAll('.tabs, .pills')).map((el) => ({ n: el.children.length, left: el.scrollLeft }));
     shown = page;
     if (fresh) guardTaps();
     // Sayfa boyu (taslak 2/3/4): liste alttan üçte iki, ayarlar daha uzun, ekleme tam boy
@@ -184,6 +203,16 @@
     p.foot.hidden = !p.foot.firstChild;
     // Aynı sayfa yeniden çizildiyse kaydırma yeri korunur (düğmeye basınca başa atlamasın)
     p.body.scrollTop = keep;
+    Array.from(p.body.querySelectorAll('.tabs, .pills')).forEach((el, i) => {
+      if (strips[i] && strips[i].n === el.children.length) el.scrollLeft = strips[i].left;
+    });
+    syncCovered();
+  }
+  /* Sayfa sahneyi tümüyle örtüyor mu (dik telefonda tam sayfalar; yan panel örtmez). */
+  function syncCovered() {
+    const r = refs.sheet ? refs.sheet.getBoundingClientRect() : null;
+    const on = !!r && r.width >= window.innerWidth * 0.95 && r.height >= window.innerHeight * 0.9;
+    if (A() && A().setStageCovered) A().setStageCovered(on);
   }
   let shown = null;
   /* Yeni sayfa açılınca yarım saniye dokunuş alınmaz. Çift dokunuşla açılan sayfada tarayıcının
@@ -391,6 +420,7 @@
     if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; refs.sheetParts = null; }
     stack = [];
     if (root) root.classList.remove('has-sheet', 'sheet-full', 'sheet-dock', 'tl-tall');
+    syncCovered();
     if (refs.navButtons && state.tab !== 'scene') {
       state.tab = 'scene';
       for (const b of refs.navButtons) b.classList.toggle('on', b.dataset.tab === 'scene');
@@ -536,9 +566,14 @@
     const w = String(name || '?').trim().split(/\s+/).filter(Boolean);
     return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase();
   }
-  function renderScenes() {
-    const list = scenes();
-    const act = activeScene();
+  /* Şerit yalnız sahne listesi ya da etkin sahne değişince yeniden kurulur: her ayar değişiminde
+     (kaydırıcı sürüklerken) bütün kutular baştan kuruluyor, şerit de başa dönüyordu. */
+  let scenesKey = null;
+  function paintSceneStrip(list, act) {
+    const key = JSON.stringify([act && act.id, list.map((s) => [s && s.id, s && s.name])]);
+    if (key === scenesKey) return;
+    scenesKey = key;
+    const left = refs.scenes.scrollLeft;
     refs.scenes.textContent = '';
     // İlk kurulumda sahne yok: hazır şablonlara götüren kutu
     if (!list.length && window.SVShellLibrary) {
@@ -554,6 +589,12 @@
         onclick: () => recallScene(sc),
       }, [sceneArt(sc), h('div', { class: 'cap', text: sc.name || '' })]));
     }
+    refs.scenes.scrollLeft = left;
+  }
+  function renderScenes() {
+    const list = scenes();
+    const act = activeScene();
+    paintSceneStrip(list, act);
     const c = cfg();
     refs.sceneTitle.textContent = act ? act.name : 'Sahne';
     /* Yeni kurulumda liste ayarda yok, motor eski alanlardan sentezliyor (layers.js resolve):
@@ -590,13 +631,18 @@
   }
   /* Seviye algısal ölçekte (karekök): müzik çoğunlukla 0,05–0,15 arasında,
      doğrusal ölçekte çubuklar kıpırdamıyordu (demo seste ölçüldü). */
+  let meterAt = 0;
   function renderMeter(level) {
+    // Saniyede 15 kez, yerleşim hesabı gerektirmeyen dönüşümle; arayüz gizliyken hiç yazılmaz
+    const now = performance.now();
+    if (now - meterAt < 66 || root.classList.contains('hidden')) return;
+    meterAt = now;
     const bars = refs.meterBars;
     const v = Math.sqrt(Math.max(0, Math.min(1, level || 0)));
     for (let i = 0; i < bars.length; i++) {
       const k = (i + 1) / bars.length;
-      const px = Math.round(2 + 14 * Math.min(1, v * 1.6 * (1.1 - k * 0.2))) + 'px';
-      if (bars[i].style.height !== px) bars[i].style.height = px;
+      const s = 'scaleY(' + ((2 + 14 * Math.min(1, v * 1.6 * (1.1 - k * 0.2))) / 16).toFixed(2) + ')';
+      if (bars[i].style.transform !== s) bars[i].style.transform = s;
     }
   }
 
@@ -720,9 +766,10 @@
       if (b && refs.bpmValue.textContent !== t) refs.bpmValue.textContent = t;
     }, 250);
     // Sahne kutularının resimleri küçük resim dizini gelince
-    if (window.SVShellLayers) window.SVShellLayers.thumbsReady().then(() => { if (state.ready) renderScenes(); });
+    if (window.SVShellLayers) window.SVShellLayers.thumbsReady().then(() => { scenesKey = null; if (state.ready) renderScenes(); });
     S.config.ready().then(() => {
       migrateTheme();
+      migratePerf();
       applyTheme(); renderScenes(); renderSource(); refreshChrome();
       state.ready = true;
       updateVisibility();

@@ -96,14 +96,13 @@
 #sv-shell button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
 #sv-shell .svi { width: 20px; height: 20px; flex: none; }
 
-/* Cam yüzey. Bulanıklık her karede yeniden hesaplanıyor (canlı WebGL tuvalin
-   üstünde); düşük güçte ya da `flat` sınıfıyla düz yüzeye düşer. */
+/* Yüzey. Arkası bulanıklaştırılmıyor: canlı WebGL tuvalin üstünde bulanıklık her karede yeniden
+   hesaplanıyor ve telefonda en pahalı arayüz işi; zemin zaten neredeyse opak. */
 #sv-shell .glass {
   background: var(--card-end); border: 1px solid rgb(var(--fg-rgb) / .08);
-  backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: 0 10px 30px rgb(var(--shadow-rgb) / .35);
 }
-#sv-shell.flat .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--popover); }
+#sv-shell.flat .glass { background: var(--popover); }
 
 /* Üst bilgi */
 #sv-shell .hud {
@@ -127,7 +126,7 @@
 #sv-shell .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
 #sv-shell .dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgb(var(--ok-rgb) / .25); }
 #sv-shell .meter { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
-#sv-shell .meter i { display: block; width: 3px; height: 2px; border-radius: 2px; background: var(--ok); }
+#sv-shell .meter i { display: block; width: 3px; height: 16px; border-radius: 2px; background: var(--ok); transform: scaleY(.13); transform-origin: bottom; }
 #sv-shell .meter i.m { background: var(--meter-mid); }
 #sv-shell .meter i.h { background: var(--meter-hot); }
 #sv-shell .iconbtn { width: 48px; height: 48px; flex: none; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; }
@@ -328,6 +327,8 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 /* Izgaralar ve kartlar */
 #sv-shell .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 #sv-shell .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* Ekran dışındaki kutular çizilmez (uzun preset listeleri) */
+#sv-shell .grid2 > .tile, #sv-shell .grid3 > .tile { content-visibility: auto; contain-intrinsic-size: auto 150px; }
 #sv-shell .tile { position: relative; border-radius: 14px; overflow: hidden; background: var(--card2); text-align: left; min-height: 48px; display: block; width: 100%; }
 #sv-shell .tile img, #sv-shell .tile .ph { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
 #sv-shell .tile .ph { display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--card3); }
