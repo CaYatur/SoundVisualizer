@@ -740,7 +740,7 @@ async function shellCmd() {
     out.main = await page.evaluate(`({ shell: !!document.getElementById('sv-shell'), buttons: document.querySelectorAll('#sv-shell button').length,
       small: ${small}, insetTop: getComputedStyle(document.getElementById('sv-shell')).getPropertyValue('--inset-top').trim(),
       font: getComputedStyle(document.querySelector('#sv-shell .nav button')).fontFamily, theme: document.documentElement.getAttribute('data-ui-theme'),
-      storedTheme: window.SVUiThemes.resolve((window.SVAndroid.config.get().ui || {}).theme, !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches).id })`);
+      storedTheme: window.SVUiThemes.resolve((window.SVAndroid.config.get().ui || {}).theme, window.SVAndroid.systemDark() !== false).id })`);
     shot('1-main');
     // Ölçümün değiştirdiği ayar sonda geri yazılır (tema, etkin sahne, Otomatik VJ)
     await page.evaluate('window.__probeOrig = JSON.parse(JSON.stringify(window.SVAndroid.config.get())); 1');
