@@ -875,7 +875,7 @@ async function shellCmd() {
   // Panel kapalıyken üst bilgi sağa kadar uzanır; açıkken şerit görünür kalır ve panele değmez
   const fits = (x) => !!(x && x.sheet && x.nav && x.nav.r <= x.hud.l && x.sheet.r <= x.vw && x.hud.r <= x.sheet.l && x.scenes.w > 0 && x.scenes.r <= x.sheet.l
     && x.nav.t >= 0 && x.nav.b <= x.vh && x.small.length === 0);
-  out.wideOk = !!(m.nav && m.vw >= 840 && m.nav.w <= 96 && m.nav.r <= m.hud.l && m.nav.r <= m.scenes.l && m.card === 'none' && m.small.length === 0
+  out.wideOk = !!(m.nav && m.vw >= 840 && m.nav.w <= 96 && m.nav.r <= m.hud.l && m.nav.r <= m.scenes.l && m.card === 'flex' && m.small.length === 0
     && m.hud.r > (s.hud || {}).r && fits(s) && s.sheet.w === 400 && fits(n) && n.vw < 840 && n.sheet.w < 400);
   console.log(JSON.stringify(out, null, 1));
   const tabsOk = Object.values(out.tabs).every((t) => t.sheet && t.small.length === 0);
@@ -1504,7 +1504,7 @@ async function exportUiCmd() {
     // Kodek ve kalite (--codec=avc|hevc, --quality=low|mid|high): sayfanın yerel tercihine yazılır
     out.caps = await ev('window.SVAndroid.exportCaps()');
     const want = out.want = { codec: arg('codec') || 'avc', quality: arg('quality') || 'mid' };
-    await ev(`(() => { let p = {}; try { p = JSON.parse(localStorage.getItem('sv-export') || '{}'); } catch (e) { p = {}; } Object.assign(p, ${JSON.stringify(want)}); localStorage.setItem('sv-export', JSON.stringify(p)); return 1; })()`);
+    await ev(`(() => { let p = {}; try { p = JSON.parse(localStorage.getItem('sv-export') || '{}'); } catch (e) { p = {}; } Object.assign(p, ${JSON.stringify(want)}, { v: 2 }); localStorage.setItem('sv-export', JSON.stringify(p)); return 1; })()`);
     await ev(`document.querySelector('#sv-shell .scene-card [aria-label="Dışa Aktar"], #sv-shell .scene-card [aria-label="Export"]').click(); 1`);
     await D.sleep(800);
     out.page = await ev("(document.querySelector('#sv-shell .sheet h2') || {}).textContent || ''");

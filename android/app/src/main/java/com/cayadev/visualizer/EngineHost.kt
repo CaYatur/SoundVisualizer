@@ -108,13 +108,20 @@ object EngineHost {
                 bridge?.event("memoryPressure", JSONObject().put("level", level))
             }
 
-            override fun onConfigurationChanged(newConfig: Configuration) = Unit
+            // Cihazın açık/koyu tercihi (Cihaz varsayılanı teması canlı izler)
+            override fun onConfigurationChanged(newConfig: Configuration) { sendUiMode(newConfig) }
 
             @Deprecated("Deprecated in Java")
             override fun onLowMemory() {
                 bridge?.event("memoryPressure", JSONObject().put("level", ComponentCallbacks2.TRIM_MEMORY_COMPLETE))
             }
         })
+    }
+
+    /** Cihazın gece kipini sayfaya bildirir. WebView'in prefers-color-scheme'i bunu izlemiyor. */
+    fun sendUiMode(config: Configuration) {
+        val dark = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        bridge?.event("uiMode", JSONObject().put("dark", dark))
     }
 
     /** Motoru [parent]'a taşır (öncekinden çıkararak). WebGL bağlamı korunur (0E7'de ölçüldü). */

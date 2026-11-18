@@ -12,6 +12,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
+import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Build
@@ -23,6 +24,7 @@ import android.service.notification.NotificationListenerService
 import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 
@@ -72,7 +74,7 @@ object NowPlaying {
         }
     }
 
-    fun status(ctx: Context): JSONObject = JSONObject().put("enabled", enabled(ctx)).put("state", last)
+    fun status(ctx: Context): JSONObject = JSONObject().put("enabled", enabled(ctx)).put("state", last).put("sessions", sessions())
 
     /** İzlemeyi başlatır (erişim yoksa hiçbir şey yapmaz). Tekrar çağrılabilir. */
     fun start(ctx: Context) {
@@ -96,47 +98,99 @@ object NowPlaying {
     fun stop() {
         msm?.let { try { it.removeOnActiveSessionsChangedListener(sessionsChanged) } catch (_: Exception) {} }
         msm = null
-        bind(null)
+        watch(emptyList())
+        current = null
+        publish()
     }
 
     private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { list -> pick(list ?: emptyList()) }
 
-    private val callback = object : MediaController.Callback() {
-        override fun onMetadataChanged(metadata: MediaMetadata?) = publish()
-        override fun onPlaybackStateChanged(state: PlaybackState?) {
-            // Başka oturum çalmaya başlamış olabilir: listeyi yeniden değerlendir
-            val m = msm
-            val c = component
-            if (m != null && c != null && state?.state != PlaybackState.STATE_PLAYING) {
-                try { pick(m.getActiveSessions(c)); return } catch (_: SecurityException) {}
-            }
-            publish()
+    /* Bütün oturumlar izlenir. Yalnız seçili oturum izlendiğinde duraklamış ya da kapanmış bir
+       uygulamaya takılı kalınıyordu: YouTube çalmaya başlayınca haber gelmiyordu. */
+    private class Watch(val controller: MediaController, val callback: MediaController.Callback)
+    private val watched = LinkedHashMap<MediaSession.Token, Watch>()
+    /** Oturumun en son çalmaya başladığı sıra (bu süreçte görüldüyse). */
+    private val startedAt = HashMap<MediaSession.Token, Long>()
+    private var clock = 0L
+
+    private fun repick() {
+        val m = msm
+        val c = component
+        if (m != null && c != null) try { pick(m.getActiveSessions(c)); return } catch (_: SecurityException) {}
+        pick(watched.values.map { it.controller })
+    }
+
+    private fun isLive(c: MediaController): Boolean = when (c.playbackState?.state) {
+        PlaybackState.STATE_PLAYING, PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING,
+        PlaybackState.STATE_FAST_FORWARDING, PlaybackState.STATE_REWINDING,
+        PlaybackState.STATE_SKIPPING_TO_NEXT, PlaybackState.STATE_SKIPPING_TO_PREVIOUS,
+        PlaybackState.STATE_SKIPPING_TO_QUEUE_ITEM -> true
+        else -> false
+    }
+
+    private fun titleOf(md: MediaMetadata?): String =
+        md?.getString(MediaMetadata.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }
+            ?: md?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)?.takeIf { it.isNotBlank() }
+            ?: md?.description?.title?.toString()?.takeIf { it.isNotBlank() }
+            ?: ""
+
+    private fun watch(list: List<MediaController>) {
+        val keep = list.map { it.sessionToken }.toSet()
+        for (t in watched.keys.filter { it !in keep }) {
+            watched.remove(t)?.let { w -> try { w.controller.unregisterCallback(w.callback) } catch (_: Exception) {} }
+            startedAt.remove(t)
         }
-        override fun onSessionDestroyed() {
-            val m = msm
-            val c = component
-            if (m != null && c != null) try { pick(m.getActiveSessions(c)); return } catch (_: SecurityException) {}
-            bind(null)
+        for (c in list) {
+            val token = c.sessionToken
+            if (token in watched) continue
+            var live = isLive(c)
+            if (live) startedAt[token] = ++clock
+            val cb = object : MediaController.Callback() {
+                override fun onMetadataChanged(metadata: MediaMetadata?) = repick()
+                override fun onPlaybackStateChanged(state: PlaybackState?) {
+                    // Yalnız duruştan çalmaya geçiş sayılır: köprü uygulamaları aynı durumu sürekli yeniler
+                    val now = isLive(c)
+                    if (now && !live) startedAt[token] = ++clock
+                    live = now
+                    repick()
+                }
+                override fun onSessionDestroyed() {
+                    watched.remove(token)
+                    startedAt.remove(token)
+                    repick()
+                }
+            }
+            c.registerCallback(cb, main)
+            watched[token] = Watch(c, cb)
         }
     }
 
     /** Yalnız geliştirme sürümünde, sınama için: uygulamanın kendi çaları da sayılır
         (emülatörde oturum açmadan medya oturumu okuma zincirini denemek için). */
     var includeSelf = false
-        set(v) { field = v; val m = msm; val c = component; if (m != null && c != null) try { pick(m.getActiveSessions(c)) } catch (_: SecurityException) {} }
+        set(v) { field = v; repick() }
 
+    /* Seçim: adı olan oturumlar arasında çalan kazanır, birden çok çalıyorsa en son başlayan.
+       Hiçbiri çalmıyorsa en son çalmış olan, o da yoksa sistemin öncelik sırasındaki ilk oturum. */
     private fun pick(list: List<MediaController>) {
         val others = list.filter { includeSelf || it.packageName != ownPackage }
-        val playing = others.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-        val next = playing ?: others.firstOrNull { it.packageName == current?.packageName } ?: others.firstOrNull()
-        if (next?.sessionToken != current?.sessionToken) bind(next) else publish()
+        watch(others)
+        val named = others.filter { titleOf(it.metadata).isNotEmpty() }
+        val rank = { c: MediaController -> startedAt[c.sessionToken] ?: 0L }
+        current = named.filter { isLive(it) }.maxByOrNull(rank)
+            ?: named.filter { rank(it) > 0L }.maxByOrNull(rank)
+            ?: named.firstOrNull()
+        publish()
     }
 
-    private fun bind(c: MediaController?) {
-        current?.let { try { it.unregisterCallback(callback) } catch (_: Exception) {} }
-        current = c
-        c?.registerCallback(callback, main)
-        publish()
+    /** Görülen oturumlar (Ses sayfasında "neden görünmüyor" sorusu için). */
+    private fun sessions(): JSONArray {
+        val out = JSONArray()
+        for (w in watched.values) {
+            val c = w.controller
+            out.put(JSONObject().put("app", appLabel(c.packageName)).put("live", isLive(c)).put("named", titleOf(c.metadata).isNotEmpty()))
+        }
+        return out
     }
 
     private fun idle(): JSONObject = JSONObject()
@@ -147,7 +201,7 @@ object NowPlaying {
     private fun publish() {
         val c = current
         val md = c?.metadata
-        val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: md?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE) ?: ""
+        val title = titleOf(md)
         val st = c?.playbackState
         val j = if (c == null || title.isEmpty()) idle() else {
             val artist = md?.getString(MediaMetadata.METADATA_KEY_ARTIST)
@@ -184,8 +238,10 @@ object NowPlaying {
             ?: md?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         val uri = md?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI) ?: md?.getString(MediaMetadata.METADATA_KEY_ART_URI)
         if (bmp == null) return if (uri != null && uri.startsWith("http")) uri else ""
-        if (bmp === artKey) return artData
-        artKey = bmp
+        // Her okumada yeni Bitmap nesnesi geliyor: aynı parçanın kapağı yeniden kodlanmasın
+        val key = listOf(titleOf(md), md?.getString(MediaMetadata.METADATA_KEY_ARTIST), md?.getString(MediaMetadata.METADATA_KEY_ALBUM), bmp.width, bmp.height)
+        if (key == artKey) return artData
+        artKey = key
         artData = try {
             val k = minOf(1f, ART_PX.toFloat() / maxOf(bmp.width, bmp.height))
             val small = if (k < 1f) Bitmap.createScaledBitmap(bmp, maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), true) else bmp

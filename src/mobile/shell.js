@@ -72,7 +72,20 @@
     const c = cfg();
     if (!c) return; // ayar gelmeden tema seçilmez (:root zaten CaYaDev)
     const id = T.normalizeId(c.ui && c.ui.theme);
-    T.apply(document, id, darkQuery ? darkQuery.matches : true, false);
+    // WebView gece kipini izlemiyor (ölçüldü: koyu cihazda da "açık" diyor); tercih uygulamadan gelir
+    const sys = A() && A().systemDark ? A().systemDark() : null;
+    T.apply(document, id, sys != null ? sys : (darkQuery ? darkQuery.matches : true), false);
+  }
+  /* Eski sürümlerden kalan CaYaDev seçimi bir kez "Cihaz varsayılanı"na döner (masaüstünün
+     varsayılanı). Bundan sonra elle seçilen ya da yedekten gelen tema olduğu gibi kalır. */
+  function migrateTheme() {
+    const KEY = 'sv-theme-default-v2';
+    try {
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+    } catch (e) { return; }
+    const c = cfg();
+    if (c && c.ui && c.ui.theme === 'cayadev') A().config.patch({ ui: Object.assign({}, c.ui, { theme: 'system' }) });
   }
 
   // ---- Görünürlük ----
@@ -147,8 +160,10 @@
     const p = refs.sheetParts;
     const page = stack[stack.length - 1];
     if (!p || !page) return;
-    const keep = page === shown ? p.body.scrollTop : 0;
+    const fresh = page !== shown;
+    const keep = fresh ? 0 : p.body.scrollTop;
     shown = page;
+    if (fresh) guardTaps();
     // Sayfa boyu (taslak 2/3/4): liste alttan üçte iki, ayarlar daha uzun, ekleme tam boy
     refs.sheet.dataset.size = page.size || 'normal';
     root.classList.toggle('sheet-full', page.size === 'full' || page.size === 'screen');
@@ -160,6 +175,8 @@
     p.sub.textContent = sub || '';
     p.sub.hidden = !sub;
     for (const k of ['lead', 'actions', 'body', 'foot']) p[k].textContent = '';
+    // Gövde sayfalar arasında ortak: önceki sayfanın sınıfı kalmasın (çizelgenin tl-dock'u kaydırmayı kapatıyordu)
+    p.body.className = 'sheet-body';
     if (page.lead) page.lead(p.lead, ctx);
     p.lead.hidden = !p.lead.firstChild;
     if (page.actions) page.actions(p.actions, ctx);
@@ -169,6 +186,17 @@
     p.body.scrollTop = keep;
   }
   let shown = null;
+  /* Yeni sayfa açılınca yarım saniye dokunuş alınmaz. Çift dokunuşla açılan sayfada tarayıcının
+     ikinci dokunuştan ürettiği tıklama, parmağın altına gelen ayara düşüyordu. */
+  const TAP_GUARD_MS = 500;
+  let guardTimer = 0;
+  function guardTaps() {
+    const sheet = refs.sheet;
+    if (!sheet) return;
+    sheet.classList.add('tap-guard');
+    clearTimeout(guardTimer);
+    guardTimer = setTimeout(() => sheet.classList.remove('tap-guard'), TAP_GUARD_MS);
+  }
 
   /* Onay penceresi. WebView'in yerel confirm'ü sayfayı (motoru da) bekletiyordu;
      bu, kabuğun içinde. Promise<boolean>. */
@@ -572,7 +600,17 @@
 
   function refreshChrome() {
     const T = window.SVShellTimeline;
-    if (refs.tlChip) refs.tlChip.hidden = !(T && T.modeOn());
+    const on = !!(T && T.modeOn());
+    if (refs.tlChip) refs.tlChip.hidden = !on;
+    if (refs.hud) refs.hud.classList.toggle('tl-on', on);
+  }
+  /* Üst bilgi kendi genişliğine göre sıkışır (dik telefon, yan panel açık yatay telefon):
+     yazılar yarıda kesilmesin diye önce çiplerin yazısı küçülür, sonra kaynağın adı gizlenir. */
+  function fitHud() {
+    const w = refs.hud ? refs.hud.clientWidth : 0;
+    if (!w) return;
+    refs.hud.classList.toggle('compact', w < 560);
+    refs.hud.classList.toggle('tight', w < 430);
   }
   function timelineChipMenu() {
     const T = window.SVShellTimeline;
@@ -590,12 +628,12 @@
     const sourceLabel = h('span', { class: 'label', text: 'Demo ses' });
     // Tempo çipi (taslak 1): telefonun tempo motorundan; tempo bulunmadıysa gizli
     const bpmValue = h('span');
-    const bpmChip = h('div', { class: 'chip glass mono bpm-chip', hidden: true }, [bpmValue, h('span', { class: 'dim', text: 'BPM' })]);
+    const bpmChip = h('div', { class: 'chip glass mono bpm-chip', hidden: true }, [bpmValue, h('span', { class: 'dim bpm-unit', text: 'BPM' })]);
     /* Çıkış zaman çizelgesindeyken (Timeline kullan) sahne, Otomatik VJ ve katman değişiklikleri
        ekranda görünmez; çip bunu söyler: dokununca çizelgeyi aç ya da elle ayara dön. */
     const tlChip = h('button', { class: 'chip glass live tl-mode-chip', hidden: true, 'aria-label': 'Çıkış zaman çizelgesinde', onclick: timelineChipMenu }, [icon('timeline'), h('span', { class: 'label', text: 'Zaman çizelgesi' })]);
     const hud = h('div', { class: 'hud' }, [
-      h('button', { class: 'chip glass live', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
+      h('button', { class: 'chip glass live source-chip', 'aria-label': 'Ses', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
       bpmChip,
       tlChip,
       h('div', { class: 'spacer' }),
@@ -607,7 +645,7 @@
     ]);
     const sceneTitle = h('div', { class: 'title' });
     const sceneSub = h('div', { class: 'sub' });
-    const vj = h('button', { class: 'pill', onclick: toggleVj }, [icon('dice'), 'Otomatik VJ']);
+    const vj = h('button', { class: 'pill vj-pill', 'aria-label': 'Otomatik VJ', onclick: toggleVj }, [icon('dice'), h('span', { class: 'pill-label', text: 'Otomatik VJ' })]);
     // Dışa aktar (taslak 1): şu anki sahne bir şarkıyla videoya (src/mobile/shell-export.js)
     const exportBtn = h('button', {
       class: 'iconbtn plain', 'aria-label': 'Dışa Aktar', title: 'Dışa Aktar',
@@ -627,8 +665,10 @@
     }, [icon(t.icon), t.label]));
     const nav = h('nav', { class: 'nav glass live', 'aria-label': 'Ana gezinme' }, navButtons);
     root = h('div', { id: 'sv-shell' }, [hud, sceneCard, scenesStrip, nav]);
-    refs = { tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
+    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
     document.body.appendChild(root);
+    if (typeof ResizeObserver === 'function') new ResizeObserver(fitHud).observe(hud);
+    fitHud();
   }
 
   function setInsets(v) {
@@ -644,6 +684,7 @@
     updateVisibility();
     applyTheme();
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
+    if (S.onSystemDark) S.onSystemDark(applyTheme);
     setInsets(S.insets());
     S.onInsets(setInsets);
     S.onChrome((v) => {
@@ -679,6 +720,7 @@
     // Sahne kutularının resimleri küçük resim dizini gelince
     if (window.SVShellLayers) window.SVShellLayers.thumbsReady().then(() => { if (state.ready) renderScenes(); });
     S.config.ready().then(() => {
+      migrateTheme();
       applyTheme(); renderScenes(); renderSource(); refreshChrome();
       state.ready = true;
       updateVisibility();

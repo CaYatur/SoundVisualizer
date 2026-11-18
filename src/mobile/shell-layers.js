@@ -348,6 +348,10 @@
     const c = cfg();
     const def = defaults();
     if (l.kind === 'media' || l.kind === 'sprites' || l.kind === 'logo') return [U.card(mediaControls(l, set, ctx, def))];
+    // Çalan parça: masaüstündeki bütün ayarlar (src/mobile/shell-nowplaying.js)
+    if ((l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type === 'nowplaying')) && window.SVShellNowPlaying) {
+      return window.SVShellNowPlaying.controls(() => findLayer(l.id), set);
+    }
     if (l.kind !== 'visualizer' && l.kind !== 'background') {
       return [h('div', { class: 'hint', text: 'Bu katman türünün ayarları masaüstündeki panelde. Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
     }
