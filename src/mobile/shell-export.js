@@ -38,7 +38,13 @@
   }
   function save(p) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign({}, p, { v: 2 }))); } catch (e) { /* depo yok */ } }
   let prefs = load();
-  let song = null; // { uri, name }
+  let song = null; // { uri, name, tags }
+  /* Sahnede şarkı bilgisini çizen katman var mı: yoksa videoda ad, kapak ve söz görünmez. */
+  function showsTrack() {
+    const list = (A().config.get() || {}).layers;
+    return (Array.isArray(list) ? list : []).some((l) => l && l.enabled !== false && (l.kind === 'nowplaying' || l.type === 'nowplaying'
+      || (l.type === 'text' && l.settings && l.settings.text && (l.settings.text.source === 'lyrics' || l.settings.text.source === 'now'))));
+  }
   let busy = false;
   let error = '';
 
@@ -80,9 +86,17 @@
       body.appendChild(h('div', { class: 'hint', text: 'Şu anki sahne seçtiğiniz şarkıyla videoya dönüşür; dosya galeriye kaydedilir. Uzun şarkılar telefonda birkaç dakika sürebilir.' }));
       body.appendChild(U.card([
         U.row('Şarkı', [
-          h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: song ? song.name : '—' })]),
+          song && song.tags && song.tags.artwork ? h('img', { class: 'thumb xs', src: song.tags.artwork, alt: '' }) : null,
+          h('div', { class: 'row-text' }, [
+            h('div', { class: 'row-title small', 'data-user-text': '', text: song ? song.name : '—' }),
+            song && song.tags && song.tags.artist ? h('div', { class: 'row-sub', 'data-user-text': '', text: [song.tags.title, song.tags.artist].filter(Boolean).join(' — ') }) : null,
+          ]),
           h('button', {
-            class: 'btn', onclick: () => A().media.pick('audio').then((r) => { song = r; ctx.refresh(); }, (e) => {
+            class: 'btn', onclick: () => A().media.pick('audio').then((r) => {
+              song = r;
+              ctx.refresh();
+              A().audioTags(r.uri).then((t) => { if (song === r) { song.tags = t; ctx.refresh(); } }, () => {});
+            }, (e) => {
               const c = String((e && e.message) || e);
               if (c !== 'cancelled') { error = c; ctx.refresh(); }
             }),
@@ -99,6 +113,7 @@
           ? U.seg({ label: 'Kodek', options: [['avc', 'H.264'], ['hevc', 'H.265']], value: codec(), onChange: (v) => { prefs.codec = v; save(prefs); } })
           : U.row('Kodek', [h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: 'H.264' }), h('div', { class: 'row-sub', text: caps ? 'Bu cihazda H.265 kodlayıcısı yok.' : '' })])]),
       ]));
+      if (!showsTrack()) body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: 'Şarkı adı, sanatçı, kapak, ilerleme ve sözlerin videoda görünmesi için sahneye Çalan Parça ya da Şarkı Sözü katmanı ekleyin.' })]));
       // Cihazın kodlayıcıları bir kez sorulur
       if (!caps && A().exportCaps) A().exportCaps().then((c) => { caps = c || { avc: true, hevc: false }; if (body.isConnected) ctx.refresh(); }, () => { caps = { avc: true, hevc: false }; });
       if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr('Dışa aktarma başlatılamadı.') + ' (' + error + ')' })]));

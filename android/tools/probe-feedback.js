@@ -8,7 +8,7 @@
 /* TELEFON GERİ BİLDİRİMİ YOKLAMASI: gerçek dokunuşlarla (adb) ve sınama medya oturumlarıyla
    (android/tonegen SessionReceiver).
 
-   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [dynamic]
+   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [lyrics] [dynamic]
    Hiçbiri verilmezse hepsi koşar. Çıktı: her denetim için OK / FAIL, sonunda toplam. */
 const D = require('./lib/device.js');
 
@@ -256,6 +256,33 @@ async function nowplaying(page) {
   await D.sleep(600);
 }
 
+/* Şarkı sözü katmanı: renk modları ve sabit renkte iki renk, karaoke ayarları, yazı ve yerleşim. */
+async function lyricsLayer(page) {
+  const keep = await page.evaluate('JSON.stringify({ layers: window.SVAndroid.config.get().layers })');
+  await page.evaluate(`(() => { const c = window.SVAndroid.config.get(); const l = { id: 'tx_fb', kind: 'visualizer', type: 'text', enabled: true, opacity: 1, blend: 'normal', name: 'Soz', settings: { text: { enabled: true, source: 'lyrics', lyricsFollow: true, karaoke: true } } }; window.SVAndroid.config.patch({ layers: (c.layers || []).concat([l]) }); window.SVShell.open('layers'); return 1; })()`);
+  await D.sleep(900);
+  await page.evaluate(`document.querySelector('#sv-shell .row[data-id="tx_fb"] .row-main').click(); 1`);
+  await D.sleep(900);
+  const tabs = await page.evaluate(`[...document.querySelectorAll('#sv-shell .edit-pane .tabs button')].map((b) => b.dataset.id)`);
+  check('söz katmanında dört ayar sekmesi var', ['content', 'style', 'place', 'motion'].every((k) => tabs.includes(k)), tabs);
+  const inner = (s) => `#sv-shell .edit-pane .edit-pane ${s}`;
+  const karaoke = await page.evaluate(`[...document.querySelectorAll('${inner('.ctl-label')}')].map((x) => x.textContent)`);
+  check('karaoke dolumu ve esnetme görünür', karaoke.some((t) => /Karaoke (Dolumu|Fill)/i.test(t)) || karaoke.length >= 5, karaoke.length);
+  await page.evaluate(`document.querySelector('#sv-shell .edit-pane .tabs button[data-id="style"]').click(); 1`);
+  await D.sleep(500);
+  const seg = await page.evaluate(`[...document.querySelectorAll('${inner('.seg button')}')].map((b) => b.dataset.v)`);
+  check('renk modları: sabit, tema, gökkuşağı', ['custom', 'theme', 'rainbow'].every((k) => seg.includes(k)), seg);
+  await page.evaluate(`document.querySelector('${inner('.seg button[data-v="custom"]')}').click(); 1`);
+  await D.sleep(600);
+  const swatches = await page.evaluate(`document.querySelectorAll('${inner('.swatch')}').length`);
+  check('sabit renkte metin ve vurgu rengi görünür', swatches === 2, swatches);
+  const t = await page.evaluate(`window.SVAndroid.config.get().layers.find((x) => x.id === 'tx_fb').settings.text`);
+  check('renk modu katmana yazılır', t.colorMode === 'custom' && t.useCustomColor === true, { m: t.colorMode });
+  await page.evaluate(`document.querySelector('#sv-shell .edit-pane .tabs button[data-id="content"]').click(); 1`);
+  await page.evaluate(`(() => { window.SVShell.close(); window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  await D.sleep(600);
+}
+
 async function dynamic(page) {
   D.adb(['shell', 'cmd', 'notification', 'allow_listener', D.PKG + '/' + D.PKG + '.media.NowPlayingService']);
   const keep = await page.evaluate('JSON.stringify({ background: window.SVAndroid.config.get().background, visualizer: window.SVAndroid.config.get().visualizer, layers: window.SVAndroid.config.get().layers, dynamicTheme: window.SVAndroid.config.get().dynamicTheme })');
@@ -289,6 +316,7 @@ async function dynamic(page) {
     if (on('strips')) await strips(page);
     if (on('layout')) await layout(page);
     if (on('nowplaying')) await nowplaying(page);
+    if (on('lyrics')) await lyricsLayer(page);
     if (on('dynamic')) await dynamic(page);
   } finally { page.close(); }
   const bad = results.filter((r) => !r.ok);

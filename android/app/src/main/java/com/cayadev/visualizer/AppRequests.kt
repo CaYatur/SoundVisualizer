@@ -161,6 +161,7 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 reply.fail("export-open", e.message ?: e.javaClass.simpleName)
             }
             "exportJob" -> reply.ok(ExportFlow.job() ?: JSONObject.NULL)
+            "audioTags" -> LyricsHub.audioTags(android.net.Uri.parse(args.optString("uri"))) { r, e -> if (r != null) reply.ok(r) else reply.fail("audio-tags", e ?: "") }
             "exportSave" -> try {
                 reply.ok(ExportFlow.save(app, args.optString("path")))
             } catch (e: Exception) {

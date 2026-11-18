@@ -681,6 +681,8 @@
     /* Dışa aktarma (Faz 5): iş uygulamaya, motor dışa aktarım sayfasına geçer.
        iş: { cfg, width, height, fps, durationSec (0 = şarkının tamamı), audioUri, outputName } */
     exportOpen: (job) => request('exportOpen', job),
+    /** Seçilen şarkının adı, sanatçısı, albümü, süresi ve kapağı. */
+    audioTags: (uri) => request('audioTags', { uri }),
     /* Dışa aktarma kodekleri: { avc: true, hevc } (cihazın kodlayıcıları) */
     exportCaps: () => (native ? request('exportCaps') : resolved({ avc: true, hevc: false })),
     floating: Object.freeze({
@@ -849,11 +851,26 @@
         audioBuffer: ab, audioName: j.audioName, outputName: j.outputName || '', platform: 'android',
         codec: j.codec === 'hevc' ? 'hevc' : 'avc', bitrate: Number(j.bitrate) || 0,
       };
-      /* Şarkıya gömülü söz (masaüstünün dışa aktarma işindeki "gömülü" adımı, #937): otomatik söz
-         açıksa ve sahnede söz katmanı varsa şarkının ID3 etiketinden (src/shared/id3-lyrics.js). */
+      /* Seçilen şarkının adı ve kapağı (masaüstündeki job.track): Çalan Parça, söz ve logo
+         katmanları videoda bunları çizer, ilerleme kare saatinden gelir (exporter.js). */
+      const track = j.track && typeof j.track === 'object' ? j.track : { title: String(j.songName || '').replace(/\.[^.]+$/, '') };
+      job.track = { title: track.title || '', artist: track.artist || '', album: track.album || '', artwork: track.artwork || '' };
+      /* Otomatik söz (masaüstündeki sıra, #937): şarkıya gömülü söz (src/shared/id3-lyrics.js), yoksa
+         önbellek ve sağlayıcılar. Bulunamaması dışa aktarmayı durdurmaz. */
       const L = job.cfg.lyricsLookup;
-      if (L && L.enabled === true && L.embedded !== false && usesLyrics(job.cfg) && window.SVId3Lyrics) {
-        try { const e = window.SVId3Lyrics.embedded(new Uint8Array(ab), ''); if (e) job.lyricsAuto = { text: e.text, source: 'embedded' }; } catch (e) { /* söz yoksa dışa aktarma sürer */ }
+      if (L && L.enabled === true && usesLyrics(job.cfg)) {
+        const meta = { title: job.track.title, artist: job.track.artist, album: job.track.album, duration: Number(track.duration) || 0 };
+        try {
+          const e = L.embedded !== false && window.SVId3Lyrics ? window.SVId3Lyrics.embedded(new Uint8Array(ab), '') : null;
+          const r = e ? { text: e.text, source: 'embedded' } : await request('lyricsLookup', { config: L, meta });
+          if (r && r.text) job.lyricsAuto = { text: r.text, source: r.source || '', provider: r.provider || '' };
+        } catch (e) { /* söz yoksa dışa aktarma sürer */ }
+      }
+      // Çalan parçayı izleyen söz katmanı kitaplıktan eşleşir (masaüstündeki lyricsLibrary)
+      if (followsLyrics(job.cfg)) {
+        const items = await lyricsSnapshot();
+        const a = job.lyricsAuto;
+        job.lyricsLibrary = a ? items.concat([{ id: 'auto:export', name: a.provider || a.source, artist: job.track.artist, title: job.track.title, text: a.text, auto: a.source }]) : items;
       }
       Object.assign(exportState, { job, began: null, sent: 0, acked: 0, bytes: 0, cancel: false, result: null, error: null, t0: now(), song: j.songName || '' });
       if (jobListeners.size) jobListeners.emit(job);

@@ -3049,6 +3049,7 @@
     'Çubuk': 'Progress Bar',
     'Etkin': 'Enabled',
     'Canlı Medya': 'Live Media',
+    'Şarkı adı, sanatçı, kapak, ilerleme ve sözlerin videoda görünmesi için sahneye Çalan Parça ya da Şarkı Sözü katmanı ekleyin.': 'To show the song title, artist, cover, progress and lyrics in the video, add a Now Playing or Lyrics layer to the scene.',
     'Çözünürlük sınırı': 'Resolution limit',
     'İlerleme çubuğu yalnız sistemden okunan parçada çizilir.': 'The progress bar is only drawn for tracks read from the system.',
     'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez.': 'Places the album cover of the playing track next to or above the text. Size is relative to the short side of the screen. Nothing is drawn if there is no cover.',
