@@ -85,14 +85,16 @@ function uiStrings(text) {
 const NOT_UI = new Set(['DOMContentLoaded', 'About ', 'Kalan yaklaşık ', 'SVLayers yok', 'Add ', ' katmanını ekle', 'SVAudio', 'Türkçe\\u200B', 'Başlatılamadı: ', 'İçe aktarılamadı: ', 'Import failed: ',
   'Changes every ', 'Her ', ' saniyede değişir', ' ölçüde değişir', ' atlandı', ' zaten kitaplıkta', ' preset değil', 'Scene ', 'Sahne ', 'Enter', 'My preset ', 'Şablonum ', ' vuruş', ' söz eklendi', ' okunamadı', ' söz', 'Scene: ', 'Sahne: ', 'Template: ', 'Şablon: ', 'Version ', 'Sürüm ', 'WebView ',
   'SoundVisualizer', 'English', 'AndroidX, Media3', 'Apache License 2.0', 'Geist, Geist Mono', 'SIL Open Font License 1.1',
-  'nin yaptığı gibi), görselleştirici shader', 'Ekran\\u200B']);
+  'nin yaptığı gibi), görselleştirici shader', 'Ekran\\u200B',
+  // YouTube bölüm listesinin İngilizce sözcükleri (arayüz dili İngilizceyken doğrudan)
+  'Start', 'Chapter']);
 
 test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {
   const i18n = read('src/shared/i18n.js');
   const strings = new Set();
   for (const f of ['src/mobile/shell.js', 'src/mobile/shell-controls.js', 'src/mobile/shell-layers.js', 'src/mobile/shell-scene.js', 'src/mobile/shell-lyrics.js', 'src/shared/layer-factory.js',
     'src/mobile/shell-audio.js', 'src/mobile/shell-library.js', 'src/mobile/shell-display.js', 'src/mobile/shell-settings.js', 'src/mobile/autovj.js',
-    'src/mobile/shell-export.js', 'src/mobile/shell-timeline.js', 'src/mobile/export-ui.js']) {
+    'src/mobile/shell-export.js', 'src/mobile/shell-timeline.js', 'src/mobile/shell-timeline-lane.js', 'src/mobile/shell-timeline-forms.js', 'src/mobile/export-ui.js']) {
     for (const s of uiStrings(read(f))) if (!NOT_UI.has(s)) strings.add(s);
   }
   for (const s of ['Otomatik VJ', 'Demo ses', 'Sistem sesi', 'Katmanlar', 'Sahne sınıra yakın:']) assert.ok(strings.has(s), 'okunamadı: ' + s);

@@ -167,6 +167,10 @@ object WebShell {
         "web/src/shared/text-fold.js",
         // Zaman çizelgesi düzenleme işlemleri (böl, çoğalt, geri al): src/mobile/shell-timeline.js
         "web/src/shared/timeline-edit.js",
+        // Otomasyon hedef kataloğu masaüstünün modülasyon panelinden (yükte panel gerektirmiyor)
+        "web/src/admin/modulation-panel.js",
+        // YouTube bölüm listesi (zaman çizelgesi işaretlerinden)
+        "web/src/shared/export-formats.js",
         // LRCLIB hazır şablonu (Kitaplık → Sözler → Otomatik Bul)
         "web/src/shared/lyrics-providers.js",
         // Yedekteki sahne video yolları (sv-media://) eşlenirken
@@ -185,7 +189,9 @@ object WebShell {
         "web/src/mobile/shell-display.js",
         "web/src/mobile/shell-settings.js",
         "web/src/mobile/shell-export.js",
+        "web/src/mobile/shell-timeline-lane.js",
         "web/src/mobile/shell-timeline.js",
+        "web/src/mobile/shell-timeline-forms.js",
         "web/src/mobile/export-ui.js",
     )
 

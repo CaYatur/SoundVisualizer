@@ -152,6 +152,8 @@
     // Sayfa boyu (taslak 2/3/4): liste alttan üçte iki, ayarlar daha uzun, ekleme tam boy
     refs.sheet.dataset.size = page.size || 'normal';
     root.classList.toggle('sheet-full', page.size === 'full' || page.size === 'screen');
+    // Zaman çizelgesi altta yerleşik: sahne üstte görünür, gezinme ve şerit gizli (shell.css)
+    root.classList.toggle('sheet-dock', page.size === 'dock');
     p.backBtn.hidden = stack.length < 2;
     p.title.textContent = typeof page.title === 'function' ? page.title() : page.title;
     const sub = page.subtitle ? (typeof page.subtitle === 'function' ? page.subtitle() : page.subtitle) : '';
@@ -358,7 +360,7 @@
   function closeSheet() {
     if (refs.sheet) { refs.sheet.remove(); refs.sheet = null; refs.sheetParts = null; }
     stack = [];
-    if (root) root.classList.remove('has-sheet', 'sheet-full');
+    if (root) root.classList.remove('has-sheet', 'sheet-full', 'sheet-dock', 'tl-tall');
     if (refs.navButtons && state.tab !== 'scene') {
       state.tab = 'scene';
       for (const b of refs.navButtons) b.classList.toggle('on', b.dataset.tab === 'scene');
@@ -568,6 +570,19 @@
     }
   }
 
+  function refreshChrome() {
+    const T = window.SVShellTimeline;
+    if (refs.tlChip) refs.tlChip.hidden = !(T && T.modeOn());
+  }
+  function timelineChipMenu() {
+    const T = window.SVShellTimeline;
+    if (!T) return;
+    chooseBox('Çıkış zaman çizelgesinde', [['open', 'Zaman çizelgesini aç'], ['off', 'Elle ayara dön']], '').then((v) => {
+      if (v === 'open') openSheetWith(T.page());
+      else if (v === 'off') { T.unlinkOutput(); refreshChrome(); }
+    });
+  }
+
   // ---- Kurulum ----
   function build() {
     const meterBars = [h('i'), h('i'), h('i', { class: 'm' }), h('i', { class: 'h' })];
@@ -576,9 +591,13 @@
     // Tempo çipi (taslak 1): telefonun tempo motorundan; tempo bulunmadıysa gizli
     const bpmValue = h('span');
     const bpmChip = h('div', { class: 'chip glass mono bpm-chip', hidden: true }, [bpmValue, h('span', { class: 'dim', text: 'BPM' })]);
+    /* Çıkış zaman çizelgesindeyken (Timeline kullan) sahne, Otomatik VJ ve katman değişiklikleri
+       ekranda görünmez; çip bunu söyler: dokununca çizelgeyi aç ya da elle ayara dön. */
+    const tlChip = h('button', { class: 'chip glass live tl-mode-chip', hidden: true, 'aria-label': 'Çıkış zaman çizelgesinde', onclick: timelineChipMenu }, [icon('timeline'), h('span', { class: 'label', text: 'Zaman çizelgesi' })]);
     const hud = h('div', { class: 'hud' }, [
       h('button', { class: 'chip glass live', onclick: () => openTab('audio') }, [sourceDot, sourceLabel, h('span', { class: 'meter', 'aria-hidden': 'true' }, meterBars)]),
       bpmChip,
+      tlChip,
       h('div', { class: 'spacer' }),
       h('button', {
         class: 'iconbtn glass live', 'aria-label': 'Görüntüleme', title: 'Görüntüleme',
@@ -608,7 +627,7 @@
     }, [icon(t.icon), t.label]));
     const nav = h('nav', { class: 'nav glass live', 'aria-label': 'Ana gezinme' }, navButtons);
     root = h('div', { id: 'sv-shell' }, [hud, sceneCard, scenesStrip, nav]);
-    refs = { meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
+    refs = { tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
     document.body.appendChild(root);
   }
 
@@ -641,7 +660,7 @@
       if (n !== liveMd) { liveMd = n; if (state.ready) renderScenes(); }
     });
     const changed = () => {
-      applyTheme(); renderScenes();
+      applyTheme(); renderScenes(); refreshChrome();
       const top = ctx.top;
       if (top && top.onConfig) top.onConfig(ctx);
     };
@@ -660,7 +679,7 @@
     // Sahne kutularının resimleri küçük resim dizini gelince
     if (window.SVShellLayers) window.SVShellLayers.thumbsReady().then(() => { if (state.ready) renderScenes(); });
     S.config.ready().then(() => {
-      applyTheme(); renderScenes(); renderSource();
+      applyTheme(); renderScenes(); renderSource(); refreshChrome();
       state.ready = true;
       updateVisibility();
     });
@@ -684,6 +703,8 @@
     grabSceneThumb: (id, now) => grabSceneThumb(id, 0, !!now),
     sceneArt: (sc) => sceneArt(sc),
     pickColor: colorBox,
+    /** Ana ekrandaki durum çipleri (zaman çizelgesi kipi) */
+    refreshChrome: () => refreshChrome(),
     countLabel,
     /** Kayıtlı sahneyi kimliğiyle çağırır (Otomatik VJ, Kitaplık). true: bulundu. */
     recallScene(id) {

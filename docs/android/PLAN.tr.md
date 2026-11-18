@@ -168,10 +168,11 @@ Her faz "bitti ölçütü" ile biter. Fazlar arasında onayınız alınır.
 - **Faz 5 durumu (17.11.2026):** sahne kartından dışa aktarma: telefondan şarkı, 30 sn / 60 sn / tamamı, yatay ya da
   dikey, 720p ya da 1080p, 30 ya da 60 fps; tek WebView dışa aktarım sayfasına geçiyor (kareler önizleme olarak
   görünüyor, ilerleme, vazgeç), MP4 galeriye kaydediliyor ve paylaşılabiliyor. AAC olmayan şarkılar (MP3, OGG, FLAC, WAV)
-  MP4 için AAC'ye çevriliyor (`export/AudioPrep.kt`). Dokunmatik zaman çizelgesi (MVP, sahne kartındaki düğme): tek klip izi, oynatma kafasına sahne ya da şablon
-  klibi ekleme, sürükleme, kırpma, bölme, çoğaltma, silme, ölçü/vuruş hizası, BPM, geri al; dışa aktarmada "Zaman
-  çizelgesiyle" (`src/mobile/shell-timeline.js`). Veri masaüstünün çizelgesi; otomasyon, işaretçi, tempo değişimi, döngü
-  ve video klibi yok.
+  MP4 için AAC'ye çevriliyor (`export/AudioPrep.kt`). Masaüstüyle eşlikli dokunmatik zaman çizelgesi (sahne
+  kartındaki düğme; `docs/android/TIMELINE.tr.md`): birden çok çizelge, klip ve otomasyon parçaları, bütün klip türleri,
+  işaret ve cue, tempo haritası, döngü, bütün yakalama kipleri, çoklu seçim, öğren/kaydet; "Timeline kullan" açıkken
+  motor bileşimi masaüstündeki gibi her karede çizer. Dikey telefonda altta yerleşik, yatayda yan yana, tablette
+  denetçi yanda. Ortak kod: `src/shared/timeline*.js`, `showclock.js`.
 
 ### 2 — Android tarafı
 - 2.1 `android-host.js`'in tamamı ve sözleşme testi.

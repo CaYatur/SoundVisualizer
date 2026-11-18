@@ -40,7 +40,7 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `requestConfig` | Real (2) | The saved configuration from the profile folder (see "Profile" below), or `null` on first start. Desktop-only outputs arrive switched off ("Engine view"). |
 | `onConfig` | Real (2) | Full configuration after a load or a large change (`SVAndroid.config.set`). |
 | `onConfigPatch` | Local (2) | Only the changed top-level keys while a slider moves, as on the desktop (`SVAndroid.config.patch`). |
-| `onShowClock` | Local (5) | Timeline show-clock anchor. |
+| `onShowClock` | Local (5) | Timeline show-clock anchor. The shell's timeline sends it with `SVAndroid.showClock(anchor)` (the desktop panel uses `sendShowClock`). |
 | `onMomentaryFx` | Empty | Momentary effects are a VJ tool that is not on Android (D6). |
 | `onMediaScrub` | Local (5) | Scrubbing a media layer from the timeline. |
 | `onTbar` | Empty | No T-bar on Android (D6). |
@@ -175,7 +175,7 @@ to the desktop turns the lights on again.
 |---|---|
 | `config.get()`, `config.set(cfg)`, `config.patch(keys)`, `config.flush()`, `config.ready()` | Configuration, as above. |
 | `audio.start(source)`, `audio.stop()`, `audio.status()`, `audio.onStatus(cb)` | Audio source (`capture`, `mic`, `visualizer`). |
-| `player.pick()`, `player.open(media, play)`, `player.reopen(uri, play)`, `player.play()`, `player.pause()`, `player.seek(ms)`, `player.stop()`, `player.state()`, `player.onState(cb)` | The in-app player (below). |
+| `player.pick()`, `player.open(media, play)`, `player.reopen(uri, play)`, `player.play()`, `player.pause()`, `player.seek(ms)`, `player.stop()`, `player.state()`, `player.refresh()`, `player.onState(cb)` | The in-app player (below). `state()` is the cached state from the last event; `refresh()` asks the player for its fresh position and play state (no event arrives while it simply keeps playing). |
 | `audio.silent()`, `audio.onSilence(cb)` | About 3 s of digital silence while an app source runs: the playing app may not share its audio (PHASE0 R3). Fires once when silence starts and once when sound returns; a source change resets it. The UI offers the output mix or the microphone. |
 | `gl()` | WebGL context budget: `{ live, attached, limit: 8, created, lost }`. `live` counts every context that is not lost, also canvases outside the document (timeline layers), because those count toward the limit too. On in release builds. |
 | `importProfile({ media? })` | Import from the desktop (above). Resolves `{ kind, summary, scenes, presets, skipped, later, migrated }`. |
@@ -214,7 +214,8 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `floatingState` | `{ showing, opacity, clickThrough, locked, maxPassThroughOpacity, bounds, activity }`. |
 | `playerPick` | Opens Android's document picker for an audio file, keeps a persistent read grant and opens it in the player. Resolves the player state plus `uri`, or fails with `cancelled`. Needs the Activity. |
 | `playerOpen { media? , uri?, play? }` | Opens a file from the app's media folder (`media`, must resolve inside `files/media/`) or a document picked earlier (`uri`, only with a persistent grant). |
-| `playerPlay`, `playerPause`, `playerStop`, `playerSeek { ms }`, `playerState` | Resolve the player state: `{ has, playing, state, position, duration, title, artist, album, artwork, name, error }` (times in ms). |
+| `playerPlay`, `playerPause`, `playerStop`, `playerSeek { ms }`, `playerState` | Resolve the player state: `{ has, playing, state, position, at, duration, title, artist, album, artwork, name, error }` (times in ms; `at` is the wall-clock time `position` was read, so a late event can be corrected). |
+| `playerPosition` | Only `{ has, playing, state, position, at }`: asked often while playing (`player.refresh()`), so it leaves out the cover and the other large fields. |
 | event `playerState` | The same object, on every change (play/pause, track, metadata, seek, end, error). |
 | `pipEnter { w, h }` | System picture-in-picture with aspect `w:h`, clamped to 1:2.39…2.39:1. |
 | event `windowChrome` | `{ pip }` when picture-in-picture starts or ends, `{ floating }` when the floating window opens or closes. Only the interface gets it; the engine's `onWindowChrome` is the desktop window bar's (`{ show }`). |

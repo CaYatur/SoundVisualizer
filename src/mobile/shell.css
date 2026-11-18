@@ -401,21 +401,6 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 #sv-shell .source-list .source { min-height: 60px; padding: 6px 12px; }
 #sv-shell .player-card { padding: 4px 14px; flex: none; }
 /* Zaman çizelgesi (src/mobile/shell-timeline.js) */
-#sv-shell .tl-transport { display: flex; align-items: center; gap: 8px; }
-#sv-shell .tl-time { font-size: 14px; color: var(--muted); }
-#sv-shell .tl-scroll { overflow-x: auto; overflow-y: hidden; border-radius: 14px; background: var(--card); border: 1px solid var(--line); flex-shrink: 0; }
-#sv-shell .tl-inner { position: relative; height: 92px; }
-#sv-shell .tl-ruler { position: relative; height: 28px; border-bottom: 1px solid var(--line); touch-action: none; }
-#sv-shell .tl-tick { position: absolute; top: 14px; bottom: 0; border-left: 1px solid var(--line); font-size: 10px; color: var(--muted2); padding-left: 5px; line-height: 1; }
-#sv-shell .tl-tick.major { top: 0; border-left-color: var(--line2); }
-#sv-shell .tl-track { position: relative; height: 64px; }
-#sv-shell .tl-clip { position: absolute; top: 8px; height: 48px; border-radius: 10px; background: var(--card3); border: 1px solid var(--line2); color: var(--text); display: flex; align-items: center; overflow: hidden; touch-action: none; user-select: none; }
-#sv-shell .tl-clip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: rgb(var(--accent-rgb) / .25); }
-#sv-shell .tl-name { flex: 1; min-width: 0; padding: 0 6px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-#sv-shell .tl-handle { width: 22px; align-self: stretch; flex: none; background: rgb(var(--fg-rgb) / .08); touch-action: none; }
-#sv-shell .tl-empty { position: absolute; left: 12px; top: 22px; font-size: 12px; color: var(--muted); white-space: nowrap; }
-#sv-shell .tl-head { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--accent); pointer-events: none; }
-#sv-shell .tl-tools { align-items: center; }
 /* Çalan parça kartı */
 #sv-shell .np-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 #sv-shell .np-card.row-card { flex-direction: row; align-items: center; gap: 12px; }
@@ -480,3 +465,100 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 /* Dışa aktarım sayfasında önizleme: birleştirme tuvali ekrana sığar, katman tuvalleri saklı */
 html.sv-export-page #stage { opacity: 0; }
 html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: auto !important; height: auto !important; max-width: 100vw; max-height: 70vh; transform: translate(-50%, -50%); }
+
+/* Zaman çizelgesi (src/mobile/shell-timeline*.js): altta yerleşik panel. Sahne üstte görünür
+   kalır; gezinme, sahne kartı ve şerit açıkken gizli. "tl-tall" çizelgeyi büyütür. */
+#sv-shell.sheet-dock .nav, #sv-shell.sheet-dock .scene-card, #sv-shell.sheet-dock .scenes { display: none; }
+#sv-shell .sheet[data-size="dock"] { top: 40%; padding-bottom: calc(var(--inset-bottom) + 6px); border-radius: 22px 22px 0 0; }
+#sv-shell.tl-tall .sheet[data-size="dock"] { top: calc(var(--inset-top) + 72px); }
+#sv-shell .sheet[data-size="dock"] .grabber { margin: 6px auto 0; }
+#sv-shell .sheet[data-size="dock"] .sheet-head { padding: 4px 8px 6px 12px; gap: 4px; }
+#sv-shell .sheet[data-size="dock"] .sheet-head h2 { font-size: 17px; }
+#sv-shell .sheet[data-size="dock"] .sheet-lead { flex: 1; min-width: 0; }
+#sv-shell .sheet[data-size="dock"] .sheet-lead:not([hidden]) + .sheet-titles { display: none; }
+#sv-shell .sheet[data-size="dock"] .sheet-body { padding: 0 12px; gap: 8px; }
+#sv-shell .sheet-body.tl-dock { overflow: hidden; padding: 0; gap: 0; }
+#sv-shell .tl-bank { display: inline-flex; align-items: center; gap: 8px; height: 48px; max-width: 100%; padding: 0 10px; border-radius: 12px; font-size: 16px; font-weight: 700; color: var(--text-strong); }
+#sv-shell .tl-bank .svi { flex: none; color: var(--muted); }
+#sv-shell .tl-bank-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sv-shell .tl-transport { display: flex; align-items: center; gap: 4px; padding: 0 8px 6px; flex: none; min-width: 0; }
+#sv-shell .tl-play { background: var(--accent); color: var(--on-accent); border-radius: 999px; }
+#sv-shell .tl-clock { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 0 6px; line-height: 1.15; }
+#sv-shell .tl-time { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+#sv-shell .tl-bars { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+#sv-shell .tl-cues { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#sv-shell .tl-cues[hidden] { display: none; }
+#sv-shell .tl-go { background: var(--warn); color: var(--on-warn); border-color: transparent; padding: 0 12px; }
+#sv-shell .tl-cue { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+#sv-shell .tl-use { flex: none; padding: 0 12px; }
+#sv-shell .tl-use.on { color: var(--on-accent); background: var(--accent); border-color: transparent; }
+#sv-shell .tl-wideonly { display: none; }
+#sv-shell .tl-dock.mid .tl-wideonly { display: inline-flex; }
+#sv-shell .tl-editor { flex: 1; min-height: 120px; display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
+#sv-shell .tl-heads { flex: none; width: 64px; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--card2); overflow: hidden; }
+#sv-shell .tl-heads-ruler { flex: none; height: 36px; border-bottom: 1px solid var(--line); }
+#sv-shell .tl-heads-clip { flex: 1; overflow: hidden; position: relative; }
+#sv-shell .tl-heads-list { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+#sv-shell .tl-headrow { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; padding: 0 6px 0 10px; border-bottom: 1px solid var(--line); color: var(--text); text-align: left; overflow: hidden; }
+#sv-shell .tl-headrow.on { background: rgb(var(--accent-rgb) / .16); }
+#sv-shell .tl-headrow.muted { color: var(--muted2); }
+#sv-shell .tl-headrow.add { color: var(--muted); border-bottom: 0; }
+#sv-shell .tl-headcol { position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 0 3px 3px 0; background: var(--line2); }
+#sv-shell .tl-headrow > .svi { flex: none; width: 18px; height: 18px; color: var(--muted); }
+#sv-shell .tl-headname { display: none; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .tl-headstate { position: absolute; right: 4px; bottom: 3px; font-size: 9.5px; font-weight: 700; color: var(--accent-text); letter-spacing: .02em; }
+#sv-shell .tl-togs { display: flex; gap: 4px; flex: none; }
+#sv-shell .tl-tog { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line2); color: var(--muted); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+#sv-shell .tl-tog .svi { width: 16px; height: 16px; }
+#sv-shell .tl-tog.muted.on { background: var(--warn); color: var(--on-warn); border-color: transparent; }
+#sv-shell .tl-tog.solo.on { background: var(--solo); color: var(--on-solo); border-color: transparent; }
+#sv-shell .tl-tog.locked.on { background: var(--lock); color: var(--on-solid); border-color: transparent; }
+#sv-shell .tl-lane { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+#sv-shell .tl-canvas { position: absolute; left: 0; top: 0; touch-action: none; user-select: none; -webkit-user-select: none; display: block; }
+#sv-shell .tl-side { display: none; }
+#sv-shell .tl-toolbar { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px 4px; scrollbar-width: none; }
+#sv-shell .tl-toolbar::-webkit-scrollbar { display: none; }
+#sv-shell .tl-chip { flex: none; padding: 0 12px; border-radius: 999px; font-size: 13px; }
+#sv-shell .tl-chip.on { border-color: var(--accent); color: var(--accent-text); background: rgb(var(--accent-rgb) / .16); }
+#sv-shell .tl-count { flex: none; display: inline-flex; align-items: center; padding: 0 6px; font-size: 13px; font-weight: 700; color: var(--accent-text); white-space: nowrap; }
+#sv-shell .tl-insp-head { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; padding: 4px 2px 0; }
+#sv-shell .tl-insp-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sv-shell .tl-insp-head .svi { flex: none; color: var(--muted); }
+#sv-shell .tl-src { flex: 1; min-width: 0; justify-content: flex-start; }
+#sv-shell .tl-src-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell input.field.tl-num { max-width: 140px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; }
+#sv-shell .tl-marker-row { display: flex; align-items: center; gap: 4px; min-height: 48px; }
+#sv-shell .tl-mk-go { flex: none; padding: 0 10px; }
+#sv-shell .tl-mk-name { flex: 1; justify-content: flex-start; min-width: 0; overflow: hidden; }
+#sv-shell .tl-mode-chip { color: var(--accent-text); }
+#sv-shell .tl-mode-chip .svi { color: var(--accent2); }
+/* Genişte (tablet): başlıklarda ad + M/S/kilit, denetçi sağda */
+#sv-shell .tl-dock.wide .tl-heads { width: 236px; }
+#sv-shell .tl-dock.wide .tl-headname { display: block; }
+#sv-shell .tl-dock.wide .tl-headstate { display: none; }
+#sv-shell .tl-dock.wide .tl-side { display: flex; flex-direction: column; gap: 8px; flex: none; width: 340px; overflow-y: auto; padding: 8px 12px 12px; border-left: 1px solid var(--line); }
+#sv-shell .tl-dock.wide .tl-side > * { flex-shrink: 0; }
+/* Geniş ekranda (yatay telefon ve tablet) panel sağ panel değil, altta tam genişlik; ray gizli */
+@media (min-width: 840px), (orientation: landscape) and (min-width: 600px) {
+  #sv-shell.sheet-dock .hud { right: calc(var(--inset-right) + 12px); left: calc(var(--inset-left) + 12px); }
+  #sv-shell .sheet[data-size="dock"] { left: calc(var(--inset-left) + 12px); right: calc(var(--inset-right) + 12px); width: auto; top: 46%; bottom: calc(var(--inset-bottom) + 8px); border-radius: 22px; }
+  #sv-shell.tl-tall .sheet[data-size="dock"] { top: calc(var(--inset-top) + 12px); }
+}
+/* Yatay telefon: yükseklik az. Altta tam genişlik çizelgeye 2 şerit kalıyordu (800×360'ta
+   ölçüldü); bu yüzden yan yana: sahne solda görünür, çizelge sağda tam boy. "tl-tall" ile
+   çizelge tüm genişliği alır. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #sv-shell.sheet-dock .hud { display: none; }
+  #sv-shell .sheet[data-size="dock"] { left: 36%; top: calc(var(--inset-top) + 8px); bottom: calc(var(--inset-bottom) + 8px); }
+  #sv-shell.tl-tall .sheet[data-size="dock"] { left: calc(var(--inset-left) + 8px); top: calc(var(--inset-top) + 8px); }
+  #sv-shell .sheet[data-size="dock"] .sheet-head { padding-top: 2px; padding-bottom: 2px; }
+  #sv-shell .tl-transport { padding-bottom: 4px; }
+  #sv-shell .tl-toolbar { padding-top: 6px; }
+}
+/* Dar telefonda taşıma satırı: cue yazısı ve "Timeline kullan" adı gizli (simge kalır) */
+#sv-shell .tl-dock:not(.mid) .tl-cue, #sv-shell .tl-dock:not(.mid) .tl-use span { display: none; }
+#sv-shell .tl-dock:not(.mid) .tl-use { width: 48px; padding: 0; justify-content: center; }
+#sv-shell .tl-dock:not(.mid) .tl-go { padding: 0 10px; }
+#sv-shell .tl-clock { flex: 0 1 auto; overflow: hidden; }
+#sv-shell .tl-dock .tl-clock { flex: none; }
+#sv-shell .tl-dock:not(.wide) .tl-cue { display: none; }

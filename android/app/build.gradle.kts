@@ -92,6 +92,8 @@ val copyWebAssets = tasks.register<CopyWebAssets>("copyWebAssets") {
                 "src/mobile/**",
                 // Arayüzün yazı tipi (Geist), masaüstü paneliyle aynı dosyalar
                 "src/admin/fonts/**",
+                // Otomasyon hedef kataloğu (zaman çizelgesi): masaüstüyle aynı dosya
+                "src/admin/modulation-panel.js",
                 "assets/**",
             )
             // Paketleme ya da ölçümden kalan üretilmiş tek paketler (bundle-pages.js)

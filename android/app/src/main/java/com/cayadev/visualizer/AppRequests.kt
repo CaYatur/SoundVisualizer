@@ -210,6 +210,7 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val p = PlayerHub.service
                 reply.ok(p?.state() ?: JSONObject().put("has", false).put("playing", false).put("state", "idle"))
             }
+            "playerPosition" -> reply.ok(PlayerHub.service?.position() ?: JSONObject().put("has", false).put("playing", false).put("state", "idle"))
             "playerStats" -> reply.ok(PlayerHub.service?.stats() ?: JSONObject())
             "audioStats" -> reply.ok(JSONObject().put("delivered", AudioHub.delivered).put("dropped", AudioHub.dropped))
             // Dışa aktarım (0E6): kodlayıcı ve MP4 uygulamada, kareler sayfadan
