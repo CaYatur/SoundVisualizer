@@ -28,10 +28,13 @@ contextBridge.exposeInMainWorld('exp', {
 
 /* MilkDrop motoru dokuları `window.api` üzerinden istiyor (#586). Dışa
    aktarıcıda o köprü hiç yoktu, yani dokulu presetler videoya gürültüyle
-   çiziliyordu. Yalnız iki doku çağrısı açılıyor; gerisi bu sayfada yok. */
+   çiziliyordu. Logo kitaplığı da burada okunur: sv-logo:// sayfadan ayrı
+   köken sayılır, tuvale basılınca kare okuması "Tainted canvases" ile
+   durur. Blob adresi aynı pencerede temiz kalır. */
 contextBridge.exposeInMainWorld('api', {
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
 });
 
 /* ==== DIŞ KAYNAK KARELERİ (layer-sources.js) ====

@@ -285,6 +285,7 @@ test('köprüler: önizleme ve dışa aktarıcı da tek dokuyu isteyebiliyor', (
   assert.ok(api, 'dışa aktarıcı window.api açmalı');
   assert.match(api[1], /milkdropTextures: \(\) => ipcRenderer\.invoke\('milkdrop:textures'\)/);
   assert.match(api[1], /milkdropTexture: \(name\) => ipcRenderer\.invoke\('milkdrop:texture', name\)/);
+  assert.match(api[1], /logoLibRead: \(id\) => ipcRenderer\.invoke\('logo-lib:read', id\)/);
 
   const vis = strip(read('src/main/preload-visualizer.js'));
   assert.match(vis, /milkdropTexture: \(name\) => ipcRenderer\.invoke\('milkdrop:texture', name\)/);

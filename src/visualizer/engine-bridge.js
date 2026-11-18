@@ -20,6 +20,7 @@
 
   function decode(src) {
     const img = new Image();
+    if (/^sv-logo:/i.test(String(src || ''))) img.crossOrigin = 'anonymous';
     img.src = src;
     return img.decode().then(() => createImageBitmap(img));
   }
