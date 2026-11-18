@@ -1950,52 +1950,120 @@ async function timelineCmd() {
     await D.sleep(500);
     out.recorded = await ev("(() => { const t = window.SVAndroid.config.get().timeline.tracks.find((x) => x.id === 'trk_learn'); return t ? t.keys.length : 0; })()");
     await ev(`(() => { const C = window.SVShellTimeline._core; const t = C.trackById('trk_learn'); if (C.isRecording(t)) C.toggleRecord(t); window.SVAndroid.config.patch({ master: ${typeof m0 === 'number' ? m0 : 1} }); return 1; })()`);
-    // Çizelgeyle dışa aktarma (m4a şarkı)
-    await ev("window.SVShellTimeline.unlinkOutput(); window.SVShell.close(); 1");
+    // Uygulama içi çalar: şarkı yüklenince taşıma ona bağlı (oynat, çalar tarafından duraklat, döngüde başa sar)
+    await ev('window.SVAndroid.player.pick().catch(() => {}); 1');
+    out.playerPicked = await pickInDocumentsUi('sv-test-song.mp3');
+    for (let i = 0; i < 20 && !(await ev('!!(window.SVAndroid.player.state() || {}).has')); i++) await D.sleep(300);
+    await D.sleep(800);
+    await ev("(() => { const C = window.SVShellTimeline._core; C.model().loop = { enabled: false, start: 0, end: 0 }; C.commit(); window.SVShellTimeline._seek(0); return 1; })()");
     await D.sleep(500);
-    await ev("document.querySelector('#sv-shell .scene-card [aria-label=\"Dışa Aktar\"], #sv-shell .scene-card [aria-label=\"Export\"]').click(); 1");
-    await D.sleep(900);
-    await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose|Değiştir|Change/.test(b.textContent)).click(); 1");
-    out.songPicked = await pickInDocumentsUi('sv-test-song.m4a');
-    await D.sleep(1500);
-    out.toggle = await ev("(() => { const t = Array.from(document.querySelectorAll('#sv-shell .sheet-body button[role=switch]')).find((b) => /Zaman çizelgesiyle|With the timeline/.test(b.getAttribute('aria-label') || '')); if (!t) return false; if (t.getAttribute('aria-checked') !== 'true') t.click(); return true; })()");
-    await ev("document.querySelector('#sv-shell .sheet-foot .btn').click(); 1");
-    let ex = null;
-    for (let i = 0; i < 400; i++) {
-      await D.sleep(1000);
-      try { ex = await ev("window.SVExport ? Object.assign(window.SVExport.state(), { title: (document.querySelector('#sv-shell .export-card h2') || {}).textContent }) : null"); } catch (e) { ex = null; }
-      if (ex && (/Galeriye kaydedildi|Saved to the gallery/.test(ex.title || '') || ex.error)) break;
-    }
-    out.export = ex && { title: ex.title, error: ex.error, frames: ex.result && ex.result.frames };
-    const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration']);
-    const row = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
-    const mp4 = (/_display_name=([^,]+\.mp4)/.exec(row) || [])[1];
-    if (mp4) {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-tl-'));
-      const local = path.join(dir, 'tl.mp4');
-      D.adb(['pull', '/sdcard/Movies/SoundVisualizer/' + mp4, local], { timeout: 60000 });
-      const mean = (sec) => {
-        const raw = execFileSync(FF, ['-v', 'error', '-ss', String(sec), '-i', local, '-frames:v', '1', '-vf', 'scale=32:18', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 20 });
-        let r0 = 0, g0 = 0, b0 = 0;
-        for (let i = 0; i < raw.length; i += 3) { r0 += raw[i]; g0 += raw[i + 1]; b0 += raw[i + 2]; }
-        const n = raw.length / 3;
-        return [Math.round(r0 / n), Math.round(g0 / n), Math.round(b0 / n)];
-      };
-      out.frameA = mean(2);
-      out.frameB = mean(cb.start + 1.5);
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-    try { await ev("Array.from(document.querySelectorAll('#sv-shell .export-card .btn')).find((b) => /Bitti|Done/.test(b.textContent)).click(); 1"); } catch (e) { /* yok */ }
-    let back = false;
-    for (let i = 0; i < 30 && !back; i++) { await D.sleep(500); try { back = await ev("!!(window.SVShell && (window.__SV_ANDROID || {}).page === 'src/visualizer/index.html')"); } catch (e) { back = false; } }
+    await ev("document.querySelector('#sv-shell .tl-play').click(); 1");
+    await D.sleep(3500); // çizelge önce şarkının başlamasını bekler
+    // Şarkının konumu yanıttaki okunma anından (at) kafanın okunduğu ana getirilir (yanıt geç gelebiliyor)
+    out.sync = await ev("window.__svHost.request('playerState').then((p) => { const s = window.SVShellTimeline._state(); return { head: s.head, playing: s.playing, engine: window.SVShowDebug.time, player: ((p.position || 0) + (p.playing && p.at ? Date.now() - p.at : 0)) / 1000, pPlaying: p.playing }; })");
+    await ev('window.SVAndroid.player.pause(); 1');
+    await D.sleep(1000);
+    out.extPause = await ev('window.SVShellTimeline._state().playing');
+    /* Döngü denetimi Timeline kullan KAPALIYKEN: açıkken SwiftShader'da her sahne klibi başlarken sayfa
+       1,5–3 sn donuyor (motor işi; o sırada hiçbir tık çalışmıyor, şarkı döngü sonunu aşıyor). Bu çizelge
+       mantığını değil motorun emülatördeki başarımını ölçer (Faz 6); kip dışa aktarmadan önce geri açılır. */
+    out.modeForLoop = await ev('(() => { window.SVShellTimeline._core.unlinkOutput(); return window.SVShellTimeline._state().mode; })()');
+    await ev("(() => { const C = window.SVShellTimeline._core; C.model().loop = { enabled: true, start: 0, end: 2 }; C.commit(); window.SVShellTimeline._seek(0); return 1; })()");
+    await D.sleep(500);
+    await ev("document.querySelector('#sv-shell .tl-play').click(); 1");
+    await D.sleep(2500);
+    // Tek an yerine 10 örnek (emülatör ~1 sn takılabiliyor): şarkı sarmalı, döngü sonunu çok aşmamalı, kafayla birlikte olmalı
+    out.loopSync = await ev(`(async () => {
+      const r = [];
+      for (let i = 0; i < 10; i++) {
+        const p = await window.__svHost.request('playerState');
+        const s = window.SVShellTimeline._state();
+        const pos = ((p.position || 0) + (p.playing && p.at ? Date.now() - p.at : 0)) / 1000;
+        r.push({ head: +s.head.toFixed(3), wait: !!s.waiting, player: +pos.toFixed(3), raw: (p.position || 0) / 1000 });
+        await new Promise((ok) => setTimeout(ok, 400));
+      }
+      return r;
+    })()`);
+    await ev("(() => { const b = document.querySelector('#sv-shell .tl-play'); if (window.SVShellTimeline._state().playing && b) b.click(); const C = window.SVShellTimeline._core; C.model().loop = { enabled: false, start: 0, end: 0 }; C.commit(); return 1; })()");
+    await D.sleep(500);
+    await ev('window.SVShellTimeline._core.linkOutput(); 1');
+    await D.sleep(500);
+    out.modeBeforeExport = (await st()).mode;
+    // Dışa aktarma "Timeline kullan" AÇIKKEN (klip eklemek kipi kendiliğinden açar): düğme açık → çizelge, kapalı → elle sahne
+    const exportOnce = async (withTl) => {
+      await ev('window.SVShell.close(); 1');
+      await D.sleep(500);
+      await ev("document.querySelector('#sv-shell .scene-card [aria-label=\"Dışa Aktar\"], #sv-shell .scene-card [aria-label=\"Export\"]').click(); 1");
+      await D.sleep(900);
+      await ev("Array.from(document.querySelectorAll('#sv-shell .sheet-body .btn')).find((b) => /Seç|Choose|Değiştir|Change/.test(b.textContent)).click(); 1");
+      const picked = await pickInDocumentsUi('sv-test-song.m4a');
+      await D.sleep(1500);
+      const toggle = await ev(`(() => { const t = Array.from(document.querySelectorAll('#sv-shell .sheet-body button[role=switch]')).find((b) => /Zaman çizelgesiyle|With the timeline/.test(b.getAttribute('aria-label') || '')); if (!t) return false; if ((t.getAttribute('aria-checked') === 'true') !== ${withTl}) t.click(); return true; })()`);
+      await ev("document.querySelector('#sv-shell .sheet-foot .btn').click(); 1");
+      let ex = null;
+      for (let i = 0; i < 400; i++) {
+        await D.sleep(1000);
+        try { ex = await ev("window.SVExport ? Object.assign(window.SVExport.state(), { title: (document.querySelector('#sv-shell .export-card h2') || {}).textContent, msg: (document.querySelector('#sv-shell .export-card .hint') || {}).textContent }) : null"); } catch (e) { ex = null; }
+        // Kaydedildi ya da kaydedilemedi/dışa aktarılamadı: beklemeye gerek yok
+        if (ex && (/Galeriye kaydedildi|Saved to the gallery|Kaydedilemedi|Could not save|Dışa aktarılamadı|Could not export/.test(ex.title || '') || ex.error)) break;
+      }
+      const saved = !!(ex && /Galeriye kaydedildi|Saved to the gallery/.test(ex.title || ''));
+      const r = { picked, toggle, saved, export: ex && { title: ex.title, msg: ex.msg, error: ex.error, frames: ex.result && ex.result.frames } };
+      const q = D.adb(['shell', 'content', 'query', '--uri', 'content://media/external/video/media', '--projection', '_display_name:relative_path:duration:date_added', '--sort', 'date_added']);
+      const row = q.split(/\r?\n/).filter((l) => /SoundVisualizer/.test(l)).slice(-1)[0] || '';
+      const mp4 = (/_display_name=([^,]+\.mp4)/.exec(row) || [])[1];
+      // Yalnız bu işin kaydettiği dosya ölçülür (kaydedilemediyse galerideki eski dosya değil)
+      if (saved && mp4) {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-tl-'));
+        const local = path.join(dir, 'tl.mp4');
+        D.adb(['pull', '/sdcard/Movies/SoundVisualizer/' + mp4, local], { timeout: 60000 });
+        const mean = (sec) => {
+          const raw = execFileSync(FF, ['-v', 'error', '-ss', String(sec), '-i', local, '-frames:v', '1', '-vf', 'scale=32:18', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 20 });
+          let r0 = 0, g0 = 0, b0 = 0;
+          for (let i = 0; i < raw.length; i += 3) { r0 += raw[i]; g0 += raw[i + 1]; b0 += raw[i + 2]; }
+          const n = raw.length / 3;
+          return [Math.round(r0 / n), Math.round(g0 / n), Math.round(b0 / n)];
+        };
+        r.file = mp4;
+        r.frameA = mean(2);
+        r.frameB = mean(cb.start + 1.5);
+        r.diff = Math.abs(r.frameA[0] - r.frameB[0]) + Math.abs(r.frameA[1] - r.frameB[1]) + Math.abs(r.frameA[2] - r.frameB[2]);
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+      try { await ev("Array.from(document.querySelectorAll('#sv-shell .export-card .btn')).find((b) => /Bitti|Done|Sahneye dön|Back to the scene/.test(b.textContent)).click(); 1"); } catch (e) { /* yok */ }
+      let back = false;
+      for (let i = 0; i < 30 && !back; i++) { await D.sleep(500); try { back = await ev("!!(window.SVShell && (window.__SV_ANDROID || {}).page === 'src/visualizer/index.html')"); } catch (e) { back = false; } }
+      for (let i = 0; i < 30 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)').catch(() => false)); i++) await D.sleep(300);
+      await D.sleep(800);
+      return r;
+    };
+    out.exportTl = await exportOnce(true);
+    out.exportManual = await exportOnce(false);
     out.logs = page.logs.filter((l) => /exception/i.test(l)).slice(0, 5);
+  } catch (e) {
+    // Yarım sonuçlar ve sayfanın nerede olduğu yazılsın (hangi adımda düştüğü görünsün)
+    out.error = String((e && e.message) || e);
+    try { out.where = await ev("location.href + ' ' + ((window.__SV_ANDROID || {}).page || '') + ' shell=' + !!window.SVShell"); } catch (e2) { out.where = 'yok'; }
+    out.logs = page.logs.slice(-12);
   } finally {
     try { if (keep) await ev(`(() => { const k = ${keep}; window.SVAndroid.config.patch({ scenes: k.scenes, timeline: k.timeline || undefined, _activeSceneId: null }); return 1; })()`); } catch (e) { /* sayfa gitti */ }
     page.close();
   }
-  const diff = out.frameA && out.frameB ? Math.abs(out.frameA[0] - out.frameB[0]) + Math.abs(out.frameA[1] - out.frameB[1]) + Math.abs(out.frameA[2] - out.frameB[2]) : 0;
-  out.diff = diff;
   console.log(JSON.stringify(out, null, 1));
+  const near = (a, b, d) => Math.abs(a - b) <= d;
+  /* Döngü 0–2 sn: şarkı geri sarmış olmalı; döngü dışında kalmamalı (sayfa ~1 sn takılırken sonu biraz
+     aşabilir: en çok 3,1 sn, art arda iki örnekte dışarıda değil); kafa döngüde kalmalı; 10 örneğin en
+     az 7'sinde kafa ile şarkı (döngüde) 0,5 sn içinde */
+  const loopOk = (r) => {
+    if (!Array.isArray(r) || r.length < 10) return false;
+    const wrapped = r.some((x, i) => i > 0 && x.raw < r[i - 1].raw - 1);
+    const agree = r.filter((x) => { const d = Math.abs(x.head - x.player) % 2; return Math.min(d, 2 - d) <= 0.5; }).length;
+    const stayedOut = r.some((x, i) => i > 0 && x.raw > 2.1 && r[i - 1].raw > 2.1);
+    return wrapped && !stayedOut && Math.max(...r.map((x) => x.raw)) < 3.1 && r.every((x) => x.head < 2.05) && agree >= 7;
+  };
+  const lit = (f) => !!f && f[0] + f[1] + f[2] > 15;
+  const eT = out.exportTl || {};
+  const eM = out.exportManual || {};
   const even = (v) => Math.abs(v / 2 - Math.round(v / 2)) < 1e-6;
   const has = (a, id) => !!(a && Array.isArray(a.composed) && a.composed.indexOf(id) >= 0);
   const checks = {
@@ -2012,7 +2080,13 @@ async function timelineCmd() {
     markers: out.go && out.marks && out.marks.markers === 1 && out.marks.hold && out.marks.tempo === 2 && out.marks.loop && out.lyricMarks === 'Bir,İki,Üç',
     learn: out.learnClosed && out.learn && out.learn.target === 'master' && out.learn.sheet,
     record: out.recorded >= 3,
-    export: out.songPicked && out.toggle && out.export && !out.export.error && out.frameA && diff > 30,
+    // Çalar: taşıma, motorun saati ve şarkının konumu birlikte (emülatörde ses yük altında gerçek zamanın %64–110u akıyor: 0,5 sn pay); çalar durunca çizelge durur; döngü şarkıyı da sarar
+    player: out.playerPicked && out.sync && out.sync.playing && out.sync.pPlaying && out.sync.head > 1.5 && near(out.sync.head, out.sync.player, 0.5) && out.sync.engine > 1 && out.sync.engine <= out.sync.head + 0.1,
+    extPause: out.extPause === false,
+    loopSync: out.modeForLoop === false && loopOk(out.loopSync),
+    // Kip açıkken dışa aktarma: düğme açık → iki an farklı sahne; kapalı → elle sahne (siyah değil, sahne değişmiyor)
+    exportTl: out.modeBeforeExport === true && eT.picked && eT.toggle && eT.saved && eT.export && !eT.export.error && lit(eT.frameA) && eT.diff > 30,
+    exportManual: eM.picked && eM.toggle && eM.saved && eM.export && !eM.export.error && lit(eM.frameA) && lit(eM.frameB) && !!eT.frameB && (Math.abs(eM.frameB[0] - eT.frameB[0]) + Math.abs(eM.frameB[1] - eT.frameB[1]) + Math.abs(eM.frameB[2] - eT.frameB[2])) > 30,
     logs: !out.logs.length,
   };
   console.log('checks', JSON.stringify(checks));

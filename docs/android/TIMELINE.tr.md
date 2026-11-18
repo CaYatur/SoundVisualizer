@@ -14,8 +14,10 @@ denetçi, bağlam menüsü, "Döngü, işaretler ve cetvel" bölümü). Veri ve 
 Canlı çıkış masaüstündeki gibi: "Timeline kullan" açıkken motor oynatma kafasındaki bileşimi
 her karede kendisi çizer (geçişler, opaklık, solma, otomasyon, video klipleri dahil); kapalıyken
 çizelge elle ayara dokunmaz. Kafa motora masaüstünün panelindeki gibi bir çıpayla gider
-(`SVAndroid.showClock`). Telefona özel tek ek: uygulama içi çalarda şarkı varsa taşıma ona bağlıdır
-(oynat/duraklat/konum birlikte; döngü sarınca şarkı da sarar, cue'da şarkı da durur).
+(`SVAndroid.showClock`). Telefona özel tek ek: uygulama içi çalarda şarkı varsa saat şarkıdır
+(oynat/duraklat/konum birlikte; döngü sarınca şarkı da sarar, cue'da şarkı da durur). Oynat, atlama ve
+döngü sarmasından sonra ve şarkı arabelleğe alırken kafa şarkıyı bekler; çalarken saniyede iki kez
+şarkının taze konumuna göre düzeltilir.
 
 Durum: ✅ var · ◐ farklı biçimde var (açıklamalı) · ✗ yok (gerekçeli)
 
@@ -78,6 +80,12 @@ gibi ızgaraya oturur); işaret bayrağı, ♩ etiketi ve döngü kenarı seçil
 `node android/tools/probe.js timeline` (gerçek dokunuş): seç, ölçüye hizalı sürükle, dikeyde
 parça değiştir, sağ kenardan kırp, geri al, iki parmakla yakınlaştır, uzun basınca menü, Timeline
 kullan açılınca motorun bileşimi (SVShowDebug.time/composed), oynatma, çift dokunuşla denetçi,
-işaret/cue/tempo/döngü/sözlerden işaret, otomasyon öğren ve kaydet, çizelgeyle dışa aktarma (iki
-anın karesi belirgin farklı). Düzenler emülatörde dikey (1080×2400), gerçek yatay döndürme ve
+işaret/cue/tempo/döngü/sözlerden işaret, otomasyon öğren ve kaydet; uygulama içi çalarda şarkıyla
+taşıma (kafa ile şarkının konumu birlikte, çalar duraklatınca çizelge durur, döngü şarkıyı da sarar);
+Timeline kullan açıkken dışa aktarma: "Zaman çizelgesiyle" açık (iki anın karesi belirgin farklı) ve
+kapalı (elle sahne, siyah değil). SwiftShader emülatöründe kafa ile şarkı ~0,2 sn içinde; yük altında,
+sesin kendisi düzensiz akarken (gerçek zamanın %64–110'u ölçüldü) ±0,4 sn. Döngü denetimi Timeline
+kullan kapalıyken koşar. Açıkken emülatörde her sahne klibi başlarken sayfa 1,5–3 sn donuyor (motor
+işi). Donma sırasında tık çalışmadığı için şarkı döngü sonunu aşıyor; sayfa çalışınca çizelge onu geri
+alıyor. Kesinlik de bu donmalar da gerçek telefonda Faz 6'da ölçülecek. Düzenler emülatörde dikey (1080×2400), gerçek yatay döndürme ve
 `wm size 2560x1600` tablet boyutunda görüntülendi.

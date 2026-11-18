@@ -14,8 +14,10 @@ Live output works as on the desktop: while "Use timeline" is on, the engine draw
 the playhead on every frame (transitions, opacity, fades, automation and video clips included); while
 it is off, the timeline does not touch the manual settings. The playhead reaches the engine through
 the same kind of anchor the desktop panel sends (`SVAndroid.showClock`). The one phone-only addition:
-when the in-app player has a song, the transport follows it (play/pause/position together; the song
-wraps with the loop and stops at a cue).
+when the in-app player has a song, the song is the clock (play/pause/position together; the song wraps
+with the loop and stops at a cue). After play, a jump or a loop wrap, and while the song buffers, the
+playhead waits for the song; while it plays, the playhead is corrected to the song's fresh position
+twice a second.
 
 Status: ✅ available · ◐ available in a different form (explained) · ✗ missing (with the reason)
 
@@ -78,6 +80,13 @@ as on the desktop); a selected marker flag, ♩ tag or loop edge can be dragged.
 `node android/tools/probe.js timeline` (real touches): select, drag snapped to the bar, change track
 vertically, trim from the right edge, undo, pinch zoom, context menu on long press, the engine's
 composition with Use timeline on (SVShowDebug.time/composed), playback, inspector on double tap,
-marker/cue/tempo/loop/markers from lyrics, automation learn and record, export with the timeline
-(frames at two moments clearly differ). The layouts were viewed on the emulator in portrait
+marker/cue/tempo/loop/markers from lyrics, automation learn and record; the transport following a song in
+the in-app player (playhead and song position together, pausing the player stops the timeline, the loop
+wraps the song too); export while Use timeline is on, with "With the timeline" on (frames at two moments
+clearly differ) and off (the manual scene, not black). On the SwiftShader emulator playhead and song agree within
+~0.2 s, and within ±0.4 s under load, when the audio itself runs unevenly (64–110% of real time measured).
+The loop check runs with Use timeline off. With it on, the page freezes for 1.5–3 s on the emulator
+whenever a scene clip starts (engine work). No tick runs during the freeze, so the song passes the loop
+end; the timeline brings it back once the page runs again. Both the precision and those freezes are
+measured on a real phone in Phase 6. The layouts were viewed on the emulator in portrait
 (1080×2400), real landscape rotation and a `wm size 2560x1600` tablet size.

@@ -187,20 +187,24 @@ class PlayerService : MediaSessionService() {
         emit()
     }
 
+    /** Yalnız çalma durumu ve konum (sık sorulur: kapak resmi gibi büyük alanlar yok). */
+    fun position(): JSONObject = JSONObject()
+        .put("has", player.currentMediaItem != null)
+        .put("playing", player.isPlaying)
+        .put("state", when (player.playbackState) {
+            Player.STATE_BUFFERING -> "buffering"
+            Player.STATE_READY -> "ready"
+            Player.STATE_ENDED -> "ended"
+            else -> "idle"
+        })
+        .put("position", player.currentPosition)
+        .put("at", System.currentTimeMillis()) // konumun okunduğu an (olay sayfaya geç ulaşırsa aradaki süre eklenir)
+
     fun state(): JSONObject {
         val m = player.mediaMetadata
         val title = m.title?.toString().orEmpty().ifEmpty { m.displayTitle?.toString().orEmpty() }.ifEmpty { name }
         val duration = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
-        return JSONObject()
-            .put("has", player.currentMediaItem != null)
-            .put("playing", player.isPlaying)
-            .put("state", when (player.playbackState) {
-                Player.STATE_BUFFERING -> "buffering"
-                Player.STATE_READY -> "ready"
-                Player.STATE_ENDED -> "ended"
-                else -> "idle"
-            })
-            .put("position", player.currentPosition)
+        return position()
             .put("duration", duration)
             .put("title", title)
             .put("artist", m.artist?.toString().orEmpty())

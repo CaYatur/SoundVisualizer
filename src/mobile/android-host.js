@@ -604,6 +604,8 @@
       stop: () => request('playerStop'),
       seek: (ms) => request('playerSeek', { ms }),
       state: () => player,
+      // Taze durum (önbellekteki `state()` yalnız olayla değişir; sürekli çalarken olay gelmez)
+      refresh: () => request('playerPosition'),
       onState: (cb) => ev.player.add(cb),
     }),
     /* WebGL bağlam bütçesi: sayfa başına en çok GL_LIMIT etkin bağlam. */

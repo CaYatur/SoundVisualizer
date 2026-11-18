@@ -135,41 +135,107 @@
   let pState = null;
   let pAt = 0;
   function playerPos() { return pState ? (pState.position + (pState.playing ? performance.now() - pAt : 0)) / 1000 : 0; }
-  function play() {
+  /* Şarkı varsa saat şarkıdır. Oynat, elle konum değişimi, döngü sarması ve arabellek sırasında
+     çizelge şarkıyı bekler (çıpa durur, görüntü sesin önüne geçmez); şarkı "çalıyor" deyince
+     şarkının konumundan sürer. Emülatörde ölçüldü: atlamadan sonra çalar ancak ~0,3–0,5 sn sonra
+     yeniden çalıyordu; beklemeyen çizelge öne geçip sonra geri sıçrıyordu. Şarkı bitmişse ya da kalktıysa
+     çizelge kendi saatiyle sürer; 6 sn içinde hiç başlamazsa (dışarıdan durduruldu) duraklar. */
+  let songWait = null; // { since, at, after }: beklemenin başladığı an, beklenen konum (sn), kabul sınırı
+  let seekGen = 0; // her atlamada artar (atlamadan önce sorulan taze durum yok sayılır)
+  const isPlaying = (t) => !!(t.playing || songWait);
+  /* `seekP`: çalara giden atlama isteği. Yanıtındaki `at` (atlamanın yapıldığı an) kabul sınırı
+     olur: ondan önce okunmuş durum eski konumu taşır, sayılmaz. Yanıt gelene dek hiçbiri sayılmaz;
+     atlamasız beklemede (arabellek) sınır şimdiki an. */
+  function waitSong(at, seekP) {
     const t = ensureTransport();
+    t.time = Math.max(0, at);
+    t.pause();
+    reanchor();
+    const g = ++seekGen;
+    songWait = { since: performance.now(), at: t.time, after: seekP ? Infinity : Date.now() };
+    if (seekP) {
+      const done = (v) => { if (songWait && seekGen === g) songWait.after = Number(v && v.at) || Date.now(); };
+      seekP.then(done, () => done(null));
+    }
+    tickLast = null;
+    refreshAt = performance.now() + 250;
+  }
+  const seekSong = (sec) => A().player.seek(Math.round(Math.max(0, sec) * 1000));
+  /* Döngü açıkken şarkı döngünün dışındaysa (sarma atlaması geç kaldı ya da kayboldu: emülatörde
+     şarkı döngü sonunu 1,4 sn aştı, kayma düzeltmesi çizelgeyi de oraya çekti) çizelge oraya
+     çekilmez; şarkı gösteri saatinin sarmasıyla (showclock.wrap) döngünün içine atlatılır ve
+     çizelge onu bekler. Döner: atlatıldı mı. */
+  function keepSongInLoop(pos) {
+    const lp = ensureTransport().tl.loop;
+    if (!SC() || !SC().wrap || !lp || !lp.enabled || !(lp.end > lp.start)) return false;
+    const w = SC().wrap(pos, lp);
+    if (Math.abs(w - pos) < 1e-6) return false;
+    waitSong(w, seekSong(w));
+    return true;
+  }
+  function resume(at) {
+    if (hasSong() && keepSongInLoop(at)) return;
+    const t = ensureTransport();
+    songWait = null;
+    refreshAt = performance.now() + 250; // "çalıyor" olayındaki konum geride kalabiliyor: ilk taze konum erken
+    t.time = Math.max(0, at);
     t.rate = 1;
     t.play();
     reanchor();
-    if (hasSong()) { A().player.seek(Math.round(t.time * 1000)).catch(() => {}); A().player.play().catch(() => {}); }
+    tickLast = null;
+    ui.transport();
+  }
+  function play() {
+    const t = syncTransportFromAnchor();
+    if (hasSong()) {
+      waitSong(t.time, seekSong(t.time));
+      A().player.play().catch(() => {});
+    } else {
+      t.rate = 1;
+      t.play();
+      reanchor();
+    }
     tick();
     ui.transport();
   }
   function pause() {
+    const waited = !!songWait;
+    songWait = null;
     syncTransportFromAnchor();
     ensureTransport().pause();
     reanchor();
     flushRecord();
     const p = player();
-    if (p && p.has && p.playing) A().player.pause().catch(() => {});
+    // Beklerken çalara "oynat" gitmişti: henüz "çalıyor" demese de durdurulur
+    if (p && p.has && (p.playing || waited)) A().player.pause().catch(() => {});
     ui.transport();
   }
   function stop() {
+    const waited = !!songWait;
+    songWait = null;
     syncTransportFromAnchor();
     ensureTransport().stop();
     reanchor();
     flushRecord();
     const p = player();
-    if (p && p.has) { if (p.playing) A().player.pause().catch(() => {}); A().player.seek(0).catch(() => {}); }
+    if (p && p.has) { if (p.playing || waited) A().player.pause().catch(() => {}); seekGen++; seekSong(0).catch(() => {}); }
     ui.transport();
   }
   function seek(t) {
-    syncTransportFromAnchor();
-    ensureTransport().seek(Math.max(0, t));
-    reanchor();
-    if (hasSong()) A().player.seek(Math.round(ensureTransport().time * 1000)).catch(() => {});
+    const tr0 = syncTransportFromAnchor();
+    const to = Math.max(0, t);
+    tickLast = null; // elle konum değişimi döngü sarması sayılmasın
+    if (hasSong() && isPlaying(tr0)) {
+      // Çalarken: şarkı yeni konuma atlar, çizelge orada şarkıyı bekler
+      waitSong(to, seekSong(to));
+    } else {
+      ensureTransport().seek(to);
+      reanchor();
+      if (hasSong()) { seekGen++; seekSong(to).catch(() => {}); }
+    }
     ui.transport();
   }
-  function togglePlay() { if (syncTransportFromAnchor().playing) pause(); else play(); }
+  function togglePlay() { if (isPlaying(syncTransportFromAnchor())) pause(); else play(); }
   function nextCue() {
     const t = ensureTransport();
     const list = t.tl.markers || [];
@@ -179,7 +245,7 @@
   // GO: bekleyen cue'dan sürer; oynarken sıradaki işarete atlar
   function go() {
     const t = syncTransportFromAnchor();
-    if (!t.playing) { play(); return; }
+    if (!isPlaying(t)) { play(); return; }
     const m = TL().markerStep(t.tl.markers, t.time, 1);
     if (m) seek(m.t);
   }
@@ -192,10 +258,18 @@
   /* Arka plan tıkı: sayfa kapalıyken de gösteri sürer. Cue'da durur, döngü sarınca şarkı
      da sarar, şarkıyla kayma 80 ms'yi geçerse çıpa şarkıya çekilir. */
   let tickTimer = 0;
+  let tickLast = null; // önceki tıkın saati (döngü sarmasını görmek için)
   function tick() {
     if (tickTimer) return;
+    tickLast = null;
     tickTimer = setInterval(() => {
       const t = syncTransportFromAnchor();
+      if (songWait) {
+        if (!hasSong()) resume(songWait.at); // şarkı kalktı: çizelge kendi saatiyle
+        else if (performance.now() - songWait.since > 6000) pause(); // çalar başlamadı: çizelge de çalar da durur
+        else pollPlayer(); // "çalıyor" olayı kaçabiliyor (emülatörde ölçüldü): taze durumla da görülür
+        return;
+      }
       if (!t.playing) { clearInterval(tickTimer); tickTimer = 0; flushRecord(); ui.transport(); return; }
       if (recording.size) recordTick(t.time);
       if (anchor && anchor.hold != null && t.time >= anchor.hold - 1e-6) {
@@ -207,27 +281,65 @@
         ui.transport();
         return;
       }
-      if (hasSong() && pState && pState.playing) {
-        const lp = t.tl.loop;
-        const pos = playerPos();
-        if (lp && lp.enabled && lp.end > lp.start && pos >= lp.end - 0.02) {
-          A().player.seek(Math.round(lp.start * 1000)).catch(() => {});
-          pAt = performance.now();
-          pState = Object.assign({}, pState, { position: lp.start * 1000 });
-        } else if (Math.abs(pos - t.time) > 0.08) {
-          t.time = pos;
-          reanchor(true);
+      if (hasSong()) {
+        /* Döngü sarması çizelgenin kendi saatinden (çıpa döngüyü sarar): saat geri döndüyse şarkı
+           da oraya atlar ve çizelge onu bekler. Çaların önbellekteki durumuna bağlı değil (olaylar
+           geç gelebiliyor). */
+        if (tickLast != null && t.time + 0.05 < tickLast) {
+          waitSong(t.time, seekSong(t.time));
+          return;
         }
+        if (pState && pState.playing) {
+          // Şarkıyla kayma 80 ms'yi geçerse çıpa şarkıya çekilir (şarkının saati asıl)
+          const pos = playerPos();
+          if (keepSongInLoop(pos)) return;
+          if (Math.abs(pos - t.time) > 0.08) { t.time = pos; reanchor(true); }
+        }
+        pollPlayer();
       }
+      tickLast = t.time;
     }, 100);
   }
+  /* Sürekli çalarken çalar olay göndermez; kayma (yüklü cihazda ses saati duvar saatinden
+     ayrılabilir) ancak taze konumla görülür: çalarken yarım saniyede, beklerken çeyrek saniyede
+     bir sorulur. Bu arada atlandıysa gelen yanıt eskidir, yok sayılır. */
+  let refreshing = false;
+  let refreshAt = 0;
+  function pollPlayer() {
+    if (!A().player.refresh || refreshing || performance.now() < refreshAt) return;
+    refreshing = true;
+    const g = seekGen;
+    A().player.refresh().then((v) => { refreshing = false; if (g === seekGen) onPlayer(v); }, () => { refreshing = false; });
+  }
+  /* Çaların olayları. Çalar `state` dizgisi gönderir ('buffering', 'ready', 'ended', 'idle').
+     Beklerken: atlamadan sonra okunmuş "çalıyor" durumu gelince şarkının konumundan sürülür (eski
+     konumla gelen olay ve oynat komutundan önceki "hazır, çalmıyor" ara durumu sayılmaz). Çalarken:
+     arabelleğe alırsa çizelge bekler; dışarıdan durursa (bildirim, kulaklık, şarkı bitti) çizelge
+     de durur. */
   function onPlayer(v) {
-    pState = v;
+    if (!v) { pState = null; return; }
+    /* Olaydaki konum, çaların onu okuduğu andaki (`at`). Olay sayfaya geç ulaşırsa (emülatörde
+       sayfa meşgulken ~0,9 sn'ye kadar ölçüldü) çalarken aradaki süre eklenir. */
+    const lag = v.playing && v.at ? Math.max(0, Math.min(2000, Date.now() - Number(v.at))) : 0;
+    const pos = ((Number(v.position) || 0) + lag) / 1000;
+    pState = Object.assign({}, v, { position: pos * 1000 });
     pAt = performance.now();
-    if (!v || !v.has) return;
-    // Şarkı dışarıdan durdurulursa (bildirim, kulaklık) çizelge de durur
+    refreshAt = pAt + (songWait ? 250 : 500);
+    if (!v.has) return;
+    if (songWait) {
+      if ((Number(v.at) || 0) < songWait.after) return;
+      if (v.playing) resume(pos);
+      else if (v.state === 'ended' || v.state === 'idle') resume(songWait.at); // şarkının sonundan ötesi: çizelge kendi saatiyle
+      return;
+    }
     const t = syncTransportFromAnchor();
-    if (t.playing && !v.playing && !v.buffering) { t.time = v.position / 1000; t.pause(); reanchor(); ui.transport(); }
+    if (!t.playing || v.playing) return;
+    if (v.state === 'buffering') { waitSong(pos); ui.transport(); return; }
+    t.time = pos;
+    t.pause();
+    reanchor();
+    flushRecord();
+    ui.transport();
   }
 
   // "Timeline kullan" (masaüstü: linkOutput / unlinkOutput)
@@ -242,8 +354,7 @@
     if (S.refreshChrome) S.refreshChrome();
   }
   function unlinkOutput() {
-    syncTransportFromAnchor();
-    ensureTransport().pause();
+    pause(); // şarkı da durur (yalnız taşıma durursa şarkı çalmaya devam ediyordu)
     writeTl((x) => { x.useTimeline = false; x.enabled = false; });
     reanchor(true);
     ui.transport();
@@ -966,8 +1077,8 @@
     const refs = ui.refs;
     if (!refs) return;
     const t = syncTransportFromAnchor();
-    refs.play.replaceChildren(icon(t.playing ? 'pause' : 'play'));
-    refs.play.setAttribute('aria-label', tr(t.playing ? 'Duraklat' : 'Oynat'));
+    refs.play.replaceChildren(icon(isPlaying(t) ? 'pause' : 'play'));
+    refs.play.setAttribute('aria-label', tr(isPlaying(t) ? 'Duraklat' : 'Oynat'));
     const on = modeOn();
     refs.useBtn.classList.toggle('on', on);
     refs.useBtn.setAttribute('aria-checked', String(on));
@@ -1234,7 +1345,7 @@
     modeOn,
     unlinkOutput,
     /** Probe ve sınama */
-    _state: () => { const t = syncTransportFromAnchor(); return { head: t.time, playing: t.playing, sel: selection, multi: multi.slice(), pick: pickMode, mode: modeOn(), anchor, wide: !!(ui.refs && ui.refs.wide) }; },
+    _state: () => { const t = syncTransportFromAnchor(); return { head: t.time, playing: isPlaying(t), waiting: !!songWait, wait: songWait && { at: songWait.at, after: isFinite(songWait.after) ? songWait.after : null, ms: Math.round(performance.now() - songWait.since) }, refreshing, gen: seekGen, sel: selection, multi: multi.slice(), pick: pickMode, mode: modeOn(), anchor, wide: !!(ui.refs && ui.refs.wide) }; },
     _seek: (t) => seek(t),
     _layout: () => (ui.lane ? ui.lane.layout() : null),
     _core: core,
