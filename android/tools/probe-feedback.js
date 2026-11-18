@@ -8,7 +8,7 @@
 /* TELEFON GERİ BİLDİRİMİ YOKLAMASI: gerçek dokunuşlarla (adb) ve sınama medya oturumlarıyla
    (android/tonegen SessionReceiver).
 
-   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [lyrics] [dynamic]
+   node android/tools/probe-feedback.js [sessions] [theme] [touch] [target] [strips] [layout] [nowplaying] [lyrics] [resets] [dynamic]
    Hiçbiri verilmezse hepsi koşar. Çıktı: her denetim için OK / FAIL, sonunda toplam. */
 const D = require('./lib/device.js');
 
@@ -283,6 +283,75 @@ async function lyricsLayer(page) {
   await D.sleep(600);
 }
 
+/* Varsayılana döndür düğmesi: dokununca kaybolur. Bütün ayar sayfaları ve sekmeleri taranır. */
+async function resets(page) {
+  const keep = await page.evaluate('JSON.stringify((() => { const c = window.SVAndroid.config.get(); return { layers: c.layers, transition: c.transition, postfx: c.postfx, power: c.power, background: c.background }; })())');
+  // Görünen her sıfırlama düğmesine basar; kalanların etiketini döndürür
+  const sweep = `(async () => {
+    const stuck = [];
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let round = 0; round < 40; round++) {
+      const b = [...document.querySelectorAll('#sv-shell .sheet-body .ctl-reset')].find((x) => !x.hidden && !x.dataset.tried);
+      if (!b) break;
+      b.dataset.tried = '1';
+      const row = b.closest('.ctl-row');
+      const label = (row.querySelector('.ctl-label') || {}).textContent || '?';
+      b.click();
+      await wait(60);
+      if (b.isConnected && !b.hidden) stuck.push(label);
+    }
+    return stuck;
+  })()`;
+  // Dokunmadan açılan sayfada görünen düğme: varsayılandaki ayar "değişmiş" sayılıyor demek
+  const fresh = `[...document.querySelectorAll('#sv-shell .sheet-body .ctl-reset')].filter((x) => !x.hidden).map((b) => (b.closest('.ctl-row').querySelector('.ctl-label') || {}).textContent || '?')`;
+  const bad = {}, idle = {};
+  const visit = async (name) => {
+    await D.sleep(450);
+    const f = await page.evaluate(fresh);
+    if (f.length) idle[name] = f;
+    const s = await page.evaluate(sweep);
+    if (s.length) bad[name] = s;
+  };
+  const tabsOf = (sel) => page.evaluate(`[...document.querySelectorAll('${sel} button')].map((b) => b.dataset.id)`);
+  const clickTab = (sel, id) => page.evaluate(`document.querySelector('${sel} button[data-id="${id}"]').click(); 1`);
+  await page.evaluate(`(() => {
+    const np = window.SVLayers.makeNowPlayingLayer({ name: 'NP' }); np.id = 'np_r';
+    np.settings = { nowplaying: { coverOverlay: true, mode: 'onChange', oneLine: true } };
+    const tx = { id: 'tx_r', kind: 'visualizer', type: 'text', enabled: true, opacity: 1, blend: 'normal', name: 'Soz', settings: { text: { enabled: true, source: 'lyrics', lyricsFollow: true, karaoke: true, karaokeHold: true, colorMode: 'custom', useCustomColor: true, perCharacter: true } } };
+    const c = window.SVAndroid.config.get();
+    window.SVAndroid.config.patch({ layers: (c.layers || []).concat([np, tx]) });
+    window.SVShell.open('layers'); return 1; })()`);
+  await D.sleep(900);
+  const ids = await page.evaluate("[...document.querySelectorAll('#sv-shell .row[data-id]')].map((r) => r.dataset.id)");
+  for (const id of ids) {
+    await page.evaluate("window.SVShell.close(); window.SVShell.open('layers'); 1");
+    await D.sleep(500);
+    await page.evaluate(`document.querySelector('#sv-shell .row[data-id="${id}"] .row-main').click(); 1`);
+    await D.sleep(700);
+    const outer = '#sv-shell .sheet-body > .tabs';
+    for (const t of await tabsOf(outer)) {
+      await clickTab(outer, t);
+      await visit(id + '/' + t);
+      const inner = '#sv-shell .edit-pane > .tabs';
+      for (const i of (t === 'source' ? await tabsOf(inner) : [])) { await clickTab(inner, i); await visit(id + '/' + t + '/' + i); }
+    }
+  }
+  await page.evaluate("window.SVShell.close(); window.SVShell.openPage(window.SVShellScene.page()); 1");
+  await D.sleep(700);
+  for (const t of await tabsOf('#sv-shell .sheet-body > .tabs')) { await clickTab('#sv-shell .sheet-body > .tabs', t); await visit('sahne/' + t); }
+  await page.evaluate("window.SVShell.close(); window.SVShell.open('settings'); 1");
+  await visit('ayarlar');
+  await page.evaluate("window.SVShell.close(); window.SVShell.openPage(window.SVShellDisplay.page()); 1");
+  await visit('goruntuleme');
+  await page.evaluate(`(() => { window.SVShell.close(); window.SVAndroid.config.patch(${keep}); return 1; })()`);
+  await D.sleep(600);
+  check('varsayılana döndürülen ayarda düğme kaybolur', !Object.keys(bad).length, bad);
+  // Yoklamanın bilerek açtığı anahtarlar ve önceki koşulardan kalan katmanlar sayılmaz
+  const preset = /Stretch Held|Per-Character|Uzatılan Hece|Harf Harf/;
+  const wrong = Object.keys(idle).filter((k) => /^(np_r|tx_r)/.test(k)).flatMap((k) => idle[k].filter((x) => !preset.test(x)));
+  check('dokunulmamış varsayılan ayarda düğme görünmez', !wrong.length, wrong);
+}
+
 async function dynamic(page) {
   D.adb(['shell', 'cmd', 'notification', 'allow_listener', D.PKG + '/' + D.PKG + '.media.NowPlayingService']);
   const keep = await page.evaluate('JSON.stringify({ background: window.SVAndroid.config.get().background, visualizer: window.SVAndroid.config.get().visualizer, layers: window.SVAndroid.config.get().layers, dynamicTheme: window.SVAndroid.config.get().dynamicTheme })');
@@ -317,6 +386,7 @@ async function dynamic(page) {
     if (on('layout')) await layout(page);
     if (on('nowplaying')) await nowplaying(page);
     if (on('lyrics')) await lyricsLayer(page);
+    if (on('resets')) await resets(page);
     if (on('dynamic')) await dynamic(page);
   } finally { page.close(); }
   const bad = results.filter((r) => !r.ok);

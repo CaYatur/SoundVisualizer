@@ -42,9 +42,10 @@
 
   /* VARSAYILANA DÖNDÜR (masaüstündeki ayar başı düğme). o.def verilmişse satırın sonunda
      bir düğme; yalnız değer varsayılandan farklıyken görünür. Dokununca değer varsayılana
-     döner ve onInput/onChange ile yazılır. same: değerlerin eşitliği (sayıda adımın yarısı). */
+     döner ve onInput/onChange ile yazılır. same: değerlerin eşitliği. Kaydırıcı değeri adımına
+     yuvarlar (adım 0,02 iken 0,35 → 0,36): fark tam yarım adım olabilir, kayan nokta payı şart. */
   function same(a, b, step) {
-    if (typeof a === 'number' || typeof b === 'number') return Math.abs(+a - +b) <= (step ? step / 2 : 1e-9);
+    if (typeof a === 'number' || typeof b === 'number') return Math.abs(+a - +b) <= (step ? step / 2 : 0) + 1e-9;
     if (typeof a === 'string' && typeof b === 'string') return a.toLowerCase() === b.toLowerCase();
     return a === b;
   }
