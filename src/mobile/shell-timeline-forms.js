@@ -383,7 +383,7 @@
     tl.markers.forEach((m) => {
       mk.push(h('div', { class: 'tl-marker-row' }, [
         h('button', { class: 'btn ghost tl-mk-go', 'aria-label': t('Bu işarete git'), onclick: () => core.seek(m.t) }, [icon('play'), h('span', { class: 'mono', text: core.fmt(m.t) })]),
-        h('button', { class: 'btn ghost tl-mk-name', onclick: () => { core.setSelection({ kind: 'marker', markerId: m.id }); if (ctx) ctx.push(page(core, 'selection')); } }, [h('span', { text: (m.hold ? '⏸ ' : '') + (m.name || t('İşaret')) })]),
+        h('button', { class: 'btn ghost tl-mk-name', onclick: () => { core.setSelection({ kind: 'marker', markerId: m.id }); if (ctx) ctx.push(page(core, 'selection')); } }, [m.hold ? icon('pause') : null, h('span', { text: m.name || t('İşaret') })]),
         h('button', { class: 'iconbtn plain', 'aria-label': t('İşareti sil'), onclick: () => { tl.markers.splice(tl.markers.indexOf(m), 1); core.commit(); if (ctx) ctx.refresh(); } }, [icon('x')]),
       ]));
     });
