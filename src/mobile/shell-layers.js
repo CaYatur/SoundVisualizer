@@ -317,7 +317,7 @@
       const cur = findLayer(id);
       if (!cur) return;
       const kids = tab === 'transform' ? transformControls(cur, set)
-        : tab === 'audio' ? audioControls(cur, set)
+        : tab === 'audio' ? audioControls(cur, set, () => show('audio'))
           : tab === 'fx' ? fxControls(cur, set, () => show('fx'))
             : sourceControls(cur, set, ctx, () => show('source'));
       for (const k of kids) pane.appendChild(k);
@@ -659,17 +659,6 @@
       if (src === 'file') {
         out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, def: dm.loop !== false, onChange: (v) => setM('loop', v) }));
         out.push(mSlider('Hız', 'speed', 0.25, 4, 0.05, 1, { format: (v) => U.num(v, 2) + '×' }));
-        // Sese göre hız: motor masaüstüyle ortak (src/visualizer/modes/media.js audioRate)
-        const react = m.speedReact === true;
-        out.push(U.toggle({ label: 'Sese Göre Hız', value: react, def: false, onChange: (v) => { setM('speedReact', !!v); ctx.refresh(); } }));
-        if (react) {
-          const rate = { format: (v) => U.num(v, 2) + '×' };
-          out.push(U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']], value: m.speedBand || 'bass', def: 'bass', onChange: (v) => setM('speedBand', v) }));
-          out.push(mSlider('En Düşük Hız', 'speedMin', 0.1, 4, 0.05, 0.5, rate));
-          out.push(mSlider('En Yüksek Hız', 'speedMax', 0.1, 4, 0.05, 2, rate));
-          out.push(mSlider('Hız Yumuşatma', 'speedSmooth', 0, 1, 0.01, 0.15, { format: (v) => U.num(v, 2) + ' ' + tr('sn') }));
-          out.push(h('div', { class: 'hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
-        }
         out.push(mSlider('Giriş Noktası', 'inPoint', 0, 600, 0.1, 0, { format: secs }));
         out.push(mSlider('Çıkış Noktası', 'outPoint', 0, 600, 0.1, 0, { format: (v) => (v > 0 ? secs(v) : tr('sona kadar')) }));
         out.push(U.select({ label: 'Vuruşa Kilitli Döngü', options: [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']], value: String(m.loopBeats || 0), def: '0', onChange: (v) => setM('loopBeats', Number(v) || 0) }));
@@ -678,11 +667,8 @@
       out.push(mSlider('Kaleydoskop Dilimi', 'kaleido', 0, 12, 1, 0, { format: (v) => (v < 3 ? tr('kapalı') : Math.round(v) + ' ' + tr('dilim')) }));
       out.push(mSlider('Renk Kayması', 'hue', 0, 1, 0.01, 0, { percent: true }));
       out.push(mSlider('Doygunluk', 'saturate', 0, 3, 0.05, 1));
-      out.push(mSlider('Bas → Yakınlaşma', 'audioZoom', 0, 1, 0.01, 0.12, { percent: true }));
-      out.push(mSlider('Bas → Saydamlık', 'audioOpacity', 0, 1, 0.02, 0, { percent: true }));
       out.push(mSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, 1, 0.02, 0, { percent: true }));
       out.push(mSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 4, 60, 1, 20, { format: (v) => Math.round(v) + ' ' + tr('sn') }));
-      out.push(mSlider('Vuruşta Nabız', 'beatPulse', 0, 1, 0.02, 0, { percent: true }));
       const key = m.keyMode || 'off';
       out.push(U.select({ label: 'Renk Anahtarı', options: [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']], value: key, def: 'off', onChange: (v) => { setM('keyMode', v); ctx.refresh(); } }));
       if (key === 'chroma') out.push(U.color({ label: 'Anahtar Rengi', value: m.keyColor || '#00ff00', def: '#00ff00', onChange: (v) => setM('keyColor', v) }));
@@ -927,7 +913,7 @@
       const cur = getLayer();
       if (!cur) return;
       const kids = tab === 'transform' ? transformControls(cur, set)
-        : tab === 'audio' ? audioControls(cur, set)
+        : tab === 'audio' ? audioControls(cur, set, () => show('audio'))
           : tab === 'fx' ? fxControls(cur, set, () => show('fx'))
             : sourceControls(cur, set, ctx, opts);
       for (const k of kids) pane.appendChild(k);
@@ -960,15 +946,43 @@
   }
 
   // ---- Ses tepkisi ----
-  function audioControls(l, set) {
+  /* Medya katmanının sese bağlı ayarları. Hız motoru masaüstüyle ortak
+     (src/visualizer/modes/media.js audioRate). */
+  function mediaAudioCards(l, set, redraw) {
+    const dm = defaults().media || {};
+    const m = Object.assign({}, dm, l.settings && l.settings.media);
+    const setM = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.media = Object.assign({}, x.settings.media, { [k]: v }); });
+    const mSlider = (label, k, min, max, step, fb, o) => U.slider(Object.assign({ label, min, max, step, value: m[k] == null ? fb : m[k], def: dm[k] == null ? fb : dm[k], onInput: (v) => setM(k, v) }, o));
+    const cards = [U.card([
+      mSlider('Bas → Yakınlaşma', 'audioZoom', 0, 1, 0.01, 0.12, { percent: true }),
+      mSlider('Bas → Saydamlık', 'audioOpacity', 0, 1, 0.02, 0, { percent: true }),
+      mSlider('Vuruşta Nabız', 'beatPulse', 0, 1, 0.02, 0, { percent: true }),
+    ])];
+    if (m.source !== 'file') return cards;
+    const react = m.speedReact === true;
+    const kids = [U.toggle({ label: 'Sese Göre Hız', value: react, def: false, onChange: (v) => { setM('speedReact', !!v); redraw(); } })];
+    if (react) {
+      const rate = { format: (v) => U.num(v, 2) + '×' };
+      kids.push(U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']], value: m.speedBand || 'bass', def: 'bass', onChange: (v) => setM('speedBand', v) }));
+      kids.push(mSlider('En Düşük Hız', 'speedMin', 0.1, 4, 0.05, 0.5, rate));
+      kids.push(mSlider('En Yüksek Hız', 'speedMax', 0.1, 4, 0.05, 2, rate));
+      kids.push(mSlider('Hız Yumuşatma', 'speedSmooth', 0, 1, 0.01, 0.15, { format: (v) => U.num(v, 2) + ' ' + tr('sn') }));
+      kids.push(h('div', { class: 'hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
+    }
+    cards.push(U.card(kids));
+    return cards;
+  }
+
+  function audioControls(l, set, redraw) {
     const a = Object.assign({ band: 'bass', opacity: 0, scale: 0, rotate: 0 }, l.audio);
     const setA = (k, v) => set((x) => { x.audio = Object.assign({}, x.audio, { [k]: v }); });
+    const own = l.kind === 'media' ? mediaAudioCards(l, set, redraw) : [];
     return [U.card([
       U.seg({ label: 'Bant', options: LF().BAND_LABELS, value: a.band, def: 'bass', onChange: (v) => setA('band', v) }),
       U.slider({ label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, value: a.opacity, def: 0, onInput: (v) => setA('opacity', v) }),
       U.slider({ label: 'Ölçek', min: 0, max: 1, step: 0.02, percent: true, value: a.scale, def: 0, onInput: (v) => setA('scale', v) }),
       U.slider({ label: 'Döndürme', min: 0, max: 1, step: 0.02, percent: true, value: a.rotate, def: 0, onInput: (v) => setA('rotate', v) }),
-    ]), h('div', { class: 'hint', text: 'Seçilen bant katmanın saydamlığını, ölçeğini ve dönüşünü sürer.' })];
+    ]), h('div', { class: 'hint', text: 'Seçilen bant katmanın saydamlığını, ölçeğini ve dönüşünü sürer.' })].concat(own);
   }
 
   // ---- Efektler (katmanın kendi zinciri) ----
