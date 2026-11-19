@@ -115,5 +115,11 @@ test('sese göre hız varsayılan kapalı; vuruşa kilitli döngü açıkken dev
   assert.strictEqual(T.transportOn({ speedReact: true }), true);
   assert.strictEqual(T.speedReactOn({ speedReact: true, loopBeats: 4 }), false);
   const panel = read('src/admin/scene-panels.js');
-  for (const k of ['speedReact', 'speedBand', 'speedMin', 'speedMax', 'speedSmooth']) assert.ok(panel.includes(k), k);
+  const start = panel.indexOf('function mediaAudioKids');
+  const audioKids = panel.slice(start, panel.indexOf('function layerOwnSettings'));
+  assert.ok(start > 0, 'ses ayarları kendi sekmesinde kurulur');
+  for (const k of ['speedReact', 'speedBand', 'speedMin', 'speedMax', 'speedSmooth', 'audioZoom', 'audioOpacity', 'beatPulse']) {
+    assert.ok(audioKids.includes(k), k);
+  }
+  assert.ok(!panel.slice(panel.indexOf('function layerOwnSettings')).includes('speedReact'), 'Kaynak sekmesinde ses ayarı kalmaz');
 });

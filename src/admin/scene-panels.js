@@ -1215,6 +1215,35 @@
     return out;
   }
 
+  /* Medya katmanının sese bağlı ayarları: Sese Tepki sekmesinde durur, kaynak ayarlarında değil. */
+  function mediaAudioKids(l, rerender) {
+    const el = P().el;
+    const m = l.settings && l.settings.media;
+    if (!m) return [];
+    const slider = (label, key, o) => {
+      const r = window.SVSchema.rangeFor('media.' + key);
+      return miniSlider(label, () => m[key] || 0, (v) => { m[key] = v; }, Object.assign({ min: r.min, max: r.max, def: 0, path: 'media.' + key, percent: true }, o));
+    };
+    const out = [
+      slider('Bas → Yakınlaşma', 'audioZoom', { step: 0.01 }),
+      slider('Bas → Saydamlık', 'audioOpacity', { step: 0.02 }),
+      slider('Vuruşta Nabız', 'beatPulse', { step: 0.02 }),
+    ];
+    if ((m.source || 'webcam') !== 'file') return out;
+    out.push(miniToggle('Sese Göre Hız', () => m.speedReact === true, (v) => { m.speedReact = v; }, rerender, { def: false }));
+    if (m.speedReact === true) {
+      const rate = (v) => (+v).toFixed(2) + '×';
+      const rateSlider = (label, key, d, o) => miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ def: d }, o));
+      out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']],
+        () => m.speedBand || 'bass', (v) => { m.speedBand = v; }, null, 'bass'));
+      out.push(rateSlider('En Düşük Hız', 'speedMin', 0.5, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
+      out.push(rateSlider('En Yüksek Hız', 'speedMax', 2, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
+      out.push(rateSlider('Hız Yumuşatma', 'speedSmooth', 0.15, { min: 0, max: 1, step: 0.01, fmt: (v) => (+v).toFixed(2) + ' ' + tr('sn') }));
+      out.push(el('div', { class: 'studio-note dim-hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
+    }
+    return out;
+  }
+
   function layerOwnSettings(l, rerender) {
     const el = P().el;
     const cfg = P().cfg();
@@ -1384,17 +1413,6 @@
           return miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ min: r.min, max: r.max, def: d, path: 'media.' + key }, o));
         };
         out.push(tSlider('Hız', 'speed', 1, { step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }));
-        out.push(miniToggle('Sese Göre Hız', () => m.speedReact === true, (v) => { m.speedReact = v; }, rerender, { def: false }));
-        if (m.speedReact === true) {
-          const rate = (v) => (+v).toFixed(2) + '×';
-          out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']],
-            () => m.speedBand || 'bass', (v) => { m.speedBand = v; }, null, 'bass'));
-          const rateSlider = (label, key, d, o) => miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ def: d }, o));
-          out.push(rateSlider('En Düşük Hız', 'speedMin', 0.5, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
-          out.push(rateSlider('En Yüksek Hız', 'speedMax', 2, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
-          out.push(rateSlider('Hız Yumuşatma', 'speedSmooth', 0.15, { min: 0, max: 1, step: 0.01, fmt: (v) => (+v).toFixed(2) + ' ' + tr('sn') }));
-          out.push(el('div', { class: 'studio-note dim-hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
-        }
         out.push(tSlider('Giriş Noktası', 'inPoint', 0, { step: 0.1, fmt: sec }));
         out.push(tSlider('Çıkış Noktası', 'outPoint', 0, { step: 0.1, fmt: (v) => (v > 0 ? sec(v) : tr('sona kadar')) }));
         out.push(miniSelect('Vuruşa Kilitli Döngü', [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']],
@@ -1422,11 +1440,8 @@
       out.push(mediaSlider('Kaleydoskop Dilimi', 'kaleido', 0, { step: 1, fmt: (v) => (v < 3 ? tr('kapalı') : Math.round(v) + ' ' + tr('dilim')) }));
       out.push(mediaSlider('Renk Kayması', 'hue', 0, { step: 0.01, percent: true }));
       out.push(mediaSlider('Doygunluk', 'saturate', 1, { step: 0.05 }));
-      out.push(mediaSlider('Bas → Yakınlaşma', 'audioZoom', 0, { step: 0.01, percent: true }));
-      out.push(mediaSlider('Bas → Saydamlık', 'audioOpacity', 0, { step: 0.02, percent: true }));
       out.push(mediaSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, { step: 0.02, percent: true }));
       out.push(mediaSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 20, { step: 1, fmt: (v) => Math.round(v) + ' ' + tr('sn') }));
-      out.push(mediaSlider('Vuruşta Nabız', 'beatPulse', 0, { step: 0.02, percent: true }));
       out.push(miniSelect('Renk Anahtarı', [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']],
         () => m.keyMode || 'off', (v) => { m.keyMode = v; }, rerender));
       if ((m.keyMode || 'off') === 'chroma') {
@@ -2933,6 +2948,11 @@
         const audioTx = tabs.find((t) => t.key === 'audio');
         const prevTx = audioTx.build;
         audioTx.build = () => prevTx().concat(textAudioKids(txt, rerender));
+      }
+      if (l.kind === 'media') {
+        const audioMedia = tabs.find((t) => t.key === 'audio');
+        const prevMedia = audioMedia.build;
+        audioMedia.build = () => prevMedia().concat(mediaAudioKids(l, rerender));
       }
       if (only) tabs.unshift({ key: 'source', label: 'Kaynak', build: () => sourceKids });
       // Tür / kaynak değişince açılması istenen sekme (ör. söze çevirince Söz Kütüphanesi)
