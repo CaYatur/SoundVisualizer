@@ -917,9 +917,6 @@
       slider('Yayılma / Alan', 'spread', { min: 0, max: 2, step: 0.05 }),
       slider('Hız', 'speed', { min: 0, max: 2, step: 0.05 }),
       slider('Dönüş', 'spin', { min: 0, max: 2, step: 0.05 }),
-      slider('Ses → Boyut', 'audioSize', { min: 0, max: 2, step: 0.05 }),
-      slider('Ses → Hız', 'audioSpeed', { min: 0, max: 2, step: 0.05 }),
-      slider('Ses → Saydamlık', 'audioOpacity', { min: 0, max: 2, step: 0.05 }),
       slider('Parlama', 'glow', { min: 0, max: 1, step: 0.02, percent: true }),
       slider('Köşe / Oval', 'cornerRadius', { min: 0, max: 0.5, step: 0.01, percent: true }),
       miniSelect('Karışım', SPRITE_BLENDS, get('blend'), set('blend'), null, D.blend),
@@ -1212,6 +1209,38 @@
       miniSlider('Eğim (dB/oktav)', () => getS('tilt', 0), (v) => setS('tilt', v), { path: 'visualizer.spectrum.tilt', min: -6, max: 12, step: 0.5, def: 0, fmt: (v) => (+v).toFixed(1) }),
       miniSlider('Profil Yumuşatma', () => getS('smooth', 0.25), (v) => setS('smooth', v), { path: 'visualizer.spectrum.smooth', min: 0, max: 1, step: 0.01, percent: true, def: 0.25 }),
     );
+    return out;
+  }
+
+  /* Logonun sese bağlı ayarları: masaüstünde hareketli logolarda görünür. */
+  function logoAudioKids(l) {
+    const lg = l.settings && l.settings.logo;
+    if (!lg) return [];
+    const animated = lg.kind === 'gif' || (window.SVGif && window.SVGif.isAnimatedLogo && window.SVGif.isAnimatedLogo(lg, lg.src));
+    if (!animated) return [];
+    const slider = (label, key, o) => miniSlider(label, () => lg[key] || 0, (v) => { lg[key] = v; }, Object.assign({ min: 0, max: 1, step: 0.01, percent: true, def: 0 }, o));
+    return [
+      miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']],
+        () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }, undefined, 'bass'),
+      slider('Ses → Hız', 'audioSpeed', { path: 'logo.audioSpeed' }),
+      slider('Ses → Parlaklık', 'audioBrightness', { path: 'logo.audioBrightness' }),
+      slider('Ses → Saydamlık', 'audioOpacity', { path: 'logo.audioOpacity' }),
+      slider('Ritim Parlaması', 'beatFlash', { path: 'logo.beatFlash' }),
+      slider('Ses → Renk', 'audioHue', { path: 'logo.audioHue' }),
+    ];
+  }
+
+  /* Görsel nesnelerin sese bağlı ayarları: her görselin kendi değerleri. */
+  function spriteAudioKids(l) {
+    const el = P().el;
+    const items = (l.settings && l.settings.images && l.settings.images.items) || [];
+    const D = window.SV.imageItem({});
+    const out = [];
+    items.forEach((it, idx) => {
+      const slider = (label, key) => miniSlider(label, () => (it[key] != null ? it[key] : D[key]), (v) => { it[key] = v; }, { def: D[key], extend: true, min: 0, max: 2, step: 0.05 });
+      if (items.length > 1) out.push(el('div', { class: 'lbl', text: it.name || (tr('Görsel') + ' ' + (idx + 1)) }));
+      out.push(slider('Ses → Boyut', 'audioSize'), slider('Ses → Hız', 'audioSpeed'), slider('Ses → Saydamlık', 'audioOpacity'));
+    });
     return out;
   }
 
@@ -1742,13 +1771,6 @@
         out.push(miniSlider('Doygunluk', () => getL('saturate', 1), (v) => setL('saturate', v), { path: 'logo.saturate', min: 0, max: 2, step: 0.01, def: 1}));
         out.push(miniSelect('Karışım', [['normal', 'Normal'], ['screen', 'Ekran\u200B'], ['add', 'Ekle']],
           () => lg.blend || 'normal', (v) => { lg.blend = v; }, undefined, 'normal'));
-        out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']],
-          () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }, undefined, 'bass'));
-        out.push(miniSlider('Ses → Hız', () => getL('audioSpeed', 0), (v) => setL('audioSpeed', v), { path: 'logo.audioSpeed', min: 0, max: 1, step: 0.01, percent: true, def: 0}));
-        out.push(miniSlider('Ses → Parlaklık', () => getL('audioBrightness', 0), (v) => setL('audioBrightness', v), { path: 'logo.audioBrightness', min: 0, max: 1, step: 0.01, percent: true, def: 0}));
-        out.push(miniSlider('Ses → Saydamlık', () => getL('audioOpacity', 0), (v) => setL('audioOpacity', v), { path: 'logo.audioOpacity', min: 0, max: 1, step: 0.01, percent: true, def: 0}));
-        out.push(miniSlider('Ritim Parlaması', () => getL('beatFlash', 0), (v) => setL('beatFlash', v), { path: 'logo.beatFlash', min: 0, max: 1, step: 0.01, percent: true, def: 0}));
-        out.push(miniSlider('Ses → Renk', () => getL('audioHue', 0), (v) => setL('audioHue', v), { path: 'logo.audioHue', min: 0, max: 1, step: 0.01, percent: true, def: 0}));
       }
       if ((lg.source || 'auto') !== 'track' && window.SVLogoLibUi) {
         out.push(window.SVLogoLibUi.mount({
@@ -2949,10 +2971,10 @@
         const prevTx = audioTx.build;
         audioTx.build = () => prevTx().concat(textAudioKids(txt, rerender));
       }
-      if (l.kind === 'media') {
-        const audioMedia = tabs.find((t) => t.key === 'audio');
-        const prevMedia = audioMedia.build;
-        audioMedia.build = () => prevMedia().concat(mediaAudioKids(l, rerender));
+      if (l.kind === 'media' || l.kind === 'logo' || l.kind === 'sprites') {
+        const audioOwn = tabs.find((t) => t.key === 'audio');
+        const prevOwn = audioOwn.build;
+        audioOwn.build = () => prevOwn().concat(l.kind === 'media' ? mediaAudioKids(l, rerender) : l.kind === 'logo' ? logoAudioKids(l) : spriteAudioKids(l));
       }
       if (only) tabs.unshift({ key: 'source', label: 'Kaynak', build: () => sourceKids });
       // Tür / kaynak değişince açılması istenen sekme (ör. söze çevirince Söz Kütüphanesi)
