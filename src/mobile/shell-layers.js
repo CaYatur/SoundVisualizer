@@ -707,9 +707,6 @@
       out.push(iSlider('Yayılma / Alan', 'spread', 0, 2, 0.05));
       out.push(iSlider('Hız', 'speed', 0, 2, 0.05));
       out.push(iSlider('Dönüş', 'spin', 0, 2, 0.05));
-      out.push(iSlider('Ses → Boyut', 'audioSize', 0, 2, 0.05));
-      out.push(iSlider('Ses → Hız', 'audioSpeed', 0, 2, 0.05));
-      out.push(iSlider('Ses → Saydamlık', 'audioOpacity', 0, 2, 0.05));
       out.push(iSlider('Parlama', 'glow', 0, 1, 0.02, { percent: true }));
       out.push(iSlider('Köşe / Oval', 'cornerRadius', 0, 0.5, 0.01, { percent: true }));
       out.push(U.select({ label: 'Karışım', options: [['normal', 'Normal'], ['screen', 'Ekran (parlak)'], ['add', 'Toplama (ışıltı)']], value: it.blend || D.blend, def: D.blend, onChange: (v) => setI('blend', v) }));
@@ -752,13 +749,7 @@
       out.push(lSlider('Oynatma Hızı', 'speed', 0.1, 3, 0.01, 1, plain));
       out.push(U.select({ label: 'Döngü', options: [['loop', 'Tekrar'], ['pingpong', 'Gidiş-Dönüş'], ['once', 'Bir Kez']], value: lg.loop || 'loop', def: 'loop', onChange: (v) => setL('loop', v) }));
       out.push(U.toggle({ label: 'Ters Oynat', value: !!lg.reverse, def: false, onChange: (v) => setL('reverse', v) }));
-      out.push(lSlider('Ses → Hız', 'audioSpeed', 0, 1, 0.01, 0));
     }
-    out.push(U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']], value: lg.audioBand || 'bass', def: 'bass', onChange: (v) => setL('audioBand', v) }));
-    out.push(lSlider('Ses → Parlaklık', 'audioBrightness', 0, 1, 0.01, 0));
-    out.push(lSlider('Ses → Saydamlık', 'audioOpacity', 0, 1, 0.01, 0));
-    out.push(lSlider('Ritim Parlaması', 'beatFlash', 0, 1, 0.01, 0));
-    out.push(lSlider('Ses → Renk', 'audioHue', 0, 1, 0.01, 0));
     return out;
   }
 
@@ -973,10 +964,41 @@
     return cards;
   }
 
+  /* Logonun sese bağlı ayarları. */
+  function logoAudioCards(l, set) {
+    const dl = defaults().logo || {};
+    const lg = Object.assign({}, dl, l.settings && l.settings.logo);
+    const setL = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { [k]: v }); });
+    const slider = (label, k) => U.slider({ label, min: 0, max: 1, step: 0.01, percent: true, value: lg[k] == null ? 0 : lg[k], def: dl[k] == null ? 0 : dl[k], onInput: (v) => setL(k, v) });
+    const kids = [U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']], value: lg.audioBand || 'bass', def: 'bass', onChange: (v) => setL('audioBand', v) })];
+    if (window.SVGif && window.SVGif.isAnimatedLogo(lg, lg.src)) kids.push(slider('Ses → Hız', 'audioSpeed'));
+    kids.push(slider('Ses → Parlaklık', 'audioBrightness'), slider('Ses → Saydamlık', 'audioOpacity'), slider('Ritim Parlaması', 'beatFlash'), slider('Ses → Renk', 'audioHue'));
+    return [U.card(kids)];
+  }
+
+  /* Görsel nesnenin sese bağlı ayarları (sayfa ilk görseli düzenler). */
+  function spriteAudioCards(l, set) {
+    const items = (l.settings && l.settings.images && l.settings.images.items) || [];
+    const it = items[0] || {};
+    const D = window.SV.imageItem({});
+    const setI = (k, v) => set((x) => {
+      x.settings = x.settings || {};
+      const imgs = Object.assign({ enabled: true }, x.settings.images);
+      const list = (imgs.items || []).slice();
+      list[0] = Object.assign({}, list[0], { [k]: v });
+      imgs.items = list;
+      x.settings.images = imgs;
+    });
+    const slider = (label, k) => U.slider({ label, min: 0, max: 2, step: 0.05, value: it[k] == null ? D[k] : it[k], def: D[k], onInput: (v) => setI(k, v) });
+    return [U.card([slider('Ses → Boyut', 'audioSize'), slider('Ses → Hız', 'audioSpeed'), slider('Ses → Saydamlık', 'audioOpacity')])];
+  }
+
   function audioControls(l, set, redraw) {
     const a = Object.assign({ band: 'bass', opacity: 0, scale: 0, rotate: 0 }, l.audio);
     const setA = (k, v) => set((x) => { x.audio = Object.assign({}, x.audio, { [k]: v }); });
-    const own = l.kind === 'media' ? mediaAudioCards(l, set, redraw) : [];
+    const own = l.kind === 'media' ? mediaAudioCards(l, set, redraw)
+      : l.kind === 'logo' ? logoAudioCards(l, set)
+        : l.kind === 'sprites' ? spriteAudioCards(l, set) : [];
     return [U.card([
       U.seg({ label: 'Bant', options: LF().BAND_LABELS, value: a.band, def: 'bass', onChange: (v) => setA('band', v) }),
       U.slider({ label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, value: a.opacity, def: 0, onInput: (v) => setA('opacity', v) }),
