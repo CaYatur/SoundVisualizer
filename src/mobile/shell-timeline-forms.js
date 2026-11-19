@@ -121,7 +121,12 @@
     }
     const opts = refOptions(core, type) || [];
     if (!opts.length) { await S.confirm(core.tr(EMPTY[type] || EMPTY.action), core.tr('Tamam')); return null; }
-    const v = await S.choose(core.typeLabel(type), opts, current || '');
+    // Eylemler düz liste; diğer kaynaklar resimli kitaplık sayfasından
+    let v = '';
+    if (type !== 'action' && L && L.pickRef && core.pageCtx()) {
+      const it = await L.pickRef(core.pageCtx(), type, opts, current || '');
+      v = it ? it.id : '';
+    } else v = await S.choose(core.typeLabel(type), opts, current || '');
     if (!v) return null;
     /* Görselleştirici listesindeki Studio tek başına boş çiziyordu: preset seçilir, klip Studio klibi olur. */
     if (type === 'visualizer' && v === 'custom') {
@@ -164,6 +169,42 @@
     core.commit();
   }
 
+  /* Görselleştirici ve Studio klibinin kendi ayarları. İlk değişiklikte klibin yerel kopyası
+     kurulur; kaydırıcı sürüklenirken yazım seyreltilir (her yazım geri alma kaydı açıyor). */
+  function clipSettings(core, c, ctx, rerender) {
+    const TC = window.SVTimelineCompose;
+    const L = window.SVShellLayers;
+    let timer = 0;
+    const flush = () => { if (timer) { clearTimeout(timer); timer = 0; core.commit(); } };
+    const later = () => { if (!timer) timer = setTimeout(() => { timer = 0; core.commit(); }, 200); };
+    const local = () => TC.ensureLocal(core.cfg(), c);
+    const read = () => {
+      const loc = TC.ensureLocal(core.cfg(), c.local ? c : JSON.parse(JSON.stringify(c)));
+      return (loc && loc.data.layers[0]) || null;
+    };
+    const set = (fn) => {
+      const loc = local();
+      const l = loc && loc.data.layers[0];
+      if (!l) return null;
+      fn(l);
+      later();
+      return l;
+    };
+    const params = {
+      get: (id) => { const d = c.local && c.local.data; return (d && d.custom && d.custom.params && d.custom.params[id]) || {}; },
+      put: (id, name, v) => {
+        const loc = local();
+        if (!loc) return;
+        const cu = (loc.data.custom = Object.assign({}, loc.data.custom));
+        cu.params = Object.assign({}, cu.params, { [id]: Object.assign({}, cu.params && cu.params[id], { [name]: v }) });
+        later();
+      },
+    };
+    const pages = () => ctx || core.pageCtx();
+    const host = { push: (p) => pages().push(p), pop: () => pages().pop(), refresh: () => { flush(); rerender(); } };
+    return L.clipEditor(read, set, host, { params });
+  }
+
   // ---- Denetçi ----
   function clipForm(core, box, c, trk, ctx) {
     const t = core.tr;
@@ -199,6 +240,7 @@
     } else if (c.type === 'preset') kids.push(note(t('Bu klip şablona başvurur; şablonlar Kitaplık bölümünde.')));
     else if (c.type === 'action') kids.push(note(t('Eylem, oynatma kafası klibe girince bir kez çalışır (Timeline kullan açıkken).')));
     box.appendChild(U().card(kids));
+    if (!locked && c.ref && (c.type === 'visualizer' || c.type === 'shader') && window.SVShellLayers && window.SVTimelineCompose) box.appendChild(clipSettings(core, c, ctx, rerender));
     const time = [];
     time.push(numField(core, 'Başlangıç (sn)', c.start, { min: 0, step: 0.01, onChange: (v) => { c.start = v; TE().sortClips(trk); save(); } }));
     time.push(numField(core, 'Süre (sn)', c.dur, { min: 0.05, step: 0.01, onChange: (v) => { c.dur = v; save(); } }));

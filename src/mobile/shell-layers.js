@@ -368,14 +368,18 @@
 
   // ---- Kaynak: mod ve modun ayarları ----
   function defaults() { return (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : {}; }
-  /* Taslaktaki gibi tek kart: en üstte mod, altında modun ayarları. */
-  function sourceControls(l, set, ctx) {
-    const c = cfg();
+  /* Taslaktaki gibi tek kart: en üstte mod, altında modun ayarları.
+     o.clip: zaman çizelgesi klibi. Mod ve preset klibin Kaynak satırından seçilir; değerler
+     klibin kendi kopyasına yazılır (o.get güncel katman, o.scene klibin taban sahnesi). */
+  function sourceControls(l, set, ctx, o) {
+    const opts = o || {};
+    const current = opts.get || (() => findLayer(l.id));
+    const c = opts.scene || cfg();
     const def = defaults();
     if (l.kind === 'media' || l.kind === 'sprites' || l.kind === 'logo') return [U.card(mediaControls(l, set, ctx, def))];
     // Çalan parça: masaüstündeki bütün ayarlar (src/mobile/shell-nowplaying.js)
     if ((l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type === 'nowplaying')) && window.SVShellNowPlaying) {
-      return window.SVShellNowPlaying.controls(() => findLayer(l.id), set, ctx);
+      return window.SVShellNowPlaying.controls(current, set, ctx);
     }
     if (l.kind !== 'visualizer' && l.kind !== 'background') {
       return [h('div', { class: 'hint', text: 'Bu katman türünün ayarları masaüstündeki panelde. Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
@@ -398,13 +402,14 @@
       items: MC().layerPairs(l.kind).map(([id, label]) => ({ id, label, art: () => modeArt(l.kind, id) })),
     }).then((it) => { if (it) setMode(it.id); }));
     const mode = h('div', { class: 'edit-pane' }, [modeSelect, modeLib]);
+    const head = opts.clip ? [] : [mode];
     // Metin ve şarkı sözü: masaüstündeki bütün ayarlar (src/mobile/shell-text.js)
     if (l.kind === 'visualizer' && l.type === 'text' && window.SVShellText) {
-      return [U.card([mode])].concat(window.SVShellText.controls(() => findLayer(l.id), set, ctx));
+      return (head.length ? [U.card(head)] : []).concat(window.SVShellText.controls(current, set, ctx));
     }
-    if (l.type === 'custom') return [U.card([mode].concat(studioControls(l, set, c, def, ctx)))];
-    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx) : backgroundControls(l, set, c, def, ctx);
-    return [U.card([mode].concat(parts))];
+    if (l.type === 'custom') return [U.card(head.concat(studioControls(l, set, c, def, ctx, opts)))];
+    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx, opts) : backgroundControls(l, set, c, def, ctx);
+    return [U.card(head.concat(parts))];
   }
 
   /* STUDIO KATMANI (masaüstündeki scene-panels.js Studio Preseti ve studio.js presetParams): preset,
@@ -453,6 +458,24 @@
       });
     });
   }
+  /* Zaman çizelgesi kaynağı resimli sayfadan: mod, sahne, şablon, renk teması. opts: [kimlik, ad]. */
+  function pickRef(ctx, type, options, value) {
+    const palettes = () => ((window.SV && window.SV.GRADIENT_PRESETS) || []).concat(cfg().userPresets || []);
+    const art = (id) => {
+      if (type === 'visualizer') return modeArt('visualizer', id);
+      if (type === 'scene') {
+        let src = '';
+        try { src = localStorage.getItem('sv-scene-thumb:' + id) || ''; } catch (e) { src = ''; }
+        if (src) return h('img', { src, alt: '', decoding: 'async' });
+      }
+      if (type === 'palette') {
+        const p = palettes().find((x) => x && x.name === id);
+        if (p && p.colors) return h('div', { class: 'ph', 'aria-hidden': 'true', style: 'background:linear-gradient(135deg,' + p.colors.join(',') + ')' });
+      }
+      return h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(type === 'scene' ? 'layers' : 'library')]);
+    };
+    return pickTile(ctx, { title: 'Kitaplıktan Seç', value, items: options.map(([id, label]) => ({ id, label, art: () => art(id) })) });
+  }
   /* Studio presetleri; kind verilmezse görselleştirici ve arkaplanın hepsi (zaman çizelgesi). */
   function pickStudio(ctx, kind, value) {
     const list = kind ? studioPresets(kind) : studioPresets('visualizer').concat(studioPresets('background'));
@@ -469,8 +492,10 @@
     return img;
   }
   const libraryList = (key) => Promise.resolve(A().libraries.list(key)).then((r) => (Array.isArray(r) ? r : []), () => []);
-  function studioControls(l, set, c, def, ctx) {
-    const list = studioPresets(l.kind);
+  function studioControls(l, set, c, def, ctx, o) {
+    const opts = o || {};
+    // Klip katmanı arkaplan presetini de görselleştirici katmanında çiziyor
+    const list = opts.clip ? studioPresets('visualizer').concat(studioPresets('background')) : studioPresets(l.kind);
     if (!list.length) return [h('div', { class: 'hint', text: 'Henüz Studio preseti yok.' })];
     const out = [];
     if (l.presetId && !list.some((p) => p.id === l.presetId)) {
@@ -478,8 +503,10 @@
     }
     const id = l.presetId || list[0].id;
     const setPreset = (v) => { set((x) => { x.presetId = v; }); ctx.refresh(); };
-    out.push(U.select({ label: 'Studio Preseti', options: list.map((p) => [p.id, p.name || p.id]), value: id, onChange: setPreset }));
-    out.push(libraryButton(() => pickStudio(ctx, l.kind, id).then((p) => { if (p) setPreset(p.id); })));
+    if (!opts.clip) {
+      out.push(U.select({ label: 'Studio Preseti', options: list.map((p) => [p.id, p.name || p.id]), value: id, onChange: setPreset }));
+      out.push(libraryButton(() => pickStudio(ctx, l.kind, id).then((p) => { if (p) setPreset(p.id); })));
+    }
     if (l.kind === 'visualizer') {
       const vs = (l.settings && l.settings.visualizer) || {};
       const scene = Object.assign({}, def.visualizer || {}, c.visualizer || {});
@@ -496,8 +523,9 @@
       out.push(...bgColorControls(l, set, c, def, ctx));
     }
     const preset = list.find((p) => p.id === id);
-    const stored = () => ((cfg().custom || {}).params || {})[id] || {};
+    const stored = () => (opts.params ? opts.params.get(id) : ((cfg().custom || {}).params || {})[id] || {});
     const put = (name, v) => {
+      if (opts.params) { opts.params.put(id, name, v); return; }
       const cur = cfg().custom || {};
       const params = Object.assign({}, cur.params, { [id]: Object.assign({}, stored(), { [name]: v }) });
       own(() => A().config.patch({ custom: Object.assign({}, cur, { params }) }));
@@ -737,7 +765,7 @@
     return out;
   }
 
-  function visualizerControls(l, set, c, def, ctx) {
+  function visualizerControls(l, set, c, def, ctx, o) {
     const out = [];
     const vs = (l.settings && l.settings.visualizer) || {};
     const scene = Object.assign({}, def.visualizer || {}, c.visualizer || {});
@@ -747,6 +775,7 @@
     const setV = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { [k]: v }); });
     const sens = (fb) => U.slider({ label: 'Hassasiyet', min: 0.2, max: 3, step: 0.05, value: getV('sensitivity', fd('sensitivity', fb)), def: fd('sensitivity', fb), onInput: (v) => setV('sensitivity', v) });
 
+    if (l.type === 'milkdrop' && o && o.clip) return [sens(1)];
     if (l.type === 'milkdrop') {
       const md = (l.settings && l.settings.milkdrop) || {};
       const name = md.independent ? md.name : (c.milkdrop && c.milkdrop.name);
@@ -871,6 +900,38 @@
     }
     if (!kids.length) kids.push(h('div', { class: 'hint', text: 'Bu arkaplanın ayarı yok.' }));
     return kids;
+  }
+
+  /* ZAMAN ÇİZELGESİ KLİBİNİN BİLEŞEN AYARLARI: katman sayfasındaki denetimlerin aynısı. Değerler
+     klibin yerel kopyasına yazılır (SVTimelineCompose.ensureLocal); sahnedeki katmanlar değişmez. */
+  let clipTab = 'source';
+  function clipEditor(getLayer, set, ctx, o) {
+    const first = getLayer();
+    if (!first) return h('div');
+    const opts = Object.assign({ clip: true, get: getLayer, scene: defaults() }, o);
+    const pane = h('div', { class: 'edit-pane' });
+    const show = (tab) => {
+      clipTab = tab;
+      pane.textContent = '';
+      const cur = getLayer();
+      if (!cur) return;
+      const kids = tab === 'transform' ? transformControls(cur, set)
+        : tab === 'audio' ? audioControls(cur, set)
+          : tab === 'fx' ? fxControls(cur, set, () => show('fx'))
+            : sourceControls(cur, set, ctx, opts);
+      for (const k of kids) pane.appendChild(k);
+    };
+    const box = h('div', { class: 'edit-pane', 'data-clip-editor': '1' }, [
+      h('div', { class: 'section-label', text: 'Bileşen Ayarları' }),
+      U.card([
+        U.select({ label: 'Karışım', options: LF().BLEND_LABELS, value: first.blend || 'normal', def: 'normal', onChange: (v) => set((x) => { x.blend = v; }) }),
+        U.slider({ label: 'Parlaklık', min: 0.25, max: 3, step: 0.01, percent: true, value: layerBrightness(first), def: 1, onInput: (v) => set((x) => setLayerBrightness(x, v)) }),
+      ]),
+      U.tabs([['source', 'Kaynak'], ['transform', 'Dönüşüm'], ['audio', 'Ses tepkisi'], ['fx', 'Efektler']], clipTab, show),
+      pane,
+    ]);
+    show(clipTab);
+    return box;
   }
 
   // ---- Dönüşüm ----
@@ -1104,5 +1165,5 @@
   }
 
   S.tab('layers', listPage);
-  window.SVShellLayers = Object.freeze({ pickStudio, thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
+  window.SVShellLayers = Object.freeze({ pickStudio, pickRef, clipEditor, thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
 })();
