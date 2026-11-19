@@ -8,6 +8,7 @@ package com.cayadev.visualizer.media
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -24,9 +25,11 @@ import kotlin.math.roundToInt
      ContentPathHandler'dan akıtarak okur (telefonun yeri dar olabiliyor).
    - Görsel masaüstündeki gibi ayarın içine dataURL olarak girer (görsel nesneler ve
      logo böyle saklanıyor); uzun kenarı en çok [MAX_SIDE] piksele küçültülür ki ayar
-     dosyası şişmesin. Saydamlığı olan görsel PNG, olmayan JPEG kalır. */
+     dosyası şişmesin. Saydamlığı olan görsel PNG, olmayan JPEG kalır.
+   - GIF yeniden kodlanmaz: kodlanınca yalnız ilk karesi kalıyordu, logo hareket etmiyordu. */
 object MediaPick {
     const val MAX_SIDE = 1024
+    const val MAX_GIF_BYTES = 12 * 1024 * 1024
 
     fun displayName(context: Context, uri: Uri): String {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
@@ -39,7 +42,19 @@ object MediaPick {
         JSONObject().put("url", ContentPathHandler.urlOf(uri)).put("name", displayName(context, uri))
             .put("mime", context.contentResolver.getType(uri) ?: "")
 
+    private fun gif(context: Context, uri: Uri): JSONObject? {
+        val r = context.contentResolver
+        if (!(r.getType(uri) ?: "").equals("image/gif", true) && !displayName(context, uri).endsWith(".gif", true)) return null
+        val bytes = r.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        if (bytes.size > MAX_GIF_BYTES) return null
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+        return JSONObject().put("dataUrl", "data:image/gif;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
+            .put("name", displayName(context, uri)).put("width", o.outWidth).put("height", o.outHeight)
+    }
+
     fun image(context: Context, uri: Uri, maxSide: Int = MAX_SIDE): JSONObject {
+        gif(context, uri)?.let { return it }
         val src = ImageDecoder.createSource(context.contentResolver, uri)
         val bmp = ImageDecoder.decodeBitmap(src) { d, info, _ ->
             val (w, h) = scaledSize(info.size.width, info.size.height, maxSide)

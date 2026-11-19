@@ -101,6 +101,7 @@
         redo();
       },
     }));
+    if (mode === 'theme' && pageCtx && window.SVShellScene) out.push(window.SVShellScene.themeRow(pageCtx));
     if (mode === 'custom') {
       out.push(U.color({ label: 'Parça Adı', value: b.get('color', '#ffffff'), onInput: (v) => b.put('color', v) }));
       out.push(U.color({ label: 'İkincil Yazı', value: b.get('colorDim', '#c8c8d0'), onInput: (v) => b.put('colorDim', v) }));
@@ -194,7 +195,9 @@
 
   let tab = 'content';
   /** Katmanın Kaynak sekmesi. getLayer: güncel katman; set: katman kopyasını değiştirip yazar. */
-  function controls(getLayer, set) {
+  let pageCtx = null;
+  function controls(getLayer, set, ctx) {
+    pageCtx = ctx || null;
     const b = bag(getLayer, set);
     const pane = h('div', { class: 'edit-pane' });
     const show = (id) => {

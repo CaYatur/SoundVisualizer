@@ -158,6 +158,33 @@
     return out;
   }
 
+  /* Katman ayarlarından açılan renk teması sayfası ve ona götüren satır. Tema sahnenin ortak
+     ayarı: motor tema kipindeki bütün katmanlara sahnenin canlı paletini veriyor. */
+  function colorPage() {
+    return {
+      size: 'full',
+      title: 'Renk Teması',
+      render(body, ctx) { for (const k of colorSection(ctx)) body.appendChild(k); },
+    };
+  }
+  function themeRow(ctx) {
+    const cols = colorsNow();
+    const cur = lower(cols);
+    const all = ((window.SV && window.SV.GRADIENT_PRESETS) || []).concat(Array.isArray(cfg().userPresets) ? cfg().userPresets : []);
+    const hit = all.find((p) => p && lower(p.colors) === cur);
+    return h('div', { class: 'edit-pane' }, [
+      h('button', { class: 'row card2 scene-row', 'data-theme-row': '1', onclick: () => ctx.push(colorPage()) }, [
+        h('span', { class: 'scene-swatch', 'aria-hidden': 'true', style: 'background:linear-gradient(135deg,' + cols.join(',') + ')' }),
+        h('div', { class: 'row-text' }, [
+          h('div', { class: 'row-title', text: 'Renk Teması Seç' }),
+          h('div', { class: 'row-sub', text: hit ? hit.name : 'Özel' }),
+        ]),
+        icon('chevron-right'),
+      ]),
+      h('div', { class: 'hint', text: 'Renk teması sahnedeki bütün katmanlarda ortaktır.' }),
+    ]);
+  }
+
   // ---- Sahne geçişi (src/admin/transition-panel.js) ----
   const EASE_LABELS = [['linear', 'Doğrusal'], ['smooth', 'Yumuşak'], ['easeIn', 'Yavaş Başla'], ['easeOut', 'Yavaş Bitir'], ['easeInOut', 'Yavaş Başla ve Bitir'], ['snap', 'Ani']];
   const UNIT_LABELS = [['seconds', 'Saniye'], ['beats', 'Vuruş']];
@@ -272,5 +299,5 @@
     };
   }
 
-  window.SVShellScene = Object.freeze({ page, saveNew, update, rename, remove, askSaveNew, askRename, askRemove, active });
+  window.SVShellScene = Object.freeze({ page, colorPage, themeRow, saveNew, update, rename, remove, askSaveNew, askRename, askRemove, active });
 })();

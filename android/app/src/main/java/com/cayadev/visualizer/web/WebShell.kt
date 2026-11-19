@@ -64,6 +64,7 @@ object WebShell {
     @SuppressLint("SetJavaScriptEnabled")
     fun create(context: Context, debug: Boolean, page: String, onRendererGone: (WebView) -> Unit): WebView {
         if (debug) WebView.setWebContentsDebuggingEnabled(true)
+        val appContext = context.applicationContext
         val loader = WebViewAssetLoader.Builder()
             .setDomain(HOST)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -101,6 +102,7 @@ object WebShell {
                istediği /favicon.ico) AĞA ÇIKMAZ: 404 alır. Ölçüldü: aksi halde WebView bu
                adı DNS'te arıyor ve sayfaya "ERR_NAME_NOT_RESOLVED" hatası düşüyordu. */
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                MediaRange.serve(appContext, request)?.let { return it }
                 loader.shouldInterceptRequest(request.url)?.let { return it }
                 if (request.url.host == HOST) {
                     // Simge yok, bu bir hata değil: 204 tarayıcı günlüğüne hata düşürmüyor

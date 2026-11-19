@@ -132,6 +132,7 @@
       label: 'Renk Modu', options: [['custom', 'Sabit Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode,
       onChange: (m) => { puts({ colorMode: m, useCustomColor: m === 'custom' }); redo(); },
     })];
+    if (mode === 'theme' && pageCtx && window.SVShellScene) out.push(window.SVShellScene.themeRow(pageCtx));
     if (mode === 'custom') {
       out.push(U.color({ label: 'Metin Rengi', value: t.color || '#ffffff', def: '#ffffff', onInput: (v) => put('color', v) }));
       if (src === 'lyrics' && t.karaoke !== false) {
@@ -142,8 +143,8 @@
     out.push(U.select({ label: 'Yazı Tipi', options: FONTS, value: t.font || FONTS[0][0], def: FONTS[0][0], onChange: (v) => put('font', v) }));
     out.push(U.slider({ label: 'Kalınlık', min: 100, max: 900, step: 100, value: t.weight == null ? weightDef : t.weight, def: weightDef, onInput: (v) => put('weight', Math.round(v / 100) * 100) }));
     out.push(U.slider({ label: 'Yazı Saydamlığı', min: 0, max: 1, step: 0.01, percent: true, value: t.opacity == null ? 1 : t.opacity, def: 1, onInput: (v) => put('opacity', v) }));
-    out.push(U.slider({ label: 'Kontur', min: 0, max: 1, step: 0.02, value: t.outline == null ? 0 : t.outline, def: 0, onInput: (v) => put('outline', v) }));
-    out.push(U.slider({ label: 'Gölge', min: 0, max: 1, step: 0.02, value: t.shadow == null ? 0 : t.shadow, def: 0, onInput: (v) => put('shadow', v) }));
+    out.push(U.slider({ label: 'Kontur', min: 0, max: 1, step: 0.02, value: t.outline == null ? 0.2 : t.outline, def: 0.2, onInput: (v) => put('outline', v) }));
+    out.push(U.slider({ label: 'Gölge', min: 0, max: 1, step: 0.02, value: t.shadow == null ? 0.4 : t.shadow, def: 0.4, onInput: (v) => put('shadow', v) }));
     return out;
   }
 
@@ -182,16 +183,25 @@
 
   const PANES = { content: contentKids, style: styleKids, place: placeKids, motion: motionKids };
   let tab = 'content';
+  let pageCtx = null;
+  /* Ekranda çizilen değer: motorun sırasıyla fabrika, sahne, katman (layers.js layerConfig). */
+  function effective(l) {
+    const c = A().config.get() || {};
+    const def = window.SV && window.SV.defaultConfig ? window.SV.defaultConfig().text : {};
+    const t = Object.assign({}, def, c.text, (l && l.settings && l.settings.text) || {});
+    if (t.nowPlaying) t.nowPlaying = Object.assign({}, t.nowPlaying);
+    return t;
+  }
   /** Katmanın Kaynak sekmesi. getLayer: güncel katman; set: katman kopyasını değiştirip yazar. */
-  function controls(getLayer, set) {
+  function controls(getLayer, set, ctx) {
+    pageCtx = ctx || null;
     const puts = (o) => set((x) => { x.settings = x.settings || {}; x.settings.text = Object.assign({}, x.settings.text, o); });
     const put = (k, v) => puts({ [k]: v });
     const pane = h('div', { class: 'edit-pane' });
     const show = (id) => {
       tab = id;
       pane.textContent = '';
-      const l = getLayer();
-      const t = (l && l.settings && l.settings.text) || {};
+      const t = effective(getLayer());
       pane.appendChild(U.card((PANES[id] || contentKids)(t, put, puts, () => show(tab))));
     };
     const tabs = U.tabs([['content', 'İçerik'], ['style', 'Yazı'], ['place', 'Yerleşim'], ['motion', 'Hareket']], tab, show);

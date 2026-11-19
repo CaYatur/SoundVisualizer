@@ -307,7 +307,9 @@
     body.appendChild(U.card([
       U.select({ label: 'Karışım', options: LF().BLEND_LABELS, value: l.blend || 'normal', def: 'normal', onChange: (v) => set((x) => { x.blend = v; }) }),
       U.slider({ label: 'Görünürlük', min: 0, max: 1, step: 0.01, percent: true, value: l.opacity == null ? 1 : l.opacity, def: 1, onInput: (v) => set((x) => { x.opacity = v; }) }),
-    ]));
+      // Logonun kendi parlaklık ayarı var (Kaynak sekmesi)
+      l.kind === 'logo' ? null : U.slider({ label: 'Parlaklık', min: 0.25, max: 3, step: 0.01, percent: true, value: layerBrightness(l), def: 1, onInput: (v) => set((x) => setLayerBrightness(x, v)) }),
+    ].filter(Boolean)));
     const pane = h('div', { class: 'edit-pane' });
     const show = (tab) => {
       editTab = tab;
@@ -341,6 +343,29 @@
     ]));
   }
 
+  /* KATMAN PARLAKLIĞI: katmanın efekt zincirindeki Renk Düzeltme'nin pozlaması (masaüstünde de
+     aynı efekt görünür). Varsayılana dönen ve başka ayarı olmayan efekt zincirden çıkar: boşuna
+     çizim geçişi kalmasın. */
+  function layerBrightness(l) {
+    const g = (Array.isArray(l.postfx) ? l.postfx : []).find((f) => f && f.type === 'grade');
+    const e = g && g.enabled !== false && g.params && g.params.exposure != null ? +g.params.exposure : 0;
+    return Math.pow(2, e);
+  }
+  function setLayerBrightness(x, v) {
+    const F = FX();
+    if (!F) return;
+    const chain = JSON.parse(JSON.stringify(Array.isArray(x.postfx) ? x.postfx : []));
+    const i = chain.findIndex((f) => f && f.type === 'grade');
+    const exposure = Math.abs(v - 1) < 0.005 ? 0 : Math.log2(v);
+    if (i < 0 && !exposure) return;
+    const g = i >= 0 ? chain[i] : F.defaultChainEntry('grade');
+    g.enabled = true;
+    g.params = Object.assign({}, g.params, { exposure });
+    if (i < 0) chain.push(g);
+    const plain = !exposure && F.EFFECTS.grade.params.every((p) => p.name === 'exposure' || g.params[p.name] == null || g.params[p.name] === p.default);
+    x.postfx = plain ? chain.filter((f) => f !== g) : chain;
+  }
+
   // ---- Kaynak: mod ve modun ayarları ----
   function defaults() { return (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : {}; }
   /* Taslaktaki gibi tek kart: en üstte mod, altında modun ayarları. */
@@ -350,7 +375,7 @@
     if (l.kind === 'media' || l.kind === 'sprites' || l.kind === 'logo') return [U.card(mediaControls(l, set, ctx, def))];
     // Çalan parça: masaüstündeki bütün ayarlar (src/mobile/shell-nowplaying.js)
     if ((l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type === 'nowplaying')) && window.SVShellNowPlaying) {
-      return window.SVShellNowPlaying.controls(() => findLayer(l.id), set);
+      return window.SVShellNowPlaying.controls(() => findLayer(l.id), set, ctx);
     }
     if (l.kind !== 'visualizer' && l.kind !== 'background') {
       return [h('div', { class: 'hint', text: 'Bu katman türünün ayarları masaüstündeki panelde. Karışım, görünürlük, dönüşüm, ses tepkisi ve efektler burada da çalışır.' })];
@@ -361,6 +386,8 @@
         if (x.kind === 'visualizer' && v !== 'milkdrop' && x.settings && x.settings.milkdrop) delete x.settings.milkdrop;
         // Studio'ya geçen katman boş kalmasın: ilk preset
         if (v === 'custom' && !x.presetId) { const first = studioPresets(x.kind)[0]; if (first) x.presetId = first.id; }
+        // Yeni modun kendi ayarları fabrika değerleriyle başlar
+        if (x.kind === 'background') LF().seedFactoryBackground(x, cfg(), def, { modeOnly: true });
       });
       ctx.refresh();
     };
@@ -373,10 +400,10 @@
     const mode = h('div', { class: 'edit-pane' }, [modeSelect, modeLib]);
     // Metin ve şarkı sözü: masaüstündeki bütün ayarlar (src/mobile/shell-text.js)
     if (l.kind === 'visualizer' && l.type === 'text' && window.SVShellText) {
-      return [U.card([mode])].concat(window.SVShellText.controls(() => findLayer(l.id), set));
+      return [U.card([mode])].concat(window.SVShellText.controls(() => findLayer(l.id), set, ctx));
     }
     if (l.type === 'custom') return [U.card([mode].concat(studioControls(l, set, c, def, ctx)))];
-    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx) : backgroundControls(l, set, c, def);
+    const parts = l.kind === 'visualizer' ? visualizerControls(l, set, c, def, ctx) : backgroundControls(l, set, c, def, ctx);
     return [U.card([mode].concat(parts))];
   }
 
@@ -464,6 +491,9 @@
         out.push(U.color({ label: 'Renk', value: getV('color', '#ff2d3a'), onInput: (v) => setV('color', v) }));
         out.push(U.color({ label: 'İkincil Renk', value: getV('color2', '#3aa6ff'), onInput: (v) => setV('color2', v) }));
       }
+      if (mode === 'theme') out.push(themeRow(ctx));
+    } else {
+      out.push(...bgColorControls(l, set, c, def, ctx));
     }
     const preset = list.find((p) => p.id === id);
     const stored = () => ((cfg().custom || {}).params || {})[id] || {};
@@ -479,6 +509,26 @@
       else if (k.type === 'toggle') out.push(U.toggle({ label, value: !!val, def: !!k.default, onChange: (v) => put(k.name, v) }));
       else out.push(U.slider({ label, min: k.min == null ? 0 : k.min, max: k.max == null ? 1 : k.max, step: k.step == null ? 0.01 : k.step, value: val, def: k.default, onInput: (v) => put(k.name, v) }));
     }
+    return out;
+  }
+
+  /* Tema kipindeki katmandan renk teması sayfasına götüren satır. */
+  function themeRow(ctx) {
+    return window.SVShellScene ? window.SVShellScene.themeRow(ctx) : h('div');
+  }
+  /* Arkaplanın renk kipi (masaüstündeki scene-panels.js ile aynı üç kip); kip ve düz renk katmanın kendisinde. */
+  function bgColorControls(l, set, c, def, ctx) {
+    const bgS = (l.settings && l.settings.background) || {};
+    const scene = Object.assign({}, def.background || {}, c.background || {});
+    const fact = def.background || {};
+    const put = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.background = Object.assign({}, x.settings.background, { [k]: v }); });
+    const mode = bgS.colorMode != null ? bgS.colorMode : (scene.colorMode || 'theme');
+    const out = [U.seg({
+      label: 'Renk Modu', options: [['solid', 'Düz Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode, def: fact.colorMode || 'theme',
+      onChange: (m) => { put('colorMode', m); ctx.refresh(); },
+    })];
+    if (mode === 'solid') out.push(U.color({ label: 'Düz Renk', value: bgS.solidColor || scene.solidColor || '#08080f', def: fact.solidColor || '#08080f', onChange: (v) => put('solidColor', v) }));
+    if (mode === 'theme') out.push(themeRow(ctx));
     return out;
   }
 
@@ -574,12 +624,36 @@
         }
         watchCamera(row, m.deviceId, warn, ctx);
       }
-      out.push(U.select({ label: 'Sığdırma', options: [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']], value: m.fit || 'cover', onChange: (v) => setM('fit', v) }));
+      const dm = def.media || {};
+      const mSlider = (label, k, min, max, step, fb, o) => U.slider(Object.assign({ label, min, max, step, value: m[k] == null ? fb : m[k], def: dm[k] == null ? fb : dm[k], onInput: (v) => setM(k, v) }, o));
+      const secs = (v) => U.num(v, 1) + ' ' + tr('sn');
+      out.push(U.select({ label: 'Sığdırma', options: [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']], value: m.fit || 'cover', def: dm.fit || 'cover', onChange: (v) => setM('fit', v) }));
       if (src === 'file') {
-        out.push(U.slider({ label: 'Hız', min: 0.25, max: 2, step: 0.05, value: m.speed == null ? 1 : m.speed, format: (v) => U.num(v, 2) + '×', onInput: (v) => setM('speed', v) }));
-        out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, onChange: (v) => setM('loop', v) }));
+        out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, def: dm.loop !== false, onChange: (v) => setM('loop', v) }));
+        out.push(mSlider('Hız', 'speed', 0.25, 4, 0.05, 1, { format: (v) => U.num(v, 2) + '×' }));
+        out.push(mSlider('Giriş Noktası', 'inPoint', 0, 600, 0.1, 0, { format: secs }));
+        out.push(mSlider('Çıkış Noktası', 'outPoint', 0, 600, 0.1, 0, { format: (v) => (v > 0 ? secs(v) : tr('sona kadar')) }));
+        out.push(U.select({ label: 'Vuruşa Kilitli Döngü', options: [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']], value: String(m.loopBeats || 0), def: '0', onChange: (v) => setM('loopBeats', Number(v) || 0) }));
       }
-      out.push(U.toggle({ label: 'Aynala', value: !!m.mirror, onChange: (v) => setM('mirror', v) }));
+      out.push(U.toggle({ label: 'Aynala', value: !!m.mirror, def: !!dm.mirror, onChange: (v) => setM('mirror', v) }));
+      out.push(mSlider('Kaleydoskop Dilimi', 'kaleido', 0, 12, 1, 0, { format: (v) => (v < 3 ? tr('kapalı') : Math.round(v) + ' ' + tr('dilim')) }));
+      out.push(mSlider('Renk Kayması', 'hue', 0, 1, 0.01, 0, { percent: true }));
+      out.push(mSlider('Doygunluk', 'saturate', 0, 3, 0.05, 1));
+      out.push(mSlider('Bas → Yakınlaşma', 'audioZoom', 0, 1, 0.01, 0.12, { percent: true }));
+      out.push(mSlider('Bas → Saydamlık', 'audioOpacity', 0, 1, 0.02, 0, { percent: true }));
+      out.push(mSlider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'kenBurns', 0, 1, 0.02, 0, { percent: true }));
+      out.push(mSlider('Ken Burns Döngüsü', 'kenBurnsPeriod', 4, 60, 1, 20, { format: (v) => Math.round(v) + ' ' + tr('sn') }));
+      out.push(mSlider('Vuruşta Nabız', 'beatPulse', 0, 1, 0.02, 0, { percent: true }));
+      const key = m.keyMode || 'off';
+      out.push(U.select({ label: 'Renk Anahtarı', options: [['off', 'Kapalı'], ['chroma', 'Seçilen Renk'], ['luma', 'Parlaklık']], value: key, def: 'off', onChange: (v) => { setM('keyMode', v); ctx.refresh(); } }));
+      if (key === 'chroma') out.push(U.color({ label: 'Anahtar Rengi', value: m.keyColor || '#00ff00', def: '#00ff00', onChange: (v) => setM('keyColor', v) }));
+      if (key === 'luma') out.push(U.select({ label: 'Saydam Kalan', options: [['dark', 'Karanlık'], ['bright', 'Aydınlık']], value: m.keyInvert ? 'bright' : 'dark', def: 'dark', onChange: (v) => setM('keyInvert', v === 'bright') }));
+      if (key !== 'off') {
+        out.push(mSlider('Anahtar Eşiği', 'keyAmount', 0, 1, 0.01, 0.3, { percent: true }));
+        out.push(mSlider('Anahtar Yumuşaklığı', 'keySoft', 0, 1, 0.01, 0.08, { percent: true }));
+        if (key === 'chroma') out.push(mSlider('Renk Taşmasını Bastır', 'keySpill', 0, 1, 0.01, 0, { percent: true }));
+        out.push(mSlider('Anahtar Kenar Yumuşatma', 'keyFeather', 0, 12, 1, 0, { format: (v) => (v < 1 ? tr('kapalı') : Math.round(v) + ' px') }));
+      }
       return out;
     }
     if (l.kind === 'sprites') {
@@ -598,16 +672,31 @@
         setI('name', f.name || 'Görsel');
         ctx.refresh();
       })));
-      out.push(U.slider({ label: 'Sayı', min: 1, max: 60, step: 1, value: it.count == null ? 14 : it.count, onInput: (v) => setI('count', Math.round(v)) }));
-      out.push(U.slider({ label: 'Boyut', min: 0.02, max: 0.4, step: 0.01, percent: true, value: it.size == null ? 0.07 : it.size, onInput: (v) => setI('size', v) }));
-      out.push(U.select({ label: 'Hareket', options: LF().SPRITE_MOTIONS, value: it.motion || 'float', onChange: (v) => setI('motion', v) }));
+      const D = window.SV.imageItem({});
+      const iSlider = (label, k, min, max, step, o) => U.slider(Object.assign({ label, min, max, step, value: it[k] == null ? D[k] : it[k], def: D[k], onInput: (v) => setI(k, v) }, o));
+      out.push(U.select({ label: 'Hareket', options: LF().SPRITE_MOTIONS, value: it.motion || D.motion, def: D.motion, onChange: (v) => setI('motion', v) }));
+      out.push(iSlider('Kopya Sayısı', 'count', 1, 200, 1, { format: (v) => String(Math.round(v)), onInput: (v) => setI('count', Math.round(v)) }));
+      out.push(iSlider('Boyut', 'size', 0.01, 0.4, 0.005, { percent: true }));
+      out.push(iSlider('Boyut Çeşitliliği', 'sizeVar', 0, 0.95, 0.05, { percent: true }));
+      out.push(iSlider('Saydamlık', 'opacity', 0, 1, 0.02, { percent: true }));
+      out.push(iSlider('Yayılma / Alan', 'spread', 0, 2, 0.05));
+      out.push(iSlider('Hız', 'speed', 0, 2, 0.05));
+      out.push(iSlider('Dönüş', 'spin', 0, 2, 0.05));
+      out.push(iSlider('Ses → Boyut', 'audioSize', 0, 2, 0.05));
+      out.push(iSlider('Ses → Hız', 'audioSpeed', 0, 2, 0.05));
+      out.push(iSlider('Ses → Saydamlık', 'audioOpacity', 0, 2, 0.05));
+      out.push(iSlider('Parlama', 'glow', 0, 1, 0.02, { percent: true }));
+      out.push(iSlider('Köşe / Oval', 'cornerRadius', 0, 0.5, 0.01, { percent: true }));
+      out.push(U.select({ label: 'Karışım', options: [['normal', 'Normal'], ['screen', 'Ekran (parlak)'], ['add', 'Toplama (ışıltı)']], value: it.blend || D.blend, def: D.blend, onChange: (v) => setI('blend', v) }));
+      out.push(U.toggle({ label: 'Üst Üste Binmeyi Engelle', value: !!it.noOverlap, def: !!D.noOverlap, onChange: (v) => setI('noOverlap', v) }));
+      out.push(iSlider('Minimum Mesafe (boyut çarpanı)', 'minDist', 0.5, 3, 0.05));
       out.push(U.seg({ label: 'Konum', options: [['front', 'Önde'], ['back', 'Arkada']], value: l.type === 'front' ? 'front' : 'back', onChange: (v) => set((x) => { x.type = v; }) }));
       return out;
     }
     const lg = Object.assign({}, def.logo, l.settings && l.settings.logo);
     const setL = (k, v) => set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { [k]: v }); });
     out.push(fileRow('Resim', '', lg.src && String(lg.src).indexOf('data:') === 0 ? h('img', { class: 'thumb xs', src: lg.src, alt: '' }) : null, () => filePick('image', (f) => {
-      set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { enabled: true, source: 'manual', src: f.dataUrl, libraryId: '' }); });
+      set((x) => { x.settings = x.settings || {}; x.settings.logo = Object.assign({}, x.settings.logo, { enabled: true, source: 'manual', src: f.dataUrl, libraryId: '', kind: /^data:image\/gif/i.test(f.dataUrl || '') ? 'gif' : 'image' }); });
       ctx.refresh();
     })));
     out.push(libraryButton(() => libraryList('logos').then((list) => pickTile(ctx, {
@@ -619,10 +708,32 @@
       if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
       ctx.refresh();
     })));
-    out.push(U.slider({ label: 'Boyut', min: 0.05, max: 0.9, step: 0.01, percent: true, value: lg.scale == null ? 0.22 : lg.scale, onInput: (v) => setL('scale', v) }));
-    out.push(U.slider({ label: 'Yatay Konum', min: 0, max: 1, step: 0.01, percent: true, value: lg.x == null ? 0.5 : lg.x, onInput: (v) => setL('x', v) }));
-    out.push(U.slider({ label: 'Dikey Konum', min: 0, max: 1, step: 0.01, percent: true, value: lg.y == null ? 0.5 : lg.y, onInput: (v) => setL('y', v) }));
-    out.push(U.slider({ label: 'Nabız', min: 0, max: 1, step: 0.01, percent: true, value: lg.pulse == null ? 0.3 : lg.pulse, onInput: (v) => setL('pulse', v) }));
+    const dl = def.logo || {};
+    const lSlider = (label, k, min, max, step, fb, o) => U.slider(Object.assign({ label, min, max, step, percent: true, value: lg[k] == null ? fb : lg[k], def: dl[k] == null ? fb : dl[k], onInput: (v) => setL(k, v) }, o));
+    const plain = { percent: false };
+    out.push(lSlider('Yatay Konum', 'x', 0, 1, 0.01, 0.5));
+    out.push(lSlider('Dikey Konum', 'y', 0, 1, 0.01, 0.5));
+    out.push(lSlider('Boyut', 'scale', 0.05, 0.9, 0.01, 0.22));
+    out.push(lSlider('Nabız', 'pulse', 0, 1, 0.01, 0.3));
+    out.push(lSlider('Parlama', 'glow', 0, 1, 0.02, 0.2));
+    out.push(lSlider('Köşe / Oval', 'cornerRadius', 0, 0.5, 0.01, 0));
+    out.push(lSlider('Saydamlık', 'opacity', 0, 1, 0.02, 1));
+    out.push(lSlider('Parlaklık', 'brightness', 0.2, 2, 0.01, 1));
+    out.push(lSlider('Renk Kayması', 'hue', 0, 1, 0.01, 0));
+    out.push(lSlider('Doygunluk', 'saturate', 0, 2, 0.01, 1));
+    out.push(U.select({ label: 'Karışım', options: [['normal', 'Normal'], ['screen', 'Ekran\u200B'], ['add', 'Ekle']], value: lg.blend || 'normal', def: 'normal', onChange: (v) => setL('blend', v) }));
+    out.push(U.toggle({ label: 'Kenar Yumuşatma', value: lg.smooth !== false, def: dl.smooth !== false, onChange: (v) => setL('smooth', v) }));
+    if (window.SVGif && window.SVGif.isAnimatedLogo(lg, lg.src)) {
+      out.push(lSlider('Oynatma Hızı', 'speed', 0.1, 3, 0.01, 1, plain));
+      out.push(U.select({ label: 'Döngü', options: [['loop', 'Tekrar'], ['pingpong', 'Gidiş-Dönüş'], ['once', 'Bir Kez']], value: lg.loop || 'loop', def: 'loop', onChange: (v) => setL('loop', v) }));
+      out.push(U.toggle({ label: 'Ters Oynat', value: !!lg.reverse, def: false, onChange: (v) => setL('reverse', v) }));
+      out.push(lSlider('Ses → Hız', 'audioSpeed', 0, 1, 0.01, 0));
+    }
+    out.push(U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']], value: lg.audioBand || 'bass', def: 'bass', onChange: (v) => setL('audioBand', v) }));
+    out.push(lSlider('Ses → Parlaklık', 'audioBrightness', 0, 1, 0.01, 0));
+    out.push(lSlider('Ses → Saydamlık', 'audioOpacity', 0, 1, 0.01, 0));
+    out.push(lSlider('Ritim Parlaması', 'beatFlash', 0, 1, 0.01, 0));
+    out.push(lSlider('Ses → Renk', 'audioHue', 0, 1, 0.01, 0));
     return out;
   }
 
@@ -655,13 +766,14 @@
     const kids = [
       U.seg({
         label: 'Renk Modu', options: [['custom', 'Sabit Renk'], ['theme', 'Renk Teması'], ['rainbow', 'Gökkuşağı']], value: mode, def: fact.colorMode || (fact.rainbow ? 'rainbow' : 'custom'),
-        onChange: (m) => { set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { colorMode: m, rainbow: m === 'rainbow' }); }); },
+        onChange: (m) => { set((x) => { x.settings = x.settings || {}; x.settings.visualizer = Object.assign({}, x.settings.visualizer, { colorMode: m, rainbow: m === 'rainbow' }); }); ctx.refresh(); },
       }),
     ];
     if (mode === 'custom') {
       kids.push(U.color({ label: 'Renk', value: getV('color', '#ff2d3a'), def: fd('color', '#ff2d3a'), onChange: (v) => setV('color', v) }));
       if (MC().is('visualizer', l.type, 'color2')) kids.push(U.color({ label: 'İkincil Renk', value: getV('color2', '#3aa6ff'), def: fd('color2', '#3aa6ff'), onChange: (v) => setV('color2', v) }));
     }
+    if (mode === 'theme') kids.push(themeRow(ctx));
     kids.push(sens(1));
     if (l.type !== 'spectrogram') kids.push(U.slider({ label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, value: getV('glow', fd('glow', 0.2)), def: fd('glow', 0.2), onInput: (v) => setV('glow', v) }));
     if (MC().is('visualizer', l.type, 'bands')) kids.push(U.slider({ label: 'Bar Sayısı', min: 16, max: 160, step: 1, value: getV('barCount', fd('barCount', 64)), def: fd('barCount', 64), onInput: (v) => setV('barCount', Math.round(v)) }));
@@ -669,24 +781,86 @@
     if (MC().is('visualizer', l.type, 'wave')) kids.push(U.slider({ label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, value: getV('lineWidth', fd('lineWidth', 3)), def: fd('lineWidth', 3), onInput: (v) => setV('lineWidth', v) }));
     if (MC().is('visualizer', l.type, 'thick')) kids.push(U.slider({ label: 'Genlik', min: 0.1, max: 1, step: 0.02, percent: true, value: getV('thickness', fd('thickness', 0.42)), def: fd('thickness', 0.42), onInput: (v) => setV('thickness', v) }));
     if (['bars', 'wave', 'radialWave'].indexOf(l.type) >= 0) kids.push(U.toggle({ label: 'Ayna', value: !!getV('mirror', false), def: !!fd('mirror', false), onChange: (v) => setV('mirror', v) }));
-    if (l.type === 'bars') kids.push(U.toggle({ label: 'Tepe Noktaları', value: getV('cap', true) !== false, def: fd('cap', true) !== false, onChange: (v) => setV('cap', v) }));
+    if (l.type === 'bars') kids.push(...barControls(getV, fd, setV, ctx));
+    if (l.type === 'stereotrails') kids.push(U.slider({ label: 'Yükseklik', min: 0.4, max: 3, step: 0.05, percent: true, value: getV('trailHeight', fd('trailHeight', 1)), def: fd('trailHeight', 1), onInput: (v) => setV('trailHeight', v) }));
     return kids;
   }
 
-  function backgroundControls(l, set, c, def) {
+  /* Barlar modunun biçim ayarları (masaüstündeki katman düzenleyicisiyle aynı liste). */
+  function barControls(getV, fd, setV, ctx) {
+    const redo = (k) => (v) => { setV(k, v); ctx.refresh(); };
+    const sl = (label, k, min, max, step, fb, percent, defOver) => U.slider({ label, min, max, step, percent: !!percent, value: getV(k, fd(k, fb)), def: defOver != null ? defOver : fd(k, fb), onInput: (v) => setV(k, v) });
+    const capOn = getV('cap', true) !== false;
+    const out = [U.toggle({ label: 'Tepe Noktaları', value: capOn, def: fd('cap', true) !== false, onChange: redo('cap') })];
+    const style = getV('barStyle', 'solid');
+    out.push(U.seg({ label: 'Bar Stili', options: [['solid', 'Düz'], ['segments', 'Segmentli (LED)']], value: style, def: fd('barStyle', 'solid'), onChange: redo('barStyle') }));
+    if (style === 'segments') {
+      out.push(sl('Segment Boyu', 'segmentSize', 0.01, 0.2, 0.005, 0.035, true));
+      out.push(sl('Segment Aralığı', 'segmentGap', 0, 0.8, 0.02, 0.3, true));
+    }
+    out.push(sl('Köşe Yuvarlaklığı', 'barRadius', 0, 0.5, 0.01, 0.4, true));
+    out.push(U.seg({ label: 'Dolgu', options: [['flat', 'Düz'], ['gradient', 'Dikey Degrade']], value: getV('barFill', 'flat'), def: fd('barFill', 'flat'), onChange: (v) => setV('barFill', v) }));
+    if (capOn) {
+      out.push(sl('Tepe Bekleme (sn)', 'capHold', 0, 2, 0.05, 0));
+      out.push(sl('Tepe Düşüş Hızı', 'capFall', 0.25, 4, 0.05, 1));
+      const capMode = getV('capColorMode', 'auto');
+      out.push(U.seg({ label: 'Tepe Rengi', options: [['auto', 'Otomatik'], ['custom', 'Özel']], value: capMode, def: fd('capColorMode', 'auto'), onChange: redo('capColorMode') }));
+      if (capMode === 'custom') out.push(U.color({ label: 'Tepe Rengi Seç', value: getV('capColor', fd('capColor', '#ffffff')), def: fd('capColor', '#ffffff'), onChange: (v) => setV('capColor', v) }));
+    }
+    const pos = getV('position', fd('position', 'bottom'));
+    out.push(U.select({ label: 'Yerleşim', options: [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], value: pos, def: fd('position', 'bottom'), onChange: redo('position') }));
+    out.push(sl('Bar Genişliği', 'barSpan', 0.1, 1, 0.01, 1, true));
+    out.push(sl('Yatay Konum', 'barCenterX', 0, 1, 0.01, 0.5, true));
+    // Çizicideki (bars.js) yerleşime bağlı varsayılanlar
+    const defH = pos === 'center' ? 0.46 : pos === 'full' ? 0.95 : 0.92;
+    const defBase = pos === 'center' ? 0.5 : 1;
+    out.push(U.slider({ label: 'Bar Yüksekliği', min: 0.05, max: 1, step: 0.01, percent: true, value: getV('barHeight', defH), def: defH, onInput: (v) => setV('barHeight', v) }));
+    out.push(U.slider({ label: 'Taban Çizgisi', min: 0, max: 1, step: 0.01, percent: true, value: getV('baseline', defBase), def: defBase, onInput: (v) => setV('baseline', v) }));
+    if (pos !== 'center') {
+      out.push(U.seg({ label: 'Büyüme Yönü', options: [['up', 'Yukarı'], ['down', 'Aşağı']], value: getV('barDirection', 'up'), def: fd('barDirection', 'up'), onChange: (v) => setV('barDirection', v) }));
+      out.push(sl('Zemin Yansıması', 'reflection', 0, 1, 0.02, 0, true));
+      out.push(sl('Yansıma Boyu', 'reflectionLength', 0.05, 1, 0.01, 0.4, true));
+    }
+    return out;
+  }
+
+  function backgroundControls(l, set, c, def, ctx) {
     const bgS = (l.settings && l.settings.background) || {};
     const scene = Object.assign({}, def.background || {}, c.background || {});
     const kids = [];
     const setBg = (fn) => set((x) => { x.settings = x.settings || {}; x.settings.background = JSON.parse(JSON.stringify(x.settings.background || {})); fn(x.settings.background); });
     if (l.type === 'solid') {
       kids.push(U.color({ label: 'Renk', value: bgS.solidColor || scene.solidColor || '#000000', def: (def.background && def.background.solidColor) || '#000000', onChange: (v) => setBg((b) => { b.solidColor = v; }) }));
-    } else if (l.type === 'gradient') {
-      const g = Object.assign({}, scene.gradient || {}, bgS.gradient || {});
+    } else {
+      kids.push(...bgColorControls(l, set, c, def, ctx));
+    }
+    if (l.type === 'gradient') {
+      // Masaüstündeki katman düzenleyicisiyle aynı liste; değer sırası: katman, sahne, fabrika
+      const gOwn = bgS.gradient || {};
+      const gScene = (c.background && c.background.gradient) || {};
       const gd = (def.background && def.background.gradient) || {};
-      const G = [['speed', 'Akış Hızı', 0, 2, 0.02, false], ['audioReactivity', 'Ses Tepkisi', 0, 2, 0.02, false], ['brightness', 'Parlaklık', 0.4, 1.6, 0.02, false], ['audioHue', 'Renk Kayması', 0, 1, 0.01, true], ['vignette', 'Vinyet', 0, 1, 0.01, true]];
-      for (const [k, t, mn, mx, st, pc] of G) {
-        kids.push(U.slider({ label: t, min: mn, max: mx, step: st, percent: pc, value: g[k] == null ? mn : g[k], def: gd[k] == null ? mn : gd[k], onInput: (v) => setBg((b) => { b.gradient = Object.assign({}, b.gradient, { [k]: v }); }) }));
-      }
+      const gv = (k) => (gOwn[k] !== undefined ? gOwn[k] : (gScene[k] !== undefined ? gScene[k] : gd[k]));
+      const setG = (k, v) => setBg((b) => { b.gradient = Object.assign({}, b.gradient, { [k]: v }); });
+      const sl = (t, k, mn, mx, st, o) => kids.push(U.slider(Object.assign({ label: t, min: mn, max: mx, step: st, value: gv(k), def: gd[k], onInput: (v) => setG(k, v) }, o)));
+      const head = (t) => kids.push(h('div', { class: 'sub-label', text: t }));
+      kids.push(U.select({ label: 'Stil', options: [['soft', 'Yumuşak (Parlamasız)'], ['plasma', 'Plazma (Parlamalı)']], value: gv('style'), def: gd.style, onChange: (v) => setG('style', v) }));
+      sl('Akış Hızı', 'speed', 0, 2, 0.02);
+      sl('Ses Tepkisi', 'audioReactivity', 0, 2, 0.02);
+      head('Hareket');
+      sl('Tek Yönlü Kayma', 'drift', 0, 1, 0.01, { percent: true });
+      sl('Gezinme Alanı', 'wander', 0, 2, 0.02);
+      sl('Dolanma Miktarı', 'orbit', 0, 2, 0.02);
+      sl('İç Dönüş (Swirl)', 'swirl', 0, 2, 0.02);
+      sl('Bozulma (Akışkanlık)', 'warp', 0, 2, 0.02);
+      head('Görünüm');
+      sl('Ölçek (Yoğunluk)', 'scale', 0.4, 3, 0.05);
+      sl('Parlaklık (Temel)', 'brightness', 0.4, 1.6, 0.02);
+      kids.push(U.toggle({ label: 'Hat Çizgilerini Gizle', value: gv('hideLines') !== false, def: gd.hideLines !== false, onChange: (v) => setG('hideLines', v) }));
+      sl('Gren', 'grain', 0, 0.2, 0.005, { format: (v) => U.num(v, 3) });
+      sl('Vinyet', 'vignette', 0, 1, 0.02, { percent: true });
+      head('Sese Tepki');
+      sl('Ses Patlaması (Parlaklık)', 'audioBrightness', 0, 2, 0.02);
+      sl('Ses ile Renk Kayması', 'audioHue', 0, 1, 0.02, { percent: true });
     }
     for (const [k, t, mn, mx, st, pc] of MC().settingsOf('background', l.type)) {
       const own = bgS[l.type] || {};
@@ -763,6 +937,13 @@
     ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['studio', 'Studio Shader'], ['milkdrop', 'MilkDrop'], ['media', 'Medya'], ['text', 'Metin'],
   ];
   let addCat = 'visualizer';
+  function studioPresetInUse(id) {
+    const c = cfg();
+    if (layers().some((l) => l && l.type === 'custom' && l.presetId === id)) return true;
+    if (c.custom && (c.custom.visualizerId === id || c.custom.backgroundId === id)) return true;
+    const tracks = (c.timeline && Array.isArray(c.timeline.tracks)) ? c.timeline.tracks : [];
+    return tracks.some((t) => t && Array.isArray(t.clips) && t.clips.some((x) => x && x.type === 'shader' && x.ref === id));
+  }
   function addPage() {
     let query = '';
     let pick = null;
@@ -879,8 +1060,16 @@
             return;
           }
           if (pick.what.studio) {
-            const made = window.SVLayers.normalizeLayer({ kind: pick.what.kind, type: 'custom', presetId: pick.what.studio, name: pick.label });
-            own(() => A().config.patch({ layers: layers().concat([made]) }));
+            const made = LF().make({ kind: pick.what.kind, type: 'custom', presetId: pick.what.studio, name: pick.label }, cfg());
+            const patch = { layers: layers().concat([made]) };
+            // Presetin ayarları presete bağlı: kullanan başka bir yer yoksa fabrika değerleriyle başlar
+            const cur = cfg().custom || {};
+            if (cur.params && cur.params[pick.what.studio] && !studioPresetInUse(pick.what.studio)) {
+              const params = Object.assign({}, cur.params);
+              delete params[pick.what.studio];
+              patch.custom = Object.assign({}, cur, { params });
+            }
+            own(() => A().config.patch(patch));
             ctx.pop();
             ctx.push(editPage(made.id));
             return;

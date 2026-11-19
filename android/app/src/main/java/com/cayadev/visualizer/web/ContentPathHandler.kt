@@ -38,12 +38,15 @@ class ContentPathHandler(private val context: Context) : WebViewAssetLoader.Path
         }
     }
 
-    private fun granted(uri: Uri): Boolean =
-        context.contentResolver.persistedUriPermissions.any { it.isReadPermission && it.uri == uri }
+    private fun granted(uri: Uri): Boolean = granted(context, uri)
 
     companion object {
         private const val TAG = "SV-content"
         const val PREFIX = "/content/"
+
+        /** Yalnız kullanıcının seçtiği ve kalıcı okuma izni olan adresler. */
+        fun granted(context: Context, uri: Uri): Boolean =
+            context.contentResolver.persistedUriPermissions.any { it.isReadPermission && it.uri == uri }
 
         /** Sayfanın isteyeceği adres. */
         fun urlOf(uri: Uri): String =
