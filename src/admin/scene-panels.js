@@ -1384,6 +1384,17 @@
           return miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ min: r.min, max: r.max, def: d, path: 'media.' + key }, o));
         };
         out.push(tSlider('Hız', 'speed', 1, { step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }));
+        out.push(miniToggle('Sese Göre Hız', () => m.speedReact === true, (v) => { m.speedReact = v; }, rerender, { def: false }));
+        if (m.speedReact === true) {
+          const rate = (v) => (+v).toFixed(2) + '×';
+          out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']],
+            () => m.speedBand || 'bass', (v) => { m.speedBand = v; }, null, 'bass'));
+          const rateSlider = (label, key, d, o) => miniSlider(label, () => (m[key] == null ? d : m[key]), (v) => { m[key] = v; }, Object.assign({ def: d }, o));
+          out.push(rateSlider('En Düşük Hız', 'speedMin', 0.5, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
+          out.push(rateSlider('En Yüksek Hız', 'speedMax', 2, { min: 0.1, max: 4, step: 0.05, fmt: rate }));
+          out.push(rateSlider('Hız Yumuşatma', 'speedSmooth', 0.15, { min: 0, max: 1, step: 0.01, fmt: (v) => (+v).toFixed(2) + ' ' + tr('sn') }));
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
+        }
         out.push(tSlider('Giriş Noktası', 'inPoint', 0, { step: 0.1, fmt: sec }));
         out.push(tSlider('Çıkış Noktası', 'outPoint', 0, { step: 0.1, fmt: (v) => (v > 0 ? sec(v) : tr('sona kadar')) }));
         out.push(miniSelect('Vuruşa Kilitli Döngü', [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']],

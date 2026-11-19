@@ -659,6 +659,17 @@
       if (src === 'file') {
         out.push(U.toggle({ label: 'Döngüde Oynat', value: m.loop !== false, def: dm.loop !== false, onChange: (v) => setM('loop', v) }));
         out.push(mSlider('Hız', 'speed', 0.25, 4, 0.05, 1, { format: (v) => U.num(v, 2) + '×' }));
+        // Sese göre hız: motor masaüstüyle ortak (src/visualizer/modes/media.js audioRate)
+        const react = m.speedReact === true;
+        out.push(U.toggle({ label: 'Sese Göre Hız', value: react, def: false, onChange: (v) => { setM('speedReact', !!v); ctx.refresh(); } }));
+        if (react) {
+          const rate = { format: (v) => U.num(v, 2) + '×' };
+          out.push(U.select({ label: 'Ses Bandı', options: [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']], value: m.speedBand || 'bass', def: 'bass', onChange: (v) => setM('speedBand', v) }));
+          out.push(mSlider('En Düşük Hız', 'speedMin', 0.1, 4, 0.05, 0.5, rate));
+          out.push(mSlider('En Yüksek Hız', 'speedMax', 0.1, 4, 0.05, 2, rate));
+          out.push(mSlider('Hız Yumuşatma', 'speedSmooth', 0, 1, 0.01, 0.15, { format: (v) => U.num(v, 2) + ' ' + tr('sn') }));
+          out.push(h('div', { class: 'hint', text: 'Sessizken en düşük, bant en güçlüyken en yüksek hızda oynar. Vuruşa kilitli döngü açıkken sabit Hız kullanılır.' }));
+        }
         out.push(mSlider('Giriş Noktası', 'inPoint', 0, 600, 0.1, 0, { format: secs }));
         out.push(mSlider('Çıkış Noktası', 'outPoint', 0, 600, 0.1, 0, { format: (v) => (v > 0 ? secs(v) : tr('sona kadar')) }));
         out.push(U.select({ label: 'Vuruşa Kilitli Döngü', options: [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']], value: String(m.loopBeats || 0), def: '0', onChange: (v) => setM('loopBeats', Number(v) || 0) }));
