@@ -244,7 +244,28 @@
   // Taşıma ayarı açık mı (yoksa canlı oynatıcı eskisi gibi kendi başına oynuyor)
   function transportOn(m) {
     const o = m || {};
-    return (Number(o.speed) > 0 && Number(o.speed) !== 1) || Number(o.inPoint) > 0 || Number(o.outPoint) > 0 || Number(o.loopBeats) > 0;
+    return (Number(o.speed) > 0 && Number(o.speed) !== 1) || Number(o.inPoint) > 0 || Number(o.outPoint) > 0 || Number(o.loopBeats) > 0 || speedReactOn(o);
+  }
+  /* SESE GÖRE HIZ: seçilen bandın şiddeti oynatma hızını en düşük ve en yüksek hız arasında
+     sürer (speedReact, speedBand, speedMin 0,5, speedMax 2, speedSmooth 0,15 sn). Vuruşa kilitli döngü konumu tempo ızgarasından hesapladığı için onunla birlikte
+     çalışmaz; döngü açıkken sabit Hız geçerlidir. */
+  function speedReactOn(m) {
+    return !!m && m.speedReact === true && !(Number(m.loopBeats) > 0);
+  }
+  const clampRate = (v, fb) => Math.max(0.1, Math.min(4, Number(v) > 0 ? Number(v) : fb));
+  function audioRate(m, audio, prev, dt) {
+    const o = m || {};
+    const a = clampRate(o.speedMin, 0.5);
+    const b = clampRate(o.speedMax, 2);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const key = o.speedBand === 'mid' || o.speedBand === 'treble' || o.speedBand === 'level' ? o.speedBand : 'bass';
+    const level = Math.max(0, Math.min(1, Number(audio && audio[key]) || 0));
+    const target = lo + (hi - lo) * level;
+    if (!(prev > 0)) return target;
+    const tau = o.speedSmooth == null ? 0.15 : Math.max(0, Number(o.speedSmooth) || 0);
+    const k = tau > 0 ? 1 - Math.exp(-Math.max(0, Number(dt) || 0) / tau) : 1;
+    return prev + (target - prev) * k;
   }
   const tempoOf = (cfg) => (cfg && cfg.modulation && cfg.modulation.bpm > 0 ? cfg.modulation.bpm : 120);
 
@@ -647,6 +668,16 @@
       }
     }
 
+    /* Dışa aktarımda sese göre hız: konum kare kare toplanır, aynı ses aynı videoyu verir.
+       Dönen süre transportTime'ın sabit Hız çarpanıyla çarpılınca toplanan konumu verir. */
+    _reactClock(sec) {
+      const m = this._m || {};
+      if (this._offT == null || sec < this._offT) this._offPos = 0;
+      else this._offPos += (sec - this._offT) * (this._rate > 0 ? this._rate : clampRate(m.speedMin, 0.5));
+      this._offT = sec;
+      return this._offPos / clampRate(m.speed, 1);
+    }
+
     async seekTo(sec) {
       // null: sarılacak bir şey yok (kamera, dosya seçilmemiş); false: kare okunamadı
       if (!this.offline || this._source !== 'file' || !this._loaded) return null;
@@ -655,6 +686,7 @@
       const v = this.video;
       const d = v.duration;
       if (!(d > 0) || !isFinite(d)) return false;
+      if (speedReactOn(this._m)) sec = this._reactClock(sec);
       const target = transportTime(sec, d, Object.assign({}, this._m, { loop: v.loop }), this._bpm || 0);
       if (Math.abs(v.currentTime - target) < 1e-6 && !v.seeking && v.readyState >= 2) return true;
       return new Promise((resolve) => {
@@ -689,8 +721,13 @@
       const v = this.video;
       const d = v.duration;
       if (!(d > 0) || !isFinite(d) || v.readyState < 2 || this._tlDriven) return;
-      const speed = Math.max(0.1, Math.min(4, Number(m.speed) > 0 ? Number(m.speed) : 1));
-      if (Math.abs(v.playbackRate - speed) > 1e-3) v.playbackRate = speed;
+      const react = speedReactOn(m) && this._rate > 0;
+      const speed = react ? this._rate : Math.max(0.1, Math.min(4, Number(m.speed) > 0 ? Number(m.speed) : 1));
+      // Sese göre hız her karede oynar: küçük farklar oynatıcıya yazılmaz
+      const settled = react && Math.abs(v.playbackRate - speed) <= 0.02;
+      if (!settled) {
+        if (Math.abs(v.playbackRate - speed) > 1e-3) v.playbackRate = speed;
+      }
       if (Number(m.loopBeats) > 0) {
         const want = transportTime(t, d, m, this._bpm || 120);
         if (!v.seeking && Math.abs(v.currentTime - want) > 0.15) { try { v.currentTime = want; } catch { /* hazır değil */ } }
@@ -725,6 +762,14 @@
       const m = cfg.media || {};
       if (!m.enabled) return;
       this._bpm = tempoOf(cfg);
+      if (speedReactOn(m)) {
+        const dt = this._rateT == null ? 0 : Math.max(0, Math.min(0.25, t - this._rateT));
+        this._rateT = t;
+        this._rate = audioRate(m, audio, this._rate, dt);
+      } else {
+        this._rate = 0;
+        this._rateT = null;
+      }
       if (this._source === 'file' && !this.offline && !this._relay && transportOn(m)) this._steer(m, t);
       else if (this._source === 'file' && !this.offline && this.video.playbackRate !== 1) this.video.playbackRate = 1;
       if (!this.hasFrame()) {
@@ -1069,7 +1114,7 @@
   window.SVMedia = MediaLayer;
   window.SVMediaKey = { active: keyActive, apply: keyApply, feather: keyFeather, spillChannel: keySpillChannel };
   window.SVScreenFps = screenFps;
-  window.SVMediaTransport = { transportTime, transportOn, tempoOf };
+  window.SVMediaTransport = { transportTime, transportOn, tempoOf, speedReactOn, audioRate };
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;
   window.SVMissingVideo = missingVideoText;
