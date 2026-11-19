@@ -68,6 +68,70 @@
     return layer;
   }
 
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const sameVal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const copyVal = (v) => (v !== null && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v);
+  const defaultsOf = (defIn) => defIn || ((W().SV && W().SV.defaultConfig) ? W().SV.defaultConfig() : {});
+
+  /* Katmanın yazmadığı alanı motor sahneden okuyor (layers.js layerConfig). Sahne fabrika
+     değerinden uzaklaşmışsa (şablon, Otomatik VJ, içe alınan yedek) yeni katman o değerlerle
+     başlıyordu. Yalnız sahnede FARKLI olan alanlara fabrika değeri yazılır; katmanın kendi
+     değerine dokunulmaz. */
+  function seedSection(own, scene, fact, skip) {
+    for (const k of Object.keys(fact || {})) {
+      if (own[k] !== undefined || (skip && skip.indexOf(k) >= 0)) continue;
+      const s = scene ? scene[k] : undefined;
+      if (s === undefined || sameVal(s, fact[k])) continue;
+      own[k] = copyVal(fact[k]);
+    }
+    return own;
+  }
+
+  /* Arkaplan katmanı. Renk paleti (gradient.colors) tohumlanmaz: tema kipinde motor sahnenin
+     canlı paletini kullanıyor, renk teması sahnenin ortak ayarı.
+     modeOnly: var olan katmanın modu değişiyor; yalnız yeni modun kendi ayarları. */
+  function seedFactoryBackground(layer, cfgIn, defIn, opts) {
+    const fb = defaultsOf(defIn).background || {};
+    const sb = (cfgIn && cfgIn.background) || {};
+    const modeOnly = !!(opts && opts.modeOnly);
+    const type = layer.type;
+    layer.settings = layer.settings || {};
+    const own = Object.assign({}, layer.settings.background);
+    if (!modeOnly) seedSection(own, sb, { colorMode: fb.colorMode, solidColor: fb.solidColor });
+    if (!modeOnly || type === 'gradient') {
+      const g = seedSection(Object.assign({}, own.gradient), sb.gradient, fb.gradient, ['colors']);
+      if (Object.keys(g).length) own.gradient = g;
+    }
+    if (type !== 'gradient' && isObj(fb[type])) {
+      const m = seedSection(Object.assign({}, own[type]), sb[type], fb[type]);
+      if (Object.keys(m).length) own[type] = m;
+    }
+    if (Object.keys(own).length) layer.settings.background = own;
+    return layer;
+  }
+
+  /* Metin katmanı: yazmadığı alanlar sahnenin metin ayarından geliyor. */
+  function seedFactoryText(layer, cfgIn, defIn) {
+    const def = defaultsOf(defIn);
+    const text = layer.settings.text;
+    seedSection(text, (cfgIn && cfgIn.text) || {}, def.text, ['enabled']);
+    const fv = def.visualizer || {};
+    const sv = (cfgIn && cfgIn.visualizer) || {};
+    if (text.colorMode === undefined && sv.colorMode !== undefined && sv.colorMode !== fv.colorMode) text.colorMode = fv.colorMode;
+    return seedFactoryVisualizer(layer, cfgIn, def);
+  }
+
+  /* Çalan parça katmanı: aynı miras sahnenin nowplaying ayarından. */
+  function seedFactoryNowPlaying(layer, cfgIn, defIn) {
+    const def = defaultsOf(defIn);
+    const np = layer.settings.nowplaying;
+    seedSection(np, (cfgIn && cfgIn.nowplaying) || {}, def.nowplaying, ['enabled', 'source']);
+    const fv = def.visualizer || {};
+    const sv = (cfgIn && cfgIn.visualizer) || {};
+    if (np.colorMode === undefined && sv.colorMode !== undefined && sv.colorMode !== fv.colorMode) np.colorMode = fv.colorMode;
+    return seedFactoryVisualizer(layer, cfgIn, def);
+  }
+
   /* Gömülü paketten preset (panel varsa önce onun dizini). */
   function milkdropPreset(id) {
     const MP = W().SVMilkdropPanel;
@@ -78,7 +142,7 @@
   }
 
   /* Yeni katman. what:
-       { kind: 'visualizer' | 'background', type }   bir mod
+       { kind: 'visualizer' | 'background', type, presetId? }   bir mod (Studio: type 'custom')
        { kind: 'milkdrop' }                           varsayılan MilkDrop presetiyle
        { kind: 'text', preset: 0..2 }                 TEXT_ADD_PRESETS'ten
        { kind: 'nowplaying' }
@@ -96,11 +160,14 @@
     if (w.kind === 'text') {
       const preset = TEXT_ADD_PRESETS[w.preset | 0] || TEXT_ADD_PRESETS[0];
       const spec = preset.spec.source === 'lyrics' ? Object.assign({}, preset.spec, { lyricsFollow: !!o.lyricsFollow }) : preset.spec;
-      return S.makeTextLayer(spec);
+      return seedFactoryText(S.makeTextLayer(spec), cfg, o.defaults);
     }
-    if (w.kind === 'nowplaying') return S.makeNowPlayingLayer({ name: w.name || 'Çalan Parça' });
-    const made = S.normalizeLayer({ kind: w.kind, name: w.name || '', type: w.type });
+    if (w.kind === 'nowplaying') return seedFactoryNowPlaying(S.makeNowPlayingLayer({ name: w.name || 'Çalan Parça' }), cfg, o.defaults);
+    const spec = { kind: w.kind, name: w.name || '', type: w.type };
+    if (w.presetId) spec.presetId = w.presetId;
+    const made = S.normalizeLayer(spec);
     if (w.kind === 'visualizer') seedFactoryVisualizer(made, cfg, o.defaults);
+    if (w.kind === 'background') seedFactoryBackground(made, cfg, o.defaults);
     return made;
   }
 
@@ -128,7 +195,7 @@
     if (kind === 'logo') {
       return S.normalizeLayer({
         kind: 'logo', name: 'Logo',
-        settings: { logo: Object.assign({}, def.logo, { enabled: true, source: 'manual', src: f.dataUrl || null, libraryId: '' }) },
+        settings: { logo: Object.assign({}, def.logo, { enabled: true, source: 'manual', src: f.dataUrl || null, libraryId: '', kind: /^data:image\/gif/i.test(f.dataUrl || '') ? 'gif' : 'image' }) },
       });
     }
     const item = W().SV && W().SV.imageItem ? W().SV.imageItem({ src: f.dataUrl || null, name: f.name || 'Görsel' }) : { src: f.dataUrl || null };
@@ -144,7 +211,7 @@
     return L().normalizeLayer(copy);
   }
 
-  const api = { BLEND_LABELS, BAND_LABELS, SPRITE_MOTIONS, TEXT_ADD_PRESETS, seedFactoryVisualizer, milkdropPreset, make, makeMedia, duplicate };
+  const api = { BLEND_LABELS, BAND_LABELS, SPRITE_MOTIONS, TEXT_ADD_PRESETS, seedFactoryVisualizer, seedFactoryBackground, milkdropPreset, make, makeMedia, duplicate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayerFactory = api;
 })();

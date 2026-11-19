@@ -4450,6 +4450,8 @@
     '{n} boş preset dosyası atlanacak.': '{n} empty preset files will be skipped.',
     '{n} boş preset dosyası atlandı.': '{n} empty preset files were skipped.',
     '{n} dosya MilkDrop preseti değil; atlandı.': '{n} files are not MilkDrop presets and were skipped.',
+    'Renk Teması Seç': 'Choose Color Theme',
+    'Renk teması sahnedeki bütün katmanlarda ortaktır.': 'The color theme is shared by every layer in the scene.',
     'Bu katmanın Studio preseti silinmiş; katman boş çiziliyor. Listeden başka bir preset seçin.': "This layer's Studio preset was deleted, so the layer draws nothing. Pick another preset from the list.",
     'WebGL2 kullanılamıyor.': 'WebGL2 unavailable.',
     'Derlendi.': 'Compiled.',
