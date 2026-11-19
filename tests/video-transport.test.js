@@ -79,3 +79,41 @@ test('ayarlar: varsayılanlar, sınırlar ve İngilizce metinler', () => {
   const i18n = read('src/shared/i18n.js');
   for (const k of ['Giriş Noktası', 'Çıkış Noktası', 'sona kadar', 'Vuruşa Kilitli Döngü', '4 vuruş (1 ölçü)', 'Konum']) assert.ok(i18n.includes("'" + k + "':"), k);
 });
+
+test('sese göre hız: sessizlikte en düşük, bant en güçlüyken en yüksek hız', () => {
+  const m = { speedReact: true, speedBand: 'bass', speedMin: 0.5, speedMax: 2, speedSmooth: 0 };
+  assert.strictEqual(T.audioRate(m, { bass: 0 }, 0, 0.016), 0.5);
+  assert.strictEqual(T.audioRate(m, { bass: 1 }, 0, 0.016), 2);
+  assert.strictEqual(T.audioRate(m, { bass: 0.5 }, 0, 0.016), 1.25);
+  assert.strictEqual(T.audioRate(m, { bass: 9 }, 0, 0.016), 2, 'şiddet sınırı aşmaz');
+  assert.strictEqual(T.audioRate(m, null, 0, 0.016), 0.5, 'ses yoksa en düşük hız');
+});
+
+test('sese göre hız: seçilen bant okunur, sınırlar ters girilse de çalışır', () => {
+  const audio = { bass: 0, mid: 1, treble: 0.5, level: 0.25 };
+  const at = (speedBand) => T.audioRate({ speedBand, speedMin: 1, speedMax: 3, speedSmooth: 0 }, audio, 0, 0.016);
+  assert.strictEqual(at('bass'), 1);
+  assert.strictEqual(at('mid'), 3);
+  assert.strictEqual(at('treble'), 2);
+  assert.strictEqual(at('level'), 1.5);
+  assert.strictEqual(T.audioRate({ speedMin: 3, speedMax: 1, speedSmooth: 0 }, { bass: 0 }, 0, 0.016), 1);
+});
+
+test('sese göre hız: yumuşatma ani sıçramayı süreye yayar', () => {
+  const m = { speedMin: 1, speedMax: 3, speedSmooth: 0.2 };
+  const one = T.audioRate(m, { bass: 1 }, 1, 0.016);
+  assert.ok(one > 1 && one < 1.3, String(one));
+  let r = 1;
+  for (let i = 0; i < 120; i++) r = T.audioRate(m, { bass: 1 }, r, 0.016);
+  assert.ok(Math.abs(r - 3) < 0.01, String(r));
+});
+
+test('sese göre hız varsayılan kapalı; vuruşa kilitli döngü açıkken devreye girmez', () => {
+  assert.strictEqual(T.speedReactOn({}), false);
+  assert.strictEqual(T.transportOn({ speedReact: false }), false);
+  assert.strictEqual(T.speedReactOn({ speedReact: true }), true);
+  assert.strictEqual(T.transportOn({ speedReact: true }), true);
+  assert.strictEqual(T.speedReactOn({ speedReact: true, loopBeats: 4 }), false);
+  const panel = read('src/admin/scene-panels.js');
+  for (const k of ['speedReact', 'speedBand', 'speedMin', 'speedMax', 'speedSmooth']) assert.ok(panel.includes(k), k);
+});
