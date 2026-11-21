@@ -564,7 +564,8 @@ shaders are translated to GLSL and run on the GPU.
 - **Measured, not claimed.** Over a 10,347-preset corpus from the projectM original and
   cream-of-the-crop packs, every preset loads and runs, all 16,346 shader stages compile, and about
   98% produce a live image. Fidelity is checked frame by frame against a reference renderer built
-  from BeatDrop's MilkDrop 2 sources. Both harnesses are in `scripts/`, so the numbers can be reproduced.
+  from BeatDrop's MilkDrop 2 sources ([`scripts/milkdrop-ref/`](scripts/milkdrop-ref/)). The compile
+  and render-rate harnesses are also in `scripts/`, so the numbers can be reproduced.
 - **A MilkDrop Fidelity switch** follows MilkDrop 2's own rules — its compiler, its audio chain, its
   mesh transform, its default values and its fixed-function pipeline. The details are in
   [MilkDrop engine notes](#milkdrop-engine-notes) at the end of this page.

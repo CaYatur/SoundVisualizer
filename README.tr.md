@@ -568,8 +568,8 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **İddia değil, ölçüm.** projectM'in özgün ve cream-of-the-crop paketlerinden 10.347 presetlik bir
   derlemde her preset yükleniyor ve çalışıyor, 16.346 shader aşamasının hepsi derleniyor ve yaklaşık
   %98'i canlı bir görüntü veriyor. Uyum, BeatDrop'un MilkDrop 2 kaynaklarından kurulmuş bir başvuru
-  çiziciye karşı kare kare denetleniyor. İki ölçüm aracı da `scripts/` altında; sayılar yeniden
-  üretilebilir.
+  çiziciye karşı kare kare denetleniyor ([`scripts/milkdrop-ref/`](scripts/milkdrop-ref/)). Derleme ve
+  çizim oranı araçları da `scripts/` altında; sayılar yeniden üretilebilir.
 - **MilkDrop Uyumu anahtarı** MilkDrop 2'nin kendi kurallarını izliyor — derleyicisini, ses zincirini,
   ağ dönüşümünü, varsayılan değerlerini ve sabit işlevli boru hattını. Ayrıntılar bu sayfanın sonundaki
   [MilkDrop motoru notları](#milkdrop-motoru-notları) bölümünde.
