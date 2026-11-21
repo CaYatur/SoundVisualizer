@@ -1,0 +1,14 @@
+# Fetched third-party sources and tool outputs — not part of this repository
+/bin/
+/obj/
+/out/
+/d3dx/
+/.cache/
+/src/vis_milk2/
+/src/ns-eel2/
+*.exe
+*.obj
+*.res
+*.bgra
+*.rgba
+*.i8
