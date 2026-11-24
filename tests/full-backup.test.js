@@ -12,6 +12,7 @@ const ZipWriter = require('../src/main/zip-writer');
 const ZipReader = require('../src/main/zip-reader');
 const Backup = require('../src/main/full-backup');
 const mediaUrl = require('../src/shared/media-url');
+const Sections = require('../src/shared/backup-sections');
 
 function tmpdir() { return fs.mkdtempSync(path.join(os.tmpdir(), 'sv-fb-')); }
 function put(file, data) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, data); return file; }
@@ -183,6 +184,7 @@ test('tam yedek: başka makineye geri yükleme her şeyi getiriyor, videolar yen
     assert.strictEqual(sum.videos, 2);
     assert.strictEqual(sum.videoBytes, 4096 + 2048);
     assert.strictEqual(sum.colorPresets, 1);
+    assert.strictEqual(sum.sections, null);
 
     // A'nın klasörleri "başka makinede" yok
     const exists = (p) => !String(p).startsWith(a.root) && fs.existsSync(p);
@@ -348,4 +350,30 @@ test('ana süreç: yol panele gitmiyor, tahmin hafif, yedek rolünde geri yükle
   assert.match(main, /if \(red\.isolated\) return \{ ok: false, error: 'REDUNDANCY_ROLE' \};/);
   // Yedek rolünde birincilin kopyası değil, bu makinenin gösterisi yedeklenir
   assert.match(main, /function backupConfig\(\) \{[\s\S]{0,200}redSpace\(\)\.forDisk\(cfg\)/);
+});
+test('telefonun bölüm bölüm yedeği: özet bölümleri verir, geri yükleme yalnız onları değiştirir', async () => {
+  const dir = tmpdir();
+  try {
+    const file = path.join(dir, 'tel' + Backup.EXT);
+    const zw = ZipWriter.createWriter(file);
+    zw.addBuffer('backup.json', JSON.stringify({
+      type: Backup.TYPE, format: Backup.FORMAT, appVersion: 'android-1.0.0', platform: 'android',
+      settings: { docVersion: 9, scenes: [{ id: 's_tel', name: 'Tel' }], _activeSceneId: 's_tel' },
+      sections: ['scenes', 7], phone: { local: {} },
+    }));
+    zw.close();
+    const sum = Backup.inspect(file);
+    assert.deepStrictEqual(sum.sections, ['scenes']);
+    const cur = { docVersion: 10, scenes: [{ id: 's_pc' }], userPresets: [{ id: 'c1' }], timeline: { clips: [1] }, audio: { gain: 2 }, milkdropLibrary: { textureRev: 3 } };
+    const out = Sections.mergeSettings(cur, (await Backup.restore(file, { exists: () => true })).settings, sum.sections, true);
+    assert.deepStrictEqual(out.scenes, [{ id: 's_tel', name: 'Tel' }]);
+    assert.strictEqual(out._activeSceneId, 's_tel');
+    // Yedekte olmayan bölümler ve biçim anahtarı PC'deki gibi kalır
+    assert.deepStrictEqual([out.docVersion, out.userPresets, out.timeline, out.audio, out.milkdropLibrary],
+      [10, [{ id: 'c1' }], { clips: [1] }, { gain: 2 }, { textureRev: 3 }]);
+    // Bütün ayar bölümleri ve presetler seçilmiş tam yedek yedektekiyle değiştirir
+    const all = Sections.CONFIG_SECTIONS.concat(['presets']);
+    const inc = { scenes: [] };
+    assert.strictEqual(Sections.mergeSettings(cur, inc, all, false), inc);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
