@@ -4861,6 +4861,7 @@ function phoneLinkService() {
     port: () => streamServer.status().port || 0,
     running: () => !!streamServer.status().phoneLink,
     gate: () => linkGate(),
+    onSessionClose: (client) => linkHeldDrop(client),
     ops: Object.assign({
       // Bağlantıyı doğrulayan kısa özet
       'state.get': () => ({
@@ -4896,11 +4897,58 @@ function linkControlOps() {
     return p.kind === 'osc' ? linkPanelRun('osc', { message: p.message }) : linkPanelRun(p.op, p.args);
   };
   const out = {};
-  for (const op of ['scene.apply', 'cue.set', 'blackout', 'tbar', 'master.set', 'mixer.set', 'momentary', 'deck.trigger', 'deck.stop',
+  for (const op of ['scene.apply', 'cue.set', 'blackout', 'tbar', 'master.set', 'mixer.set', 'deck.trigger', 'deck.stop',
     'macro.set', 'tempo.set', 'tempo.tap', 'autovj.toggle', 'milkdrop.nav', 'timeline.transport', 'run']) {
     out[op] = (args) => run(op, args);
   }
+  out.momentary = (args, ctx) => linkHeldSet(ctx && ctx.client, linkLive.plan('momentary', args, currentConfig || {}, oscTree, remoteCommands.ACTIONS).args.list);
   return out;
+}
+
+/* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme
+   burada yalnız zamanı tazeler, panele gidilmez. Panel yalnız BİRLEŞİK liste değişince çağrılır
+   (basış, bırakış, kiranın dolması, oturumun kapanması). Eskiden her yenileme panelde
+   uygulanıyordu; panel meşgulken (emülatörde ölçüldü) yenileme 1,5 sn'yi aşıp efekt düşüyordu.
+   Panelin kendi kirası (live-shell.js) yalnız güvenlik ağı: canlıyken liste saniyede bir yeniden
+   yollanır. */
+const LINK_HELD_MS = 1500;
+const linkHeld = new Map(); // istemci → { list, at }
+let linkHeldSent = '[]';
+let linkHeldTimer = null;
+function linkHeldUnion() {
+  const set = new Set();
+  for (const v of linkHeld.values()) for (const id of v.list) set.add(id);
+  return linkLive.MOMENTARY.filter((id) => set.has(id));
+}
+let linkHeldAt = 0;
+function linkHeldPush(force) {
+  const union = linkHeldUnion();
+  const key = JSON.stringify(union);
+  if (!force && key === linkHeldSent) return Promise.resolve({ ok: true });
+  linkHeldSent = key;
+  linkHeldAt = Date.now();
+  return linkPanelRun('momentary', { list: union });
+}
+// Çeyrek saniyede bir: dolan kira düşer; liste değişmediyse panel saniyede bir tazelenir
+function linkHeldTick() {
+  const now = Date.now();
+  for (const [c, v] of linkHeld) if (now - v.at > LINK_HELD_MS) linkHeld.delete(c);
+  if (!linkHeld.size && linkHeldSent === '[]') { clearInterval(linkHeldTimer); linkHeldTimer = null; return; }
+  linkHeldPush(linkHeld.size > 0 && now - linkHeldAt >= 1000).catch(() => {});
+}
+function linkHeldSet(client, list) {
+  const key = client || 'unknown';
+  if (list.length) linkHeld.set(key, { list, at: Date.now() });
+  else linkHeld.delete(key);
+  if (!linkHeldTimer) {
+    linkHeldTimer = setInterval(linkHeldTick, 250);
+    if (linkHeldTimer.unref) linkHeldTimer.unref();
+  }
+  return linkHeldPush(false).then(() => ({ ok: true, held: linkHeldUnion() }));
+}
+function linkHeldDrop(client) {
+  if (!linkHeld.delete(client)) return;
+  linkHeldPush(false).catch(() => {});
 }
 
 /* DÜZENLEME (B3). Yazım bekçisi (src/main/link-guard.js) yamayı bu makinenin ayarına göre

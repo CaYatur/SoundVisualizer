@@ -314,6 +314,23 @@ function phone(port) {
     r = await ph.ask('config.get');
     check('izle düzeyinde ayar okunur', r.ok);
     await pc.ev('window.api.phoneLinkSetLevel(' + JSON.stringify(dev) + ', "full")');
+
+    // ---- Anlık efekt kirası: yenilendikçe kalır, oturum kapanınca hemen kalkar
+    const held = () => P('JSON.stringify(window.SVLiveShell.heldList())');
+    const samples = [];
+    for (let i = 0; i < 6; i++) {
+      await ph.ask('momentary', { list: ['glitch'] });
+      await wait(250);
+      samples.push(await held());
+      await wait(250);
+      samples.push(await held());
+    }
+    check('kira yenilendikçe efekt kalıyor (3 sn)', samples.every((x) => x === '["glitch"]'), samples);
+    ph.close();
+    ph = null;
+    let after = '';
+    for (let i = 0; i < 10 && after !== '[]'; i++) { await wait(100); after = await held(); }
+    check('telefon kopunca efekt hemen kalktı', after === '[]', after);
   } catch (e) {
     bad++;
     console.error('HATA', e && e.stack ? e.stack : e);

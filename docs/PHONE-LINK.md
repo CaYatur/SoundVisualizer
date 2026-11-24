@@ -190,9 +190,10 @@ for a change made in the panel.
 | `palette.delete` | `{ id }` | edit |
 
 Momentary effects are a lease: the phone resends its held list about every half second and the
-desktop drops it 1.5 seconds after the last refresh, so a lost release or a dropped connection
-cannot leave an effect on the output. The phone's held effects are kept apart from the ones held in
-the panel.
+desktop drops it 1.5 seconds after the last refresh, and at once when that phone's session closes,
+so a lost release or a dropped connection cannot leave an effect on the output. The lease is kept in
+the main process: a refresh only updates a timestamp, and the panel is called only when the combined
+list of all phones changes. The phone's held effects are kept apart from the ones held in the panel.
 
 Settings patch rules (`link-guard.js`): only listed keys; the scene list, control bindings and this
 machine's keys are never writable; values keep their type; numbers are finite and clamped to the

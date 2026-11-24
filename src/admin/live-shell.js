@@ -387,10 +387,11 @@
   let heldTimer = null;
   /* Telefonun basılı tuttukları (B2, src/admin/link-live.js) AYRI tutulur: telefonun boş listesi
      paneldeki basılı flaşı bırakmasın. KİRA: telefon listesini ~0,5 sn'de bir yeniler; bırakma
-     iletisi kaybolur ya da bağlantı koparsa efekt 1,5 sn sonra kendiliğinden kalkar. */
+     iletisi kaybolur ya da bağlantı koparsa efekt kendiliğinden kalkar. Asıl kira ana süreçte
+     (1,5 sn, src/main/main.js linkHeld); buradaki 3 sn ana süreç de susarsa diye. */
   const remoteHeld = new Set();
   let remoteTimer = 0;
-  const REMOTE_LEASE_MS = 1500;
+  const REMOTE_LEASE_MS = 3000; // asıl kira ana süreçte (main.js linkHeld); bu yalnız güvenlik ağı
   function setRemoteHeld(list) {
     const next = new Set((Array.isArray(list) ? list : []).filter((id) => MOMENTARY.some((m) => m[0] === id)));
     remoteHeld.clear();
