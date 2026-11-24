@@ -145,7 +145,10 @@ function createService(deps) {
       const result = await fn(msg.args && typeof msg.args === 'object' ? msg.args : {}, { device: Object.assign({}, c.device, { key: undefined }), client });
       reply({ ok: true, result: result === undefined ? null : result });
     } catch (e) {
-      reply({ ok: false, error: (e && e.code) || 'failed' });
+      // detail: reddedilen ayar anahtarı gibi kısa ipucu (telefon hangi alanın sorun olduğunu söyler)
+      const out = { ok: false, error: (e && e.code) || 'failed' };
+      if (e && typeof e.detail === 'string' && e.detail.length <= 64) out.detail = e.detail;
+      reply(out);
     }
   }
   function onClose(client) {

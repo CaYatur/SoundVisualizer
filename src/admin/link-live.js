@@ -104,6 +104,92 @@
       }
       case 'run':
         return { ok: runNamed(a.id) };
+
+      /* DÜZENLEME (B3). Yama ana süreçte bekçiden geçti (src/main/link-guard.js); burada panelin
+         KENDİ kopyasına yazılır ve panelin gönderim yolu kullanılır: panel tek yazar kalır,
+         telefonun değişikliğini eski kopyasıyla ezmez, geri alma ve yedeklilik aynı işler. */
+      case 'patch': {
+        const c = cfg();
+        const patch = a.patch || {};
+        const keys = Object.keys(patch);
+        // Ekran seçimi ve etkin sahne panelde ayrı durum tutuyor: dış ayar gibi benimsenir
+        if (keys.indexOf('display') >= 0 || keys.indexOf('_activeSceneId') >= 0) {
+          P()._acceptExternalConfig(Object.assign({}, c, patch));
+          P().push(true);
+          return { ok: true };
+        }
+        for (const k of keys) c[k] = patch[k];
+        if (a.final) P().push(true);
+        else { P().push(false); scheduleCommit(); }
+        renderSoon();
+        return { ok: true };
+      }
+      case 'sceneCreate': {
+        const list = P().scenes();
+        if (a.data) {
+          list.push({ id: a.id, name: a.name, createdAt: Date.now(), data: a.data });
+          P().push(true);
+          P().renderScenes();
+          return { ok: true, id: a.id };
+        }
+        // Verisiz: PC'deki o anki görünüm (panelin "Sahne Kaydet"i)
+        const before = new Set(list.map((s) => s.id));
+        P().saveScene();
+        const made = P().scenes().find((s) => !before.has(s.id));
+        if (made && a.name) P().renameScene(made.id, a.name);
+        return { ok: !!made, id: made ? made.id : '' };
+      }
+      case 'sceneSave': {
+        const sc = P().scenes().find((s) => s && s.id === a.id);
+        if (!sc) return { ok: false, error: 'bad-args' };
+        if (a.data) { sc.data = a.data; P().push(true); P().renderScenes(); } else P().updateScene(a.id);
+        return { ok: true };
+      }
+      case 'sceneRename':
+        if (!P().scenes().some((s) => s && s.id === a.id)) return { ok: false, error: 'bad-args' };
+        P().renameScene(a.id, a.name);
+        return { ok: true };
+      case 'sceneDelete': {
+        const c = cfg();
+        const list = P().scenes();
+        if (!list.some((s) => s && s.id === a.id)) return { ok: false, error: 'bad-args' };
+        c.scenes = list.filter((s) => s.id !== a.id);
+        if (c._activeSceneId === a.id) P()._acceptExternalConfig(Object.assign({}, c, { _activeSceneId: null }));
+        P().push(true);
+        P().renderScenes();
+        return { ok: true };
+      }
+      case 'sceneReorder': {
+        const c = cfg();
+        const list = P().scenes();
+        const by = new Map(list.map((s) => [s.id, s]));
+        if (a.ids.length !== list.length || a.ids.some((id) => !by.has(id)) || new Set(a.ids).size !== list.length) return { ok: false, error: 'bad-args' };
+        c.scenes = a.ids.map((id) => by.get(id));
+        P().push(true);
+        P().renderScenes();
+        return { ok: true };
+      }
+      case 'paletteSave': {
+        const c = cfg();
+        if (!Array.isArray(c.userPresets)) c.userPresets = [];
+        const colors = a.colors || ((c.background && c.background.gradient && c.background.gradient.colors) || []).slice(0, 5);
+        // Panelin "Şablonum" kaydı gibi beş renk: kısa liste son rengi tekrarlar
+        if (!colors.length) return { ok: false, error: 'bad-args' };
+        while (colors.length < 5) colors.push(colors[colors.length - 1]);
+        c.userPresets.push({ id: a.id, name: a.name, colors });
+        P().push(true);
+        renderSoon();
+        return { ok: true, id: a.id };
+      }
+      case 'paletteDelete': {
+        const c = cfg();
+        const list = Array.isArray(c.userPresets) ? c.userPresets : [];
+        if (!list.some((p) => p && p.id === a.id)) return { ok: false, error: 'bad-args' };
+        c.userPresets = list.filter((p) => p.id !== a.id);
+        P().push(true);
+        renderSoon();
+        return { ok: true };
+      }
       default:
         return { ok: false, error: 'unsupported' };
     }
@@ -112,6 +198,12 @@
   /* Makro kaydırıcısı sürüklenirken saniyede onlarca yama gelir: her biri canlıya gider
      (push(false)), kesin kayıt bırakınca bir kez (panelin kaydırıcısı gibi). */
   let commitTimer = 0;
+  // Telefon sürüklerken panel saniyede en çok ~4 kez yeniden çizilir; bırakınca bir kez daha
+  let renderTimer = 0;
+  function renderSoon() {
+    if (renderTimer) return;
+    renderTimer = setTimeout(() => { renderTimer = 0; P().rerender(); }, 250);
+  }
   function scheduleCommit() {
     clearTimeout(commitTimer);
     commitTimer = setTimeout(() => { commitTimer = 0; P().push(true); }, 400);

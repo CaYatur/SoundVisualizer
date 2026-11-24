@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * SoundVisualizer — CaYaDev Ses Görselleştirici
  * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
@@ -256,6 +255,55 @@ function phone(port) {
     check('gösteri durumu: etkin sahne, T-bar, çizelge', !!last && last.active === activeNow && last.tbar && typeof last.tbar.rest === 'number' && last.timeline && last.timeline.playing === false, last);
     r = await ph.ask('live.get');
     check('live.get', r.ok && r.result.show && r.result.meter, r.ok);
+
+    // ---- Düzenleme (B3): yama panelin kopyasına yazılır, panel gönderir
+    const vis0 = await P('c.visualizer.type');
+    const visNext = vis0 === 'wave' ? 'bars' : 'wave';
+    r = await ph.ask('config.patch', { patch: { visualizer: Object.assign({}, cg.result.config.visualizer, { type: visNext }) } });
+    check('config.patch: görselleştirici türü', r.ok && (await settle('c.visualizer.type', visNext)) === visNext, r);
+    r = await ph.ask('config.patch', { patch: { master: 9 } });
+    check('config.patch: aralık sıkıştırıldı', r.ok && (await settle('c.master', 1)) === 1, r);
+    r = await ph.ask('config.patch', { patch: { media: Object.assign({}, cg.result.config.media, { file: 'C:\\Windows\\win.ini' }) } });
+    check('config.patch: yeni dosya yolu reddedilir', r.ok === false && r.error === 'path' && r.detail === 'media', r);
+    r = await ph.ask('config.patch', { patch: { stream: { lan: true } } });
+    check('config.patch: yayın ayarı hiçbir düzeyde yazılamaz', r.ok === false && r.error === 'not-allowed' && r.detail === 'stream', r);
+    const lay = await P('JSON.parse(JSON.stringify(c.layers))');
+    if (lay.length) {
+      lay[lay.length - 1].opacity = 0.42;
+      r = await ph.ask('config.patch', { patch: { layers: lay }, final: false });
+      check('config.patch: sürükleme (final:false) canlıya gider', r.ok && (await settle('c.layers[c.layers.length - 1].opacity', 0.42)) === 0.42, r);
+    }
+    // Sahne işlemleri
+    const nScenes = (await P('window.SVPanel.scenes().length'));
+    r = await ph.ask('scene.create', { name: 'Telefondan' });
+    const made = r.ok ? r.result.id : '';
+    check('scene.create: PC görünümünden yeni sahne', r.ok && (await P('window.SVPanel.scenes().length')) === nScenes + 1 && (await P('(window.SVPanel.scenes().find((s) => s.id === ' + JSON.stringify(made) + ') || {}).name')) === 'Telefondan', r);
+    r = await ph.ask('scene.rename', { id: made, name: 'Yeni Ad' });
+    check('scene.rename', r.ok && (await settle('(window.SVPanel.scenes().find((s) => s.id === ' + JSON.stringify(made) + ') || {}).name', 'Yeni Ad')) === 'Yeni Ad', r);
+    const order = (await P('window.SVPanel.scenes().map((s) => s.id)')).reverse();
+    r = await ph.ask('scene.reorder', { ids: order });
+    check('scene.reorder', r.ok && JSON.stringify(await P('window.SVPanel.scenes().map((s) => s.id)')) === JSON.stringify(order), r);
+    r = await ph.ask('scene.reorder', { ids: order.slice(1) });
+    check('scene.reorder: eksik liste reddedilir', r.ok === false, r);
+    r = await ph.ask('scene.create', { name: 'Yollu', data: { media: { file: 'D:\\x.mp4' } } });
+    check('scene.create: sahne verisinde yeni yol reddedilir', r.ok === false && r.error === 'path', r);
+    r = await ph.ask('scene.delete', { id: made });
+    check('scene.delete', r.ok && (await P('window.SVPanel.scenes().length')) === nScenes, r);
+    // Renk şablonu
+    r = await ph.ask('palette.save', { name: 'Telefon Renkleri', colors: ['#ff0000', '#00ff00', '#0000ff'] });
+    const pal = r.ok ? r.result.id : '';
+    check('palette.save', r.ok && (await P('(c.userPresets || []).some((p) => p.id === ' + JSON.stringify(pal) + ' && p.colors.length === 5)')), r);
+    r = await ph.ask('palette.save', { colors: ['kirmizi'] });
+    check('palette.save: geçersiz renk', r.ok === false, r);
+    r = await ph.ask('palette.delete', { id: pal });
+    check('palette.delete', r.ok && !(await P('(c.userPresets || []).some((p) => p.id === ' + JSON.stringify(pal) + ')')), r);
+    // Düzenleme düzeyi: çıkış/ses ayarı (tam) reddedilir
+    await pc.ev('window.api.phoneLinkSetLevel(' + JSON.stringify(paired.device) + ', "edit")');
+    r = await ph.ask('config.patch', { patch: { audio: cg.result.config.audio } });
+    check('düzenleme düzeyinde ses kaynağı yazılamaz', r.ok === false && r.error === 'not-allowed' && r.detail === 'audio', r);
+    await pc.ev('window.api.phoneLinkSetLevel(' + JSON.stringify(paired.device) + ', "full")');
+    r = await ph.ask('config.patch', { patch: { audio: cg.result.config.audio } });
+    check('tam düzeyde ses ayarı yazılır', r.ok, r);
 
     // ---- İzin düzeyi
     const dev = paired.device;

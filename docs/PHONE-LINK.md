@@ -145,7 +145,72 @@ PC    → { ev, … }                         event pushed to every session
 ```
 
 Errors: `not-allowed` (the device's level does not include the operation, or the operation is not
-known), `unsupported` (allowed, not implemented in this version), `failed`.
+known), `unsupported` (allowed, not implemented in this version), `bad-args`, `standby` (this copy
+is a redundancy backup following its primary: only `view` operations run), `busy` (a self-test is
+holding writes), `panel-closed`, `failed`. A settings patch also returns `path`, `type`, `too-big`,
+`needs-pc`, `locked` or `scene`, with `detail` naming the refused top-level key.
+
+## Operations
+
+Network operations are absolute: "blackout on" instead of "toggle blackout", so a retried request
+or two phones pressing at once cannot flip a state the wrong way. Validation is in
+`src/main/link-live.js` (live control) and `src/main/link-guard.js` (settings). The desktop panel
+applies every change through its own code (`src/admin/link-live.js`): the panel stays the only
+writer, so the phone and the panel do not overwrite each other, and undo and redundancy behave as
+for a change made in the panel.
+
+| Operation | Arguments | Level |
+|---|---|---|
+| `state.get` | | view |
+| `config.get` | → `{ rev, config }` without this machine's keys (`stream`, `mcp`, `phoneLink`, `redundancy`, `bridge`, `mqtt`, `updates`) | view |
+| `live.get` | → `{ meter, show }` | view |
+| `scene.apply` | `{ id }` | control |
+| `cue.set` | `{ id }` (empty clears the cue) | control |
+| `blackout` | `{ on }` | control |
+| `tbar` | `{ v }` 0..1 lever position, or `{ take: true }` | control |
+| `master.set` | `{ v }` 0..1 | control |
+| `mixer.set` | `{ layer, opacity }` or `{ layer, enabled }`, layer from 1 | control |
+| `momentary` | `{ list }` the effects the phone holds: `flash`, `strobe`, `blur`, `kaleido`, `glitch`, `negative` | control |
+| `deck.trigger` | `{ row, col }` | control |
+| `deck.stop` | `{}` all, or `{ col }` | control |
+| `macro.set` | `{ i, v }` macro 0..7, value 0..1 | control |
+| `tempo.set` | `{ bpm }` 0 = follow the music, otherwise 30..200; taps are timed on the phone | control |
+| `tempo.tap` | `{}` one tap timed on the desktop | control |
+| `autovj.toggle` | `{ on }` | control |
+| `milkdrop.nav` | `{ dir }` `next`, `prev`, `random` | control |
+| `timeline.transport` | `{ action }` `play`, `pause`, `stop`, `next`, `prev` (markers), or `{ action: "seek", t }` | control |
+| `run` | `{ id }` a named action from `src/main/remote-commands.js` | control |
+| `config.patch` | `{ patch, final }` changed top-level keys; `final: false` while dragging | edit (output, audio, lighting and power keys: full) |
+| `scene.create` | `{ name, data? }` without data: the desktop's current look | edit |
+| `scene.save` | `{ id, data? }` | edit |
+| `scene.rename` | `{ id, name }` | edit |
+| `scene.delete` | `{ id }` | edit |
+| `scene.reorder` | `{ ids }` every scene id once | edit |
+| `palette.save` | `{ name, colors? }` 2 to 5 `#rrggbb` | edit |
+| `palette.delete` | `{ id }` | edit |
+
+Momentary effects are a lease: the phone resends its held list about every half second and the
+desktop drops it 1.5 seconds after the last refresh, so a lost release or a dropped connection
+cannot leave an effect on the output. The phone's held effects are kept apart from the ones held in
+the panel.
+
+Settings patch rules (`link-guard.js`): only listed keys; the scene list, control bindings and this
+machine's keys are never writable; values keep their type; numbers are finite and clamped to the
+slider ranges (layer settings too); **a path-like string must already exist in this machine's
+settings**, so the phone can reuse a library file but cannot point the desktop at a new file; web
+pages and video inputs (Spout, NDI, screen, camera) are edited at the desktop only; a locked layer is
+not removed or moved unless the patch unlocks it.
+
+Events:
+
+```
+{ ev:"config", rev, patch }   changed top-level keys; a phone that misses a revision calls config.get
+{ ev:"meter", meter }         level, bands, BPM, beat; at most five times a second, when it changes
+{ ev:"live", show }           active scene, cue, T-bar { rest, p, live }, blackout, held effects,
+                              timeline { playing, time }, MilkDrop preset name; when it changes
+```
+
+Events and the mirror run only while a phone session is open.
 
 Handshake error codes: `bad-message`, `protocol`, `timeout`, `pairing-closed`, `bad-secret`,
 `bad-code`, `too-many`, `rejected`, `unknown-device`, `expected-encrypted`.
@@ -169,8 +234,11 @@ pairing). Those happen only at the desktop, so a stolen phone cannot open a new 
 The operation table is `OPS` in `src/main/phone-link.js`; unknown operations are refused.
 
 `phoneLink` in the settings is a machine setting: MCP cannot write it, and importing settings or
-restoring a full backup keeps this machine's value. Settings patches from the phone must refuse it
-as well.
+restoring a full backup keeps this machine's value. Settings patches from the phone refuse it too.
+
+If the stored keys cannot be read (for example the system key protection is unavailable at that
+moment), the link stays closed and the file is left untouched; the panel offers to rebuild the keys,
+after which every phone pairs again.
 
 ## Panel
 
