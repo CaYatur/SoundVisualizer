@@ -252,7 +252,7 @@ function phone(port) {
     const last = live.length ? live[live.length - 1].show : null;
     // Renk şablonu ve MilkDrop değişince panel sahneyi "değişti" sayıp bırakabilir: panelin kendisiyle karşılaştır
     const activeNow = await P('window.SVPanel.activeSceneId() || ""');
-    check('gösteri durumu: etkin sahne, T-bar, çizelge', !!last && last.active === activeNow && last.tbar && typeof last.tbar.rest === 'number' && last.timeline && last.timeline.playing === false, last);
+    check('gösteri durumu: etkin sahne, T-bar, çizelge', !!last && last.active === activeNow && last.tbar && typeof last.tbar.rest === 'number' && last.timeline && last.timeline.playing === false && typeof last.deck === 'string', last);
     r = await ph.ask('live.get');
     check('live.get', r.ok && r.result.show && r.result.meter, r.ok);
 

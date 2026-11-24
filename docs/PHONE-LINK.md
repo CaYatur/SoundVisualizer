@@ -207,7 +207,8 @@ Events:
 { ev:"config", rev, patch }   changed top-level keys; a phone that misses a revision calls config.get
 { ev:"meter", meter }         level, bands, BPM, beat; at most five times a second, when it changes
 { ev:"live", show }           active scene, cue, T-bar { rest, p, live }, blackout, held effects,
-                              timeline { playing, time }, MilkDrop preset name; when it changes
+                              timeline { playing, time }, playing clip deck cells ("row:col,…"),
+                              MilkDrop preset name; when it changes
 ```
 
 Events and the mirror run only while a phone session is open.

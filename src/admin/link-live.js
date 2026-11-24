@@ -225,7 +225,16 @@
       const hit = id && M.presetById ? M.presetById(id) : null;
       md = hit && hit.name ? String(hit.name) : (c.milkdrop && c.milkdrop.name) || '';
     } catch { md = ''; }
+    // Klip destesinde çalan hücreler ("satır:sütun", OSC saatiyle aynı biçim; autovj.js)
+    let deck = '';
+    try {
+      const D = window.SVClipDeckPanel;
+      const eng = D && D.engine ? D.engine() : null;
+      const slots = eng && eng.activeSlots ? eng.activeSlots() : null;
+      if (slots) deck = slots.filter((s) => s.slot).map((s) => s.slot.row + ':' + s.slot.col).join(',');
+    } catch { deck = ''; }
     return {
+      deck,
       active: P().activeSceneId() || '',
       blackout: !!P().isBlackedOut(),
       cue: L && L.cue ? L.cue() : '',
