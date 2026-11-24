@@ -63,8 +63,8 @@ function createService(deps) {
     if (ev.type === 'sas') {
       const no = ++seq;
       ev.conn.no = no;
-      pending.set(no, { conn: ev.conn, digits: ev.digits, name: ev.name, model: ev.model, at: now() });
-      notify('phonelink-sas', { no, digits: ev.digits, name: ev.name, model: ev.model });
+      pending.set(no, { conn: ev.conn, digits: ev.digits, name: ev.name, model: ev.model, via: ev.via || 'code', at: now() });
+      notify('phonelink-sas', { no, digits: ev.digits, name: ev.name, model: ev.model, via: ev.via || 'code' });
       notify('phonelink-state', status());
     } else if (ev.type === 'paired' || ev.type === 'session' || ev.type === 'closed' || ev.type === 'code-burned') {
       if (ev.type === 'closed' && ev.conn.no) pending.delete(ev.conn.no);
@@ -78,6 +78,13 @@ function createService(deps) {
     client.link = host.connection({ address: client.address });
     client.link.client = client;
     client.rate = { t: now(), n: 0 };
+    // Oturumdan önce yayın sunucusu yalnız küçük, parçasız metin kareleri kabul eder
+    client.preAuth = true;
+    // Boşta bekleyen el sıkışma yer tutmasın: süresi dolunca düşer (onay bekleyen daha uzun)
+    client.linkTimer = setInterval(() => {
+      if (client.link && host.expired(client.link)) stream.dropClient(client);
+    }, 1000);
+    if (client.linkTimer.unref) client.linkTimer.unref();
     stream.linkSendText(client, JSON.stringify(host.hello()));
   }
   function onText(client, text) {
@@ -85,6 +92,7 @@ function createService(deps) {
     if (!c) return;
     const out = c.handle(text);
     for (const m of out) stream.linkSendText(client, JSON.stringify(m));
+    if (c.stage === 'session') client.preAuth = false;
     if (c.stage === 'failed') setTimeout(() => stream.dropClient(client), 50);
   }
   async function onBinary(client, frame) {
@@ -110,6 +118,7 @@ function createService(deps) {
     }
   }
   function onClose(client) {
+    if (client.linkTimer) { clearInterval(client.linkTimer); client.linkTimer = null; }
     if (client.link) client.link.close();
     client.link = null;
   }
@@ -133,6 +142,7 @@ function createService(deps) {
     const out = p.conn.confirm(!!ok);
     const client = p.conn.client;
     for (const m of out) stream.linkSendText(client, JSON.stringify(m));
+    if (p.conn.stage === 'session') client.preAuth = false;
     if (p.conn.stage === 'failed') setTimeout(() => stream.dropClient(client), 50);
     notify('phonelink-state', status());
     return p.conn.stage === 'session';
@@ -164,7 +174,7 @@ function createService(deps) {
       pairing: p ? { code: p.code, expiresAt: p.expiresAt, qr: host.qrPayload(hosts, port) } : null,
       addresses: hosts, port,
       devices: host ? host.devices() : [],
-      pending: Array.from(pending.entries()).map(([no, x]) => ({ no, digits: x.digits, name: x.name, model: x.model })),
+      pending: Array.from(pending.entries()).map(([no, x]) => ({ no, digits: x.digits, name: x.name, model: x.model, via: x.via })),
     }, extra || {});
   }
 

@@ -57,7 +57,11 @@ The announcement carries nothing secret. Pairing still needs the QR code or the 
 ## Pairing
 
 The desktop has a long-term P-256 identity key. `Add Phone` opens a pairing window for two minutes:
-a six-digit code and a 32-byte single-use secret. Five failed attempts replace both.
+a six-digit code and a 32-byte single-use secret. **Every new device needs approval on the desktop,
+on both paths**: a QR code that is photographed or visible on a streamed screen is not enough on its
+own. Five wrong codes from one address close that address for the window; the window is replaced
+only after 30 wrong codes in total, so another host on the network cannot keep rotating the user's
+code. A wrong QR secret is refused without touching the window (32 random bytes cannot be guessed).
 
 The QR code carries:
 
@@ -70,16 +74,18 @@ On connect the desktop sends `{ "t": "hello", "v": 1, "pc": { "id", "name", "pub
 
 ### With the QR code
 
-The phone proves it read the QR code; the desktop proves it holds the key in the QR code.
+The phone proves it read the QR code; the desktop proves it holds the key in the QR code; the user
+approves on the desktop.
 
 ```
 phone → { t:"pair", kind:"qr", v:1, pub, np, name, model, mac: HMAC(secret, "sv-link-qr|phone|" || devPub || np) }
-PC    → { t:"paired", device, nc, level, pc:{ id, name, pub },
-          mac: HMAC(secret, "sv-link-qr|pc|" || pcPub || nc || devPub) }
+PC    → { t:"pending", nc, pc:{ id, name, pub }, mac: HMAC(secret, "sv-link-qr|pc|" || pcPub || nc || devPub) }
+        the desktop shows the phone's name and the six digits (computed as below); the phone may show them too
+PC    → { t:"paired", device, level, pc:{ id, name } }        after approval
 ```
 
-The phone checks `fingerprint(pc.pub)` against the QR code and verifies `mac`. The secret is then
-burned.
+The phone checks `fingerprint(pc.pub)` against the QR code and verifies `mac` as soon as `pending`
+arrives. The secret is burned once a device is enrolled.
 
 ### With the code (when the QR code cannot be read)
 
@@ -142,7 +148,11 @@ Errors: `not-allowed` (the device's level does not include the operation, or the
 known), `unsupported` (allowed, not implemented in this version), `failed`.
 
 Handshake error codes: `bad-message`, `protocol`, `timeout`, `pairing-closed`, `bad-secret`,
-`bad-code`, `rejected`, `unknown-device`, `expected-encrypted`.
+`bad-code`, `too-many`, `rejected`, `unknown-device`, `expected-encrypted`.
+
+Before the session starts the server accepts only small (4 KB), unfragmented text frames, and drops
+a connection whose handshake has not finished in time even if it stays silent. At most eight phone
+connections can be open at once.
 
 ## Access levels
 
@@ -157,6 +167,10 @@ Never available, at any level: reading or writing arbitrary paths on the desktop
 MCP tokens, and changing the phone link's own security settings (approving new devices, opening
 pairing). Those happen only at the desktop, so a stolen phone cannot open a new door for itself.
 The operation table is `OPS` in `src/main/phone-link.js`; unknown operations are refused.
+
+`phoneLink` in the settings is a machine setting: MCP cannot write it, and importing settings or
+restoring a full backup keeps this machine's value. Settings patches from the phone must refuse it
+as well.
 
 ## Panel
 

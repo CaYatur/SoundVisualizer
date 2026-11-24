@@ -153,6 +153,9 @@ function decodeFrames(client, onMessage, onClose) {
       offset = 10;
     }
     if (len > MAX_MESSAGE) { onClose(1009, 'message too big'); return Buffer.alloc(0); }
+    /* Oturumu kurulmamış telefon (ağdan, kimliksiz): yalnız küçük, tek parça metin ve denetim
+       kareleri. İkili kare ve parçalı ileti el sıkışmadan sonra. */
+    if (client.preAuth && opcode < 0x8 && (len > 4096 || opcode !== 0x1 || !fin)) { onClose(1008, 'pre-auth'); return Buffer.alloc(0); }
     const maskLen = masked ? 4 : 0;
     if (buf.length < offset + maskLen + len) break;
 
@@ -174,7 +177,10 @@ function decodeFrames(client, onMessage, onClose) {
     if (opcode === 0x0) {
       // devam karesi
       client.fragments.push(payload);
+      client.fragBytes = (client.fragBytes || 0) + payload.length;
+      if (client.fragBytes > MAX_MESSAGE) { client.fragments = []; client.fragBytes = 0; onClose(1009, 'message too big'); return Buffer.alloc(0); }
       if (fin) {
+        client.fragBytes = 0;
         onMessage(Buffer.concat(client.fragments), client.fragmentOpcode);
         client.fragments = [];
       }
@@ -1156,7 +1162,8 @@ function status() {
 
 function urls() {
   if (!state.running) return { overlay: '', remote: '' };
-  const base = 'http://' + (state.host === '0.0.0.0' ? lanAddress() : '127.0.0.1') + ':' + state.port;
+  // Telefon bağlantısı yüzünden ağı dinlerken LAN kapalıysa sayfalar ağdan açılmaz: yerel adres
+  const base = 'http://' + (state.host === '0.0.0.0' && lanOpen ? lanAddress() : '127.0.0.1') + ':' + state.port;
   // Token zorunlu değilse URL'e ?token= eklenmez; zorunluysa eklenir.
   const qOverlay = (state.requireToken && state.token) ? '?token=' + encodeURIComponent(state.token) : '';
   const qRemote = state.requireToken
@@ -1258,6 +1265,8 @@ module.exports = {
   phoneClients,
   dropClient,
   isLoopback,
+  // Yalnız sınama: işleyicileri sahte soketle çağırmak için (ağı dinlemeden uzak adres)
+  _handlers: { handleRequest: (req, res) => handleRequest(req, res), handleUpgrade: (req, sock) => handleUpgrade(req, sock) },
   sendPeers,
   peerCount,
   legacyPeerCount,

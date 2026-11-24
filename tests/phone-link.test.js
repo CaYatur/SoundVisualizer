@@ -17,14 +17,16 @@ function phone(name) {
 }
 function clock(start) { let t = start || 1e12; return { now: () => t, add: (ms) => { t += ms; } }; }
 
-function pairQr(host, ph, qr) {
+function pairQr(host, ph, qr, approve) {
   const q = new URL(qr.replace('svlink://', 'http://x/'));
   const secret = L.unb64u(q.searchParams.get('s'));
   const np = crypto.randomBytes(16);
-  const conn = host.connection();
+  const conn = host.connection({ address: '192.168.1.50' });
   const r = one(send(conn, { t: 'pair', kind: 'qr', v: 1, pub: ph.pub, np: L.b64u(np), name: ph.name, model: 'M2003J6B2G',
     mac: L.b64u(L.hmac(secret, 'sv-link-qr|phone|', ph.id.pub, np)) }));
-  return { conn, r, np, secret, fp: q.searchParams.get('f') };
+  // QR yolunda da bilgisayarda onay gerekir
+  const paired = r.t === 'pending' && approve !== false ? one(conn.confirm(true)) : null;
+  return { conn, r, paired, np, secret, fp: q.searchParams.get('f') };
 }
 // Telefonun oturum anahtarları: aynı türetme
 function phoneSession(devKey, np, nc) {
@@ -32,16 +34,27 @@ function phoneSession(devKey, np, nc) {
   return { seal: L.sealer(k.c2p, 'c2p'), open: L.opener(k.p2c, 'p2c') };
 }
 
-test('QR ile eşleşme: parmak izi, iki yönlü kanıt, ortak cihaz anahtarı ve şifreli ileti', () => {
+test('QR ile eşleşme: parmak izi, iki yönlü kanıt, bilgisayarda onay, ortak anahtar ve şifreli ileti', () => {
   const events = [];
-  const host = L.createHost({ pcName: 'Stüdyo-PC', onEvent: (e) => events.push(e.type) });
+  const host = L.createHost({ pcName: 'Stüdyo-PC', onEvent: (e) => events.push(e) });
   host.openPairing();
   const qr = host.qrPayload(['192.168.1.24', '10.0.0.5'], 8722);
   assert.match(qr, /^svlink:\/\/1\?h=192\.168\.1\.24&h=10\.0\.0\.5&p=8722&id=/);
   const ph = phone();
-  const { conn, r, np, secret, fp } = pairQr(host, ph, qr);
-  assert.strictEqual(r.t, 'paired');
-  assert.strictEqual(r.level, 'full', 'yeni cihaz tam erişimle başlar (kullanıcı kararı)');
+  // Önce onaysız: kayıt yok, oturum yok
+  const first = pairQr(host, ph, qr, false);
+  assert.strictEqual(first.r.t, 'pending');
+  assert.strictEqual(host.devices().length, 0, 'QR tek başına cihaz kaydetmez');
+  assert.strictEqual(first.conn.encrypt({}), null);
+  const sasEv = events.find((e) => e.type === 'sas');
+  assert.strictEqual(sasEv.via, 'qr');
+  assert.strictEqual(one(first.conn.confirm(false)).code, 'rejected');
+  assert.strictEqual(host.devices().length, 0);
+  events.length = 0;
+  const { conn, r, paired, np, secret, fp } = pairQr(host, ph, qr);
+  assert.strictEqual(r.t, 'pending');
+  assert.strictEqual(paired.t, 'paired');
+  assert.strictEqual(paired.level, 'full', 'yeni cihaz tam erişimle başlar (kullanıcı kararı)');
   const pcPub = L.unb64u(r.pc.pub);
   // Telefon: bilgisayar QR'daki parmak izine ve sırra uyuyor mu?
   assert.strictEqual(L.b64u(L.fingerprint(pcPub)), fp);
@@ -52,29 +65,43 @@ test('QR ile eşleşme: parmak izi, iki yönlü kanıt, ortak cihaz anahtarı ve
   // Telefon → PC ve PC → telefon
   assert.deepStrictEqual(conn.decrypt(s.seal(Buffer.from(JSON.stringify({ op: 'state.get' })))), { op: 'state.get' });
   assert.deepStrictEqual(JSON.parse(s.open(conn.encrypt({ ok: true })).toString()), { ok: true });
-  assert.deepStrictEqual(events, ['paired', 'session']);
+  assert.deepStrictEqual(events.map((e) => e.type), ['sas', 'paired', 'session']);
+  // Telefon de aynı sayıyı hesaplayabilir
+  assert.strictEqual(events[0].digits, L.sasDigits(ph.id.pub, pcPub, np, nc));
   assert.strictEqual(host.pairingInfo(), null, 'QR tek kullanımlık');
   assert.strictEqual(host.devices()[0].name, 'Redmi Note 9 Pro');
   assert.strictEqual(host.devices()[0].online, true);
 });
 
-test('QR: yanlış sır reddedilir, beş yanlıştan sonra kod ve sır yenilenir', () => {
+test('Yanlış denemeler: QR sırrı pencereyi yakmaz; kod adres başına sınırlı, başka adres etkilenmez', () => {
   let burned = 0;
   const host = L.createHost({ onEvent: (e) => { if (e.type === 'code-burned') burned++; } });
-  host.openPairing();
-  const first = host.qrPayload(['h'], 1);
-  for (let i = 0; i < L.MAX_CODE_FAILS; i++) {
+  const { code } = host.openPairing();
+  const qr = host.qrPayload(['h'], 1);
+  // Ağdaki biri yanlış sırla durmadan denese de kullanıcının QR'ı değişmez
+  for (let i = 0; i < 40; i++) {
     const ph = phone();
     const np = crypto.randomBytes(16);
-    const out = one(send(host.connection(), { t: 'pair', kind: 'qr', v: 1, pub: ph.pub, np: L.b64u(np),
+    const out = one(send(host.connection({ address: '192.168.1.66' }), { t: 'pair', kind: 'qr', v: 1, pub: ph.pub, np: L.b64u(np),
       mac: L.b64u(L.hmac(crypto.randomBytes(32), 'sv-link-qr|phone|', ph.id.pub, np)) }));
     assert.deepStrictEqual(out, { t: 'error', code: 'bad-secret' });
   }
+  assert.strictEqual(burned, 0);
+  assert.strictEqual(host.qrPayload(['h'], 1), qr);
+  // Kod: aynı adresten beş yanlış o adresi kapatır
+  const ph = phone();
+  const wrong = String((+code + 1) % 1000000).padStart(6, '0');
+  const tryCode = (addr, c) => one(send(host.connection({ address: addr }), { t: 'pair', kind: 'code', v: 1, pub: ph.pub, proof: L.b64u(L.hmac(Buffer.from(c), 'sv-link-code|', ph.id.pub)) }));
+  for (let i = 0; i < L.MAX_CODE_FAILS; i++) assert.strictEqual(tryCode('192.168.1.66', wrong).code, 'bad-code');
+  assert.strictEqual(tryCode('192.168.1.66', code).code, 'too-many', 'kapanan adres doğru kodla da giremez');
+  assert.strictEqual(tryCode('192.168.1.50', code).t, 'commit', 'gerçek telefon etkilenmez');
+  assert.strictEqual(host.qrPayload(['h'], 1), qr);
+  // Çok sayıda adresten yanlış: pencere sonunda yenilenir
+  for (let i = 0; i < L.MAX_TOTAL_FAILS; i++) tryCode('10.0.' + i + '.1', wrong);
   assert.strictEqual(burned, 1);
-  assert.notStrictEqual(host.qrPayload(['h'], 1), first);
-  // Eski QR artık işe yaramaz
-  const { r } = pairQr(host, phone(), first);
-  assert.strictEqual(r.code, 'bad-secret');
+  assert.notStrictEqual(host.qrPayload(['h'], 1), qr);
+  const old = pairQr(host, phone(), qr);
+  assert.strictEqual(old.r.code, 'bad-secret', 'eski QR işe yaramaz');
   assert.strictEqual(host.devices().length, 0);
 });
 
@@ -149,7 +176,8 @@ test('Yeniden bağlanma: kayıtlı cihaz yeni oturum anahtarı alır, bilinmeyen
   const host = L.createHost({ onChange: (d) => saved.push(d) });
   host.openPairing();
   const ph = phone();
-  const { r, np } = pairQr(host, ph, host.qrPayload(['h'], 1));
+  const { r, paired, np } = pairQr(host, ph, host.qrPayload(['h'], 1));
+  r.device = paired.device;
   const pcPub = L.unb64u(r.pc.pub);
   const devKey = L.deviceKey(L.sharedSecret(ph.id, pcPub), ph.id.pub, pcPub, np, L.unb64u(r.nc));
   // Kayıt deposuna anahtar gidiyor (ana süreç onu şifreleyip yazar)
@@ -198,7 +226,10 @@ test('Zaman aşımı ve kapanma: el sıkışma süresi, kod süresi, kapanan ba�
   const host = L.createHost({ now: ck.now });
   host.openPairing();
   const conn = host.connection();
+  // Boşta bekleyen bağlantı da süresi dolunca düşürülür (hizmet expired'ı sorar)
+  assert.strictEqual(host.expired(conn), false);
   ck.add(16000);
+  assert.strictEqual(host.expired(conn), true);
   assert.strictEqual(one(send(conn, { t: 'resume', v: 1 })).code, 'timeout');
   ck.add(L.CODE_TTL_MS);
   assert.strictEqual(host.pairingInfo(), null);

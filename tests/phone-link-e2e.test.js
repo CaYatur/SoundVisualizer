@@ -166,6 +166,56 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
   }
 });
 
+/* LAN kapalı, bağlantı açık: BAŞKA bir makineden gelen istek. Sunucunun kendi işleyicileri sahte
+   soketle çağrılır (uzak adres 192.168.1.5); sınama ağı dinlemez. */
+test('LAN kapalıyken ağdan yalnız /health ve /link yanıt verir; yayın sayfaları, kumanda ve dosyalar 404', async () => {
+  const svc = createService({ stream: S });
+  await startServer(svc.hooks, true);
+  try {
+    const H = S._handlers;
+    const fakeReq = (url, addr, extra) => ({ url, headers: Object.assign({ host: '192.168.1.24:8722' }, extra || {}), socket: { remoteAddress: addr } });
+    const http1 = (url, addr) => new Promise((resolve) => {
+      const res = { headers: {}, writeHead(code) { this.code = code; return this; }, setHeader() {}, end() { resolve(this.code); }, write() {} };
+      H.handleRequest(fakeReq(url, addr), res);
+    });
+    for (const p of ['/', '/overlay', '/remote', '/media-file?path=C%3A%5Cx', '/logo-file?id=a', '/mode-thumb?kind=v&type=bars']) {
+      assert.strictEqual(await http1(p, '192.168.1.5'), 404, 'ağdan ' + p);
+    }
+    assert.strictEqual(await http1('/health', '192.168.1.5'), 200);
+    assert.notStrictEqual(await http1('/overlay', '127.0.0.1'), 404, 'yerelden yayın sayfası açık');
+    const upgrade = (path, addr) => {
+      const written = [];
+      const sock = { remoteAddress: addr, on() {}, setNoDelay() {}, destroy() { written.push('destroy'); }, end(x) { written.push(String(x)); }, write(x) { written.push(String(x)); } };
+      H.handleUpgrade(Object.assign(fakeReq(path, addr, { upgrade: 'websocket', 'sec-websocket-key': crypto.randomBytes(16).toString('base64') })), sock);
+      return written.join('|');
+    };
+    assert.match(upgrade('/ws?kind=overlay', '192.168.1.5'), /404/);
+    assert.match(upgrade('/ws?kind=remote', '192.168.1.5'), /404/);
+    assert.match(upgrade('/link', '192.168.1.5'), /101 Switching Protocols/);
+    for (const c of S.phoneClients()) S.dropClient(c);
+  } finally {
+    await S.stop();
+  }
+});
+
+test('Oturumdan önce: ikili ve büyük kare bağlantıyı düşürür', async () => {
+  const svc = createService({ stream: S });
+  const port = await startServer(svc.hooks, true);
+  try {
+    svc.setEnabled(true);
+    const a = await wsConnect(port, '/link');
+    await a.next();
+    a.sendBin(Buffer.alloc(16));
+    assert.ok((await a.next()).closed, 'ikili kare');
+    const b = await wsConnect(port, '/link');
+    await b.next();
+    b.sendText({ t: 'resume', pad: 'x'.repeat(5000) });
+    assert.ok((await b.next()).closed, 'büyük metin');
+  } finally {
+    await S.stop();
+  }
+});
+
 test('Bağlantı kapalıyken /link reddedilir, açıkken de yayın sayfası yerel kalır', async () => {
   const svc = createService({ stream: S });
   const port = await startServer(svc.hooks, false);

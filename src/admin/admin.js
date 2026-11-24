@@ -6891,6 +6891,12 @@
      kullanıcı içeriği (yalnız ayarlar); tam yedekte yok, sahneler yedekten. */
   function adoptImportedSettings(incoming, keep) {
     window.SVMigrateV4.migrate(incoming);
+    /* Telefon bağlantısı bu makinenin ayarı: başka bir bilgisayarın yedeği ya da ayar dosyası
+       ağa dinleyici açmasın, buradaki açık bağlantıyı da kapatmasın (#1054). */
+    if (incoming && typeof incoming === 'object') {
+      if (cfg && cfg.phoneLink) incoming.phoneLink = JSON.parse(JSON.stringify(cfg.phoneLink));
+      else delete incoming.phoneLink;
+    }
     const imported = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
     cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(imported, cfg) : imported;
     window.SVLayers.ensureStack(cfg);

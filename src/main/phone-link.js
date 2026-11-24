@@ -10,8 +10,10 @@
    bağlantı için bir oturum açar, gelen iletiyi buraya verir, dönen iletileri yollar.
 
    Yerel ağ şifresiz HTTP; güvenlik uygulama katmanında:
-   - Eşleşme ECDH P-256. QR yolunda telefon QR'daki tek kullanımlık sırla kendini, bilgisayar
-     açık anahtarının parmak iziyle kendini kanıtlar. Kod yolunda Bluetooth'un sayı
+   - Eşleşme ECDH P-256 ve HER İKİ YOLDA bilgisayarda onay: yeni cihaz ancak kullanıcı panelde
+     onaylayınca kaydolur (ekranı yayınlanan ya da fotoğraflanan QR tek başına yetmez). QR yolunda
+     telefon QR'daki tek kullanımlık sırla kendini, bilgisayar açık anahtarının parmak iziyle
+     kendini kanıtlar. Kod yolunda Bluetooth'un sayı
      karşılaştırması: bilgisayar rastgele değerini önce taahhüt eder, telefon kendi değerini
      açıklar, sonra bilgisayar açıklar; iki ekranda aynı altı rakam çıkar ve kullanıcı
      bilgisayarda onaylar. Araya giren biri bir oturumda yalnız bir kez dener (milyonda bir).
@@ -25,7 +27,10 @@ const crypto = require('crypto');
 const PROTOCOL = 1;
 const CURVE = 'prime256v1';
 const CODE_TTL_MS = 120000;
+// Kod denemesi: adres başına beş yanlış o adresi bu pencere için kapatır; pencere ancak çok
+// sayıda yanlıştan sonra yenilenir (ağdaki biri kullanıcının kodunu durmadan değiştiremesin)
 const MAX_CODE_FAILS = 5;
+const MAX_TOTAL_FAILS = 30;
 const HANDSHAKE_MS = 15000;
 const SAS_WAIT_MS = 90000;
 const LEVELS = ['view', 'control', 'edit', 'full'];
@@ -150,7 +155,7 @@ function createHost(opts) {
     }
   }
   const changed = () => { if (typeof o.onChange === 'function') o.onChange(listDevices(true)); };
-  let pairing = null; // { code, secret, expiresAt, fails }
+  let pairing = null; // { code, secret, expiresAt, fails, byAddr }
   const conns = new Set();
 
   function listDevices(withKeys) {
@@ -171,7 +176,7 @@ function createHost(opts) {
 
   /** Eşleşme penceresini açar (ya da yeniler): kod ve QR sırrı. */
   function openPairing() {
-    pairing = { code: newCode(), secret: Buffer.from(rnd(32)), expiresAt: now() + CODE_TTL_MS, fails: 0 };
+    pairing = { code: newCode(), secret: Buffer.from(rnd(32)), expiresAt: now() + CODE_TTL_MS, fails: 0, byAddr: new Map() };
     return pairingInfo();
   }
   function closePairing() { pairing = null; }
@@ -192,11 +197,17 @@ function createHost(opts) {
     q.push('p=' + (port | 0), 'id=' + pcId, 'f=' + b64u(fingerprint(identity.pub)), 's=' + b64u(p.secret), 'n=' + encodeURIComponent(pcName));
     return 'svlink://' + PROTOCOL + '?' + q.join('&');
   }
-  function burnFail() {
+  const addrOf = (c) => String((c && c.meta && c.meta.address) || '?');
+  function addrBlocked(c) {
+    const p = pairingLive();
+    return !!p && (p.byAddr.get(addrOf(c)) || 0) >= MAX_CODE_FAILS;
+  }
+  function burnFail(c) {
     const p = pairingLive();
     if (!p) return;
     p.fails += 1;
-    if (p.fails >= MAX_CODE_FAILS) { openPairing(); emit({ type: 'code-burned' }); }
+    p.byAddr.set(addrOf(c), (p.byAddr.get(addrOf(c)) || 0) + 1);
+    if (p.fails >= MAX_TOTAL_FAILS) { openPairing(); emit({ type: 'code-burned' }); }
   }
 
   function hello() {
@@ -242,22 +253,27 @@ function createHost(opts) {
         const np = unb64u(m.np, 64);
         const mac = unb64u(m.mac, 64);
         if (!validPublicKey(devPub) || !np || np.length !== 16 || !mac) return fail('bad-message');
-        if (!eq(mac, hmac(p.secret, 'sv-link-qr|phone|', devPub, np))) { burnFail(); return fail('bad-secret'); }
+        if (!eq(mac, hmac(p.secret, 'sv-link-qr|phone|', devPub, np))) return fail('bad-secret');
         const nc = Buffer.from(rnd(16));
-        const d = enroll(devPub, np, nc, m);
-        pairing = null; // QR tek kullanımlık
-        return [{ t: 'paired', device: d.id, nc: b64u(nc), level: d.level,
-          mac: b64u(hmac(p.secret, 'sv-link-qr|pc|', identity.pub, nc, devPub)), pc: { id: pcId, name: pcName, pub: b64u(identity.pub) } }];
+        c.pend = { devPub, np, nc, name: m.name, model: m.model };
+        c.stage = 'sas';
+        const digits = sasDigits(devPub, identity.pub, np, nc);
+        c.sas = digits;
+        emit({ type: 'sas', conn: c, digits, name: cleanName(m.name) || 'Telefon', model: cleanName(m.model), via: 'qr' });
+        // Telefon bilgisayarı şimdi doğrular; oturum ancak bilgisayardaki onaydan sonra
+        return [{ t: 'pending', nc: b64u(nc), mac: b64u(hmac(p.secret, 'sv-link-qr|pc|', identity.pub, nc, devPub)),
+          pc: { id: pcId, name: pcName, pub: b64u(identity.pub) } }];
       }
 
       // ---- Kod ile eşleşme, adım 1: telefon anahtarı + kodun kanıtı → bilgisayar taahhüdü
       if (m.t === 'pair' && m.kind === 'code' && c.stage === 'new') {
         const p = pairingLive();
         if (!p) return fail('pairing-closed');
+        if (addrBlocked(c)) return fail('too-many');
         const devPub = unb64u(m.pub, 128);
         const proof = unb64u(m.proof, 64);
         if (!validPublicKey(devPub) || !proof) return fail('bad-message');
-        if (!eq(proof, hmac(Buffer.from(p.code), 'sv-link-code|', devPub))) { burnFail(); return fail('bad-code'); }
+        if (!eq(proof, hmac(Buffer.from(p.code), 'sv-link-code|', devPub))) { burnFail(c); return fail('bad-code'); }
         const nc = Buffer.from(rnd(16));
         c.pend = { devPub, nc, name: m.name, model: m.model };
         c.stage = 'committed';
@@ -300,7 +316,7 @@ function createHost(opts) {
     /** Kullanıcı bilgisayarda sayıyı onayladı ya da reddetti. */
     c.confirm = (ok) => {
       if (c.stage !== 'sas' || c.closed) return [];
-      if (!ok || now() - c.startedAt > HANDSHAKE_MS + SAS_WAIT_MS) { burnFail(); return fail('rejected'); }
+      if (!ok || now() - c.startedAt > HANDSHAKE_MS + SAS_WAIT_MS) { burnFail(c); return fail('rejected'); }
       const pd = c.pend;
       c.pend = null;
       const d = enroll(pd.devPub, pd.np, pd.nc, pd);
@@ -347,8 +363,14 @@ function createHost(opts) {
   }
   function rename(name) { pcName = cleanName(name) || pcName; }
 
+  /** El sıkışma süresi doldu mu (bağlantı boşta beklese de)? Hizmet düzenli sorar. */
+  function expired(c) {
+    if (c.stage === 'session' || c.closed) return false;
+    return now() - c.startedAt > (c.stage === 'sas' ? HANDSHAKE_MS + SAS_WAIT_MS : HANDSHAKE_MS);
+  }
+
   return {
-    identity, pcId, hello, openPairing, closePairing, pairingInfo, qrPayload, connection,
+    identity, pcId, hello, expired, openPairing, closePairing, pairingInfo, qrPayload, connection,
     devices: () => listDevices(false), forget, forgetAll, setLevel, rename,
     connections: () => Array.from(conns),
   };
@@ -385,7 +407,7 @@ function allowed(level, op) {
 }
 
 module.exports = {
-  PROTOCOL, LEVELS, DEFAULT_LEVEL, CODE_TTL_MS, MAX_CODE_FAILS, OPS, CONFIRM_OPS,
+  PROTOCOL, LEVELS, DEFAULT_LEVEL, CODE_TTL_MS, MAX_CODE_FAILS, MAX_TOTAL_FAILS, HANDSHAKE_MS, SAS_WAIT_MS, OPS, CONFIRM_OPS,
   createHost, allowed, needsConfirm: (op) => CONFIRM_OPS.has(op),
   // Telefon tarafının (ve sınamanın) kullandığı yapı taşları
   newIdentity, sharedSecret, fingerprint, sasDigits, deviceKey, sessionKeys, sealer, opener, hmac, sha256, b64u, unb64u, validPublicKey,
