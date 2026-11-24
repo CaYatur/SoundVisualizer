@@ -32,8 +32,28 @@
   function wire() {
     if (wired || !api().onPhoneLinkState) return;
     wired = true;
-    api().onPhoneLinkState((s) => { st = s; redraw(); });
+    api().onPhoneLinkState((s) => { st = s; redraw(); chip(); });
     api().onPhoneLinkSas((p) => askSas(p));
+    // Telefondan gelen dosya kitaplığa eklendi (B6)
+    if (api().onPhoneLinkFile) api().onPhoneLinkFile((f) => { if (notifyOn() && P()) P().toast(T('Telefondan eklendi') + ': ' + (f && f.name ? f.name : ''), 'ok'); });
+  }
+  const notifyOn = () => { const c = P() && P().cfg(); return !(c && c.phoneLink && c.phoneLink.notify === false); };
+  /* Üst çubukta "Telefon bağlı" (plan §3.2 madde 9): bağlı telefonların adı; ses girişi
+     telefondaysa da yazar. Dokununca Telefon Bağlantısı kartı. */
+  function chip() {
+    const b = document.getElementById('phoneChip');
+    const name = document.getElementById('phoneChipName');
+    if (!b || !name) return;
+    const on = ((st && st.devices) || []).filter((d) => d.online);
+    b.hidden = !on.length;
+    if (!on.length) return;
+    const txt = T('Telefon bağlı') + ': ' + on.map((d) => d.name).join(', ') + (st.audioIn && st.audioIn.state === 'bridge' ? ' · ' + T('ses telefondan') : '');
+    name.textContent = txt;
+    b.title = txt;
+    if (!b.dataset.wired) {
+      b.dataset.wired = '1';
+      b.addEventListener('click', () => { if (P() && P().jumpTo) P().jumpTo({ category: 'control', section: 'phoneLink', path: null, advanced: false }); });
+    }
   }
 
   function modal(title, body, buttons) {
@@ -181,6 +201,8 @@
       p.toggle(T('Telefonun Sesini Ses Girişi Yap'), 'phoneLink.audioIn.enabled'),
       a.enabled ? el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: T('Hangi telefon') }), sel]) : null,
       a.enabled ? p.toggle(T('Telefon Susunca Yerel Girişe Dön'), 'phoneLink.audioIn.fallback') : null,
+      // Kablosuz ağın gecikmesi: görüntü sesin önüne geçerse kareler bu kadar bekletilir
+      a.enabled ? p.slider(T('Görüntü Gecikmesi'), 'phoneLink.audioIn.delayMs', { min: 0, max: 500, step: 10, fmt: (v) => Math.round(v) + ' ms' }) : null,
       a.enabled ? el('div', { class: 'note', text: T(STATE[ai.state] || STATE.off) + (ai.name ? ' · ' + ai.name : '') + kbps }) : null,
       el('div', { class: 'note', text: T('Telefonda Ses → "PC\'ye gönder" açılınca telefonun sesi (mikrofon, telefonda çalan müzik ya da uygulama içi çalar) bu bilgisayarın ses girişi olur. Görüntü, ışık ve tempo bu sese tepki verir.') }),
     ].filter(Boolean));
@@ -191,7 +213,9 @@
     const el = p.el;
     const cfg = p.cfg();
     if (!cfg.phoneLink) cfg.phoneLink = { enabled: false, discoverable: true };
-    if (!cfg.phoneLink.audioIn) cfg.phoneLink.audioIn = { enabled: false, device: '', fallback: true };
+    if (!cfg.phoneLink.audioIn) cfg.phoneLink.audioIn = { enabled: false, device: '', fallback: true, delayMs: 0 };
+    if (cfg.phoneLink.audioIn.delayMs == null) cfg.phoneLink.audioIn.delayMs = 0;
+    if (cfg.phoneLink.notify === undefined) cfg.phoneLink.notify = true;
     const on = cfg.phoneLink.enabled === true;
     const running = !!(st && st.running);
     const online = ((st && st.devices) || []).filter((d) => d.online).length;
@@ -214,6 +238,7 @@
       nodes.push(el('button', { class: 'btn ghost', type: 'button', text: T('Hepsini Unut'), onclick: () => askForget(T('Bütün telefonlar'), () => api().phoneLinkForgetAll().then(refresh)) }));
     }
     nodes.push(p.toggle(T('Ağda Görünür Ol'), 'phoneLink.discoverable'));
+    nodes.push(p.toggle(T('Telefondan Yapılan Değişiklikleri Bildir'), 'phoneLink.notify'));
     if (on) nodes.push(audioBox());
     nodes.push(el('div', { class: 'note', text: T('Bağlantı açıkken telefon aynı ağdan bu bilgisayarı yönetebilir. Trafik şifrelidir; yayın sayfaları ve dosyalar bu yüzden ağa açılmaz. Windows ilk açılışta güvenlik duvarı izni sorar: "Özel ağlar"ı seçin. Misafir ağlarında cihazlar birbirini görmeyebilir.') }));
     if (st && st.keysError) {

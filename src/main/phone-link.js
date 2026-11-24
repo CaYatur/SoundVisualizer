@@ -385,14 +385,16 @@ function createHost(opts) {
 const OPS = {
   // izle
   'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
-  'audio.watch': 'view',
+  'audio.watch': 'view', 'output.list': 'view',
   // kumanda
   'scene.apply': 'control', 'blackout': 'control', 'tbar': 'control', 'momentary': 'control', 'deck.trigger': 'control',
   'deck.stop': 'control', 'macro.set': 'control', 'tempo.tap': 'control', 'tempo.set': 'control', 'autovj.toggle': 'control',
   'milkdrop.nav': 'control', 'timeline.transport': 'control', 'run': 'control', 'cue.set': 'control', 'master.set': 'control',
   'mixer.set': 'control',
   // tam: telefonda çalan parça (telefonun sesi bilgisayarın girişiyken)
-  'nowplaying.set': 'full',
+  'nowplaying.set': 'full', 'milkdrop.load': 'control',
+  // dosya gönderme (B6): file.upload tablodaki genel ad; işlemler parça parça
+  'file.begin': 'full', 'file.chunk': 'full', 'file.end': 'full', 'file.cancel': 'full', 'export.status': 'full',
   // düzenleme
   'config.patch': 'edit', 'scene.save': 'edit', 'scene.create': 'edit', 'scene.rename': 'edit', 'scene.delete': 'edit',
   'scene.reorder': 'edit', 'preset.save': 'edit', 'preset.delete': 'edit', 'palette.save': 'edit', 'palette.delete': 'edit',

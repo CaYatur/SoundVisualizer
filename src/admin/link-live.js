@@ -119,8 +119,7 @@
           return { ok: true };
         }
         for (const k of keys) c[k] = patch[k];
-        if (a.final) P().push(true);
-        else { P().push(false); scheduleCommit(); }
+        if (a.final) { P().push(true); noteEdit(); } else { P().push(false); scheduleCommit(); }
         renderSoon();
         return { ok: true };
       }
@@ -198,6 +197,18 @@
   /* Makro kaydırıcısı sürüklenirken saniyede onlarca yama gelir: her biri canlıya gider
      (push(false)), kesin kayıt bırakınca bir kez (panelin kaydırıcısı gibi). */
   let commitTimer = 0;
+  /* "Telefondan yapılan değişiklikleri bildir" (Telefon Bağlantısı kartı, varsayılan açık):
+     telefonun kesin yazımında köşede kısa bildirim, en çok 6 saniyede bir. */
+  let noteAt = 0;
+  function noteEdit() {
+    const c = cfg();
+    if (c.phoneLink && c.phoneLink.notify === false) return;
+    const t = Date.now();
+    if (t - noteAt < 6000) return;
+    noteAt = t;
+    const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+    P().toast(tr('Telefon ayarları değiştirdi.'), 'ok');
+  }
   // Telefon sürüklerken panel saniyede en çok ~4 kez yeniden çizilir; bırakınca bir kez daha
   let renderTimer = 0;
   function renderSoon() {

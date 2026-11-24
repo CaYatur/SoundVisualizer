@@ -191,6 +191,18 @@ for a change made in the panel.
 | `preview.get` | → `{ width, height, jpeg }` the frame an output shows, 480 px wide, base64 JPEG | view |
 | `audio.watch` | `{ on }` stream the desktop's audio to this phone (see below) | view |
 | `audio.bridge` | `{ on, fallback? }` make this phone's audio the desktop's audio input | full |
+| `output.list` | → `{ displays, open, floating, selected }` | view |
+| `output.open` | `{ ids? }` display ids from `output.list`; without ids the saved selection | full |
+| `output.close` | `{ id? }` one display, or all | full |
+| `output.set` | `{ floating }` open or close the floating window | full |
+| `audio.sources` | → `{ devices, sources, phone }`; the choice itself is `config.patch { audio }` | full |
+| `record.start`, `record.stop` | | full |
+| `export.start` | `{ audio, format?, resolution?, fps?, quality? }` `audio` is the id `file.end` returned for a song (`kind: "audio"`); the video goes to this computer's Videos/SoundVisualizer folder | full |
+| `export.cancel`, `export.status` | progress also arrives as `{ ev:"export", p }` | full |
+| `library.list` | `{ kind, q?, offset?, limit? }` `video`, `logo`, `lyrics` or `milkdrop` → `{ total, items:[{ id, name }] }` (no paths) | view |
+| `thumb.get` | `{ kind, type }` `visualizer` or `background` mode thumbnail → `{ type, data }` base64 | view |
+| `milkdrop.load` | `{ id }` a preset id from `library.list` | control |
+| `file.begin`, `file.chunk`, `file.end`, `file.cancel` | see Files | full |
 | `nowplaying.set` | `{ has, title, artist, album, position, duration, playing, artwork? }` the track playing on the phone; seconds; artwork a JPEG/PNG/WebP data URL up to 192 KB, sent only when the track changes | full |
 
 Momentary effects are a lease: the phone resends its held list about every half second and the
@@ -253,6 +265,35 @@ desktop sends the capture helper's raw audio in the same packet format; a phone 
 is over 256 KB skips packets instead of building up delay. While a phone watches, the desktop keeps
 capturing even if no output window is open. Only the first audio source is sent, and nothing is
 sent while the desktop's input is the network bridge or a phone.
+
+## Files
+
+A phone sends a file in parts: `file.begin { kind, name, size }` → `{ id, chunk }`, then
+`file.chunk { id, at, data }` in order (`at` is the bytes received so far, `data` base64, at most
+96 KB raw), then `file.end { id, sha256 }`. `src/main/link-upload.js` writes only into the app's own
+`link-uploads` folder; the name is only a display name (separators, control characters and `..`
+are removed, the extension is kept). Limits per kind:
+
+| Kind | Extensions | Up to | Goes to |
+|---|---|---|---|
+| `video` | mp4, webm, mkv, mov, m4v | 512 MB | media library |
+| `logo` | png, jpg, jpeg, webp, gif, svg | 24 MB | logo library |
+| `lyrics` | lrc, txt, srt, vtt | 1 MB | lyrics library |
+| `milk` | milk, milk2 | 1 MB | user presets (MilkDrop) |
+| `audio` | mp3, m4a, aac, wav, flac, ogg, opus | 512 MB | kept for `export.start` (the last three) |
+
+The libraries run their own type and size checks on import. Size and SHA-256 must match at the end.
+At most two transfers per phone; a transfer with no part for two minutes is deleted, and so is every
+transfer of a phone whose session closes. The folder is emptied when the app starts. The panel
+shows a short note when a file arrives (Phone Link → "Notify Me of Changes Made from the Phone",
+on by default; the same switch covers settings changes).
+
+## Desktop panel
+
+The top bar shows "Phone connected: name" while a phone is in session, and "audio from the phone"
+when its audio is the input; clicking it opens the Phone Link card. The Phone Audio section has a
+video delay (0–500 ms) that holds the analysis frames when Wi-Fi jitter puts the picture ahead of the
+sound.
 
 **Real image (`preview.get`).** The frame an output window (or the panel preview) shows, as a
 480-pixel JPEG, the same capture as MCP `sv_get_preview`. Measured on the desktop: 480×270, about

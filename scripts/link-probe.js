@@ -368,6 +368,43 @@ function phone(port) {
     if (r.ok) check('preview.get JPEG', /^\/9j\//.test(r.result.jpeg) && r.result.width > 0, { w: r.result.width, h: r.result.height, kb: Math.round(r.result.jpeg.length * 0.75 / 1024) });
     else check('preview.get: görüntü yoksa anlaşılır hata', r.error === 'no-preview', r);
 
+    // ---- B6: çıkışlar, ses aygıtları, kitaplık, dosya gönderme, dışa aktarma, üst çubuk
+    r = await ph.ask('output.list');
+    check('output.list: ekranlar', r.ok && r.result.displays.length >= 1 && Array.isArray(r.result.open), r.ok && r.result.displays.length);
+    r = await ph.ask('audio.sources');
+    check('audio.sources: aygıt listesi', r.ok && Array.isArray(r.result.devices), r.ok && r.result.devices.length);
+    r = await ph.ask('thumb.get', { kind: 'visualizer', type: 'bars' });
+    check('thumb.get: mod küçük resmi', r.ok && r.result.data.length > 100, r.ok ? r.result.type : r);
+    r = await ph.ask('export.start', { audio: 'yok' });
+    check('export.start: şarkı gönderilmeden reddedilir', r.ok === false && r.error === 'no-song', r);
+    r = await ph.ask('export.status');
+    check('export.status', r.ok && r.result.running === false, r.ok);
+    const upload = async (kind, name, buf) => {
+      const b0 = await ph.ask('file.begin', { kind, name, size: buf.length });
+      if (!b0.ok) return b0;
+      for (let at = 0; at < buf.length; at += b0.result.chunk) {
+        const c = await ph.ask('file.chunk', { id: b0.result.id, at, data: buf.subarray(at, at + b0.result.chunk).toString('base64') });
+        if (!c.ok) return c;
+      }
+      return ph.ask('file.end', { id: b0.result.id, sha256: crypto.createHash('sha256').update(buf).digest('hex') });
+    };
+    const lrc = Buffer.from('[00:01.00]Telefondan gelen söz\n[00:04.00]İkinci satır\n', 'utf8');
+    r = await upload('lyrics', 'telefon-sozu.lrc', lrc);
+    check('dosya gönderme: söz kitaplığa eklendi', r.ok && r.result.kind === 'lyrics', r);
+    r = await ph.ask('library.list', { kind: 'lyrics', q: 'telefon' });
+    check('library.list: gönderilen söz listede', r.ok && r.result.total >= 1, r.ok && r.result.items);
+    const milk = Buffer.from('[preset00]\nfRating=3\nzoom=1.01\nper_frame_1=wave_r = 0.5 + 0.5*sin(time);\n', 'utf8');
+    r = await upload('milk', 'telefon preseti.milk', milk);
+    check('dosya gönderme: MilkDrop preseti eklendi', r.ok && r.result.kind === 'milk', r);
+    r = await upload('logo', 'kotu.exe', Buffer.from('MZ'));
+    check('dosya gönderme: izinsiz uzantı reddedilir', r.ok === false && r.error === 'bad-type', r);
+    r = await ph.ask('file.begin', { kind: 'video', name: 'buyuk.mp4', size: 2 * 1024 * 1024 * 1024 });
+    check('dosya gönderme: çok büyük dosya reddedilir', r.ok === false && r.error === 'too-big', r);
+    r = await ph.ask('milkdrop.load', { id: 'x"); alert(1); ("' });
+    check('milkdrop.load: geçersiz kimlik reddedilir', r.ok === false && r.error === 'bad-args', r);
+    const chipTxt = await pc.ev(`(() => { const b = document.getElementById('phoneChip'); return b && !b.hidden ? document.getElementById('phoneChipName').textContent : ''; })()`);
+    check('üst çubukta "Telefon bağlı"', chipTxt.indexOf('Sınama Telefonu') >= 0, chipTxt);
+
     // ---- Anlık efekt kirası: yenilendikçe kalır, oturum kapanınca hemen kalkar
     const held = () => P('JSON.stringify(window.SVLiveShell.heldList())');
     const samples = [];
