@@ -19,6 +19,9 @@
 const Link = require('./phone-link');
 
 const RATE_PER_SEC = 120;
+// Ses paketleri (B4) ayrı sayılır: 48 kHz'te 10 ms'lik paketler saniyede 100 eder
+const AUDIO_PER_SEC = 400;
+const AUDIO_MAX_BYTES = 64 * 1024;
 const MAX_ID = 64;
 
 function createService(deps) {
@@ -124,9 +127,23 @@ function createService(deps) {
     const c = client.link;
     if (!c || c.stage !== 'session') return;
     const t = now();
+    const plain = c.decryptRaw(frame);
+    if (!plain || !plain.length) return;
+    /* İkili ileti (ilk bayt '{' değil): telefonun sesi (B4). İzin "audio.bridge" (tam düzey);
+       saniyede ve boyutça ayrı sınır, yanıt yok. */
+    if (plain[0] !== 0x7b) {
+      if (!client.arate || t - client.arate.t >= 1000) client.arate = { t, n: 0 };
+      if (++client.arate.n > AUDIO_PER_SEC || plain.length > AUDIO_MAX_BYTES) return;
+      const lv = c.device ? c.device.level : 'view';
+      if (!Link.allowed(lv, 'audio.bridge') || typeof d.onAudio !== 'function') return;
+      if (typeof d.gate === 'function' && d.gate('audio.bridge')) return;
+      try { d.onAudio(client, plain, Object.assign({}, c.device, { key: undefined })); } catch { /* */ }
+      return;
+    }
     if (t - client.rate.t >= 1000) { client.rate.t = t; client.rate.n = 0; }
     if (++client.rate.n > RATE_PER_SEC) return;
-    const msg = c.decrypt(frame);
+    let msg = null;
+    try { msg = JSON.parse(plain.toString('utf8')); } catch { msg = null; }
     if (!msg || typeof msg !== 'object') return;
     const id = typeof msg.id === 'string' || typeof msg.id === 'number' ? String(msg.id).slice(0, MAX_ID) : null;
     const reply = (obj) => { if (id !== null && c.stage === 'session' && !c.closed) stream.linkSendBinary(client, c.encrypt(Object.assign({ re: id }, obj))); };
@@ -218,7 +235,7 @@ function createService(deps) {
       devices: host ? host.devices() : [],
       pending: Array.from(pending.entries()).map(([no, x]) => ({ no, digits: x.digits, name: x.name, model: x.model, via: x.via })),
       keysError,
-    }, extra || {});
+    }, typeof d.extra === 'function' ? d.extra() : {}, extra || {});
   }
 
   return {

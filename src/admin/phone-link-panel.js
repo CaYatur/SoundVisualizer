@@ -162,11 +162,36 @@
     return el('div', { class: 'pl-devs' }, rows);
   }
 
+  /* TELEFONUN SESİ (B4): telefonda çalan, mikrofona gelen ya da uygulama içi çaların sesi bu
+     bilgisayarın ses girişi olur. Telefon susarsa yedek giriş (yerel yakalama) açılır. */
+  function audioBox() {
+    const p = P();
+    const el = p.el;
+    const cfg = p.cfg();
+    const a = cfg.phoneLink.audioIn || (cfg.phoneLink.audioIn = { enabled: false, device: '', fallback: true });
+    const ai = (st && st.audioIn) || {};
+    const devs = (st && st.devices) || [];
+    const sel = el('select', { class: 'p-in', 'aria-label': T('Hangi telefon'), onchange: (e) => { a.device = e.target.value; p.push(true); setTimeout(refresh, 300); } },
+      [el('option', { value: '', text: T('Gönderen herhangi bir telefon') })].concat(devs.map((d) => el('option', { value: d.id, text: d.name + (d.model ? ' · ' + d.model : '') }))));
+    sel.value = a.device || '';
+    const STATE = { bridge: 'Ses telefondan geliyor', waiting: 'Telefondan ses bekleniyor', fallback: 'Telefon sessiz: yerel giriş kullanılıyor', off: 'Kapalı' };
+    const kbps = ai.stats && ai.stats.sampleRate ? ' · ' + Math.round(ai.stats.sampleRate / 1000) + ' kHz' : '';
+    return el('div', { class: 'pl-audio' }, [
+      el('div', { class: 'lbl', text: T('Telefonun Sesi') }),
+      p.toggle(T('Telefonun Sesini Ses Girişi Yap'), 'phoneLink.audioIn.enabled'),
+      a.enabled ? el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: T('Hangi telefon') }), sel]) : null,
+      a.enabled ? p.toggle(T('Telefon Susunca Yerel Girişe Dön'), 'phoneLink.audioIn.fallback') : null,
+      a.enabled ? el('div', { class: 'note', text: T(STATE[ai.state] || STATE.off) + (ai.name ? ' · ' + ai.name : '') + kbps }) : null,
+      el('div', { class: 'note', text: T('Telefonda Ses → "PC\'ye gönder" açılınca telefonun sesi (mikrofon, telefonda çalan müzik ya da uygulama içi çalar) bu bilgisayarın ses girişi olur. Görüntü, ışık ve tempo bu sese tepki verir.') }),
+    ].filter(Boolean));
+  }
+
   function build() {
     const p = P();
     const el = p.el;
     const cfg = p.cfg();
     if (!cfg.phoneLink) cfg.phoneLink = { enabled: false, discoverable: true };
+    if (!cfg.phoneLink.audioIn) cfg.phoneLink.audioIn = { enabled: false, device: '', fallback: true };
     const on = cfg.phoneLink.enabled === true;
     const running = !!(st && st.running);
     const online = ((st && st.devices) || []).filter((d) => d.online).length;
@@ -189,6 +214,7 @@
       nodes.push(el('button', { class: 'btn ghost', type: 'button', text: T('Hepsini Unut'), onclick: () => askForget(T('Bütün telefonlar'), () => api().phoneLinkForgetAll().then(refresh)) }));
     }
     nodes.push(p.toggle(T('Ağda Görünür Ol'), 'phoneLink.discoverable'));
+    if (on) nodes.push(audioBox());
     nodes.push(el('div', { class: 'note', text: T('Bağlantı açıkken telefon aynı ağdan bu bilgisayarı yönetebilir. Trafik şifrelidir; yayın sayfaları ve dosyalar bu yüzden ağa açılmaz. Windows ilk açılışta güvenlik duvarı izni sorar: "Özel ağlar"ı seçin. Misafir ağlarında cihazlar birbirini görmeyebilir.') }));
     if (st && st.keysError) {
       nodes.push(el('div', { class: 'note warn', text: T('Bağlantı anahtarları okunamadı (sistemin anahtar koruması şu an kullanılamıyor olabilir). Dosyaya dokunulmadı; eşleşmiş telefonlar korunuyor. Uygulamayı yeniden başlatmayı deneyin. Sorun sürerse anahtarları yeniden kurun: bütün telefonlar baştan eşleşir.') }));
