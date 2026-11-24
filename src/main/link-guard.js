@@ -129,7 +129,14 @@ function check(patch, current, level) {
 
 function checkLayers(next, prev) {
   const byId = new Map(prev.filter((l) => l && l.id).map((l) => [l.id, l]));
-  // Masaüstüne özgü katmanlar: içleri telefondan değişmez, yenisi eklenmez
+  /* Masaüstüne özgü katman (web sayfası, Spout/NDI/ekran/kamera girişi) telefondan SİLİNEMEZ:
+     telefonun onu tanımayan bir düzenleyicisi katmanı listeden düşürse PC'nin kurulumu sessizce
+     giderdi. Açma/kapama, saydamlık ve sıra serbest; silmek PC'de. */
+  const nextIds = new Set(next.filter((l) => l && l.id).map((l) => l.id));
+  for (const old of prev) {
+    if (old && old.id && SOURCE_KINDS.indexOf(old.kind) >= 0 && !nextIds.has(old.id)) return fail('needs-pc', 'layers', old.kind);
+  }
+  // Masaüstüne özgü katmanlar: içleri telefondan değişmez, yenisi eklenmez, silinmez (yukarıda)
   for (const l of next) {
     if (!l || typeof l !== 'object') return fail('type', 'layers');
     if (SOURCE_KINDS.indexOf(l.kind) < 0) continue;
@@ -140,15 +147,15 @@ function checkLayers(next, prev) {
   /* Kilitli katman silinmez ve öbür ESKİ katmanlara göre yeri değişmez (paneldeki kural: kilitli
      katman taşınmaz, komşusu üstünden geçmez). Yeni katman eklemek sırayı bozmuş sayılmaz;
      kilidi açılan katman serbest. */
-  const nextIds = next.map((l) => l && l.id).filter((id) => id && byId.has(id));
-  const kept = new Set(nextIds);
+  const keptIds = next.map((l) => l && l.id).filter((id) => id && byId.has(id));
+  const kept = new Set(keptIds);
   const prevIds = prev.map((l) => l && l.id).filter((id) => id && kept.has(id));
   for (const old of prev) {
     if (!old || !old.locked || !old.id) continue;
     const now = next.find((l) => l && l.id === old.id);
     if (now && now.locked === false) continue;
     if (!now) return fail('locked', 'layers');
-    if (nextIds.indexOf(old.id) !== prevIds.indexOf(old.id)) return fail('locked', 'layers');
+    if (keptIds.indexOf(old.id) !== prevIds.indexOf(old.id)) return fail('locked', 'layers');
   }
   return null;
 }

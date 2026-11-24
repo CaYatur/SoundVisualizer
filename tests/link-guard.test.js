@@ -117,3 +117,11 @@ test('Sahne verisi: yalnız sahneye ait anahtarlar, aynı kurallarla', () => {
   no(G.checkSceneData({ media: { file: 'D:\\gizli.mp4' } }, cur()), 'path');
   no(G.checkSceneData(null, cur()), 'bad-args');
 });
+
+test('Masaüstüne özgü katman telefondan silinemez (tanımayan düzenleyici düşürse de)', () => {
+  const layers = clone(cur().layers).filter((l) => l.kind !== 'web');
+  no(G.check({ layers }, cur(), 'full'), 'needs-pc', 'layers');
+  // Öbür katmanı silmek serbest
+  const keep = clone(cur().layers).filter((l) => l.id !== 'l_media');
+  assert.ok(G.check({ layers: keep }, cur(), 'edit').ok);
+});
