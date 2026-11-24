@@ -93,8 +93,15 @@ test('PC olayı: sürüm sırası, atlama baştan çekme, sürüklenen anahtar k
   assert.strictEqual(r.cfg.master, 1, 'sürüklenen değer zıplamadı');
   assert.strictEqual(r.cfg.visualizer.type, 'wave');
   assert.deepStrictEqual(Object.keys(r.patch), ['visualizer']);
+  assert.deepStrictEqual(r.deferred, { master: 0.2 }, 'PC\'nin değeri atılmadı, bekletildi');
   const later = R.applyEvent(st, { rev: 5, patch: { master: 0.2 } }, 2000, 600);
   assert.strictEqual(later.cfg.master, 0.2, 'bırakınca PC\'ninki geçerli');
+  // Bekletilen değer yazım durunca uygulanır
+  const st2 = { cfg: r.cfg, rev: 5, writing: { master: 1000 }, deferred: r.deferred };
+  assert.deepStrictEqual(R.settle(st2, 1200, 600).patch, {}, 'yazım sürüyor');
+  const done = R.settle(st2, 1700, 600);
+  assert.strictEqual(done.cfg.master, 0.2);
+  assert.deepStrictEqual(done.deferred, {});
 });
 
 /* ---- Sunucuyla: sahte uygulama ve sahte PC ---- */

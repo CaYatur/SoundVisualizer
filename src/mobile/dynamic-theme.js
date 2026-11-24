@@ -77,6 +77,8 @@
   const AT = () => window.SV && window.SV.AdaptiveTheme;
 
   function apply(res) {
+    // Hedef PC iken telefonun çalan parçasının renkleri PC'nin ayarına yazılmaz (PC kendi temasını izler)
+    if (A().target && A().target.get().target === 'pc') return false;
     const c = cfg();
     const setEffective = (draft, color, color2) => {
       const L = window.SVLayers;

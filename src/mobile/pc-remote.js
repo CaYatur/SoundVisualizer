@@ -102,24 +102,41 @@
 
   /* PC'den gelen ayar olayı. Sürüm atlanırsa baştan çekilir. `writing`: telefonun son
      yarım saniyede yazdığı anahtarlar (anahtar → zaman); sürüklenen kaydırıcı PC'nin araya
-     giren yanıtıyla zıplamasın, bırakınca PC'ninki geçerli olur. */
+     giren yanıtıyla zıplamasın. O sırada gelen değer ATILMAZ, `deferred`e girer: süre dolunca
+     (settle) uygulanır. Eskiden atılıyordu; telefonun yazımından hemen sonra PC'de yapılan
+     değişiklik telefona hiç gelmiyordu (emülatörde ölçüldü). */
   function applyEvent(state, ev, now, holdMs) {
     if (!state || !state.cfg || !ev || typeof ev.rev !== 'number') return { refetch: true };
     if (ev.rev <= state.rev) return { stale: true };
     if (ev.rev !== state.rev + 1) return { refetch: true };
     const accepted = {};
+    const deferred = {};
     const cfg = Object.assign({}, state.cfg);
     const t = now || Date.now();
     for (const k of Object.keys(ev.patch || {})) {
       const w = state.writing && state.writing[k];
-      if (w && t - w < (holdMs || 600)) continue;
+      if (w && t - w < (holdMs || 600)) { deferred[k] = ev.patch[k]; continue; }
       cfg[k] = ev.patch[k];
       accepted[k] = ev.patch[k];
     }
-    return { cfg, rev: ev.rev, patch: accepted };
+    return { cfg, rev: ev.rev, patch: accepted, deferred };
+  }
+  /* Bekletilen PC değerleri: yazım süresi dolan anahtar PC'nin son değerini alır. */
+  function settle(state, now, holdMs) {
+    const out = {};
+    const cfg = Object.assign({}, state.cfg);
+    const t = now || Date.now();
+    const left = {};
+    for (const k of Object.keys(state.deferred || {})) {
+      const w = state.writing && state.writing[k];
+      if (w && t - w < (holdMs || 600)) { left[k] = state.deferred[k]; continue; }
+      cfg[k] = state.deferred[k];
+      out[k] = state.deferred[k];
+    }
+    return { cfg, patch: out, deferred: left };
   }
 
-  const api = { SCENE_KEYS, LOCAL_KEYS, ENGINE_LOCAL, view, engine, enginePatch, diff, diffScenes, applyEvent };
+  const api = { SCENE_KEYS, LOCAL_KEYS, ENGINE_LOCAL, view, engine, enginePatch, diff, diffScenes, applyEvent, settle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SVPcRemote = api;
 })(typeof window !== 'undefined' ? window : null);

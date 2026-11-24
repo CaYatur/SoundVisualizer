@@ -17,7 +17,10 @@
 
    Denetlenen: kodla eşleşme ve iki ekranda aynı sayı, bilgisayardaki onay, şifreli istek
    (state.get), QR karesinin uygulamada çözülmesi ve QR ile eşleşme (onaylı), uygulama yeniden
-   açılınca kendiliğinden bağlanma, bilgisayarda unutulan telefonun kaydını silmesi. */
+   açılınca kendiliğinden bağlanma; hedef PC: düzenleyicinin PC ayarını görmesi, Canlı sekmesinden
+   karartma, sahne, anlık efekt ve T-bar'ın PC'deki ETKİSİ, telefondan ayar yazımı ve PC'deki
+   değişikliğin telefona gelmesi, telefonun kendi ayarının değişmemesi, hedefin telefona dönmesi;
+   bilgisayarda unutulan telefonun kaydını silmesi. */
 const fs = require('fs');
 const path = require('path');
 const D = require('./lib/device.js');
@@ -141,6 +144,64 @@ async function desktop() {
   await pc.ev(`window.api.phoneLinkConfirm(${pend2[0].no}, true)`);
   const s5 = await waitState(['connected', 'error'], 15000);
   check('QR: onaydan sonra bağlı', s5.state === 'connected', s5);
+
+  // ---- Hedef PC (B2/B3): düzenleyici PC'nin ayarını görür, Canlı sekmesi PC'yi sürer
+  const pcUntil = async (expr, want, ms) => {
+    let v;
+    for (let i = 0; i < (ms || 5000) / 150; i++) { v = await pc.ev(expr); if (JSON.stringify(v) === JSON.stringify(want)) return v; await sleep(150); }
+    return v;
+  };
+  await pc.ev('(async () => { if (!window.SVPanel.scenes().length) await window.SVPanel.addStarterScenes(); return true; })()');
+  await sleep(1000);
+  const pcScenes = await pc.ev('window.SVPanel.scenes().map((s) => s.id)');
+  const phoneMaster0 = await ev('(window.SVAndroid.config.local() || {}).master');
+  const tg = await ev(`window.SVAndroid.target.set('pc')`);
+  check('hedef PC', tg && tg.target === 'pc', tg);
+  check('düzenleyici PC ayarını görüyor', JSON.stringify(await ev('window.SVAndroid.config.get().scenes.map((s) => s.id)')) === JSON.stringify(pcScenes), pcScenes.length);
+  await sleep(600);
+  check('hedef çipi PC adını gösteriyor', /\S/.test(await ev(`(document.querySelector('#sv-shell .target-chip .label') || {}).textContent || ''`)) && await ev(`!document.querySelector('#sv-shell .target-chip').hidden`));
+  check('Canlı sekmesi görünüyor', await ev(`(() => { const b = document.querySelector('#sv-shell .nav [data-tab="live"]'); return !!b && !b.hidden; })()`));
+  await ev(`(() => { document.querySelector('#sv-shell .nav [data-tab="live"]').click(); return 1; })()`);
+  await sleep(900);
+  check('Canlı: karartma düğmesi', await clickText('Karartma'));
+  check('Canlı: PC karardı', (await pcUntil('window.SVPanel.isBlackedOut()', true)) === true);
+  await sleep(500);
+  check('Canlı: düğme PC\'nin durumunu gösteriyor', (await ev(`(document.querySelector('#sv-shell .blk') || {}).getAttribute('aria-pressed')`)) === 'true');
+  await clickText('Karartma');
+  check('Canlı: karartma kalktı', (await pcUntil('window.SVPanel.isBlackedOut()', false)) === false);
+  // Sahneye dokun: hemen geç
+  await ev(`(() => { localStorage.setItem('sv-live-tap', 'cut'); return 1; })()`);
+  const target = pcScenes[2] || pcScenes[1];
+  await ev(`(() => { document.querySelector('#sv-shell .lv-scene[data-id=' + JSON.stringify(${JSON.stringify(target)}) + ']').click(); return 1; })()`);
+  check('Canlı: sahneye dokununca PC\'de canlı', (await pcUntil('window.SVPanel.activeSceneId()', target)) === target);
+  // Sıraya al + Geç
+  await ev(`(() => { localStorage.setItem('sv-live-tap', 'cue'); return 1; })()`);
+  await ev(`(() => { document.querySelector('#sv-shell .lv-scene[data-id=' + JSON.stringify(${JSON.stringify(pcScenes[0])}) + ']').click(); return 1; })()`);
+  check('Canlı: sıraya alındı', (await pcUntil('window.SVLiveShell.cue()', pcScenes[0])) === pcScenes[0]);
+  check('Canlı: Geç', await clickText('Geç'));
+  check('Canlı: sıradaki canlıya geçti', (await pcUntil('window.SVPanel.activeSceneId()', pcScenes[0])) === pcScenes[0]);
+  // Anlık efekt basılı tut / bırak
+  await ev(`(() => { const b = document.querySelector('#sv-shell .lv-fx [data-fx="strobe"]'); b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7 })); return 1; })()`);
+  check('Canlı: basılı efekt PC çıkışında', JSON.stringify(await pcUntil('window.SVLiveShell.heldList()', ['strobe'])) === '["strobe"]');
+  // Basılıyken PC'deki liste 2,2 sn boyunca hiç boşalmamalı (kira 1,5 sn; telefon 0,5 sn'de bir yeniler)
+  const samples = [];
+  for (let i = 0; i < 11; i++) { await sleep(200); samples.push(JSON.stringify(await pc.ev('window.SVLiveShell.heldList()'))); }
+  check('Canlı: basılıyken kira yenileniyor (efekt düşmedi)', samples.every((x) => x === '["strobe"]'), samples);
+  await ev(`(() => { const b = document.querySelector('#sv-shell .lv-fx [data-fx="strobe"]'); b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7 })); return 1; })()`);
+  check('Canlı: bırakınca kalktı', JSON.stringify(await pcUntil('window.SVLiveShell.heldList()', [])) === '[]');
+  // Düzenleme: telefonun yazımı PC'ye, PC'nin değişikliği telefona
+  await ev(`(() => { const c = window.SVAndroid.config.get(); window.SVAndroid.config.set(Object.assign({}, c, { master: 0.6 })); return 1; })()`);
+  check('düzenleme: telefondan yazılan PC\'de', (await pcUntil('window.SVPanel.cfg().master', 0.6)) === 0.6);
+  check('düzenleme: telefonun kendi ayarı değişmedi', (await ev('(window.SVAndroid.config.local() || {}).master')) === phoneMaster0);
+  await pc.ev('(() => { window.SVPanel.cfg().master = 0.35; window.SVPanel.push(true); return 1; })()');
+  let mm = null;
+  for (let i = 0; i < 30 && mm !== 0.35; i++) { mm = await ev('window.SVAndroid.config.get().master'); if (mm !== 0.35) await sleep(150); }
+  check('düzenleme: PC\'deki değişiklik telefona geldi', mm === 0.35, mm);
+  if (mm !== 0.35) console.log('     tanı:', JSON.stringify(await ev('window.SVAndroid.pc.debug()')));
+  await pc.ev('(() => { window.SVPanel.cfg().master = 1; window.SVPanel.push(true); return 1; })()');
+  const back = await ev(`window.SVAndroid.target.set('phone')`);
+  check('hedef telefona döndü, telefonun ayarı', back.target === 'phone' && (await ev('window.SVAndroid.config.get().master')) === phoneMaster0 && await ev(`document.querySelector('#sv-shell .nav [data-tab="live"]').hidden`));
+  await ev('window.SVShell.close && window.SVShell.close()');
 
   // ---- Bilgisayarda unutulan telefon kaydını siler
   await pc.ev(`window.api.phoneLinkForgetAll()`);

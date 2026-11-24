@@ -715,6 +715,7 @@
     pc.cfg = r.result.config;
     pc.rev = Number(r.result.rev) || 0;
     pc.writing = {};
+    pc.deferred = {};
     const st = await pcAsk('state.get');
     pc.standby = !!(st.ok && st.result && st.result.standby);
     const lv = await pcAsk('live.get');
@@ -755,9 +756,12 @@
     else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
     else emitTarget();
   }
+  const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
   function onLinkEvent(m) {
     if (!m || !m.ev) return;
     if (m.ev === 'config') {
+      evLog.push([m.rev, Object.keys(m.patch || {}).join(','), pc.rev]);
+      if (evLog.length > 20) evLog.shift();
       if (!pc.cfg || !PR()) return;
       const r = PR().applyEvent(pc, m, Date.now(), 600);
       if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
@@ -765,6 +769,10 @@
       pc.cfg = r.cfg;
       pc.rev = r.rev;
       if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (Object.keys(r.deferred).length) {
+        pc.deferred = Object.assign(pc.deferred || {}, r.deferred);
+        scheduleSettle();
+      }
     } else if (m.ev === 'live') {
       pc.live = m.show || null;
       ev.pcLive.emit(pc.live);
@@ -772,6 +780,20 @@
       pc.meter = m.meter || null;
       ev.pcMeter.emit(pc.meter);
     }
+  }
+  // Telefonun yazımı sürerken gelen PC değerleri: yazım durunca uygulanır
+  let settleTimer = 0;
+  function scheduleSettle() {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      settleTimer = 0;
+      if (!pc.cfg || !PR()) return;
+      const r = PR().settle(pc, Date.now(), 600);
+      pc.cfg = r.cfg;
+      pc.deferred = r.deferred;
+      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (Object.keys(r.deferred).length) scheduleSettle();
+    }, 650);
   }
   ev.link.add(onLinkState);
   ev.linkEvent.add(onLinkEvent);
@@ -854,6 +876,8 @@
       onLive: (cb) => ev.pcLive.add(cb),
       onMeter: (cb) => ev.pcMeter.add(cb),
       onError: (cb) => ev.pcError.add(cb),
+      /** Tanılama (sınama betikleri): aynanın sürümü, bekleyen ve yazılan anahtarlar, son olaylar */
+      debug: () => ({ rev: pc.rev, deferred: Object.keys(pc.deferred || {}), writing: pc.writing, events: evLog.slice(), on: pc.on }),
     }),
     /* Çalan parça: uygulama içi çalar ya da (bildirim erişimiyle) başka uygulamalar. */
     /* PC bağlantısı (docs/PHONE-LINK.md). Ağ, şifreleme ve anahtarlar uygulamada; sayfa yalnız
