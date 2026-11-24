@@ -247,6 +247,8 @@ function summary(meta, byName) {
     videoBytes,
     textures: Array.isArray(meta.textures) ? meta.textures.length : 0,
     videosLeftOut: Number(meta.videosLeftOut) || 0,
+    // Telefonun bölüm bölüm yedeği hangi bölümleri taşıdığını yazar; masaüstü yedeğinde yok
+    sections: Array.isArray(meta.sections) ? meta.sections.filter((x) => typeof x === 'string') : null,
   };
 }
 

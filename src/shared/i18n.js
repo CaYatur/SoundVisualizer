@@ -1905,6 +1905,7 @@
     '{n} video yedeğe alınmadı.': '{n} videos were left out of the backup.',
     'Yedek: {d}, sürüm {v}.': 'Backup: {d}, version {v}.',
     '{s} sahne, {c} renk şablonu, {p} preset, {l} logo, {v} video, {y} söz, {t} doku.': '{s} scenes, {c} color presets, {p} presets, {l} logos, {v} videos, {y} lyrics, {t} textures.',
+    'Bu yedek yalnız şu bölümleri içeriyor: {b}. Yalnız bunlar yedektekiyle değişir, diğer ayarlarınız olduğu gibi kalır. Kitaplıklara yedekteki öğeler eklenir, yedekte olmayan öğeleriniz silinmez.': 'This backup only contains these sections: {b}. Only these are replaced with the ones in the backup; the rest of your settings stay as they are. The items in the backup are added to the libraries, and items that are not in the backup are not deleted.',
     'Ayarlarınız, sahneleriniz ve renk şablonlarınız yedektekiyle değiştirilir. Kitaplıklara yedekteki öğeler eklenir: aynı öğe varsa yedekteki geçerli olur, yedekte olmayan öğeleriniz silinmez.': 'Your settings, scenes and color presets are replaced with the ones in the backup. The items in the backup are added to the libraries: where the same item exists, the one in the backup wins, and items that are not in the backup are not deleted.',
     'Bu yedek videosuz alınmış: {n} video bu bilgisayarda yoksa sahnelerde eksik kalır.': 'This backup was made without videos: {n} videos will be missing from the scenes if they are not on this computer.',
     'Geri yüklenemedi': 'Could not restore',

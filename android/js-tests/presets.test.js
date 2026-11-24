@@ -124,7 +124,7 @@ function host(disk, importReply) {
   const ctx = { window, console, performance: { now: () => 0 }, setTimeout, clearTimeout, setInterval: () => 0, Promise, JSON, Map, Object, Uint8Array, Array, Error, Date };
   vm.createContext(ctx);
   vm.runInContext(read('src/shared/schema.js'), ctx, { filename: 'schema.js' });
-  vm.runInContext(read('src/mobile/backup-sections.js'), ctx, { filename: 'backup-sections.js' });
+  vm.runInContext(read('src/shared/backup-sections.js'), ctx, { filename: 'backup-sections.js' });
   vm.runInContext(read('src/mobile/android-host.js'), ctx, { filename: 'android-host.js' });
   return { window, sent };
 }

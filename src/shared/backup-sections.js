@@ -9,13 +9,15 @@
 
    Arşiv masaüstünün tam yedeğiyle aynı biçim (.svbackup, src/main/full-backup.js). Ayar
    dosyasının anahtarları bölümlere ayrılır; presetler, kitaplıklar ve dokular arşivde zaten
-   ayrı. Saf modül: Node'da sınanıyor (android/js-tests/backup-sections.test.js). */
+   ayrı. Telefon yedeği seçilen bölümleri backup.json'daki `sections` alanına yazar; masaüstü
+   geri yüklemesi de bu modülle yalnız o bölümleri değiştirir (src/admin/admin.js). Saf modül:
+   Node'da sınanıyor (tests/full-backup.test.js). */
 (function () {
   const SECTIONS = ['settings', 'scenes', 'colors', 'timeline', 'presets', 'logos', 'lyrics', 'videos', 'textures'];
   // Ayar dosyasından gelen bölümler
   const CONFIG_SECTIONS = ['settings', 'scenes', 'colors', 'timeline'];
 
-  const schema = () => (typeof window !== 'undefined' && window.SVSchema) || require('../shared/schema.js');
+  const schema = () => (typeof window !== 'undefined' && window.SVSchema) || require('./schema.js');
   const SCENE_EXTRA = ['scenes', '_activeSceneId', 'nowplaying', 'dynamicTheme'];
   // Biçim anahtarları her parçayla gider: göç bunlara bakıyor
   const FORMAT_KEYS = ['docVersion', 'version', 'configVersion'];
