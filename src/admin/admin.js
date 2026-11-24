@@ -651,6 +651,9 @@
     sceneGradient: (s) => sceneGradient(s),
     sceneSummary: (s) => sceneSummary(s),
     saveScene: () => actions.saveScene(),
+    // Telefon bağlantısı (src/admin/link-live.js): panelin kendi sahne işlemleri, onay sormadan
+    updateScene: (id) => actions.updateScene(id),
+    renameScene: (id, name) => actions.renameScene(id, name),
     addStarterScenes: () => actions.addStarterScenes(),
     starterButton: () => starterButton(),
     sceneThumbShot: (id) => sceneThumbShot(id),

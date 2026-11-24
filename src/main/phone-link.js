@@ -383,11 +383,12 @@ function createHost(opts) {
    ------------------------------------------------------------------------------------------- */
 const OPS = {
   // izle
-  'state.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
+  'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
   // kumanda
   'scene.apply': 'control', 'blackout': 'control', 'tbar': 'control', 'momentary': 'control', 'deck.trigger': 'control',
   'deck.stop': 'control', 'macro.set': 'control', 'tempo.tap': 'control', 'tempo.set': 'control', 'autovj.toggle': 'control',
-  'milkdrop.nav': 'control', 'timeline.transport': 'control', 'run': 'control',
+  'milkdrop.nav': 'control', 'timeline.transport': 'control', 'run': 'control', 'cue.set': 'control', 'master.set': 'control',
+  'mixer.set': 'control',
   // düzenleme
   'config.patch': 'edit', 'scene.save': 'edit', 'scene.create': 'edit', 'scene.rename': 'edit', 'scene.delete': 'edit',
   'scene.reorder': 'edit', 'preset.save': 'edit', 'preset.delete': 'edit', 'palette.save': 'edit', 'palette.delete': 'edit',

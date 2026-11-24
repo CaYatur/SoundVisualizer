@@ -40,7 +40,8 @@
     const el = P().el;
     let done = false;
     const backdrop = el('div', { class: 'ask-backdrop' });
-    const close = () => { if (done) return; done = true; document.removeEventListener('keydown', onKey, true); backdrop.remove(); };
+    let onClose = null;
+    const close = () => { if (done) return; done = true; document.removeEventListener('keydown', onKey, true); backdrop.remove(); if (onClose) onClose(); };
     const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); buttons[0].run(); close(); } };
     const btns = buttons.map((b) => el('button', { class: 'btn ' + (b.cls || 'ghost'), type: 'button', text: T(b.text), onclick: () => { b.run(); close(); } }));
     backdrop.appendChild(el('div', { class: 'ask-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': T(title) }, [
@@ -49,12 +50,27 @@
     document.body.appendChild(backdrop);
     document.addEventListener('keydown', onKey, true);
     btns[btns.length - 1].focus();
+    close.then = (fn) => { onClose = fn; };
     return close;
   }
 
+  /* Aynı anda iki telefon eşleşmek isterse pencereler SIRAYLA açılır. Eskiden yenisi eskisini
+     kapatıyordu; eski istek ne onaylanıyor ne reddediliyordu, telefon süre dolana dek bekliyordu. */
+  const answered = new Set();
+  function nextSas() {
+    setTimeout(() => {
+      if (asking) return;
+      const n = ((st && st.pending) || []).find((x) => !answered.has(x.no));
+      if (n) askSas(n);
+    }, 0);
+  }
+  function answer(no, ok) {
+    answered.add(no);
+    api().phoneLinkConfirm(no, ok);
+  }
   function askSas(p) {
-    if (!p || !P()) return;
-    if (asking) asking.close();
+    if (!p || !P() || answered.has(p.no)) return;
+    if (asking) return; // sırada: bu kapanınca nextSas açar
     const el = P().el;
     const digits = String(p.digits || '');
     const body = el('div', { class: 'ask-text' }, [
@@ -63,10 +79,12 @@
       el('div', { class: 'note', text: T('Telefondaki sayıyla karşılaştırın. Farklıysa reddedin: ağda araya giren biri olabilir. Onaylanan telefon tam erişimle başlar, aşağıdaki listeden değiştirebilirsiniz.') }),
     ]);
     const close = modal('Yeni telefon bağlanmak istiyor', body, [
-      { text: 'Reddet', run: () => api().phoneLinkConfirm(p.no, false) },
-      { text: 'Aynı, onayla', cls: 'primary', run: () => api().phoneLinkConfirm(p.no, true) },
+      { text: 'Reddet', run: () => answer(p.no, false) },
+      { text: 'Aynı, onayla', cls: 'primary', run: () => answer(p.no, true) },
     ]);
-    asking = { no: p.no, close: () => { close(); asking = null; } };
+    // Düğmeyle kapanınca da sıradaki açılsın
+    close.then(() => { if (asking && asking.no === p.no) { asking = null; nextSas(); } });
+    asking = { no: p.no, close: () => close() };
   }
 
   function askForget(name, run) {
@@ -164,7 +182,7 @@
     ];
     if (on) {
       nodes.push(pairingBox());
-      if (st && st.pending && st.pending.length && !asking) setTimeout(() => askSas(st.pending[0]), 0);
+      if (st && st.pending && st.pending.length && !asking) nextSas();
     }
     nodes.push(el('div', { class: 'lbl', text: T('Eşleşmiş cihazlar') }), deviceRows());
     if (st && st.devices && st.devices.length > 1) {
@@ -172,6 +190,10 @@
     }
     nodes.push(p.toggle(T('Ağda Görünür Ol'), 'phoneLink.discoverable'));
     nodes.push(el('div', { class: 'note', text: T('Bağlantı açıkken telefon aynı ağdan bu bilgisayarı yönetebilir. Trafik şifrelidir; yayın sayfaları ve dosyalar bu yüzden ağa açılmaz. Windows ilk açılışta güvenlik duvarı izni sorar: "Özel ağlar"ı seçin. Misafir ağlarında cihazlar birbirini görmeyebilir.') }));
+    if (st && st.keysError) {
+      nodes.push(el('div', { class: 'note warn', text: T('Bağlantı anahtarları okunamadı (sistemin anahtar koruması şu an kullanılamıyor olabilir). Dosyaya dokunulmadı; eşleşmiş telefonlar korunuyor. Uygulamayı yeniden başlatmayı deneyin. Sorun sürerse anahtarları yeniden kurun: bütün telefonlar baştan eşleşir.') }));
+      nodes.push(el('button', { class: 'btn ghost', type: 'button', text: T('Anahtarları Yeniden Kur'), onclick: () => askForget(T('Bütün telefonlar'), () => api().phoneLinkForgetAll().then(refresh)) }));
+    }
     if (st && st.safe === false) nodes.push(el('div', { class: 'note warn', text: T('Bu sistemde anahtar koruması yok: telefon anahtarları uygulama klasöründe korumasız durur.') }));
     return el('div', { class: 'control-panel pl-panel', 'data-phone-link': '1' }, nodes);
   }
