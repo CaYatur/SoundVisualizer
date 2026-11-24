@@ -225,7 +225,7 @@
     const nodes = [
       p.moduleHead({
         id: 'phonelink', title: 'Telefon Bağlantısı', on, error: on && st && !!st.error,
-        status: el('span', { class: 'note', text: statusText }),
+        status: el('div', { class: 'studio-status', text: statusText }),
         toggle: (next) => { cfg.phoneLink.enabled = !!next; p.push(true); setTimeout(refresh, 400); },
       }),
     ];
