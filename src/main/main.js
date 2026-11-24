@@ -2614,6 +2614,11 @@ function notifyAdmin(channel, payload) {
   }
   // Dışa aktarmanın ilerlemesi telefona da (PC bağlantısı B6; saniyede en çok bir kez, aşama değişince hemen)
   if (channel === 'export-progress' && typeof linkExportNote === 'function') linkExportNote(payload);
+  // Bitiş ayrı kanalda: telefon da bitti/olmadı/iptal görsün (yol değil, yalnız dosya adı)
+  if (channel === 'export-done' && typeof linkExportNote === 'function') {
+    const d = payload || {};
+    linkExportNote({ phase: String(d.status || 'done'), file: d.output ? path.basename(String(d.output)) : '', error: d.status === 'error' ? String(d.message || '').slice(0, 120) : '' });
+  }
 }
 
 // ----------------------------------------------------------------------------
