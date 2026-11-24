@@ -216,3 +216,39 @@ test('PC olayı: bekletilen eski değer, sonradan doğrudan kabul edilen yeni de
   Object.assign(st, { cfg: b.cfg, rev: 3 });
   assert.strictEqual(R.settle(st, 2000, 600).cfg.master, 0.35, 'süre dolunca eski 0,6 geri gelmedi');
 });
+
+test('sunucu: kumanda düzeyinde ya da PC ayar biçimi yeniyken yazım gitmez, sahne çağırma gider; geri al ters yamayı yollar', async () => {
+  const pcState = { cfg: pcCfg(), rev: 1 };
+  const h = host(pcState);
+  const A = h.window.SVAndroid;
+  await h.window.api.requestConfig();
+  const errors = [];
+  A.pc.onError((e) => errors.push(e.error));
+  A.target.get();
+  await h.tick(); await h.tick(); // açılıştaki durum okuması (tam erişim) önce gelsin
+  h.evt('linkState', { state: 'connected', level: 'control', pc: { id: 'p1', name: 'Stüdyo-PC' } });
+  await h.tick();
+  await A.target.set('pc');
+  assert.strictEqual(A.target.get().readOnly, 'not-allowed');
+  h.asks.length = 0;
+  const cur = A.config.get();
+  A.config.set(Object.assign({}, cur, { master: 0.2 }));
+  A.config.set(Object.assign({}, cur, { master: 0.3 }));
+  A.config.set(Object.assign({}, cur, { visualizer: { type: 'x' }, _activeSceneId: 'b' }));
+  await h.tick(); await h.tick();
+  assert.deepStrictEqual(h.asks, [['scene.apply', { id: 'b' }]], 'yalnız kumanda işi');
+  assert.deepStrictEqual(errors, ['not-allowed'], 'bir kez söylendi');
+  assert.strictEqual(A.config.get().master, 1, 'düzenleyici PC değerine geri çizildi');
+  // Düzenleme düzeyine çıkınca yazım ve geri al
+  h.evt('linkState', { state: 'connected', level: 'edit', pc: { id: 'p1', name: 'Stüdyo-PC' } });
+  h.asks.length = 0;
+  A.config.set(Object.assign({}, A.config.get(), { master: 0.5 }));
+  await h.tick(); await h.tick();
+  assert.deepStrictEqual(h.asks, [['config.patch', { patch: { master: 0.5 }, final: true }]]);
+  assert.strictEqual(A.target.get().undo, 1);
+  h.asks.length = 0;
+  assert.strictEqual(A.pc.undo(), true);
+  await h.tick(); await h.tick();
+  assert.deepStrictEqual(h.asks, [['config.patch', { patch: { master: 1 }, final: true }]], 'ters yama');
+  assert.strictEqual(A.config.get().master, 1);
+});
