@@ -5039,7 +5039,8 @@ function linkManageOps() {
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
       const base = song.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 60) || 'telefon';
       const outputPath = path.join(exportDir(), base + '-' + stamp + '.' + fmt.ext);
-      const r = await startExportJob({ audioPath: song.file, outputPath, format: fmt.id, resolution: res, fps, quality: typeof args.quality === 'string' ? args.quality : undefined });
+      const quality = exportFormats.QUALITIES && exportFormats.QUALITIES.indexOf(args.quality) >= 0 ? args.quality : undefined;
+      const r = await startExportJob({ audioPath: song.file, outputPath, format: fmt.id, resolution: res, fps, quality });
       if (!r || r.ok === false) throw Object.assign(new Error('failed'), { code: 'failed', detail: String((r && r.error) || '').slice(0, 64) });
       return { started: true, file: path.basename(outputPath) };
     },
@@ -5056,8 +5057,9 @@ function linkManageOps() {
       else if (kind === 'logo') items = logoLibrary.list(logoLibDir()).map((x) => ({ id: x.id, name: x.name || x.id }));
       else if (kind === 'lyrics') items = lyricsLibrary.list(lyricsLibDir()).map((x) => ({ id: x.id, name: x.name || x.title || x.id, artist: x.artist || '' }));
       else if (kind === 'milkdrop') {
-        const r = await mcpAdminCall('(() => { const M = window.SVMilkdropPanel; const l = M && M.visibleList ? M.visibleList() : []; return l.map((p) => ({ id: p.id, name: p.name || p.id, author: p.author || "" })); })()');
-        items = Array.isArray(r) ? r : [];
+        /* 10 bin presetlik liste bütünüyle ana sürece taşınmasın: süzme ve sayfa panelde. */
+        const r = await mcpAdminCall('(() => { const a = ' + JSON.stringify({ q, off, lim }) + '; const M = window.SVMilkdropPanel; let l = M && M.visibleList ? M.visibleList() : []; if (a.q) l = l.filter((p) => String(p.name || p.id || "").toLocaleLowerCase("tr").indexOf(a.q) >= 0); return { total: l.length, items: l.slice(a.off, a.off + a.lim).map((p) => ({ id: p.id, name: p.name || p.id, author: p.author || "" })) }; })()');
+        return r && Array.isArray(r.items) ? r : { total: 0, items: [] };
       } else throw bad();
       if (q) items = items.filter((x) => String(x.name || '').toLocaleLowerCase('tr').indexOf(q) >= 0);
       return { total: items.length, items: items.slice(off, off + lim) };

@@ -148,7 +148,8 @@ Errors: `not-allowed` (the device's level does not include the operation, or the
 known), `unsupported` (allowed, not implemented in this version), `bad-args`, `standby` (this copy
 is a redundancy backup following its primary: only `view` operations run), `busy` (a self-test is
 holding writes), `panel-closed`, `failed`. A settings patch also returns `path`, `type`, `too-big`,
-`needs-pc`, `locked` or `scene`, with `detail` naming the refused top-level key.
+`needs-pc`, `locked` or `scene`, with `detail` naming the refused top-level key. A request over the rate limit (120 a
+second) gets `rate`.
 
 ## Operations
 
@@ -215,7 +216,8 @@ Settings patch rules (`link-guard.js`): only listed keys; the scene list, contro
 machine's keys are never writable; values keep their type; numbers are finite and clamped to the
 slider ranges (layer settings too); **a path-like string must already exist in this machine's
 settings**, so the phone can reuse a library file but cannot point the desktop at a new file; web
-pages and video inputs (Spout, NDI, screen, camera) are edited at the desktop only; a locked layer is
+pages and video inputs (Spout, NDI, screen, camera) are edited, added and removed at the desktop only
+(the phone may turn them on or off, change their opacity and move them); a locked layer is
 not removed or moved unless the patch unlocks it.
 
 Events:
