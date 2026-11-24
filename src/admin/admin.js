@@ -868,6 +868,8 @@
         return window.SVControl ? window.SVControl.panel(def.surface) : null;
       case 'mcppanel':
         return window.SVMcpPanel ? window.SVMcpPanel.panel() : null;
+      case 'phonelinkpanel':
+        return window.SVPhoneLinkPanel ? window.SVPhoneLinkPanel.panel() : null;
       case 'scenegen':
         return window.SVSceneGen ? window.SVSceneGen.panel() : null;
       case 'layerspanel':
@@ -3162,6 +3164,16 @@
         title: 'Çoklu Kopya Kumandası',
         desc: 'Tek uzaktan kumandayla birden çok SoundVisualizer kopyasını birlikte sürün.',
         controls: [{ type: 'extraspanel', kind: 'peers' }],
+      },
+      {
+        id: 'phoneLink',
+        category: 'control',
+        icon: 'phone',
+        wide: true,
+        title: 'Telefon Bağlantısı',
+        desc: 'Telefon uygulamasıyla bu bilgisayarı yönetin: sahneler, katmanlar, zaman çizelgesi ve canlı denetim.',
+        roots: ['phoneLink'],
+        controls: [{ type: 'phonelinkpanel' }],
       },
       {
         id: 'screensaver',
@@ -6879,6 +6891,12 @@
      kullanıcı içeriği (yalnız ayarlar); tam yedekte yok, sahneler yedekten. */
   function adoptImportedSettings(incoming, keep) {
     window.SVMigrateV4.migrate(incoming);
+    /* Telefon bağlantısı bu makinenin ayarı: başka bir bilgisayarın yedeği ya da ayar dosyası
+       ağa dinleyici açmasın, buradaki açık bağlantıyı da kapatmasın (#1054). */
+    if (incoming && typeof incoming === 'object') {
+      if (cfg && cfg.phoneLink) incoming.phoneLink = JSON.parse(JSON.stringify(cfg.phoneLink));
+      else delete incoming.phoneLink;
+    }
     const imported = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
     cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(imported, cfg) : imported;
     window.SVLayers.ensureStack(cfg);
