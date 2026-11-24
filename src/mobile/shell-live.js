@@ -43,13 +43,18 @@
     };
   }
 
-  /* ---- Anlık efektler: KİRA. Basılıyken liste yarım saniyede bir yeniden yollanır; PC 1,5 sn
-     yenilenmeyen listeyi kendisi bırakır (bırakma iletisi kaybolsa da efekt takılı kalmaz). */
+  /* ---- Anlık efektler: KİRA. Basış ve bırakış uygulamaya gider (SVAndroid.pc.hold); kirayı
+     uygulama yarım saniyede bir yeniler, sayfanın iş parçacığı meşgul olsa da. Basılıyken sayfa
+     saniyede bir "hâlâ basılı" der; 4 sn demezse uygulama bırakır. PC de 1,5 sn yenilenmeyen
+     listeyi kendisi bırakır (bırakma iletisi kaybolsa da efekt takılı kalmaz). */
   const held = new Set();
   let heldTimer = 0;
   function sendHeld() {
-    ask('momentary', { list: Array.from(held) });
-    if (held.size && !heldTimer) heldTimer = setInterval(() => ask('momentary', { list: Array.from(held) }), 500);
+    const pc = A() && A().pc;
+    const list = Array.from(held);
+    if (pc && pc.hold) pc.hold(list).catch(() => ask('momentary', { list }));
+    else ask('momentary', { list });
+    if (held.size && !heldTimer) heldTimer = setInterval(() => { const p = A() && A().pc; if (p && p.hold) p.hold(Array.from(held)); else ask('momentary', { list: Array.from(held) }); }, 1000);
     if (!held.size && heldTimer) { clearInterval(heldTimer); heldTimer = 0; }
   }
   function releaseAll() { if (!held.size) return; held.clear(); sendHeld(); paintLive(); }

@@ -203,3 +203,16 @@ test('sunucu: PC hedefine geçiş aynayı yükler, yazım PC\'ye gider, telefonu
   assert.strictEqual(A.target.get().wanted, true, 'seçim hatırlanıyor');
   assert.strictEqual(h.store.get('sv-link-target'), 'pc');
 });
+
+test('PC olayı: bekletilen eski değer, sonradan doğrudan kabul edilen yeni değeri ezmez', () => {
+  const st = { cfg: { master: 1 }, rev: 1, writing: { master: 1000 }, deferred: {} };
+  const a = R.applyEvent(st, { rev: 2, patch: { master: 0.6 } }, 1300, 600);
+  assert.deepStrictEqual(a.deferred, { master: 0.6 });
+  Object.assign(st, { cfg: a.cfg, rev: 2, deferred: a.deferred });
+  const b = R.applyEvent(st, { rev: 3, patch: { master: 0.35 } }, 1700, 600);
+  assert.strictEqual(b.cfg.master, 0.35);
+  assert.deepStrictEqual(b.superseded, ['master']);
+  for (const k of b.superseded) delete st.deferred[k];
+  Object.assign(st, { cfg: b.cfg, rev: 3 });
+  assert.strictEqual(R.settle(st, 2000, 600).cfg.master, 0.35, 'süre dolunca eski 0,6 geri gelmedi');
+});

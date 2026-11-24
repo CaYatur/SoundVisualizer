@@ -779,6 +779,7 @@
       pc.cfg = r.cfg;
       pc.rev = r.rev;
       if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (pc.deferred) for (const k of r.superseded || []) delete pc.deferred[k];
       if (Object.keys(r.deferred).length) {
         pc.deferred = Object.assign(pc.deferred || {}, r.deferred);
         scheduleSettle();
@@ -972,6 +973,8 @@
       onLive: (cb) => ev.pcLive.add(cb),
       onMeter: (cb) => ev.pcMeter.add(cb),
       onError: (cb) => ev.pcError.add(cb),
+      /** Basılı anlık efektler (Canlı sekmesi). Kira uygulamada yenilenir; basılıyken saniyede bir çağrılmalı. */
+      hold: (list) => request('linkHeld', { list: Array.isArray(list) ? list : [] }),
       /** "PC'ye gönder": telefonun sesi ve çalan parçası bilgisayarın girişi (tam düzey) */
       audioSend: (on) => setAudioSend(on),
       /** Önizleme kipi: 'smooth' | 'image' | 'off' */

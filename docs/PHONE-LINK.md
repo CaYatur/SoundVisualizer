@@ -198,6 +198,8 @@ desktop drops it 1.5 seconds after the last refresh, and at once when that phone
 so a lost release or a dropped connection cannot leave an effect on the output. The lease is kept in
 the main process: a refresh only updates a timestamp, and the panel is called only when the combined
 list of all phones changes. The phone's held effects are kept apart from the ones held in the panel.
+On the phone the renewal is done by the app on the link thread, not by the page (`linkHeld`, docs/android/HOST.md):
+the page reports press, release and "still held" once a second, and the app lets go after 4 seconds without it.
 
 Settings patch rules (`link-guard.js`): only listed keys; the scene list, control bindings and this
 machine's keys are never writable; values keep their type; numbers are finite and clamped to the

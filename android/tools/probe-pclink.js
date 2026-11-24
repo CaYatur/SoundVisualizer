@@ -180,6 +180,16 @@ async function desktop() {
   check('Canlı: sıraya alındı', (await pcUntil('window.SVLiveShell.cue()', pcScenes[0])) === pcScenes[0]);
   check('Canlı: Geç', await clickText('Geç'));
   check('Canlı: sıradaki canlıya geçti', (await pcUntil('window.SVPanel.activeSceneId()', pcScenes[0])) === pcScenes[0]);
+  // ÖLÇÜM: istek gecikmesi (telefon → PC → telefon), sayfa ↔ uygulama ve önizleme kapalıyken
+  const rtts = await ev(`(async () => { const out = []; for (let i = 0; i < 8; i++) { const t = performance.now(); await window.SVAndroid.pc.request('state.get'); out.push(Math.round(performance.now() - t)); await new Promise((r) => setTimeout(r, 250)); } return out; })()`);
+  console.log('     tanı rtt (akıcı):', JSON.stringify(rtts));
+  const local = await ev(`(async () => { const out = []; for (let i = 0; i < 8; i++) { const t = performance.now(); await window.SVAndroid.link.status(); out.push(Math.round(performance.now() - t)); await new Promise((r) => setTimeout(r, 250)); } return out; })()`);
+  console.log('     tanı sayfa↔uygulama:', JSON.stringify(local));
+  await ev(`window.SVAndroid.pc.preview('off')`);
+  await sleep(500);
+  const rttOff = await ev(`(async () => { const out = []; for (let i = 0; i < 8; i++) { const t = performance.now(); await window.SVAndroid.pc.request('state.get'); out.push(Math.round(performance.now() - t)); await new Promise((r) => setTimeout(r, 250)); } return out; })()`);
+  console.log('     tanı rtt (önizleme kapalı):', JSON.stringify(rttOff));
+  await ev(`window.SVAndroid.pc.preview('smooth')`);
   // Anlık efekt basılı tut / bırak
   await ev(`(() => { const b = document.querySelector('#sv-shell .lv-fx [data-fx="strobe"]'); b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7 })); return 1; })()`);
   check('Canlı: basılı efekt PC çıkışında', JSON.stringify(await pcUntil('window.SVLiveShell.heldList()', ['strobe'])) === '["strobe"]');
@@ -199,6 +209,33 @@ async function desktop() {
   check('düzenleme: PC\'deki değişiklik telefona geldi', mm === 0.35, mm);
   if (mm !== 0.35) console.log('     tanı:', JSON.stringify(await ev('window.SVAndroid.pc.debug()')));
   await pc.ev('(() => { window.SVPanel.cfg().master = 1; window.SVPanel.push(true); return 1; })()');
+  // ---- Ses ve önizleme (B4/B5)
+  // Akıcı önizleme (varsayılan): sayfa PC'nin sesini alır
+  await ev(`window.SVAndroid.pc.preview('smooth')`);
+  let src = null;
+  for (let i = 0; i < 30 && src !== 'pc'; i++) { await sleep(200); src = await ev('(window.__svHost.audioStats() || {}).source'); }
+  check('akıcı önizleme: sayfanın sesi PC\'den', src === 'pc', src);
+  // Gerçek görüntü: PC'nin karesi sahnenin üstünde
+  await ev(`window.SVAndroid.pc.preview('image')`);
+  let shot = false;
+  for (let i = 0; i < 40 && !shot; i++) { await sleep(250); shot = await ev(`(() => { const im = document.querySelector('#sv-shell .pc-shot'); return !!im && !im.hidden && (im.src || '').startsWith('data:image/jpeg'); })()`); }
+  check('gerçek görüntü: PC karesi gösteriliyor', shot);
+  await ev(`window.SVAndroid.pc.preview('smooth')`);
+  check('akıcıya dönünce kare kalktı', await ev(`document.querySelector('#sv-shell .pc-shot').hidden`));
+  // PC'ye gönder: telefonun mikrofonu PC'nin girişi; akıcı kip telefonun kendi sesine döner
+  await ev(`window.SVAndroid.audio.start ? window.SVAndroid.audio.start('mic') : window.__svHost.audioStart('mic')`);
+  await ev(`window.SVAndroid.pc.audioSend(true)`);
+  const pcIn = async () => ((await pcStatus()).audioIn || {});
+  let ai = {};
+  for (let i = 0; i < 40 && ai.state !== 'bridge'; i++) { await sleep(250); ai = await pcIn(); }
+  check('PC\'ye gönder: PC girişi telefonda', ai.state === 'bridge' && ai.stats && ai.stats.frames > 3, ai);
+  src = await ev('(window.__svHost.audioStats() || {}).source');
+  check('gönderirken sayfa telefonun kendi sesini kullanıyor', src === 'mic', src);
+  await ev(`window.SVAndroid.pc.audioSend(false)`);
+  for (let i = 0; i < 20 && ai.enabled; i++) { await sleep(250); ai = await pcIn(); }
+  check('PC\'ye gönder kapandı', ai.enabled === false, ai);
+  await ev(`window.SVAndroid.audio.stop ? window.SVAndroid.audio.stop() : window.__svHost.audioStop()`);
+
   const back = await ev(`window.SVAndroid.target.set('phone')`);
   check('hedef telefona döndü, telefonun ayarı', back.target === 'phone' && (await ev('window.SVAndroid.config.get().master')) === phoneMaster0 && await ev(`document.querySelector('#sv-shell .nav [data-tab="live"]').hidden`));
   await ev('window.SVShell.close && window.SVShell.close()');

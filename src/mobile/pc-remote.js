@@ -119,7 +119,11 @@
       cfg[k] = ev.patch[k];
       accepted[k] = ev.patch[k];
     }
-    return { cfg, rev: ev.rev, patch: accepted, deferred };
+    /* Doğrudan kabul edilen anahtarın bekletilen eski değeri artık geçersiz: yoksa süre dolunca
+       eski değer yenisinin üstüne yazılırdı (emülatörde ölçüldü: 0,6 bekletildi, 0,35 kabul
+       edildi, ekranda 0,6 kaldı). */
+    const superseded = Object.keys(accepted).filter((k) => state.deferred && Object.prototype.hasOwnProperty.call(state.deferred, k));
+    return { cfg, rev: ev.rev, patch: accepted, deferred, superseded };
   }
   /* Bekletilen PC değerleri: yazım süresi dolan anahtar PC'nin son değerini alır. */
   function settle(state, now, holdMs) {
