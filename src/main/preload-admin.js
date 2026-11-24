@@ -206,6 +206,16 @@ contextBridge.exposeInMainWorld('api', {
   streamOpen: (which) => ipcRenderer.invoke('stream:open', which),
   onStreamStatus: (cb) => ipcRenderer.on('stream-status', (e, d) => cb(d)),
   onStreamClients: (cb) => ipcRenderer.on('stream-clients', (e, d) => cb(d)),
+  // Telefon bağlantısı (#1054)
+  phoneLinkStatus: () => ipcRenderer.invoke('phonelink:status'),
+  phoneLinkNewCode: () => ipcRenderer.invoke('phonelink:new-code'),
+  phoneLinkConfirm: (no, ok) => ipcRenderer.invoke('phonelink:confirm', no, ok),
+  phoneLinkForget: (id) => ipcRenderer.invoke('phonelink:forget', id),
+  phoneLinkForgetAll: () => ipcRenderer.invoke('phonelink:forget-all'),
+  phoneLinkSetLevel: (id, level) => ipcRenderer.invoke('phonelink:set-level', id, level),
+  phoneLinkDisconnect: (id) => ipcRenderer.invoke('phonelink:disconnect', id),
+  onPhoneLinkState: (cb) => ipcRenderer.on('phonelink-state', (e, d) => cb(d)),
+  onPhoneLinkSas: (cb) => ipcRenderer.on('phonelink-sas', (e, d) => cb(d)),
 
   // Yedeklilik (#540)
   redundancyStatus: () => ipcRenderer.invoke('redundancy:status'),

@@ -201,6 +201,7 @@ object WebShell {
         "web/src/mobile/shell-settings.js",
         "web/src/mobile/shell-export.js",
         "web/src/mobile/shell-backup.js",
+        "web/src/mobile/shell-pclink.js",
         "web/src/mobile/shell-timeline-lane.js",
         "web/src/mobile/shell-timeline.js",
         "web/src/mobile/shell-timeline-forms.js",

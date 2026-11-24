@@ -52,6 +52,28 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             }
             /* Çalan parça (media/NowPlaying.kt): durum ve bildirim erişimi ekranı. */
             "nowPlayingStatus" -> reply.ok(com.cayadev.visualizer.media.NowPlaying.status(app))
+            /* PC bağlantısı (link/PcLink.kt, docs/PHONE-LINK.md). Ağ işi bağlantının kendi iş
+               parçacığında; yanıt oradan gelir. */
+            "linkStatus" -> com.cayadev.visualizer.link.PcLink.status { reply.ok(it) }
+            "linkPairQr" -> com.cayadev.visualizer.link.PcLink.pairQr(args.optString("qr"), phoneName(), android.os.Build.MODEL ?: "") { e -> if (e == null) reply.ok() else reply.fail(e) }
+            "linkPairCode" -> com.cayadev.visualizer.link.PcLink.pairCode(args.optString("host"), args.optInt("port"), args.optString("code"), phoneName(), android.os.Build.MODEL ?: "") { e -> if (e == null) reply.ok() else reply.fail(e) }
+            "linkConnect" -> com.cayadev.visualizer.link.PcLink.connect(args.optString("pc")) { e -> if (e == null) reply.ok() else reply.fail(e) }
+            "linkDisconnect" -> { com.cayadev.visualizer.link.PcLink.disconnect(); reply.ok() }
+            "linkForget" -> { com.cayadev.visualizer.link.PcLink.forget(args.optString("pc")); reply.ok() }
+            "linkAuto" -> { com.cayadev.visualizer.link.PcLink.setAuto(args.optString("pc"), args.optBoolean("on")); reply.ok() }
+            "linkRequest" -> com.cayadev.visualizer.link.PcLink.request(args.optString("op"), args.optJSONObject("args") ?: JSONObject()) { r -> reply.ok(r) }
+            "linkDiscover" -> {
+                if (args.optBoolean("on")) com.cayadev.visualizer.link.LinkDiscovery.start(app) { com.cayadev.visualizer.link.PcLink.status { s -> EngineHost.bridge?.event("linkState", s) } }
+                else com.cayadev.visualizer.link.LinkDiscovery.stop()
+                reply.ok()
+            }
+            /* Kamera karesinden QR: sayfa gri tonlu küçük kare yollar (base64). Çözme ayrı iş parçacığında. */
+            "linkQrFrame" -> {
+                val w = args.optInt("w"); val h = args.optInt("h")
+                val bytes = try { android.util.Base64.decode(args.optString("data"), android.util.Base64.DEFAULT) } catch (e: Exception) { null }
+                if (bytes == null) { reply.fail("bad-frame"); return }
+                Thread { reply.ok(com.cayadev.visualizer.link.QrDecode.gray(bytes, w, h) ?: JSONObject.NULL) }.start()
+            }
             "debugNowPlayingSelf" -> {
                 if (!BuildConfig.DEBUG) { reply.fail("unknown-op", op); return }
                 com.cayadev.visualizer.media.NowPlaying.includeSelf = args.optBoolean("on")
@@ -331,6 +353,11 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             .put("activity", EngineHost.activity != null)
     }
 
+
+    // Bilgisayarın cihaz listesinde görünen ad: kullanıcının verdiği cihaz adı, yoksa model
+    private fun phoneName(): String =
+        (try { android.provider.Settings.Global.getString(app.contentResolver, "device_name") } catch (e: Exception) { null })
+            ?.takeIf { it.isNotBlank() } ?: (android.os.Build.MODEL ?: "Android")
 
     private fun hasRecordAudio() =
         ContextCompat.checkSelfPermission(app, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

@@ -167,6 +167,8 @@ dependencies {
     // Uygulama içi çalar (PLAN 2.3, K11): şarkı çözme, oynatma ve medya bildirimi
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
+    // PC bağlantısı: eşleşme QR'ını çözme (link/QrDecode.kt)
+    implementation(libs.zxing.core)
     testImplementation(libs.junit)
     // Birim testlerinde gerçek org.json (Android'in kendisi testte boş taslak)
     testImplementation("org.json:json:20240303")

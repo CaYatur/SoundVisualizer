@@ -125,6 +125,7 @@
       body.appendChild(h('div', { class: 'section-label', text: 'Lisanslar' }));
       const LIC = [
         ['AndroidX, Media3', 'Apache License 2.0'],
+        ['ZXing (QR okuma)', 'Apache License 2.0'],
         ['Geist, Geist Mono', 'SIL Open Font License 1.1'],
         ['MilkDrop preset paketi', 'Her presetin yazarı ve lisansı kitaplıkta'],
       ];
@@ -169,8 +170,10 @@
         ]),
         U.toggle({ label: 'Ekranı açık tut', value: power.keepAwake !== false, def: true, onChange: (v) => patchPower({ keepAwake: v }) }),
       ]));
-      body.appendChild(h('div', { class: 'section-label', text: 'Veri' }));
+      body.appendChild(h('div', { class: 'section-label', text: 'Veri ve bağlantı' }));
       body.appendChild(h('div', { class: 'card nav-card' }, [
+        window.SVShellPcLink ? navRow('monitor', 'PC\'ye Bağlan', window.SVShellPcLink.rowSub(), () => ctx.push(window.SVShellPcLink.page())) : null,
+        window.SVShellPcLink ? h('div', { class: 'divider flush' }) : null,
         navRow('upload', 'Yedek Al', 'Bölümleri seçin; telefonda ve bilgisayarda açılır', () => ctx.push(window.SVShellBackup.exportPage())),
         h('div', { class: 'divider flush' }),
         navRow('download', 'Yedekten Geri Yükle', 'Telefon ya da bilgisayar yedeği (.svbackup, settings.json)', () => window.SVShellBackup.openRestore(ctx)),

@@ -97,7 +97,7 @@ test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {
   for (const f of ['src/mobile/shell.js', 'src/mobile/shell-controls.js', 'src/mobile/shell-layers.js', 'src/mobile/shell-scene.js', 'src/mobile/shell-lyrics.js', 'src/shared/layer-factory.js',
     'src/mobile/shell-audio.js', 'src/mobile/shell-library.js', 'src/mobile/shell-display.js', 'src/mobile/shell-settings.js', 'src/mobile/autovj.js',
     'src/mobile/shell-export.js', 'src/mobile/shell-timeline.js', 'src/mobile/shell-timeline-lane.js', 'src/mobile/shell-timeline-forms.js', 'src/mobile/export-ui.js',
-    'src/mobile/shell-backup.js', 'src/mobile/shell-text.js', 'src/mobile/shell-nowplaying.js', 'src/mobile/dynamic-theme.js']) {
+    'src/mobile/shell-backup.js', 'src/mobile/shell-text.js', 'src/mobile/shell-nowplaying.js', 'src/mobile/dynamic-theme.js', 'src/mobile/shell-pclink.js']) {
     for (const s of uiStrings(read(f))) if (!NOT_UI.has(s)) strings.add(s);
   }
   for (const s of ['Otomatik VJ', 'Demo ses', 'Sistem sesi', 'Katmanlar', 'Sahne sınıra yakın:']) assert.ok(strings.has(s), 'okunamadı: ' + s);

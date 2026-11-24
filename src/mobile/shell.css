@@ -580,3 +580,12 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-clock { flex: 0 1 auto; overflow: hidden; }
 #sv-shell .tl-dock .tl-clock { flex: none; }
 #sv-shell .tl-dock:not(.wide) .tl-cue { display: none; }
+
+/* PC'ye Bağlan (shell-pclink.js): QR kamerası, doğrulama sayısı */
+#sv-shell .link-cam-box { position: relative; border-radius: 16px; overflow: hidden; background: var(--card2); aspect-ratio: 4 / 3; flex-shrink: 0; }
+#sv-shell .link-cam { width: 100%; height: 100%; object-fit: cover; display: block; }
+#sv-shell .link-cam-frame { position: absolute; left: 50%; top: 50%; width: 56%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 18px; box-shadow: 0 0 0 4px var(--accent), 0 0 0 999px rgb(var(--shadow-rgb) / .45); }
+#sv-shell .link-digits { font-size: 34px; font-weight: 700; letter-spacing: .12em; font-variant-numeric: tabular-nums; color: var(--text); margin: 6px 0; }
+#sv-shell .link-add .btn { flex: 1 1 0; min-height: 56px; }
+#sv-shell label.ctl-row.column { flex-direction: column; align-items: stretch; gap: 6px; }
+#sv-shell label.ctl-row.column input.field { width: 100%; }

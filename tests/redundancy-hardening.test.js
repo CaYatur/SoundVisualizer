@@ -235,7 +235,7 @@ test('çalışırken: çıkış yetkisi ve tanık bağlantıyı kurmadan uygulan
    askıdaki birincilde 2,2 sn, öldürülende 2,1 sn. */
 test('yedek adres: sunucu canlılık iletisi, sessiz uç beklemeden bırakılıyor', () => {
   const S = read('src/main/stream-server.js');
-  assert.match(S, /for \(const c of clients\) if \(c\.kind !== 'peer'\) sendJson\(c, \{ type: 'tick', serverNow: now \}\);\n  \}, 500\);/);
+  assert.match(S, /for \(const c of clients\) if \(c\.kind !== 'peer' && c\.kind !== 'phone'\) sendJson\(c, \{ type: 'tick', serverNow: now \}\);\n  \}, 500\);/);
   assert.match(S, /startTick\(\);\n          resolve\(status\(\)\);/);
   assert.match(S, /function stop\(\) \{\n  stopTick\(\);/);
   const W = read('src/web/web-shim.js');

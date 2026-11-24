@@ -11,6 +11,10 @@
     <!-- Güncelleme denetimi ve web katmanı için. Uygulamanın kendi sayfaları
          ağa çıkmıyor: WebViewAssetLoader onları APK'dan veriyor. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- PC bağlantısı: ağdaki bilgisayarların duyurusunu almak için yayın kilidi (yalnız
+         "PC'ye Bağlan" sayfası açıkken tutulur). -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <!-- Çalan parçanın uygulama adı: müzik uygulamaları medya tarayıcı hizmeti bildiriyor
          (Android 11+ paket görünürlüğü); ad okunamazsa paket adı yazılır. -->

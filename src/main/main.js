@@ -16,6 +16,8 @@ const { DrumHits } = require('./drum-hits');
 const dynamicLighting = require('./dynamic-lighting');
 const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
+const phoneLinkLib = require('./phone-link-service');
+const linkDiscovery = require('./link-discovery');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -3945,6 +3947,7 @@ function applyIncomingConfig(config, opts) {
   if (!BRIDGE_ONLY) {
     syncRedundancy();
     redundancyPush(patchKeys);
+    syncPhoneLink();
     syncStreamServer();
     syncOscServer();
     syncArtnet();
@@ -4810,6 +4813,79 @@ function remoteModeThumb(kind, type) {
   } catch { return null; }
 }
 
+// ----------------------------------------------------------------------------
+// Telefon bağlantısı (#1054, docs/PHONE-LINK.md). Kimlik ve cihaz anahtarları ayar dosyasında
+// değil, ayrı dosyada; işletim sisteminin korumasıyla (safeStorage) şifreli. Yedeğe ve
+// yedeklilik eşine gitmez: anahtar başka makineye taşınmasın.
+// ----------------------------------------------------------------------------
+const phoneLinkFile = () => path.join(app.getPath('userData'), 'phone-link.json');
+const linkProtect = {
+  seal: (buf) => {
+    const { safeStorage } = require('electron');
+    try {
+      if (safeStorage.isEncryptionAvailable()) return 'e:' + safeStorage.encryptString(Buffer.from(buf).toString('base64')).toString('base64');
+    } catch { /* korumasız sisteme düş */ }
+    return 'p:' + Buffer.from(buf).toString('base64');
+  },
+  unseal: (s) => {
+    const t = String(s || '');
+    if (t.startsWith('e:')) return Buffer.from(require('electron').safeStorage.decryptString(Buffer.from(t.slice(2), 'base64')), 'base64');
+    if (t.startsWith('p:')) return Buffer.from(t.slice(2), 'base64');
+    return null;
+  },
+};
+let linkSvc = null;
+let phoneLinkOn = false;
+const linkDisc = linkDiscovery.create();
+function phoneLinkCfg() {
+  const p = (currentConfig && currentConfig.phoneLink) || {};
+  return { enabled: p.enabled === true, discoverable: p.discoverable !== false };
+}
+function phoneLinkService() {
+  if (linkSvc) return linkSvc;
+  const pkg = require('./show-package');
+  linkSvc = phoneLinkLib.createService({
+    stream: streamServer,
+    store: {
+      read: () => pkg.readJson(phoneLinkFile()),
+      write: (o) => { try { pkg.writeJsonAtomic(phoneLinkFile(), o); } catch (e) { console.warn('[phone-link] kaydedilemedi:', e && e.message); } },
+    },
+    protect: linkProtect,
+    notify: (ch, p) => notifyAdmin(ch, p),
+    pcName: () => require('os').hostname().slice(0, 60),
+    addresses: () => streamServer.lanAddresses(),
+    port: () => streamServer.status().port || 0,
+    running: () => !!streamServer.status().phoneLink,
+    ops: {
+      // B1: bağlantıyı doğrulayan özet. Kumanda ve düzenleme işlemleri sonraki adımlarda eklenir.
+      'state.get': () => ({
+        app: app.getVersion(),
+        platform: process.platform,
+        docVersion: (currentConfig && currentConfig.docVersion) || 0,
+        activeScene: (currentConfig && currentConfig._activeSceneId) || null,
+        scenes: ((currentConfig && currentConfig.scenes) || []).map((s) => ({ id: s.id, name: s.name })),
+      }),
+    },
+  });
+  return linkSvc;
+}
+// Ayar değişince: bayrak yayın sunucusuna, hizmete. Sunucuyu syncStreamServer açar/kapatır.
+function syncPhoneLink() {
+  const pc = phoneLinkCfg();
+  if (pc.enabled === phoneLinkOn) return;
+  phoneLinkOn = pc.enabled;
+  streamServer.setPhoneLink(phoneLinkOn);
+  phoneLinkService().setEnabled(phoneLinkOn);
+}
+function syncLinkDiscovery() {
+  const st = streamServer.status();
+  if (phoneLinkOn && phoneLinkCfg().discoverable && st.running && st.phoneLink) {
+    linkDisc.start({ id: phoneLinkService().pcId(), name: require('os').hostname().slice(0, 60), port: st.port });
+  } else {
+    linkDisc.stop();
+  }
+}
+
 let streamSyncing = false;
 let streamResync = false;
 function syncStreamServer() {
@@ -4828,7 +4904,7 @@ function syncStreamServer() {
   };
   // Birincil makine (#540) yedeğe yayın sunucusundan ulaşır: kapalıysa da açılır
   const peerHost = red.role === 'primary' && !redundancy.problem(red.cfg);
-  if (!s.enabled && !peerHost) return streamServer.stop().then(() => done(streamServer.status()));
+  if (!s.enabled && !peerHost && !phoneLinkOn) return streamServer.stop().then(() => { syncLinkDiscovery(); return done(streamServer.status()); });
   /* Yayın çıkışı kapalı, makine birincil: sunucu YALNIZ yedek için açılır —
      yayın sayfası ve jeton yok. Eskiden burada jeton üretiliyordu; panelin
      kopyasında jeton olmadığından her panel gönderiminde jeton değişiyor,
@@ -4867,6 +4943,8 @@ function syncStreamServer() {
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onPeerOpen: (client) => onPeerOpen(client),
       onPeerMessage: (msg, client) => onPeerMessage(msg, client),
+      // Telefon bağlantısı: şifreli kanal phone-link-service.js'te
+      ...phoneLinkService().hooks,
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
         syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
@@ -4876,6 +4954,8 @@ function syncStreamServer() {
     })
     .then((st) => {
       notifyAdmin('stream-status', st);
+      syncLinkDiscovery();
+      notifyAdmin('phonelink-state', phoneLinkService().status({ running: !!st.phoneLink, error: st.error || null }));
       return done(st);
     });
 }
@@ -7276,6 +7356,17 @@ ipcMain.handle('stream:status', () => streamServer.status());
 ipcMain.handle('stream:sync', () => syncStreamServer());
 ipcMain.handle('stream:new-token', () => streamServer.newToken());
 ipcMain.handle('stream:lan-address', () => streamServer.lanAddress());
+// Telefon bağlantısı paneli
+ipcMain.handle('phonelink:status', () => {
+  const st = streamServer.status();
+  return phoneLinkService().status({ running: !!st.phoneLink, error: st.error || null, safe: (() => { try { return require('electron').safeStorage.isEncryptionAvailable(); } catch { return false; } })() });
+});
+ipcMain.handle('phonelink:new-code', () => (phoneLinkOn ? phoneLinkService().newCode() : null));
+ipcMain.handle('phonelink:confirm', (e, no, ok) => phoneLinkService().confirm(Number(no), !!ok));
+ipcMain.handle('phonelink:forget', (e, id) => { phoneLinkService().forget(String(id || '')); return true; });
+ipcMain.handle('phonelink:forget-all', () => { phoneLinkService().forgetAll(); return true; });
+ipcMain.handle('phonelink:set-level', (e, id, level) => phoneLinkService().setLevel(String(id || ''), String(level || '')));
+ipcMain.handle('phonelink:disconnect', (e, id) => { phoneLinkService().disconnect(String(id || '')); return true; });
 ipcMain.handle('stream:open', (e, which) => {
   const u = streamServer.status().urls;
   const target = which === 'remote' ? u.remote : u.overlay;
@@ -9875,6 +9966,7 @@ app.whenReady().then(async () => {
   } else {
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
   syncRedundancy(); // birincilse yayın sunucusunu da açar (#540)
+  syncPhoneLink();
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});

@@ -173,6 +173,8 @@
     mcp: 'mcp', version: 'never', docVersion: 'never',
     // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
     redundancy: 'never',
+    // Telefon bağlantısı (#1054): ağa dinleyici açar; ajan açıp kapatamaz
+    phoneLink: 'never',
     // MQTT aracı adresi ve parolası: ajan yazamaz
     mqtt: 'never',
     // Otomatik söz (#937): sağlayıcı adresi ağa çıkar; MCP yazamaz
