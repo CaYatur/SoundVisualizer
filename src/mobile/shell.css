@@ -589,3 +589,47 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .link-add .btn { flex: 1 1 0; min-height: 56px; }
 #sv-shell label.ctl-row.column { flex-direction: column; align-items: stretch; gap: 6px; }
 #sv-shell label.ctl-row.column input.field { width: 100%; }
+
+/* ---- PC bağlantısı: hedef çipi, kısa bildirim, Canlı sekmesi (taslak 16–17) ---- */
+#sv-shell .target-chip .target-icon { display: inline-flex; }
+#sv-shell .target-chip.on { box-shadow: inset 0 0 0 1.5px var(--accent); }
+#sv-shell .target-chip .dim { font-size: 12px; }
+#sv-shell .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--inset-bottom) + 92px); max-width: min(92vw, 420px); padding: 12px 16px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; z-index: 30; color: var(--text-strong); }
+#sv-shell .lv-mons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex: none; }
+#sv-shell .lv-mon { margin: 0; position: relative; border-radius: 14px; overflow: hidden; height: 92px; background: var(--card3); }
+#sv-shell .lv-mon .art { width: 100%; height: 100%; border-radius: 0; background: linear-gradient(135deg, rgb(var(--accent-rgb) / .45), var(--card3)); }
+#sv-shell .lv-mon .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#sv-shell .lv-mon figcaption { position: absolute; left: 8px; top: 6px; right: 8px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 7px; background: var(--scrim); color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: fit-content; max-width: calc(100% - 16px); }
+#sv-shell .lv-mon.pgm { box-shadow: inset 0 0 0 2px var(--accent); }
+#sv-shell .lv-row { display: flex; align-items: center; gap: 8px; flex: none; }
+#sv-shell .tbar { position: relative; flex: 1; height: 48px; border-radius: 14px; background: var(--card2); touch-action: none; }
+#sv-shell .tbar .tb-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 14px; background: rgb(var(--accent-rgb) / .35); }
+#sv-shell .tbar .tb-grip { position: absolute; top: 4px; bottom: 4px; width: 28px; margin-left: -14px; border-radius: 10px; background: var(--accent); }
+#sv-shell .lv-take { flex: none; }
+#sv-shell .blk { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 56px; border-radius: 14px; font-size: 15px; font-weight: 700; color: var(--text); background: var(--card2); }
+#sv-shell .blk[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+#sv-shell .lv-auto { flex: none; height: 56px; }
+#sv-shell .lv-scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: none; }
+#sv-shell .lv-scene { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 4px; min-height: 48px; border-radius: 12px; background: var(--card2); text-align: left; color: var(--text); }
+#sv-shell .lv-scene .art { height: 52px; border-radius: 9px; overflow: hidden; background: linear-gradient(135deg, rgb(var(--accent-rgb) / .45), var(--card3)); }
+#sv-shell .lv-scene .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#sv-shell .lv-scene .lv-name { font-size: 12px; font-weight: 600; padding: 0 4px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .lv-scene.cue { box-shadow: inset 0 0 0 2px var(--warn); }
+#sv-shell .lv-scene.on { box-shadow: inset 0 0 0 2px var(--accent); }
+#sv-shell .lv-fx, #sv-shell .lv-deck { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: none; }
+#sv-shell .lv-deck { grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); }
+#sv-shell .cell { min-height: 56px; border-radius: 12px; background: var(--card2); color: var(--text); font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#sv-shell .cell.on { background: rgb(var(--accent-rgb) / .32); color: var(--text-strong); }
+#sv-shell .cell:disabled { opacity: .35; }
+#sv-shell .lv-stop { align-self: flex-start; }
+#sv-shell .lv-macros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; flex: none; }
+#sv-shell .lv-mdrow .ctl-label { flex: none; }
+#sv-shell .lv-md { min-width: 0; color: var(--muted); font-size: 13px; }
+#sv-shell .lv-transport .lv-time { margin-left: auto; font-size: 15px; color: var(--text-strong); }
+#sv-shell .lv-lock { position: absolute; inset: 0; z-index: 40; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--inset-bottom) + 120px); touch-action: none; }
+#sv-shell .lv-lock-card { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(86vw, 360px); padding: 16px; border-radius: 18px; color: var(--text-strong); font-weight: 600; }
+#sv-shell .lv-lock-card input { width: 100%; height: 48px; }
+@media (max-width: 380px) {
+  #sv-shell .lv-scenes, #sv-shell .lv-fx { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #sv-shell .lv-macros { grid-template-columns: minmax(0, 1fr); }
+}

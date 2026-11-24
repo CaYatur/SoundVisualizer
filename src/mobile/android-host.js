@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -675,13 +675,185 @@
   }
   if (typeof window.addEventListener === 'function') window.addEventListener('pagehide', () => { profile.flush(); });
 
+  /* ---- HEDEF: BU TELEFON YA DA PC (PC bağlantısı B2/B3, src/mobile/pc-remote.js) ----
+     PC hedefindeyken düzenleyiciler aynı config.get/set/patch yolunu kullanır: okuma PC'nin ayar
+     aynasından, yazım değişen anahtarlarla PC'ye. Telefonun kendi ayarına ve profiline dokunulmaz
+     (yalnız arayüz teması telefonda kalır). Bağlantı koparsa telefon kendi kipine döner; seçim
+     hatırlanır, bağlanınca yeniden PC'ye geçer. */
+  const PR = () => window.SVPcRemote;
+  const TARGET_KEY = 'sv-link-target';
+  const pc = {
+    on: false, wanted: false, cfg: null, rev: 0, writing: {}, name: '', state: 'idle', rtt: 0, standby: false,
+    live: null, meter: null, drag: null, dragTimer: 0, finalTimer: 0, queue: Promise.resolve(), ping: 0, loading: false,
+  };
+  try { pc.wanted = localStorage.getItem(TARGET_KEY) === 'pc'; } catch (e) { pc.wanted = false; }
+  const viewCfg = () => (pc.on && pc.cfg && PR() ? PR().view(pc.cfg, config) : config);
+  const engineOf = (c) => engineView(pc.on && PR() ? PR().engine(c, config) : c);
+  function pcAsk(op, args) {
+    const t0 = Date.now();
+    return request('linkRequest', { op, args: args || {} }).then((r) => {
+      pc.rtt = Date.now() - t0;
+      const out = r || { ok: false, error: 'failed' };
+      if (out.ok === false && op !== 'state.get') ev.pcError.emit({ op, error: out.error || 'failed', detail: out.detail || '' });
+      return out;
+    }, (e) => {
+      const out = { ok: false, error: String((e && e.message) || 'failed') };
+      ev.pcError.emit({ op, error: out.error, detail: '' });
+      return out;
+    });
+  }
+  function emitTarget() { ev.target.emit(targetInfo()); }
+  function targetInfo() {
+    return { target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading };
+  }
+  async function pcLoad() {
+    pc.loading = true;
+    emitTarget();
+    const r = await pcAsk('config.get');
+    pc.loading = false;
+    if (!r.ok || !r.result || !r.result.config) { emitTarget(); return false; }
+    pc.cfg = r.result.config;
+    pc.rev = Number(r.result.rev) || 0;
+    pc.writing = {};
+    const st = await pcAsk('state.get');
+    pc.standby = !!(st.ok && st.result && st.result.standby);
+    const lv = await pcAsk('live.get');
+    if (lv.ok && lv.result) { pc.live = lv.result.show || null; pc.meter = lv.result.meter || null; }
+    return true;
+  }
+  async function setTarget(t) {
+    const want = t === 'pc';
+    pc.wanted = want;
+    try { localStorage.setItem(TARGET_KEY, want ? 'pc' : 'phone'); } catch (e) { /* depo yok */ }
+    if (!want) { leavePc(); return targetInfo(); }
+    if (pc.state !== 'connected') { emitTarget(); return targetInfo(); }
+    if (!(await pcLoad())) return targetInfo();
+    pc.on = true;
+    ev.config.emit(engineOf(viewCfg()));
+    emitTarget();
+    clearInterval(pc.ping);
+    // Gecikme göstergesi ve yedek rolü: beş saniyede bir kısa özet
+    pc.ping = setInterval(() => {
+      if (!pc.on) return;
+      pcAsk('state.get').then((r) => { if (r.ok && r.result) { pc.standby = !!r.result.standby; emitTarget(); } });
+    }, 5000);
+    return targetInfo();
+  }
+  function leavePc() {
+    const was = pc.on;
+    flushDrag(true);
+    pc.on = false;
+    clearInterval(pc.ping);
+    if (was) ev.config.emit(engineView(config));
+    emitTarget();
+  }
+  function onLinkState(v) {
+    const st = (v && v.state) || 'idle';
+    pc.state = st;
+    if (v && v.pc && v.pc.name) pc.name = v.pc.name;
+    if (st !== 'connected' && pc.on) leavePc(); // PC'ye ulaşılamıyor: telefonun kendi kipi
+    else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
+    else emitTarget();
+  }
+  function onLinkEvent(m) {
+    if (!m || !m.ev) return;
+    if (m.ev === 'config') {
+      if (!pc.cfg || !PR()) return;
+      const r = PR().applyEvent(pc, m, Date.now(), 600);
+      if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
+      if (r.stale) return;
+      pc.cfg = r.cfg;
+      pc.rev = r.rev;
+      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+    } else if (m.ev === 'live') {
+      pc.live = m.show || null;
+      ev.pcLive.emit(pc.live);
+    } else if (m.ev === 'meter') {
+      pc.meter = m.meter || null;
+      ev.pcMeter.emit(pc.meter);
+    }
+  }
+  ev.link.add(onLinkState);
+  ev.linkEvent.add(onLinkEvent);
+  /* Açılışta durum: uygulama kayıtlı bilgisayara sayfa kurulmadan bağlanmış olabilir (olay
+     kaçmış olur). Kabuk hedefi ilk sorduğunda bir kez okunur. */
+  function syncLink() {
+    if (pc.synced || !native) return;
+    pc.synced = true;
+    request('linkStatus').then(onLinkState).catch(() => { pc.synced = false; });
+  }
+
+  /* Yazım: sürüklerken (patch) saniyede en çok ~16 ara yama, son dokunuştan 350 ms sonra
+     kesin yazım (final). Sahne işlemleri sırayla. */
+  function pcWrite(next, final) {
+    const d = PR().diff(viewCfg(), next);
+    if (Object.keys(d.local).length) patchConfig(d.local);
+    const keys = Object.keys(d.patch);
+    if (keys.length) {
+      const t = Date.now();
+      for (const k of keys) pc.writing[k] = t;
+      pc.cfg = Object.assign({}, pc.cfg, d.patch);
+      ev.configPatch.emit(engineView(PR().enginePatch(d.patch)));
+      pc.drag = Object.assign(pc.drag || {}, d.patch);
+      if (final) flushDrag(true);
+      else {
+        if (!pc.dragTimer) pc.dragTimer = setTimeout(() => { pc.dragTimer = 0; flushDrag(false); }, 60);
+        clearTimeout(pc.finalTimer);
+        pc.finalTimer = setTimeout(() => flushDrag(true), 350);
+      }
+    }
+    if (d.apply) serial('scene.apply', { id: d.apply });
+    for (const o of d.ops) serial(o.op, o.args);
+  }
+  let dragSent = {};
+  function flushDrag(final) {
+    if (final) { clearTimeout(pc.finalTimer); pc.finalTimer = 0; clearTimeout(pc.dragTimer); pc.dragTimer = 0; }
+    const p = pc.drag;
+    if (final) {
+      // Kesin yazım: sürükleme boyunca değişen bütün anahtarların son hâli
+      const all = Object.assign({}, dragSent, p || {});
+      dragSent = {};
+      pc.drag = null;
+      if (!Object.keys(all).length) return;
+      const out = {};
+      for (const k of Object.keys(all)) out[k] = pc.cfg[k];
+      serial('config.patch', { patch: out, final: true });
+      return;
+    }
+    if (!p) return;
+    pc.drag = null;
+    Object.assign(dragSent, p);
+    pcAsk('config.patch', { patch: p, final: false });
+  }
+  function serial(op, args) {
+    pc.queue = pc.queue.then(() => pcAsk(op, args)).catch(() => {});
+    return pc.queue;
+  }
+
   window.SVAndroid = Object.freeze({
     config: Object.freeze({
-      get: () => config,
-      set: setConfig,
-      patch: patchConfig,
-      flush: () => profile.flush(),
+      get: () => viewCfg(),
+      set: (c) => (pc.on ? pcWrite(c, true) : setConfig(c)),
+      patch: (p) => (pc.on ? pcWrite(Object.assign({}, viewCfg(), p), false) : patchConfig(p)),
+      flush: () => { if (pc.on) flushDrag(true); return profile.flush(); },
       ready: () => profile.load(),
+      /** Telefonun kendi ayarı (hedef PC iken de): tema, güç ve ses seçimi gibi telefona ait şeyler */
+      local: () => config,
+    }),
+    /* Hedef: 'phone' ya da 'pc' (PC bağlantısı). Canlı sayfası PC'nin canlı özetini okur ve
+       kumanda işlemlerini doğrudan yollar (docs/PHONE-LINK.md "Operations"). */
+    target: Object.freeze({
+      get: () => { syncLink(); return targetInfo(); },
+      set: (t) => setTarget(t),
+      onChange: (cb) => ev.target.add(cb),
+    }),
+    pc: Object.freeze({
+      request: (op, args) => pcAsk(op, args),
+      live: () => pc.live,
+      meter: () => pc.meter,
+      onLive: (cb) => ev.pcLive.add(cb),
+      onMeter: (cb) => ev.pcMeter.add(cb),
+      onError: (cb) => ev.pcError.add(cb),
     }),
     /* Çalan parça: uygulama içi çalar ya da (bildirim erişimiyle) başka uygulamalar. */
     /* PC bağlantısı (docs/PHONE-LINK.md). Ağ, şifreleme ve anahtarlar uygulamada; sayfa yalnız
@@ -814,7 +986,7 @@
 
   /* HOST.md'deki tablo, aynı sırayla. */
   window.api = {
-    requestConfig: () => profile.load().then(() => engineView(config)),
+    requestConfig: () => profile.load().then(() => engineOf(viewCfg())),
     onConfig: (cb) => ev.config.add(cb),
     onConfigPatch: (cb) => ev.configPatch.add(cb),
     onShowClock: (cb) => ev.showClock.add(cb),

@@ -165,6 +165,8 @@ object WebShell {
         "web/src/mobile/audio-input.js",
         "web/src/mobile/silence.js",
         "web/src/shared/backup-sections.js",
+        // PC bağlantısının uzak ayar deposu (android-host.js hedef PC iken kullanır)
+        "web/src/mobile/pc-remote.js",
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",
         "web/src/shared/mode-catalog.js",
@@ -202,6 +204,8 @@ object WebShell {
         "web/src/mobile/shell-export.js",
         "web/src/mobile/shell-backup.js",
         "web/src/mobile/shell-pclink.js",
+        // Canlı sekmesi: yalnız hedef PC iken (PC bağlantısı B2)
+        "web/src/mobile/shell-live.js",
         "web/src/mobile/shell-timeline-lane.js",
         "web/src/mobile/shell-timeline.js",
         "web/src/mobile/shell-timeline-forms.js",
