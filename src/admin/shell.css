@@ -80,6 +80,8 @@ body { isolation: isolate; }
   background: rgb(var(--fg-rgb) / .05); font-size: 12.5px; max-width: 220px; flex: none; cursor: pointer;
 }
 .sv-audio-chip:hover { background: rgb(var(--fg-rgb) / .09); color: var(--text); }
+.sv-phone-chip[hidden] { display: none; }
+.sv-phone-chip { color: var(--ok); }
 .sv-audio-chip .svi { width: 15px; height: 15px; flex: none; }
 .sv-audio-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .sv-vu { display: grid; gap: 3px; width: 44px; flex: none; }

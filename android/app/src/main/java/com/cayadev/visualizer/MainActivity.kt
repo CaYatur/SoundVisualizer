@@ -197,6 +197,23 @@ class MainActivity : ComponentActivity() {
         askMedia.launch(arrayOf(when (kind) { "video" -> "video/*"; "audio" -> "audio/*"; else -> "image/*" }))
     }
 
+    /* PC'ye gönderilecek dosya (PC bağlantısı B6, link/LinkUpload.kt): belge seçici; dosya
+       telefonda kalır, yalnız okunup gönderilir. */
+    private var pendingLink: Bridge.Reply? = null
+    private val askLink = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val reply = pendingLink ?: return@registerForActivityResult
+        pendingLink = null
+        if (uri == null) { reply.fail("cancelled"); return@registerForActivityResult }
+        reply.ok(JSONObject().put("uri", uri.toString()).put("name", MediaPick.displayName(this, uri))
+            .put("size", com.cayadev.visualizer.link.LinkUpload.sizeOf(this, uri)))
+    }
+
+    fun pickLink(kind: String, reply: Bridge.Reply) {
+        pendingLink?.fail("superseded")
+        pendingLink = reply
+        askLink.launch(arrayOf(when (kind) { "video" -> "video/*"; "logo" -> "image/*"; "audio" -> "audio/*"; else -> "*/*" }))
+    }
+
     fun pickAudio(reply: Bridge.Reply) {
         pendingPick?.fail("superseded")
         pendingPick = reply

@@ -236,6 +236,52 @@ async function desktop() {
   check('PC\'ye gönder kapandı', ai.enabled === false, ai);
   await ev(`window.SVAndroid.audio.stop ? window.SVAndroid.audio.stop() : window.__svHost.audioStop()`);
 
+  // ---- Plan §4.4: telefon PC'nin tanımadığı ve masaüstüne özgü katmanlarına dokunmaz
+  await pc.ev(`(() => { const c = window.SVPanel.cfg();
+    c.layers = (c.layers || []).concat([
+      { id: 'l_probe_web', kind: 'web', name: 'Web', enabled: true, opacity: 1, settings: { web: { url: 'https://example.org/', zoom: 1 } } },
+      { id: 'l_probe_in', kind: 'input', name: 'Giriş', enabled: true, opacity: 0.8, settings: { input: { source: 'spout', name: 'Resolume' } } },
+      { id: 'l_probe_new', kind: 'gelecek', name: 'Yeni tür', enabled: true, opacity: 1, settings: { gelecek: { a: [1, 2, { b: 'c' }] } }, extra: { x: 1 } },
+    ]);
+    window.SVPanel.push(true); return 1; })()`);
+  await sleep(900);
+  const special = (c) => JSON.stringify((c.layers || []).filter((l) => /^l_probe_/.test(l.id)));
+  const before = await pc.ev('(' + special.toString() + ')(window.SVPanel.cfg())');
+  check('PC\'de özel katmanlar kuruldu', before.indexOf('l_probe_new') >= 0 && before.indexOf('l_probe_web') >= 0, before.length);
+  await ev(`window.SVAndroid.target.set('pc')`);
+  await sleep(800);
+  await ev(`(() => { window.SVShell.open('layers'); return 1; })()`);
+  await sleep(1200);
+  // Telefonun gerçek katman düzenleyicisi: bir görselleştirici katmanını gizle (göz düğmesi)
+  const visId = await pc.ev(`(window.SVPanel.cfg().layers.find((l) => l.kind === 'visualizer' && !/^l_probe_/.test(l.id) && !l.locked) || {}).id || ''`);
+  const was = await pc.ev(`(window.SVPanel.cfg().layers.find((l) => l.id === ${JSON.stringify(visId)}) || {}).enabled !== false`);
+  const clicked = await ev(`(() => { const row = document.querySelector('#sv-shell .row[data-id=' + JSON.stringify(${JSON.stringify(visId)}) + ']'); const b = row && row.querySelector('.iconbtn'); if (!b) return false; b.click(); return true; })()`);
+  check('katman düzenleyicisi PC katmanını gösteriyor ve göz düğmesi çalışıyor', clicked, visId);
+  const now = await pcUntil(`(window.SVPanel.cfg().layers.find((l) => l.id === ${JSON.stringify(visId)}) || {}).enabled !== false`, !was, 6000);
+  check('PC\'de katman gizlendi', now === !was, { was, now });
+  const after = await pc.ev('(' + special.toString() + ')(window.SVPanel.cfg())');
+  check('tanınmayan ve masaüstüne özgü katmanlar bayt bayt aynı', after === before, { before: before.length, after: after.length });
+  await ev(`(() => { const row = document.querySelector('#sv-shell .row[data-id=' + JSON.stringify(${JSON.stringify(visId)}) + ']'); const b = row && row.querySelector('.iconbtn'); if (b) b.click(); return 1; })()`);
+  await sleep(800);
+  await ev('window.SVShell.close && window.SVShell.close()');
+  await pc.ev(`(() => { const c = window.SVPanel.cfg(); c.layers = c.layers.filter((l) => !/^l_probe_/.test(l.id)); window.SVPanel.push(true); return 1; })()`);
+
+  // ---- PC Ayarları sayfası: ekran listesi, MilkDrop araması, ses aygıtları
+  await ev(`(() => { window.SVShell.openPage(window.SVShellPcManage.page()); return 1; })()`);
+  let pm = '';
+  for (let i = 0; i < 30; i++) { await sleep(300); pm = await ev(`(document.querySelector('#sv-shell .sheet-body') || {}).textContent || ''`); if (pm.indexOf(await T('Yüzen pencere')) >= 0 && pm.indexOf(await T('Sistem sesi (varsayılan)')) >= 0) break; }
+  check('PC Ayarları: çıkışlar ve ses girişi yüklendi', pm.indexOf(await T('Yüzen pencere')) >= 0 && pm.indexOf(await T('Sistem sesi (varsayılan)')) >= 0, pm.slice(0, 120));
+  await ev('window.SVShell.close && window.SVShell.close()');
+
+  // ---- Telefon hedefindeyken PC sesini kullan
+  await ev(`window.SVAndroid.target.set('phone')`);
+  await ev(`window.SVAndroid.pc.usePcAudio(true)`);
+  let src2 = null;
+  for (let i = 0; i < 30 && src2 !== 'pc'; i++) { await sleep(200); src2 = await ev('(window.__svHost.audioStats() || {}).source'); }
+  check('telefon hedefinde "PC\'nin sesini kullan"', src2 === 'pc', src2);
+  await ev(`window.SVAndroid.pc.usePcAudio(false)`);
+  await ev(`window.SVAndroid.target.set('pc')`);
+
   const back = await ev(`window.SVAndroid.target.set('phone')`);
   check('hedef telefona döndü, telefonun ayarı', back.target === 'phone' && (await ev('window.SVAndroid.config.get().master')) === phoneMaster0 && await ev(`document.querySelector('#sv-shell .nav [data-tab="live"]').hidden`));
   await ev('window.SVShell.close && window.SVShell.close()');

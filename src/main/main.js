@@ -21,6 +21,7 @@ const linkDiscovery = require('./link-discovery');
 const linkLive = require('./link-live');
 const linkGuard = require('./link-guard');
 const linkAudio = require('./link-audio');
+const linkUpload = require('./link-upload');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -2611,6 +2612,13 @@ function notifyAdmin(channel, payload) {
   if (adminWin && !adminWin.isDestroyed()) {
     adminWin.webContents.send(channel, payload);
   }
+  // Dışa aktarmanın ilerlemesi telefona da (PC bağlantısı B6; saniyede en çok bir kez, aşama değişince hemen)
+  if (channel === 'export-progress' && typeof linkExportNote === 'function') linkExportNote(payload);
+  // Bitiş ayrı kanalda: telefon da bitti/olmadı/iptal görsün (yol değil, yalnız dosya adı)
+  if (channel === 'export-done' && typeof linkExportNote === 'function') {
+    const d = payload || {};
+    linkExportNote({ phase: String(d.status || 'done'), file: d.output ? path.basename(String(d.output)) : '', error: d.status === 'error' ? String(d.message || '').slice(0, 120) : '' });
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -4856,7 +4864,10 @@ function phoneLinkCfg() {
   return {
     enabled: p.enabled === true, discoverable: p.discoverable !== false,
     // Telefonun sesi ses girişi (B4): device boş = hangi telefon gönderirse
-    audioIn: { enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false },
+    audioIn: {
+      enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false,
+      delayMs: Number.isFinite(Number(a.delayMs)) ? Math.max(0, Math.min(500, Math.round(Number(a.delayMs)))) : 0,
+    },
   };
 }
 function phoneLinkService() {
@@ -4875,7 +4886,7 @@ function phoneLinkService() {
     port: () => streamServer.status().port || 0,
     running: () => !!streamServer.status().phoneLink,
     gate: () => linkGate(),
-    onSessionClose: (client) => { linkHeldDrop(client); phoneAudioDrop(client); linkWatchDrop(client); },
+    onSessionClose: (client) => { linkHeldDrop(client); phoneAudioDrop(client); linkWatchDrop(client); linkUploads().dropOwner(client); },
     onAudio: (client, buf, device) => phoneAudioPacket(client, buf, device),
     extra: () => ({ audioIn: phoneAudioStatus() }),
     ops: Object.assign({
@@ -4921,7 +4932,7 @@ function phoneLinkService() {
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
         return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
       },
-    }, linkControlOps(), linkEditOps()),
+    }, linkControlOps(), linkEditOps(), linkManageOps()),
   });
   return linkSvc;
 }
@@ -4949,6 +4960,163 @@ function linkControlOps() {
   }
   out.momentary = (args, ctx) => linkHeldSet(ctx && ctx.client, linkLive.plan('momentary', args, currentConfig || {}, oscTree, remoteCommands.ACTIONS).args.list);
   return out;
+}
+
+/* AYARLAR, ÇIKIŞLAR, KAYIT, DIŞA AKTARMA, KİTAPLIK, DOSYA (B6). Hiçbir işlem telefondan yol
+   almaz: çıkış klasörü bu makinenin, şarkı telefondan gönderilmiş dosyanın kimliği, kitaplık
+   öğesi kendi kimliği. Telefonun dosyaları uygulamanın link-uploads klasörüne yazılır
+   (src/main/link-upload.js), kitaplığa alınınca silinir; açılışta artakalan temizlenir. */
+let linkUp = null;
+const linkUploadsDir = () => path.join(app.getPath('userData'), 'link-uploads');
+function linkUploads() {
+  if (!linkUp) {
+    try { fs.rmSync(linkUploadsDir(), { recursive: true, force: true }); } catch { /* kilitli */ }
+    linkUp = linkUpload.createUploads({ dir: linkUploadsDir() });
+  }
+  return linkUp;
+}
+const linkSongs = new Map(); // dışa aktarma için gönderilen şarkılar: kimlik → dosya
+let linkExportLast = null;
+let linkExportAt = 0;
+function linkExportNote(p) {
+  linkExportLast = Object.assign({ at: Date.now() }, p || {});
+  const t = Date.now();
+  const phase = p && p.phase;
+  if (!linkSvc || linkSvc.sessionCount() < 1) return;
+  if (phase === 'render' && t - linkExportAt < 1000) return;
+  linkExportAt = t;
+  linkSvc.broadcast({ ev: 'export', p: linkExportLast });
+}
+function linkManageOps() {
+  const bad = (code) => Object.assign(new Error(code || 'bad-args'), { code: code || 'bad-args' });
+  const ID = /^[A-Za-z0-9_.:-]{1,80}$/;
+  const adminRun = (js) => mcpAdminCall(js).then((r) => {
+    if (r && r.ok === false) throw bad(/^[a-z-]{1,32}$/.test(String(r.error || '')) ? r.error : 'failed');
+    return r || { ok: true };
+  });
+  const exportDir = () => path.join(app.getPath('videos'), 'SoundVisualizer');
+  return {
+    // Ekranlar ve çıkışlar (yalnız bu makinenin ekran kimlikleri)
+    'output.list': () => ({
+      displays: getDisplayList().map((d) => ({ id: d.id, label: d.label, width: d.size && d.size.width, height: d.size && d.size.height, primary: !!d.isPrimary })),
+      open: Array.from(visualizerWins.keys()),
+      floating: floatingIsOpen(),
+      selected: (currentConfig && currentConfig.display && currentConfig.display.ids) || [],
+    }),
+    'output.open': (args) => {
+      const known = new Set(getDisplayList().map((d) => d.id));
+      const ids = Array.isArray(args.ids) ? args.ids.filter((x) => known.has(x)) : null;
+      if (Array.isArray(args.ids) && !ids.length) throw bad();
+      const d = (currentConfig && currentConfig.display) || {};
+      openVisualizer(ids && ids.length ? ids : (Array.isArray(d.ids) && d.ids.length ? d.ids : d.id));
+      return { open: Array.from(visualizerWins.keys()) };
+    },
+    'output.close': (args) => {
+      if (args.id != null && !getDisplayList().some((x) => x.id === args.id)) throw bad();
+      closeVisualizer(args.id != null ? args.id : undefined);
+      return { open: Array.from(visualizerWins.keys()) };
+    },
+    'output.set': async (args) => {
+      if (typeof args.floating !== 'boolean') throw bad();
+      if (args.floating) createFloatingWindow(); else await closeFloatingWindow();
+      return { floating: floatingIsOpen() };
+    },
+    // Ses aygıtları: seçimin kendisi config.patch { audio } ile (tam düzey)
+    'audio.sources': async () => {
+      let devices = [];
+      try { devices = await nativeAudio.listDevices(); } catch { devices = []; }
+      const a = (currentConfig && currentConfig.audio) || {};
+      return { devices: (devices || []).slice(0, 64).map((x) => ({ name: x.name, kind: x.kind || x.type || '', isDefault: !!x.isDefault })), sources: a.sources || (a.source ? [a.source] : []), phone: phoneAudioStatus() };
+    },
+    'record.start': () => adminRun('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"unsupported" }; const r = await R.start(window.SVPanel.cfg()); return r && r.ok === false ? { ok:false, error:"failed" } : { ok:true }; })()'),
+    'record.stop': () => adminRun('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"unsupported" }; await R.stop(); return { ok:true }; })()'),
+    /* Dışa aktarma: şarkı telefondan gönderilmiş dosya (file.end kimliği), çıktı bu makinenin
+       Videolar/SoundVisualizer klasörü. Biçim, çözünürlük ve kare hızı listeden. */
+    'export.start': async (args) => {
+      const song = typeof args.audio === 'string' ? linkSongs.get(args.audio) : null;
+      if (!song || !fs.existsSync(song.file)) throw bad('no-song');
+      const fmt = exportFormats.format(typeof args.format === 'string' ? args.format : exportFormats.DEFAULT_FORMAT);
+      if (!fmt) throw bad();
+      const res = typeof args.resolution === 'string' && exportFormats.RESOLUTIONS[args.resolution] ? args.resolution : '1080p';
+      const fps = exportFormats.FPS.includes(Number(args.fps)) ? Number(args.fps) : 60;
+      if (exportQueue.running || exportState) throw bad('busy');
+      fs.mkdirSync(exportDir(), { recursive: true });
+      const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
+      const base = song.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 60) || 'telefon';
+      const outputPath = path.join(exportDir(), base + '-' + stamp + '.' + fmt.ext);
+      const quality = exportFormats.QUALITIES && exportFormats.QUALITIES.indexOf(args.quality) >= 0 ? args.quality : undefined;
+      const r = await startExportJob({ audioPath: song.file, outputPath, format: fmt.id, resolution: res, fps, quality });
+      if (!r || r.ok === false) throw Object.assign(new Error('failed'), { code: 'failed', detail: String((r && r.error) || '').slice(0, 64) });
+      return { started: true, file: path.basename(outputPath) };
+    },
+    'export.cancel': () => { if (exportState) exportState.cancel = true; return { cancelled: !!exportState }; },
+    'export.status': () => ({ running: !!exportState, last: linkExportLast, songs: Array.from(linkSongs.entries()).map(([id, s]) => ({ id, name: s.name, size: s.size })) }),
+    // Kitaplık listeleri (kimlik ve ad; yol yok) ve mod küçük resmi
+    'library.list': async (args) => {
+      const kind = args.kind;
+      const q = typeof args.q === 'string' ? args.q.trim().toLocaleLowerCase('tr').slice(0, 80) : '';
+      const off = Number.isInteger(args.offset) && args.offset >= 0 ? args.offset : 0;
+      const lim = Number.isInteger(args.limit) && args.limit > 0 ? Math.min(200, args.limit) : 60;
+      let items;
+      if (kind === 'video') items = mediaLibrary.list(mediaLibDir()).map((x) => ({ id: x.id, name: x.name || x.id, size: x.size || 0 }));
+      else if (kind === 'logo') items = logoLibrary.list(logoLibDir()).map((x) => ({ id: x.id, name: x.name || x.id }));
+      else if (kind === 'lyrics') items = lyricsLibrary.list(lyricsLibDir()).map((x) => ({ id: x.id, name: x.name || x.title || x.id, artist: x.artist || '' }));
+      else if (kind === 'milkdrop') {
+        /* 10 bin presetlik liste bütünüyle ana sürece taşınmasın: süzme ve sayfa panelde. */
+        const r = await mcpAdminCall('(() => { const a = ' + JSON.stringify({ q, off, lim }) + '; const M = window.SVMilkdropPanel; let l = M && M.visibleList ? M.visibleList() : []; if (a.q) l = l.filter((p) => String(p.name || p.id || "").toLocaleLowerCase("tr").indexOf(a.q) >= 0); return { total: l.length, items: l.slice(a.off, a.off + a.lim).map((p) => ({ id: p.id, name: p.name || p.id, author: p.author || "" })) }; })()');
+        return r && Array.isArray(r.items) ? r : { total: 0, items: [] };
+      } else throw bad();
+      if (q) items = items.filter((x) => String(x.name || '').toLocaleLowerCase('tr').indexOf(q) >= 0);
+      return { total: items.length, items: items.slice(off, off + lim) };
+    },
+    'thumb.get': (args) => {
+      // Telefon "visualizer"/"background" der; küçük resim deposunun türleri vis/bg (mode-thumbs.js)
+      const kind = args.kind === 'background' ? 'bg' : args.kind === 'visualizer' ? 'vis' : '';
+      if (!kind || typeof args.type !== 'string') throw bad();
+      const file = remoteModeThumb(kind, args.type);
+      if (!file || !fs.existsSync(file)) throw bad('no-thumb');
+      const buf = fs.readFileSync(file);
+      if (buf.length > 512 * 1024) throw bad('too-big');
+      return { type: 'image/' + (path.extname(file).slice(1).toLowerCase() === 'png' ? 'png' : 'webp'), data: buf.toString('base64') };
+    },
+    'milkdrop.load': (args) => {
+      if (typeof args.id !== 'string' || !ID.test(args.id)) throw bad();
+      return adminRun('(() => { const M = window.SVMilkdropPanel; const id = ' + JSON.stringify(args.id) + '; const p = M && M.presetById ? M.presetById(id) : null; if (!p) return { ok:false, error:"bad-args" }; const c = window.SVPanel.cfg(); if (p.lazy && M.go) M.go(c, p); else if (M.load) M.load(c, p); return { ok:true, name: p.name || id }; })()');
+    },
+    // Dosya gönderme: parça parça, sırayla; bitince türüne göre kitaplığa
+    'file.begin': (args, ctx) => linkUploads().begin(ctx.client, args),
+    'file.chunk': (args, ctx) => linkUploads().chunk(ctx.client, args),
+    'file.cancel': (args, ctx) => ({ cancelled: linkUploads().cancel(ctx.client, String(args.id || '')) }),
+    'file.end': async (args, ctx) => {
+      const f = linkUploads().end(ctx.client, args);
+      const cleanup = () => { try { fs.unlinkSync(f.file); } catch { /* */ } };
+      let out = { kind: f.kind, name: f.name };
+      try {
+        if (f.kind === 'audio') {
+          // Dışa aktarmanın şarkısı: en çok üç tane tutulur, en eskisi silinir
+          linkSongs.set(f.id, f);
+          while (linkSongs.size > 3) { const [old, s] = linkSongs.entries().next().value; linkSongs.delete(old); try { fs.unlinkSync(s.file); } catch { /* */ } }
+          return Object.assign(out, { id: f.id });
+        }
+        let r;
+        if (f.kind === 'video') r = await mediaLibrary.importFileAsync(mediaLibDir(), f.file, f.name);
+        else if (f.kind === 'logo') r = await logoLibrary.importFileAsync(logoLibDir(), f.file, f.name);
+        else if (f.kind === 'lyrics') r = lyricsLibrary.importFile(lyricsLibDir(), f.file, f.name);
+        else if (f.kind === 'milk') {
+          const text = fs.readFileSync(f.file, 'utf8');
+          r = presetsStore.save({ name: f.name.replace(/\.milk2?$/i, ''), kind: 'milkdrop', engine: 'milkdrop', source: text });
+          if (r && r.ok && r.preset) broadcastPresetDelta([r.preset], []);
+        }
+        cleanup();
+        if (!r || r.ok === false) throw Object.assign(new Error('import-failed'), { code: 'import-failed', detail: String((r && r.error) || '').slice(0, 64) });
+        const item = r.item || r.preset || r.entry || null;
+        if (item && item.id) out.id = item.id;
+        if (r.duplicate) out.duplicate = true;
+        notifyAdmin('phonelink-file', { kind: f.kind, name: f.name });
+        return out;
+      } catch (e) { cleanup(); throw e; }
+    },
+  };
 }
 
 /* PC'NİN SESİ → TELEFON (B5, "Akıcı" önizleme ve telefonu ek ekran olarak kullanma). Dinleyen
@@ -4995,7 +5163,8 @@ const phoneAudio = { input: null, key: '', framers: new Map(), from: null, timer
 const phoneMetaShown = () => !!(phoneAudio.input && phoneAudio.input.useBridge && phoneAudio.meta && phoneAudio.meta.has);
 function phoneAudioSync() {
   const a = phoneLinkCfg().audioIn;
-  const key = phoneLinkOn && a.enabled ? JSON.stringify(a) : '';
+  // Gecikme ayarı girişi yeniden kurmaz (kaydırırken telefon sesi kopmasın)
+  const key = phoneLinkOn && a.enabled ? JSON.stringify([a.device, a.fallback]) : '';
   if (key === phoneAudio.key) return;
   phoneAudio.key = key;
   phoneAudio.framers.clear();
@@ -5027,7 +5196,12 @@ function phoneAudioPacket(client, buf, device) {
         phoneAudio.from = client;
         phoneAudio.name = (device && device.name) || '';
         const changed = inp.frame(Date.now());
-        if (inp.useBridge) deliverAudioFrame(frame);
+        if (inp.useBridge) {
+          // Görüntü gecikmesi (kablosuz ağın dalgalanmasına karşı ayar; 0 = hemen)
+          const delay = phoneLinkCfg().audioIn.delayMs;
+          if (delay > 0) setTimeout(() => { if (phoneAudio.input === inp && inp.useBridge) deliverAudioFrame(frame); }, delay);
+          else deliverAudioFrame(frame);
+        }
         if (changed) phoneAudioChanged();
       },
     });

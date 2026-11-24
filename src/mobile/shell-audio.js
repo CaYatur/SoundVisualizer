@@ -268,6 +268,13 @@
     /* PC bağlantısı (B4): seçili kaynağın sesi ve çalan parça bilgisayarın ses girişi olur.
        Kayıtlı bilgisayar yoksa görünmez. */
     const T = A().target ? A().target.get() : null;
+    // Hedef "Bu telefon"ken telefonun sahnesi PC'de çalana tepki versin (taslak 19)
+    if (T && T.state === 'connected' && T.target !== 'pc' && !T.audioSend) {
+      body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, [
+        U.toggle({ label: 'PC\'nin sesini kullan', value: !!T.usePcAudio, onChange: (on) => { A().pc.usePcAudio(on); ctx.refresh(); } }),
+        h('div', { class: 'hint', text: 'Bu telefonun sahnesi PC\'de çalan sese tepki verir; telefonun kendi kaynağı o sırada kullanılmaz.' }),
+      ])]));
+    }
     if (T && (T.state === 'connected' || T.audioSend)) {
       body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, [
         U.toggle({ label: 'PC\'ye gönder', value: !!T.audioSend, onChange: (on) => A().pc.audioSend(on).then(() => ctx.refresh()) }),

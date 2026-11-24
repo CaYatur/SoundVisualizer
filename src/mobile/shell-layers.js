@@ -88,6 +88,8 @@
   function ensureStack() {
     const c = cfg();
     if (!c || !LY() || (c.layerStack && c.layerStack.enabled === true)) return;
+    // Hedef PC iken PC'nin ayarına yığın kurulmaz (plan §4.4: telefon PC verisini yeniden yazmaz)
+    if (A().target && A().target.get().target === 'pc') return;
     const next = JSON.parse(JSON.stringify(c));
     LY().ensureStack(next);
     own(() => A().config.set(next));

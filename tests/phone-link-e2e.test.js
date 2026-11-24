@@ -138,6 +138,13 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
     assert.deepStrictEqual(await ask({ id: 2, op: 'file.read' }), { re: '2', ok: false, error: 'not-allowed' });
     assert.deepStrictEqual(await ask({ id: 3, op: 'blackout' }), { re: '3', ok: false, error: 'unsupported' });
     assert.strictEqual(svc.sessionCount(), 1);
+    // Hız sınırını aşan istek yanıtsız kalmaz: "rate"
+    for (let i = 0; i < 130; i++) ws.sendBin(seal(Buffer.from(JSON.stringify({ id: 'r' + i, op: 'state.get' }))));
+    const got = [];
+    for (let i = 0; i < 130; i++) got.push(JSON.parse(open((await ws.next()).bin).toString()));
+    assert.ok(got.some((m) => m.error === 'rate'), 'rate yanıtı');
+    assert.strictEqual(got.length, 130, 'her isteğe yanıt');
+    await new Promise((r) => setTimeout(r, 1100));
     // Ortak kapı: yedek rolünde izlerken kumanda reddedilir, izleme sürer
     gateWhy = 'standby';
     assert.deepStrictEqual(await ask({ id: 'g1', op: 'blackout' }), { re: 'g1', ok: false, error: 'standby' });

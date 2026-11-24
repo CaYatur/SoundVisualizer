@@ -206,6 +206,8 @@ object WebShell {
         "web/src/mobile/shell-pclink.js",
         // Canlı sekmesi: yalnız hedef PC iken (PC bağlantısı B2)
         "web/src/mobile/shell-live.js",
+        // PC Ayarları sayfası (çıkışlar, ses girişi, kayıt, dışa aktarma, dosyalar; PC bağlantısı B6)
+        "web/src/mobile/shell-pcmanage.js",
         "web/src/mobile/shell-timeline-lane.js",
         "web/src/mobile/shell-timeline.js",
         "web/src/mobile/shell-timeline-forms.js",
