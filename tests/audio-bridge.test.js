@@ -290,7 +290,8 @@ test('ana süreç: köprü kipi, yakalama ve dağıtım bağlantıları', () => 
   assert.match(M, /if \(BRIDGE_ONLY && bridgeTray && !forceQuitApp\) return;/);
   // Yerel kare köprüye; köprüdeyken yerel kare görüntüye gitmez; köprünün karesi aynı dağıtımdan
   assert.match(M, /if \(peers > 0\) bridge\.sender\.frame\(frame\);/);
-  assert.match(M, /\n      \}\n[^\n]*\n      if \(bridge\.input && bridge\.input\.useBridge\) return;\n      deliverAudioFrame\(frame\);/);
+  // Ses girişi telefondayken de (PC bağlantısı B4, docs/PHONE-LINK.md "Audio") yerel kare gitmez
+  assert.match(M, /\n      \}\n[^\n]*\n      if \(bridge\.input && bridge\.input\.useBridge\) return;\n      if \(phoneAudio\.input && phoneAudio\.input\.useBridge\) return;\n      deliverAudioFrame\(frame\);/);
   assert.match(M, /if \(bridge\.input\.useBridge\) deliverAudioFrame\(frame\);/);
   // Yakalama: alıcı varken açık, köprü girişindeyken yalnız yedek gerekince
   assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) return true;\n[^\n]*\n  if \(BRIDGE_ONLY && bridge\.sender && bridgeWinVisible\(\)\) return true;\n[^\n]*\n  if \(bridge\.input && !bridge\.input\.wantLocal\) return false;/);

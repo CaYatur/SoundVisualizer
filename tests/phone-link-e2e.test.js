@@ -81,8 +81,12 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
   let stored = null;
   const notes = [];
   let gateWhy = '';
+  const sessionsClosed = [];
+  const audio = [];
   const svc = createService({
+    onAudio: (client, buf, device) => audio.push({ n: buf.length, kind: buf[0], device: device.id, level: device.level }),
     gate: () => gateWhy,
+    onSessionClose: (c) => sessionsClosed.push(c),
     stream: S,
     store: { read: () => stored, write: (o) => { stored = JSON.parse(JSON.stringify(o)); } },
     protect: { seal: (b) => 'x' + Buffer.from(b).toString('base64'), unseal: (s) => Buffer.from(String(s).slice(1), 'base64') },
@@ -144,10 +148,21 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
     S.broadcast({ type: 'config', config: {} });
     svc.broadcast({ ev: 'state', scene: 'Tünel' });
     assert.deepStrictEqual(JSON.parse(open((await ws.next()).bin).toString()), { ev: 'state', scene: 'Tünel' });
+    // Ses paketi (ikili, ilk bayt '{' değil): tam düzeyde iletilir, yanıt yok
+    const pcm = require('../src/main/link-audio.js').encode(1, 48000, 2, new Int16Array(960));
+    ws.sendBin(seal(pcm));
+    for (let i = 0; i < 40 && !audio.length; i++) await new Promise((r) => setTimeout(r, 25));
+    assert.deepStrictEqual(audio, [{ n: pcm.length, kind: 1, device: paired.device, level: 'full' }]);
     // Düzey düşürülünce düzenleme reddedilir
     assert.strictEqual(svc.setLevel(paired.device, 'view'), true);
+    ws.sendBin(seal(pcm));
+    await new Promise((r) => setTimeout(r, 150));
+    assert.strictEqual(audio.length, 1, 'izle düzeyinde ses alınmaz');
     assert.deepStrictEqual(await ask({ id: 4, op: 'config.patch' }), { re: '4', ok: false, error: 'not-allowed' });
     ws.close();
+    // Oturum kapanınca hizmet haber verir (basılı anlık efekt hemen kalksın)
+    for (let i = 0; i < 40 && !sessionsClosed.length; i++) await new Promise((r) => setTimeout(r, 25));
+    assert.strictEqual(sessionsClosed.length, 1);
 
     // Uygulama yeniden açıldı gibi: aynı depo, yeni hizmet
     const svc2 = createService({ stream: S, store: { read: () => stored, write: (o) => { stored = o; } },

@@ -1041,6 +1041,10 @@ function acceptLink(req, socket) {
   });
   socket.on('error', () => dropClient(client));
   socket.on('close', () => dropClient(client));
+  /* Telefon bağlantıyı kapattı (FIN): yükseltilmiş soket yarı açık kalabiliyor, 'close' ancak
+     sonraki yazım başarısız olunca geliyordu. O sırada telefon "çevrimiçi" görünüyor, tuttuğu
+     anlık efekt kiranın dolmasını bekliyordu. Karşı taraf kapattıysa bağlantı bitmiştir. */
+  socket.on('end', () => dropClient(client));
 }
 function linkSendText(client, text) { if (client && client.kind === 'phone') sendTo(client, 0x1, Buffer.from(text, 'utf-8')); }
 function linkSendBinary(client, buf) { if (client && client.kind === 'phone') sendTo(client, 0x2, buf); }

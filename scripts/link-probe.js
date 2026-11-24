@@ -76,6 +76,7 @@ function phone(port) {
   const texts = [];
   const textWaiters = [];
   const events = [];
+  const pcmIn = [];
   const replies = new Map();
   let open = null;
   ws.onmessage = (m) => {
@@ -88,6 +89,7 @@ function phone(port) {
     if (!open) return;
     const plain = open(Buffer.from(m.data));
     if (!plain) { events.push({ ev: 'undecryptable' }); return; }
+    if (plain[0] !== 0x7b) { pcmIn.push(plain); return; } // PC'nin sesi (B5)
     const o = JSON.parse(plain.toString('utf8'));
     if (o.re != null && replies.has(o.re)) { replies.get(o.re)(o); replies.delete(o.re); } else if (o.ev) events.push(o);
   };
@@ -109,6 +111,8 @@ function phone(port) {
       replies.set(id, (o) => { clearTimeout(t); res(o); });
       ws.send(seal(Buffer.from(JSON.stringify({ id, op, args: args || {} }))));
     }),
+    sendRaw: (buf) => ws.send(seal(buf)),
+    pcmIn,
     events,
     close: () => ws.close(),
   };
@@ -314,6 +318,72 @@ function phone(port) {
     r = await ph.ask('config.get');
     check('izle düzeyinde ayar okunur', r.ok);
     await pc.ev('window.api.phoneLinkSetLevel(' + JSON.stringify(dev) + ', "full")');
+
+    // ---- Telefonun sesi (B4): PC'nin ses girişi olur, telefon susunca yerel girişe döner
+    const LA = require('../src/main/link-audio.js');
+    r = await ph.ask('audio.bridge', { on: true });
+    check('audio.bridge açık, bu telefona bağlı', r.ok && r.result.enabled === true && r.result.device === dev, r);
+    const aState = async () => (await pc.ev('window.api.phoneLinkStatus()')).audioIn || {};
+    let seqA = 0;
+    const sendTone = async (ms) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        const s = new Int16Array(480 * 2);
+        for (let i = 0; i < 480; i++) { const v = Math.round(Math.sin((2 * Math.PI * 1000 * (seqA * 480 + i)) / 48000) * 16000); s[i * 2] = v; s[i * 2 + 1] = v; }
+        ph.sendRaw(LA.encode(seqA++, 48000, 2, s));
+        await wait(10);
+      }
+    };
+    await sendTone(1200);
+    let as = await aState();
+    check('PC girişi telefonda, kareler üretiliyor', as.state === 'bridge' && as.stats && as.stats.frames > 30 && as.stats.sampleRate === 48000, as);
+    const label = await pc.ev(`(document.getElementById('audioState') || {}).textContent || ''`);
+    check('panelde "Ses telefondan"', label.indexOf(await pc.ev(`window.SVI18n.t('Ses telefondan')`)) >= 0, label);
+    // Parça bilgisi ve kapak da telefondan (giriş telefondayken)
+    const art = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+    r = await ph.ask('nowplaying.set', { has: true, title: 'Telefon Şarkısı', artist: 'Telefon Sanatçısı', album: 'Albüm', duration: 200, position: 3, playing: true, artwork: art });
+    check('nowplaying.set: giriş telefonda, gösteriliyor', r.ok && r.result.shown === true, r);
+    await sendTone(300);
+    const shown = await pc.ev('window.api.nowPlayingCurrent ? window.api.nowPlayingCurrent() : null');
+    if (shown) check('PC\'nin çalan parçası telefonunki (kapak dahil)', shown.title === 'Telefon Şarkısı' && shown.artist === 'Telefon Sanatçısı' && shown.artwork === art, { title: shown.title, artist: shown.artist, art: !!shown.artwork });
+    else console.log('NOTE panelden çalan parça okunamadı (nowPlayingCurrent yok)');
+    await wait(1200);
+    as = await aState();
+    check('telefon susunca yerel girişe döndü', as.state === 'fallback', as.state);
+    r = await ph.ask('audio.bridge', { on: false });
+    check('audio.bridge kapalı', r.ok && (await aState()).state === 'off', r);
+
+    // ---- PC'nin sesi telefona (B5) ve gerçek görüntü karesi
+    r = await ph.ask('audio.watch', { on: true });
+    check('audio.watch açık', r.ok && r.result.on === true, r);
+    await wait(2500);
+    const got = ph.pcmIn.map((b) => LA.decode(b)).filter(Boolean);
+    if (got.length) check('PC sesi telefona geliyor (yakalama açık)', got.length > 20 && got[0].channels === 2, { n: got.length, rate: got[0].sampleRate });
+    else console.log('NOTE PC sesi gelmedi: bu makinede yakalama yok ya da sessiz aygıt (' + JSON.stringify(r.result) + ')');
+    r = await ph.ask('audio.watch', { on: false });
+    const n0 = ph.pcmIn.length;
+    await wait(600);
+    check('audio.watch kapalı: ses durdu', r.ok && ph.pcmIn.length - n0 <= 3, ph.pcmIn.length - n0);
+    r = await ph.ask('preview.get');
+    if (r.ok) check('preview.get JPEG', /^\/9j\//.test(r.result.jpeg) && r.result.width > 0, { w: r.result.width, h: r.result.height, kb: Math.round(r.result.jpeg.length * 0.75 / 1024) });
+    else check('preview.get: görüntü yoksa anlaşılır hata', r.error === 'no-preview', r);
+
+    // ---- Anlık efekt kirası: yenilendikçe kalır, oturum kapanınca hemen kalkar
+    const held = () => P('JSON.stringify(window.SVLiveShell.heldList())');
+    const samples = [];
+    for (let i = 0; i < 6; i++) {
+      await ph.ask('momentary', { list: ['glitch'] });
+      await wait(250);
+      samples.push(await held());
+      await wait(250);
+      samples.push(await held());
+    }
+    check('kira yenilendikçe efekt kalıyor (3 sn)', samples.every((x) => x === '["glitch"]'), samples);
+    ph.close();
+    ph = null;
+    let after = '';
+    for (let i = 0; i < 10 && after !== '[]'; i++) { await wait(100); after = await held(); }
+    check('telefon kopunca efekt hemen kalktı', after === '[]', after);
   } catch (e) {
     bad++;
     console.error('HATA', e && e.stack ? e.stack : e);

@@ -188,11 +188,16 @@ for a change made in the panel.
 | `scene.reorder` | `{ ids }` every scene id once | edit |
 | `palette.save` | `{ name, colors? }` 2 to 5 `#rrggbb` | edit |
 | `palette.delete` | `{ id }` | edit |
+| `preview.get` | → `{ width, height, jpeg }` the frame an output shows, 480 px wide, base64 JPEG | view |
+| `audio.watch` | `{ on }` stream the desktop's audio to this phone (see below) | view |
+| `audio.bridge` | `{ on, fallback? }` make this phone's audio the desktop's audio input | full |
+| `nowplaying.set` | `{ has, title, artist, album, position, duration, playing, artwork? }` the track playing on the phone; seconds; artwork a JPEG/PNG/WebP data URL up to 192 KB, sent only when the track changes | full |
 
 Momentary effects are a lease: the phone resends its held list about every half second and the
-desktop drops it 1.5 seconds after the last refresh, so a lost release or a dropped connection
-cannot leave an effect on the output. The phone's held effects are kept apart from the ones held in
-the panel.
+desktop drops it 1.5 seconds after the last refresh, and at once when that phone's session closes,
+so a lost release or a dropped connection cannot leave an effect on the output. The lease is kept in
+the main process: a refresh only updates a timestamp, and the panel is called only when the combined
+list of all phones changes. The phone's held effects are kept apart from the ones held in the panel.
 
 Settings patch rules (`link-guard.js`): only listed keys; the scene list, control bindings and this
 machine's keys are never writable; values keep their type; numbers are finite and clamped to the
@@ -212,6 +217,46 @@ Events:
 ```
 
 Events and the mirror run only while a phone session is open.
+
+## Audio
+
+Audio travels as binary messages inside the encrypted session. JSON messages start with `{`; an
+audio packet starts with its kind byte:
+
+```
+[u8 1 = PCM][u8 version 1][u32 BE sequence][u32 BE sample rate][u8 channels 1|2][s16 LE samples]
+```
+
+At most 8192 samples per channel per packet, 400 packets a second and 64 KB per packet. There is no
+reply. Validation is `src/main/link-audio.js`.
+
+**Phone → desktop (`audio.bridge`, full level).** The phone sends the audio it plays, records or
+captures. The desktop builds its analysis frames from it with the same code the capture helper uses
+(`src/shared/audio-spectrum.js`, `src/main/audio-frame.js`), one frame per 1/60 s of audio, so
+visuals, lighting, OSC, tempo and MilkDrop react as they do to a local input. Raw audio was chosen
+over sending analysis frames: 48 kHz stereo 16-bit PCM is about 192 KB/s, a 7174-byte frame sixty
+times a second about 430 KB/s, and with raw audio the desktop's own analysis finds the tempo. The
+input switch is the audio bridge's (`src/main/bridge-input.js`): the input moves to the phone once
+frames arrive, and when the phone goes quiet for 0.6 s the desktop falls back to its local input
+(unless that is turned off). Local capture is stopped while the phone's audio is in use. Settings:
+`phoneLink.audioIn { enabled, device, fallback }`; `device` empty means any phone, and `audio.bridge`
+sets it to the phone that asked. If two phones send, the first one is used until it goes quiet.
+
+**Track information.** While the phone's audio is the desktop's input, the track playing on the
+phone (title, artist, album, position, duration and cover, `nowplaying.set`) is the desktop's "now
+playing" too, as with the audio bridge: the track info layer, lyrics lookup, the OBS page and OSC see
+the phone's track. When the input falls back, the desktop's own track returns.
+
+**Desktop → phone (`audio.watch`, view level).** The phone asks for the desktop's audio to draw the
+desktop's settings with its own engine (smooth preview, or the phone as an extra display). The
+desktop sends the capture helper's raw audio in the same packet format; a phone whose socket queue
+is over 256 KB skips packets instead of building up delay. While a phone watches, the desktop keeps
+capturing even if no output window is open. Only the first audio source is sent, and nothing is
+sent while the desktop's input is the network bridge or a phone.
+
+**Real image (`preview.get`).** The frame an output window (or the panel preview) shows, as a
+480-pixel JPEG, the same capture as MCP `sv_get_preview`. Measured on the desktop: 480×270, about
+14 KB.
 
 Handshake error codes: `bad-message`, `protocol`, `timeout`, `pairing-closed`, `bad-secret`,
 `bad-code`, `too-many`, `rejected`, `unknown-device`, `expected-encrypted`.
