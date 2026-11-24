@@ -18,6 +18,7 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const phoneLinkLib = require('./phone-link-service');
 const linkDiscovery = require('./link-discovery');
+const linkLive = require('./link-live');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -3969,6 +3970,7 @@ function applyIncomingConfig(config, opts) {
   syncCapture();
   syncKeepAwake();
   syncMcp();
+  linkConfigSync(patchKeys); // telefonların ayar aynası
 }
 
 // Aynı ayar klasörünü kullanan kopyalar ve ayar dosyası çakışması (#564)
@@ -4785,6 +4787,7 @@ function applyRemoteCommand(msg, client) {
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
   lightingSet(currentConfig.lighting).catch(() => {});
+  linkConfigSync(null); // web kumandasının yerinde değiştirdiği ayar telefonlara da
 }
 
 /* KUMANDANIN CANLI ÖZETİ: seviye, tempo, çizelge ve karartma. Yapılandırmada olmayan,
@@ -4856,19 +4859,118 @@ function phoneLinkService() {
     addresses: () => streamServer.lanAddresses(),
     port: () => streamServer.status().port || 0,
     running: () => !!streamServer.status().phoneLink,
-    ops: {
-      // B1: bağlantıyı doğrulayan özet. Kumanda ve düzenleme işlemleri sonraki adımlarda eklenir.
+    gate: () => linkGate(),
+    ops: Object.assign({
+      // Bağlantıyı doğrulayan kısa özet
       'state.get': () => ({
         app: app.getVersion(),
         platform: process.platform,
         docVersion: (currentConfig && currentConfig.docVersion) || 0,
         activeScene: (currentConfig && currentConfig._activeSceneId) || null,
         scenes: ((currentConfig && currentConfig.scenes) || []).map((s) => ({ id: s.id, name: s.name })),
+        standby: !!linkGate(),
       }),
-    },
+      // Ayar aynası (B2/B3): telefonun Canlı ve düzenleme sayfaları bunu okur
+      'config.get': () => linkConfigSnapshot(),
+      'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
+    }, linkControlOps()),
   });
   return linkSvc;
 }
+
+/* Bağlantının ortak kapısı (izle dışındaki her işlem, phone-link-service gate). Yedek rolünde
+   birincili izlerken görüntü birincilden gelir: telefonun yazdığı ezilir ya da iki kopya ayrışır.
+   Öz test ölçerken panelin gönderimleri de bekletiliyor (smokeHold). */
+function linkGate() {
+  if (smokeHold) return 'busy';
+  if (red.role === 'backup' && red.follower && red.follower.follows()) return 'standby';
+  return '';
+}
+
+/* CANLI DENETİM (B2): istek src/main/link-live.js'te doğrulanır, panelde tek girişten uygulanır
+   (src/admin/link-live.js). Panele giden kod yalnız denetlenmiş veriden JSON olarak kurulur. */
+function linkControlOps() {
+  const run = async (op, args) => {
+    const p = linkLive.plan(op, args, currentConfig || {}, oscTree, remoteCommands.ACTIONS);
+    const call = p.kind === 'osc' ? ['osc', { message: p.message }] : [p.op, p.args];
+    const r = await mcpAdminCall('(window.SVLinkLive ? window.SVLinkLive.run(' + JSON.stringify(call[0]) + ', ' + JSON.stringify(call[1]) + ') : { ok: false, error: "panel-closed" })');
+    if (!r || r.ok === false) {
+      const why = r && typeof r.error === 'string' && /^[a-z-]{1,32}$/.test(r.error) ? r.error : (r && r.error ? 'panel-closed' : 'failed');
+      const e = new Error(why);
+      e.code = why;
+      throw e;
+    }
+    linkLiveKick();
+    return r;
+  };
+  const out = {};
+  for (const op of ['scene.apply', 'cue.set', 'blackout', 'tbar', 'master.set', 'mixer.set', 'momentary', 'deck.trigger', 'deck.stop',
+    'macro.set', 'tempo.set', 'tempo.tap', 'autovj.toggle', 'milkdrop.nav', 'timeline.transport', 'run']) {
+    out[op] = (args) => run(op, args);
+  }
+  return out;
+}
+
+/* AYAR AYNASI. Sürüm her değişimde artar; olay yalnız değişen üst anahtarları taşır (karşılaştırma
+   anahtar başına metinle, yalnız oturumu açık telefon varken). Telefon sürüm atlarsa config.get
+   ile yeniden çeker. Bu makineye ait anahtarlar (jetonlar, bağlantı anahtarları) hiç gitmez. */
+const linkMirror = { rev: 0, sig: new Map() };
+const linkSig = (v) => { try { return JSON.stringify(v === undefined ? null : v); } catch { return ''; } };
+function linkConfigSnapshot() {
+  const pub = linkLive.publicConfig(currentConfig || {});
+  linkMirror.sig = new Map(Object.keys(pub).map((k) => [k, linkSig(pub[k])]));
+  return { rev: linkMirror.rev, config: pub };
+}
+function linkConfigSync(patchKeys) {
+  if (!linkSvc || linkSvc.sessionCount() < 1) { linkMirror.sig.clear(); return; }
+  const cfg = currentConfig || {};
+  const keys = patchKeys || Array.from(new Set(Object.keys(cfg).concat(Array.from(linkMirror.sig.keys()))));
+  const patch = {};
+  let n = 0;
+  for (const k of keys) {
+    if (linkLive.PRIVATE_KEYS.indexOf(k) >= 0 || k === '__proto__') continue;
+    const sig = linkSig(cfg[k]);
+    if (linkMirror.sig.get(k) === sig) continue;
+    linkMirror.sig.set(k, sig);
+    patch[k] = cfg[k] === undefined ? null : cfg[k];
+    n++;
+  }
+  if (!n) return;
+  linkMirror.rev++;
+  linkSvc.broadcast({ ev: 'config', rev: linkMirror.rev, patch });
+}
+
+/* CANLI ÖZET. Ölçer (seviye, bantlar, tempo, vuruş) saniyede 5 kez, değişince; gösteri durumu
+   (sıradaki sahne, T-bar, anlık efektler, çizelge kafası) panelden, değişince. Yalnız oturumu
+   açık telefon varken; web kumandasının zamanlayıcısından ayrı. */
+const linkLiveShow = { last: null, key: '', meterKey: '', busy: false };
+function linkMeter() {
+  const m = remoteCommands.liveState(oscOutContext(), mcpLive, Date.now());
+  m.beat = Number.isFinite(oscLive.beat) ? oscLive.beat : 0;
+  m.beatsPerBar = oscLive.beatsPerBar || 4;
+  return m;
+}
+async function linkLiveTick() {
+  if (!linkSvc || !currentConfig || linkSvc.sessionCount() < 1) { linkLiveShow.key = ''; linkLiveShow.meterKey = ''; return; }
+  const meter = linkMeter();
+  const mk = JSON.stringify(meter);
+  if (mk !== linkLiveShow.meterKey) { linkLiveShow.meterKey = mk; linkSvc.broadcast({ ev: 'meter', meter }); }
+  if (linkLiveShow.busy) return;
+  linkLiveShow.busy = true;
+  let show = null;
+  try { show = await mcpAdminCall('(window.SVLinkLive ? window.SVLinkLive.snapshot() : null)'); } catch { show = null; }
+  linkLiveShow.busy = false;
+  if (!show || show.ok === false) return;
+  const key = JSON.stringify(show);
+  if (key === linkLiveShow.key) return;
+  linkLiveShow.key = key;
+  linkLiveShow.last = show;
+  if (linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'live', show });
+}
+// İşlemden hemen sonra: telefon düğmenin etkisini bir sonraki tıkı beklemeden görsün
+function linkLiveKick() { setTimeout(() => { linkLiveTick().catch(() => {}); }, 30); }
+const linkLiveTimer = setInterval(() => { linkLiveTick().catch(() => {}); }, 200);
+if (linkLiveTimer.unref) linkLiveTimer.unref();
 // Ayar değişince: bayrak yayın sunucusuna, hizmete. Sunucuyu syncStreamServer açar/kapatır.
 function syncPhoneLink() {
   const pc = phoneLinkCfg();
@@ -12891,6 +12993,7 @@ function shutdownCleanup() {
   if (linkListener) linkListener.stop();
   peerRelay.stop();
   streamServer.stop().catch(() => {});
+  linkDisc.stop(); // ağdaki duyuru kapanışta da susmalı
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});

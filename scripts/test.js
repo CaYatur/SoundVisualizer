@@ -167,7 +167,9 @@ if (tap) {
   args.push('--test-reporter=' + (process.stdout.isTTY ? 'spec' : 'tap'), '--test-reporter-destination=stdout',
             '--test-reporter=tap', '--test-reporter-destination=' + tap);
 }
-args.push(...files);
+/* Dosyalar köke göreli: Windows'ta komut satırı 32 767 karakterle sınırlı ve 400'ü aşkın tam yol
+   (uzun bir klasörde) bunu aşıp spawn ENAMETOOLONG veriyordu. Çocuk süreç kökte koşuyor. */
+args.push(...files.map((f) => path.relative(root, f)));
 
 const child = spawn(process.execPath, args, { stdio: 'inherit', cwd: root });
 child.on('exit', (code, signal) => {
