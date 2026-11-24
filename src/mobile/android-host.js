@@ -43,6 +43,7 @@
   }
 
   const ev = {
+    link: listeners(), linkEvent: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -181,6 +182,11 @@
       ev.memory.emit(v);
     } else if (name === 'exportAck' || name === 'exportError') {
       onExportEvent(name, v);
+    } else if (name === 'linkState') {
+      // PC bağlantısı (link/PcLink.kt): durum, kayıtlı ve ağda bulunan bilgisayarlar
+      ev.link.emit(v);
+    } else if (name === 'linkEvent') {
+      ev.linkEvent.emit(v);
     }
   }
 
@@ -678,6 +684,23 @@
       ready: () => profile.load(),
     }),
     /* Çalan parça: uygulama içi çalar ya da (bildirim erişimiyle) başka uygulamalar. */
+    /* PC bağlantısı (docs/PHONE-LINK.md). Ağ, şifreleme ve anahtarlar uygulamada; sayfa yalnız
+       durumu görür ve istek yollar. */
+    link: Object.freeze({
+      status: () => request('linkStatus'),
+      pairQr: (qr) => request('linkPairQr', { qr }),
+      pairCode: (host, port, code) => request('linkPairCode', { host, port, code }),
+      connect: (pc) => request('linkConnect', { pc }),
+      disconnect: () => request('linkDisconnect'),
+      cancel: () => request('linkDisconnect'),
+      forget: (pc) => request('linkForget', { pc }),
+      setAuto: (pc, on) => request('linkAuto', { pc, on: !!on }),
+      request: (op, args) => request('linkRequest', { op, args: args || {} }),
+      discover: (on) => request('linkDiscover', { on: !!on }),
+      qrFrame: (w, h, data) => request('linkQrFrame', { w, h, data }),
+      onState: (cb) => ev.link.add(cb),
+      onEvent: (cb) => ev.linkEvent.add(cb),
+    }),
     nowPlaying: Object.freeze({
       current: () => nowPlaying,
       /** Yalnız başka uygulamalardan gelen (medya oturumu); kart ve sınama için. */

@@ -95,6 +95,8 @@ object EngineHost {
         // Başka uygulamalarda çalan parça (bildirim erişimi verildiyse)
         com.cayadev.visualizer.media.NowPlaying.init(app)
         com.cayadev.visualizer.media.NowPlaying.events = { v -> bridge?.event("mediaSession", v) }
+        // PC bağlantısı (docs/PHONE-LINK.md): kayıtlı bilgisayara kendiliğinden bağlanır
+        com.cayadev.visualizer.link.PcLink.init(app) { name, v -> bridge?.event(name, v) }
         com.cayadev.visualizer.media.NowPlaying.start(app)
         // Söz kitaplığı değişince motor yeni listeyi alır (masaüstündeki lyrics-lib yayını)
         com.cayadev.visualizer.store.LyricsHub.init(app)

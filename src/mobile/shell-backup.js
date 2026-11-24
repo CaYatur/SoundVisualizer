@@ -92,7 +92,7 @@
         body.appendChild(allNone(ORDER, chosen, ctx));
         body.appendChild(h('div', { class: 'card nav-card' }, ORDER.map((id) => row(id, chosen.has(id), sub(id), (v) => { if (v) chosen.add(id); else chosen.delete(id); ctx.refresh(); }))));
         const partial = ['settings', 'scenes', 'colors', 'timeline'].some((k) => !chosen.has(k));
-        if (partial && chosen.size) body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: 'Bilgisayar bir yedeği geri yüklerken bütün ayarlarını yedektekiyle değiştirir. Bilgisayarda kullanacaksanız ayar bölümlerinin hepsini seçin.' })]));
+        if (partial && chosen.size) body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: 'Bilgisayar bu yedeği geri yüklerken yalnız seçtiğiniz bölümleri değiştirir, diğer ayarlarını korur.' })]));
         if (progress) {
           const pct = progress.total > 0 ? Math.min(100, Math.round(progress.done / progress.total * 100)) : 0;
           body.appendChild(h('div', { class: 'card ctl', role: 'status' }, [

@@ -227,6 +227,13 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | event `back` | The Back gesture while the page is connected. |
 | event `powerSource` | `{ onBattery }`, on `hello` and when the charger is plugged or unplugged. |
 | event `memoryPressure` | `{ level }` (`onTrimMemory`, registered on the application, so it also arrives while only the floating window is up). |
+| `linkStatus` | PC link ([PHONE-LINK.md](../PHONE-LINK.md)): `{ state, pc, level, digits, error, saved, discovered }`. `state` is `idle`, `connecting`, `approve` (QR: approve on the computer), `sas` (code: compare the six digits), `connected`, `reconnecting` or `error`. `saved` has no keys. |
+| `linkPairQr { qr }`, `linkPairCode { host, port, code }` | Start pairing; progress arrives as `linkState`. Fail at once with `bad-qr` or `bad-input`. |
+| `linkConnect { pc }`, `linkDisconnect`, `linkForget { pc }`, `linkAuto { pc, on }` | Saved computers. The last one with `auto` is reconnected when the app starts and after a lost connection (1, 2, 4, 8, 15 s). A computer that answers `unknown-device` is removed. |
+| `linkRequest { op, args }` | Encrypted request to the computer; resolves `{ ok, result }` or `{ ok:false, error }` (`not-connected`, `not-allowed`, `unsupported`, `timeout`). |
+| `linkDiscover { on }` | Listens for the computers' UDP announcements (port 47821, multicast lock held only while on). |
+| `linkQrFrame { w, h, data }` | Decodes a QR code from a grey camera frame (base64, one byte per pixel) with the bundled ZXing core; resolves the text or `null`. |
+| events `linkState` / `linkEvent` | The link status on every change; events the computer pushes (`{ ev, … }`). |
 
 The engine (the one WebView) belongs to the app, not to the screen (`EngineHost`): it is built on the application
 context and moved between the full-screen Activity and the floating window. If the system destroys the Activity while
