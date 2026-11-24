@@ -725,8 +725,10 @@
     const targetChip = h('button', { class: 'chip glass live target-chip', hidden: true, 'aria-label': 'Hedef', onclick: targetMenu }, [targetIcon, targetLabel, targetDim]);
     hud.insertBefore(targetChip, hud.firstChild);
     const toastBox = h('div', { class: 'toast glass', role: 'status', 'aria-live': 'polite', hidden: true });
-    root = h('div', { id: 'sv-shell' }, [hud, sceneCard, scenesStrip, nav, toastBox]);
-    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox };
+    // "Gerçek görüntü" önizlemesi: PC'nin gösterdiği kare sahnenin üstünde, arayüzün altında
+    const pcShot = h('img', { class: 'pc-shot', alt: '', hidden: true, decoding: 'async' });
+    root = h('div', { id: 'sv-shell' }, [pcShot, hud, sceneCard, scenesStrip, nav, toastBox]);
+    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, pcShot };
     document.body.appendChild(root);
     if (typeof ResizeObserver === 'function') new ResizeObserver(fitHud).observe(hud);
     fitHud();
@@ -757,7 +759,28 @@
     const st = T.get();
     const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
     const pcLabel = (st.name || 'PC') + ' · ' + (st.state === 'connected' ? tr('bağlı') : st.state === 'connecting' || st.state === 'reconnecting' ? tr('bağlanıyor') : tr('bağlı değil'));
-    const v = await chooseBox('Hedef', [['phone', tr('Bu telefon')], ['pc', pcLabel], ['setup', tr('Bağlantı ayarları')]], st.target);
+    const PREV = { smooth: tr('Akıcı'), image: tr('Gerçek görüntü'), off: tr('Kapalı') };
+    const opts = [['phone', tr('Bu telefon')], ['pc', pcLabel]];
+    if (st.target === 'pc') opts.push(['preview', tr('Önizleme') + ': ' + (PREV[st.preview] || PREV.smooth)]);
+    opts.push(['display', tr('Ek ekran olarak kullan')], ['setup', tr('Bağlantı ayarları')]);
+    const v = await chooseBox('Hedef', opts, st.target);
+    if (v === 'preview') {
+      /* Akıcı: telefon bilgisayarın ayarını bilgisayarın sesiyle kendisi çizer (az veri, piksel
+         piksel aynı değil: bilgisayardaki kamera, ekran yakalama, web sayfası telefonda yok).
+         Gerçek görüntü: bilgisayarın gösterdiği kare, saniyede birkaç kez. Kapalı: bilgisayarın
+         ayarı telefonun kendi sesiyle. */
+      const m = await chooseBox('Önizleme', [['smooth', PREV.smooth], ['image', PREV.image], ['off', PREV.off]], st.preview || 'smooth');
+      if (m) T.preview(m);
+      return;
+    }
+    if (v === 'display') {
+      // Telefon PC'nin bir çıkışı gibi: PC hedefi, akıcı önizleme, arayüzsüz tam ekran
+      const r = await T.set('pc');
+      if (!r || r.target !== 'pc') { toast('PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.'); return; }
+      T.preview('smooth');
+      setFullscreen(true);
+      return;
+    }
     if (v === 'phone' || v === 'pc') {
       const r = await T.set(v);
       if (v === 'pc' && r && r.target !== 'pc') toast(st.state === 'connected' ? 'PC ayarı okunamadı. Yeniden deneyin.' : 'PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.');
@@ -822,6 +845,13 @@
         S.link.status().then(seen, () => {});
       }
       if (S.pc) S.pc.onError(onPcError);
+      if (S.pc && S.pc.onShot) S.pc.onShot((v) => {
+        const img = refs.pcShot;
+        if (!img) return;
+        if (!v) { img.hidden = true; img.removeAttribute('src'); return; }
+        img.src = v.src;
+        img.hidden = false;
+      });
       paintTarget();
     }
     S.onLowPower((on) => root.classList.toggle('flat', !!on));

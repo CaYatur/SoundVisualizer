@@ -35,7 +35,7 @@ object PcLink {
     private var sealer: LinkCrypto.Sealer? = null
     private var opener: LinkCrypto.Opener? = null
     private var gen = 0 // her bağlantı denemesi yeni kuşak: eski soketin geri çağrıları yok sayılır
-    private var state = "idle"
+    @Volatile private var state = "idle"
     private var pc: JSONObject? = null
     private var level = ""
     private var error: String? = null
@@ -44,6 +44,38 @@ object PcLink {
     private var retry = 0
     private var nextId = 1
     private val waiting = ConcurrentHashMap<String, (JSONObject) -> Unit>()
+
+    /* Telefonun sesi → bilgisayar (B4). Yakalama iş parçacığı örnekleri buraya verir; kopyalanıp
+       bağlantının iş parçacığında şifreli yollanır. Ağ yavaşsa kuyruk 24 paketi geçince atılır:
+       gecikme birikmesin. */
+    @Volatile var sendAudio = false
+    private var audioSeq = 0L
+    private val audioQueued = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile var audioSent = 0L
+        private set
+    @Volatile var audioDropped = 0L
+        private set
+    fun pushAudio(sampleRate: Int, channels: Int, samples: ShortArray, count: Int) {
+        if (!sendAudio || state != "connected" || count <= 0) return
+        if (audioQueued.get() > 24) { audioDropped++; return }
+        val copy = samples.copyOf(count)
+        audioQueued.incrementAndGet()
+        exec.execute {
+            audioQueued.decrementAndGet()
+            val s = sealer
+            val w = ws
+            if (!sendAudio || state != "connected" || s == null || w == null) return@execute
+            val frames = copy.size / channels
+            var at = 0
+            while (at < frames) {
+                val n = minOf(LinkAudio.MAX_FRAMES, frames - at)
+                val pkt = LinkAudio.encode(audioSeq++, sampleRate, channels, copy, at * channels, n)
+                if (w.sendBinary(s.seal(pkt))) audioSent++ else audioDropped++
+                at += n
+            }
+        }
+    }
+    fun audioStats(): JSONObject = JSONObject().put("send", sendAudio).put("sent", audioSent).put("dropped", audioDropped)
 
     fun init(ctx: Context, events: (String, Any?) -> Unit) {
         emit = events
@@ -264,6 +296,12 @@ object PcLink {
 
     private fun onFrame(b: ByteArray) {
         val plain = opener?.open(b) ?: return
+        // İkili ileti: bilgisayarın sesi (B5). Sayfa yalnız istediyse alır (AudioHub.pcAudio)
+        if (plain.isNotEmpty() && plain[0] != '{'.code.toByte()) {
+            val p = LinkAudio.decode(plain) ?: return
+            if (com.cayadev.visualizer.audio.AudioHub.pcAudio) com.cayadev.visualizer.audio.AudioHub.pushPcm(p.sampleRate, p.channels, com.cayadev.visualizer.bridge.Messages.SOURCE_PC, p.samples, p.samples.size)
+            return
+        }
         val m = try { JSONObject(String(plain, Charsets.UTF_8)) } catch (e: Exception) { return }
         val re = m.optString("re", "")
         if (re.isNotEmpty()) { waiting.remove(re)?.invoke(m); return }

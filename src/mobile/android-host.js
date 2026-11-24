@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(), target: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -235,6 +235,7 @@
     nowPlaying = next;
     ev.nowPlaying.emit(next);
     lookupLyrics(next);
+    if (typeof pcNowPlaying === 'function') pcNowPlaying(next);
   }
 
   /* ---- Şarkı sözleri (store/LyricsHub.kt; masaüstündeki lyrics-lib ve lyrics-lookup) ----
@@ -704,7 +705,10 @@
   }
   function emitTarget() { ev.target.emit(targetInfo()); }
   function targetInfo() {
-    return { target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading };
+    return {
+      target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading,
+      audioSend: typeof audioSend === 'boolean' ? audioSend : false, preview: typeof previewMode === 'string' ? previewMode : 'smooth',
+    };
   }
   async function pcLoad() {
     pc.loading = true;
@@ -731,6 +735,7 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
+    syncAudio();
     emitTarget();
     clearInterval(pc.ping);
     // Gecikme göstergesi ve yedek rolü: beş saniyede bir kısa özet
@@ -746,15 +751,20 @@
     pc.on = false;
     clearInterval(pc.ping);
     if (was) ev.config.emit(engineView(config));
+    syncAudio();
     emitTarget();
   }
   function onLinkState(v) {
     const st = (v && v.state) || 'idle';
     pc.state = st;
     if (v && v.pc && v.pc.name) pc.name = v.pc.name;
+    const was = pc.lastState;
+    pc.lastState = st;
     if (st !== 'connected' && pc.on) leavePc(); // PC'ye ulaşılamıyor: telefonun kendi kipi
     else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
     else emitTarget();
+    // Bağlanınca "PC'ye gönder" kaldığı yerden; kopunca bilgisayarın sesi beklenmez
+    if (st !== was && (st === 'connected' || was === 'connected')) { if (st !== 'connected') watching = false; syncAudio(); }
   }
   const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
   function onLinkEvent(m) {
@@ -781,6 +791,92 @@
       ev.pcMeter.emit(pc.meter);
     }
   }
+  /* ---- SES VE ÖNİZLEME (B4/B5) ----
+     "PC'ye gönder": telefonun sesi (çalar, yakalama, mikrofon) bilgisayarın ses girişi olur; çalan
+     parça ve kapak da gider. Önizleme (hedef PC iken): "akıcı" telefon PC'nin ayarını kendi
+     motoruyla PC'nin sesiyle çizer; "gerçek" PC'nin gösterdiği kare (JPEG, saniyede ~4);
+     "kapalı" PC'nin ayarı telefonun kendi sesiyle. Telefonun sesi PC'ye giderken akıcı kip
+     telefonun kendi sesini kullanır (aynı ses; döngü olmasın). */
+  const AUDIO_KEY = 'sv-link-audio';
+  const PREVIEW_KEY = 'sv-link-preview';
+  let audioSend = false;
+  let previewMode = 'smooth';
+  try { audioSend = localStorage.getItem(AUDIO_KEY) === '1'; } catch (e) { /* */ }
+  try { const v = localStorage.getItem(PREVIEW_KEY); if (v === 'image' || v === 'off' || v === 'smooth') previewMode = v; } catch (e) { /* */ }
+  let watching = false;
+  let shotTimer = 0;
+  let shotBusy = false;
+  function syncAudio() {
+    const on = pc.state === 'connected';
+    request('linkAudioSend', { on: on && audioSend }).catch(() => {});
+    if (on && audioSend) pcAsk('audio.bridge', { on: true }).then(() => pcNowPlaying(nowPlaying, true));
+    const watch = pc.on && previewMode === 'smooth' && !audioSend;
+    if (watch !== watching) {
+      watching = watch;
+      request('linkAudioWatch', { on: watch }).catch(() => {});
+      if (pc.state === 'connected') pcAsk('audio.watch', { on: watch });
+    }
+    clearInterval(shotTimer);
+    shotTimer = 0;
+    if (pc.on && previewMode === 'image') shotTimer = setInterval(pcShot, 250);
+    else ev.pcShot.emit(null);
+  }
+  function pcShot() {
+    if (shotBusy || !pc.on || document.visibilityState === 'hidden') return;
+    shotBusy = true;
+    pcAsk('preview.get').then((r) => {
+      shotBusy = false;
+      if (r && r.ok && r.result && r.result.jpeg && pc.on && previewMode === 'image') ev.pcShot.emit({ src: 'data:image/jpeg;base64,' + r.result.jpeg, width: r.result.width, height: r.result.height });
+    });
+  }
+  async function setAudioSend(on) {
+    audioSend = !!on;
+    try { localStorage.setItem(AUDIO_KEY, audioSend ? '1' : '0'); } catch (e) { /* */ }
+    if (!audioSend && pc.state === 'connected') await pcAsk('audio.bridge', { on: false });
+    syncAudio();
+    emitTarget();
+    return targetInfo();
+  }
+  function setPreview(mode) {
+    previewMode = mode === 'image' || mode === 'off' ? mode : 'smooth';
+    try { localStorage.setItem(PREVIEW_KEY, previewMode); } catch (e) { /* */ }
+    syncAudio();
+    emitTarget();
+    return targetInfo();
+  }
+  /* Çalan parça → PC (yalnız "PC'ye gönder" açıkken). Kapak parça değişince bir kez, en çok
+     512 px JPEG'e küçültülür; konum her 5 sn'de ve çalma/durma değişince. */
+  let npSent = { key: '', at: 0, playing: null, artKey: '' };
+  function pcNowPlaying(np, force) {
+    if (!audioSend || pc.state !== 'connected' || !np) return;
+    const key = np.has ? np.title + '|' + np.artist + '|' + np.album : '';
+    const now = Date.now();
+    if (!force && key === npSent.key && np.playing === npSent.playing && now - npSent.at < 5000) return;
+    const args = { has: !!np.has, title: np.title || '', artist: np.artist || '', album: np.album || '', position: Number(np.position) || 0, duration: Number(np.duration) || 0, playing: !!np.playing, app: np.app || '' };
+    const send = (art) => { if (art != null) args.artwork = art; npSent = { key, at: now, playing: np.playing, artKey: art != null ? key : npSent.artKey }; pcAsk('nowplaying.set', args); };
+    if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
+    else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
+  }
+  function shrinkArt(src) {
+    return new Promise((resolve, reject) => {
+      if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) { reject(new Error('no-canvas')); return; }
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 512 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(img.width * k));
+        cv.height = Math.max(1, Math.round(img.height * k));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        let out = cv.toDataURL('image/jpeg', 0.8);
+        if (out.length > 190 * 1024) out = cv.toDataURL('image/jpeg', 0.5);
+        if (out.length > 190 * 1024) { reject(new Error('too-big')); return; }
+        resolve(out);
+      };
+      img.onerror = () => reject(new Error('bad-image'));
+      img.src = src;
+    });
+  }
+
   // Telefonun yazımı sürerken gelen PC değerleri: yazım durunca uygulanır
   let settleTimer = 0;
   function scheduleSettle() {
@@ -876,6 +972,12 @@
       onLive: (cb) => ev.pcLive.add(cb),
       onMeter: (cb) => ev.pcMeter.add(cb),
       onError: (cb) => ev.pcError.add(cb),
+      /** "PC'ye gönder": telefonun sesi ve çalan parçası bilgisayarın girişi (tam düzey) */
+      audioSend: (on) => setAudioSend(on),
+      /** Önizleme kipi: 'smooth' | 'image' | 'off' */
+      preview: (mode) => setPreview(mode),
+      /** "Gerçek görüntü" karesi: { src, width, height } ya da null */
+      onShot: (cb) => ev.pcShot.add(cb),
       /** Tanılama (sınama betikleri): aynanın sürümü, bekleyen ve yazılan anahtarlar, son olaylar */
       debug: () => ({ rev: pc.rev, deferred: Object.keys(pc.deferred || {}), writing: pc.writing, events: evLog.slice(), on: pc.on }),
     }),

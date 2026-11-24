@@ -61,6 +61,9 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "linkDisconnect" -> { com.cayadev.visualizer.link.PcLink.disconnect(); reply.ok() }
             "linkForget" -> { com.cayadev.visualizer.link.PcLink.forget(args.optString("pc")); reply.ok() }
             "linkAuto" -> { com.cayadev.visualizer.link.PcLink.setAuto(args.optString("pc"), args.optBoolean("on")); reply.ok() }
+            // Telefonun sesi PC'ye (B4) ve sayfanın yalnız PC'nin sesini alması (B5)
+            "linkAudioSend" -> { com.cayadev.visualizer.link.PcLink.sendAudio = args.optBoolean("on"); reply.ok(com.cayadev.visualizer.link.PcLink.audioStats()) }
+            "linkAudioWatch" -> { AudioHub.pcAudio = args.optBoolean("on"); reply.ok() }
             "linkRequest" -> com.cayadev.visualizer.link.PcLink.request(args.optString("op"), args.optJSONObject("args") ?: JSONObject()) { r -> reply.ok(r) }
             "linkDiscover" -> {
                 if (args.optBoolean("on")) com.cayadev.visualizer.link.LinkDiscovery.start(app) { com.cayadev.visualizer.link.PcLink.status { s -> EngineHost.bridge?.event("linkState", s) } }

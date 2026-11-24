@@ -31,6 +31,15 @@ object AudioHub {
     @Volatile
     var events: ((String, String) -> Unit)? = null
 
+    /* PC bağlantısı. `tap`: telefonun kendi sesi (çalar, yakalama, mikrofon) bilgisayara da gider
+       (B4, PcLink.pushAudio). `pcAudio`: sayfa yalnız bilgisayarın sesini alır (B5); açıkken
+       telefonun kendi sesi sayfaya gitmez, iki akış aynı halka tampona karışmasın. */
+    @Volatile
+    var tap: ((Int, Int, ShortArray, Int) -> Unit)? = null
+
+    @Volatile
+    var pcAudio = false
+
     @Volatile
     var delivered = 0L
         private set
@@ -42,6 +51,8 @@ object AudioHub {
     fun now(): Double = SystemClock.elapsedRealtimeNanos() / 1e6
 
     fun pushPcm(sampleRate: Int, channels: Int, source: Int, samples: ShortArray, count: Int) {
+        if (source != Messages.SOURCE_PC) tap?.invoke(sampleRate, channels, samples, count)
+        if (pcAudio != (source == Messages.SOURCE_PC)) return
         val msg = Messages.pcmS16(pcmSeq.getAndIncrement() and 0xffffffffL, now(), sampleRate, channels, source, samples, count)
         post(msg)
     }
