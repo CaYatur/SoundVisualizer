@@ -37,6 +37,8 @@
     "bench": "node scripts/bench.js",
     "perf": "node scripts/perf.js",
     "golden": "node scripts/golden.js",
+    "milkdrop-ref": "node scripts/milkdrop-ref/run.js",
+    "milkdrop-ref:setup": "node scripts/milkdrop-ref/setup.js",
     "ui-walk": "node scripts/ui-walk.js",
     "ui-audit": "node scripts/ui-audit.js",
     "ui-layout": "node scripts/ui-layout.js",

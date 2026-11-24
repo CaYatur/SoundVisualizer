@@ -1,0 +1,18 @@
+MILKDROP_PRESET_VERSION=201
+[preset00]
+fDecay=0
+fGammaAdj=1
+fVideoEchoAlpha=0
+nWaveMode=0
+fWaveAlpha=0
+zoom=1
+rot=0
+warp=0
+ob_size=0.5
+ob_a=1
+ib_size=0
+mv_a=0
+fShader=0
+per_frame_1=ob_r = ((frame % 100)*2 + 1)/255;
+per_frame_2=ob_g = ((int(time*30 + 0.5) % 100)*2 + 1)/255;
+per_frame_3=ob_b = 0;
