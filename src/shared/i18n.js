@@ -2216,6 +2216,8 @@
     'Hepsini durdur': 'Stop all',
     'Gösteri kilidi': 'Show lock',
     'Kilidi açmak için kaydırın': 'Slide to unlock',
+    'Bağlantı anahtarları okunamadı (sistemin anahtar koruması şu an kullanılamıyor olabilir). Dosyaya dokunulmadı; eşleşmiş telefonlar korunuyor. Uygulamayı yeniden başlatmayı deneyin. Sorun sürerse anahtarları yeniden kurun: bütün telefonlar baştan eşleşir.': 'The link keys could not be read (the system key protection may be unavailable right now). The file was left untouched and paired phones are kept. Try restarting the app. If it persists, rebuild the keys: every phone has to pair again.',
+    'Anahtarları Yeniden Kur': 'Rebuild Keys',
     'Öbür Kopyalar': 'Other Instances',
     'Önceki oturum beklenmedik biçimde kapandı. Ayarlar sağlam, olduğu gibi açıldı.': 'The previous session ended unexpectedly. Settings were intact and loaded as-is.',
     'Önceki oturum beklenmedik biçimde kapandı. Ayar dosyası okunamadı, varsayılan ayarlarla açıldı.': 'The previous session ended unexpectedly. The settings file could not be read, so the app opened with default settings.',

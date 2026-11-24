@@ -737,6 +737,8 @@
 
   window.SVAutoVJ = {
     panel, init, tempoOf: () => tempo, followGrid, applySwitch, applyBackground,
+    // "Tempoya Vur" düğmesiyle aynı ölçüm (telefon bağlantısı)
+    tap: () => (tempo ? tempo.tap() : 0),
     statusOf: () => ({ lastResult, lastFailure }),
     counters: () => ({ panelRenders, switchCount }),
   };

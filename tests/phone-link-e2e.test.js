@@ -80,7 +80,9 @@ async function startServer(hooks, phoneLink) {
 test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; telefon yayın iletisi almaz', async () => {
   let stored = null;
   const notes = [];
+  let gateWhy = '';
   const svc = createService({
+    gate: () => gateWhy,
     stream: S,
     store: { read: () => stored, write: (o) => { stored = JSON.parse(JSON.stringify(o)); } },
     protect: { seal: (b) => 'x' + Buffer.from(b).toString('base64'), unseal: (s) => Buffer.from(String(s).slice(1), 'base64') },
@@ -131,6 +133,12 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
     assert.deepStrictEqual(await ask({ id: 1, op: 'state.get' }), { re: '1', ok: true, result: { scene: 'Gece Sürüşü' } });
     assert.deepStrictEqual(await ask({ id: 2, op: 'file.read' }), { re: '2', ok: false, error: 'not-allowed' });
     assert.deepStrictEqual(await ask({ id: 3, op: 'blackout' }), { re: '3', ok: false, error: 'unsupported' });
+    assert.strictEqual(svc.sessionCount(), 1);
+    // Ortak kapı: yedek rolünde izlerken kumanda reddedilir, izleme sürer
+    gateWhy = 'standby';
+    assert.deepStrictEqual(await ask({ id: 'g1', op: 'blackout' }), { re: 'g1', ok: false, error: 'standby' });
+    assert.deepStrictEqual(await ask({ id: 'g2', op: 'state.get' }), { re: 'g2', ok: true, result: { scene: 'Gece Sürüşü' } });
+    gateWhy = '';
 
     // Yayın iletisi telefona gitmez; olay yayını şifreli gider
     S.broadcast({ type: 'config', config: {} });
