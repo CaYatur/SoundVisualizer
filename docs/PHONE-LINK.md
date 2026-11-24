@@ -2,8 +2,7 @@
 
 The SoundVisualizer Android app can run a desktop copy of SoundVisualizer over the local network:
 scenes, layers, the timeline, live control, outputs, and the phone's audio. This page describes
-the wire protocol and the security model. Status: pairing, encryption, device management and the
-first request (`state.get`) ship first; the other operations are added step by step (issue #1054).
+the wire protocol and the security model (issue #1054). Turkish: [PHONE-LINK.tr.md](PHONE-LINK.tr.md).
 
 Source: `src/main/phone-link.js` (core, pure), `src/main/phone-link-service.js` (sessions and
 dispatch), `src/main/stream-server.js` (`/link` transport), `src/main/link-discovery.js` (network
@@ -315,7 +314,11 @@ connections can be open at once.
 | `view` | state, preview, library lists, thumbnails |
 | `control` | scene changes, blackout, T-bar, momentary effects, clip deck, macros, tempo, Auto VJ, MilkDrop navigation, timeline transport |
 | `edit` | settings patches (layers, effects, colors, text, timeline), saving and deleting scenes, presets and color presets |
-| `full` | outputs, audio sources, export, recording, lighting, power, sending files, web layer address, phone audio bridge; with a confirmation on the desktop: updates, audio repair, MIDI/OSC bindings, redundancy handover |
+| `full` | outputs, audio sources, export, recording, lighting, power, sending files, phone audio bridge |
+
+Reserved in the table but not offered from the phone in this version (refused as `unsupported`):
+updates, audio repair, MIDI/OSC bindings, redundancy handover and the web layer address, which would
+need a confirmation on the desktop.
 
 Never available, at any level: reading or writing arbitrary paths on the desktop, reading stream or
 MCP tokens, and changing the phone link's own security settings (approving new devices, opening
