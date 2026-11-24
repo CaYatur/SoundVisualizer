@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -187,6 +187,9 @@
       ev.link.emit(v);
     } else if (name === 'linkEvent') {
       ev.linkEvent.emit(v);
+    } else if (name === 'linkUpload') {
+      // PC'ye dosya gönderiminin ilerlemesi (link/LinkUpload.kt)
+      ev.pcUpload.emit(v);
     }
   }
 
@@ -707,7 +710,7 @@
   function targetInfo() {
     return {
       target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading,
-      audioSend: typeof audioSend === 'boolean' ? audioSend : false, preview: typeof previewMode === 'string' ? previewMode : 'smooth',
+      audioSend, preview: previewMode, usePcAudio, level: pc.level || '', readOnly: readOnly(), undo: undoStack.length, error: pc.error || '',
     };
   }
   async function pcLoad() {
@@ -722,6 +725,10 @@
     pc.deferred = {};
     const st = await pcAsk('state.get');
     pc.standby = !!(st.ok && st.result && st.result.standby);
+    /* SÜRÜM KİLİDİ (plan §3.4): PC'nin ayar biçimi telefonun bildiğinden yeniyse düzenleme kapalı,
+       izleme ve canlı denetim açık. Eski telefon yeni PC ayarını bozmasın. */
+    const mine = window.SV && window.SV.defaultConfig ? Number(window.SV.defaultConfig().docVersion) || 0 : 0;
+    pc.docNewer = !!(st.ok && st.result && mine && Number(st.result.docVersion) > mine);
     const lv = await pcAsk('live.get');
     if (lv.ok && lv.result) { pc.live = lv.result.show || null; pc.meter = lv.result.meter || null; }
     return true;
@@ -757,9 +764,11 @@
   function onLinkState(v) {
     const st = (v && v.state) || 'idle';
     pc.state = st;
+    pc.error = (v && v.error) || '';
     if (v && v.pc && v.pc.name) pc.name = v.pc.name;
     const was = pc.lastState;
     pc.lastState = st;
+    pc.level = (v && v.level) || pc.level || '';
     if (st !== 'connected' && pc.on) leavePc(); // PC'ye ulaşılamıyor: telefonun kendi kipi
     else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
     else emitTarget();
@@ -790,6 +799,8 @@
     } else if (m.ev === 'meter') {
       pc.meter = m.meter || null;
       ev.pcMeter.emit(pc.meter);
+    } else if (m.ev === 'export') {
+      ev.pcExport.emit(m.p || null);
     }
   }
   /* ---- SES VE ÖNİZLEME (B4/B5) ----
@@ -805,13 +816,15 @@
   try { audioSend = localStorage.getItem(AUDIO_KEY) === '1'; } catch (e) { /* */ }
   try { const v = localStorage.getItem(PREVIEW_KEY); if (v === 'image' || v === 'off' || v === 'smooth') previewMode = v; } catch (e) { /* */ }
   let watching = false;
+  let usePcAudio = false;
+  try { usePcAudio = localStorage.getItem('sv-link-pc-audio') === '1'; } catch (e) { /* */ }
   let shotTimer = 0;
   let shotBusy = false;
   function syncAudio() {
     const on = pc.state === 'connected';
     request('linkAudioSend', { on: on && audioSend }).catch(() => {});
     if (on && audioSend) pcAsk('audio.bridge', { on: true }).then(() => pcNowPlaying(nowPlaying, true));
-    const watch = pc.on && previewMode === 'smooth' && !audioSend;
+    const watch = !audioSend && pc.state === 'connected' && ((pc.on && previewMode === 'smooth') || (!pc.on && usePcAudio));
     if (watch !== watching) {
       watching = watch;
       request('linkAudioWatch', { on: watch }).catch(() => {});
@@ -904,9 +917,49 @@
 
   /* Yazım: sürüklerken (patch) saniyede en çok ~16 ara yama, son dokunuştan 350 ms sonra
      kesin yazım (final). Sahne işlemleri sırayla. */
+  /* Düzenleme kapalı mı: PC'nin ayarı daha yeni biçimde ya da cihazın düzeyi düzenlemenin altında
+     (izle/kumanda). O zaman yazım yollanmaz; düzenleyici PC'nin değerine geri çizilir ve bir kez
+     söylenir. Eskiden kumanda düzeyinde kaydırıcı sürüklemek saniyede ~16 reddedilen yama ve her
+     biri için bildirim demekti. */
+  function readOnly() {
+    if (pc.docNewer) return 'doc-newer';
+    const lv = pc.level || '';
+    return lv && lv !== 'edit' && lv !== 'full' ? 'not-allowed' : '';
+  }
+  let roNoted = 0;
+  /* GERİ AL (plan §4.4): telefonun son 20 kesin yazımının ters yaması. */
+  const undoStack = [];
+  function pushUndo(prev) {
+    undoStack.push(prev);
+    if (undoStack.length > 20) undoStack.shift();
+    emitTarget();
+  }
+  function undoLast() {
+    const prev = undoStack.pop();
+    emitTarget();
+    if (!prev || !pc.on || readOnly()) return false;
+    pc.cfg = Object.assign({}, pc.cfg, prev);
+    ev.config.emit(engineOf(viewCfg()));
+    serial('config.patch', { patch: prev, final: true });
+    return true;
+  }
   function pcWrite(next, final) {
     const d = PR().diff(viewCfg(), next);
-    if (Object.keys(d.local).length) patchConfig(d.local);
+    if (Object.keys(d.local).length) patchConfig(d.local); // tema telefonun: kilitliyken de
+    const ro = readOnly();
+    if (ro && (Object.keys(d.patch).length || d.ops.length || d.apply)) {
+      const t = Date.now();
+      if (t - roNoted > 4000) { roNoted = t; ev.pcError.emit({ op: 'config.patch', error: ro, detail: '' }); }
+      // Sahne çağırmak kumanda işi: kilitliyken de olur
+      if (d.apply) serial('scene.apply', { id: d.apply });
+      ev.config.emit(engineOf(viewCfg()));
+      return;
+    }
+    if (final && Object.keys(d.patch).length) {
+      const prev = {};
+      for (const k of Object.keys(d.patch)) prev[k] = pc.cfg[k] === undefined ? null : JSON.parse(JSON.stringify(pc.cfg[k]));
+      pushUndo(prev);
+    }
     const keys = Object.keys(d.patch);
     if (keys.length) {
       const t = Date.now();
@@ -981,6 +1034,18 @@
       preview: (mode) => setPreview(mode),
       /** "Gerçek görüntü" karesi: { src, width, height } ya da null */
       onShot: (cb) => ev.pcShot.add(cb),
+      /** Hedef "Bu telefon"ken telefonun sahnesi PC'nin sesiyle sürülsün mü */
+      usePcAudio: (on) => { usePcAudio = !!on; try { localStorage.setItem('sv-link-pc-audio', usePcAudio ? '1' : '0'); } catch (e) { /* */ } syncAudio(); emitTarget(); return targetInfo(); },
+      /** Telefonun son PC değişikliğini geri al (en çok 20) */
+      undo: () => undoLast(),
+      /** PC'ye dosya: önce seçici (kind: video | logo | lyrics | milk | audio), sonra gönderim */
+      pick: (kind) => request('linkPick', { kind }),
+      upload: (file, kind) => request('linkUpload', { uri: file.uri, name: file.name || '', kind }),
+      cancelUpload: (key) => request('linkUploadCancel', { key }),
+      onUpload: (cb) => ev.pcUpload.add(cb),
+      onExport: (cb) => ev.pcExport.add(cb),
+      /** Telefonun KENDİ ayarına yazar (hedef PC iken de; ör. PC'deki sahneyi telefona kopyalamak) */
+      copyToPhone: (c) => { if (!c || typeof c !== 'object') return; config = c; profile.save(c); if (!pc.on) ev.config.emit(engineView(c)); },
       /** Tanılama (sınama betikleri): aynanın sürümü, bekleyen ve yazılan anahtarlar, son olaylar */
       debug: () => ({ rev: pc.rev, deferred: Object.keys(pc.deferred || {}), writing: pc.writing, events: evLog.slice(), on: pc.on }),
     }),

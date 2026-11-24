@@ -64,6 +64,21 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             // Telefonun sesi PC'ye (B4) ve sayfanın yalnız PC'nin sesini alması (B5)
             "linkAudioSend" -> { com.cayadev.visualizer.link.PcLink.sendAudio = args.optBoolean("on"); reply.ok(com.cayadev.visualizer.link.PcLink.audioStats()) }
             "linkAudioWatch" -> { AudioHub.pcAudio = args.optBoolean("on"); reply.ok() }
+            // PC'ye dosya (B6): seç, gönder (ilerleme `linkUpload` olayı), iptal
+            "linkPick" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                val kind = args.optString("kind")
+                if (kind !in setOf("video", "logo", "lyrics", "milk", "audio")) { reply.fail("bad-kind"); return }
+                live.pickLink(kind, reply)
+            }
+            "linkUpload" -> {
+                val kind = args.optString("kind")
+                if (kind !in setOf("video", "logo", "lyrics", "milk", "audio")) { reply.fail("bad-kind"); return }
+                val uri = try { android.net.Uri.parse(args.optString("uri")) } catch (e: Exception) { null }
+                if (uri == null || uri.scheme != "content") { reply.fail("bad-uri"); return }
+                reply.ok(JSONObject().put("key", com.cayadev.visualizer.link.LinkUpload.start(app, uri, kind, args.optString("name").take(120))))
+            }
+            "linkUploadCancel" -> { com.cayadev.visualizer.link.LinkUpload.cancel(args.optString("key")); reply.ok() }
             // Canlı sekmesinin basılı tuttuğu anlık efektler; kirayı uygulama yeniler (PcLink.setHeld)
             "linkHeld" -> {
                 val a = args.optJSONArray("list") ?: JSONArray()
