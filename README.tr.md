@@ -1684,6 +1684,32 @@ birincili ve iki makinenin yeniden açılışını denetler.
 
 ---
 
+### Telefon bağlantısı (Android)
+
+SoundVisualizer Android uygulaması (geliştiriliyor, henüz yayınlanmadı) bu bilgisayarı yerel ağdan
+yönetebilir. **Ayarlar → Kontrol →
+Telefon Bağlantısı**'ndan açın, QR kodla ya da adres ve kodla eşleşin; iki ekranda aynı altı rakam
+görünür ve her yeni telefon bilgisayarda onaylanır. Sonra telefonda hedef olarak bilgisayarı seçin:
+
+- **Bütün düzenleyiciler bilgisayarda çalışır**: sahneler, katmanlar, efektler, renkler, metin,
+  zaman çizelgesi. Yalnız değişen kısım gider; panel tek yazar kalır, telefon ile panel birbirinin
+  yazdığını ezmez. Telefon kendi temasını korur.
+- **Canlı sekmesi**: önizleme ve program, T-bar ve Geç, karartma, dokunarak tempo, basılı tutulan
+  anlık efektler, klip destesi, makrolar, Otomatik VJ, MilkDrop gezintisi, çizelge taşıması ve
+  gösteri kilidi.
+- **İki yönlü ses**: telefonun sesi (mikrofon, telefonda çalan müzik, uygulama içi çalar), çalan
+  parçası ve kapağıyla birlikte bilgisayarın ses girişi olabilir; telefon susunca yerel girişe
+  dönülür. Telefon bilgisayarın görünümünü bilgisayarın sesiyle kendisi çizebilir, bilgisayarın
+  gerçek çıkışını gösterebilir ya da ek ekran olabilir.
+- **Telefondan PC ayarları**: çıkışlar, ses aygıtı, kayıt, dışa aktarma (şarkı telefondan gider),
+  MilkDrop kitaplığı, video, logo, söz ve preset gönderme, ışık ve güç, iki yönlü sahne aktarma.
+
+Yalnız yerel; bulut ya da dış hizmet yok. El sıkışmadan sonraki her şey şifreli (ECDH P-256,
+AES-256-GCM). Bağlantıyı açmak yayın sayfalarını ve dosyaları ağa açmaz. Telefonların erişim düzeyi
+var (izle, kumanda, düzenleme, tam), bazı şeyleri de hiçbir telefon yapamaz: bilgisayara dosya yolu
+yazmak, jeton okumak, bağlantının kendi güvenlik ayarlarını değiştirmek. İletişim kuralı ve güvenlik
+modeli: [docs/PHONE-LINK.tr.md](docs/PHONE-LINK.tr.md).
+
 ### Gizlilik ve güvenlik
 
 - **Hesap yok, telemetri yok, analiz yok.** Ayarlar kullanıcı klasörünüzde duruyor.

@@ -405,6 +405,43 @@ function phone(port) {
     const chipTxt = await pc.ev(`(() => { const b = document.getElementById('phoneChip'); return b && !b.hidden ? document.getElementById('phoneChipName').textContent : ''; })()`);
     check('üst çubukta "Telefon bağlı"', chipTxt.indexOf('Sınama Telefonu') >= 0, chipTxt);
 
+    // ---- İki telefon (B7): ikisi de olayları alır, birinin boş efekt listesi ötekinin basılısını bırakmaz
+    st = await pc.ev('window.api.phoneLinkNewCode()');
+    const ph2 = phone(st.port || streamPort);
+    await ph2.ready;
+    await ph2.nextText();
+    const me2 = Link.newIdentity();
+    ph2.sendText({ t: 'pair', kind: 'code', v: 1, pub: Link.b64u(me2.pub), name: 'İkinci Telefon', model: 'probe2', proof: Link.b64u(Link.hmac(Buffer.from(st.pairing.code), 'sv-link-code|', me2.pub)) });
+    const commit2 = await ph2.nextText();
+    const np2 = crypto.randomBytes(16);
+    ph2.sendText({ t: 'reveal', np: Link.b64u(np2) });
+    const rev2 = await ph2.nextText();
+    let ok2 = false;
+    for (let i = 0; i < 20 && !ok2; i++) {
+      await wait(150);
+      ok2 = await pc.ev(`(() => { const b = [...document.querySelectorAll('.ask-panel button')].find((x) => x.textContent.trim() === window.SVI18n.t('Aynı, onayla')); if (!b) return false; b.click(); return true; })()`);
+    }
+    const paired2 = await ph2.nextText();
+    check('ikinci telefon eşleşti', ok2 && paired2.t === 'paired', paired2.t);
+    const pcPub2 = Link.unb64u(commit2.pub);
+    ph2.keys(Link.sessionKeys(Link.deviceKey(Link.sharedSecret(me2, pcPub2), me2.pub, pcPub2, np2, Link.unb64u(rev2.nc)), np2, Link.unb64u(rev2.nc)));
+    st = await pc.ev('window.api.phoneLinkStatus()');
+    check('bilgisayarda iki telefon çevrimiçi', st.devices.filter((d) => d.online).length === 2, st.devices.map((d) => [d.name, d.online]));
+    await ph2.ask('config.get');
+    // Ayardaki etkin sahne (panelin vurgusu düzenlemeden sonra kalkar ama anahtar kalır)
+    const activeNow2 = await P('c._activeSceneId || ""');
+    const otherScene = scenes.find((id) => id !== activeNow2) || scenes[0];
+    ph2.events.length = 0;
+    r = await ph.ask('scene.apply', { id: otherScene });
+    const seen2 = () => ph2.events.some((e) => e.ev === 'config' && e.patch && e.patch._activeSceneId === otherScene);
+    for (let i = 0; i < 30 && !seen2(); i++) await wait(100);
+    check('birinci telefonun sahnesi ikinciye ayar olayıyla geldi', r.ok && seen2(), { active: await P('c._activeSceneId'), want: otherScene, ev: ph2.events.filter((e) => e.ev === 'config').map((e) => [e.rev, Object.keys(e.patch).join(','), e.patch._activeSceneId]) });
+    await ph.ask('momentary', { list: ['flash'] });
+    await ph2.ask('momentary', { list: [] });
+    check('ikinci telefonun boş listesi birincinin efektini bırakmadı', JSON.stringify(await P('window.SVLiveShell.heldList()')) === '["flash"]');
+    await ph.ask('momentary', { list: [] });
+    ph2.close();
+
     // ---- Anlık efekt kirası: yenilendikçe kalır, oturum kapanınca hemen kalkar
     const held = () => P('JSON.stringify(window.SVLiveShell.heldList())');
     const samples = [];

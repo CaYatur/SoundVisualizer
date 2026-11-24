@@ -1666,6 +1666,33 @@ and checks takeover, output authority, hand-back, a network cut, a hung primary 
 
 ---
 
+### Phone link (Android)
+
+The SoundVisualizer Android app (in development, not released yet) can run this computer over the
+local network. Turn it on in
+**Settings → Control → Phone Link** and pair with the QR code, or with the address and code; both
+screens show the same six digits, and every new phone is approved on the computer. Then pick the
+computer as the target on the phone:
+
+- **Every editor works on the computer**: scenes, layers, effects, colors, text, the timeline.
+  Only the changed parts are sent, and the panel stays the only writer, so the phone and the panel
+  never overwrite each other. The phone keeps its own theme.
+- **Live tab**: preview and program, T-bar and Take, blackout, tap tempo, held momentary effects,
+  clip deck, macros, Auto VJ, MilkDrop navigation, timeline transport and a show lock.
+- **Audio both ways**: the phone's audio (microphone, music playing on the phone, the in-app player)
+  and its track and cover can become the computer's audio input, with fallback to the local input.
+  The phone can also draw the computer's look with the computer's audio, show the computer's real
+  output, or act as an extra display.
+- **PC settings from the phone**: outputs, audio device, recording, export (the song sent from the
+  phone), the MilkDrop library, sending videos, logos, lyrics and presets, lighting and power, scene
+  transfer in both directions.
+
+Local only, with no cloud and no outside service. Everything after the handshake is encrypted
+(ECDH P-256, AES-256-GCM). Turning the link on does not open the stream pages or files to the
+network. Phones have access levels (view, control, edit, full), and some things no phone can ever
+do: write a file path on the computer, read tokens, or change the link's own security settings.
+Protocol and security model: [docs/PHONE-LINK.md](docs/PHONE-LINK.md).
+
 ### Privacy and security
 
 - **No account, no telemetry, no analytics.** Settings live in your user folder.
