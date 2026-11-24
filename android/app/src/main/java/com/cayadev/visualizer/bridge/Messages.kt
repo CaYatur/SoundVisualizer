@@ -34,6 +34,8 @@ object Messages {
     const val SOURCE_PLAYER = 1
     const val SOURCE_CAPTURE = 2
     const val SOURCE_MIC = 3
+    // PC bağlantısı: bilgisayarın sesi (B5, link/PcLink.kt)
+    const val SOURCE_PC = 4
 
     data class Header(val type: Int, val seq: Long, val timeMs: Double) {
         fun write(buf: ByteBuffer) {

@@ -651,6 +651,9 @@
     sceneGradient: (s) => sceneGradient(s),
     sceneSummary: (s) => sceneSummary(s),
     saveScene: () => actions.saveScene(),
+    // Telefon bağlantısı (src/admin/link-live.js): panelin kendi sahne işlemleri, onay sormadan
+    updateScene: (id) => actions.updateScene(id),
+    renameScene: (id, name) => actions.renameScene(id, name),
     addStarterScenes: () => actions.addStarterScenes(),
     starterButton: () => starterButton(),
     sceneThumbShot: (id) => sceneThumbShot(id),
@@ -7809,6 +7812,18 @@
         audioCaptureFromStatus = false;
         audioUiKind = 'idle';
         setAudioState(s.state === 'fallback' ? 'Köprü sessiz: yerel giriş kullanılıyor' : 'Köprüden ses bekleniyor', 'warn', 'warning');
+      } else if (s.type === 'phone') {
+        /* Ses girişi telefonda (PC bağlantısı B4) */
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'capture';
+        audioErrShown = null;
+        setAudioState(tr('Ses telefondan') + (s.name ? ': ' + s.name : ''), 'ok', 'phone');
+      } else if (s.type === 'phone-lost') {
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = false;
+        audioUiKind = 'idle';
+        setAudioState(s.state === 'fallback' ? 'Telefon sessiz: yerel giriş kullanılıyor' : 'Telefondan ses bekleniyor', 'warn', 'warning');
       } else if (s.type === 'no-loopback') {
         /* Bu platformda sistem sesini veren bir aygıt yok. Hata değil,
            eksik bir kurulum: macOS'ta CoreAudio loopback vermez ve

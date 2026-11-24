@@ -325,10 +325,11 @@ function createHost(opts) {
     };
     c.encrypt = (obj) => (c.stage === 'session' ? c.seal(Buffer.from(JSON.stringify(obj))) : null);
     c.encryptBinary = (buf) => (c.stage === 'session' ? c.seal(buf) : null);
+    /** Şifreli kare → çözülmüş baytlar ya da null (ses paketi gibi ikili iletiler). */
+    c.decryptRaw = (frame) => (c.stage === 'session' ? c.open(frame) : null);
     /** Şifreli kare → nesne (JSON) ya da null. */
     c.decrypt = (frame) => {
-      if (c.stage !== 'session') return null;
-      const plain = c.open(frame);
+      const plain = c.decryptRaw(frame);
       if (!plain) return null;
       try { return JSON.parse(plain.toString('utf8')); } catch { return null; }
     };
@@ -383,11 +384,15 @@ function createHost(opts) {
    ------------------------------------------------------------------------------------------- */
 const OPS = {
   // izle
-  'state.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
+  'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
+  'audio.watch': 'view',
   // kumanda
   'scene.apply': 'control', 'blackout': 'control', 'tbar': 'control', 'momentary': 'control', 'deck.trigger': 'control',
   'deck.stop': 'control', 'macro.set': 'control', 'tempo.tap': 'control', 'tempo.set': 'control', 'autovj.toggle': 'control',
-  'milkdrop.nav': 'control', 'timeline.transport': 'control', 'run': 'control',
+  'milkdrop.nav': 'control', 'timeline.transport': 'control', 'run': 'control', 'cue.set': 'control', 'master.set': 'control',
+  'mixer.set': 'control',
+  // tam: telefonda çalan parça (telefonun sesi bilgisayarın girişiyken)
+  'nowplaying.set': 'full',
   // düzenleme
   'config.patch': 'edit', 'scene.save': 'edit', 'scene.create': 'edit', 'scene.rename': 'edit', 'scene.delete': 'edit',
   'scene.reorder': 'edit', 'preset.save': 'edit', 'preset.delete': 'edit', 'palette.save': 'edit', 'palette.delete': 'edit',

@@ -19,6 +19,9 @@
 const Link = require('./phone-link');
 
 const RATE_PER_SEC = 120;
+// Ses paketleri (B4) ayrı sayılır: 48 kHz'te 10 ms'lik paketler saniyede 100 eder
+const AUDIO_PER_SEC = 400;
+const AUDIO_MAX_BYTES = 64 * 1024;
 const MAX_ID = 64;
 
 function createService(deps) {
@@ -32,17 +35,28 @@ function createService(deps) {
   const pending = new Map(); // bağlantı no → { conn, client, digits, name, model, at }
   let seq = 0;
   let keyed = []; // anahtarlı son cihaz listesi: depoya bu yazılır
+  /* Kayıtlı anahtarlar çözülemediyse (ör. sistemin anahtar koruması o an kullanılamıyor):
+     KAPALI KAL. Eskiden kimlik yokmuş gibi yenisi üretilip dosyanın üstüne yazılıyordu; bütün
+     eşleşmeler kalıcı olarak gidiyordu. Dosyaya dokunulmaz, panel uyarır; yeniden kurmak
+     (forgetAll) kullanıcının işi. */
+  let keysError = false;
 
   function load() {
     const saved = (d.store && d.store.read()) || {};
     const unseal = (s) => { try { return d.protect ? d.protect.unseal(s) : Buffer.from(String(s || ''), 'base64'); } catch { return null; } };
     let identity = null;
+    let broken = false;
     if (saved.identity && saved.identity.priv && saved.identity.pub) {
       const priv = unseal(saved.identity.priv);
       const pub = Buffer.from(String(saved.identity.pub), 'base64');
       if (priv && priv.length === 32 && Link.validPublicKey(pub)) identity = { priv, pub };
+      else broken = true;
     }
-    const devices = (Array.isArray(saved.devices) ? saved.devices : []).map((x) => Object.assign({}, x, { key: unseal(x.key) })).filter((x) => x.key && x.key.length === 32);
+    const raw = Array.isArray(saved.devices) ? saved.devices : [];
+    const devices = raw.map((x) => Object.assign({}, x, { key: unseal(x.key) })).filter((x) => x.key && x.key.length === 32);
+    if (devices.length !== raw.length) broken = true;
+    if (broken) { keysError = true; host = null; return false; }
+    keysError = false;
     keyed = devices;
     host = Link.createHost({
       identity, devices, now, pcName: d.pcName ? d.pcName() : 'PC',
@@ -51,7 +65,21 @@ function createService(deps) {
       onEvent,
     });
     if (!identity) save();
+    return true;
   }
+  // Yalnız kullanıcı isteğiyle: okunamayan anahtarların yerine yeni kimlik, boş cihaz listesi
+  function reset() {
+    keysError = false;
+    keyed = [];
+    host = Link.createHost({
+      identity: null, devices: [], now, pcName: d.pcName ? d.pcName() : 'PC',
+      randomBytes: d.randomBytes,
+      onChange: (list) => { keyed = list; save(); notify('phonelink-state', status()); },
+      onEvent,
+    });
+    save();
+  }
+  const ready = () => host || (!keysError && load() && host);
   function save() {
     if (!d.store) return;
     const seal = (buf) => (d.protect ? d.protect.seal(buf) : Buffer.from(buf).toString('base64'));
@@ -99,34 +127,60 @@ function createService(deps) {
     const c = client.link;
     if (!c || c.stage !== 'session') return;
     const t = now();
+    const plain = c.decryptRaw(frame);
+    if (!plain || !plain.length) return;
+    /* İkili ileti (ilk bayt '{' değil): telefonun sesi (B4). İzin "audio.bridge" (tam düzey);
+       saniyede ve boyutça ayrı sınır, yanıt yok. */
+    if (plain[0] !== 0x7b) {
+      if (!client.arate || t - client.arate.t >= 1000) client.arate = { t, n: 0 };
+      if (++client.arate.n > AUDIO_PER_SEC || plain.length > AUDIO_MAX_BYTES) return;
+      const lv = c.device ? c.device.level : 'view';
+      if (!Link.allowed(lv, 'audio.bridge') || typeof d.onAudio !== 'function') return;
+      if (typeof d.gate === 'function' && d.gate('audio.bridge')) return;
+      try { d.onAudio(client, plain, Object.assign({}, c.device, { key: undefined })); } catch { /* */ }
+      return;
+    }
     if (t - client.rate.t >= 1000) { client.rate.t = t; client.rate.n = 0; }
     if (++client.rate.n > RATE_PER_SEC) return;
-    const msg = c.decrypt(frame);
+    let msg = null;
+    try { msg = JSON.parse(plain.toString('utf8')); } catch { msg = null; }
     if (!msg || typeof msg !== 'object') return;
     const id = typeof msg.id === 'string' || typeof msg.id === 'number' ? String(msg.id).slice(0, MAX_ID) : null;
     const reply = (obj) => { if (id !== null && c.stage === 'session' && !c.closed) stream.linkSendBinary(client, c.encrypt(Object.assign({ re: id }, obj))); };
     const op = typeof msg.op === 'string' ? msg.op : '';
     const level = c.device ? c.device.level : 'view';
     if (!Link.allowed(level, op)) { reply({ ok: false, error: 'not-allowed' }); return; }
+    /* Ortak kapı (izle dışındaki her işlem): bu kopya yedek rolünde birincili izliyorsa ya da
+       öz test sürüyorsa yazım yok. Her işlemde ayrı ayrı denetlenseydi biri unutulurdu. */
+    if (Link.OPS[op] !== 'view' && typeof d.gate === 'function') {
+      const why = d.gate(op);
+      if (why) { reply({ ok: false, error: String(why) }); return; }
+    }
     const fn = Object.prototype.hasOwnProperty.call(ops, op) ? ops[op] : null;
     if (!fn) { reply({ ok: false, error: 'unsupported' }); return; }
     try {
       const result = await fn(msg.args && typeof msg.args === 'object' ? msg.args : {}, { device: Object.assign({}, c.device, { key: undefined }), client });
       reply({ ok: true, result: result === undefined ? null : result });
     } catch (e) {
-      reply({ ok: false, error: (e && e.code) || 'failed' });
+      // detail: reddedilen ayar anahtarı gibi kısa ipucu (telefon hangi alanın sorun olduğunu söyler)
+      const out = { ok: false, error: (e && e.code) || 'failed' };
+      if (e && typeof e.detail === 'string' && e.detail.length <= 64) out.detail = e.detail;
+      reply(out);
     }
   }
   function onClose(client) {
     if (client.linkTimer) { clearInterval(client.linkTimer); client.linkTimer = null; }
+    const was = client.link && client.link.stage === 'session';
     if (client.link) client.link.close();
     client.link = null;
+    // Oturumu kapanan telefonun bıraktıkları (ör. basılı tuttuğu anlık efekt) hemen temizlensin
+    if (was && typeof d.onSessionClose === 'function') { try { d.onSessionClose(client); } catch { /* */ } }
   }
 
   // ---- Panel
   function setEnabled(on) {
     enabled = !!on;
-    if (enabled && !host) load();
+    if (enabled && !host) ready();
     if (!enabled && host) {
       host.closePairing();
       for (const c of host.connections()) if (c.client) stream.dropClient(c.client);
@@ -134,7 +188,7 @@ function createService(deps) {
     }
     notify('phonelink-state', status());
   }
-  function newCode() { if (!host) load(); host.openPairing(); notify('phonelink-state', status()); return status(); }
+  function newCode() { if (!ready()) return status(); host.openPairing(); notify('phonelink-state', status()); return status(); }
   function confirm(no, ok) {
     const p = pending.get(no);
     if (!p) return false;
@@ -149,7 +203,12 @@ function createService(deps) {
   }
   function dropConns(list) { for (const c of list) if (c.client) stream.dropClient(c.client); }
   function forget(id) { if (!host) return; dropConns(host.forget(String(id))); notify('phonelink-state', status()); }
-  function forgetAll() { if (!host) return; dropConns(host.forgetAll()); notify('phonelink-state', status()); }
+  function forgetAll() {
+    if (!host && keysError) { reset(); notify('phonelink-state', status()); return; }
+    if (!host) return;
+    dropConns(host.forgetAll());
+    notify('phonelink-state', status());
+  }
   function setLevel(id, level) { return host ? host.setLevel(String(id), String(level)) : false; }
   function disconnect(id) {
     if (!host) return;
@@ -163,7 +222,7 @@ function createService(deps) {
 
   function status(extra) {
     // Kapalıyken de eşleşmiş cihazlar listelensin: depo varsa yükle (yoksa dosya yazılmaz)
-    if (!host && d.store && d.store.read()) load();
+    if (!host && !keysError && d.store && d.store.read()) load();
     const p = host ? host.pairingInfo() : null;
     const hosts = d.addresses ? d.addresses() : [];
     const port = d.port ? d.port() : 0;
@@ -175,7 +234,8 @@ function createService(deps) {
       addresses: hosts, port,
       devices: host ? host.devices() : [],
       pending: Array.from(pending.entries()).map(([no, x]) => ({ no, digits: x.digits, name: x.name, model: x.model, via: x.via })),
-    }, extra || {});
+      keysError,
+    }, typeof d.extra === 'function' ? d.extra() : {}, extra || {});
   }
 
   return {
@@ -183,6 +243,8 @@ function createService(deps) {
     setEnabled, newCode, confirm, forget, forgetAll, setLevel, disconnect, broadcast, status,
     setOp: (name, fn) => { ops[name] = fn; },
     isEnabled: () => enabled,
+    // Oturumu açık telefon sayısı (canlı özet ve ayar aynası yalnız o zaman çalışır)
+    sessionCount: () => (host ? host.connections().filter((c) => c.stage === 'session' && !c.closed).length : 0),
     pcId: () => (host ? host.pcId : ''),
   };
 }

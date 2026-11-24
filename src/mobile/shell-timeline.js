@@ -113,8 +113,30 @@
   // ==========================================================================
   let anchor = null;
   let lastAnchorKey = '';
+  /* HEDEF PC (PC bağlantısı): çizelge bilgisayarın çizelgesidir; taşıma bilgisayara işlem olarak
+     gider, kafa bilgisayarın canlı özetinden gelir ve aradaki süre telefonda ilerletilir. Şarkı
+     bilgisayarda çalar; telefonun çaları ve eylem klipleri bu kipte çalışmaz (eylemleri bilgisayar
+     kendisi çalıştırır). */
+  const pcOn = () => !!(A() && A().target && A().target.get().target === 'pc');
+  let pcHead = { t: 0, at: 0, playing: false };
+  function pcTime() {
+    const l = A() && A().pc ? A().pc.live() : null;
+    const tl = l && l.timeline;
+    if (tl && (tl.time !== pcHead.t || tl.playing !== pcHead.playing)) pcHead = { t: Number(tl.time) || 0, at: performance.now(), playing: !!tl.playing };
+    return { time: pcHead.playing ? pcHead.t + (performance.now() - pcHead.at) / 1000 : pcHead.t, playing: pcHead.playing };
+  }
+  function pcTransport(action, t) {
+    const args = action === 'seek' ? { action, t: Math.max(0, t) } : { action };
+    A().pc.request('timeline.transport', args).then((r) => {
+      if (r && r.ok && r.result) pcHead = { t: Number(r.result.time) || 0, at: performance.now(), playing: !!r.result.playing };
+      ui.transport();
+    });
+    if (action === 'seek') pcHead = { t: Math.max(0, t), at: performance.now(), playing: pcHead.playing };
+    ui.transport();
+  }
   function syncTransportFromAnchor() {
     const t = ensureTransport();
+    if (pcOn()) { const p = pcTime(); t.time = p.time; t.playing = p.playing; return t; }
     if (anchor && SC()) { t.time = SC().resolve(anchor, Date.now()); t.playing = !!anchor.playing; }
     return t;
   }
@@ -186,6 +208,7 @@
     ui.transport();
   }
   function play() {
+    if (pcOn()) { pcTransport('play'); return; }
     const t = syncTransportFromAnchor();
     if (hasSong()) {
       waitSong(t.time, seekSong(t.time));
@@ -199,6 +222,7 @@
     ui.transport();
   }
   function pause() {
+    if (pcOn()) { pcTransport('pause'); return; }
     const waited = !!songWait;
     songWait = null;
     syncTransportFromAnchor();
@@ -211,6 +235,7 @@
     ui.transport();
   }
   function stop() {
+    if (pcOn()) { pcTransport('stop'); return; }
     const waited = !!songWait;
     songWait = null;
     syncTransportFromAnchor();
@@ -222,6 +247,7 @@
     ui.transport();
   }
   function seek(t) {
+    if (pcOn()) { pcTransport('seek', t); return; }
     const tr0 = syncTransportFromAnchor();
     const to = Math.max(0, t);
     tickLast = null; // elle konum değişimi döngü sarması sayılmasın
@@ -1315,7 +1341,7 @@
     }
   }
   setInterval(() => {
-    if (!transport || !modeOn()) { lastActionT = null; return; }
+    if (!transport || !modeOn() || pcOn()) { lastActionT = null; return; }
     const t = syncTransportFromAnchor();
     const jumped = lastActionT == null || t.time < lastActionT - 1e-3 || t.time - lastActionT > 0.25;
     lastActionT = t.time;

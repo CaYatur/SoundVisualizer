@@ -61,6 +61,17 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "linkDisconnect" -> { com.cayadev.visualizer.link.PcLink.disconnect(); reply.ok() }
             "linkForget" -> { com.cayadev.visualizer.link.PcLink.forget(args.optString("pc")); reply.ok() }
             "linkAuto" -> { com.cayadev.visualizer.link.PcLink.setAuto(args.optString("pc"), args.optBoolean("on")); reply.ok() }
+            // Telefonun sesi PC'ye (B4) ve sayfanın yalnız PC'nin sesini alması (B5)
+            "linkAudioSend" -> { com.cayadev.visualizer.link.PcLink.sendAudio = args.optBoolean("on"); reply.ok(com.cayadev.visualizer.link.PcLink.audioStats()) }
+            "linkAudioWatch" -> { AudioHub.pcAudio = args.optBoolean("on"); reply.ok() }
+            // Canlı sekmesinin basılı tuttuğu anlık efektler; kirayı uygulama yeniler (PcLink.setHeld)
+            "linkHeld" -> {
+                val a = args.optJSONArray("list") ?: JSONArray()
+                val out = JSONArray()
+                for (i in 0 until minOf(a.length(), 6)) { val v = a.optString(i); if (Regex("^[a-z]{1,16}$").matches(v)) out.put(v) }
+                com.cayadev.visualizer.link.PcLink.setHeld(out)
+                reply.ok()
+            }
             "linkRequest" -> com.cayadev.visualizer.link.PcLink.request(args.optString("op"), args.optJSONObject("args") ?: JSONObject()) { r -> reply.ok(r) }
             "linkDiscover" -> {
                 if (args.optBoolean("on")) com.cayadev.visualizer.link.LinkDiscovery.start(app) { com.cayadev.visualizer.link.PcLink.status { s -> EngineHost.bridge?.event("linkState", s) } }

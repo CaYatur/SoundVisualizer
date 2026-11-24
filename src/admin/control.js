@@ -1716,5 +1716,6 @@
     }
   }
 
-  window.SVControl = { panel, init, TARGETS, allTargets, mappedValue, runAction };
+  // osc: sabit ağacın iletisini uygular (telefon bağlantısı, src/admin/link-live.js)
+  window.SVControl = { panel, init, TARGETS, allTargets, mappedValue, runAction, osc: onOsc };
 })();

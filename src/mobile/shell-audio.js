@@ -265,6 +265,17 @@
       h('div', { class: 'level-head' }, [h('span', { text: 'Seviye' }), refs.db]),
       refs.meter,
     ]));
+    /* PC bağlantısı (B4): seçili kaynağın sesi ve çalan parça bilgisayarın ses girişi olur.
+       Kayıtlı bilgisayar yoksa görünmez. */
+    const T = A().target ? A().target.get() : null;
+    if (T && (T.state === 'connected' || T.audioSend)) {
+      body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, [
+        U.toggle({ label: 'PC\'ye gönder', value: !!T.audioSend, onChange: (on) => A().pc.audioSend(on).then(() => ctx.refresh()) }),
+        h('div', { class: 'hint', text: T.audioSend
+          ? (T.state === 'connected' ? window.SVI18n.t('Aşağıda seçili kaynağın sesi, çalan parça ve kapağı {pc} için ses girişi.').replace('{pc}', T.name || 'PC') : 'PC bağlanınca gönderilecek.')
+          : 'Açınca seçili kaynağın sesi ve çalan parça PC\'nin ses girişi olur; PC\'nin görüntüsü, ışığı ve temposu bu sese tepki verir. Uygulama arka plandayken de sürer.' }),
+      ])]));
+    }
     body.appendChild(h('div', { class: 'section-label', text: 'Kaynak' }));
     const group = h('div', { class: 'source-list', role: 'radiogroup', 'aria-label': 'Kaynak' }, SOURCES.map(sourceCard));
     body.appendChild(group);

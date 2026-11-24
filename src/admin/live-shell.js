@@ -385,10 +385,25 @@
   ];
   const held = new Set();
   let heldTimer = null;
+  /* Telefonun basılı tuttukları (B2, src/admin/link-live.js) AYRI tutulur: telefonun boş listesi
+     paneldeki basılı flaşı bırakmasın. KİRA: telefon listesini ~0,5 sn'de bir yeniler; bırakma
+     iletisi kaybolur ya da bağlantı koparsa efekt kendiliğinden kalkar. Asıl kira ana süreçte
+     (1,5 sn, src/main/main.js linkHeld); buradaki 3 sn ana süreç de susarsa diye. */
+  const remoteHeld = new Set();
+  let remoteTimer = 0;
+  const REMOTE_LEASE_MS = 3000; // asıl kira ana süreçte (main.js linkHeld); bu yalnız güvenlik ağı
+  function setRemoteHeld(list) {
+    const next = new Set((Array.isArray(list) ? list : []).filter((id) => MOMENTARY.some((m) => m[0] === id)));
+    remoteHeld.clear();
+    next.forEach((id) => remoteHeld.add(id));
+    clearTimeout(remoteTimer);
+    remoteTimer = remoteHeld.size ? setTimeout(() => { remoteTimer = 0; remoteHeld.clear(); sendHeld(); }, REMOTE_LEASE_MS) : 0;
+    sendHeld(); // yenilemede de: arada açılan çıkış penceresi efekti alsın
+  }
   function sendHeld() {
     /* Flaş sınırlaması açıkken strobe saniyede üç flaşı geçmez (WCAG 2.3.1): MilkDrop sınırlayıcısıyla aynı ayar. */
     const free = (P().cfg().milkdrop || {}).flashLimit === false;
-    const list = MOMENTARY.filter((m) => held.has(m[0])).map((m) => ({
+    const list = MOMENTARY.filter((m) => held.has(m[0]) || remoteHeld.has(m[0])).map((m) => ({
       type: m[2], enabled: true, params: m[0] === 'strobe' && free ? Object.assign({}, m[3], { rate: 10 }) : m[3],
     }));
     if (window.api && window.api.sendMomentaryFx) window.api.sendMomentaryFx(list);
@@ -568,5 +583,14 @@
     if (e.key === 'Enter' && cue) { e.preventDefault(); takeCue(); }
   });
 
-  window.SVLiveShell = { paint, tbarTo, setLower: (v) => { lower = v === 'deck' ? 'deck' : 'scenes'; paint(); } };
+  window.SVLiveShell = {
+    paint, tbarTo, setLower: (v) => { lower = v === 'deck' ? 'deck' : 'scenes'; paint(); },
+    // Telefon bağlantısı (src/admin/link-live.js): sıra, AL, T-bar durumu, telefonun anlık efektleri
+    cue: () => (sceneById(cue) ? cue : ''),
+    setCue: (id) => { cue = id && sceneById(id) ? id : ''; paint(); },
+    take: () => { ensureCue(); takeCue(); },
+    tbarState: () => ({ rest: tb.rest, p: Math.round(tb.p * 1000) / 1000, live: tb.live, id: tb.id }),
+    setRemoteHeld,
+    heldList: () => MOMENTARY.filter((m) => held.has(m[0]) || remoteHeld.has(m[0])).map((m) => m[0]),
+  };
 })();

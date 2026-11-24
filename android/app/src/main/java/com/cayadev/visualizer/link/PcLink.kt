@@ -35,7 +35,7 @@ object PcLink {
     private var sealer: LinkCrypto.Sealer? = null
     private var opener: LinkCrypto.Opener? = null
     private var gen = 0 // her bağlantı denemesi yeni kuşak: eski soketin geri çağrıları yok sayılır
-    private var state = "idle"
+    @Volatile private var state = "idle"
     private var pc: JSONObject? = null
     private var level = ""
     private var error: String? = null
@@ -44,6 +44,66 @@ object PcLink {
     private var retry = 0
     private var nextId = 1
     private val waiting = ConcurrentHashMap<String, (JSONObject) -> Unit>()
+
+    /* Telefonun sesi → bilgisayar (B4). Yakalama iş parçacığı örnekleri buraya verir; kopyalanıp
+       bağlantının iş parçacığında şifreli yollanır. Ağ yavaşsa kuyruk 24 paketi geçince atılır:
+       gecikme birikmesin. */
+    @Volatile var sendAudio = false
+    private var audioSeq = 0L
+    private val audioQueued = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile var audioSent = 0L
+        private set
+    @Volatile var audioDropped = 0L
+        private set
+    fun pushAudio(sampleRate: Int, channels: Int, samples: ShortArray, count: Int) {
+        if (!sendAudio || state != "connected" || count <= 0) return
+        if (audioQueued.get() > 24) { audioDropped++; return }
+        val copy = samples.copyOf(count)
+        audioQueued.incrementAndGet()
+        exec.execute {
+            audioQueued.decrementAndGet()
+            val s = sealer
+            val w = ws
+            if (!sendAudio || state != "connected" || s == null || w == null) return@execute
+            val frames = copy.size / channels
+            var at = 0
+            while (at < frames) {
+                val n = minOf(LinkAudio.MAX_FRAMES, frames - at)
+                val pkt = LinkAudio.encode(audioSeq++, sampleRate, channels, copy, at * channels, n)
+                if (w.sendBinary(s.seal(pkt))) audioSent++ else audioDropped++
+                at += n
+            }
+        }
+    }
+    /* ANLIK EFEKT KİRASI telefonda da sayfadan bağımsız. Sayfa basışı, bırakışı ve basılıyken
+       saniyede bir "hâlâ basılı" bildirir; yenilemeyi (yarım saniyede bir) bu iş parçacığı yapar.
+       Emülatörde ölçüldü: sayfa ile uygulama arası gidiş-dönüş 0,2–0,5 sn, yüklüyken birkaç saniye;
+       yenileme sayfada kalınca bilgisayardaki 1,5 sn'lik kira doluyor, efekt basılıyken düşüyordu.
+       Sayfa 4 sn bildirmezse (çöktü, kapandı) liste bırakılır: efekt takılı kalmaz. */
+    private var held = JSONArray()
+    private var heldBeat = 0L
+    private var heldTask: java.util.concurrent.ScheduledFuture<*>? = null
+    fun setHeld(list: JSONArray) = exec.execute {
+        val changed = list.toString() != held.toString()
+        held = list
+        heldBeat = System.currentTimeMillis()
+        if (changed || list.length() > 0) sendHeld()
+        if (list.length() > 0 && heldTask == null) {
+            heldTask = exec.scheduleAtFixedRate({
+                if (System.currentTimeMillis() - heldBeat > 4000) { held = JSONArray(); sendHeld() }
+                if (held.length() == 0) { heldTask?.cancel(false); heldTask = null } else sendHeld()
+            }, 500, 500, TimeUnit.MILLISECONDS)
+        }
+    }
+    private fun sendHeld() {
+        val s = sealer
+        val w = ws
+        if (state != "connected" || s == null || w == null) return
+        // Yanıt beklenmez (kimliksiz istek): kira yenilemesi sırayı tıkamasın
+        w.sendBinary(s.seal(JSONObject().put("op", "momentary").put("args", JSONObject().put("list", held)).toString().toByteArray()))
+    }
+
+    fun audioStats(): JSONObject = JSONObject().put("send", sendAudio).put("sent", audioSent).put("dropped", audioDropped)
 
     fun init(ctx: Context, events: (String, Any?) -> Unit) {
         emit = events
@@ -264,6 +324,12 @@ object PcLink {
 
     private fun onFrame(b: ByteArray) {
         val plain = opener?.open(b) ?: return
+        // İkili ileti: bilgisayarın sesi (B5). Sayfa yalnız istediyse alır (AudioHub.pcAudio)
+        if (plain.isNotEmpty() && plain[0] != '{'.code.toByte()) {
+            val p = LinkAudio.decode(plain) ?: return
+            if (com.cayadev.visualizer.audio.AudioHub.pcAudio) com.cayadev.visualizer.audio.AudioHub.pushPcm(p.sampleRate, p.channels, com.cayadev.visualizer.bridge.Messages.SOURCE_PC, p.samples, p.samples.size)
+            return
+        }
         val m = try { JSONObject(String(plain, Charsets.UTF_8)) } catch (e: Exception) { return }
         val re = m.optString("re", "")
         if (re.isNotEmpty()) { waiting.remove(re)?.invoke(m); return }
@@ -304,6 +370,9 @@ object PcLink {
 
     private fun drop(why: String) {
         gen++
+        heldTask?.cancel(false)
+        heldTask = null
+        held = JSONArray()
         ws?.close()
         ws = null
         sealer = null

@@ -18,6 +18,9 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const phoneLinkLib = require('./phone-link-service');
 const linkDiscovery = require('./link-discovery');
+const linkLive = require('./link-live');
+const linkGuard = require('./link-guard');
+const linkAudio = require('./link-audio');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -1490,7 +1493,11 @@ function captureWanted() {
   if (BRIDGE_ONLY && bridge.sender && bridgeWinVisible()) return true;
   // Ses girişi köprüde: yerel yakalama yalnız yedek giriş gerekince
   if (bridge.input && !bridge.input.wantLocal) return false;
+  // Ses girişi telefonda (PC bağlantısı B4): aynı kural
+  if (phoneAudio.input && !phoneAudio.input.wantLocal) return false;
   if (BRIDGE_ONLY) return false;
+  // PC'nin sesini dinleyen telefon (B5): çıkış penceresi açık olmasa da ses gerekir
+  if (linkWatch.size > 0) return true;
   return (
     anyVisualizerOpen() ||
     previewSubscribed ||
@@ -1512,7 +1519,8 @@ const nativeDrums = new DrumHits();
 /* Dinlenebilir ses (#813): köprü gönderiyorsa yardımcı PCM de verir. Alıcı
    bağlandı diye yakalama yeniden kurulmasın (birincil köprüyse görüntü bir
    an durur); dönüşüm ucuz, gönderim yalnız isteyen alıcıya. */
-function bridgePcmWanted() { return !!bridge.sender; }
+// Ham ses: köprü yayını ya da PC'nin sesini dinleyen telefon (PC bağlantısı B5, linkWatch)
+function bridgePcmWanted() { return !!bridge.sender || linkWatch.size > 0; }
 let lastCapturePcm = false;
 function startVisualizerCapture() {
   const sources = configuredSources();
@@ -1538,6 +1546,7 @@ function startVisualizerCapture() {
       }
       // Ses girişi köprüdeyse yerel kare görüntüye gitmez (yakalama zaten durur)
       if (bridge.input && bridge.input.useBridge) return;
+      if (phoneAudio.input && phoneAudio.input.useBridge) return;
       deliverAudioFrame(frame);
     },
     (status) => {
@@ -1558,7 +1567,7 @@ function startVisualizerCapture() {
       lastCaptureStatus = status ? { type: status.type, code: status.code || '', message: String(status.message || '').slice(0, 300), device: status.device || '' } : null;
       notifyBridge();
     },
-    lastCapturePcm ? { pcm: true, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); } } : undefined
+    lastCapturePcm ? { pcm: true, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); linkWatchPcm(buf, sr, ch); } } : undefined
   );
 }
 
@@ -1895,6 +1904,7 @@ function onBridgeInputChanged() {
    makinenin oturumu. Çıkışlar, OSC, yayın sayfası ve MCP aynı bilgiyi görsün. */
 function shownNowPlaying() {
   if (bridge.input && bridge.input.useBridge && bridge.meta && bridge.meta.has) return bridge.meta;
+  if (phoneMetaShown()) return phoneAudio.meta;
   return mediaSession.current();
 }
 /* Köprüye giden parça bilgisi (#813): kapak küçültülür (en çok 512 px,
@@ -3969,6 +3979,8 @@ function applyIncomingConfig(config, opts) {
   syncCapture();
   syncKeepAwake();
   syncMcp();
+  phoneAudioSync();
+  linkConfigSync(patchKeys); // telefonların ayar aynası
 }
 
 // Aynı ayar klasörünü kullanan kopyalar ve ayar dosyası çakışması (#564)
@@ -4785,6 +4797,7 @@ function applyRemoteCommand(msg, client) {
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
   lightingSet(currentConfig.lighting).catch(() => {});
+  linkConfigSync(null); // web kumandasının yerinde değiştirdiği ayar telefonlara da
 }
 
 /* KUMANDANIN CANLI ÖZETİ: seviye, tempo, çizelge ve karartma. Yapılandırmada olmayan,
@@ -4839,7 +4852,12 @@ let phoneLinkOn = false;
 const linkDisc = linkDiscovery.create();
 function phoneLinkCfg() {
   const p = (currentConfig && currentConfig.phoneLink) || {};
-  return { enabled: p.enabled === true, discoverable: p.discoverable !== false };
+  const a = p.audioIn && typeof p.audioIn === 'object' ? p.audioIn : {};
+  return {
+    enabled: p.enabled === true, discoverable: p.discoverable !== false,
+    // Telefonun sesi ses girişi (B4): device boş = hangi telefon gönderirse
+    audioIn: { enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false },
+  };
 }
 function phoneLinkService() {
   if (linkSvc) return linkSvc;
@@ -4856,19 +4874,367 @@ function phoneLinkService() {
     addresses: () => streamServer.lanAddresses(),
     port: () => streamServer.status().port || 0,
     running: () => !!streamServer.status().phoneLink,
-    ops: {
-      // B1: bağlantıyı doğrulayan özet. Kumanda ve düzenleme işlemleri sonraki adımlarda eklenir.
+    gate: () => linkGate(),
+    onSessionClose: (client) => { linkHeldDrop(client); phoneAudioDrop(client); linkWatchDrop(client); },
+    onAudio: (client, buf, device) => phoneAudioPacket(client, buf, device),
+    extra: () => ({ audioIn: phoneAudioStatus() }),
+    ops: Object.assign({
+      // Bağlantıyı doğrulayan kısa özet
       'state.get': () => ({
         app: app.getVersion(),
         platform: process.platform,
         docVersion: (currentConfig && currentConfig.docVersion) || 0,
         activeScene: (currentConfig && currentConfig._activeSceneId) || null,
         scenes: ((currentConfig && currentConfig.scenes) || []).map((s) => ({ id: s.id, name: s.name })),
+        standby: !!linkGate(),
       }),
-    },
+      // Ayar aynası (B2/B3): telefonun Canlı ve düzenleme sayfaları bunu okur
+      'config.get': () => linkConfigSnapshot(),
+      'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
+      /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
+         ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
+      'preview.get': async () => {
+        const img = await mcpCapturePreview();
+        if (!img || img.error || !img.dataUrl) throw Object.assign(new Error('no-preview'), { code: 'no-preview' });
+        return { width: img.width, height: img.height, jpeg: img.dataUrl.slice(img.dataUrl.indexOf(',') + 1) };
+      },
+      'audio.watch': (args, ctx) => {
+        if (typeof args.on !== 'boolean' || !ctx || !ctx.client) throw Object.assign(new Error('bad-args'), { code: 'bad-args' });
+        return linkWatchSet(ctx.client, args.on);
+      },
+      /* Telefonun sesini bu bilgisayarın ses girişi yap (tam düzey). Ayar panelin yolundan:
+         panel tek yazar. Açınca giriş isteyen telefona bağlanır. */
+      'nowplaying.set': (args) => {
+        const m = linkAudio.cleanMeta(args, phoneAudio.meta, Date.now());
+        if (!m) throw Object.assign(new Error('bad-args'), { code: 'bad-args' });
+        const before = phoneAudio.meta;
+        phoneAudio.meta = m;
+        const same = before && before.has === m.has && before.title === m.title && before.artist === m.artist && before.artwork === m.artwork
+          && before.playing === m.playing && Math.abs(before.position - m.position) < 2;
+        if (phoneMetaShown() && !same) forwardBridgeMeta(m);
+        return { shown: phoneMetaShown() };
+      },
+      'audio.bridge': (args, ctx) => {
+        if (typeof args.on !== 'boolean') throw Object.assign(new Error('bad-args'), { code: 'bad-args' });
+        const cur = phoneLinkCfg().audioIn;
+        const next = { enabled: args.on, device: args.on ? String((ctx && ctx.device && ctx.device.id) || '') : cur.device, fallback: typeof args.fallback === 'boolean' ? args.fallback : cur.fallback };
+        const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
+        return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
+      },
+    }, linkControlOps(), linkEditOps()),
   });
   return linkSvc;
 }
+
+/* Bağlantının ortak kapısı (izle dışındaki her işlem, phone-link-service gate). Yedek rolünde
+   birincili izlerken görüntü birincilden gelir: telefonun yazdığı ezilir ya da iki kopya ayrışır.
+   Öz test ölçerken panelin gönderimleri de bekletiliyor (smokeHold). */
+function linkGate() {
+  if (smokeHold) return 'busy';
+  if (red.role === 'backup' && red.follower && red.follower.follows()) return 'standby';
+  return '';
+}
+
+/* CANLI DENETİM (B2): istek src/main/link-live.js'te doğrulanır, panelde tek girişten uygulanır
+   (src/admin/link-live.js). Panele giden kod yalnız denetlenmiş veriden JSON olarak kurulur. */
+function linkControlOps() {
+  const run = (op, args) => {
+    const p = linkLive.plan(op, args, currentConfig || {}, oscTree, remoteCommands.ACTIONS);
+    return p.kind === 'osc' ? linkPanelRun('osc', { message: p.message }) : linkPanelRun(p.op, p.args);
+  };
+  const out = {};
+  for (const op of ['scene.apply', 'cue.set', 'blackout', 'tbar', 'master.set', 'mixer.set', 'deck.trigger', 'deck.stop',
+    'macro.set', 'tempo.set', 'tempo.tap', 'autovj.toggle', 'milkdrop.nav', 'timeline.transport', 'run']) {
+    out[op] = (args) => run(op, args);
+  }
+  out.momentary = (args, ctx) => linkHeldSet(ctx && ctx.client, linkLive.plan('momentary', args, currentConfig || {}, oscTree, remoteCommands.ACTIONS).args.list);
+  return out;
+}
+
+/* PC'NİN SESİ → TELEFON (B5, "Akıcı" önizleme ve telefonu ek ekran olarak kullanma). Dinleyen
+   telefona yakalama yardımcısının ham sesi (s16 stereo, kendi hızında) şifreli gider; telefon
+   kareyi kendi kurar (aynı ortak tayf hesabı) ve PC'nin ayarını kendi motoruyla çizer. Paket
+   biçimi telefonun yolladığıyla aynı (link-audio.js). Telefonun kuyruğu doluysa paket atlanır:
+   gecikme birikmesin. Yerel yakalama açık değilse (ses girişi köprüde ya da telefonda) gitmez. */
+const linkWatch = new Map(); // istemci → { seq }
+function linkWatchSet(client, on) {
+  const had = linkWatch.size;
+  if (on) { if (!linkWatch.has(client)) linkWatch.set(client, { seq: 0, dropped: 0 }); } else linkWatch.delete(client);
+  // Ham ses isteği değişti: yardımcı PCM vererek (ya da vermeden) yeniden kurulur
+  if ((had > 0) !== (linkWatch.size > 0)) syncCapture();
+  return { on: linkWatch.has(client), capture: !!lastCaptureSource };
+}
+function linkWatchDrop(client) {
+  if (!linkWatch.delete(client)) return;
+  if (!linkWatch.size) syncCapture();
+}
+function linkWatchPcm(buf, sr, ch) {
+  if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
+  const head = Buffer.alloc(linkAudio.HEAD);
+  head[0] = linkAudio.KIND_PCM;
+  head[1] = linkAudio.VERSION;
+  head.writeUInt32BE(sr >>> 0, 6);
+  head[10] = ch === 1 ? 1 : 2;
+  const frames = Math.floor(buf.length / (2 * head[10]));
+  const body = buf.subarray(0, Math.min(frames, linkAudio.MAX_SAMPLES) * 2 * head[10]);
+  for (const [client, w] of linkWatch) {
+    if (!client.link || client.link.stage !== 'session' || client.link.closed) continue;
+    if (client.backpressure || (client.socket && client.socket.writableLength > 256 * 1024)) { w.dropped++; continue; }
+    head.writeUInt32BE(w.seq++ >>> 0, 2);
+    const sealed = client.link.encryptBinary(Buffer.concat([head, body]));
+    if (sealed) streamServer.linkSendBinary(client, sealed);
+  }
+}
+
+/* TELEFONUN SESİ (B4, src/main/link-audio.js). Telefonun PCM'i bu makinede kareye çevrilir;
+   giriş geçişi ses köprüsününkiyle aynı makine (bridge-input.js): kare gelince telefona geçilir,
+   telefon susarsa yedek giriş (yerel yakalama) açılır. Telefonun sesi gelirken yerel yakalama
+   kapalı: aygıt boşuna tutulmaz. */
+const phoneAudio = { input: null, key: '', framers: new Map(), from: null, timer: null, name: '', meta: null };
+// Çalan parça bilgisi telefondan mı (ses girişi telefondayken ve telefon bildirdiyse)
+const phoneMetaShown = () => !!(phoneAudio.input && phoneAudio.input.useBridge && phoneAudio.meta && phoneAudio.meta.has);
+function phoneAudioSync() {
+  const a = phoneLinkCfg().audioIn;
+  const key = phoneLinkOn && a.enabled ? JSON.stringify(a) : '';
+  if (key === phoneAudio.key) return;
+  phoneAudio.key = key;
+  phoneAudio.framers.clear();
+  phoneAudio.from = null;
+  clearInterval(phoneAudio.timer);
+  phoneAudio.timer = null;
+  const was = !!(phoneAudio.input && phoneAudio.input.useBridge);
+  phoneAudio.input = key ? createInputSwitch({ fallback: a.fallback }) : null;
+  if (phoneAudio.input) {
+    phoneAudio.timer = setInterval(() => { if (phoneAudio.input && phoneAudio.input.tick(Date.now())) phoneAudioChanged(); }, 100);
+    if (phoneAudio.timer.unref) phoneAudio.timer.unref();
+  }
+  if (was || key) phoneAudioChanged();
+}
+function phoneAudioPacket(client, buf, device) {
+  const inp = phoneAudio.input;
+  if (!inp) return;
+  const want = phoneLinkCfg().audioIn.device;
+  if (want && (!device || device.id !== want)) return;
+  // Aynı anda iki telefon yollarsa ilk gelen sürer; o susunca öbürü
+  if (phoneAudio.from && phoneAudio.from !== client && inp.useBridge) return;
+  const p = linkAudio.decode(buf);
+  if (!p) return;
+  let fr = phoneAudio.framers.get(client);
+  if (!fr) {
+    fr = linkAudio.createFramer({
+      onFrame: (frame) => {
+        if (phoneAudio.input !== inp) return;
+        phoneAudio.from = client;
+        phoneAudio.name = (device && device.name) || '';
+        const changed = inp.frame(Date.now());
+        if (inp.useBridge) deliverAudioFrame(frame);
+        if (changed) phoneAudioChanged();
+      },
+    });
+    phoneAudio.framers.set(client, fr);
+  }
+  fr.push(p);
+}
+function phoneAudioDrop(client) {
+  phoneAudio.framers.delete(client);
+  if (phoneAudio.from === client) phoneAudio.from = null; // giriş tik'i yedeğe döner
+}
+function phoneAudioChanged() {
+  syncCapture();
+  // Parça bilgisi girişi izler: telefona geçince telefonun parçası, dönünce bu makinenin
+  if (phoneMetaShown()) forwardBridgeMeta(phoneAudio.meta);
+  else if (!(bridge.input && bridge.input.useBridge)) forwardBridgeMeta(mediaSession.current());
+  const st = phoneAudio.input ? phoneAudio.input.state : '';
+  // Kapatılınca yerel yakalama kendi "başladı" durumunu yollar
+  if (st) notifyAdmin('audio-source-status', { type: st === 'bridge' ? 'phone' : 'phone-lost', state: st, name: phoneAudio.name || '' });
+  if (linkSvc) notifyAdmin('phonelink-state', linkSvc.status({ running: !!streamServer.status().phoneLink }));
+}
+function phoneAudioStatus() {
+  const a = phoneLinkCfg().audioIn;
+  const inp = phoneAudio.input;
+  const fr = phoneAudio.from ? phoneAudio.framers.get(phoneAudio.from) : null;
+  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
+}
+
+/* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme
+   burada yalnız zamanı tazeler, panele gidilmez. Panel yalnız BİRLEŞİK liste değişince çağrılır
+   (basış, bırakış, kiranın dolması, oturumun kapanması). Eskiden her yenileme panelde
+   uygulanıyordu; panel meşgulken (emülatörde ölçüldü) yenileme 1,5 sn'yi aşıp efekt düşüyordu.
+   Panelin kendi kirası (live-shell.js) yalnız güvenlik ağı: canlıyken liste saniyede bir yeniden
+   yollanır. */
+const LINK_HELD_MS = 1500;
+const linkHeld = new Map(); // istemci → { list, at }
+let linkHeldSent = '[]';
+let linkHeldTimer = null;
+function linkHeldUnion() {
+  const set = new Set();
+  for (const v of linkHeld.values()) for (const id of v.list) set.add(id);
+  return linkLive.MOMENTARY.filter((id) => set.has(id));
+}
+let linkHeldAt = 0;
+function linkHeldPush(force) {
+  const union = linkHeldUnion();
+  const key = JSON.stringify(union);
+  if (!force && key === linkHeldSent) return Promise.resolve({ ok: true });
+  linkHeldSent = key;
+  linkHeldAt = Date.now();
+  return linkPanelRun('momentary', { list: union });
+}
+// Çeyrek saniyede bir: dolan kira düşer; liste değişmediyse panel saniyede bir tazelenir
+function linkHeldTick() {
+  const now = Date.now();
+  for (const [c, v] of linkHeld) if (now - v.at > LINK_HELD_MS) linkHeld.delete(c);
+  if (!linkHeld.size && linkHeldSent === '[]') { clearInterval(linkHeldTimer); linkHeldTimer = null; return; }
+  linkHeldPush(linkHeld.size > 0 && now - linkHeldAt >= 1000).catch(() => {});
+}
+function linkHeldSet(client, list) {
+  const key = client || 'unknown';
+  if (list.length) linkHeld.set(key, { list, at: Date.now() });
+  else linkHeld.delete(key);
+  if (!linkHeldTimer) {
+    linkHeldTimer = setInterval(linkHeldTick, 250);
+    if (linkHeldTimer.unref) linkHeldTimer.unref();
+  }
+  return linkHeldPush(false).then(() => ({ ok: true, held: linkHeldUnion() }));
+}
+function linkHeldDrop(client) {
+  if (!linkHeld.delete(client)) return;
+  linkHeldPush(false).catch(() => {});
+}
+
+/* DÜZENLEME (B3). Yazım bekçisi (src/main/link-guard.js) yamayı bu makinenin ayarına göre
+   denetler; uygulamayı panel yapar (tek yazar). Sahne listesi tümüyle yollanmaz (gerçek bir
+   ayarda ~330 KB): sahne ekle/güncelle/adlandır/sil/sırala ayrı işlem. */
+function linkPanelRun(op, args) {
+  return mcpAdminCall('(window.SVLinkLive ? window.SVLinkLive.run(' + JSON.stringify(op) + ', ' + JSON.stringify(args) + ') : { ok: false, error: "panel-closed" })')
+    .then((r) => {
+      if (!r || r.ok === false) {
+        const why = r && typeof r.error === 'string' && /^[a-z-]{1,32}$/.test(r.error) ? r.error : (r && r.error ? 'panel-closed' : 'failed');
+        throw Object.assign(new Error(why), { code: why });
+      }
+      linkLiveKick();
+      return r;
+    });
+}
+function linkEditOps() {
+  const bad = (code, detail) => Object.assign(new Error(code || 'bad-args'), { code: code || 'bad-args', detail: detail || undefined });
+  const ID_RE = /^[A-Za-z0-9_.:-]{1,80}$/;
+  const sceneOf = (id) => (typeof id === 'string' && ID_RE.test(id) ? ((currentConfig && currentConfig.scenes) || []).find((s) => s && s.id === id) : null);
+  const nameOf = (v) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) : '');
+  const newId = (pre) => pre + Date.now().toString(36) + require('crypto').randomBytes(4).toString('hex');
+  const sceneData = (data) => {
+    if (data == null) return null;
+    const g = linkGuard.checkSceneData(data, currentConfig || {});
+    if (!g.ok) throw bad(g.error, g.key);
+    return g.patch;
+  };
+  const HEX = /^#[0-9a-fA-F]{6}$/;
+  return {
+    'config.patch': (args, ctx) => {
+      const level = (ctx && ctx.device && ctx.device.level) || 'view';
+      const g = linkGuard.check(args.patch, currentConfig || {}, level);
+      if (!g.ok) throw bad(g.error, g.key);
+      return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
+    },
+    'scene.create': (args) => {
+      const name = nameOf(args.name);
+      const data = sceneData(args.data);
+      return linkPanelRun('sceneCreate', { id: newId('sc_'), name: name || '', data }).then((r) => ({ id: r.id }));
+    },
+    'scene.save': (args) => {
+      if (!sceneOf(args.id)) throw bad();
+      return linkPanelRun('sceneSave', { id: args.id, data: sceneData(args.data) }).then(() => ({ id: args.id }));
+    },
+    'scene.rename': (args) => {
+      const name = nameOf(args.name);
+      if (!sceneOf(args.id) || !name) throw bad();
+      return linkPanelRun('sceneRename', { id: args.id, name }).then(() => ({ id: args.id }));
+    },
+    'scene.delete': (args) => {
+      if (!sceneOf(args.id)) throw bad();
+      return linkPanelRun('sceneDelete', { id: args.id }).then(() => ({ id: args.id }));
+    },
+    'scene.reorder': (args) => {
+      const ids = Array.isArray(args.ids) ? args.ids : null;
+      if (!ids || ids.length > 5000 || ids.some((id) => typeof id !== 'string' || !ID_RE.test(id))) throw bad();
+      return linkPanelRun('sceneReorder', { ids }).then(() => ({ n: ids.length }));
+    },
+    'palette.save': (args) => {
+      const name = nameOf(args.name) || 'Palette';
+      let colors = null;
+      if (args.colors != null) {
+        if (!Array.isArray(args.colors) || args.colors.length < 2 || args.colors.length > 5 || args.colors.some((c) => typeof c !== 'string' || !HEX.test(c))) throw bad();
+        colors = args.colors.slice();
+      }
+      return linkPanelRun('paletteSave', { id: newId('up_'), name, colors }).then((r) => ({ id: r.id }));
+    },
+    'palette.delete': (args) => {
+      if (typeof args.id !== 'string' || !ID_RE.test(args.id)) throw bad();
+      return linkPanelRun('paletteDelete', { id: args.id }).then(() => ({ id: args.id }));
+    },
+  };
+}
+
+/* AYAR AYNASI. Sürüm her değişimde artar; olay yalnız değişen üst anahtarları taşır (karşılaştırma
+   anahtar başına metinle, yalnız oturumu açık telefon varken). Telefon sürüm atlarsa config.get
+   ile yeniden çeker. Bu makineye ait anahtarlar (jetonlar, bağlantı anahtarları) hiç gitmez. */
+const linkMirror = { rev: 0, sig: new Map() };
+const linkSig = (v) => { try { return JSON.stringify(v === undefined ? null : v); } catch { return ''; } };
+function linkConfigSnapshot() {
+  const pub = linkLive.publicConfig(currentConfig || {});
+  linkMirror.sig = new Map(Object.keys(pub).map((k) => [k, linkSig(pub[k])]));
+  return { rev: linkMirror.rev, config: pub };
+}
+function linkConfigSync(patchKeys) {
+  if (!linkSvc || linkSvc.sessionCount() < 1) { linkMirror.sig.clear(); return; }
+  const cfg = currentConfig || {};
+  const keys = patchKeys || Array.from(new Set(Object.keys(cfg).concat(Array.from(linkMirror.sig.keys()))));
+  const patch = {};
+  let n = 0;
+  for (const k of keys) {
+    if (linkLive.PRIVATE_KEYS.indexOf(k) >= 0 || k === '__proto__') continue;
+    const sig = linkSig(cfg[k]);
+    if (linkMirror.sig.get(k) === sig) continue;
+    linkMirror.sig.set(k, sig);
+    patch[k] = cfg[k] === undefined ? null : cfg[k];
+    n++;
+  }
+  if (!n) return;
+  linkMirror.rev++;
+  linkSvc.broadcast({ ev: 'config', rev: linkMirror.rev, patch });
+}
+
+/* CANLI ÖZET. Ölçer (seviye, bantlar, tempo, vuruş) saniyede 5 kez, değişince; gösteri durumu
+   (sıradaki sahne, T-bar, anlık efektler, çizelge kafası) panelden, değişince. Yalnız oturumu
+   açık telefon varken; web kumandasının zamanlayıcısından ayrı. */
+const linkLiveShow = { last: null, key: '', meterKey: '', busy: false };
+function linkMeter() {
+  const m = remoteCommands.liveState(oscOutContext(), mcpLive, Date.now());
+  m.beat = Number.isFinite(oscLive.beat) ? oscLive.beat : 0;
+  m.beatsPerBar = oscLive.beatsPerBar || 4;
+  return m;
+}
+async function linkLiveTick() {
+  if (!linkSvc || !currentConfig || linkSvc.sessionCount() < 1) { linkLiveShow.key = ''; linkLiveShow.meterKey = ''; return; }
+  const meter = linkMeter();
+  const mk = JSON.stringify(meter);
+  if (mk !== linkLiveShow.meterKey) { linkLiveShow.meterKey = mk; linkSvc.broadcast({ ev: 'meter', meter }); }
+  if (linkLiveShow.busy) return;
+  linkLiveShow.busy = true;
+  let show = null;
+  try { show = await mcpAdminCall('(window.SVLinkLive ? window.SVLinkLive.snapshot() : null)'); } catch { show = null; }
+  linkLiveShow.busy = false;
+  if (!show || show.ok === false) return;
+  const key = JSON.stringify(show);
+  if (key === linkLiveShow.key) return;
+  linkLiveShow.key = key;
+  linkLiveShow.last = show;
+  if (linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'live', show });
+}
+// İşlemden hemen sonra: telefon düğmenin etkisini bir sonraki tıkı beklemeden görsün
+function linkLiveKick() { setTimeout(() => { linkLiveTick().catch(() => {}); }, 30); }
+const linkLiveTimer = setInterval(() => { linkLiveTick().catch(() => {}); }, 200);
+if (linkLiveTimer.unref) linkLiveTimer.unref();
 // Ayar değişince: bayrak yayın sunucusuna, hizmete. Sunucuyu syncStreamServer açar/kapatır.
 function syncPhoneLink() {
   const pc = phoneLinkCfg();
@@ -7283,8 +7649,9 @@ mediaSession.subscribe((st) => {
      sonraki başka bir durum olayına kadar eski uygulama/albümü ve "Kapak: yok"
      gösteriyordu. */
   if (bridgeWinVisible()) notifyBridgeWindow();
-  // Ses girişi köprüdeyken parça bilgisi de köprünün
+  // Ses girişi köprüdeyken parça bilgisi de köprünün (telefondayken telefonun)
   if (bridge.input && bridge.input.useBridge && bridge.meta) return;
+  if (phoneMetaShown()) return;
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
   lookupLiveLyrics(st);
@@ -12891,6 +13258,7 @@ function shutdownCleanup() {
   if (linkListener) linkListener.stop();
   peerRelay.stop();
   streamServer.stop().catch(() => {});
+  linkDisc.stop(); // ağdaki duyuru kapanışta da susmalı
   oscServer.stop().catch(() => {});
   oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});

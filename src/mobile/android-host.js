@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -235,6 +235,7 @@
     nowPlaying = next;
     ev.nowPlaying.emit(next);
     lookupLyrics(next);
+    if (typeof pcNowPlaying === 'function') pcNowPlaying(next);
   }
 
   /* ---- Şarkı sözleri (store/LyricsHub.kt; masaüstündeki lyrics-lib ve lyrics-lookup) ----
@@ -675,13 +676,313 @@
   }
   if (typeof window.addEventListener === 'function') window.addEventListener('pagehide', () => { profile.flush(); });
 
+  /* ---- HEDEF: BU TELEFON YA DA PC (PC bağlantısı B2/B3, src/mobile/pc-remote.js) ----
+     PC hedefindeyken düzenleyiciler aynı config.get/set/patch yolunu kullanır: okuma PC'nin ayar
+     aynasından, yazım değişen anahtarlarla PC'ye. Telefonun kendi ayarına ve profiline dokunulmaz
+     (yalnız arayüz teması telefonda kalır). Bağlantı koparsa telefon kendi kipine döner; seçim
+     hatırlanır, bağlanınca yeniden PC'ye geçer. */
+  const PR = () => window.SVPcRemote;
+  const TARGET_KEY = 'sv-link-target';
+  const pc = {
+    on: false, wanted: false, cfg: null, rev: 0, writing: {}, name: '', state: 'idle', rtt: 0, standby: false,
+    live: null, meter: null, drag: null, dragTimer: 0, finalTimer: 0, queue: Promise.resolve(), ping: 0, loading: false,
+  };
+  try { pc.wanted = localStorage.getItem(TARGET_KEY) === 'pc'; } catch (e) { pc.wanted = false; }
+  const viewCfg = () => (pc.on && pc.cfg && PR() ? PR().view(pc.cfg, config) : config);
+  const engineOf = (c) => engineView(pc.on && PR() ? PR().engine(c, config) : c);
+  function pcAsk(op, args) {
+    const t0 = Date.now();
+    return request('linkRequest', { op, args: args || {} }).then((r) => {
+      pc.rtt = Date.now() - t0;
+      const out = r || { ok: false, error: 'failed' };
+      if (out.ok === false && op !== 'state.get') ev.pcError.emit({ op, error: out.error || 'failed', detail: out.detail || '' });
+      return out;
+    }, (e) => {
+      const out = { ok: false, error: String((e && e.message) || 'failed') };
+      ev.pcError.emit({ op, error: out.error, detail: '' });
+      return out;
+    });
+  }
+  function emitTarget() { ev.target.emit(targetInfo()); }
+  function targetInfo() {
+    return {
+      target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading,
+      audioSend: typeof audioSend === 'boolean' ? audioSend : false, preview: typeof previewMode === 'string' ? previewMode : 'smooth',
+    };
+  }
+  async function pcLoad() {
+    pc.loading = true;
+    emitTarget();
+    const r = await pcAsk('config.get');
+    pc.loading = false;
+    if (!r.ok || !r.result || !r.result.config) { emitTarget(); return false; }
+    pc.cfg = r.result.config;
+    pc.rev = Number(r.result.rev) || 0;
+    pc.writing = {};
+    pc.deferred = {};
+    const st = await pcAsk('state.get');
+    pc.standby = !!(st.ok && st.result && st.result.standby);
+    const lv = await pcAsk('live.get');
+    if (lv.ok && lv.result) { pc.live = lv.result.show || null; pc.meter = lv.result.meter || null; }
+    return true;
+  }
+  async function setTarget(t) {
+    const want = t === 'pc';
+    pc.wanted = want;
+    try { localStorage.setItem(TARGET_KEY, want ? 'pc' : 'phone'); } catch (e) { /* depo yok */ }
+    if (!want) { leavePc(); return targetInfo(); }
+    if (pc.state !== 'connected') { emitTarget(); return targetInfo(); }
+    if (!(await pcLoad())) return targetInfo();
+    pc.on = true;
+    ev.config.emit(engineOf(viewCfg()));
+    syncAudio();
+    emitTarget();
+    clearInterval(pc.ping);
+    // Gecikme göstergesi ve yedek rolü: beş saniyede bir kısa özet
+    pc.ping = setInterval(() => {
+      if (!pc.on) return;
+      pcAsk('state.get').then((r) => { if (r.ok && r.result) { pc.standby = !!r.result.standby; emitTarget(); } });
+    }, 5000);
+    return targetInfo();
+  }
+  function leavePc() {
+    const was = pc.on;
+    flushDrag(true);
+    pc.on = false;
+    clearInterval(pc.ping);
+    if (was) ev.config.emit(engineView(config));
+    syncAudio();
+    emitTarget();
+  }
+  function onLinkState(v) {
+    const st = (v && v.state) || 'idle';
+    pc.state = st;
+    if (v && v.pc && v.pc.name) pc.name = v.pc.name;
+    const was = pc.lastState;
+    pc.lastState = st;
+    if (st !== 'connected' && pc.on) leavePc(); // PC'ye ulaşılamıyor: telefonun kendi kipi
+    else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
+    else emitTarget();
+    // Bağlanınca "PC'ye gönder" kaldığı yerden; kopunca bilgisayarın sesi beklenmez
+    if (st !== was && (st === 'connected' || was === 'connected')) { if (st !== 'connected') watching = false; syncAudio(); }
+  }
+  const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
+  function onLinkEvent(m) {
+    if (!m || !m.ev) return;
+    if (m.ev === 'config') {
+      evLog.push([m.rev, Object.keys(m.patch || {}).join(','), pc.rev]);
+      if (evLog.length > 20) evLog.shift();
+      if (!pc.cfg || !PR()) return;
+      const r = PR().applyEvent(pc, m, Date.now(), 600);
+      if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
+      if (r.stale) return;
+      pc.cfg = r.cfg;
+      pc.rev = r.rev;
+      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (pc.deferred) for (const k of r.superseded || []) delete pc.deferred[k];
+      if (Object.keys(r.deferred).length) {
+        pc.deferred = Object.assign(pc.deferred || {}, r.deferred);
+        scheduleSettle();
+      }
+    } else if (m.ev === 'live') {
+      pc.live = m.show || null;
+      ev.pcLive.emit(pc.live);
+    } else if (m.ev === 'meter') {
+      pc.meter = m.meter || null;
+      ev.pcMeter.emit(pc.meter);
+    }
+  }
+  /* ---- SES VE ÖNİZLEME (B4/B5) ----
+     "PC'ye gönder": telefonun sesi (çalar, yakalama, mikrofon) bilgisayarın ses girişi olur; çalan
+     parça ve kapak da gider. Önizleme (hedef PC iken): "akıcı" telefon PC'nin ayarını kendi
+     motoruyla PC'nin sesiyle çizer; "gerçek" PC'nin gösterdiği kare (JPEG, saniyede ~4);
+     "kapalı" PC'nin ayarı telefonun kendi sesiyle. Telefonun sesi PC'ye giderken akıcı kip
+     telefonun kendi sesini kullanır (aynı ses; döngü olmasın). */
+  const AUDIO_KEY = 'sv-link-audio';
+  const PREVIEW_KEY = 'sv-link-preview';
+  let audioSend = false;
+  let previewMode = 'smooth';
+  try { audioSend = localStorage.getItem(AUDIO_KEY) === '1'; } catch (e) { /* */ }
+  try { const v = localStorage.getItem(PREVIEW_KEY); if (v === 'image' || v === 'off' || v === 'smooth') previewMode = v; } catch (e) { /* */ }
+  let watching = false;
+  let shotTimer = 0;
+  let shotBusy = false;
+  function syncAudio() {
+    const on = pc.state === 'connected';
+    request('linkAudioSend', { on: on && audioSend }).catch(() => {});
+    if (on && audioSend) pcAsk('audio.bridge', { on: true }).then(() => pcNowPlaying(nowPlaying, true));
+    const watch = pc.on && previewMode === 'smooth' && !audioSend;
+    if (watch !== watching) {
+      watching = watch;
+      request('linkAudioWatch', { on: watch }).catch(() => {});
+      if (pc.state === 'connected') pcAsk('audio.watch', { on: watch });
+    }
+    clearInterval(shotTimer);
+    shotTimer = 0;
+    if (pc.on && previewMode === 'image') shotTimer = setInterval(pcShot, 250);
+    else ev.pcShot.emit(null);
+  }
+  function pcShot() {
+    if (shotBusy || !pc.on || document.visibilityState === 'hidden') return;
+    shotBusy = true;
+    pcAsk('preview.get').then((r) => {
+      shotBusy = false;
+      if (r && r.ok && r.result && r.result.jpeg && pc.on && previewMode === 'image') ev.pcShot.emit({ src: 'data:image/jpeg;base64,' + r.result.jpeg, width: r.result.width, height: r.result.height });
+    });
+  }
+  async function setAudioSend(on) {
+    audioSend = !!on;
+    try { localStorage.setItem(AUDIO_KEY, audioSend ? '1' : '0'); } catch (e) { /* */ }
+    if (!audioSend && pc.state === 'connected') await pcAsk('audio.bridge', { on: false });
+    syncAudio();
+    emitTarget();
+    return targetInfo();
+  }
+  function setPreview(mode) {
+    previewMode = mode === 'image' || mode === 'off' ? mode : 'smooth';
+    try { localStorage.setItem(PREVIEW_KEY, previewMode); } catch (e) { /* */ }
+    syncAudio();
+    emitTarget();
+    return targetInfo();
+  }
+  /* Çalan parça → PC (yalnız "PC'ye gönder" açıkken). Kapak parça değişince bir kez, en çok
+     512 px JPEG'e küçültülür; konum her 5 sn'de ve çalma/durma değişince. */
+  let npSent = { key: '', at: 0, playing: null, artKey: '' };
+  function pcNowPlaying(np, force) {
+    if (!audioSend || pc.state !== 'connected' || !np) return;
+    const key = np.has ? np.title + '|' + np.artist + '|' + np.album : '';
+    const now = Date.now();
+    if (!force && key === npSent.key && np.playing === npSent.playing && now - npSent.at < 5000) return;
+    const args = { has: !!np.has, title: np.title || '', artist: np.artist || '', album: np.album || '', position: Number(np.position) || 0, duration: Number(np.duration) || 0, playing: !!np.playing, app: np.app || '' };
+    const send = (art) => { if (art != null) args.artwork = art; npSent = { key, at: now, playing: np.playing, artKey: art != null ? key : npSent.artKey }; pcAsk('nowplaying.set', args); };
+    if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
+    else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
+  }
+  function shrinkArt(src) {
+    return new Promise((resolve, reject) => {
+      if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) { reject(new Error('no-canvas')); return; }
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 512 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(img.width * k));
+        cv.height = Math.max(1, Math.round(img.height * k));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        let out = cv.toDataURL('image/jpeg', 0.8);
+        if (out.length > 190 * 1024) out = cv.toDataURL('image/jpeg', 0.5);
+        if (out.length > 190 * 1024) { reject(new Error('too-big')); return; }
+        resolve(out);
+      };
+      img.onerror = () => reject(new Error('bad-image'));
+      img.src = src;
+    });
+  }
+
+  // Telefonun yazımı sürerken gelen PC değerleri: yazım durunca uygulanır
+  let settleTimer = 0;
+  function scheduleSettle() {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      settleTimer = 0;
+      if (!pc.cfg || !PR()) return;
+      const r = PR().settle(pc, Date.now(), 600);
+      pc.cfg = r.cfg;
+      pc.deferred = r.deferred;
+      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (Object.keys(r.deferred).length) scheduleSettle();
+    }, 650);
+  }
+  ev.link.add(onLinkState);
+  ev.linkEvent.add(onLinkEvent);
+  /* Açılışta durum: uygulama kayıtlı bilgisayara sayfa kurulmadan bağlanmış olabilir (olay
+     kaçmış olur). Kabuk hedefi ilk sorduğunda bir kez okunur. */
+  function syncLink() {
+    if (pc.synced || !native) return;
+    pc.synced = true;
+    request('linkStatus').then(onLinkState).catch(() => { pc.synced = false; });
+  }
+
+  /* Yazım: sürüklerken (patch) saniyede en çok ~16 ara yama, son dokunuştan 350 ms sonra
+     kesin yazım (final). Sahne işlemleri sırayla. */
+  function pcWrite(next, final) {
+    const d = PR().diff(viewCfg(), next);
+    if (Object.keys(d.local).length) patchConfig(d.local);
+    const keys = Object.keys(d.patch);
+    if (keys.length) {
+      const t = Date.now();
+      for (const k of keys) pc.writing[k] = t;
+      pc.cfg = Object.assign({}, pc.cfg, d.patch);
+      ev.configPatch.emit(engineView(PR().enginePatch(d.patch)));
+      pc.drag = Object.assign(pc.drag || {}, d.patch);
+      if (final) flushDrag(true);
+      else {
+        if (!pc.dragTimer) pc.dragTimer = setTimeout(() => { pc.dragTimer = 0; flushDrag(false); }, 60);
+        clearTimeout(pc.finalTimer);
+        pc.finalTimer = setTimeout(() => flushDrag(true), 350);
+      }
+    }
+    if (d.apply) serial('scene.apply', { id: d.apply });
+    for (const o of d.ops) serial(o.op, o.args);
+  }
+  let dragSent = {};
+  function flushDrag(final) {
+    if (final) { clearTimeout(pc.finalTimer); pc.finalTimer = 0; clearTimeout(pc.dragTimer); pc.dragTimer = 0; }
+    const p = pc.drag;
+    if (final) {
+      // Kesin yazım: sürükleme boyunca değişen bütün anahtarların son hâli
+      const all = Object.assign({}, dragSent, p || {});
+      dragSent = {};
+      pc.drag = null;
+      if (!Object.keys(all).length) return;
+      const out = {};
+      for (const k of Object.keys(all)) out[k] = pc.cfg[k];
+      serial('config.patch', { patch: out, final: true });
+      return;
+    }
+    if (!p) return;
+    pc.drag = null;
+    Object.assign(dragSent, p);
+    pcAsk('config.patch', { patch: p, final: false });
+  }
+  function serial(op, args) {
+    pc.queue = pc.queue.then(() => pcAsk(op, args)).catch(() => {});
+    return pc.queue;
+  }
+
   window.SVAndroid = Object.freeze({
     config: Object.freeze({
-      get: () => config,
-      set: setConfig,
-      patch: patchConfig,
-      flush: () => profile.flush(),
+      get: () => viewCfg(),
+      set: (c) => (pc.on ? pcWrite(c, true) : setConfig(c)),
+      patch: (p) => (pc.on ? pcWrite(Object.assign({}, viewCfg(), p), false) : patchConfig(p)),
+      flush: () => { if (pc.on) flushDrag(true); return profile.flush(); },
       ready: () => profile.load(),
+      /** Telefonun kendi ayarı (hedef PC iken de): tema, güç ve ses seçimi gibi telefona ait şeyler */
+      local: () => config,
+    }),
+    /* Hedef: 'phone' ya da 'pc' (PC bağlantısı). Canlı sayfası PC'nin canlı özetini okur ve
+       kumanda işlemlerini doğrudan yollar (docs/PHONE-LINK.md "Operations"). */
+    target: Object.freeze({
+      get: () => { syncLink(); return targetInfo(); },
+      set: (t) => setTarget(t),
+      onChange: (cb) => ev.target.add(cb),
+    }),
+    pc: Object.freeze({
+      request: (op, args) => pcAsk(op, args),
+      live: () => pc.live,
+      meter: () => pc.meter,
+      onLive: (cb) => ev.pcLive.add(cb),
+      onMeter: (cb) => ev.pcMeter.add(cb),
+      onError: (cb) => ev.pcError.add(cb),
+      /** Basılı anlık efektler (Canlı sekmesi). Kira uygulamada yenilenir; basılıyken saniyede bir çağrılmalı. */
+      hold: (list) => request('linkHeld', { list: Array.isArray(list) ? list : [] }),
+      /** "PC'ye gönder": telefonun sesi ve çalan parçası bilgisayarın girişi (tam düzey) */
+      audioSend: (on) => setAudioSend(on),
+      /** Önizleme kipi: 'smooth' | 'image' | 'off' */
+      preview: (mode) => setPreview(mode),
+      /** "Gerçek görüntü" karesi: { src, width, height } ya da null */
+      onShot: (cb) => ev.pcShot.add(cb),
+      /** Tanılama (sınama betikleri): aynanın sürümü, bekleyen ve yazılan anahtarlar, son olaylar */
+      debug: () => ({ rev: pc.rev, deferred: Object.keys(pc.deferred || {}), writing: pc.writing, events: evLog.slice(), on: pc.on }),
     }),
     /* Çalan parça: uygulama içi çalar ya da (bildirim erişimiyle) başka uygulamalar. */
     /* PC bağlantısı (docs/PHONE-LINK.md). Ağ, şifreleme ve anahtarlar uygulamada; sayfa yalnız
@@ -814,7 +1115,7 @@
 
   /* HOST.md'deki tablo, aynı sırayla. */
   window.api = {
-    requestConfig: () => profile.load().then(() => engineView(config)),
+    requestConfig: () => profile.load().then(() => engineOf(viewCfg())),
     onConfig: (cb) => ev.config.add(cb),
     onConfigPatch: (cb) => ev.configPatch.add(cb),
     onShowClock: (cb) => ev.showClock.add(cb),

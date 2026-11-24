@@ -2,7 +2,15 @@
 
 Tarih: 24.11.2026 · Ana issue: #1054 · Durum: ONAYLANDI 24.11.2026 (kararlar §9).
 
-**İlerleme:** B0 taslakları onaylandı (tasarım tuvali, ekran 14–22). B1 PC tarafı main'de (#1122), telefon tarafı bu belgeyle birlikte dev/android'de. Protokol: [docs/PHONE-LINK.md](../PHONE-LINK.md).
+**İlerleme:** B0 taslakları onaylandı (tasarım tuvali, ekran 14–22). B1 PC tarafı main'de (#1122), telefon tarafı dev/android'de (#1123). B2–B3 PC tarafı #1124 ve #1125, B4–B5 PC tarafı #1126; telefon tarafı (hedef seçici, uzak ayar deposu, Canlı sekmesi, ses gönderme, PC sesini dinleme, önizleme kipleri) bu belgeyle birlikte dev/android'de. Protokol: [docs/PHONE-LINK.md](../PHONE-LINK.md).
+
+**Ek (24–25.11, uygularken bulunanlar):**
+- Ses köprüsü yolu ölçümle seçildi: ham PCM (~192 KB/s), analiz karesi (~430 KB/s) değil; tempo bilgisayarın kendi çözümlemesinde kalıyor.
+- Telefonun sesi PC'nin girişiyken çalan parça ve kapak da telefondan gelir (kullanıcı isteği).
+- Anlık efekt kirası iki uçta da sayfadan bağımsız: bilgisayarda ana süreçte, telefonda uygulamada (emülatörde sayfa gidiş-dönüşü 0,2–0,5 sn, yük altında birkaç saniye ölçüldü).
+- Telefon bağlantıyı kapatınca (FIN) PC tarafı yarı açık kalıyordu; artık oturum hemen biter.
+- Telefonun yazımından hemen sonra PC'de yapılan değişiklik telefona hiç gelmiyordu; sonra da bekletilen eski değer yenisinin üstüne yazılıyordu. İkisi de düzeltildi, testleri var.
+- Telefonun kendi kendine yazan modülleri (Otomatik VJ, dinamik tema, çizelgenin eylem klipleri) PC hedefinde PC'ye yazmaz.
 Kural: Plan sırasında görmediğim bir durum çıkarsa bu belgeye "Ek" olarak yazılır ve aynı işe dahil edilir (izin verildi).
 
 ---

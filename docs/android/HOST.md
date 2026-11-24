@@ -234,6 +234,17 @@ Available since phase 0E (requests over the channel in [MESSAGES.md](MESSAGES.md
 | `linkDiscover { on }` | Listens for the computers' UDP announcements (port 47821, multicast lock held only while on). |
 | `linkQrFrame { w, h, data }` | Decodes a QR code from a grey camera frame (base64, one byte per pixel) with the bundled ZXing core; resolves the text or `null`. |
 | events `linkState` / `linkEvent` | The link status on every change; events the computer pushes (`{ ev, … }`). |
+| `linkAudioSend { on }` | Phone audio → computer (B4): every PCM block the capture, microphone or in-app player produces is also sent, encrypted, in the link's audio packet (`link/LinkAudio.kt`). Runs in the app, so it continues in the background. A queue of more than 24 packets drops new ones. Resolves `{ send, sent, dropped }`. |
+| `linkAudioWatch { on }` | While on, the page receives only the computer's audio (PCM source `pc`, code 4) and not the phone's own: the two must not mix in one ring buffer. |
+| `linkHeld { list }` | Momentary effects held on the Live tab. The app sends the list and renews it every 0.5 s on the link thread, independent of the page (measured on the emulator: a page round trip of 0.2–0.5 s, seconds under load, ran past the computer's 1.5 s lease). The page repeats the call every second while held; after 4 s without it the app releases the list. |
+
+The page side of the link is `SVAndroid.target` (`get`, `set('phone' | 'pc')`, `onChange`) and `SVAndroid.pc`
+(`request`, `live`, `meter`, `onLive`, `onMeter`, `onError`, `hold`, `audioSend`, `preview('smooth' | 'image' | 'off')`,
+`onShot`). With the target on the computer, `config.get/set/patch` read the computer's settings mirror and write the
+changed top-level keys to it (`src/mobile/pc-remote.js`); `config.local()` is the phone's own settings. The interface
+theme stays the phone's, and the phone's engine draws the computer's settings with the phone's own power and audio
+settings. Phone-side automation (Auto VJ, dynamic theme, timeline action clips) does not write to the computer: the
+computer runs its own.
 
 The engine (the one WebView) belongs to the app, not to the screen (`EngineHost`): it is built on the application
 context and moved between the full-screen Activity and the floating window. If the system destroys the Activity while

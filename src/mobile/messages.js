@@ -23,7 +23,7 @@
   const WAVE_HEADER_BYTES = 8;
   const FORMAT_S16 = 1;
   const FORMAT_F32 = 2;
-  const SOURCES = { 1: 'player', 2: 'capture', 3: 'mic' };
+  const SOURCES = { 1: 'player', 2: 'capture', 3: 'mic', 4: 'pc' };
 
   /** Başlık; sihirli bayt, sürüm ya da uzunluk tutmazsa null. */
   function readHeader(buf) {

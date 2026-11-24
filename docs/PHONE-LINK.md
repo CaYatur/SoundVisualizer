@@ -145,7 +145,120 @@ PC    → { ev, … }                         event pushed to every session
 ```
 
 Errors: `not-allowed` (the device's level does not include the operation, or the operation is not
-known), `unsupported` (allowed, not implemented in this version), `failed`.
+known), `unsupported` (allowed, not implemented in this version), `bad-args`, `standby` (this copy
+is a redundancy backup following its primary: only `view` operations run), `busy` (a self-test is
+holding writes), `panel-closed`, `failed`. A settings patch also returns `path`, `type`, `too-big`,
+`needs-pc`, `locked` or `scene`, with `detail` naming the refused top-level key.
+
+## Operations
+
+Network operations are absolute: "blackout on" instead of "toggle blackout", so a retried request
+or two phones pressing at once cannot flip a state the wrong way. Validation is in
+`src/main/link-live.js` (live control) and `src/main/link-guard.js` (settings). The desktop panel
+applies every change through its own code (`src/admin/link-live.js`): the panel stays the only
+writer, so the phone and the panel do not overwrite each other, and undo and redundancy behave as
+for a change made in the panel.
+
+| Operation | Arguments | Level |
+|---|---|---|
+| `state.get` | | view |
+| `config.get` | → `{ rev, config }` without this machine's keys (`stream`, `mcp`, `phoneLink`, `redundancy`, `bridge`, `mqtt`, `updates`) | view |
+| `live.get` | → `{ meter, show }` | view |
+| `scene.apply` | `{ id }` | control |
+| `cue.set` | `{ id }` (empty clears the cue) | control |
+| `blackout` | `{ on }` | control |
+| `tbar` | `{ v }` 0..1 lever position, or `{ take: true }` | control |
+| `master.set` | `{ v }` 0..1 | control |
+| `mixer.set` | `{ layer, opacity }` or `{ layer, enabled }`, layer from 1 | control |
+| `momentary` | `{ list }` the effects the phone holds: `flash`, `strobe`, `blur`, `kaleido`, `glitch`, `negative` | control |
+| `deck.trigger` | `{ row, col }` | control |
+| `deck.stop` | `{}` all, or `{ col }` | control |
+| `macro.set` | `{ i, v }` macro 0..7, value 0..1 | control |
+| `tempo.set` | `{ bpm }` 0 = follow the music, otherwise 30..200; taps are timed on the phone | control |
+| `tempo.tap` | `{}` one tap timed on the desktop | control |
+| `autovj.toggle` | `{ on }` | control |
+| `milkdrop.nav` | `{ dir }` `next`, `prev`, `random` | control |
+| `timeline.transport` | `{ action }` `play`, `pause`, `stop`, `next`, `prev` (markers), or `{ action: "seek", t }` | control |
+| `run` | `{ id }` a named action from `src/main/remote-commands.js` | control |
+| `config.patch` | `{ patch, final }` changed top-level keys; `final: false` while dragging | edit (output, audio, lighting and power keys: full) |
+| `scene.create` | `{ name, data? }` without data: the desktop's current look | edit |
+| `scene.save` | `{ id, data? }` | edit |
+| `scene.rename` | `{ id, name }` | edit |
+| `scene.delete` | `{ id }` | edit |
+| `scene.reorder` | `{ ids }` every scene id once | edit |
+| `palette.save` | `{ name, colors? }` 2 to 5 `#rrggbb` | edit |
+| `palette.delete` | `{ id }` | edit |
+| `preview.get` | → `{ width, height, jpeg }` the frame an output shows, 480 px wide, base64 JPEG | view |
+| `audio.watch` | `{ on }` stream the desktop's audio to this phone (see below) | view |
+| `audio.bridge` | `{ on, fallback? }` make this phone's audio the desktop's audio input | full |
+| `nowplaying.set` | `{ has, title, artist, album, position, duration, playing, artwork? }` the track playing on the phone; seconds; artwork a JPEG/PNG/WebP data URL up to 192 KB, sent only when the track changes | full |
+
+Momentary effects are a lease: the phone resends its held list about every half second and the
+desktop drops it 1.5 seconds after the last refresh, and at once when that phone's session closes,
+so a lost release or a dropped connection cannot leave an effect on the output. The lease is kept in
+the main process: a refresh only updates a timestamp, and the panel is called only when the combined
+list of all phones changes. The phone's held effects are kept apart from the ones held in the panel.
+On the phone the renewal is done by the app on the link thread, not by the page (`linkHeld`, docs/android/HOST.md):
+the page reports press, release and "still held" once a second, and the app lets go after 4 seconds without it.
+
+Settings patch rules (`link-guard.js`): only listed keys; the scene list, control bindings and this
+machine's keys are never writable; values keep their type; numbers are finite and clamped to the
+slider ranges (layer settings too); **a path-like string must already exist in this machine's
+settings**, so the phone can reuse a library file but cannot point the desktop at a new file; web
+pages and video inputs (Spout, NDI, screen, camera) are edited at the desktop only; a locked layer is
+not removed or moved unless the patch unlocks it.
+
+Events:
+
+```
+{ ev:"config", rev, patch }   changed top-level keys; a phone that misses a revision calls config.get
+{ ev:"meter", meter }         level, bands, BPM, beat; at most five times a second, when it changes
+{ ev:"live", show }           active scene, cue, T-bar { rest, p, live }, blackout, held effects,
+                              timeline { playing, time }, playing clip deck cells ("row:col,…"),
+                              MilkDrop preset name; when it changes
+```
+
+Events and the mirror run only while a phone session is open.
+
+## Audio
+
+Audio travels as binary messages inside the encrypted session. JSON messages start with `{`; an
+audio packet starts with its kind byte:
+
+```
+[u8 1 = PCM][u8 version 1][u32 BE sequence][u32 BE sample rate][u8 channels 1|2][s16 LE samples]
+```
+
+At most 8192 samples per channel per packet, 400 packets a second and 64 KB per packet. There is no
+reply. Validation is `src/main/link-audio.js`.
+
+**Phone → desktop (`audio.bridge`, full level).** The phone sends the audio it plays, records or
+captures. The desktop builds its analysis frames from it with the same code the capture helper uses
+(`src/shared/audio-spectrum.js`, `src/main/audio-frame.js`), one frame per 1/60 s of audio, so
+visuals, lighting, OSC, tempo and MilkDrop react as they do to a local input. Raw audio was chosen
+over sending analysis frames: 48 kHz stereo 16-bit PCM is about 192 KB/s, a 7174-byte frame sixty
+times a second about 430 KB/s, and with raw audio the desktop's own analysis finds the tempo. The
+input switch is the audio bridge's (`src/main/bridge-input.js`): the input moves to the phone once
+frames arrive, and when the phone goes quiet for 0.6 s the desktop falls back to its local input
+(unless that is turned off). Local capture is stopped while the phone's audio is in use. Settings:
+`phoneLink.audioIn { enabled, device, fallback }`; `device` empty means any phone, and `audio.bridge`
+sets it to the phone that asked. If two phones send, the first one is used until it goes quiet.
+
+**Track information.** While the phone's audio is the desktop's input, the track playing on the
+phone (title, artist, album, position, duration and cover, `nowplaying.set`) is the desktop's "now
+playing" too, as with the audio bridge: the track info layer, lyrics lookup, the OBS page and OSC see
+the phone's track. When the input falls back, the desktop's own track returns.
+
+**Desktop → phone (`audio.watch`, view level).** The phone asks for the desktop's audio to draw the
+desktop's settings with its own engine (smooth preview, or the phone as an extra display). The
+desktop sends the capture helper's raw audio in the same packet format; a phone whose socket queue
+is over 256 KB skips packets instead of building up delay. While a phone watches, the desktop keeps
+capturing even if no output window is open. Only the first audio source is sent, and nothing is
+sent while the desktop's input is the network bridge or a phone.
+
+**Real image (`preview.get`).** The frame an output window (or the panel preview) shows, as a
+480-pixel JPEG, the same capture as MCP `sv_get_preview`. Measured on the desktop: 480×270, about
+14 KB.
 
 Handshake error codes: `bad-message`, `protocol`, `timeout`, `pairing-closed`, `bad-secret`,
 `bad-code`, `too-many`, `rejected`, `unknown-device`, `expected-encrypted`.
@@ -169,8 +282,11 @@ pairing). Those happen only at the desktop, so a stolen phone cannot open a new 
 The operation table is `OPS` in `src/main/phone-link.js`; unknown operations are refused.
 
 `phoneLink` in the settings is a machine setting: MCP cannot write it, and importing settings or
-restoring a full backup keeps this machine's value. Settings patches from the phone must refuse it
-as well.
+restoring a full backup keeps this machine's value. Settings patches from the phone refuse it too.
+
+If the stored keys cannot be read (for example the system key protection is unavailable at that
+moment), the link stays closed and the file is left untouched; the panel offers to rebuild the keys,
+after which every phone pairs again.
 
 ## Panel
 

@@ -126,6 +126,8 @@
   /* Bir değişim. Dönüş: { ok, kind, label } ya da { ok:false, code, kind } */
   function applySwitch() {
     const S = A();
+    // Hedef PC iken değişimi PC'nin kendi Otomatik VJ'si yapar; telefon PC'nin ayarına yazmaz
+    if (S && S.target && S.target.get().target === 'pc') return { ok: false, code: 'PC' };
     const cfg0 = S && S.config.get();
     if (!cfg0 || !R()) return { ok: false, code: 'NOCFG' };
     const a = R().normalize(cfg0.autovj);

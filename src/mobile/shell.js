@@ -30,6 +30,8 @@
   };
   const TABS = [
     { id: 'scene', icon: 'image', label: 'Sahne' },
+    // Yalnız hedef PC iken (PC bağlantısı, src/mobile/shell-live.js)
+    { id: 'live', icon: 'bolt', label: 'Canlı', pc: true },
     { id: 'layers', icon: 'layers', label: 'Katmanlar' },
     { id: 'library', icon: 'library', label: 'Kitaplık' },
     { id: 'audio', icon: 'speaker', label: 'Ses' },
@@ -712,14 +714,104 @@
     const sceneCard = h('div', { class: 'scene-card glass live' }, [sceneOpen, vj, timelineBtn, exportBtn]);
     const scenesStrip = h('div', { class: 'scenes live', role: 'group', 'aria-label': 'Sahneler' });
     const navButtons = TABS.map((t) => h('button', {
-      'data-tab': t.id, class: t.id === state.tab ? 'on' : '', onclick: () => (state.tab === t.id && t.id !== 'scene' ? closeSheet() : openTab(t.id)),
+      'data-tab': t.id, class: t.id === state.tab ? 'on' : '', hidden: !!t.pc, onclick: () => (state.tab === t.id && t.id !== 'scene' ? closeSheet() : openTab(t.id)),
     }, [icon(t.icon), t.label]));
     const nav = h('nav', { class: 'nav glass live', 'aria-label': 'Ana gezinme' }, navButtons);
-    root = h('div', { id: 'sv-shell' }, [hud, sceneCard, scenesStrip, nav]);
-    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null };
+    /* HEDEF ÇİPİ (taslak 16): "Bu telefon" ya da bağlı PC'nin adı ve gecikmesi. Kayıtlı bilgisayar
+       yoksa gizli; dokununca hedef menüsü. */
+    const targetLabel = h('span', { class: 'label' });
+    const targetDim = h('span', { class: 'dim mono' });
+    const targetIcon = h('span', { class: 'target-icon' }, [icon('phone')]);
+    const targetChip = h('button', { class: 'chip glass live target-chip', hidden: true, 'aria-label': 'Hedef', onclick: targetMenu }, [targetIcon, targetLabel, targetDim]);
+    hud.insertBefore(targetChip, hud.firstChild);
+    const toastBox = h('div', { class: 'toast glass', role: 'status', 'aria-live': 'polite', hidden: true });
+    // "Gerçek görüntü" önizlemesi: PC'nin gösterdiği kare sahnenin üstünde, arayüzün altında
+    const pcShot = h('img', { class: 'pc-shot', alt: '', hidden: true, decoding: 'async' });
+    root = h('div', { id: 'sv-shell' }, [pcShot, hud, sceneCard, scenesStrip, nav, toastBox]);
+    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, pcShot };
     document.body.appendChild(root);
     if (typeof ResizeObserver === 'function') new ResizeObserver(fitHud).observe(hud);
     fitHud();
+  }
+
+  // ---- Hedef: bu telefon ya da PC (PC bağlantısı) ----
+  let targetSt = { target: 'phone', wanted: false, name: '', state: 'idle', rtt: 0, standby: false };
+  let savedPcs = 0;
+  function paintTarget() {
+    if (!refs.targetChip) return;
+    const pcOn = targetSt.target === 'pc';
+    refs.targetChip.hidden = !pcOn && !savedPcs && !targetSt.wanted;
+    refs.targetChip.classList.toggle('on', pcOn);
+    refs.targetIcon.textContent = '';
+    refs.targetIcon.appendChild(icon(pcOn ? 'monitor' : 'phone'));
+    const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
+    refs.targetLabel.textContent = pcOn ? (targetSt.name || 'PC') : tr('Bu telefon');
+    refs.targetDim.textContent = pcOn ? (targetSt.standby ? tr('yedek') : targetSt.rtt ? targetSt.rtt + ' ms' : '')
+      : targetSt.wanted && targetSt.state !== 'connected' ? tr('PC bekleniyor') : '';
+    // Canlı sekmesi yalnız PC hedefinde
+    for (const b of refs.navButtons) if (b.dataset.tab === 'live') b.hidden = !pcOn;
+    if (!pcOn && state.tab === 'live') closeSheet();
+    root.classList.toggle('target-pc', pcOn);
+  }
+  async function targetMenu() {
+    const T = A().target;
+    if (!T) return;
+    const st = T.get();
+    const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
+    const pcLabel = (st.name || 'PC') + ' · ' + (st.state === 'connected' ? tr('bağlı') : st.state === 'connecting' || st.state === 'reconnecting' ? tr('bağlanıyor') : tr('bağlı değil'));
+    const PREV = { smooth: tr('Akıcı'), image: tr('Gerçek görüntü'), off: tr('Kapalı') };
+    const opts = [['phone', tr('Bu telefon')], ['pc', pcLabel]];
+    if (st.target === 'pc') opts.push(['preview', tr('Önizleme') + ': ' + (PREV[st.preview] || PREV.smooth)]);
+    opts.push(['display', tr('Ek ekran olarak kullan')], ['setup', tr('Bağlantı ayarları')]);
+    const v = await chooseBox('Hedef', opts, st.target);
+    if (v === 'preview') {
+      /* Akıcı: telefon bilgisayarın ayarını bilgisayarın sesiyle kendisi çizer (az veri, piksel
+         piksel aynı değil: bilgisayardaki kamera, ekran yakalama, web sayfası telefonda yok).
+         Gerçek görüntü: bilgisayarın gösterdiği kare, saniyede birkaç kez. Kapalı: bilgisayarın
+         ayarı telefonun kendi sesiyle. */
+      const m = await chooseBox('Önizleme', [['smooth', PREV.smooth], ['image', PREV.image], ['off', PREV.off]], st.preview || 'smooth');
+      if (m) T.preview(m);
+      return;
+    }
+    if (v === 'display') {
+      // Telefon PC'nin bir çıkışı gibi: PC hedefi, akıcı önizleme, arayüzsüz tam ekran
+      const r = await T.set('pc');
+      if (!r || r.target !== 'pc') { toast('PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.'); return; }
+      T.preview('smooth');
+      setFullscreen(true);
+      return;
+    }
+    if (v === 'phone' || v === 'pc') {
+      const r = await T.set(v);
+      if (v === 'pc' && r && r.target !== 'pc') toast(st.state === 'connected' ? 'PC ayarı okunamadı. Yeniden deneyin.' : 'PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.');
+    } else if (v === 'setup' && window.SVShellPcLink) {
+      openSheetWith(window.SVShellPcLink.page());
+    }
+  }
+  /* Kısa bildirim (PC bir değişikliği kabul etmediğinde gibi). Dört saniyede kendiliğinden kalkar. */
+  let toastTimer = 0;
+  function toast(text) {
+    const box = refs.toastBox;
+    if (!box) return;
+    const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
+    box.textContent = tr(text);
+    box.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { box.hidden = true; }, 4000);
+  }
+  // PC'nin reddettiği yazım: hangi alan, neden
+  const PC_ERR = {
+    'not-allowed': 'Bu ayarı telefondan değiştirme izniniz yok.',
+    path: 'PC\'de olmayan bir dosya seçilemez. Dosyayı PC\'nin kitaplığından seçin.',
+    'needs-pc': 'Web sayfası ve görüntü girişleri yalnız PC\'de düzenlenir.',
+    locked: 'Kilitli katman taşınamaz ya da silinemez.',
+    standby: 'Bu PC yedek rolünde; değişiklik birincil kopyada yapılmalı.',
+    busy: 'PC şu an öz test yapıyor; birazdan yeniden deneyin.',
+    'panel-closed': 'PC\'de uygulamanın paneli kapalı.',
+  };
+  function onPcError(e) {
+    if (!e || (e.error === 'timeout' && e.op === 'momentary')) return;
+    toast(PC_ERR[e.error] || 'PC değişikliği uygulamadı.');
   }
 
   function setInsets(v) {
@@ -744,6 +836,24 @@
       updateVisibility();
     });
     S.onBack(() => { if (!back()) S.app.toBackground(); });
+    if (S.target) {
+      S.target.onChange((v) => { targetSt = v || targetSt; paintTarget(); });
+      targetSt = S.target.get();
+      if (S.link) {
+        const seen = (v) => { savedPcs = v && Array.isArray(v.saved) ? v.saved.length : savedPcs; paintTarget(); };
+        S.link.onState(seen);
+        S.link.status().then(seen, () => {});
+      }
+      if (S.pc) S.pc.onError(onPcError);
+      if (S.pc && S.pc.onShot) S.pc.onShot((v) => {
+        const img = refs.pcShot;
+        if (!img) return;
+        if (!v) { img.hidden = true; img.removeAttribute('src'); return; }
+        img.src = v.src;
+        img.hidden = false;
+      });
+      paintTarget();
+    }
     S.onLowPower((on) => root.classList.toggle('flat', !!on));
     S.audio.onStatus(renderSource);
     S.onMeter((m) => {
@@ -809,6 +919,8 @@
     },
     /** Sekme dışı bir sayfa açar (ör. Görüntüleme): alt gezinmede Sahne seçili kalır. */
     openPage(page) { openSheetWith(page); },
+    /** Kısa bildirim */
+    toast: (text) => toast(text),
     fullscreen: (on) => setFullscreen(on),
   });
 
