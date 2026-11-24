@@ -79,6 +79,20 @@ const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-reque
    yayın sayfaları, kumanda ve jetonlar YOK; yalnız `kind=peer` ve /health.
    Kullanıcının açmadığı yayın sayfaları ağa açılmasın. */
 let peerOnly = false;
+/* Telefon bağlantısı (#1054, docs/PHONE-LINK.md): açıkken sunucu ağı dinler ama "LAN" kapalıysa
+   ağdan gelen istekte yalnız /health, `/link` (kind=phone) ve yedek açıktır. Yayın sayfaları,
+   kumanda ve dosya yolları yerel kalır. Telefonun yetkisi el sıkışmadan gelir, jetondan değil. */
+let linkOpen = false;
+let lanOpen = false;
+// main.js ayarın kopyasını kirletmemek için bayrağı ayrıca verir (setPhoneLink)
+let linkWanted = false;
+function setPhoneLink(on) { linkWanted = !!on; }
+function isLoopback(addr) {
+  const a = String(addr || '');
+  return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1' || a.startsWith('127.');
+}
+// Ağdan gelen ve LAN açık değilken: yalnız telefon bağlantısı ve yedek
+const lanBlocked = (sock) => !lanOpen && !isLoopback(sock && sock.remoteAddress);
 let hooks = {
   getConfig: () => null,
   getPresets: () => [],
@@ -183,7 +197,8 @@ function sendTo(client, opcode, payload) {
   if (client.socket.destroyed) return;
   // Geri baskı: yazma tamponu dolduysa ses karesi atlanır (kontrol mesajları
   // yine de sıraya girer). Aksi halde yavaş bir istemci belleği şişirir.
-  if (opcode === 0x2 && client.backpressure) return;
+  // Telefonun şifreli kareleri atlanmaz: komut ve yanıt taşırlar
+  if (opcode === 0x2 && client.backpressure && client.kind !== 'phone') return;
   try {
     const ok = client.socket.write(encodeFrame(opcode, payload));
     if (!ok) {
@@ -201,6 +216,7 @@ function dropClient(client) {
   if (!clients.has(client)) return;
   clients.delete(client);
   try { client.socket.destroy(); } catch { /* zaten kapalı */ }
+  if (client.kind === 'phone' && typeof hooks.onLinkClose === 'function') hooks.onLinkClose(client);
   hooks.onClientsChanged(clientInfo());
 }
 
@@ -219,7 +235,7 @@ function startTick() {
   if (tickTimer) return;
   tickTimer = setInterval(() => {
     const now = Date.now();
-    for (const c of clients) if (c.kind !== 'peer') sendJson(c, { type: 'tick', serverNow: now });
+    for (const c of clients) if (c.kind !== 'peer' && c.kind !== 'phone') sendJson(c, { type: 'tick', serverNow: now });
   }, 500);
   if (tickTimer.unref) tickTimer.unref();
 }
@@ -261,7 +277,8 @@ function broadcast(obj, kind) {
     obj = Object.assign({}, obj, { delta: { upsert: publicPresets(d.upsert), remove: Array.isArray(d.remove) ? d.remove : [] } });
   }
   for (const c of clients) {
-    if (c.kind === 'peer') continue;
+    // Yedek ve telefon yayın istemcisi değil: telefonun iletileri şifreli, kendi yolundan gider
+    if (c.kind === 'peer' || c.kind === 'phone') continue;
     if (kind && c.kind !== kind) continue;
     sendJson(c, obj);
   }
@@ -598,7 +615,7 @@ function handleRequest(req, res) {
     res.end(JSON.stringify({ ok: true, app: 'CAYADEV Visualizer', clients: clients.size }));
     return;
   }
-  if (peerOnly) { res.writeHead(404).end('not found'); return; }
+  if (peerOnly || lanBlocked(req.socket)) { res.writeHead(404).end('not found'); return; }
 
   // 2. Sayfa giriş noktaları: / (overlay) ve /remote
   // Token zorunluluğu kapalıysa doğrulama atlanır; açıksa URL veya başlıktan token beklenir.
@@ -831,7 +848,13 @@ function handleUpgrade(req, socket) {
     return;
   }
   const askKind = url.searchParams.get('kind');
+  if (url.pathname === '/link' || askKind === 'phone') {
+    if (!linkOpen) { socket.end('HTTP/1.1 404 Not Found\r\n\r\n'); return; }
+    acceptLink(req, socket);
+    return;
+  }
   const kind = askKind === 'remote' ? 'remote' : askKind === 'peer' ? 'peer' : 'overlay';
+  if (kind !== 'peer' && lanBlocked(socket)) { socket.end('HTTP/1.1 404 Not Found\r\n\r\n'); return; }
   const expected = kind === 'remote' ? (state.remoteToken || state.token) : state.token;
 
   const urlToken = url.searchParams.get('token') || hdrs['x-sv-token'] || '';
@@ -986,6 +1009,37 @@ function handleUpgrade(req, socket) {
   socket.on('close', () => dropClient(client));
 }
 
+/* Telefon istemcisi: el sıkışma metin, oturumdan sonra şifreli ikili kareler. Bütün içerik
+   main.js'teki bağlantı yöneticisine (phone-link.js) gider; burada yalnız taşıma. */
+const MAX_LINK_PHONES = 8;
+function acceptLink(req, socket) {
+  const key = req.headers['sec-websocket-key'];
+  if (!key || (req.headers.upgrade || '').toLowerCase() !== 'websocket') { socket.destroy(); return; }
+  let phones = 0;
+  for (const c of clients) if (c.kind === 'phone') phones++;
+  if (phones >= MAX_LINK_PHONES) { socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n'); return; }
+  const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
+  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+  socket.setNoDelay(true);
+  const client = { socket, kind: 'phone', since: Date.now(), address: socket.remoteAddress || '', buf: Buffer.alloc(0),
+    fragments: [], fragmentOpcode: 0x1, backpressure: false, link: null };
+  clients.add(client);
+  hooks.onClientsChanged(clientInfo());
+  if (typeof hooks.onLinkOpen === 'function') hooks.onLinkOpen(client);
+  socket.on('data', (chunk) => {
+    client.buf = Buffer.concat([client.buf, chunk]);
+    client.buf = decodeFrames(client, (payload, opcode) => {
+      if (opcode === 0x1 && typeof hooks.onLinkText === 'function') hooks.onLinkText(client, payload.toString('utf-8'));
+      else if (opcode === 0x2 && typeof hooks.onLinkBinary === 'function') hooks.onLinkBinary(client, payload);
+    }, () => dropClient(client));
+  });
+  socket.on('error', () => dropClient(client));
+  socket.on('close', () => dropClient(client));
+}
+function linkSendText(client, text) { if (client && client.kind === 'phone') sendTo(client, 0x1, Buffer.from(text, 'utf-8')); }
+function linkSendBinary(client, buf) { if (client && client.kind === 'phone') sendTo(client, 0x2, buf); }
+function phoneClients() { return Array.from(clients).filter((c) => c.kind === 'phone'); }
+
 // ----------------------------------------------------------------------------
 // Ömür döngüsü
 // ----------------------------------------------------------------------------
@@ -993,7 +1047,12 @@ function start(cfgStream, newHooks) {
   hooks = Object.assign(hooks, newHooks || {});
   const cfg = cfgStream || {};
   const port = Math.max(1024, Math.min(65535, cfg.port | 0 || 8722));
-  const host = cfg.lan ? '0.0.0.0' : '127.0.0.1';
+  // Telefon bağlantısı ağı dinlemeyi gerektirir; LAN kapalıysa ağdan yalnız /link açık (lanBlocked)
+  // listenHost ve SV_LISTEN_LOOPBACK yalnız sınamada: ağı dinlemeden telefon yolunu denemek için (güvenlik duvarı sormasın)
+  const host = cfg.listenHost === '127.0.0.1' || process.env.SV_LISTEN_LOOPBACK === '1' ? '127.0.0.1' : cfg.lan || cfg.phoneLink || linkWanted ? '0.0.0.0' : '127.0.0.1';
+  lanOpen = !!cfg.lan;
+  linkOpen = !!(cfg.phoneLink || linkWanted);
+  if (!linkOpen) for (const c of Array.from(clients)) if (c.kind === 'phone') dropClient(c);
   let token = cfg.token || '';
   let remoteToken = cfg.remoteToken || '';
   const requireToken = !!cfg.requireToken; // varsayılan false
@@ -1084,7 +1143,8 @@ function status() {
     running: state.running,
     port: state.port,
     host: state.host,
-    lan: state.host === '0.0.0.0',
+    lan: state.host === '0.0.0.0' && lanOpen,
+    phoneLink: state.running && linkOpen,
     token: state.token,
     remoteToken: state.remoteToken,
     requireToken: state.requireToken,
@@ -1144,6 +1204,26 @@ function lanAddress() {
   return '127.0.0.1';
 }
 
+/** Telefona QR ile verilen adresler: en olası ağ kartı önce, en çok dört. */
+function lanAddresses() {
+  const nets = require('os').networkInterfaces();
+  const VIRTUAL = /vethernet|virtual|vbox|vmware|wsl|hyper-v|tap|tun|docker|tailscale|zerotier/i;
+  const list = [];
+  for (const name of Object.keys(nets)) {
+    for (const n of nets[name] || []) {
+      if ((n.family !== 'IPv4' && n.family !== 4) || n.internal) continue;
+      if (!n.address || n.address.startsWith('127.') || n.address.startsWith('169.254.')) continue;
+      let score = VIRTUAL.test(name) ? 0 : 10;
+      if (/wi-fi|wifi|wlan/i.test(name)) score += 8;
+      else if (/ethernet|eth|en/i.test(name)) score += 5;
+      if (n.address.startsWith('192.168.')) score += 4;
+      else if (n.address.startsWith('10.')) score += 3;
+      list.push({ a: n.address, score });
+    }
+  }
+  return list.sort((x, y) => y.score - x.score).slice(0, 4).map((x) => x.a);
+}
+
 function newToken() {
   return crypto.randomBytes(12).toString('hex');
 }
@@ -1167,10 +1247,17 @@ module.exports = {
   broadcastCamStatus,
   newToken,
   lanAddress,
+  lanAddresses,
   publicConfig,
   publicPresets,
   // Yedek makine izleyici sayılmaz
-  clientCount: () => { let n = 0; for (const c of clients) if (c.kind !== 'peer') n++; return n; },
+  clientCount: () => { let n = 0; for (const c of clients) if (c.kind !== 'peer' && c.kind !== 'phone') n++; return n; },
+  setPhoneLink,
+  linkSendText,
+  linkSendBinary,
+  phoneClients,
+  dropClient,
+  isLoopback,
   sendPeers,
   peerCount,
   legacyPeerCount,

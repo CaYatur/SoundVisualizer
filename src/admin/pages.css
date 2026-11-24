@@ -216,6 +216,22 @@ body[data-single] .sv-form > .card > .group:not(:has(> .group-label)) { padding-
 .sv-insp .studio-subheading { padding-inline: 0; margin-inline: var(--sv-inset); }
 .settings-io-panel { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
 
+/* Telefon bağlantısı (#1054): eşleşme QR'ı, kod, cihaz satırları. QR siyah-beyaz SVG'nin kendisinde. */
+.pl-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-block: 4px 12px; }
+.pl-qr { flex: none; width: 176px; height: 176px; border-radius: 10px; overflow: hidden; }
+.pl-qr svg { display: block; width: 100%; height: 100%; }
+.pl-pair-txt { flex: 1 1 220px; min-width: 0; display: grid; gap: 6px; justify-items: start; }
+.pl-addr { font-size: 13px; color: var(--text-strong); }
+.pl-code { font-size: 30px; font-weight: 700; letter-spacing: .08em; color: var(--text-strong); }
+.pl-left { font-size: 12px; color: var(--muted); }
+.pl-sas { margin-block: 10px; font-size: 36px; font-weight: 700; letter-spacing: .12em; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.pl-devs { display: grid; gap: 6px; margin-block: 4px 10px; }
+.pl-dev { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 10px; background: rgb(var(--fg-rgb) / .045); }
+.pl-dev.on .sv-led { background: var(--ok); box-shadow: 0 0 9px var(--ok); }
+.pl-dev-txt { flex: 1 1 160px; min-width: 0; display: grid; gap: 1px; }
+.pl-dev-txt b { font-weight: 600; color: var(--text-strong); font-size: 13px; }
+.pl-dev select { width: auto; min-width: 120px; }
+
 /* ------------------------------------------------------------- 5. Modül başlığı, bilgi, ipucu */
 /* Arka planda çalışan bir şeyin durumu ve eylemi: aç-kapa anahtarı yerine */
 .sv-module {
