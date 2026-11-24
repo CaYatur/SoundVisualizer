@@ -727,8 +727,11 @@
     const toastBox = h('div', { class: 'toast glass', role: 'status', 'aria-live': 'polite', hidden: true });
     // "Gerçek görüntü" önizlemesi: PC'nin gösterdiği kare sahnenin üstünde, arayüzün altında
     const pcShot = h('img', { class: 'pc-shot', alt: '', hidden: true, decoding: 'async' });
-    root = h('div', { id: 'sv-shell' }, [pcShot, hud, sceneCard, scenesStrip, nav, toastBox]);
-    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, pcShot };
+    const pcBannerText = h('span', { class: 'grow-text' });
+    const pcBanner = h('div', { class: 'pc-banner glass', role: 'status', hidden: true }, [icon('monitor'), pcBannerText,
+      h('button', { class: 'btn', onclick: () => { if (A().target) A().target.set('phone'); } }, [h('span', { text: 'Bu telefona dön' })])]);
+    root = h('div', { id: 'sv-shell' }, [pcShot, hud, pcBanner, sceneCard, scenesStrip, nav, toastBox]);
+    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, pcShot, pcBanner, pcBannerText };
     document.body.appendChild(root);
     if (typeof ResizeObserver === 'function') new ResizeObserver(fitHud).observe(hud);
     fitHud();
@@ -752,6 +755,7 @@
     for (const b of refs.navButtons) if (b.dataset.tab === 'live') b.hidden = !pcOn;
     if (!pcOn && state.tab === 'live') closeSheet();
     root.classList.toggle('target-pc', pcOn);
+    paintBanner();
   }
   async function targetMenu() {
     const T = A().target;
@@ -761,7 +765,11 @@
     const pcLabel = (st.name || 'PC') + ' · ' + (st.state === 'connected' ? tr('bağlı') : st.state === 'connecting' || st.state === 'reconnecting' ? tr('bağlanıyor') : tr('bağlı değil'));
     const PREV = { smooth: tr('Akıcı'), image: tr('Gerçek görüntü'), off: tr('Kapalı') };
     const opts = [['phone', tr('Bu telefon')], ['pc', pcLabel]];
-    if (st.target === 'pc') opts.push(['preview', tr('Önizleme') + ': ' + (PREV[st.preview] || PREV.smooth)]);
+    if (st.target === 'pc') {
+      opts.push(['preview', tr('Önizleme') + ': ' + (PREV[st.preview] || PREV.smooth)]);
+      opts.push(['manage', tr('PC Ayarları')]);
+      if (st.undo > 0) opts.push(['undo', tr('Son değişikliği geri al') + ' (' + st.undo + ')']);
+    }
     opts.push(['display', tr('Ek ekran olarak kullan')], ['setup', tr('Bağlantı ayarları')]);
     const v = await chooseBox('Hedef', opts, st.target);
     if (v === 'preview') {
@@ -773,6 +781,8 @@
       if (m) T.preview(m);
       return;
     }
+    if (v === 'manage' && window.SVShellPcManage) { openSheetWith(window.SVShellPcManage.page()); return; }
+    if (v === 'undo') { if (!(A().pc && A().pc.undo())) toast('Geri alınacak değişiklik yok.'); return; }
     if (v === 'display') {
       // Telefon PC'nin bir çıkışı gibi: PC hedefi, akıcı önizleme, arayüzsüz tam ekran
       const r = await T.set('pc');
@@ -808,7 +818,33 @@
     standby: 'Bu PC yedek rolünde; değişiklik birincil kopyada yapılmalı.',
     busy: 'PC şu an öz test yapıyor; birazdan yeniden deneyin.',
     'panel-closed': 'PC\'de uygulamanın paneli kapalı.',
+    'doc-newer': 'PC\'nin ayar biçimi daha yeni. Bozulmasın diye düzenleme kapalı; izleme ve canlı denetim açık. Telefon uygulamasını güncelleyin.',
+    rate: 'PC şu an çok istek alıyor; birazdan yeniden deneyin.',
+    'no-song': 'Önce şarkıyı telefondan gönderin.',
+    'too-big': 'Dosya çok büyük.',
+    'bad-type': 'Bu dosya türü gönderilemez.',
   };
+  /* BAĞLANTI DURUMLARI (taslak 21): PC seçiliyken bağlantı koparsa üstte bant: yeniden
+     bağlanıyor ya da neden bağlanamadığı, "Bu telefona dön" düğmesiyle. */
+  const LINK_ERR = {
+    unreachable: 'Bilgisayara ulaşılamıyor. PC kapalı, uykuda ya da başka bir ağda olabilir. Telefon kendi sahnesine döndü.',
+    'link-off': 'Bilgisayarda Telefon Bağlantısı kapalı.',
+    lost: 'Bağlantı koptu.',
+    'unknown-device': 'Bu telefonun bağlantısı PC\'de kaldırılmış. Yeniden eşleşmek için PC\'de yeni kod oluşturun.',
+    protocol: 'PC\'deki uygulama bu sürümle uyumsuz. İkisini de güncelleyin.',
+  };
+  function paintBanner() {
+    const b = refs.pcBanner;
+    if (!b) return;
+    const show = targetSt.wanted && targetSt.target !== 'pc' && targetSt.state !== 'connected';
+    b.hidden = !show;
+    if (!show) return;
+    const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
+    const reconnecting = targetSt.state === 'reconnecting' || targetSt.state === 'connecting';
+    refs.pcBannerText.textContent = reconnecting
+      ? tr('{pc} için yeniden bağlanılıyor…').replace('{pc}', targetSt.name || 'PC') + (targetSt.error && LINK_ERR[targetSt.error] ? ' ' + tr(LINK_ERR[targetSt.error]) : '')
+      : tr(LINK_ERR[targetSt.error] || 'PC\'ye bağlı değil.') + ' ' + tr('Aynı ağda olduğunuzdan emin olun; misafir ağlarında cihazlar birbirini görmeyebilir.');
+  }
   function onPcError(e) {
     if (!e || (e.error === 'timeout' && e.op === 'momentary')) return;
     toast(PC_ERR[e.error] || 'PC değişikliği uygulamadı.');
