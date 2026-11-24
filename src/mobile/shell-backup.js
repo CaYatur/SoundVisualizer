@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* YEDEK AL VE GERİ YÜKLE (Ayarlar → Veri). Bölümler tek tek seçilir (src/mobile/backup-sections.js).
+/* YEDEK AL VE GERİ YÜKLE (Ayarlar → Veri). Bölümler tek tek seçilir (src/shared/backup-sections.js).
    Arşiv masaüstünün tam yedeğiyle aynı biçimde: telefon da bilgisayar da açar. */
 (function () {
   if (typeof window === 'undefined' || !window.SVShell || !window.SVShellUI) return;

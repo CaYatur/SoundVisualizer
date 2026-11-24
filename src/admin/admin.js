@@ -6946,12 +6946,21 @@
     if (!o.ok) { svToast(backupError(o.error), 'err'); return; }
     const sm = o.summary || {};
     const when = sm.createdAt ? new Date(sm.createdAt) : null;
+    /* Telefonun bölüm bölüm yedeği: yalnız taşıdığı bölümler değişir. Bütün ayar bölümleri ve
+       presetler seçildiyse tam yedek gibi davranır (mergeSettings aynı kuralı uygular). */
+    const BS = window.SVBackupSections;
+    const secs = Array.isArray(sm.sections) && BS ? sm.sections : null;
+    const partial = !!secs && !(BS.CONFIG_SECTIONS.every((x) => secs.indexOf(x) >= 0) && secs.indexOf('presets') >= 0);
+    const SEC_NAMES = { settings: 'Ayarlar', scenes: 'Sahneler', colors: 'Renk şablonları', timeline: 'Zaman çizelgesi', presets: 'Presetler', logos: 'Logolar', lyrics: 'Sözler', videos: 'Videolar', textures: 'Dokular' };
     const parts = [
       tr('Yedek: {d}, sürüm {v}.').replace('{d}', when && !isNaN(when) ? when.toLocaleString() : '?').replace('{v}', sm.appVersion || '?'),
       tr('{s} sahne, {c} renk şablonu, {p} preset, {l} logo, {v} video, {y} söz, {t} doku.')
         .replace('{s}', String(sm.scenes || 0)).replace('{c}', String(sm.colorPresets || 0)).replace('{p}', String(sm.presets || 0))
         .replace('{l}', String(sm.logos || 0)).replace('{v}', String(sm.videos || 0)).replace('{y}', String(sm.lyrics || 0)).replace('{t}', String(sm.textures || 0)),
-      tr('Ayarlarınız, sahneleriniz ve renk şablonlarınız yedektekiyle değiştirilir. Kitaplıklara yedekteki öğeler eklenir: aynı öğe varsa yedekteki geçerli olur, yedekte olmayan öğeleriniz silinmez.'),
+      partial
+        ? tr('Bu yedek yalnız şu bölümleri içeriyor: {b}. Yalnız bunlar yedektekiyle değişir, diğer ayarlarınız olduğu gibi kalır. Kitaplıklara yedekteki öğeler eklenir, yedekte olmayan öğeleriniz silinmez.')
+          .replace('{b}', secs.map((x) => tr(SEC_NAMES[x] || x)).join(', '))
+        : tr('Ayarlarınız, sahneleriniz ve renk şablonlarınız yedektekiyle değiştirilir. Kitaplıklara yedekteki öğeler eklenir: aynı öğe varsa yedekteki geçerli olur, yedekte olmayan öğeleriniz silinmez.'),
     ];
     if (sm.videosLeftOut) parts.push(tr('Bu yedek videosuz alınmış: {n} video bu bilgisayarda yoksa sahnelerde eksik kalır.').replace('{n}', String(sm.videosLeftOut)));
     const ok = await svConfirm(parts.join(' '), { okText: tr('Geri Yükle'), title: tr('Tam Yedekten Geri Yükle'), danger: true });
@@ -6963,7 +6972,8 @@
       svToast(tr('Geri yüklenemedi') + ': ' + backupError(r && r.error), 'err');
       return;
     }
-    const incoming = r.settings && typeof r.settings === 'object' ? r.settings : {};
+    let incoming = r.settings && typeof r.settings === 'object' ? r.settings : {};
+    if (partial) incoming = BS.mergeSettings(JSON.parse(JSON.stringify(cfg)), incoming, secs, true);
     // Dokular uygulamanın klasörüne yazıldı: pencereler listeyi yeniden istesin
     if (r.counts && r.counts.textures) {
       incoming.milkdropLibrary = incoming.milkdropLibrary && typeof incoming.milkdropLibrary === 'object' ? incoming.milkdropLibrary : {};

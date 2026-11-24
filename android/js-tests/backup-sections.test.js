@@ -8,7 +8,7 @@
 /* Yedek bölümleri: parça parça dışa aktarma ve seçilen bölümlerin geri yüklenmesi. */
 const test = require('node:test');
 const assert = require('node:assert');
-const B = require('../../src/mobile/backup-sections.js');
+const B = require('../../src/shared/backup-sections.js');
 
 const cfg = () => ({
   docVersion: 4, ui: { theme: 'dark' }, power: { fpsCap: 30 }, audio: { sensitivity: 1 },

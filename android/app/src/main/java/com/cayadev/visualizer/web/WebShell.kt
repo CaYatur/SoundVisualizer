@@ -164,7 +164,7 @@ object WebShell {
         "web/src/mobile/messages.js",
         "web/src/mobile/audio-input.js",
         "web/src/mobile/silence.js",
-        "web/src/mobile/backup-sections.js",
+        "web/src/shared/backup-sections.js",
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",
         "web/src/shared/mode-catalog.js",
