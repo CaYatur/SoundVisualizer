@@ -153,8 +153,11 @@ function createService(deps) {
   }
   function onClose(client) {
     if (client.linkTimer) { clearInterval(client.linkTimer); client.linkTimer = null; }
+    const was = client.link && client.link.stage === 'session';
     if (client.link) client.link.close();
     client.link = null;
+    // Oturumu kapanan telefonun bıraktıkları (ör. basılı tuttuğu anlık efekt) hemen temizlensin
+    if (was && typeof d.onSessionClose === 'function') { try { d.onSessionClose(client); } catch { /* */ } }
   }
 
   // ---- Panel

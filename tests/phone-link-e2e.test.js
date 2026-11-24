@@ -81,8 +81,10 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
   let stored = null;
   const notes = [];
   let gateWhy = '';
+  const sessionsClosed = [];
   const svc = createService({
     gate: () => gateWhy,
+    onSessionClose: (c) => sessionsClosed.push(c),
     stream: S,
     store: { read: () => stored, write: (o) => { stored = JSON.parse(JSON.stringify(o)); } },
     protect: { seal: (b) => 'x' + Buffer.from(b).toString('base64'), unseal: (s) => Buffer.from(String(s).slice(1), 'base64') },
@@ -148,6 +150,9 @@ test('Uçtan uca: kodla eşleş, onayla, şifreli istek, izin, yeniden bağlan; 
     assert.strictEqual(svc.setLevel(paired.device, 'view'), true);
     assert.deepStrictEqual(await ask({ id: 4, op: 'config.patch' }), { re: '4', ok: false, error: 'not-allowed' });
     ws.close();
+    // Oturum kapanınca hizmet haber verir (basılı anlık efekt hemen kalksın)
+    for (let i = 0; i < 40 && !sessionsClosed.length; i++) await new Promise((r) => setTimeout(r, 25));
+    assert.strictEqual(sessionsClosed.length, 1);
 
     // Uygulama yeniden açıldı gibi: aynı depo, yeni hizmet
     const svc2 = createService({ stream: S, store: { read: () => stored, write: (o) => { stored = o; } },
