@@ -140,13 +140,15 @@ function createService(deps) {
       try { d.onAudio(client, plain, Object.assign({}, c.device, { key: undefined })); } catch { /* */ }
       return;
     }
-    if (t - client.rate.t >= 1000) { client.rate.t = t; client.rate.n = 0; }
-    if (++client.rate.n > RATE_PER_SEC) return;
     let msg = null;
     try { msg = JSON.parse(plain.toString('utf8')); } catch { msg = null; }
     if (!msg || typeof msg !== 'object') return;
     const id = typeof msg.id === 'string' || typeof msg.id === 'number' ? String(msg.id).slice(0, MAX_ID) : null;
     const reply = (obj) => { if (id !== null && c.stage === 'session' && !c.closed) stream.linkSendBinary(client, c.encrypt(Object.assign({ re: id }, obj))); };
+    /* Hız sınırı: atılan isteğe "rate" yanıtı. Eskiden yanıtsız atılıyordu; telefon 15 sn'lik
+       zaman aşımını bekliyordu (dosya gönderirken Canlı sekmesi donmuş görünürdü). */
+    if (t - client.rate.t >= 1000) { client.rate.t = t; client.rate.n = 0; }
+    if (++client.rate.n > RATE_PER_SEC) { reply({ ok: false, error: 'rate' }); return; }
     const op = typeof msg.op === 'string' ? msg.op : '';
     const level = c.device ? c.device.level : 'view';
     if (!Link.allowed(level, op)) { reply({ ok: false, error: 'not-allowed' }); return; }

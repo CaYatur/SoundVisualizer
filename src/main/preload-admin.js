@@ -216,6 +216,7 @@ contextBridge.exposeInMainWorld('api', {
   phoneLinkDisconnect: (id) => ipcRenderer.invoke('phonelink:disconnect', id),
   onPhoneLinkState: (cb) => ipcRenderer.on('phonelink-state', (e, d) => cb(d)),
   onPhoneLinkSas: (cb) => ipcRenderer.on('phonelink-sas', (e, d) => cb(d)),
+  onPhoneLinkFile: (cb) => ipcRenderer.on('phonelink-file', (e, d) => cb(d)),
 
   // Yedeklilik (#540)
   redundancyStatus: () => ipcRenderer.invoke('redundancy:status'),

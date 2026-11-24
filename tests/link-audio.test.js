@@ -86,3 +86,7 @@ test('çalan parça: alanlar sınırlı, kapak yalnız resim veri adresi; aynı 
   assert.strictEqual(LA.cleanMeta({ has: true, artwork: 'data:image/png;base64,' + 'A'.repeat(LA.ART_MAX) }, null, 1), null, 'çok büyük');
   assert.strictEqual(LA.cleanMeta({ has: false, title: 'x' }, a, 9).has, false);
 });
+
+test('paket telefonun Kotlin kodlayıcısıyla bayt bayt aynı (android LinkAudioTest ile aynı örnek)', () => {
+  assert.strictEqual(LA.encode(7, 48000, 2, Int16Array.from([1, -2, 32767, -32768])).toString('hex'), '0101000000070000bb80020100feffff7f0080');
+});
