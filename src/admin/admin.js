@@ -3175,7 +3175,9 @@
         wide: true,
         title: 'Telefon Bağlantısı',
         desc: 'Telefon uygulamasıyla bu bilgisayarı yönetin: sahneler, katmanlar, zaman çizelgesi ve canlı denetim.',
-        roots: ['phoneLink'],
+        /* Kök yok: bu makinenin bağlantı ayarı varsayılanlarda değil (kalıcı anahtarlar ayrı
+           dosyada) ve kategori "sıfırla"sı eşleşmiş telefonlara dokunmamalı. */
+        roots: [],
         controls: [{ type: 'phonelinkpanel' }],
       },
       {
