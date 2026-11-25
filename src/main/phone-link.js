@@ -193,7 +193,11 @@ function createHost(opts) {
     const p = pairingLive();
     if (!p) return '';
     const q = [];
-    for (const h of (hosts || []).slice(0, 4)) q.push('h=' + encodeURIComponent(h));
+    /* En çok üç adres (ağ kartları önce, sanal bağdaştırıcılar sonda: stream-server lanAddresses).
+       Her adres simgeyi büyütür; büyük simgeyi kameralar daha zor okur (ölçüldü: sürüm 9'da
+       çözücüler kusursuz görüntüde %1-7 düştü, sürüm 6'da %1). IP değişse de telefon bilgisayarı
+       ağdaki duyurusundan kimliğiyle bulur. */
+    for (const h of (hosts || []).slice(0, 3)) q.push('h=' + encodeURIComponent(h));
     q.push('p=' + (port | 0), 'id=' + pcId, 'f=' + b64u(fingerprint(identity.pub)), 's=' + b64u(p.secret), 'n=' + encodeURIComponent(pcName));
     return 'svlink://' + PROTOCOL + '?' + q.join('&');
   }
