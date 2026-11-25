@@ -3407,7 +3407,7 @@ function broadcastShowClock() {
   if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'show-clock', anchor: showClockAnchor }, 'overlay');
   /* Telefon PC'nin sahnesini çizerken zaman çizelgesi PC'nin saatiyle aksın: yoksa PC'de oynayan
      çizelge telefonda durur, telefondan dokunulunca ilerlerdi. */
-  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'clock', anchor: showClockAnchor }); } catch { /* açılışta bağlantı yok */ }
+  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'clock', anchor: showClockAnchor, at: Date.now() }); } catch { /* açılışta bağlantı yok */ }
 }
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
@@ -5318,7 +5318,8 @@ function linkSongState() {
   }
   let art = np && np.artwork;
   if (typeof art === 'string' && art.length > 300000) art = '';
-  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null };
+  // at: PC'nin saati. Telefon aradaki farkı ölçüp damgaları kendi saatine çevirir (sözler önde gitmesin)
+  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null, at: Date.now() };
 }
 function linkSongPush() {
   try { if (!linkSvc || !linkNowPlaying) return; } catch { return; } // açılışta bağlantı henüz kurulmadıysa
