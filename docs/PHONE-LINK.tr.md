@@ -258,9 +258,11 @@ seçildi: 48 kHz stereo 16 bit PCM yaklaşık 192 KB/s, 7174 baytlık kare saniy
 430 KB/s; ham sesle tempoyu masaüstünün kendi çözümlemesi bulur. Giriş geçişi ses köprüsününki
 (`src/main/bridge-input.js`): kareler gelince giriş telefona geçer, telefon 0,6 saniye susunca
 masaüstü yerel girişine döner (kapatılmadıysa). Telefonun sesi kullanılırken yerel yakalama durur.
-Ayar: `phoneLink.audioIn { enabled, device, fallback, delayMs }`; `device` boşsa herhangi bir telefon,
+Ayar: `phoneLink.audioIn { enabled, device, fallback, delayMs, play }`; `device` boşsa herhangi bir telefon,
 `audio.bridge` isteyen telefona ayarlar. İki telefon yollarsa ilki, susana dek kullanılır.
-`delayMs` (0–500 ms) Wi-Fi dalgalanması görüntüyü sesin önüne geçirirse kareleri bekletir.
+`delayMs` (0–500 ms) Wi-Fi dalgalanması görüntüyü sesin önüne geçirirse kareleri bekletir. `play`
+(varsayılan kapalı) telefonun sesini PC hoparlöründen de çalar: ses köprüsünün gizli çalma penceresi,
+ses köprüsünün ses düzeyi, çıkış aygıtı ve tamponuyla.
 
 **Parça bilgisi.** Telefonun sesi masaüstünün girişiyken telefonda çalan parça (ad, sanatçı, albüm,
 konum, süre ve kapak, `nowplaying.set`) masaüstünün de "şimdi çalıyor"udur, ses köprüsündeki gibi:

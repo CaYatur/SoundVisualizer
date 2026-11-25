@@ -1876,6 +1876,7 @@
     'ses telefondan': 'audio from the phone',
     'Telefondan Yapılan Değişiklikleri Bildir': 'Notify Me of Changes Made from the Phone',
     'Görüntü Gecikmesi': 'Video Delay',
+    'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
     'Telefon ayarları değiştirdi.': 'The phone changed the settings.',
     'Ses telefondan': 'Audio from the phone',
     'Telefon sessiz: yerel giriş kullanılıyor': 'Phone is quiet: using the local input',
