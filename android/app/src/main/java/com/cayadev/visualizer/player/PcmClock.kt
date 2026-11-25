@@ -29,6 +29,12 @@ class PcmClock(
     private val block: Int = 512,
     /** Bekleyen sesin üst sınırı (saniye): konum ilerlemezse bellek dolmasın. */
     private val maxSeconds: Int = 4,
+    /** Bir release çağrısında en çok bu kadar blok dışarı verilir.
+        Konum bir anda sıçrayınca (çaların currentPosition'ı kaba) kuyruk
+        tek tıkta boşalmasın: bağlantı kuyruğu 24 paketten sonrasını atar,
+        PC zamanlayıcısı da öndeki patlamayı düşürür. İki blok (~21 ms @ 48 kHz)
+        yetişmeye yeter; mikrofon yolu zaten blok blok akar. */
+    private val maxPerRelease: Int = 2,
 ) {
     class Chunk(val gen: Int, val startFrame: Long, val sampleRate: Int, val channels: Int, val samples: ShortArray) {
         val frames: Int get() = samples.size / channels
@@ -98,7 +104,7 @@ class PcmClock(
             segStartMs = positionMs
         }
         var n = 0
-        while (true) {
+        while (n < maxPerRelease) {
             val c = queue.peek() ?: break
             if (c.gen != g) {
                 queue.poll()
@@ -107,6 +113,15 @@ class PcmClock(
             val played = (positionMs - segStartMs) * c.sampleRate / 1000
             if (c.startFrame > played) break
             queue.poll()
+            // Çalma kafasından 250 ms'den daha eski blok artık duyulmaz.
+            // Atmak sayacı artırmaz: bir tık bütün gecikmiş kuyruğu düşürüp
+            // en çok maxPerRelease taze blok bırakır.
+            val end = c.startFrame + c.frames
+            val lateLimit = c.sampleRate.toLong() / 4
+            if (played - end > lateLimit) {
+                dropped++
+                continue
+            }
             lastLagMs = (played - c.startFrame) * 1000.0 / c.sampleRate
             out(c)
             n++
