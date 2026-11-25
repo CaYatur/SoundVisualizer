@@ -760,6 +760,7 @@
     pc.loading = false;
     if (!r.ok || !r.result || !r.result.config) { emitTarget(); return false; }
     pc.cfg = r.result.config;
+    pc.srv = Object.assign({}, pc.cfg);
     pc.rev = Number(r.result.rev) || 0;
     pc.writing = {};
     pc.deferred = {};
@@ -848,6 +849,19 @@
       evLog.push([m.rev, Object.keys(m.patch || {}).join(','), pc.rev]);
       if (evLog.length > 20) evLog.shift();
       if (!pc.cfg || !PR()) return;
+      if (m.delta && typeof m.delta === 'object') {
+        /* Büyük anahtarın farkı (PC json-delta): tabanı PC'nin bir önceki değeri. Uygulanamazsa
+           (taban yok ya da sıra kaçtı) ayar baştan çekilir. */
+        const J = window.SVJsonDelta;
+        const patch = Object.assign({}, m.patch || {});
+        for (const k of Object.keys(m.delta)) {
+          const v = J && pc.srv && m.rev === pc.rev + 1 ? J.apply(pc.srv[k], m.delta[k]) : null;
+          if (v == null) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
+          patch[k] = v;
+        }
+        m = Object.assign({}, m, { patch });
+      }
+      if (pc.srv && m.rev === pc.rev + 1) for (const k of Object.keys(m.patch || {})) pc.srv[k] = m.patch[k];
       const r = PR().applyEvent(pc, m, Date.now(), 600);
       if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
       if (r.stale) return;
@@ -1089,11 +1103,32 @@
     if (!p) return;
     pc.drag = null;
     Object.assign(dragSent, p);
-    pcAsk('config.patch', { patch: p, final: false });
+    sendPatch({ patch: p, final: false });
   }
   function serial(op, args) {
-    pc.queue = pc.queue.then(() => pcAsk(op, args)).catch(() => {});
+    pc.queue = pc.queue.then(() => (op === 'config.patch' ? sendPatch(args) : pcAsk(op, args))).catch(() => {});
     return pc.queue;
+  }
+  /* AYAR YAZIMI: büyük zaman çizelgesi bütün olarak değil, PC'nin son onayladığı değerden farkla
+     gider (timeline.apply, json-delta.js). PC uygulayamazsa ('stale', eski PC'de 'unknown-op')
+     bütün değer gider. Bir klibi kaydırmak 550 KB yerine birkaç yüz bayt; büyük çizelge bağlantı
+     sınırına takılmaz. */
+  const DELTA_MIN = 32 * 1024;
+  function sendPatch(args) {
+    const J = window.SVJsonDelta;
+    const p = args && args.patch;
+    if (!J || !p || p.timeline === undefined || !pc.srv || pc.srv.timeline == null) return pcAsk('config.patch', args);
+    const whole = J.size(p.timeline);
+    if (whole < DELTA_MIN) return pcAsk('config.patch', args);
+    const ops = J.diff(pc.srv.timeline, p.timeline);
+    if (!ops || J.size(ops) * 2 >= whole) return pcAsk('config.patch', args);
+    const rest = Object.assign({}, p);
+    delete rest.timeline;
+    const first = Object.keys(rest).length ? pcAsk('config.patch', Object.assign({}, args, { patch: rest })) : Promise.resolve({ ok: true });
+    return first.then(() => (ops.length ? pcAsk('timeline.apply', { ops, final: args.final !== false }) : { ok: true })).then((r) => {
+      if (r && r.ok) return r;
+      return pcAsk('config.patch', Object.assign({}, args, { patch: { timeline: p.timeline } }));
+    });
   }
 
   window.SVAndroid = Object.freeze({
