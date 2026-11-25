@@ -54,7 +54,7 @@ test('canlı sayfada çizime giren her betik dışa aktarıcıda ve yayın katma
   const overlay = new Set(scripts('src/web/overlay.html'));
   const missingExp = live.filter((s) => !exp.has(s) && !LIVE_ONLY[s]);
   assert.deepStrictEqual(missingExp, [], 'dışa aktarıcıda eksik');
-  const missingOverlay = live.filter((s) => !overlay.has(s) && s !== 'src/visualizer/visualizer.js' && s !== 'src/visualizer/tbar-hold.js');
+  const missingOverlay = live.filter((s) => !overlay.has(s) && s !== 'src/visualizer/visualizer.js');
   assert.deepStrictEqual(missingOverlay, [], 'yayın katmanında eksik');
   // İstisna listesi bayatlamasın: listedeki her betik canlı sayfada olmalı
   Object.keys(LIVE_ONLY).forEach((s) => assert.ok(live.includes(s), 'istisna artık canlı sayfada yok: ' + s));
