@@ -20,4 +20,10 @@ class QrDecodeTest {
         assertEquals(o.getString("text"), QrDecode.gray(bytes, o.getInt("w"), o.getInt("h")))
         assertNull(QrDecode.gray(ByteArray(100) { 128.toByte() }, 10, 10))
     }
+
+    @Test fun yarimOlcekDortPikselinOrtalamasi() {
+        val px = byteArrayOf(0, 100, 10, 20, 200.toByte(), 44, 30, 40, 255.toByte(), 255.toByte(), 0, 0, 255.toByte(), 255.toByte(), 0, 0)
+        val h = QrDecode.half(px, 4, 4)
+        org.junit.Assert.assertArrayEquals(byteArrayOf(86, 25, 255.toByte(), 0), h)
+    }
 }

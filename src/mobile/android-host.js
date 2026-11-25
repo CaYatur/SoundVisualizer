@@ -415,7 +415,13 @@
   const isEnginePage = String(env.page || '').indexOf('src/visualizer/') === 0;
   const MAX_RES = { 720: 720, 1080: 1080 };
   const COVERED_FPS = 12;
+  /* DENETİM ÖNCELİĞİ (PC bağlantısı): hedef PC iken bir sayfa açıksa telefonun sahnesi yalnız
+     arka plandaki önizleme; çizim 15 fps ile sınırlanır. Ölçüldü (emülatör, motor grafikte
+     tıkanmışken ~16 fps): sayfa ile uygulama arası gidiş-dönüş p50 157 ms → 50 ms; Canlı
+     sekmesinin düğmeleri ve kaydırıcıları bu yolu kullanıyor. Sayfa kapanınca normal hız. */
+  const CONTROL_FPS = 15;
   let stageCovered = false;
+  let controlFocus = false;
   function phonePower(p) {
     const out = Object.assign({}, p);
     const limit = MAX_RES[p.maxRes == null ? 720 : p.maxRes];
@@ -423,7 +429,18 @@
     const short = Math.min(window.screen.width, window.screen.height) * dpr;
     if (limit && short > limit) out.renderScale = Math.max(0.4, (Number(p.renderScale) || 1) * (limit / short));
     if (stageCovered) out.fpsCap = COVERED_FPS;
+    else if (controlFocus) out.fpsCap = out.fpsCap > 0 ? Math.min(out.fpsCap, CONTROL_FPS) : CONTROL_FPS;
     return out;
+  }
+  let sheetOpen = false;
+  function setControlFocus(on) {
+    if (on === controlFocus) return;
+    controlFocus = on;
+    if (config && config.power) ev.configPatch.emit({ power: phonePower(config.power) });
+  }
+  function setSheetOpen(on) {
+    sheetOpen = !!on;
+    setControlFocus(sheetOpen && !!(typeof pc !== 'undefined' && pc.on));
   }
   function setStageCovered(on) {
     if (on === stageCovered) return;
@@ -742,6 +759,7 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
+    setControlFocus(sheetOpen);
     syncAudio();
     emitTarget();
     clearInterval(pc.ping);
@@ -756,6 +774,7 @@
     const was = pc.on;
     flushDrag(true);
     pc.on = false;
+    setControlFocus(false);
     clearInterval(pc.ping);
     if (was) ev.config.emit(engineView(config));
     syncAudio();
@@ -1123,6 +1142,8 @@
     insets: () => Object.assign({}, insets),
     /** Sahne bir sayfanın altında tümüyle kaldı: motor kare hızını düşürür. */
     setStageCovered,
+    /** Kabukta bir sayfa açık mı (denetim önceliği, yalnız hedef PC iken etkili) */
+    setSheetOpen,
     /** Cihaz koyu kipte mi; uygulama henüz bildirmediyse null. */
     systemDark: () => systemDark,
     onSystemDark: (cb) => systemDarkEv.add(cb),

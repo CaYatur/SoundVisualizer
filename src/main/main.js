@@ -4904,11 +4904,10 @@ function phoneLinkService() {
       'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
       /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
          ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
-      'preview.get': async () => {
-        const img = await mcpCapturePreview();
-        if (!img || img.error || !img.dataUrl) throw Object.assign(new Error('no-preview'), { code: 'no-preview' });
-        return { width: img.width, height: img.height, jpeg: img.dataUrl.slice(img.dataUrl.indexOf(',') + 1) };
-      },
+      /* Kare 250 ms paylaşılır: gösteri makinesinde ekran yakalama ve JPEG ana süreçte; birden çok
+         telefon "gerçek görüntü" izlerken her biri ayrı yakalatmasın. Aynı anda gelen istek
+         süren yakalamayı bekler. */
+      'preview.get': () => linkPreviewShot(),
       'audio.watch': (args, ctx) => {
         if (typeof args.on !== 'boolean' || !ctx || !ctx.client) throw Object.assign(new Error('bad-args'), { code: 'bad-args' });
         return linkWatchSet(ctx.client, args.on);
@@ -5117,6 +5116,20 @@ function linkManageOps() {
       } catch (e) { cleanup(); throw e; }
     },
   };
+}
+
+const linkShot = { at: 0, img: null, pending: null };
+function linkPreviewShot() {
+  if (linkShot.img && Date.now() - linkShot.at < 250) return Promise.resolve(linkShot.img);
+  if (linkShot.pending) return linkShot.pending;
+  linkShot.pending = mcpCapturePreview().then((img) => {
+    linkShot.pending = null;
+    if (!img || img.error || !img.dataUrl) throw Object.assign(new Error('no-preview'), { code: 'no-preview' });
+    linkShot.img = { width: img.width, height: img.height, jpeg: img.dataUrl.slice(img.dataUrl.indexOf(',') + 1) };
+    linkShot.at = Date.now();
+    return linkShot.img;
+  }, (e) => { linkShot.pending = null; throw e; });
+  return linkShot.pending;
 }
 
 /* PC'NİN SESİ → TELEFON (B5, "Akıcı" önizleme ve telefonu ek ekran olarak kullanma). Dinleyen

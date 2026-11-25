@@ -217,6 +217,7 @@
     const r = refs.sheet ? refs.sheet.getBoundingClientRect() : null;
     const on = !!r && r.width >= window.innerWidth * 0.95 && r.height >= window.innerHeight * 0.9;
     if (A() && A().setStageCovered) A().setStageCovered(on);
+    if (A() && A().setSheetOpen) A().setSheetOpen(!!refs.sheet);
   }
   let shown = null;
   /* Yeni sayfa açılınca yarım saniye dokunuş alınmaz. Çift dokunuşla açılan sayfada tarayıcının
