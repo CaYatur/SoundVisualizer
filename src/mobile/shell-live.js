@@ -128,29 +128,34 @@
     el.addEventListener('lostpointercapture', (e) => finish(e, true));
   }
 
-  /* T-bar: konum mutlak yollanır, saniyede en çok ~25 kez; sürükleme bitince son konum hemen.
-     Bırakınca PC'nin özeti yetişene dek (en çok 1,5 sn) ekranda son konum kalır: ağdan geç
-     gelen eski özet çubuğu geri sıçratmasın. */
+  /* T-bar: konum mutlak, parmak basılıyken down:true. PC çubuğu her örnekte izler,
+     bırakınca (down:false) ucu bitirir. Saniyede en çok ~25 kez; son konum hemen.
+     Bırakınca PC'nin özeti yetişene dek (en çok 0,6 sn) ekranda son konum kalır. */
   let tbarTimer = 0;
   let tbarLast = 0;
   let tbarNext = null;
-  function sendTbar(v, now) {
+  let tbarUp = false;
+  function sendTbar(v, now, up) {
     tbarNext = v;
+    if (up) tbarUp = true;
     const t = performance.now();
     if (!now && t - tbarLast < 40) {
-      if (!tbarTimer) tbarTimer = setTimeout(() => { tbarTimer = 0; if (tbarNext != null) sendTbar(tbarNext, true); }, 45);
+      if (!tbarTimer) tbarTimer = setTimeout(() => { tbarTimer = 0; if (tbarNext != null) sendTbar(tbarNext, true, false); }, 45);
       return;
     }
     clearTimeout(tbarTimer);
     tbarTimer = 0;
     tbarLast = t;
     const x = tbarNext;
+    const release = tbarUp;
     tbarNext = null;
-    ask('tbar', { v: x });
+    tbarUp = false;
+    return ask('tbar', { v: x, down: !release });
   }
   function tbarPos() {
     const tb = live().tbar;
     if (!tb) return 0;
+    if (typeof tb.v === 'number') return tb.v;
     if (!tb.live) return tb.rest;
     return tb.rest === 0 ? tb.p : 1 - tb.p;
   }
@@ -173,8 +178,14 @@
       end: (v) => {
         if (v == null) return;
         show(v);
-        sendTbar(v, true);
-        tbarHold = { v, until: performance.now() + 1500 };
+        const sent = sendTbar(v, true, true);
+        tbarHold = { v, until: performance.now() + 600 };
+        if (sent && sent.then) sent.then((r) => {
+          const tb = r && r.result && r.result.tbar;
+          if (!tb || typeof tb.v !== 'number') return;
+          tbarHold = { v: tb.v, until: performance.now() + 600 };
+          show(tb.v);
+        });
       },
     });
     const pcPos = () => {

@@ -47,6 +47,10 @@
         if (!L || !L.take) return { ok: false, error: 'unsupported' };
         L.take();
         return { ok: true, active: P().activeSceneId() };
+      case 'tbar':
+        if (!L || !L.tbarTo) return { ok: false, error: 'unsupported' };
+        L.tbarTo(a.v, a.down ? 'move' : 'up');
+        return { ok: true, tbar: L.tbarState ? L.tbarState() : null };
       case 'momentary':
         if (!L || !L.setRemoteHeld) return { ok: false, error: 'unsupported' };
         L.setRemoteHeld(a.list || []);

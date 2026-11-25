@@ -62,10 +62,13 @@ function plan(op, args, cfg, tree, actions) {
       return osc('show/blackout', [a.on ? 1 : 0]);
     }
     case 'tbar': {
-      // { take: true } AL düğmesi; { v } çubuğun mutlak konumu (0 alt, 1 üst)
+      // { take: true } AL düğmesi; { v } çubuğun mutlak konumu (0 alt, 1 üst).
+      // { down } telefonun parmağı: basılıyken çubuk canlı izler, bırakınca biter.
+      // Yoksa OSC (MIDI, Companion): her ileti kendi başına bir konumdur.
       if (a.take === true) return panel('take', {});
       const v = num(a.v);
       if (v == null) throw bad();
+      if (a.down === true || a.down === false) return panel('tbar', { v: clamp01(v), down: a.down });
       return osc('show/tbar', [clamp01(v)]);
     }
     case 'master.set': {
