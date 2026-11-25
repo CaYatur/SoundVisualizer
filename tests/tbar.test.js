@@ -151,6 +151,10 @@ test('OSC ağacı: show/tbar mutlak konum, sınırlanıyor; panel yakalamadan ö
   assert.match(read('src/admin/control.js'), /if \(step\.op === 'tbar'\) \{\s*if \(window\.SVLiveShell && window\.SVLiveShell\.tbarTo\) window\.SVLiveShell\.tbarTo\(step\.value\);/);
   const ls = read('src/admin/live-shell.js');
   assert.match(ls, /if \(!tb\.live && !tb\.ext\) \{\s*if \(Math\.abs\(x - tb\.rest\) > 0\.05\) return;\s*tb\.ext = true;/, 'yakalama');
+  assert.match(ls, /function tbarFromPhone\(x, moving\)/, 'telefon parmağı ayrı yol');
+  assert.match(ls, /if \(opts && opts\.follow\) \{ tb\.p = 0; return; \}/, 'sıra yokken çubuk izler, karışım yok');
+  assert.match(read('src/main/link-live.js'), /a\.down === true \|\| a\.down === false/);
+  assert.match(read('src/admin/link-live.js'), /L\.tbarTo\(a\.v, a\.down \? 'move' : 'up'\)/);
   assert.match(read('docs/REMOTE-PROTOCOL.md'), /\| `show\/tbar` \| `\[0–1\]` \|/);
 });
 

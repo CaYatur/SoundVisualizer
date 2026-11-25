@@ -69,16 +69,24 @@
     if (cue === P().activeSceneId()) cue = '';
   }
   // Çubuk konumu (0 alt, 1 üst) → karışım
-  function tbarSet(v) {
+  function tbarSet(v, opts) {
     tb.v = Math.max(0, Math.min(1, v));
     const p = tb.rest === 0 ? tb.v : 1 - tb.v;
     if (!tb.live) {
       if (p <= TB_START) { tb.p = 0; return; }
       ensureCue();
-      if (!cue || !sceneById(cue) || P().isBlackedOut()) { tb.v = tb.rest; tb.p = 0; return; }
+      /* Sıra ya da karartma yok: çıkış değişmez. Telefon parmağı yine de çubuğu
+         oynatır; iki ekran aynı konumu gösterir, sahne geçmez. */
+      if (!cue || !sceneById(cue) || P().isBlackedOut()) {
+        if (opts && opts.follow) { tb.p = 0; return; }
+        tb.v = tb.rest; tb.p = 0; return;
+      }
       tbarSend({ phase: 'arm' });
       const snap = P().tbarStart(cue);
-      if (!snap) { tb.v = tb.rest; tb.p = 0; return; }
+      if (!snap) {
+        if (opts && opts.follow) { tb.p = 0; return; }
+        tb.v = tb.rest; tb.p = 0; return;
+      }
       tb.live = true;
       tb.snap = snap;
       tb.id = cue;
@@ -123,14 +131,40 @@
      sürükleme ve bırakma. YAKALAMA: fader çubuğun durduğu uçta değilse oraya gelene dek yok
      sayılıyor. Açılışta öbür uçta duran bir fader ilk iletisiyle sahneyi canlıya almasın; panel
      çubuğu kullanılınca yakalama yeniden isteniyor. */
-  function tbarTo(v) {
+  /* Telefon parmağı: basılıyken çubuk her konumda yerinde çizilir, sayfa yıkılmaz,
+     uçta da sahne hemen geçmez. Bırakınca uç bitirir, baş geri alır, ara karışım kalır.
+     Sıra yoksa çıkış değişmez; bırakınca çubuk durduğu uca döner. İki ekran aynı kalır. */
+  function tbarFromPhone(x, moving) {
+    tb.ext = true;
+    if (moving) tb.remote = true;
+    tbarSet(x, { follow: true });
+    if (moving) {
+      if (tb.show) tb.show();
+      return;
+    }
+    tb.remote = false;
+    if (!tb.live) {
+      tb.v = tb.rest;
+      tb.p = 0;
+      tb.dirty = false;
+      if (tb.show) tb.show();
+      else paint();
+      return;
+    }
+    if (tb.show) tb.show();
+    tbarRelease();
+    tb.dirty = false;
+  }
+  function tbarTo(v, phase) {
     const x = Math.max(0, Math.min(1, Number(v) || 0));
+    if (phase === 'move' || phase === 'up') { tbarFromPhone(x, phase === 'move'); return; }
     if (!tb.live && !tb.ext) {
       if (Math.abs(x - tb.rest) > 0.05) return;
       tb.ext = true;
     }
     tbarSet(x);
     tbarRelease();
+    if (tb.show) tb.show();
   }
 
   function tbarLever() {
@@ -154,6 +188,7 @@
       pct.textContent = tb.live ? Math.round(tb.p * 100) + '%' : '';
     };
     show();
+    tb.show = show;
     const at = (e) => {
       const r = lever.getBoundingClientRect();
       tbarSet(1 - (e.clientY - r.top) / Math.max(1, r.height));
@@ -483,7 +518,8 @@
   function paint() {
     const host = document.getElementById('svLive');
     if (!host) return;
-    // Çubuk tutuluyor: bırakınca kurulacak
+    // Çubuk tutuluyor: bırakınca kurulacak. Telefon parmağı da sayfayı yıkmasın.
+    if (tb.remote) { tb.dirty = true; return; }
     if (tb.drag) { tb.dirty = true; return; }
     /* Karışım tutulurken başka bir yol (Otomatik VJ, kumanda, MIDI) sahneyi değiştirdiyse çıkış
        o geçişe geçti; çubuğun geçişi bitmiş sayılıyor. */
@@ -589,7 +625,7 @@
     cue: () => (sceneById(cue) ? cue : ''),
     setCue: (id) => { cue = id && sceneById(id) ? id : ''; paint(); },
     take: () => { ensureCue(); takeCue(); },
-    tbarState: () => ({ rest: tb.rest, p: Math.round(tb.p * 1000) / 1000, live: tb.live, id: tb.id }),
+    tbarState: () => ({ rest: tb.rest, v: Math.round(tb.v * 1000) / 1000, p: Math.round(tb.p * 1000) / 1000, live: tb.live, id: tb.id }),
     setRemoteHeld,
     heldList: () => MOMENTARY.filter((m) => held.has(m[0]) || remoteHeld.has(m[0])).map((m) => m[0]),
   };
