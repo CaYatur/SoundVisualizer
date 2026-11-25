@@ -173,50 +173,136 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 
 ## Telefonunuzda (Android)
 
-**CAYADEV Visualizer Android**, Android telefonlar için ücretsiz ve açık kaynak bir müzik
-görselleştirici uygulamasıdır. Telefonunuzda çalan müziği — herhangi bir müzik uygulamasından,
-yerleşik çalardan ya da mikrofondan — sese tepki veren görsellere dönüştürür, masaüstüyle aynı
-görsel motoru çalıştırır ve bilgisayarınızdaki CAYADEV Visualizer için Wi-Fi kumandası olur.
-Reklam yok, hesap yok, izleme yok.
+**CAYADEV Visualizer Android, Android telefonlar ve tabletler için ücretsiz, açık kaynak bir müzik
+görselleştirici uygulamasıdır.** Cihazınızda çalan müziği — Spotify'dan, YouTube Music'ten ya da
+başka bir uygulamadan, yerleşik çalardan veya mikrofondan — anında sese tepki veren görsellere
+dönüştürür. Masaüstüyle aynı görsel motoru (MilkDrop presetleri, shader'lar, katmanlar ve efektler)
+çalıştırır, telefonda müzik videosu yapar, diğer uygulamaların üstünde yüzer ve bilgisayarınızdaki
+CAYADEV Visualizer için Wi-Fi kumandası olur.
+
+**Ücretsiz** · **Açık kaynak (MIT)** · **Reklam yok** · **Hesap yok** · **Analiz/izleme yok** ·
+**Filigran yok** · **Android 10 ve sonrası, telefon ve tablet**
 
 <div align="center">
 
-<img src="docs/screenshots/android-scene.webp" alt="Android'de CAYADEV Visualizer: müziğe tepki veren Mandala Drop şablonu; ses kaynağı, BPM, Otomatik VJ ve alt sekmeler" width="200" />
-<img src="docs/screenshots/android-library.webp" alt="Android'de Kitaplık: Strobe Wall, Hyper Tunnel, Laser Grid ve Mandala Drop gibi Kulüp, Ambiyans, Yayın ve Müzik Videosu şablonları; MilkDrop, Shader ve Sahneler sekmeleri" width="200" />
-<img src="docs/screenshots/android-layers.webp" alt="Android'de Katmanlar: arka plan katmanının üstünde görselleştirici katmanı; görünürlük düğmeleri ve sürükleyerek sıralama" width="200" />
-<img src="docs/screenshots/android-audio.webp" alt="Android'de Ses: seviye göstergesi ve dört kaynak (uygulama içi çalar, sistem sesi, çıkış karışımı, mikrofon), Şimdi Çalıyor ve tempo" width="200" />
+<img src="docs/screenshots/android-demo.webp" alt="Android telefonda CAYADEV Visualizer: görseller müziğe tepki verirken Kitaplık'tan Kulüp şablonları seçiliyor" width="230" />
+<img src="docs/screenshots/android-scene.webp" alt="Android telefonda müziğe tepki veren Mandala Drop şablonu; ses kaynağı, BPM, Otomatik VJ ve alt sekmeler" width="230" />
+<img src="docs/screenshots/android-floating.webp" alt="Yüzen pencere: görselleştirici başka uygulamaları kullanırken Android ana ekranının üstünde kalır" width="230" />
 
-**Sahne** · **Kitaplık** · **Katmanlar** · **Ses**
+**Tek dokunuşla görünüm seçin** · **Vuruşu izleyen görseller** · **Her uygulamanın üstünde yüzen pencere**
+
+<img src="docs/screenshots/android-library.webp" alt="Android'de Kitaplık: Strobe Wall, Hyper Tunnel, Laser Grid ve Mandala Drop gibi Kulüp, Ambiyans, Yayın ve Müzik Videosu şablonları; MilkDrop, Shader ve Sahneler sekmeleri" width="180" />
+<img src="docs/screenshots/android-layers.webp" alt="Android'de Katmanlar: arka plan katmanının üstünde görselleştirici katmanı; görünürlük düğmeleri ve sürükleyerek sıralama" width="180" />
+<img src="docs/screenshots/android-audio.webp" alt="Android'de Ses: seviye göstergesi ve dört kaynak (uygulama içi çalar, sistem sesi, çıkış karışımı, mikrofon), Şimdi Çalıyor ve tempo" width="180" />
+
+**Kitaplık** · **Katmanlar** · **Ses kaynakları**
+
+<img src="docs/screenshots/android-tablet-scene.webp" alt="Yatay Android tablette CAYADEV Visualizer: tam genişlikte Hyper Tunnel şablonu ve yan gezinme çubuğu" width="720" />
+
+<img src="docs/screenshots/android-tablet-library.webp" alt="Android tablette Kitaplık: görseller oynarken şablonlar yan panelde açılır" width="355" />
+<img src="docs/screenshots/android-tablet-layers.webp" alt="Android tablette Katmanlar: Retro Grid arka planı üstünde görselleştirici, yan panelde düzenleniyor" width="355" />
+
+**Tablette** görseller tüm ekranı kullanır, düzenleyiciler yan panelde açılır.
 
 </div>
 
-- **Her müzik uygulamasını görselleştirir.** Sistem sesi yakalama (Android 10 ve sonrası) diğer
-  uygulamaların çaldığını alır; yakalamayı engelleyen uygulamalar için çıkış karışımı, mikrofon ve
-  en temiz ses için uygulama içi çalar da var. Masaüstündeki gibi tek ses çözümlemesi her katmanı
-  besler.
-- **Masaüstü motoru telefonda.** Görselleştirici modları, MilkDrop presetleri, shader'lar, katmanlar
-  ve efektler; kulüp, ambiyans, yayın ve müzik videosu görünümleri için hazır şablonlar, Otomatik
-  VJ ve otomatik BPM.
-- **Şimdi Çalıyor ve sözler.** Müzik uygulamanızda çalan şarkının adı, kapağı ve zamanlı sözleri
-  (bildirim erişimiyle; yalnız çalan parçayı okur).
-- **Tam ekran, resim içinde resim ve yüzen pencere.** Yüzen pencere başka uygulamaları kullanırken
-  üstte kalır; görünürlük, dokunuşları geçirme, konum kilidi ve boyut ayarları var. Pencereye çift
-  dokununca uygulamaya dönülür.
-- **Telefonda video yapın.** Bir şarkıyı sahneniz ve zaman çizelgesiyle MP4 (H.264) olarak dışa
-  aktarın; kodlama cihazda yapılır.
-- **Bilgisayar için kumanda.** Masaüstü uygulamasıyla Wi-Fi üzerinden QR koduyla eşleşin ve gösteriyi
-  telefondan yönetin: karartma, sahneler, T-bar ve anlık efektlerle Canlı sekmesi, bilgisayarın
-  sahnelerini düzenleme, gerçek çıkışını görme ya da telefonun sesini bilgisayara gönderme. Yalnız
-  yerel ağ, uçtan uca şifreli ([Telefon bağlantısı](#telefon-bağlantısı-android)).
-- **Pili yormaz.** Çözünürlük ve kare hızı sınırı, pildeyken düşük güç modu, ekranı açık tutma,
-  temalar, Türkçe ve İngilizce.
+### Neden yüklemeli
 
-Orta sınıf bir telefonda ölçüldü (Redmi Note 9 Pro, Adreno 618, Android 12): 20 saniye boyunca
-**60 fps, düşen kare yok**; bilgisayara bağlı 5 dakikalık oturumda bellek sabit.
+- **Zaten dinlediğiniz müzikle çalışır.** Şarkılarınızı başka bir çalara taşımanız gerekmez: sistem
+  sesi yakalama Spotify'ı, YouTube Music'i, bir oyunu ya da videoyu duyar, görseller anında tepki
+  verir.
+- **Tek dokunuşla güzel görünür.** Kulüp, ambiyans, yayın ve müzik videosu görünümleri için hazır
+  şablonlar ve müzikle sahne değiştiren Otomatik VJ; hiçbir şey öğrenmeden gösteri.
+- **İstediğiniz kadar derine iner.** Masaüstüyle aynı katmanlar, MilkDrop presetleri, GLSL
+  shader'lar ve GPU efektleri; bilgisayarda yapılan sahneler telefonda da aynı görünür.
+- **Yalnız görsel değil, video da yapar.** Bir şarkıyı Reels, Shorts, TikTok ya da YouTube için
+  dikey veya yatay MP4 olarak dışa aktarın; kodlama telefonda yapılır.
+- **Yolunuza çıkmaz.** Tam ekran, resim içinde resim ya da boyutlanabilen, saydamlaşabilen ve
+  dokunuşları geçirebilen yüzen pencere; siz başka uygulamaları kullanırken.
+- **Sıradan bir telefonda akıcı çalışır.** Orta sınıf Redmi Note 9 Pro'da (Adreno 618, Android 12)
+  ölçüldü: **60 fps, düşen kare yok**; uzun oturumda bellek sabit.
+- **Dürüst bir yazılımdır.** MIT lisansıyla ücretsiz ve açık kaynak; reklam, hesap, analiz ve
+  uygulama içi satın alma yok.
 
-**Durum:** Android uygulaması gerçek telefonlarda son denemelerde. İlk sürüm (`android-v1.0.0`)
-[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases) sayfasında SHA-256 sağlamasıyla
-APK olarak yayınlanacak; uygulama yeni sürüm çıkınca haber verir. En az Android 10.
+### Neler yapabilir
+
+**Ses**
+- Dört kaynak: **sistem sesi** (diğer uygulamaların çaldığı, Android 10+; Android her oturumda izin
+  sorar), **çıkış karışımı** (yakalamayı engelleyen uygulamalar için), **mikrofon** ve kendi
+  dosyalarınızdan en temiz ses için **uygulama içi çalar**.
+- Masaüstündeki gibi her katmanı besleyen tek ses çözümlemesi: bantlar, vuruşlar, otomatik **BPM**
+  ve **elle tempo**.
+
+**Görseller, katmanlar ve efektler**
+- **Katmanları** üst üste koyun: görselleştiriciler (sayısı, stili, yüksekliği, aralığı ve aynası
+  ayarlanan barlar ve daha birçok mod), **arka planlar**, **MilkDrop** presetleri, **Studio shader**
+  presetleri, **kamera**, **video**, **logo** ve **yazı** katmanları.
+- Her katmanda **GPU efektleri**, karışım modları, görünürlük, konum, boyut, döndürme, parlama ve
+  anahtar renk (chroma key).
+- **Yol üstünde yazı** (yay, çember, dalga), **videoyu geri oynatma** ve canlı kamera kaynakları
+  için **kare gecikmesi**.
+- Kendi **.milk** MilkDrop presetlerinizi, logolarınızı ve videolarınızı **Kitaplık**'a ekleyin.
+
+**Sahneler, şablonlar ve Otomatik VJ**
+- Dört grupta **şablonlar**: Kulüp, Ambiyans, Yayın ve Müzik Videosu. Kendi sahnelerinizi şablon
+  olarak kaydedin.
+- Sahneler arası **geçişler**, beş noktalı paletle **renk temaları**, karartma animasyonu ve
+  müzikle sonraki sahneyi seçen **Otomatik VJ**.
+
+**Şimdi Çalıyor ve sözler**
+- Müzik uygulamanızda çalan şarkının **adı, kapağı ve konumu** sahnede (bildirim erişimiyle;
+  uygulama yalnız çalan parçaya bakar).
+- **Zamanlı sözler**: açarsanız söz sağlayıcılarından otomatik bulunur, şarkı dosyasında varsa
+  oradan okunur ve telefonda önbelleğe alınır.
+
+**Görüntüleme**
+- **Tam ekran**, **resim içinde resim** ve görünürlük, dokunuş geçirme, konum kilidi, oran kilidi
+  ve üç boyutlu **yüzen pencere**. Pencereye çift dokununca uygulamaya dönülür.
+- Yan gezinme çubuğu ve yan panel düzenleyicileriyle **tablet düzeni**.
+- Çözünürlük sınırı (720p, 1080p ya da ekran), çizim ölçeği, 30 ya da 60 fps, **pildeyken düşük
+  güç modu** ve ekranı açık tutma.
+
+**Video dışa aktarma ve zaman çizelgesi**
+- Çözünürlük, kare hızı, kalite, süre ve yön seçerek **MP4 (H.264)** dışa aktarın; şarkı ses
+  izi olarak, kodlama telefonda.
+- Şarkı saatine göre sahne değişimleri olan, geri alma ve yinelemeli bir **zaman çizelgesi**;
+  dışa aktarımda tam oynadığı gibi.
+
+**Bilgisayarınız için kumanda (Telefon bağlantısı)**
+- Windows, macOS ya da Linux'taki CAYADEV Visualizer ile Wi-Fi üzerinden **QR koduyla** eşleşin;
+  her yeni telefon bilgisayarda onaylanır.
+- **Canlı sekmesi**: karartma, sahneler, T-bar ve Geç, basılı anlık efektler, klip destesi,
+  makrolar, Otomatik VJ ve elle tempo; hepsi bilgisayarın çıkışında.
+- Telefondan **bilgisayarın sahnelerini düzenleyin**, bilgisayarın **gerçek çıkışını** görün,
+  **telefonun sesini** bilgisayara gönderin; çıkışları, ses aygıtlarını, kaydı ve ışıkları yönetin.
+- Yalnız yerel ağ, şifreli (ECDH P-256, AES-256-GCM). Bkz.
+  [Telefon bağlantısı](#telefon-bağlantısı-android).
+
+**Diğer her şey**
+- Sahnelerinizi ve ayarlarınızı **yedekleme ve geri yükleme**, sekiz tema, Türkçe ve İngilizce,
+  yeni sürüm çıkınca güncelleme bildirimi.
+
+### Neden güvenebilirsiniz
+
+| | |
+|---|---|
+| **Fiyat** | Ücretsiz. Reklam, uygulama içi satın alma, abonelik ve dışa aktarımda filigran yok. |
+| **Kaynak kod** | MIT lisansıyla açık kaynak, bu depoda. |
+| **Hesap ve izleme** | Hesap yok, analiz yok, izleme yok. |
+| **İnternet** | Yalnız GitHub'da yeni sürüm denetimi (kapatılabilir), açarsanız söz arama ve yerel ağdaki kendi bilgisayarınızla konuşmak için. |
+| **Mikrofon** | Mikrofon kaynağı ve Android'de sistem sesi yakalama için gerekir. Ses canlı çözümlenir; kaydedilmez, yüklenmez. |
+| **Ekran yakalama izni** | Android'in sistem sesi yakalamaya izin verme yolu. Yalnız ses kullanılır; ekrandaki hiçbir şey kaydedilmez. |
+| **Diğer uygulamaların üzerinde göster** | Yalnız yüzen pencere için. |
+| **Bildirim erişimi** | Yalnız çalan parçayı (ad, kapak, konum) okumak için. Bildirimleriniz okunmaz. |
+| **Kamera** | Yalnız kamera katmanı eklerseniz. |
+| **Kalite** | Her değişiklikte 4.600'den fazla otomatik test; gerçek telefonlarda ve Android emülatöründe denendi. |
+| **İndirme** | APK'lar GitHub Sürümler sayfasında SHA-256 sağlamasıyla. Uygulama kendi kendine hiçbir şey kurmaz. |
+
+### Durum
+
+Android uygulaması gerçek telefonlarda son denemelerde. İlk sürüm (`android-v1.0.0`)
+[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases) sayfasında APK olarak yayınlanacak;
+uygulama yeni sürüm çıkınca haber verir.
 
 ---
 
