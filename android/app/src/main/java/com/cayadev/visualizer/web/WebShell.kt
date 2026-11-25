@@ -166,6 +166,7 @@ object WebShell {
         "web/src/mobile/silence.js",
         "web/src/shared/backup-sections.js",
         // PC bağlantısının uzak ayar deposu (android-host.js hedef PC iken kullanır)
+        "web/src/shared/json-delta.js",
         "web/src/mobile/pc-remote.js",
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",

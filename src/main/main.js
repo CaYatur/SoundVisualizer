@@ -20,6 +20,7 @@ const phoneLinkLib = require('./phone-link-service');
 const linkDiscovery = require('./link-discovery');
 const linkLive = require('./link-live');
 const linkGuard = require('./link-guard');
+const JsonDelta = require('../shared/json-delta.js');
 const linkAudio = require('./link-audio');
 const linkUpload = require('./link-upload');
 const oscServer = require('./osc-server');
@@ -5419,6 +5420,19 @@ function linkEditOps() {
       if (!g.ok) throw bad(g.error, g.key);
       return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
     },
+    /* Zaman çizelgesi farkı (json-delta.js): telefon bütün çizelge yerine değişen yerleri yollar.
+       Fark PC'nin şimdiki çizelgesine uygulanır, sonuç config.patch'in bekçisinden aynen geçer.
+       Uygulanamazsa (telefonun bildiği çizelge eskimiş) 'stale': telefon tam çizelgeyi yollar. */
+    'timeline.apply': (args, ctx) => {
+      const level = (ctx && ctx.device && ctx.device.level) || 'view';
+      if (!JsonDelta.validOps(args.ops)) throw bad('bad-args');
+      const cur = currentConfig && currentConfig.timeline !== undefined ? currentConfig.timeline : null;
+      const next = JsonDelta.apply(cur, args.ops);
+      if (next == null || typeof next !== 'object' || Array.isArray(next)) throw bad('stale');
+      const g = linkGuard.check({ timeline: next }, currentConfig || {}, level);
+      if (!g.ok) throw bad(g.error, g.key);
+      return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
+    },
     'scene.create': (args) => {
       const name = nameOf(args.name);
       const data = sceneData(args.data);
@@ -5462,6 +5476,8 @@ function linkEditOps() {
    anahtar başına metinle, yalnız oturumu açık telefon varken). Telefon sürüm atlarsa config.get
    ile yeniden çeker. Bu makineye ait anahtarlar (jetonlar, bağlantı anahtarları) hiç gitmez. */
 const linkMirror = { rev: 0, sig: new Map() };
+// Bu boydan büyük anahtar değişince telefona fark gider (json-delta.js)
+const LINK_DELTA_MIN = 32 * 1024;
 const linkSig = (v) => { try { return JSON.stringify(v === undefined ? null : v); } catch { return ''; } };
 function linkConfigSnapshot() {
   const pub = linkLive.publicConfig(currentConfig || {});
@@ -5473,18 +5489,27 @@ function linkConfigSync(patchKeys) {
   const cfg = currentConfig || {};
   const keys = patchKeys || Array.from(new Set(Object.keys(cfg).concat(Array.from(linkMirror.sig.keys()))));
   const patch = {};
+  let delta = null;
   let n = 0;
   for (const k of keys) {
     if (linkLive.PRIVATE_KEYS.indexOf(k) >= 0 || k === '__proto__') continue;
     const sig = linkSig(cfg[k]);
-    if (linkMirror.sig.get(k) === sig) continue;
+    const was = linkMirror.sig.get(k);
+    if (was === sig) continue;
     linkMirror.sig.set(k, sig);
-    patch[k] = cfg[k] === undefined ? null : cfg[k];
     n++;
+    /* Büyük değer (zaman çizelgesi yüzlerce KB): telefonun bildiği önceki hâlden fark. Önceki
+       hâl imzanın kendisi (JSON metni); fark bütününden küçük değilse bütün değer gider. */
+    if (was && sig.length > LINK_DELTA_MIN && cfg[k] !== undefined) {
+      let ops = null;
+      try { ops = JsonDelta.diff(JSON.parse(was), cfg[k]); } catch { ops = null; }
+      if (ops && JsonDelta.size(ops) * 2 < sig.length) { (delta || (delta = {}))[k] = ops; continue; }
+    }
+    patch[k] = cfg[k] === undefined ? null : cfg[k];
   }
   if (!n) return;
   linkMirror.rev++;
-  linkSvc.broadcast({ ev: 'config', rev: linkMirror.rev, patch });
+  linkSvc.broadcast(delta ? { ev: 'config', rev: linkMirror.rev, patch, delta } : { ev: 'config', rev: linkMirror.rev, patch });
 }
 
 /* CANLI ÖZET. Ölçer (seviye, bantlar, tempo, vuruş) saniyede 5 kez, değişince; gösteri durumu
