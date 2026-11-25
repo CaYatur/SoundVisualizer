@@ -52,7 +52,7 @@ object AudioHub {
     private var speakerRate = 0
     private var speakerCh = 0
 
-    fun setPlayPc(on: Boolean) {
+    fun enableSpeaker(on: Boolean) {
         playPc = on
         if (!on) synchronized(speakerLock) { releaseSpeakerLocked() }
     }

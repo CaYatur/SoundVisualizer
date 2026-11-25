@@ -66,10 +66,10 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "linkAudioWatch" -> {
                 val on = args.optBoolean("on")
                 AudioHub.pcAudio = on
-                if (!on) AudioHub.setPlayPc(false)
+                if (!on) AudioHub.enableSpeaker(false)
                 reply.ok()
             }
-            "linkAudioPlay" -> { AudioHub.setPlayPc(args.optBoolean("on") && AudioHub.pcAudio); reply.ok() }
+            "linkAudioPlay" -> { AudioHub.enableSpeaker(args.optBoolean("on") && AudioHub.pcAudio); reply.ok() }
             // PC'ye dosya (B6): seç, gönder (ilerleme `linkUpload` olayı), iptal
             "linkPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }
