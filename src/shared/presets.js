@@ -377,7 +377,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     for (const inp of arr(meta.INPUTS)) {
       if (!inp || !inp.NAME || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(inp.NAME)) continue;
       const label = inp.LABEL || inp.NAME;
-      if (inp.TYPE === 'float' || inp.TYPE === 'long') {
+      const opts = inp.TYPE === 'long' ? isfOptions(inp) : null;
+      if (opts) {
+        /* VALUES/LABELS olan long (#404): açılır menü. Tür yine kaydırıcı (uniform float);
+           `options` bilen arayüz menü gösterir, bilmeyen eskisi gibi 1 adımlı kaydırıcı. */
+        const vals = opts.map((o) => o.value);
+        const def = inp.DEFAULT != null && vals.indexOf(+inp.DEFAULT) >= 0 ? +inp.DEFAULT : vals[0];
+        controls.push({
+          name: inp.NAME, label, type: 'slider',
+          min: Math.min.apply(null, vals), max: Math.max.apply(null, vals), step: 1,
+          default: def, options: opts,
+        });
+      } else if (inp.TYPE === 'float' || inp.TYPE === 'long') {
         controls.push({
           name: inp.NAME, label, type: 'slider',
           min: inp.MIN == null ? 0 : +inp.MIN,
@@ -385,6 +396,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
           step: inp.TYPE === 'long' ? 1 : 0.01,
           default: inp.DEFAULT == null ? (inp.MIN == null ? 0 : +inp.MIN) : +inp.DEFAULT,
         });
+      } else if (inp.TYPE === 'audio' || inp.TYPE === 'audioFFT') {
+        // Ses girişi (#404): uygulamanın dalga formu ve spektrum dokusuna bağlanıyor
+        notes.push(`"${inp.NAME}" ${inp.TYPE === 'audio' ? 'dalga formu' : 'spektrum'} girişi uygulamanın sesine bağlandı (değer .r kanalında).`);
       } else if (inp.TYPE === 'bool') {
         controls.push({ name: inp.NAME, label, type: 'toggle', default: !!inp.DEFAULT });
       } else if (inp.TYPE === 'color') {
@@ -419,6 +433,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
       .filter((i) => i && i.TYPE === 'point2D' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(i.NAME))
       .map((i) => `vec2 ${i.NAME} = vec2(${i.NAME}_x, ${i.NAME}_y);`)
       .join('\n');
+    // Ses girişleri: ISF adı uygulamanın dokusunu gösteriyor (audio → dalga, audioFFT → spektrum)
+    const audioDefs = arr(meta.INPUTS)
+      .filter((i) => i && (i.TYPE === 'audio' || i.TYPE === 'audioFFT') && /^[A-Za-z_][A-Za-z0-9_]*$/.test(i.NAME))
+      .map((i) => `#define ${i.NAME} ${i.TYPE === 'audio' ? 'sv_wave' : 'sv_spectrum'}`)
+      .join('\n');
 
     const wrap = (index, targetDefs) => `// --- ISF uyumluluk katmanı (CAYADEV Studio) ---
 vec4 sv_isfOut = vec4(0.0);
@@ -436,6 +455,7 @@ ${targetDefs}
 #define IMG_THIS_NORM_PIXEL(img) texture(img, gl_FragCoord.xy / sv_resolution)
 #define IMG_SIZE(img) sv_resolution
 ${point2Ds}
+${audioDefs}
 ${renamed}
 void mainImage(out vec4 fragColor, in vec2 fragCoord){
   isf_main();
@@ -463,6 +483,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         controls,
       }),
     };
+  }
+
+  /* ISF long girdisinin seçenekleri: VALUES (sayılar) ve aynı sırada LABELS. Geçersiz ya da
+     eşleşmeyen liste null (eskisi gibi kaydırıcı). En çok 64 seçenek. */
+  function isfOptions(inp) {
+    const v = Array.isArray(inp.VALUES) ? inp.VALUES : null;
+    if (!v || !v.length || v.length > 64) return null;
+    const vals = v.map(Number);
+    if (!vals.every((x) => Number.isFinite(x))) return null;
+    const labels = Array.isArray(inp.LABELS) && inp.LABELS.length === v.length ? inp.LABELS : null;
+    return vals.map((x, i) => ({ value: x, label: String(labels ? labels[i] : x).slice(0, 60) }));
   }
 
   function rgbToHex(a) {

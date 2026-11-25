@@ -53,7 +53,9 @@ test('parlaklık anahtarı karanlığı siler, tersi aydınlığı siler, eski a
 
 test('kapalıyken çizim yolu anahtar tuvali açmaz; panel ve çeviri bağlı', () => {
   const src = read('src/visualizer/modes/media.js');
-  assert.match(src, /const frame = this\._keyed\(pic, vw, vh, m\) \|\| pic/);
+  // Kare gecikmesi (#420) kapalıyken src = pic, sw/sh = vw/vh: yol eskisiyle aynı
+  assert.match(src, /const frame = this\._keyed\(src, sw, sh, m\) \|\| src/);
+  assert.match(src, /const src = late \? late\.canvas : pic;/);
   assert.match(src, /if \(!K \|\| !K\.active\(m\)/);
   const panel = read('src/admin/scene-panels.js');
   for (const s of ['Renk Anahtarı', 'Seçilen Renk', 'Anahtar Rengi', 'Saydam Kalan', 'Anahtar Eşiği', 'Anahtar Yumuşaklığı']) {
