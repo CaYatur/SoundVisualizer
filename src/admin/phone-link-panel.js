@@ -201,6 +201,7 @@
       p.toggle(T('Telefonun Sesini Ses Girişi Yap'), 'phoneLink.audioIn.enabled'),
       a.enabled ? el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: T('Hangi telefon') }), sel]) : null,
       a.enabled ? p.toggle(T('Telefon Susunca Yerel Girişe Dön'), 'phoneLink.audioIn.fallback') : null,
+      a.enabled ? p.toggle(T('PC Hoparlöründen de Çal'), 'phoneLink.audioIn.play') : null,
       // Kablosuz ağın gecikmesi: görüntü sesin önüne geçerse kareler bu kadar bekletilir
       a.enabled ? p.slider(T('Görüntü Gecikmesi'), 'phoneLink.audioIn.delayMs', { min: 0, max: 500, step: 10, fmt: (v) => Math.round(v) + ' ms' }) : null,
       a.enabled ? el('div', { class: 'note', text: T(STATE[ai.state] || STATE.off) + (ai.name ? ' · ' + ai.name : '') + kbps }) : null,

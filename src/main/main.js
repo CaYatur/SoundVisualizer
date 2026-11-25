@@ -1809,7 +1809,9 @@ function syncBridge() {
 const bridgePlayer = { win: null, ready: false, status: null, outputs: [], sentCfg: '', closed: false };
 function bridgePlayerWanted() {
   const c = bridge.cfg;
-  return !!(c.play && c.receive && !BRIDGE_ONLY && bridge.receiver && !SHOTS && !bridgePlayer.closed);
+  // Telefonun sesi de PC hoparlöründen çalınabilir (PC bağlantısı, phoneLink.audioIn.play)
+  const phone = typeof phoneLinkPlayWanted === 'function' && phoneLinkPlayWanted();
+  return !!(((c.play && c.receive && bridge.receiver) || phone) && !BRIDGE_ONLY && !SHOTS && !bridgePlayer.closed);
 }
 /* Gizli pencere (bkz. closeHelperWindows): panel kapanınca uygulama çıkar;
    çalan pencere ayakta kalırsa 'window-all-closed' gelmez. */
@@ -4867,6 +4869,7 @@ function phoneLinkCfg() {
     audioIn: {
       enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false,
       delayMs: Number.isFinite(Number(a.delayMs)) ? Math.max(0, Math.min(500, Math.round(Number(a.delayMs)))) : 0,
+      play: a.play === true, // telefonun sesini PC hoparlöründen de çal (ses düzeyi ve aygıt: ses köprüsünün ayarı)
     },
   };
 }
@@ -5174,7 +5177,14 @@ function linkWatchPcm(buf, sr, ch) {
 const phoneAudio = { input: null, key: '', framers: new Map(), from: null, timer: null, name: '', meta: null };
 // Çalan parça bilgisi telefondan mı (ses girişi telefondayken ve telefon bildirdiyse)
 const phoneMetaShown = () => !!(phoneAudio.input && phoneAudio.input.useBridge && phoneAudio.meta && phoneAudio.meta.has);
+/* Telefonun sesini dinlenebilir yapmak (plan §4.7, varsayılan kapalı): ses köprüsünün gizli çalma
+   penceresi kullanılır (src/bridge-audio), ses düzeyi, çıkış aygıtı ve tampon onun ayarından. */
+function phoneLinkPlayWanted() {
+  const a = phoneLinkCfg().audioIn;
+  return !!(phoneLinkOn && a.enabled && a.play);
+}
 function phoneAudioSync() {
+  syncBridgePlayer();
   const a = phoneLinkCfg().audioIn;
   // Gecikme ayarı girişi yeniden kurmaz (kaydırırken telefon sesi kopmasın)
   const key = phoneLinkOn && a.enabled ? JSON.stringify([a.device, a.fallback]) : '';
@@ -5221,6 +5231,10 @@ function phoneAudioPacket(client, buf, device) {
     phoneAudio.framers.set(client, fr);
   }
   fr.push(p);
+  // Dinlenebilir ses: giriş telefondayken paketin kendisi (s16, telefonun hızında) çalma penceresine
+  if (inp.useBridge && phoneAudio.from === client && phoneLinkPlayWanted()) {
+    bridgePlayPcm(Buffer.from(p.samples.buffer, p.samples.byteOffset, p.samples.byteLength), { sampleRate: p.sampleRate, channels: p.channels, seq: p.seq });
+  }
 }
 function phoneAudioDrop(client) {
   phoneAudio.framers.delete(client);

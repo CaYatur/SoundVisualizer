@@ -254,8 +254,10 @@ times a second about 430 KB/s, and with raw audio the desktop's own analysis fin
 input switch is the audio bridge's (`src/main/bridge-input.js`): the input moves to the phone once
 frames arrive, and when the phone goes quiet for 0.6 s the desktop falls back to its local input
 (unless that is turned off). Local capture is stopped while the phone's audio is in use. Settings:
-`phoneLink.audioIn { enabled, device, fallback }`; `device` empty means any phone, and `audio.bridge`
-sets it to the phone that asked. If two phones send, the first one is used until it goes quiet.
+`phoneLink.audioIn { enabled, device, fallback, delayMs, play }`; `device` empty means any phone, and
+`audio.bridge` sets it to the phone that asked. If two phones send, the first one is used until it
+goes quiet. `play` (off by default) also plays the phone's audio on the PC speakers, through the audio
+bridge's hidden player window, with the audio bridge's volume, output device and buffer.
 
 **Track information.** While the phone's audio is the desktop's input, the track playing on the
 phone (title, artist, album, position, duration and cover, `nowplaying.set`) is the desktop's "now
