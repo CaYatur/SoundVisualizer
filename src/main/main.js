@@ -45,6 +45,7 @@ const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
+const linkLogos = require('./link-logos');
 const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
 const lyricsSync = require('../shared/lyrics-sync');
@@ -4992,6 +4993,21 @@ function phoneLinkService() {
       'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
       // Çalan parça, ona uyan sözler ve söz saati (telefon PC'nin sahnesini çizerken)
       'song.get': () => linkSongState(),
+      /* Gösterinin başvurduğu logo kitaplığı öğesi. Ayar aynası yalnız kimliği
+         taşır; telefon yerelde bulamazsa baytı buradan alır. Başvurulmayan
+         ya da 8 MB üstü dosya gitmez. */
+      'logo.get': (args) => {
+        const r = linkLogos.serveLogo(currentConfig || {}, args && args.id, (id) => {
+          const info = logoLibrary.fileInfo(logoLibDir(), id);
+          if (!info) return null;
+          if (info.size > linkLogos.MAX_LINK_BYTES) return { size: info.size };
+          const rec = logoLibrary.read(logoLibDir(), id);
+          if (!rec || !rec.b64) return null;
+          return { id: rec.id, mime: rec.mime, b64: rec.b64, size: info.size };
+        });
+        if (r.error) throw Object.assign(new Error(r.error), { code: r.error });
+        return { id: r.id, mime: r.mime, b64: r.b64 };
+      },
       /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
          ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
       /* Kare 250 ms paylaşılır: gösteri makinesinde ekran yakalama ve JPEG ana süreçte; birden çok
