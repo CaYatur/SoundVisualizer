@@ -29,7 +29,6 @@
   const sceneById = (id) => scenes().find((s) => s && s.id === id) || null;
 
   let refs = null; // ekrandaki canlı öğeler (yeniden çizmeden boyanır)
-  let dragging = false;
   /* Kaydırıcı sürüklenirken saniyede en çok ~20 istek; son değer her zaman gider. */
   function throttled(fn) {
     let last = 0;
@@ -78,13 +77,65 @@
 
   /* ---- T-bar: çubuk PC'deki gibi bir uçta durur (rest); öbür uca gidince sıradaki sahne canlı
      olur ve çubuk orada kalır. Konum mutlak yollanır, saniyede en çok ~25 kez. */
-  let tbarSent = 0;
+  /* Sürükleme (T-bar ve makrolar): DOKUNMA DEĞER ATLATMAZ, tutulan yerden göreli kayar; dikey
+     kaydırma sayfayı kaydırır (önce hangi yöne gidildiğine bakılır). Her denetim kendi sürükleme
+     durumunu tutar: eskiden tek ortak bayrak bir makroda bırakma olayı kaçınca açık kalıyor, T-bar
+     PC'nin konumunu hiç çizmiyor ve sayfa yenilenmiyordu (telefon denemesi 25.11). */
+  const drags = new Set();
+  function relDrag(el, o) {
+    let st = null;
+    const finish = (e, commit) => {
+      if (!st) return;
+      const s = st;
+      st = null;
+      drags.delete(el);
+      try { el.releasePointerCapture(s.id); } catch (err) { /* */ }
+      if (s.active && commit) o.end(s.v);
+      else if (s.active) o.end(null);
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (st) return;
+      const r = el.getBoundingClientRect();
+      st = { id: e.pointerId, x: e.clientX, y: e.clientY, w: Math.max(1, r.width), v0: o.get(), v: o.get(), active: false };
+      drags.add(el);
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!st || e.pointerId !== st.id) return;
+      const dx = e.clientX - st.x;
+      const dy = e.clientY - st.y;
+      if (!st.active) {
+        // Önce dikey giderse bu bir kaydırma: denetim bırakılır
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { finish(e, false); return; }
+        if (Math.abs(dx) < 6) return;
+        st.active = true;
+        st.x = e.clientX; // eşik atlamasın: kayma buradan başlar
+      }
+      e.preventDefault();
+      st.v = Math.max(0, Math.min(1, st.v0 + (e.clientX - st.x) / st.w));
+      o.move(st.v);
+    });
+    el.addEventListener('pointerup', (e) => finish(e, true));
+    el.addEventListener('pointercancel', (e) => finish(e, false));
+    el.addEventListener('lostpointercapture', (e) => finish(e, true));
+  }
+
+  /* T-bar: konum mutlak yollanır, saniyede en çok ~25 kez; sürükleme bitince son konum hemen.
+     Bırakınca PC'nin özeti yetişene dek (en çok 1,5 sn) ekranda son konum kalır: ağdan geç
+     gelen eski özet çubuğu geri sıçratmasın. */
+  let tbarTimer = 0;
+  let tbarLast = 0;
   let tbarNext = null;
   function sendTbar(v, now) {
     tbarNext = v;
     const t = performance.now();
-    if (!now && t - tbarSent < 40) { setTimeout(() => { if (tbarNext != null) sendTbar(tbarNext, true); }, 45); return; }
-    tbarSent = t;
+    if (!now && t - tbarLast < 40) {
+      if (!tbarTimer) tbarTimer = setTimeout(() => { tbarTimer = 0; if (tbarNext != null) sendTbar(tbarNext, true); }, 45);
+      return;
+    }
+    clearTimeout(tbarTimer);
+    tbarTimer = 0;
+    tbarLast = t;
     const x = tbarNext;
     tbarNext = null;
     ask('tbar', { v: x });
@@ -95,41 +146,40 @@
     if (!tb.live) return tb.rest;
     return tb.rest === 0 ? tb.p : 1 - tb.p;
   }
+  let tbarHold = null; // { v, until }
   function tbarEl() {
     const fill = h('i', { class: 'tb-fill' });
     const grip = h('b', { class: 'tb-grip' });
     const bar = h('div', { class: 'tbar', role: 'slider', 'aria-label': 'T-bar', 'aria-valuemin': '0', 'aria-valuemax': '100', tabindex: '0' }, [fill, grip]);
+    let shown = 0;
     const show = (v) => {
-      const p = Math.round(Math.max(0, Math.min(1, v)) * 1000) / 10;
+      shown = Math.max(0, Math.min(1, v));
+      const p = Math.round(shown * 1000) / 10;
       fill.style.width = p + '%';
       grip.style.left = p + '%';
       bar.setAttribute('aria-valuenow', String(Math.round(p)));
     };
-    const at = (e) => {
-      const r = bar.getBoundingClientRect();
-      const v = Math.max(0, Math.min(1, (e.clientX - r.left) / Math.max(1, r.width)));
-      show(v);
-      sendTbar(v);
-    };
-    bar.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      dragging = true;
-      try { bar.setPointerCapture(e.pointerId); } catch (err) { /* */ }
-      at(e);
-      const move = (ev) => at(ev);
-      const end = (ev) => {
-        bar.removeEventListener('pointermove', move);
-        bar.removeEventListener('pointerup', end);
-        bar.removeEventListener('pointercancel', end);
-        dragging = false;
-        if (ev && ev.clientX != null) { const r = bar.getBoundingClientRect(); sendTbar(Math.max(0, Math.min(1, (ev.clientX - r.left) / Math.max(1, r.width))), true); }
-      };
-      bar.addEventListener('pointermove', move);
-      bar.addEventListener('pointerup', end);
-      bar.addEventListener('pointercancel', end);
+    relDrag(bar, {
+      get: () => shown,
+      move: (v) => { tbarHold = null; show(v); sendTbar(v); },
+      end: (v) => {
+        if (v == null) return;
+        show(v);
+        sendTbar(v, true);
+        tbarHold = { v, until: performance.now() + 1500 };
+      },
     });
-    show(tbarPos());
-    bar.paint = () => { if (!dragging) show(tbarPos()); };
+    const pcPos = () => {
+      const v = tbarPos();
+      if (tbarHold) {
+        // PC son konuma yetişti (ya da uca varıp sahne geçti) veya süre doldu
+        if (Math.abs(v - tbarHold.v) < 0.02 || ((tbarHold.v <= 0.01 || tbarHold.v >= 0.99) && !(live().tbar || {}).live) || performance.now() > tbarHold.until) tbarHold = null;
+        else return tbarHold.v;
+      }
+      return v;
+    };
+    show(pcPos());
+    bar.paint = () => { if (!drags.has(bar)) show(pcPos()); };
     return bar;
   }
 
@@ -231,20 +281,28 @@
     body.appendChild(h('div', { class: 'section-label', text: 'Makrolar' }));
     const macros = (c.modulation && Array.isArray(c.modulation.macros) ? c.modulation.macros : []).slice(0, 8);
     const mgrid = h('div', { class: 'lv-macros' });
+    /* Makro ve çıkış: göreli sürüklenen çubuk (dokunma atlatmaz, dikey kaydırma sayfayı kaydırır) */
+    const knob = (label, value, onSend) => {
+      const fill = h('i', { class: 'tb-fill' });
+      const val = h('span', { class: 'lv-kval mono' });
+      const track = h('div', { class: 'tbar lv-knob', role: 'slider', 'aria-label': tr(label), 'aria-valuemin': '0', 'aria-valuemax': '100', tabindex: '0' }, [fill]);
+      let cur = 0;
+      const show = (v) => {
+        cur = Math.max(0, Math.min(1, v));
+        const p = Math.round(cur * 100);
+        fill.style.width = p + '%';
+        val.textContent = p + '%';
+        track.setAttribute('aria-valuenow', String(p));
+      };
+      const send = throttled(onSend);
+      relDrag(track, { get: () => cur, move: (v) => { show(v); send(v); }, end: (v) => { if (v != null) { show(v); onSend(v); } } });
+      show(value);
+      return h('div', { class: 'lv-knob-row' }, [h('div', { class: 'lv-knob-head' }, [h('span', { class: 'ctl-label', text: label }), val]), track]);
+    };
     macros.forEach((m, i) => {
-      const send = throttled((v) => ask('macro.set', { i, v }));
-      mgrid.appendChild(U.slider({
-        label: (m && m.name) || tr('Makro') + ' ' + (i + 1), min: 0, max: 1, step: 0.01, percent: true, value: (m && m.value) || 0,
-        onInput: (v) => { dragging = true; send(v); },
-        onChange: () => { dragging = false; },
-      }));
+      mgrid.appendChild(knob((m && m.name) || tr('Makro') + ' ' + (i + 1), (m && m.value) || 0, (v) => ask('macro.set', { i, v })));
     });
-    const sendMaster = throttled((v) => ask('master.set', { v }));
-    mgrid.appendChild(U.slider({
-      label: 'Çıkış', min: 0, max: 1, step: 0.01, percent: true, value: c.master == null ? 1 : c.master,
-      onInput: (v) => { dragging = true; sendMaster(v); },
-      onChange: () => { dragging = false; },
-    }));
+    mgrid.appendChild(knob('Çıkış', c.master == null ? 1 : c.master, (v) => ask('master.set', { v })));
     body.appendChild(mgrid);
 
     // Otomatik VJ ve MilkDrop
@@ -350,7 +408,7 @@
     },
     render(body, ctx) { wire(); render(body, ctx); },
     // Ayar değişti (sahne adı, deste, makro): sürükleme yokken yeniden çizilir
-    onConfig(ctx) { if (!dragging) ctx.refresh(); },
+    onConfig(ctx) { if (!drags.size) ctx.refresh(); },
     onLeave() { releaseAll(); },
   };
   S.tab('live', page);

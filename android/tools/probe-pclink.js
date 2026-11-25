@@ -249,6 +249,20 @@ async function desktop() {
   check('PC\'ye gönder: PC girişi telefonda', ai.state === 'bridge' && ai.stats && ai.stats.frames > 3, ai);
   src = await ev('(window.__svHost.audioStats() || {}).source');
   check('gönderirken sayfa telefonun kendi sesini kullanıyor', src === 'mic', src);
+  /* Kip değişince gönderim sürmeli (telefon denemesi 25.11: "Bu telefon" ya da "Ek ekran"a
+     geçince ses aktarımı kapanıyordu). Her kipten sonra PC girişi hâlâ telefonda mı? */
+  for (const [name, js] of [['bu telefon', `window.SVAndroid.target.set('phone')`], ['PC hedefi', `window.SVAndroid.target.set('pc')`], ['ek ekran (akıcı)', `window.SVAndroid.target.set('pc').then(() => window.SVAndroid.pc.preview('smooth'))`], ['gerçek görüntü', `window.SVAndroid.pc.preview('image')`], ['yeniden bu telefon', `window.SVAndroid.target.set('phone')`]]) {
+    await ev(js);
+    await sleep(2500);
+    const before = ((await pcStatus()).audioIn || {}).stats;
+    await sleep(1500);
+    ai = await pcIn();
+    const t = await ev('window.SVAndroid.target.get()');
+    const grew = ai.stats && before ? ai.stats.frames > before.frames : false;
+    check('kip ' + name + ': ses PC\'ye akmaya devam ediyor', ai.enabled && ai.state === 'bridge' && t.audioSend && grew, { state: ai.state, enabled: ai.enabled, audioSend: t.audioSend, src: await ev('(window.__svHost.audioStats() || {}).source'), frames: [before && before.frames, ai.stats && ai.stats.frames] });
+  }
+  await ev(`window.SVAndroid.target.set('pc')`);
+  await ev(`window.SVAndroid.pc.preview('smooth')`);
   await ev(`window.SVAndroid.pc.audioSend(false)`);
   for (let i = 0; i < 20 && ai.enabled; i++) { await sleep(250); ai = await pcIn(); }
   check('PC\'ye gönder kapandı', ai.enabled === false, ai);
