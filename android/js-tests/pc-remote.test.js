@@ -179,7 +179,9 @@ test('sunucu: PC hedefine geçiş aynayı yükler, yazım PC\'ye gider, telefonu
   A.config.patch({ master: 0.3 });
   h.runTimers(); // ara gönderim ve kesin yazım zamanlayıcıları
   await h.tick(); await h.tick();
-  assert.deepStrictEqual(h.asks.map((a) => [a[0], a[1].final, a[1].patch.master]), [['config.patch', false, 0.3], ['config.patch', true, 0.3]]);
+  // Preset çekimi aynı zamanlayıcı kuyruğunda; kaydırıcı yazımı ondan ayrı.
+  const patches = h.asks.filter((a) => a[0] === 'config.patch');
+  assert.deepStrictEqual(patches.map((a) => [a[0], a[1].final, a[1].patch.master]), [['config.patch', false, 0.3], ['config.patch', true, 0.3]]);
 
   // Sahne çağırma
   h.asks.length = 0;
