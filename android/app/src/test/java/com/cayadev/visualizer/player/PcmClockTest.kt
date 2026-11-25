@@ -27,10 +27,31 @@ class PcmClockTest {
         assertEquals(512, got[0].frames)
         // 20 ms sonra: 960 örnek duyuldu → ikinci blok da (512 ≤ 960 < 1024)
         assertEquals(1, c.release(1020) { got.add(it) })
-        // 100 ms sonra hepsi
-        assertEquals(6, c.release(1100) { got.add(it) })
+        // 100 ms sonra hepsi sırada; bir çağrı en çok iki blok verir
+        var due = 6
+        while (due > 0) {
+            val n = c.release(1100) { got.add(it) }
+            assertEquals(minOf(2, due), n)
+            due -= n
+        }
         assertEquals(0, c.pending())
         assertEquals(3584L, got.last().startFrame)
+    }
+
+    @Test
+    fun aPlayheadJumpDropsStaleBlocksAndEmitsAtMostTwo() {
+        val c = PcmClock()
+        c.format(48000, 2)
+        c.push(stereo(48000)) // 1 sn
+        assertTrue(c.pending() > 40)
+        assertEquals(1, c.release(0) {})
+        val before = c.dropped
+        val got = mutableListOf<PcmClock.Chunk>()
+        assertEquals(2, c.release(1000) { got.add(it) })
+        assertTrue(c.dropped > before + 20)
+        // Bırakılanlar çalma kafasının yakınında; baştaki bloklar değil
+        assertTrue(got[0].startFrame >= 35840L)
+        assertTrue(c.pending() > 0)
     }
 
     @Test
