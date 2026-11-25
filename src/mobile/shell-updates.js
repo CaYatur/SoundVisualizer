@@ -51,10 +51,12 @@
     const b = document.querySelector('#sv-shell .nav [data-tab="settings"]');
     if (b) b.classList.toggle('has-dot', pending());
   }
-  function told() { try { return localStorage.getItem('sv-update-told') || ''; } catch (e) { return ''; } }
+  // Bildirilen sürüm uygulamada kalıcı (st.told); bu oturumda ayrıca bellekte
+  let toldNow = '';
   function tell() {
-    if (!pending() || told() === st.latest) return;
-    try { localStorage.setItem('sv-update-told', st.latest); } catch (e) { /* yazılamazsa her açılışta bir kez */ }
+    if (!pending() || st.told === st.latest || toldNow === st.latest) return;
+    toldNow = st.latest;
+    api().told(st.latest).catch(() => {});
     S.toast(en() ? 'Version ' + st.latest + ' is available. See Settings → Updates.' : 'Yeni sürüm ' + st.latest + ' çıktı. Ayrıntı: Ayarlar → Güncellemeler.');
   }
   function refreshPage() {
