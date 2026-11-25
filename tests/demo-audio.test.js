@@ -268,6 +268,8 @@ test('panel ve ölçüm aynı dosyayı yüklüyor', () => {
   assert.match(admin, /function captureLabelHeld\(\)/);
   assert.match(admin, /if \(captureLabelHeld\(\)\) return;/);
   assert.match(admin, /captureLabelHeld\(\) && \(s\.type === 'started'/);
+  assert.match(admin, /if \(!captureLabelHeld\(\) && audioUiKind !== 'capture'\)/);
+  assert.match(admin, /if \(captureLabelHeld\(\)\) \{\s*\$\('banner'\)\.classList\.add\('hidden'\);\s*return;\s*\}/);
 
   const h = read('scripts/milkdrop-render-rate.js');
   assert.match(h, /const SIGNAL = 'src\/shared\/demo-audio\.js'/);

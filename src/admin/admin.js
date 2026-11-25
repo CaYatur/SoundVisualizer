@@ -5850,6 +5850,12 @@
     audioDevices = result?.devices || [];
     if (result?.ok) {
       // Keep an active capture label; enumerate success must not hide it.
+      // A held label (no source, or sample audio only) stays as the status
+      // handler set it. The device list above is still stored.
+      if (captureLabelHeld()) {
+        $('banner').classList.add('hidden');
+        return;
+      }
       if (showSuccess && audioUiKind !== 'capture') {
         audioUiKind = 'devices';
         setAudioState(`${audioDevices.length} ses aygıtı bulundu`, 'ok', 'check');
@@ -6054,7 +6060,9 @@
   actions.refreshDevices = async () => {
     // Do not clobber an active capture status while re-enumerating devices
     // (started handler may call refresh when a device name is missing).
-    if (audioUiKind !== 'capture') {
+    // Empty sources and sample-audio are not capture either: a refresh must
+    // not replace "No audio source (silent)" with the device-count line.
+    if (!captureLabelHeld() && audioUiKind !== 'capture') {
       audioUiKind = 'idle';
       setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
     }
