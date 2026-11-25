@@ -83,6 +83,9 @@ test('canlı söz normal parça değişiminde de aranıyor; ayar değişince yen
   const m = read('src/main/main.js');
   const sub = m.slice(m.indexOf('mediaSession.subscribe('), m.indexOf('function wantsNowPlaying'));
   assert.match(sub, /lookupLiveLyrics\(st\)/);
+  assert.match(sub, /linkSongPush\(\)/, 'parça değişince telefon da haberdar');
+  assert.match(m, /const np = \(typeof shownNowPlaying === 'function' \? shownNowPlaying\(\) : null\)/, 'telefona giden parça önbellekte kalmasın');
+  assert.match(m, /play: typeof args\.play === 'boolean' \? args\.play : cur\.play === true/, 'hoparlör seçimi aç-kapa ile silinmesin');
   assert.match(m.slice(m.indexOf('function applyIncomingConfig'), m.indexOf('function applyIncomingConfig') + 4000), /syncLyricsLookup\(\)/);
   const sync = m.slice(m.indexOf('function syncLyricsLookup'), m.indexOf('function publishLyricsLib'));
   assert.match(sync, /lyricsAutoItem = null/, 'kapatılınca bulunan söz kalkmalı');
