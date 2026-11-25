@@ -207,6 +207,8 @@ almaz.
 | `record.start`, `record.stop` | | tam |
 | `export.start` | `{ audio, format?, resolution?, fps?, quality? }` `audio`, `file.end`'in şarkı (`kind: "audio"`) için döndürdüğü kimlik; video bu bilgisayarın Videolar/SoundVisualizer klasörüne | tam |
 | `export.cancel`, `export.status` | ilerleme ve bitiş `{ ev:"export", p }` olayıyla da gelir | tam |
+| `updates.state` | → `{ status, current, latest, name, publishedAt, releaseUrl, skipped, installable, checkedAt, error, mode, auto }`; `releaseUrl` github.com adresi ya da boş, dosya yolu, indirme adresi ve sürüm notu gitmez. Değişince `{ ev:"updates", state }` olayıyla da gelir | izle |
+| `updates.check` | masaüstündeki "Şimdi denetle" ile aynı (kendiliğinden denetim kapalıyken de çalışır) → yukarıdaki durum | düzenle |
 | `file.begin`, `file.chunk`, `file.end`, `file.cancel` | Dosyalar bölümüne bakın | tam |
 
 **Anlık efektler bir kiradır:** telefon basılı listesini yarım saniyede bir yeniden yollar; masaüstü
@@ -234,6 +236,7 @@ Olaylar:
                               çizelge { playing, time }, destede çalan hücreler ("satır:sütun,…"),
                               MilkDrop preset adı; değişince
 { ev:"export", p }            dışa aktarmanın aşaması ve ilerlemesi, bitişi (done | error | cancelled)
+{ ev:"updates", state }       güncelleme durumu (updates.state biçimi); değişince, indirmede saniyede en çok bir kez
 ```
 
 Olaylar ve ayar aynası yalnız oturumu açık telefon varken çalışır.
@@ -305,8 +308,10 @@ bütün aktarımları silinir. Klasör uygulama açılırken boşaltılır. Tele
 | `edit` (düzenleme) | ayar yamaları (katman, efekt, renk, metin, çizelge), sahne ve renk şablonu kaydetme ve silme |
 | `full` (tam) | çıkışlar, ses kaynakları, dışa aktarma, kayıt, ışık, güç, dosya gönderme, telefon sesi |
 
-Tabloda ayrılmış ama bu sürümde telefondan sunulmayanlar (`unsupported`): güncelleme, ses onarımı,
-MIDI/OSC eşlemesi, yedeklilik devri ve web katmanı adresi; bunlar masaüstünde onay gerektirirdi.
+Tabloda ayrılmış ama bu sürümde telefondan sunulmayanlar (`unsupported`): güncellemeyi indirme ve
+kurma, ses onarımı, MIDI/OSC eşlemesi, yedeklilik devri ve web katmanı adresi; bunlar masaüstünde onay
+gerektirirdi. Telefon masaüstünün güncelleme durumunu görür ve denetim başlatabilir (`updates.state`,
+`updates.check`); kurulum masaüstünde kalır.
 
 Hiçbir düzeyde olmayanlar: masaüstünde keyfi yol okuma ya da yazma, yayın ve MCP jetonlarını okuma,
 telefon bağlantısının kendi güvenlik ayarlarını değiştirme (yeni cihaz onayı, eşleşme açma). Bunlar

@@ -390,6 +390,9 @@ const OPS = {
   // izle
   'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view',
   'audio.watch': 'view', 'output.list': 'view',
+  // bilgisayarın güncelleme durumu (salt okunur); denetimi başlatmak düzenleme düzeyinde,
+  // indirme ve kurma telefondan yok ('updates', PC'de onay gerektirir)
+  'updates.state': 'view', 'updates.check': 'edit',
   // kumanda
   'scene.apply': 'control', 'blackout': 'control', 'tbar': 'control', 'momentary': 'control', 'deck.trigger': 'control',
   'deck.stop': 'control', 'macro.set': 'control', 'tempo.tap': 'control', 'tempo.set': 'control', 'autovj.toggle': 'control',
