@@ -23,6 +23,14 @@ const RATE_PER_SEC = 120;
 const AUDIO_PER_SEC = 400;
 const AUDIO_MAX_BYTES = 64 * 1024;
 const MAX_ID = 64;
+/* Oturumu kurulmuş telefonun tek iletisi: şifreli çerçeve sınırı (phone-link MAX_PLAIN 8 MB) ve
+   metin kodlamasının payı. Sunucunun genel sınırı (256 KB) büyük bir zaman çizelgesini taşıyamıyor,
+   telefon çizelgeyi açınca bağlantı kopuyordu (telefon denemesi 25.11, 550 KB çizelge). */
+const SESSION_MAX_MESSAGE = 12 * 1024 * 1024;
+function openSession(client) {
+  client.preAuth = false;
+  client.maxMessage = SESSION_MAX_MESSAGE;
+}
 
 function createService(deps) {
   const d = deps || {};
@@ -120,7 +128,7 @@ function createService(deps) {
     if (!c) return;
     const out = c.handle(text);
     for (const m of out) stream.linkSendText(client, JSON.stringify(m));
-    if (c.stage === 'session') client.preAuth = false;
+    if (c.stage === 'session') openSession(client);
     if (c.stage === 'failed') setTimeout(() => stream.dropClient(client), 50);
   }
   async function onBinary(client, frame) {
@@ -198,7 +206,7 @@ function createService(deps) {
     const out = p.conn.confirm(!!ok);
     const client = p.conn.client;
     for (const m of out) stream.linkSendText(client, JSON.stringify(m));
-    if (p.conn.stage === 'session') client.preAuth = false;
+    if (p.conn.stage === 'session') openSession(client);
     if (p.conn.stage === 'failed') setTimeout(() => stream.dropClient(client), 50);
     notify('phonelink-state', status());
     return p.conn.stage === 'session';
