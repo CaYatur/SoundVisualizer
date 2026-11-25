@@ -119,6 +119,16 @@
     out.push(U.text({ label: 'Yazı Metni', value: t.content || '', onInput: (v) => puts({ content: v, placeholder: false }) }));
     out.push(U.toggle({ label: 'Kayan Yazı', value: !!t.marquee, def: false, onChange: (v) => { put('marquee', !!v); redo(); } }));
     if (t.marquee) out.push(U.slider({ label: 'Kayma Hızı', min: 0.02, max: 0.6, step: 0.01, value: t.marqueeSpeed || 0.12, def: 0.12, onInput: (v) => put('marqueeSpeed', v) }));
+    // Yol üstünde yazı (#415, masaüstüyle aynı): kayan yazı kapalıyken
+    if (!t.marquee) {
+      out.push(U.select({ label: 'Yazı Yolu', options: [['', 'Düz Satır'], ['arc', 'Yay'], ['circle', 'Çember'], ['wave', 'Dalga']], value: t.textPath || '', def: '', onChange: (v) => { put('textPath', v); redo(); } }));
+      if (t.textPath === 'arc' || t.textPath === 'wave') {
+        out.push(U.slider({ label: t.textPath === 'arc' ? 'Yay Açıklığı' : 'Dalga Yüksekliği', min: 0.05, max: 1, step: 0.01, percent: true, value: t.pathBend == null ? 0.5 : t.pathBend, def: 0.5, onInput: (v) => put('pathBend', v) }));
+      }
+      if (t.textPath === 'circle' || t.textPath === 'wave') {
+        out.push(U.slider({ label: 'Yolda Dönüş', min: -2, max: 2, step: 0.05, value: t.pathSpeed == null ? 0 : t.pathSpeed, def: 0, onInput: (v) => put('pathSpeed', v) }));
+      }
+    }
     return out;
   }
 

@@ -664,6 +664,11 @@
         out.push(mSlider('Giriş Noktası', 'inPoint', 0, 600, 0.1, 0, { format: secs }));
         out.push(mSlider('Çıkış Noktası', 'outPoint', 0, 600, 0.1, 0, { format: (v) => (v > 0 ? secs(v) : tr('sona kadar')) }));
         out.push(U.select({ label: 'Vuruşa Kilitli Döngü', options: [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']], value: String(m.loopBeats || 0), def: '0', onChange: (v) => setM('loopBeats', Number(v) || 0) }));
+        // Geri oynatma (#417, masaüstüyle aynı; varsayılan kapalı)
+        out.push(U.toggle({ label: 'Geri Oynat', value: m.reverse === true, def: false, onChange: (v) => setM('reverse', !!v) }));
+      } else {
+        // Kare gecikmesi (#420): canlı kaynak bu kadar geriden gösterilir; 0 kapalı
+        out.push(mSlider('Kare Gecikmesi', 'delay', 0, 2, 0.05, 0, { format: (v) => (v > 0 ? U.num(v, 2) + ' ' + tr('sn') : tr('kapalı')) }));
       }
       out.push(U.toggle({ label: 'Aynala', value: !!m.mirror, def: !!dm.mirror, onChange: (v) => setM('mirror', v) }));
       out.push(mSlider('Kaleydoskop Dilimi', 'kaleido', 0, 12, 1, 0, { format: (v) => (v < 3 ? tr('kapalı') : Math.round(v) + ' ' + tr('dilim')) }));
