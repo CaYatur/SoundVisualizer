@@ -1386,8 +1386,17 @@
     milkdropTextures: () => (native ? request('texturesList').catch(() => ({ dir: '', names: [] })) : resolved({ dir: '', names: [] })),
     milkdropTexture: (name) => (native ? request('textureRead', { name: String(name || '') }).catch(() => null) : resolved(null)),
     onMilkdropTexturesChanged: (cb) => ev.texturesChanged.add(cb),
-    // Masaüstü yedeğinden gelen logo kitaplığı (store/LibraryRestore.kt)
-    logoLibRead: (id) => (native ? request('logoLibRead', { id }).catch(() => null) : resolved(null)),
+    /* Masaüstü yedeğinden gelen logo kitaplığı (store/LibraryRestore.kt).
+       PC hedefindeyken kimlik PC kitaplığındadır; yerelde bayt yoksa
+       bağlantıdan istenir. Ayarın içine data URL yazılmaz. */
+    logoLibRead: (id) => {
+      const local = native ? request('logoLibRead', { id }).catch(() => null) : resolved(null);
+      return Promise.resolve(local).then((rec) => {
+        if (rec && rec.b64) return rec;
+        if (!pc.on) return rec || null;
+        return pcAsk('logo.get', { id }).then((r) => (r && r.ok && r.result && r.result.b64 ? r.result : (rec || null)));
+      });
+    },
     lyricsLibSnapshot: () => lyricsSnapshot(),
     lyricsLibRead: (id) => (native ? request('lyricsLibRead', { id }) : resolved(null)),
     onLyricsLib: (cb) => ev.lyricsLib.add(cb),
