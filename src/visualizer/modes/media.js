@@ -280,6 +280,23 @@
   }
   const tempoOf = (cfg) => (cfg && cfg.modulation && cfg.modulation.bpm > 0 ? cfg.modulation.bpm : 120);
 
+  /* KARE GECİKMESİ (#420): canlı kaynak (kamera, ekran) `media.delay` saniye geriden
+     gösterilir. Kareler küçültülmüş tuvallere (en çok DELAY_W piksel genişlik), saniyede en
+     çok DELAY_FPS kez yazılıyor; en çok DELAY_MAX saniye. 0 (varsayılan): halka hiç kurulmaz,
+     katman eskisi gibi çizer. Video dosyasında konum zaten seçilebiliyor; orada yok. */
+  const DELAY_MAX = 2;
+  const DELAY_W = 480;
+  const DELAY_FPS = 30;
+  const delayOf = (m) => Math.max(0, Math.min(DELAY_MAX, Number(m && m.delay) || 0));
+  /* Halkadan gösterilecek kare: `at` anına eşit ya da ondan önceki en yeni kare; halka henüz
+     dolmadıysa en eski kare (gecikme dolana kadar o kare kalır). Saf: sınanabilir. */
+  function pickDelayed(frames, at) {
+    if (!frames || !frames.length) return null;
+    let best = null;
+    for (const f of frames) if (f.t <= at + 1e-6 && (!best || f.t > best.t)) best = f;
+    return best || frames[0];
+  }
+
   class MediaLayer {
     constructor() {
       this.video = document.createElement('video');
@@ -853,12 +870,46 @@
       if (m.saturate != null && m.saturate !== 1) filters.push(`saturate(${m.saturate})`);
       if (filters.length) ctx.filter = filters.join(' ');
 
-      const frame = this._keyed(pic, vw, vh, m) || pic;
+      // Kare gecikmesi (#420): kapalıyken (0) bu adım hiç bir şey yapmıyor
+      const late = this._delayed(pic, vw, vh, m, t);
+      const src = late ? late.canvas : pic;
+      const sw = late ? late.w : vw;
+      const sh = late ? late.h : vh;
+      const frame = this._keyed(src, sw, sh, m) || src;
       const slices = Math.max(0, Math.min(12, m.kaleido | 0));
-      if (slices >= 3) this._drawKaleido(ctx, frame, W, H, vw, vh, slices, zoom, t);
-      else this._drawFit(ctx, frame, W, H, vw, vh, m.fit, zoom, !!m.mirror, kb.x * W, kb.y * H);
+      if (slices >= 3) this._drawKaleido(ctx, frame, W, H, sw, sh, slices, zoom, t);
+      else this._drawFit(ctx, frame, W, H, sw, sh, m.fit, zoom, !!m.mirror, kb.x * W, kb.y * H);
 
       ctx.restore();
+    }
+
+    /* Kare gecikmesi halkası. Dönen: { canvas, w, h } ya da null (kapalı, dosya, dışa aktarım). */
+    _delayed(pic, vw, vh, m, t) {
+      const sec = delayOf(m);
+      if (!(sec > 0) || this._source === 'file' || this.offline || !(vw > 0) || !(vh > 0) || typeof document === 'undefined') {
+        this._ring = null;
+        return null;
+      }
+      const s = Math.min(1, DELAY_W / vw);
+      const w = Math.max(2, Math.round(vw * s));
+      const h = Math.max(2, Math.round(vh * s));
+      let r = this._ring;
+      // Boyut değişti ya da saat geri gitti (sahne yeniden başladı): halka baştan
+      if (!r || r.w !== w || r.h !== h || t < r.last) r = this._ring = { w, h, frames: [], spare: [], last: -Infinity };
+      if (t - r.last >= 1 / DELAY_FPS - 1e-3) {
+        const c = r.spare.pop() || Object.assign(document.createElement('canvas'), { width: w, height: h });
+        const cx = c.getContext('2d');
+        if (cx) {
+          cx.drawImage(pic, 0, 0, w, h);
+          r.frames.push({ t, canvas: c });
+          r.last = t;
+        }
+      }
+      // Artık gerekmeyen kareler yedeğe (tuval yeniden kullanılıyor, bellek sabit kalıyor)
+      const keepFrom = t - sec - 1 / DELAY_FPS;
+      while (r.frames.length > 1 && r.frames[1].t <= keepFrom) r.spare.push(r.frames.shift().canvas);
+      const f = pickDelayed(r.frames, t - sec);
+      return f ? { canvas: f.canvas, w, h } : null;
     }
 
     /* Vuruşta nabız (#841): basın yavaş ortalamasını belirgin aşan bir yükseliş
@@ -1147,7 +1198,7 @@
   window.SVMedia = MediaLayer;
   window.SVMediaKey = { active: keyActive, apply: keyApply, feather: keyFeather, spillChannel: keySpillChannel };
   window.SVScreenFps = screenFps;
-  window.SVMediaTransport = { transportTime, transportOn, tempoOf, speedReactOn, audioRate };
+  window.SVMediaTransport = { transportTime, transportOn, tempoOf, speedReactOn, audioRate, pickDelayed, delayOf, DELAY_MAX };
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;
   window.SVMissingVideo = missingVideoText;

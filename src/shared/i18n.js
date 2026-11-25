@@ -1879,6 +1879,7 @@
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
     'Basma gücü': 'Velocity',
     'Geri Oynat': 'Play in Reverse',
+    'Kare Gecikmesi': 'Frame Delay',
     'Sırala': 'Sort',
     'Liste sırası': 'List order',
     'Son kullanılan': 'Recently used',

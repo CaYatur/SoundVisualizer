@@ -1361,6 +1361,12 @@
           refreshMediaCameras().then(() => rerender());
         }
       }
+      // Kare gecikmesi (#420): canlı kaynakta (kamera, ekran) görüntü bu kadar geriden gelir
+      if ((m.source || 'webcam') !== 'file') {
+        // Üst sınır motorla aynı (media.js DELAY_MAX); varsayılan ayarda alan yok, 0 sayılıyor
+        out.push(miniSlider('Kare Gecikmesi', () => (m.delay == null ? 0 : m.delay), (v) => { m.delay = v; },
+          { min: 0, max: 2, def: 0, step: 0.05, fmt: (v) => (v > 0 ? (Math.round(v * 100) / 100).toFixed(2) + ' ' + tr('sn') : tr('kapalı')) }));
+      }
       if ((m.source || 'webcam') === 'file') {
         // Seçili dosyanın adı ve küçük bir ön izlemesi
         const info = el('div', { class: 'row' }, [
