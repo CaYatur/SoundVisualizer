@@ -1905,6 +1905,8 @@
     'Hangi telefon': 'Which phone',
     'Gönderen herhangi bir telefon': 'Any phone that sends',
     'Telefon Susunca Yerel Girişe Dön': 'Fall Back to the Local Input When the Phone Is Quiet',
+    'Ses girişi telefonda: buradaki kaynaklar yalnız telefon susunca kullanılır. Kapatmak için Ayarlar → Telefon Bağlantısı ya da telefonda Ses → PC\'ye gönder.': 'Audio input is the phone: these sources are used only when the phone goes quiet. Turn it off in Settings → Phone Link or on the phone in Audio → Send to PC.',
+    'Ses girişi telefonda: buradaki kaynaklar kullanılmıyor. Kapatmak için Ayarlar → Telefon Bağlantısı ya da telefonda Ses → PC\'ye gönder.': 'Audio input is the phone: these sources are not used. Turn it off in Settings → Phone Link or on the phone in Audio → Send to PC.',
     'Telefonda Ses → "PC\'ye gönder" açılınca telefonun sesi (mikrofon, telefonda çalan müzik ya da uygulama içi çalar) bu bilgisayarın ses girişi olur. Görüntü, ışık ve tempo bu sese tepki verir.': 'When Audio → "Send to PC" is on in the phone, the phone\'s audio (microphone, music playing on the phone or the in-app player) becomes this computer\'s audio input. Visuals, lighting and tempo react to it.',
     'Öbür Kopyalar': 'Other Instances',
     'Önceki oturum beklenmedik biçimde kapandı. Ayarlar sağlam, olduğu gibi açıldı.': 'The previous session ended unexpectedly. Settings were intact and loaded as-is.',

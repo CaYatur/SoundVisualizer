@@ -4896,7 +4896,14 @@ function phoneLinkService() {
     extra: () => ({ audioIn: phoneAudioStatus() }),
     ops: Object.assign({
       // Bağlantıyı doğrulayan kısa özet
-      'state.get': () => ({
+      'state.get': (args, ctx) => ({
+        /* Telefonun sesi giriş mi (PC'deki anahtar): telefon "PC'ye gönder"i buna göre açar ya
+           da kapatır. mine: bu telefon için (belirli bir telefon seçiliyse yalnız o). */
+        audioIn: (() => {
+          const a = phoneLinkCfg().audioIn;
+          const me = String((ctx && ctx.device && ctx.device.id) || '');
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off' };
+        })(),
         app: app.getVersion(),
         platform: process.platform,
         docVersion: (currentConfig && currentConfig.docVersion) || 0,
