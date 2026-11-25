@@ -96,7 +96,7 @@
     el.addEventListener('pointerdown', (e) => {
       if (st) return;
       const r = el.getBoundingClientRect();
-      st = { id: e.pointerId, x: e.clientX, y: e.clientY, w: Math.max(1, r.width), v0: o.get(), v: o.get(), active: false };
+      st = { id: e.pointerId, x: e.clientX, y: e.clientY, left: r.left, right: r.right, v0: o.get(), v: o.get(), active: false };
       drags.add(el);
       try { el.setPointerCapture(e.pointerId); } catch (err) { /* */ }
     });
@@ -112,7 +112,15 @@
         st.x = e.clientX; // eşik atlamasın: kayma buradan başlar
       }
       e.preventDefault();
-      st.v = Math.max(0, Math.min(1, st.v0 + (e.clientX - st.x) / st.w));
+      /* Parmak çubuğun hangi ucuna giderse çubuk da o uca varır: ortadan tutulsa da kenara
+         gelince uç (eskiden göreli kayma uca varamıyordu, PC karışımda kalıyor, sahne geçmiyordu). */
+      const x = e.clientX;
+      let v = x >= st.x
+        ? st.v0 + (1 - st.v0) * Math.min(1, (x - st.x) / Math.max(1, st.right - st.x))
+        : st.v0 - st.v0 * Math.min(1, (st.x - x) / Math.max(1, st.x - st.left));
+      if (v > 0.985) v = 1; // uçta tam uç (PC'nin "bitti" eşiği 0,995)
+      else if (v < 0.015) v = 0;
+      st.v = Math.max(0, Math.min(1, v));
       o.move(st.v);
     });
     el.addEventListener('pointerup', (e) => finish(e, true));

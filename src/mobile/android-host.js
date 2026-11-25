@@ -266,13 +266,31 @@
      o sırada saklanır; "Bu telefon"a dönünce geri gelir. */
   let pcSong = null;
   function pcSongOn() { try { return !!(pc && pc.on && pcSong); } catch (e) { return false; } } // pc henüz tanımlanmadıysa
+  /* SAAT FARKI: PC'nin damgaları (parça konumu, söz ve gösteri çıpası) PC'nin saatiyle. Telefonun
+     saati ileri ya da geri olabilir; sözler o kadar önde ya da geride gidiyordu. Her iletideki
+     `at` (PC'nin o anki saati) ile fark ölçülür, damgalar telefonun saatine çevrilir. Ağ gecikmesi
+     farkı yalnız büyütür: en küçük ölçüm en doğrusu, eskiyenler yavaşça bırakılır. */
+  let pcSkew = null;
+  function noteSkew(at) {
+    const a = Number(at);
+    if (!(a > 0)) return;
+    const d = Date.now() - a;
+    pcSkew = pcSkew == null || d < pcSkew || Math.abs(d - pcSkew) > 2000 ? d : pcSkew + (d - pcSkew) * 0.05;
+  }
+  function toPhoneTime(o, keys) {
+    if (!o || typeof o !== 'object' || !pcSkew) return o;
+    const r = Object.assign({}, o);
+    for (const k of keys) if (Number(r[k]) > 0) r[k] = Number(r[k]) + pcSkew;
+    return r;
+  }
   function applyPcSong(s) {
     pcSong = s && typeof s === 'object' ? s : null;
+    if (pcSong) noteSkew(pcSong.at);
     if (!pcSongOn()) return;
     const np = pcSong.np;
-    ev.nowPlaying.emit(np ? Object.assign({ has: !!np.title, received: Date.now() }, np) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() });
+    ev.nowPlaying.emit(np ? toPhoneTime(Object.assign({ has: !!np.title }, np, { received: Date.now() }), ['updated']) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() });
     ev.lyricsLib.emit(Array.isArray(pcSong.items) ? pcSong.items : []);
-    ev.lyricsClock.emit(pcSong.clock || null);
+    ev.lyricsClock.emit(toPhoneTime(pcSong.clock, ['epoch']) || null);
   }
   function restoreOwnSong() {
     if (nowPlaying) ev.nowPlaying.emit(nowPlaying);
@@ -783,7 +801,7 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
-    pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show); } });
+    pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show, r.result.at); } });
     pcHeld = '';
     paintPcHeld();
     setControlFocus(sheetOpen);
@@ -833,7 +851,7 @@
      Yalnız değişince motora gider. */
   /* Gösteri saati (zaman çizelgesi): PC hedefindeyken PC'nin çıpası; dönünce telefonunki. */
   let ownShow = null;
-  function applyPcShow(anchor) { if (pc.on) ev.showClock.emit(anchor || null); }
+  function applyPcShow(anchor, at) { if (at) noteSkew(at); if (pc.on) ev.showClock.emit(toPhoneTime(anchor, ['epoch']) || null); }
   let pcHeld = '';
   function paintPcHeld() {
     if (!pc.on) return;
@@ -879,9 +897,9 @@
       paintPcHeld();
     } else if (m.ev === 'song') {
       applyPcSong(m);
-      if (m.show !== undefined) applyPcShow(m.show);
+      if (m.show !== undefined) applyPcShow(m.show, m.at);
     } else if (m.ev === 'clock') {
-      applyPcShow(m.anchor);
+      applyPcShow(m.anchor, m.at);
     } else if (m.ev === 'meter') {
       pc.meter = m.meter || null;
       ev.pcMeter.emit(pc.meter);
