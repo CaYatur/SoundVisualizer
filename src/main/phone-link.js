@@ -403,7 +403,7 @@ const OPS = {
   // dosya gönderme (B6): file.upload tablodaki genel ad; işlemler parça parça
   'file.begin': 'full', 'file.chunk': 'full', 'file.end': 'full', 'file.cancel': 'full', 'export.status': 'full',
   // düzenleme
-  'config.patch': 'edit', 'scene.save': 'edit', 'scene.create': 'edit', 'scene.rename': 'edit', 'scene.delete': 'edit',
+  'config.patch': 'edit', 'timeline.apply': 'edit', 'scene.save': 'edit', 'scene.create': 'edit', 'scene.rename': 'edit', 'scene.delete': 'edit',
   'scene.reorder': 'edit', 'preset.save': 'edit', 'preset.delete': 'edit', 'palette.save': 'edit', 'palette.delete': 'edit',
   // tam
   'output.open': 'full', 'output.close': 'full', 'output.set': 'full', 'audio.sources': 'full', 'export.start': 'full',
