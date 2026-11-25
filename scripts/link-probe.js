@@ -380,6 +380,8 @@ function phone(port) {
     // ---- B6: çıkışlar, ses aygıtları, kitaplık, dosya gönderme, dışa aktarma, üst çubuk
     r = await ph.ask('output.list');
     check('output.list: ekranlar', r.ok && r.result.displays.length >= 1 && Array.isArray(r.result.open), r.ok && r.result.displays.length);
+    r = await ph.ask('updates.state');
+    check('updates.state: PC sürümü ve durum, adres yalnız github.com', r.ok && r.result.current === require('../package.json').version && typeof r.result.status === 'string' && (!r.result.releaseUrl || r.result.releaseUrl.startsWith('https://github.com/')) && !('notes' in r.result) && !('asset' in r.result), r.ok && r.result);
     r = await ph.ask('audio.sources');
     check('audio.sources: aygıt listesi', r.ok && Array.isArray(r.result.devices), r.ok && r.result.devices.length);
     r = await ph.ask('thumb.get', { kind: 'visualizer', type: 'bars' });

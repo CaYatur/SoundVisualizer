@@ -199,6 +199,8 @@ for a change made in the panel.
 | `record.start`, `record.stop` | | full |
 | `export.start` | `{ audio, format?, resolution?, fps?, quality? }` `audio` is the id `file.end` returned for a song (`kind: "audio"`); the video goes to this computer's Videos/SoundVisualizer folder | full |
 | `export.cancel`, `export.status` | progress also arrives as `{ ev:"export", p }` | full |
+| `updates.state` | → `{ status, current, latest, name, publishedAt, releaseUrl, skipped, installable, checkedAt, error, mode, auto }`; `releaseUrl` is a github.com address or empty, and no file path, download address or release notes are sent. Changes also arrive as `{ ev:"updates", state }` | view |
+| `updates.check` | the same as "Check now" on the desktop (also works while automatic checks are off) → the state above | edit |
 | `library.list` | `{ kind, q?, offset?, limit? }` `video`, `logo`, `lyrics` or `milkdrop` → `{ total, items:[{ id, name }] }` (no paths) | view |
 | `thumb.get` | `{ kind, type }` `visualizer` or `background` mode thumbnail → `{ type, data }` base64 | view |
 | `milkdrop.load` | `{ id }` a preset id from `library.list` | control |
@@ -227,6 +229,8 @@ Events:
 { ev:"live", show }           active scene, cue, T-bar { rest, p, live }, blackout, held effects,
                               timeline { playing, time }, playing clip deck cells ("row:col,…"),
                               MilkDrop preset name; when it changes
+{ ev:"export", p }            export phase and progress, and how it ended (done | error | cancelled)
+{ ev:"updates", state }       update state (as updates.state); when it changes, at most once a second while downloading
 ```
 
 Events and the mirror run only while a phone session is open.
@@ -319,8 +323,9 @@ connections can be open at once.
 | `full` | outputs, audio sources, export, recording, lighting, power, sending files, phone audio bridge |
 
 Reserved in the table but not offered from the phone in this version (refused as `unsupported`):
-updates, audio repair, MIDI/OSC bindings, redundancy handover and the web layer address, which would
-need a confirmation on the desktop.
+downloading and installing updates, audio repair, MIDI/OSC bindings, redundancy handover and the web
+layer address, which would need a confirmation on the desktop. The phone can see the desktop's update
+state and start a check (`updates.state`, `updates.check`); installing stays on the desktop.
 
 Never available, at any level: reading or writing arbitrary paths on the desktop, reading stream or
 MCP tokens, and changing the phone link's own security settings (approving new devices, opening

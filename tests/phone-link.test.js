@@ -248,6 +248,9 @@ test('İzin tablosu: düzeyler sıralı, bilinmeyen işlem ve güvenlik sınır�
   assert.ok(L.allowed('edit', 'config.patch'));
   assert.ok(!L.allowed('edit', 'output.open'));
   assert.ok(L.allowed('full', 'updates') && L.needsConfirm('updates'));
+  // Güncelleme durumu her düzeyde görünür; denetimi başlatmak düzenleme ister, onay penceresi yok
+  assert.ok(L.allowed('view', 'updates.state') && !L.needsConfirm('updates.state'));
+  assert.ok(!L.allowed('control', 'updates.check') && L.allowed('edit', 'updates.check') && !L.needsConfirm('updates.check'));
   for (const lv of L.LEVELS) {
     for (const op of ['file.read', 'token.get', 'link.settings', '__proto__', 'constructor', '']) assert.ok(!L.allowed(lv, op), lv + ' ' + op);
   }
