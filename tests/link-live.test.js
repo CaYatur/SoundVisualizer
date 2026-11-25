@@ -24,6 +24,8 @@ test('Canlı denetim: ağacın kapsadığı işler OSC iletisine, mutlak ve sık
   rejects('blackout', {}); // "değiştir" yok: yeniden denenen istek ters çevirmesin
   rejects('blackout', { on: 'yes' });
   assert.deepStrictEqual(plan('tbar', { v: 1.7 }).message, { address: '/cayadev/show/tbar', args: [1] });
+  assert.deepStrictEqual(plan('tbar', { v: 0.4, down: true }), { kind: 'panel', op: 'tbar', args: { v: 0.4, down: true } });
+  assert.deepStrictEqual(plan('tbar', { v: 1, down: false }).args, { v: 1, down: false });
   assert.deepStrictEqual(plan('tbar', { take: true }), { kind: 'panel', op: 'take', args: {} });
   rejects('tbar', { v: NaN });
   assert.deepStrictEqual(plan('master.set', { v: -2 }).message.args, [0]);
