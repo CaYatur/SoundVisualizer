@@ -4952,6 +4952,8 @@ function phoneLinkCfg() {
       delayMs: Number.isFinite(Number(a.delayMs)) ? Math.max(0, Math.min(500, Math.round(Number(a.delayMs)))) : 0,
       play: a.play === true, // telefonun sesini PC hoparlöründen de çal (ses düzeyi ve aygıt: ses köprüsünün ayarı)
       gain: linkPhone.clampGain(a.gain == null ? 1 : a.gain), // 1 = gelen düzey, 2 = iki kat
+      lossless: a.lossless === true, // kapalı: hızlı yol (paket dolunca atılır). açık: paket atılmaz, gecikme birikebilir
+      syncDelay: a.syncDelay !== false, // kayıpsızdayken görüntü, söz ve şarkı saati aynı gecikmeyle gelir
     },
   };
 }
@@ -4982,7 +4984,7 @@ function phoneLinkService() {
         audioIn: (() => {
           const a = phoneLinkCfg().audioIn;
           const me = String((ctx && ctx.device && ctx.device.id) || '');
-          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs, gain: a.gain };
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs, gain: a.gain, lossless: a.lossless === true, syncDelay: a.syncDelay !== false, audioDelayMs: linkPcmDelayMs };
         })(),
         app: app.getVersion(),
         platform: process.platform,
@@ -5046,6 +5048,8 @@ function phoneLinkService() {
           play: typeof args.play === 'boolean' ? args.play : cur.play === true,
           delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : cur.delayMs,
           gain: args.gain == null ? cur.gain : linkPhone.clampGain(args.gain),
+          lossless: typeof args.lossless === 'boolean' ? args.lossless : cur.lossless === true,
+          syncDelay: typeof args.syncDelay === 'boolean' ? args.syncDelay : cur.syncDelay !== false,
         };
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
         return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
@@ -5138,6 +5142,32 @@ function linkUpdateNote() {
   linkUpdateLast = st.status;
   linkSvc.broadcast({ ev: 'updates', state: st });
 }
+function linkDisplayIds(raw) {
+  const known = new Set(getDisplayList().map((d) => d.id));
+  const ids = [];
+  const list = Array.isArray(raw) ? raw : (raw == null || raw === '' ? [] : [raw]);
+  for (const x of list) {
+    const n = Number(x);
+    if (!known.has(n) || ids.indexOf(n) >= 0) continue;
+    ids.push(n);
+  }
+  return ids;
+}
+function linkRememberDisplays(ids) {
+  if (!currentConfig) return;
+  const prev = currentConfig.display && typeof currentConfig.display === 'object' ? currentConfig.display : {};
+  let prints = prev.prints || {};
+  try {
+    const match = require('../shared/display-match');
+    if (match && match.prints) prints = match.prints(ids, getDisplayList());
+  } catch { /* iz yoksa kimlik yeter */ }
+  currentConfig.display = Object.assign({}, prev, {
+    ids: ids.slice(), id: ids.length ? ids[0] : null, chosen: true, prints,
+  });
+  saveSettings(currentConfig);
+  notifyAdmin('external-config', currentConfig);
+  linkConfigSync(['display']);
+}
 function linkManageOps() {
   const bad = (code) => Object.assign(new Error(code || 'bad-args'), { code: code || 'bad-args' });
   const ID = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -5158,17 +5188,29 @@ function linkManageOps() {
       selected: (currentConfig && currentConfig.display && currentConfig.display.ids) || [],
     }),
     'output.open': (args) => {
-      const known = new Set(getDisplayList().map((d) => d.id));
-      const ids = Array.isArray(args.ids) ? args.ids.filter((x) => known.has(x)) : null;
-      if (Array.isArray(args.ids) && !ids.length) throw bad();
+      const ids = linkDisplayIds(args && args.ids);
+      if (Array.isArray(args && args.ids) && !ids.length) throw bad();
       const d = (currentConfig && currentConfig.display) || {};
-      openVisualizer(ids && ids.length ? ids : (Array.isArray(d.ids) && d.ids.length ? d.ids : d.id));
-      return { open: Array.from(visualizerWins.keys()) };
+      const use = ids.length ? ids : linkDisplayIds(Array.isArray(d.ids) && d.ids.length ? d.ids : d.id);
+      openVisualizer(use);
+      const open = Array.from(visualizerWins.keys());
+      linkRememberDisplays(open.length ? open : use);
+      const selected = currentConfig && currentConfig.display && currentConfig.display.ids;
+      return { open, selected: selected || [], floating: floatingIsOpen() };
     },
     'output.close': (args) => {
-      if (args.id != null && !getDisplayList().some((x) => x.id === args.id)) throw bad();
-      closeVisualizer(args.id != null ? args.id : undefined);
-      return { open: Array.from(visualizerWins.keys()) };
+      if (args && args.id != null) {
+        const id = Number(args.id);
+        if (!getDisplayList().some((x) => x.id === id)) throw bad();
+        closeVisualizer(id);
+        const prev = linkDisplayIds((currentConfig && currentConfig.display && currentConfig.display.ids) || []);
+        linkRememberDisplays(prev.filter((x) => x !== id));
+      } else {
+        closeVisualizer(undefined);
+        linkRememberDisplays([]);
+      }
+      const selected = currentConfig && currentConfig.display && currentConfig.display.ids;
+      return { open: Array.from(visualizerWins.keys()), selected: selected || [], floating: floatingIsOpen() };
     },
     'output.set': async (args) => {
       if (typeof args.floating !== 'boolean') throw bad();
@@ -5311,22 +5353,93 @@ function linkWatchDrop(client) {
   if (!linkWatch.delete(client)) return;
   if (!linkWatch.size) syncCapture();
 }
-function linkWatchPcm(buf, sr, ch) {
-  if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
+let linkPcmDelayMs = 0;
+function linkWatchSend(client, w, sr, ch, body) {
+  if (!client.link || client.link.stage !== 'session' || client.link.closed) return false;
   const head = Buffer.alloc(linkAudio.HEAD);
   head[0] = linkAudio.KIND_PCM;
   head[1] = linkAudio.VERSION;
   head.writeUInt32BE(sr >>> 0, 6);
   head[10] = ch === 1 ? 1 : 2;
-  const frames = Math.floor(buf.length / (2 * head[10]));
-  const body = buf.subarray(0, Math.min(frames, linkAudio.MAX_SAMPLES) * 2 * head[10]);
+  head.writeUInt32BE(w.seq++ >>> 0, 2);
+  const sealed = client.link.encryptBinary(Buffer.concat([head, body]));
+  if (!sealed) return false;
+  streamServer.linkSendBinary(client, sealed);
+  return true;
+}
+function linkWatchChunks(buf, channels) {
+  const frameBytes = 2 * channels;
+  const frames = Math.floor(buf.length / frameBytes);
+  const out = [];
+  let off = 0;
+  while (off < frames) {
+    const n = Math.min(linkAudio.MAX_SAMPLES, frames - off);
+    out.push(Buffer.from(buf.subarray(off * frameBytes, (off + n) * frameBytes)));
+    off += n;
+  }
+  return out;
+}
+function linkWatchQueuedMs(w) {
+  if (!w.q || !w.q.length) return 0;
+  const ch = w.ch === 1 ? 1 : 2;
+  let queued = 0;
+  for (const b of w.q) queued += b.length / (2 * ch);
+  return Math.round(queued * 1000 / (w.sr || 48000));
+}
+function linkWatchNoteDelay() {
+  if (phoneLinkCfg().audioIn.lossless !== true) { linkPcmDelayMs = 0; return; }
+  let delay = 0;
+  for (const [, w] of linkWatch) delay = Math.max(delay, linkWatchQueuedMs(w));
+  linkPcmDelayMs = delay;
+}
+function linkWatchDrain(client, w) {
+  if (w.draining) return;
+  const step = () => {
+    if (!w.q || !w.q.length || !linkWatch.has(client) || phoneLinkCfg().audioIn.lossless !== true) {
+      w.draining = false;
+      linkWatchNoteDelay();
+      return;
+    }
+    const blocked = client.backpressure || (client.socket && client.socket.writableLength > 512 * 1024);
+    if (blocked) { w.draining = true; setTimeout(step, 20); return; }
+    linkWatchSend(client, w, w.sr || 48000, w.ch === 1 ? 1 : 2, w.q.shift());
+    linkWatchNoteDelay();
+    if (w.q.length) { w.draining = true; setTimeout(step, 0); } else w.draining = false;
+  };
+  w.draining = true;
+  step();
+}
+function linkWatchPcm(buf, sr, ch) {
+  if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
+  const channels = ch === 1 ? 1 : 2;
+  const chunks = linkWatchChunks(buf, channels);
+  if (!chunks.length) return;
+  const lossless = phoneLinkCfg().audioIn.lossless === true;
   for (const [client, w] of linkWatch) {
     if (!client.link || client.link.stage !== 'session' || client.link.closed) continue;
-    if (client.backpressure || (client.socket && client.socket.writableLength > 256 * 1024)) { w.dropped++; continue; }
-    head.writeUInt32BE(w.seq++ >>> 0, 2);
-    const sealed = client.link.encryptBinary(Buffer.concat([head, body]));
-    if (sealed) streamServer.linkSendBinary(client, sealed);
+    if (!lossless) {
+      /* Hızlı yol: kuyruk yok. Soket dolunca paket atılır (eşik aynı, 256 KB).
+         Tampon bir paketten uzunsa sığan parçalar gider, kalanı atılır. */
+      if (w.q && w.q.length) { w.dropped += w.q.length; w.q.length = 0; }
+      for (const body of chunks) {
+        const blocked = client.backpressure || (client.socket && client.socket.writableLength > 256 * 1024);
+        if (blocked) { w.dropped++; continue; }
+        linkWatchSend(client, w, sr, channels, body);
+      }
+      continue;
+    }
+    if (!w.q) w.q = [];
+    w.sr = sr || 48000;
+    w.ch = channels;
+    for (const body of chunks) w.q.push(body);
+    const frameBytes = 2 * channels;
+    let queued = 0;
+    for (const b of w.q) queued += b.length / frameBytes;
+    const cap = Math.round((sr || 48000) * 2);
+    while (queued > cap && w.q.length > 1) { queued -= w.q.shift().length / frameBytes; w.dropped++; }
+    linkWatchDrain(client, w);
   }
+  linkWatchNoteDelay();
 }
 
 /* TELEFONUN SESİ (B4, src/main/link-audio.js). Telefonun PCM'i bu makinede kareye çevrilir;
@@ -5428,7 +5541,9 @@ function linkSongState() {
   let art = np && np.artwork;
   if (typeof art === 'string' && art.length > 300000) art = '';
   // at: PC'nin saati. Telefon aradaki farkı ölçüp damgaları kendi saatine çevirir (sözler önde gitmesin)
-  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null, at: Date.now() };
+  const ain = phoneLinkCfg().audioIn;
+  const audioDelayMs = ain.lossless === true && ain.syncDelay !== false ? linkPcmDelayMs : 0;
+  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null, at: Date.now(), audioDelayMs };
 }
 function linkSongPush() {
   try { if (!linkSvc || !linkNowPlaying) return; } catch { return; } // açılışta bağlantı henüz kurulmadıysa
@@ -5447,7 +5562,7 @@ function phoneAudioStatus() {
   const a = phoneLinkCfg().audioIn;
   const inp = phoneAudio.input;
   const fr = phoneAudio.from ? phoneAudio.framers.get(phoneAudio.from) : null;
-  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, gain: a.gain, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
+  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, gain: a.gain, lossless: a.lossless === true, syncDelay: a.syncDelay !== false, audioDelayMs: linkPcmDelayMs, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
 }
 
 /* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme

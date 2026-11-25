@@ -86,6 +86,9 @@ test('canlı söz normal parça değişiminde de aranıyor; ayar değişince yen
   assert.match(sub, /linkSongPush\(\)/, 'parça değişince telefon da haberdar');
   assert.match(m, /const np = \(typeof shownNowPlaying === 'function' \? shownNowPlaying\(\) : null\)/, 'telefona giden parça önbellekte kalmasın');
   assert.match(m, /play: typeof args\.play === 'boolean' \? args\.play : cur\.play === true/, 'hoparlör seçimi aç-kapa ile silinmesin');
+  assert.match(m, /lossless: typeof args\.lossless === 'boolean' \? args\.lossless : cur\.lossless === true/, 'kayıpsız seçimi aç-kapa ile silinmesin');
+  assert.match(m, /function linkWatchChunks/, 'ses paketinin sonu atılmasın');
+  assert.match(m, /function linkRememberDisplays/, 'ekran açılınca PC seçimi de yazılsın');
   assert.match(m, /gain: args\.gain == null \? cur\.gain : linkPhone\.clampGain\(args\.gain\)/, 'köprü kazancı aç-kapa ile silinmesin');
   assert.match(m, /'presets\.user': \(\) =>/, 'kullanıcının presetleri telefona gitsin');
   assert.match(m.slice(m.indexOf('function applyIncomingConfig'), m.indexOf('function applyIncomingConfig') + 4000), /syncLyricsLookup\(\)/);
