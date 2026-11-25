@@ -4979,7 +4979,7 @@ function phoneLinkService() {
         audioIn: (() => {
           const a = phoneLinkCfg().audioIn;
           const me = String((ctx && ctx.device && ctx.device.id) || '');
-          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off' };
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs };
         })(),
         app: app.getVersion(),
         platform: process.platform,
@@ -5033,7 +5033,16 @@ function phoneLinkService() {
       'audio.bridge': (args, ctx) => {
         if (typeof args.on !== 'boolean') throw Object.assign(new Error('bad-args'), { code: 'bad-args' });
         const cur = phoneLinkCfg().audioIn;
-        const next = { enabled: args.on, device: args.on ? String((ctx && ctx.device && ctx.device.id) || '') : cur.device, fallback: typeof args.fallback === 'boolean' ? args.fallback : cur.fallback };
+        const delay = Number(args.delayMs);
+        /* play ve gecikme telefonda da yönetilir. Yalnız aç/kapa gelince PC'deki
+           hoparlör ve gecikme seçimi silinmesin. */
+        const next = {
+          enabled: args.on,
+          device: args.on ? String((ctx && ctx.device && ctx.device.id) || '') : cur.device,
+          fallback: typeof args.fallback === 'boolean' ? args.fallback : cur.fallback !== false,
+          play: typeof args.play === 'boolean' ? args.play : cur.play === true,
+          delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : cur.delayMs,
+        };
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
         return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
       },
@@ -5394,7 +5403,8 @@ function phoneAudioChanged() {
    ve kitaplıkta adı tutanlar; bütün kitaplık değil) ve söz saati. Kapak büyükse gönderilmez. */
 var linkNowPlaying = { np: null, key: '', timer: 0 };
 function linkSongState() {
-  const np = linkNowPlaying.np || (mediaSession && typeof mediaSession.current === 'function' ? mediaSession.current() : null);
+  /* Canlı oturum. Önbellekteki ilk parça, şarkı değişince de telefona gidiyordu. */
+  const np = (typeof shownNowPlaying === 'function' ? shownNowPlaying() : null) || linkNowPlaying.np || (mediaSession && typeof mediaSession.current === 'function' ? mediaSession.current() : null);
   const title = String((np && np.title) || '').toLowerCase();
   let items = [];
   if (title) {
@@ -5424,7 +5434,7 @@ function phoneAudioStatus() {
   const a = phoneLinkCfg().audioIn;
   const inp = phoneAudio.input;
   const fr = phoneAudio.from ? phoneAudio.framers.get(phoneAudio.from) : null;
-  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
+  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
 }
 
 /* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme
@@ -8049,6 +8059,9 @@ mediaSession.subscribe((st) => {
   if (phoneMetaShown()) return;
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
+  /* Telefon PC'nin parçasını izler. Önbellek ilk parçada kalırsa sonraki
+     şarkı ve söz telefona hiç gitmiyordu. */
+  if (linkNowPlaying) { linkNowPlaying.np = st || null; linkSongPush(); }
   lookupLiveLyrics(st);
   if (typeof streamServer.broadcastNowPlaying === 'function') {
     streamServer.broadcastNowPlaying(st);
