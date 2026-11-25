@@ -230,6 +230,8 @@ body[data-single] .sv-form > .card > .group:not(:has(> .group-label)) { padding-
 .pl-dev.on .sv-led { background: var(--ok); box-shadow: 0 0 9px var(--ok); }
 .pl-dev-txt { flex: 1 1 160px; min-width: 0; display: grid; gap: 1px; }
 .pl-dev-txt b { font-weight: 600; color: var(--text-strong); font-size: 13px; }
+/* Satırın %4.5 ön plan örtüsü --muted2'yi CaYaDev'de 4.5:1 altına düşürüyor. */
+.pl-dev-txt .note { color: var(--muted); }
 .pl-dev select { width: auto; min-width: 120px; }
 
 /* ------------------------------------------------------------- 5. Modül başlığı, bilgi, ipucu */

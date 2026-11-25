@@ -10963,6 +10963,10 @@ async function runSmoke() {
   if (BRIDGE_ONLY) return runBridgeSmoke();
   const errors = [];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* Yalnız tema karşıtlığı: görselleştirici turu dakikalar sürüyor.
+     `--smoke-themes` o turu atlar. Profil kapanışta açılıştaki kopyaya döner. */
+  const themeOnly = process.argv.includes('--smoke-themes');
+  if (themeOnly) console.log('[SMOKE] yalnız tema karşıtlığı');
 
   /* Kamera gerçekten kapalı mı?
 
@@ -10979,6 +10983,7 @@ async function runSmoke() {
     return r;
   };
 
+  if (!themeOnly) {
   console.log('[SMOKE] opening visualizer on primary display');
   openVisualizer(screen.getPrimaryDisplay().id);
   await wait(2200);
@@ -12588,6 +12593,7 @@ async function runSmoke() {
     })()`);
     await wait(400);
   }
+  }
 
   /* --- İngilizce arayüz denetimi ---
      Panel İngilizceye alınır ve tüm kategorilerde ÇEVRİLMEMİŞ Türkçe metin
@@ -12596,6 +12602,7 @@ async function runSmoke() {
      Kullanıcı içeriği (aygıt adları, sahne adları) taramanın dışında. */
   if (adminWin && !adminWin.isDestroyed()) {
     const awc3 = adminWin.webContents;
+    if (!themeOnly) {
     await awc3.executeJavaScript("localStorage.setItem('sv-language','en')");
     awc3.reload();
     await new Promise((r) => awc3.once('did-finish-load', r));
@@ -12628,6 +12635,27 @@ async function runSmoke() {
     console.log('[SMOKE] i18n taraması için çizelge/deste: ' + opened);
     if (opened !== 'açıldı') errors.push('i18n scan could not open timeline/clipdeck: ' + opened);
     await wait(900);
+    } else {
+      for (let i = 0; i < 25; i++) {
+        const ok = await awc3.executeJavaScript('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg().clipdeck)').catch(() => false);
+        if (ok) break;
+        await wait(200);
+      }
+      const openedTheme = await awc3.executeJavaScript(`(function(){
+        if (!window.SVPanel) return 'panel yok';
+        var c = window.SVPanel.cfg();
+        if (!c.timeline || !c.clipdeck || !c.openrgb) return 'bölüm yok';
+        c.timeline.enabled = true;
+        c.clipdeck.enabled = true;
+        c.openrgb.enabled = true;
+        if (c.textureShare) c.textureShare.enabled = true;
+        window.SVPanel.rerender();
+        return 'açıldı';
+      })()`);
+      console.log('[SMOKE] tema taraması için çizelge/deste: ' + openedTheme);
+      if (openedTheme !== 'açıldı') errors.push('theme scan could not open timeline/clipdeck: ' + openedTheme);
+      await wait(500);
+    }
 
     /* DOLU PANEL (#777). Öz testin ayarlarında kayıtlı sahne, önizlemeli
        klip hücresi ya da kaynağı seçilmemiş yuva yok; çeviri ve karşıtlık
@@ -12676,6 +12704,7 @@ async function runSmoke() {
     console.log('[SMOKE] dolu panel: ' + JSON.stringify(populated));
     if (!populated || populated.error) errors.push('populated panel: ' + ((populated && populated.error) || 'no result'));
     await wait(700);
+    if (!themeOnly) {
     const openFolds = "(function(){var h=document.querySelectorAll('.sv-content .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
 
     const cats = await awc3.executeJavaScript(
@@ -12754,6 +12783,7 @@ async function runSmoke() {
     }
 
     await awc3.executeJavaScript("localStorage.removeItem('sv-language')");
+    }
   }
 
   /* --- Arayüz temaları: ekrandaki yazıların karşıtlığı (#770) ---
@@ -12847,8 +12877,9 @@ async function runSmoke() {
        Ad Chromium'un kendi erişilebilirlik ağacından okunur (ekran okuyucunun
        duyduğu ad). Odak gerçek Tab tuşlarıyla dolaşılır; odaklanan öğenin
        görünüşü odaksız anlık görüntüsüyle aynıysa odak görünmüyordur.
-       İlk ölçümde 139 adsız denetim ve 68 görünmeyen odak vardı. */
-    try {
+       İlk ölçümde 139 adsız denetim ve 68 görünmeyen odak vardı.
+       Tema taramasında atlanır: o tur dakikalar sürer ve karşıtlığı ölçmez. */
+    if (!themeOnly) try {
       const dbg = awc4.debugger;
       let attached = false;
       try { dbg.attach('1.3'); attached = true; } catch (e) { console.log('[SMOKE] erişilebilirlik: hata ayıklayıcı bağlanamadı, atlandı'); }
