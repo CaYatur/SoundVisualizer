@@ -240,6 +240,8 @@
     'Sahne silinsin mi?': 'Delete this scene?',
     'Videolar, resimler, logolar ve şarkı sözleri telefonun kitaplığıyla birlikte gelecek (Faz 4). Masaüstünden aktarılan sahnelerdeki bu dosyalar o zamana kadar eksik görünür.': 'Videos, images, logos and lyrics come with the phone\'s library (phase 4). Until then these files are missing in scenes brought from the desktop.',
     'Resim içinde resim': 'Picture in picture',
+    'Yüzen pencere ayarları': 'Floating window settings',
+    'Yalnız yüzen pencerede geçerli; resim içinde resim Android\'in kendi penceresidir. Pencereye çift dokununca uygulamaya dönülür, pencere kapanır; ayarlar bir sonraki açılışta uygulanır.': 'Applies to the floating window only; picture in picture is Android\'s own window. Double-tap the window to return to the app, which closes the window; settings apply the next time it opens.',
     'Dokunuşları geçir': 'Pass touches through',
     'Açıkken görünürlük en çok %80 (Android 12+)': 'While on, visibility is at most 80% (Android 12+)',
     'Oranı koru': 'Keep aspect ratio',

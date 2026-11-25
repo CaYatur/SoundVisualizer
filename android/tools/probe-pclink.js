@@ -28,6 +28,8 @@ const D = require('./lib/device.js');
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };
 const CDP = arg('cdp', '9341');
 const PORT = arg('port', '8741');
+// Gerçek telefonda bilgisayarın ağ adresi (--host=192.168.x.x); emülatörde 10.0.2.2
+const HOST = arg('host', '10.0.2.2');
 // --soak=600: PC hedefi, akıcı önizleme ve Canlı sekmesi açıkken N saniye dayanıklılık turu
 const SOAK = Number(arg('soak', '0'));
 const root = path.join(__dirname, '..', '..');
@@ -66,7 +68,7 @@ async function desktop() {
   await pc.ev('window.api.phoneLinkForgetAll()');
 
   D.adb(['shell', 'pm', 'clear', D.PKG]);
-  for (const p of ['android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.POST_NOTIFICATIONS']) D.adb(['shell', 'pm', 'grant', D.PKG, p]);
+  for (const p of ['android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.POST_NOTIFICATIONS']) { try { D.adb(['shell', 'pm', 'grant', D.PKG, p]); } catch { /* Android 12'de bildirim izni yok */ } }
   let page = await open();
   let ev = (js) => page.evaluate(js);
   const ready = async () => { for (let i = 0; i < 100 && !(await ev('!!(window.SVShell && window.SVShell.state().ready)')); i++) await sleep(200); await sleep(600); };
@@ -88,7 +90,7 @@ async function desktop() {
   await sleep(700);
   check('Adres ve Kodla', await clickText('Adres ve Kodla'));
   await sleep(500);
-  await ev(`(() => { const ins = [...document.querySelectorAll('#sv-shell .sheet-body input.field')]; const set = (i, v) => { ins[i].value = v; ins[i].dispatchEvent(new Event('input', { bubbles: true })); }; set(0, '10.0.2.2'); set(1, ${JSON.stringify(PORT)}); set(2, ${JSON.stringify(code.slice(0, 3) + ' ' + code.slice(3))}); return ins.length; })()`);
+  await ev(`(() => { const ins = [...document.querySelectorAll('#sv-shell .sheet-body input.field')]; const set = (i, v) => { ins[i].value = v; ins[i].dispatchEvent(new Event('input', { bubbles: true })); }; set(0, ${JSON.stringify(HOST)}); set(1, ${JSON.stringify(PORT)}); set(2, ${JSON.stringify(code.slice(0, 3) + ' ' + code.slice(3))}); return ins.length; })()`);
   check('Bağlan', await clickText('Bağlan'));
   const s1 = await waitState(['sas', 'error'], 15000);
   check('telefon sayı karşılaştırmasında', s1.state === 'sas' && /^\d{6}$/.test(s1.digits || ''), s1);
@@ -116,7 +118,7 @@ async function desktop() {
   let low = '';
   for (let i = 0; i < 20; i++) {
     await sleep(300);
-    low = (await ev(`document.querySelector('#sv-shell').innerText`)).toLowerCase();
+    low = (await ev(`document.querySelector('#sv-shell').textContent`)).toLowerCase();
     if (low.indexOf((await T("PC'nin Sürümü")).toLowerCase()) >= 0) break;
   }
   check('Ayarlar: bağlıyken PC\'nin sürümü görünüyor', low.indexOf((await T("PC'nin Sürümü")).toLowerCase()) >= 0 && low.indexOf(String(pcVer)) >= 0, { pcVer });
@@ -151,7 +153,7 @@ async function desktop() {
   const qrBefore = (await pcStatus()).devices.length;
   /* QR bilgisayarın gerçek ağ adreslerini taşır; sınamada masaüstü yalnız 127.0.0.1'i dinliyor,
      emülatör ona 10.0.2.2'den ulaşır. Eşleşmede adres buna çevrilir (sır ve parmak izi aynı). */
-  const emuQr = decoded.replace(/h=[^&]*&/g, '').replace('svlink://1?', 'svlink://1?h=10.0.2.2&');
+  const emuQr = decoded.replace(/h=[^&]*&/g, '').replace('svlink://1?', 'svlink://1?h=' + HOST + '&');
   await ev(`window.SVAndroid.link.pairQr(${JSON.stringify(emuQr)})`);
   const s4 = await waitState(['approve', 'error'], 15000);
   const pend2 = (await pcStatus()).pending;
