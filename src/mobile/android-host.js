@@ -90,10 +90,15 @@
   function notePcPcm() {
     const fresh = pcAudioUntil > now();
     pcAudioUntil = now() + REAL_FRAME_TIMEOUT;
+    /* Demo saati `state.source === 'demo'` iken de kare basıyor. PC sesi
+       gelirken kaynak adı değişmezse demo, gerçek karelerin üstüne biner. */
+    state.source = 'pc';
     if (!fresh) ev.audioStatus.emit({ source: 'pc', state: 'running' });
     clearTimeout(pcAudioTimer);
     pcAudioTimer = setTimeout(() => {
-      if (pcAudioUntil <= now()) ev.audioStatus.emit(state.audioStatus || { source: '', state: 'stopped' });
+      if (pcAudioUntil > now()) return;
+      if (state.source === 'pc') state.source = 'demo';
+      ev.audioStatus.emit(state.audioStatus || { source: '', state: 'stopped' });
     }, REAL_FRAME_TIMEOUT + 40);
   }
   function pcAudioLive() { return pcAudioUntil > now(); }
@@ -345,7 +350,11 @@
     }
     if (!pcSongOn()) return;
     const np = pcSong.np;
+    const prevNp = pcSongNp;
     pcSongNp = np ? toPhoneTime(Object.assign({ has: !!np.title }, np, { received: Date.now() }), ['updated']) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() };
+    /* Konum tazelenirken kapak yeniden gelmez. Boş kapak, aynı parçanın
+       elimizdeki kapağını silmesin. */
+    if (pcSongNp && pcSongNp.has && !pcSongNp.artwork && prevNp && prevNp.artwork && prevNp.title === pcSongNp.title && prevNp.artist === pcSongNp.artist) pcSongNp.artwork = prevNp.artwork;
     const lag = syncLagMs(true);
     if (lag && pcSongNp && pcSongNp.playing) {
       /* updated yerinde kalır: o anda duyulan konum, PC'nin konumundan `lag` kadar geridedir. */
@@ -1098,7 +1107,9 @@
       if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; args.gain = pcIn.gain; args.lossless = pcIn.lossless; args.syncDelay = pcIn.syncDelay; }
       pcAsk('audio.bridge', args).then((r) => { if (r && r.ok && r.result) { takeAudioIn(r.result); emitTarget(); } pcNowPlaying(nowPlaying, true); });
     }
-    const watch = !audioSend && pc.state === 'connected' && ((pc.on && previewMode === 'smooth') || (!pc.on && usePcAudio) || playPc);
+    /* Gönderim kapalıyken görüntü PC'nin sesini kullanır. Ekran görüntüsü
+       önizlemesi motoru örtüyor; orada ham ses gerekmez. */
+    const watch = !audioSend && pc.state === 'connected' && !(pc.on && previewMode !== 'smooth');
     if (watch !== watching) {
       watching = watch;
       request('linkAudioWatch', { on: watch }).catch(() => {});
@@ -1169,35 +1180,40 @@
     emitTarget();
     return targetInfo();
   }
-  /* Çalan parça → PC (yalnız "PC'ye gönder" açıkken). Kapak parça değişince bir kez, en çok
-     512 px JPEG'e küçültülür; konum her 5 sn'de ve çalma/durma değişince. */
+  /* Çalan parça → PC (yalnız "PC'ye gönder" açıkken). Kapak küçülene kadar
+     "gitti" sayılmaz; aksi halde bir sonraki parçaya kadar boş kalıyordu.
+     Konum çalarken iki saniyede bir tazelenir: tek çıpa iki saati kaydırıyordu. */
   let npSent = { key: '', at: 0, playing: null, artKey: '' };
   function pcNowPlaying(np, force) {
     if (!audioSend || pc.state !== 'connected' || !np) return;
     const key = np.has ? np.title + '|' + np.artist + '|' + np.album : '';
     const now = Date.now();
-    if (!force && key === npSent.key && np.playing === npSent.playing && now - npSent.at < 5000) return;
+    const needArt = !!(np.has && np.artwork && npSent.artKey !== key);
+    if (!force && !needArt && key === npSent.key && np.playing === npSent.playing && now - npSent.at < 2000) return;
     const send = (art) => {
       const lag = pcIn.lossless && pcIn.syncDelay !== false ? (Number(pc.audioDelayMs) || 0) : 0;
       const age = np.playing && Number(np.updated) > 0 ? Math.max(0, Date.now() - Number(np.updated)) / 1000 : 0;
-      const livePos = (Number(np.position) || 0) + (lag ? age : 0);
+      const livePos = (Number(np.position) || 0) + age;
       const args = { has: !!np.has, title: np.title || '', artist: np.artist || '', album: np.album || '', position: Math.max(0, livePos - (np.playing ? lag / 1000 : 0)), duration: Number(np.duration) || 0, playing: !!np.playing, app: np.app || '' };
-      if (art != null) args.artwork = art;
-      npSent = { key, at: now, playing: np.playing, artKey: art != null ? key : npSent.artKey };
-      pcAsk('nowplaying.set', args);
+      if (art) args.artwork = art;
+      npSent = { key, at: Date.now(), playing: np.playing, artKey: art ? key : (key === npSent.key ? npSent.artKey : '') };
+      pcAsk('nowplaying.set', args).then((r) => { if (art && !(r && r.ok)) npSent.artKey = ''; }, () => { if (art) npSent.artKey = ''; });
+    };
+    const ship = () => {
+      if (needArt) shrinkArt(np.artwork).then(send, () => { npSent.at = 0; });
+      else send(null);
     };
     if (pcIn.lossless && pcIn.syncDelay !== false) {
       request('linkStatus').then((v) => {
         if (v && Number.isFinite(Number(v.audioDelayMs))) pc.audioDelayMs = Math.max(0, Math.min(2500, Math.round(Number(v.audioDelayMs))));
-      }, () => {}).then(() => {
-        if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
-        else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
-      });
+      }, () => {}).then(ship);
       return;
     }
-    if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
-    else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
+    ship();
   }
+  if (typeof setInterval === 'function') setInterval(() => {
+    if (audioSend && nowPlaying && nowPlaying.playing) pcNowPlaying(nowPlaying);
+  }, 2000);
   function shrinkArt(src) {
     return new Promise((resolve, reject) => {
       if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) { reject(new Error('no-canvas')); return; }

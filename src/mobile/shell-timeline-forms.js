@@ -62,7 +62,7 @@
     if (type === 'scene') return (c.scenes || []).filter(Boolean).map((sc) => [sc.id, sc.name || sc.id]);
     if (type === 'preset') { const T = window.SVTemplates; return T ? T.TEMPLATES.map((t) => [t.id, (t.group ? core.tr(t.group) + ' · ' : '') + core.tr(t.name)]) : []; }
     if (type === 'palette') return ((window.SV && window.SV.GRADIENT_PRESETS) || []).concat(c.userPresets || []).map((g) => [g.name, core.tr(g.name)]);
-    if (type === 'visualizer') { const MC = window.SVModeCatalog; return ((MC && MC.VISUALIZERS) || []).filter((m) => m && m.id && m.id !== 'none').map((m) => [m.id, core.tr(m.label || m.id)]); }
+    if (type === 'visualizer' || type === 'background') { const MC = window.SVModeCatalog; const list = type === 'background' ? (MC && MC.BACKGROUNDS) : (MC && MC.VISUALIZERS); return (list || []).filter((m) => m && m.id && m.id !== 'none').map((m) => [m.id, core.tr(m.label || m.id)]); }
     if (type === 'action') return core.actionOptions();
     if (type === 'shader') {
       const P = window.SVPresets;
@@ -93,7 +93,7 @@
     }
     return out;
   }
-  const EMPTY = { scene: 'Henüz kayıtlı sahne yok. Sahne ayarlarından bir sahne kaydedin.', palette: 'Henüz renk şablonu yok.', visualizer: 'Görselleştirici listesi yüklenemedi.', shader: 'Henüz shader preseti yok.', action: 'Bu tür için seçilebilir bir kaynak yok.' };
+  const EMPTY = { scene: 'Henüz kayıtlı sahne yok. Sahne ayarlarından bir sahne kaydedin.', palette: 'Henüz renk şablonu yok.', visualizer: 'Görselleştirici listesi yüklenemedi.', background: 'Arkaplan listesi yüklenemedi.', shader: 'Henüz shader preseti yok.', action: 'Bu tür için seçilebilir bir kaynak yok.' };
   /* Kaynak seçimi: listeli türler seçiciden; video kitaplıktan ya da galeriden; görsel
      galeriden. Döner: { ref, name?, target? } ya da null. */
   async function pickSource(core, type, current) {
@@ -213,7 +213,7 @@
     box.appendChild(head(core.clipLabel(c), core.TYPE_ICONS[c.type] || 'clapper'));
     const kids = [];
     kids.push(U().text({ label: 'Klip Adı', value: c.name || '', placeholder: core.clipSourceLabel(c), onChange: (v) => { c.name = String(v || '').trim(); save(); } }));
-    kids.push(U().select({ label: 'Tür', options: ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'].map((x) => [x, core.typeLabel(x)]), value: c.type, onChange: (v) => { if (v === c.type) return; c.type = v; c.ref = ''; c.target = ''; save(); rerender(); } }));
+    kids.push(U().select({ label: 'Tür', options: ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'].map((x) => [x, core.typeLabel(x)]), value: c.type, onChange: (v) => { if (v === c.type) return; c.type = v; c.ref = ''; c.target = ''; save(); rerender(); } }));
     kids.push(U().row('Kaynak', [h('button', { class: 'btn tl-src', onclick: () => pickSource(core, c.type, c.ref).then((r) => {
       if (!r) return;
       if (r.type) c.type = r.type;
@@ -238,9 +238,10 @@
         S.open('layers');
       })]));
     } else if (c.type === 'preset') kids.push(note(t('Bu klip şablona başvurur; şablonlar Kitaplık bölümünde.')));
+    else if (c.type === 'background' && c.ref) kids.push(note(t('Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.')));
     else if (c.type === 'action') kids.push(note(t('Eylem, oynatma kafası klibe girince bir kez çalışır (Timeline kullan açıkken).')));
     box.appendChild(U().card(kids));
-    if (!locked && c.ref && (c.type === 'visualizer' || c.type === 'shader') && window.SVShellLayers && window.SVTimelineCompose) box.appendChild(clipSettings(core, c, ctx, rerender));
+    if (!locked && c.ref && (c.type === 'visualizer' || c.type === 'background' || c.type === 'shader') && window.SVShellLayers && window.SVTimelineCompose) box.appendChild(clipSettings(core, c, ctx, rerender));
     const time = [];
     time.push(numField(core, 'Başlangıç (sn)', c.start, { min: 0, step: 0.01, onChange: (v) => { c.start = v; TE().sortClips(trk); save(); } }));
     time.push(numField(core, 'Süre (sn)', c.dur, { min: 0.05, step: 0.01, onChange: (v) => { c.dur = v; save(); } }));

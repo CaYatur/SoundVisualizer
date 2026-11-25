@@ -124,6 +124,14 @@ test('hedef menüsü, kilit ve kayıpsız ses gerilemesin', () => {
   assert.doesNotMatch(read('src/mobile/shell-pcmanage.js'), /PC'nin MilkDrop kitaplığı/);
   assert.match(read('src/mobile/shell-audio.js'), /Kayıpsız aktarım/);
   assert.match(read('src/mobile/android-host.js'), /syncLagMs/);
+  assert.match(read('src/mobile/android-host.js'), /state\.source = 'pc'/);
+  assert.match(read('src/mobile/android-host.js'), /!\(pc\.on && previewMode !== 'smooth'\)/);
+  assert.match(read('src/mobile/android-host.js'), /needArt/);
+  assert.match(read('src/mobile/android-host.js'), /prevNp\.artwork/);
+  assert.match(read('src/mobile/shell-pcmanage.js'), /selected: next\.slice\(\)/);
+  assert.match(read('src/mobile/shell-timeline.js'), /background: 'Arkaplan'/);
+  assert.match(read('src/mobile/shell-timeline-forms.js'), /type === 'background'/);
+  assert.match(read('src/shared/timeline-compose.js'), /kind: 'background', type: clip\.ref/);
   assert.match(read('src/visualizer/index.html'), /user-scalable=no/);
   assert.match(css, /#sv-shell \.hud\.tight \.target-chip/);
 });

@@ -47,8 +47,8 @@
   const shellRoot = () => document.getElementById('sv-shell') || document.body;
 
   const MAGNET_PX = 10;
-  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', video: 'Video', image: 'Görsel', shader: 'Studio Shader', action: 'Eylem' };
-  const TYPE_ICONS = { scene: 'image', preset: 'sparkles', palette: 'palette', visualizer: 'bars', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
+  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Studio Shader', action: 'Eylem' };
+  const TYPE_ICONS = { scene: 'image', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
   const PREF_KEY = 'sv-tl-dock';
   const prefs = (() => { try { return Object.assign({ tall: false }, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { return { tall: false }; } })();
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* özel pencere */ } };
@@ -838,7 +838,7 @@
     if (c.type === 'scene') { const sc = (cfg().scenes || []).find((s) => s && s.id === c.ref); return sc ? tr(sc.name || sc.id) : tr('Silinmiş sahne'); }
     if (c.type === 'preset' && window.SVTemplates) { const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === c.ref); return tp ? tr(tp.name) : c.ref; }
     if (c.type === 'palette') return tr(c.ref);
-    if (c.type === 'visualizer') { const MC = window.SVModeCatalog; const hit = MC && MC.VISUALIZERS && MC.VISUALIZERS.find((m) => m.id === c.ref); return hit ? tr(hit.label || hit.id) : c.ref; }
+    if (c.type === 'visualizer' || c.type === 'background') { const MC = window.SVModeCatalog; const list = c.type === 'background' ? (MC && MC.BACKGROUNDS) : (MC && MC.VISUALIZERS); const hit = list && list.find((m) => m.id === c.ref); return hit ? tr(hit.label || hit.id) : c.ref; }
     if (c.type === 'video') return c.name || decodeURIComponent(String(c.ref).split('/').pop() || '');
     if (c.type === 'image') return c.name || tr('Görsel');
     if (c.type === 'shader') { const P = window.SVPresets; const p = P && P.get ? P.get(c.ref) : null; return (p && p.name) || c.ref; }
@@ -947,7 +947,7 @@
   function addClipFlow(trk0, at) {
     const trk = trk0 || targetClipTrack();
     if (trk.locked) { S.confirm(tr('Parça kilitli.'), tr('Tamam')); return; }
-    const types = ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'];
+    const types = ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'];
     S.choose(tr('Klip türü'), types.map((t) => [t, typeLabel(t)]), '').then((type) => {
       if (!type) return;
       FORMS().pickSource(core, type, null).then((src) => {

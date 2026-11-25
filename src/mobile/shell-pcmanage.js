@@ -104,6 +104,9 @@
           label: d.label + (d.width ? ' · ' + d.width + '×' + d.height : ''), value: open.indexOf(id) >= 0,
           onChange: (on) => {
             const next = on ? (open.indexOf(id) >= 0 ? open.slice() : open.concat([id])) : open.filter((n) => n !== id);
+            /* İlk dokunuş pencereyi de seçimi de bırakır. Yanıt gelene kadar
+               anahtar açık pencerede kalıyordu; ikinci dokunuş seçimi siliyordu. */
+            outputs = Object.assign({}, outputs, { open: next.slice(), selected: next.slice() });
             outputHold = Date.now() + 1500;
             const job = next.length ? ask('output.open', { ids: next }) : ask('output.close', {});
             job.then((r) => {
