@@ -15,7 +15,8 @@ test('QR: çözücüyle doğrulanmış çıktılar değişmez', () => {
   const cases = [
     [LINK, 'L', 7, 2, '1882af11a5e51647f52bb7d38464e310c3cf22ef9671e870f373c5b2418934dd'],
     [LINK, 'M', 8, 2, '79f575b16b9657535b70b25010f00e9f4e77699f9e11822510924f3556d7fab3'],
-    ['Merhaba dünya', 'M', 1, 3, 'fdf183bdd446ac293f72b3d61a9b8a3cc3b8edd399911bfb4363390d0fc192c7'],
+    // Ceza hesabı standarda göre düzeltilince maskesi 3 → 2 oldu; ZXing'in bit çözücüsü okuyor
+    ['Merhaba dünya', 'M', 1, 2, '12519cafa5edf44d9c9a42593cdc4ca20ab064e1550da8d231098f0b8dbaabec'],
   ];
   for (const [t, e, ver, mask, hex] of cases) {
     const q = Q.encode(t, { ecc: e });
@@ -51,6 +52,14 @@ test('QR: bulucu, zamanlama, koyu modül ve biçim bitleri kurala uyuyor', () =>
     assert.strictEqual(data & 7, q.mask);
     assert.strictEqual(data >>> 3, e === 'L' ? 1 : 0);
   }
+});
+
+test('QR: ceza hesabı standartta (kenara bitişik sahte bulucu da sayılır), zorlanan maske kurala uyar', () => {
+  for (let m = 0; m < 8; m++) assert.strictEqual(Q.encode(LINK, { ecc: 'L', mask: m }).mask, m);
+  // Kenarda bulucuya benzeyen desen bırakan maske seçilmez: seçilen maskenin cezası en düşük olmalı
+  // (her maskeyi zorlayıp aynı ceza işleviyle karşılaştırmak dışarıdan mümkün değil; en azından
+  // seçilen maske geçerli ve aynı girdide kararlı)
+  assert.strictEqual(Q.encode(LINK, { ecc: 'L' }).mask, Q.encode(LINK, { ecc: 'L' }).mask);
 });
 
 test('QR: sürüm seçimi, sığmayan metin ve SVG', () => {

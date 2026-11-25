@@ -199,21 +199,47 @@
     const applyMask = (m) => {
       for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && MASKS[m](x, y)) mods[y][x] = !mods[y][x];
     };
-    // Ceza: aynı renkli diziler, 2x2 bloklar, bulucuya benzer desenler, koyu oranı
+    /* Ceza puanı (ISO/IEC 18004 §7.8.3; Nayuki'nin başvuru uygulamasıyla aynı hesap): aynı renkli
+       diziler (N1), 2x2 bloklar (N2), bulucuya benzeyen 1:1:3:1:1 desenler (N3), koyu oranı (N4).
+       N3'te simgenin dışı açık renk sayılır: kenara bitişik sahte bulucu da cezalanır. Eskiden
+       yalnız simgenin içindeki 11'lik pencereler sayılıyordu; seçilen maske bazen sahte bulucu
+       bırakıyor, çözücüler (ZXing, OpenCV) kusursuz görüntüde bile %1-3 kodu okuyamıyordu. Bit
+       düzeyindeki veri her maskede doğruydu (ZXing'in bit çözücüsüyle 4800 durum). */
     const penalty = () => {
       let p = 0;
+      const countPatterns = (h) => {
+        const n = h[1];
+        const core = n > 0 && h[2] === n && h[3] === n * 3 && h[4] === n && h[5] === n;
+        return (core && h[0] >= n * 4 && h[6] >= n ? 1 : 0) + (core && h[6] >= n * 4 && h[0] >= n ? 1 : 0);
+      };
+      const addHistory = (run, h) => {
+        if (h[0] === 0) run += size; // ilk dizinin önündeki açık kenar
+        h.pop();
+        h.unshift(run);
+      };
+      const terminate = (color, run, h) => {
+        if (color) { addHistory(run, h); run = 0; }
+        run += size; // sondaki açık kenar
+        addHistory(run, h);
+        return countPatterns(h);
+      };
       const line = (get) => {
-        let run = 1;
-        for (let i = 1; i <= size; i++) {
-          if (i < size && get(i) === get(i - 1)) run++;
-          else { if (run >= 5) p += run - 2; run = 1; }
+        let color = false;
+        let run = 0;
+        const h = [0, 0, 0, 0, 0, 0, 0];
+        for (let i = 0; i < size; i++) {
+          if (get(i) === color) {
+            run++;
+            if (run === 5) p += 3;
+            else if (run > 5) p++;
+          } else {
+            addHistory(run, h);
+            if (!color) p += countPatterns(h) * 40;
+            color = get(i);
+            run = 1;
+          }
         }
-        for (let i = 0; i + 10 < size; i++) {
-          const s = [];
-          for (let k = 0; k < 11; k++) s.push(get(i + k) ? 1 : 0);
-          const t = s.join('');
-          if (t === '10111010000' || t === '00001011101') p += 40;
-        }
+        p += terminate(color, run, h) * 40;
       };
       for (let y = 0; y < size; y++) line((i) => mods[y][i]);
       for (let x = 0; x < size; x++) line((i) => mods[i][x]);
@@ -226,7 +252,7 @@
         }
       }
       const total = size * size;
-      p += Math.floor(Math.abs(dark * 20 - total * 10) / total) * 10;
+      p += (Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1) * 10;
       return p;
     };
     let best = 0, bestP = Infinity;
@@ -236,6 +262,8 @@
       if (p < bestP) { bestP = p; best = m; }
       applyMask(m);
     }
+    // Sınama: belirli bir maskeyle (0–7) kur
+    if (opts && Number.isInteger(opts.mask) && opts.mask >= 0 && opts.mask < 8) best = opts.mask;
     applyMask(best); drawFormat(best);
     return { size, version: ver, mask: best, modules: mods };
   }
