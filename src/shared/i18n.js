@@ -1876,6 +1876,7 @@
     'ses telefondan': 'audio from the phone',
     'Telefondan Yapılan Değişiklikleri Bildir': 'Notify Me of Changes Made from the Phone',
     'Görüntü Gecikmesi': 'Video Delay',
+    'Telefon sesi düzeyi': 'Phone audio level',
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
     'Basma gücü': 'Velocity',
     'Geri Oynat': 'Play in Reverse',

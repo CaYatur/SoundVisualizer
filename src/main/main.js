@@ -48,6 +48,7 @@ const logoLibrary = require('./logo-library');
 const linkLogos = require('./link-logos');
 const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
+const linkPhone = require('../shared/link-phone.js');
 const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
 const uiScale = require('../shared/ui-scale');
@@ -4474,6 +4475,7 @@ function broadcastPresetDelta(upsert, remove) {
   const delta = { upsert: lean, remove: rm, gen: presetGen };
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
+  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'presets' }); } catch { /* bağlantı henüz yok */ }
   followActivePreset(up);
   scheduleCompare(); // yedekle gösteri karşılaştırması bayatladı (#541)
 }
@@ -4949,6 +4951,7 @@ function phoneLinkCfg() {
       enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false,
       delayMs: Number.isFinite(Number(a.delayMs)) ? Math.max(0, Math.min(500, Math.round(Number(a.delayMs)))) : 0,
       play: a.play === true, // telefonun sesini PC hoparlöründen de çal (ses düzeyi ve aygıt: ses köprüsünün ayarı)
+      gain: linkPhone.clampGain(a.gain == null ? 1 : a.gain), // 1 = gelen düzey, 2 = iki kat
     },
   };
 }
@@ -4979,7 +4982,7 @@ function phoneLinkService() {
         audioIn: (() => {
           const a = phoneLinkCfg().audioIn;
           const me = String((ctx && ctx.device && ctx.device.id) || '');
-          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs };
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs, gain: a.gain };
         })(),
         app: app.getVersion(),
         platform: process.platform,
@@ -5042,6 +5045,7 @@ function phoneLinkService() {
           fallback: typeof args.fallback === 'boolean' ? args.fallback : cur.fallback !== false,
           play: typeof args.play === 'boolean' ? args.play : cur.play === true,
           delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : cur.delayMs,
+          gain: args.gain == null ? cur.gain : linkPhone.clampGain(args.gain),
         };
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
         return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
@@ -5219,6 +5223,13 @@ function linkManageOps() {
       if (q) items = items.filter((x) => String(x.name || '').toLocaleLowerCase('tr').indexOf(q) >= 0);
       return { total: items.length, items: items.slice(off, off + lim) };
     },
+    /* Kullanıcının yüklediği MilkDrop ve Studio presetleri, gövdeyle.
+       Yerleşik paket gitmez. Telefon bağlıyken kendi kitaplığında gösterir
+       ve PC'de açılan Studio preseti boş kalmaz. */
+    'presets.user': () => {
+      const items = linkPhone.packUserPresets(presetsStore.list(), (id) => presetsStore.get(id), linkPhone.activePresetIds(currentConfig));
+      return { items };
+    },
     'thumb.get': (args) => {
       // Telefon "visualizer"/"background" der; küçük resim deposunun türleri vis/bg (mode-thumbs.js)
       const kind = args.kind === 'background' ? 'bg' : args.kind === 'visualizer' ? 'vis' : '';
@@ -5359,6 +5370,8 @@ function phoneAudioPacket(client, buf, device) {
   if (phoneAudio.from && phoneAudio.from !== client && inp.useBridge) return;
   const p = linkAudio.decode(buf);
   if (!p) return;
+  /* Köprü sesi kısık gelebilir. 1 şimdiki düzey, 2 iki kat. Görüntü ve hoparlör aynı örnekleri kullanır. */
+  linkPhone.scalePcm16(p.samples, phoneLinkCfg().audioIn.gain);
   let fr = phoneAudio.framers.get(client);
   if (!fr) {
     fr = linkAudio.createFramer({
@@ -5434,7 +5447,7 @@ function phoneAudioStatus() {
   const a = phoneLinkCfg().audioIn;
   const inp = phoneAudio.input;
   const fr = phoneAudio.from ? phoneAudio.framers.get(phoneAudio.from) : null;
-  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
+  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, gain: a.gain, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
 }
 
 /* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme
