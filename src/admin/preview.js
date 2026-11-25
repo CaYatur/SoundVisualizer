@@ -67,6 +67,12 @@
   // --------------------------------------------------------------------------
   // Demo sinyali — 120 BPM civarı, bas vuruşu + hareketli orta/tiz içerik
   // --------------------------------------------------------------------------
+  function sourcesOff() {
+    const P = window.SVPanel;
+    const c = P && P.cfg ? P.cfg() : null;
+    const s = c && c.audio && c.audio.sources;
+    return Array.isArray(s) && s.length === 0;
+  }
   function buildSyntheticFrame(t) {
     const D = window.SVDemoAudio;
     /* Tayf da örnek sesten (src/shared/demo-audio.js `spectrum`): mod küçük resimleri aynı
@@ -205,7 +211,13 @@
       if (onSourceChange) onSourceChange(live);
     }
     if (!live) {
-      audio.ingestFrame(buildSyntheticFrame(t));
+      /* Ses kaynağı bilerek kapatıldıysa (Ses Kaynakları'nda hiçbiri) önizleme sessiz kalır,
+         demoya geçmez; demo isteyen "Demo ses"i seçer (ana süreç örnek sesi gerçek kare gibi
+         yollar). */
+      if (sourcesOff()) {
+        synthFreq.fill(0); synthTime.fill(128); synthLeft.fill(128); synthRight.fill(128);
+        audio.ingestFrame(synthFrame);
+      } else audio.ingestFrame(buildSyntheticFrame(t));
     }
 
     audio.update(dt);

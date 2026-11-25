@@ -55,7 +55,7 @@
         }
         arr.push(add);
       }
-      if (arr.length === 0) arr = ['default']; // en az bir kaynak her zaman seçili
+      // Hiçbiri seçili olmayabilir: ses girişi kapalı, görüntü sessiz (demo ayrı bir seçenek)
       host.set(arr);
     }
 
@@ -65,7 +65,6 @@
       arr = arr.filter((s) => !(AA && AA.isAppSource(s)));
       const kept = mode === 'exclude' ? apps.slice(0, 1) : apps;
       for (const a of kept) arr.push(Object.assign({}, a, { mode }));
-      if (arr.length === 0) arr = ['default'];
       host.set(arr);
     }
 
@@ -87,7 +86,7 @@
         el('span', { class: 'source-icon', icon }),
         /* Aygıt ve uygulama adları sistemden gelir (Türkçe Windows'ta "Hoparlör");
            çevrilmez. Yalnız Varsayılan Çıkış satırı uygulamanın metni. */
-        el('span', Object.assign({ class: 'source-name', text: label, title: label }, entry === 'default' ? {} : { 'data-user-text': '' })),
+        el('span', Object.assign({ class: 'source-name', text: label, title: label }, entry === 'default' || entry === 'demo' ? {} : { 'data-user-text': '' })),
       ];
       if (meter) kids.push(meter);
       if (extra) kids.push(el('span', { class: 'source-note' + (stNote ? ' is-state' : ''), text: extra }));
@@ -95,7 +94,9 @@
     }
 
     const devices = typeof def.devices === 'function' ? def.devices() : (def.devices || []);
-    const rows = [makeRow('default', 'speaker', 'Varsayılan Çıkış (Aktif Hoparlör)')];
+    /* Demo ses: örnek ses (120 BPM), gerçek kaynak yokken ya da denemek için. Gerçek bir
+       kaynakla birlikte seçilirse gerçek ses kazanır. */
+    const rows = [makeRow('default', 'speaker', 'Varsayılan Çıkış (Aktif Hoparlör)'), makeRow('demo', 'wave', 'Örnek ses (demo)')];
     devices.forEach((d) => {
       const icon = d.kind === 'input' ? 'mic' : 'speaker';
       const suffix = d.isDefault ? ' (' + tr('varsayılan') + ')' : '';
