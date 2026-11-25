@@ -620,6 +620,7 @@
     'Yakalama ızgarası (ölçü/vuruş veya 1 sn / 0,5 sn). Sürüklerken Alt yakalamayı askıya alır; Kapalı serbest yerleştirir. Cetvel biriminden bağımsızdır.':
       'Snap grid (bar/beat or 1 s / 0.5 s). Hold Alt while dragging to suspend snap; Off places freely. Independent of the ruler unit.',
     'Görselleştirici listesi yüklenemedi.': 'Visualizer list could not be loaded.',
+    'Arkaplan listesi yüklenemedi.': 'Background list could not be loaded.',
 
     'Bu klip sahneye başvurur; katmanlar ve efektler Sahne sayfasında düzenlenir.':
       'This clip references a scene; layers and effects are edited on the Scene page.',
@@ -629,6 +630,8 @@
       'This clip references a color preset; custom colors live in the Colors section.',
     'Bu klip görselleştirici kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.':
       'This clip references a visualizer mode; mode settings are edited on Scene layers.',
+    'Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.':
+      'This clip references a background mode; mode settings are edited on Scene layers.',
     'Sahneyi aç': 'Open scene',
     'Sahne sayfasına geç ve bu sahneyi uygula': 'Go to the Scene page and apply this scene',
     'Kaynak düzeni': 'Edit source',
@@ -1876,6 +1879,10 @@
     'ses telefondan': 'audio from the phone',
     'Telefondan Yapılan Değişiklikleri Bildir': 'Notify Me of Changes Made from the Phone',
     'Görüntü Gecikmesi': 'Video Delay',
+    'Telefon sesi düzeyi': 'Phone audio level',
+    'Kayıpsız aktarım': 'Lossless transfer',
+    'Gecikme ile eşitle': 'Match the delay',
+    'Kayıpsız aktarım paket atmaz. Gecikme biraz artar; kapalıyken hızlı yol durur.': 'Lossless transfer does not drop packets. The delay grows a little; off keeps the fast path.',
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
     'Basma gücü': 'Velocity',
     'Geri Oynat': 'Play in Reverse',

@@ -122,7 +122,21 @@
           P().push(true);
           return { ok: true };
         }
-        for (const k of keys) c[k] = patch[k];
+        /* Telefon çizelgenin TAMAMINI yollar (ayna, persistent). Oturum alanları
+           (manualBaseline / editTarget) aynada yoktur. Nesneyi olduğu gibi
+           atamak, seçili klibin kopyasını ana sahne diye kaydeder. PC'deki
+           "Timeline kullan" anahtarı modeChanged/clear ile elle ayarı ayırır;
+           uzaktan aç/kapa aynı yolu kullanır ve sahne anahtarlarını yazmaz. */
+        let keepManual = false;
+        if (patch.timeline && typeof patch.timeline === 'object' && !Array.isArray(patch.timeline)) {
+          keepManual = applyRemoteTimeline(c, patch.timeline);
+        }
+        const sceneKeys = (window.SVSchema && window.SVSchema.SCENE_KEYS) || [];
+        for (const k of keys) {
+          if (k === 'timeline') continue;
+          if (keepManual && sceneKeys.indexOf(k) >= 0) continue;
+          c[k] = patch[k];
+        }
         if (a.final) { P().push(true); noteEdit(); } else { P().push(false); scheduleCommit(); }
         renderSoon();
         return { ok: true };
@@ -196,6 +210,51 @@
       default:
         return { ok: false, error: 'unsupported' };
     }
+  }
+
+  function sceneKeyList() {
+    return (window.SVSchema && window.SVSchema.SCENE_KEYS) || [];
+  }
+  function snapManual(c) {
+    const tl = c.timeline;
+    const src = tl && tl.manualBaseline ? tl.manualBaseline : c;
+    const o = {};
+    for (const k of sceneKeyList()) if (src[k] !== undefined) o[k] = JSON.parse(JSON.stringify(src[k]));
+    return o;
+  }
+  function loadManual(c, data) {
+    for (const k of sceneKeyList()) {
+      if (!data || data[k] === undefined) delete c[k];
+      else c[k] = JSON.parse(JSON.stringify(data[k]));
+    }
+  }
+  /* Telefon timeline yaması. Açılış elle sahnenin anlık kopyasını alır
+     (modeChanged); kapanış klibi kaydedip elle sahneyi geri koyar (clear).
+     Arada gelen içerik yazımı açık oturumun tabanını düşürmez. */
+  function applyRemoteTimeline(c, incoming) {
+    const prev = (c.timeline && typeof c.timeline === 'object' && !Array.isArray(c.timeline)) ? c.timeline : {};
+    const wasOn = prev.useTimeline === true;
+    const willOn = incoming.useTimeline === true;
+    const T = window.SVTimelineTarget;
+    const manual = snapManual(c);
+    const keepBase = prev.manualBaseline;
+    const keepEdit = prev.editTarget;
+    if (wasOn && !willOn && T && T.clear) T.clear();
+    const merged = Object.assign({}, prev, incoming);
+    const stay = wasOn && willOn;
+    if (stay && keepBase && !Object.prototype.hasOwnProperty.call(incoming, 'manualBaseline')) {
+      merged.manualBaseline = keepBase;
+      if (keepEdit && !Object.prototype.hasOwnProperty.call(incoming, 'editTarget')) merged.editTarget = keepEdit;
+    } else if (!stay) {
+      if (!Object.prototype.hasOwnProperty.call(incoming, 'manualBaseline')) delete merged.manualBaseline;
+      if (!Object.prototype.hasOwnProperty.call(incoming, 'editTarget')) delete merged.editTarget;
+    }
+    c.timeline = merged;
+    const flipped = wasOn !== willOn;
+    if (flipped) loadManual(c, manual);
+    if (!wasOn && willOn && T && T.modeChanged) T.modeChanged(true);
+    else if (wasOn && !willOn && T && T.modeChanged) T.modeChanged(false);
+    return flipped;
   }
 
   /* Makro kaydırıcısı sürüklenirken saniyede onlarca yama gelir: her biri canlıya gider

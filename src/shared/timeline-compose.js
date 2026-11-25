@@ -62,7 +62,7 @@
     return ly && ly.normalizeLayer ? ly.normalizeLayer(l) : Object.assign({ enabled: true, opacity: 1, settings: {} }, l);
   }
 
-  const VISUAL_TYPES = { scene: 1, preset: 1, visualizer: 1, video: 1, image: 1, shader: 1 };
+  const VISUAL_TYPES = { scene: 1, preset: 1, visualizer: 1, background: 1, video: 1, image: 1, shader: 1 };
   function isVisual(c) { return !!c && !!VISUAL_TYPES[c.type]; }
 
   /* Sahne anahtarlarının siyah tabanı: varsayılanlar, yığın açık, katman yok. */
@@ -158,6 +158,7 @@
   function mediaLayer(clip) {
     const base = { id: 'media', name: clip.name || clip.ref, enabled: true };
     if (clip.type === 'visualizer') return Object.assign(base, { kind: 'visualizer', type: clip.ref });
+    if (clip.type === 'background') return Object.assign(base, { kind: 'background', type: clip.ref, name: clip.name || 'Arkaplan' });
     if (clip.type === 'shader') return Object.assign(base, { kind: 'visualizer', type: 'custom', presetId: clip.ref });
     if (clip.type === 'video') return Object.assign(base, { kind: 'media', settings: { media: { enabled: true, source: 'file', file: clip.ref, fit: 'cover', loop: true } } });
     if (clip.type === 'image') return Object.assign(base, { kind: 'sprites', type: 'front', settings: { images: { enabled: true, items: [SV().normalizeImageItem({ id: 'img_' + clip.id, seed: 1, src: clip.ref, layer: 'front' })] } } });

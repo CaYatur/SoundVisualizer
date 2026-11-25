@@ -306,7 +306,7 @@ function startCapture(devices, onFrame, onStatus, opts) {
 
   // Geriye dönük uyum: tek string veya dizi kabul edilir
   const arr = Array.isArray(devices) ? devices : [devices || 'default'];
-  const arg = JSON.stringify(opts && opts.pcm ? { devices: arr, pcm: true } : { devices: arr });
+  const arg = JSON.stringify(opts && opts.pcm ? { devices: arr, pcm: true, pcmHold: opts.pcmHold === true } : { devices: arr });
   let child;
   /* Listeleme hangi çalıştırıcıyla başardıysa yakalama da onunla olsun. */
   const runner = _runner || selfRunner();

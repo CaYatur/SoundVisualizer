@@ -219,7 +219,7 @@ function emit() {
 }
 
 let backpressure = false;
-process.stdout.on('drain', () => (backpressure = false));
+process.stdout.on('drain', () => { backpressure = false; drainPcm(); });
 process.stdout.on('error', () => process.exit(0));
 
 const instances = [];
@@ -233,11 +233,34 @@ let startedSr = 48000;
    olabilir ve burada örnek hızı dönüştürülmüyor. Boru doluysa (geri basınç)
    PCM atılır; görüntünün karesi önceliklidir. */
 const wantPcm = opts.pcm === true;
+/* Kayıpsız aktarım (pcmHold): boru dolunca örnek atılmaz, kısa bir kuyrukta bekler.
+   Hızlı yol (pcmHold yok) eskisi gibi dolu boruda paketi bırakır. */
+const pcmHold = opts.pcmHold === true;
+const pcmQueue = [];
+let pcmQueued = 0;
+const PCM_HOLD_BYTES = 48000 * 2 * 2;
 // Uygulama yakalama yardımcılarının üçü de 48 kHz veriyor (app-capture.js)
 const APP_RATE = 48000;
 let pcmSent = false;
+function drainPcm() {
+  while (pcmQueue.length && !backpressure) {
+    const item = pcmQueue.shift();
+    pcmQueued -= item.s16.length;
+    const ok = process.stdout.write(frameFormat.encodePcm(item.sr, item.s16));
+    if (!pcmSent) { pcmSent = true; process.stderr.write('PCM-START sr=' + item.sr + '\n'); }
+    if (!ok) { backpressure = true; return; }
+  }
+}
 function writePcm(sr, s16) {
-  if (backpressure || !s16.length) return;
+  if (!s16.length) return;
+  if (pcmHold) {
+    pcmQueue.push({ sr, s16 });
+    pcmQueued += s16.length;
+    while (pcmQueued > PCM_HOLD_BYTES && pcmQueue.length > 1) pcmQueued -= pcmQueue.shift().s16.length;
+    drainPcm();
+    return;
+  }
+  if (backpressure) return;
   const ok = process.stdout.write(frameFormat.encodePcm(sr, s16));
   if (!pcmSent) { pcmSent = true; process.stderr.write('PCM-START sr=' + sr + '\n'); }
   if (!ok) backpressure = true;
