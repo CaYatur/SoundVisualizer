@@ -1444,6 +1444,8 @@
         out.push(tSlider('Hız', 'speed', 1, { step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }));
         out.push(tSlider('Giriş Noktası', 'inPoint', 0, { step: 0.1, fmt: sec }));
         out.push(tSlider('Çıkış Noktası', 'outPoint', 0, { step: 0.1, fmt: (v) => (v > 0 ? sec(v) : tr('sona kadar')) }));
+        // Geri oynatma (#417): bölüm sondan başa; varsayılan kapalı
+        out.push(miniToggle('Geri Oynat', () => m.reverse === true, (v) => { m.reverse = v; }));
         out.push(miniSelect('Vuruşa Kilitli Döngü', [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']],
           () => String(m.loopBeats || 0), (v) => { m.loopBeats = Number(v) || 0; }, null, '0'));
         let scrubAt = 0;

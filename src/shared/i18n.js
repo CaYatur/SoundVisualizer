@@ -1878,6 +1878,7 @@
     'Görüntü Gecikmesi': 'Video Delay',
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
     'Basma gücü': 'Velocity',
+    'Geri Oynat': 'Play in Reverse',
     'Sırala': 'Sort',
     'Liste sırası': 'List order',
     'Son kullanılan': 'Recently used',

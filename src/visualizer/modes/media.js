@@ -237,6 +237,17 @@
     const span = b - a;
     const s = Math.max(0, Number(sec) || 0) * speed;
     const beats = Math.max(0, Math.round(Number(o.loopBeats) || 0));
+    /* GERİ OYNATMA (#417, `reverse: true`): aynı bölüm sondan başa. İleri konumun bölüm
+       içindeki payı (f) sondan çıkarılıyor; döngüsüzse ilk karede duruyor. */
+    if (o.reverse === true) {
+      const tail = 0.001;
+      if (beats > 0 && bpm > 0) {
+        const len = Math.min(span, (beats * 60 / bpm) * speed);
+        return a + Math.max(0, len - tail - (s % len));
+      }
+      if (o.loop === false) return Math.max(a, b - tail - s);
+      return a + Math.max(0, span - tail - (s % span));
+    }
     if (beats > 0 && bpm > 0) return a + (s % Math.min(span, (beats * 60 / bpm) * speed));
     if (o.loop === false) return Math.min(a + s, b - 0.001);
     return a + (s % span);
@@ -244,7 +255,7 @@
   // Taşıma ayarı açık mı (yoksa canlı oynatıcı eskisi gibi kendi başına oynuyor)
   function transportOn(m) {
     const o = m || {};
-    return (Number(o.speed) > 0 && Number(o.speed) !== 1) || Number(o.inPoint) > 0 || Number(o.outPoint) > 0 || Number(o.loopBeats) > 0 || speedReactOn(o);
+    return (Number(o.speed) > 0 && Number(o.speed) !== 1) || Number(o.inPoint) > 0 || Number(o.outPoint) > 0 || Number(o.loopBeats) > 0 || speedReactOn(o) || o.reverse === true;
   }
   /* SESE GÖRE HIZ: seçilen bandın şiddeti oynatma hızını en düşük ve en yüksek hız arasında
      sürer (speedReact, speedBand, speedMin 0,5, speedMax 2, speedSmooth 0,15 sn). Vuruşa kilitli döngü konumu tempo ızgarasından hesapladığı için onunla birlikte
@@ -718,6 +729,29 @@
       if (!(d > 0) || !isFinite(d) || v.readyState < 2 || this._tlDriven) return;
       const react = speedReactOn(m) && this._rate > 0;
       const speed = react ? this._rate : Math.max(0.1, Math.min(4, Number(m.speed) > 0 ? Number(m.speed) : 1));
+      /* Geri oynatma (#417): tarayıcının oynatıcısı geriye oynamıyor (negatif hız yok). Video
+         durur, konum her karede saatten hesaplanıp sarılıyor; sarma sürerken yenisi beklenir.
+         Sese göre hız açıksa saat o hızla toplanıyor. Anahtar karesi seyrek videolarda bu
+         akış ileri oynatmadan daha az akıcıdır. */
+      if (m.reverse === true) {
+        if (!v.paused) v.pause();
+        let want;
+        if (react) {
+          const dt = this._revT == null ? 0 : Math.max(0, Math.min(0.25, t - this._revT));
+          this._revClock = (this._revClock || 0) + dt * this._rate;
+          want = transportTime(this._revClock, d, Object.assign({}, m, { speed: 1, loopBeats: 0 }), 0);
+        } else {
+          this._revClock = 0;
+          want = transportTime(t, d, m, this._bpm || 120);
+        }
+        this._revT = t;
+        this._wasRev = true;
+        if (!v.seeking && Math.abs(v.currentTime - want) > 1 / 120) { try { v.currentTime = want; } catch { /* hazır değil */ } }
+        return;
+      }
+      this._revT = null;
+      // Geri oynatmadan ileriye dönüldü: duraklatılan video yeniden oynasın
+      if (this._wasRev) { this._wasRev = false; if (v.paused && !(m.loop === false && v.currentTime >= d - 0.02)) v.play().catch(() => {}); }
       // Sese göre hız her karede oynar: küçük farklar oynatıcıya yazılmaz
       const settled = react && Math.abs(v.playbackRate - speed) <= 0.02;
       if (!settled) {
@@ -766,7 +800,11 @@
         this._rateT = null;
       }
       if (this._source === 'file' && !this.offline && !this._relay && transportOn(m)) this._steer(m, t);
-      else if (this._source === 'file' && !this.offline && this.video.playbackRate !== 1) this.video.playbackRate = 1;
+      else if (this._source === 'file' && !this.offline) {
+        if (this.video.playbackRate !== 1) this.video.playbackRate = 1;
+        // Geri oynatma kapatıldı ve başka taşıma ayarı yok: video kendi başına oynamaya döner
+        if (this._wasRev && !this._tlDriven) { this._wasRev = false; this._revT = null; if (this.video.paused) this.video.play().catch(() => {}); }
+      }
       if (!this.hasFrame()) {
         /* Hata yazısı yalnız yönetici panelinin önizlemesinde. Çıkış,
            yüzen pencere ve yayın sayfası seyirciye gider: kamera yokken
