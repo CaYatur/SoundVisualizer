@@ -1767,6 +1767,23 @@ Evet — bilgisayarınız ne çalıyorsa onu görselleştiriyor. Windows'ta yaln
 Spotify'ı) yakalayıp gerisini yok sayabilirsiniz; Çalan Parça parça adını ve kapağı sistem medya
 oturumundan okuyor.
 
+**Yeni başlayanlar için ücretsiz VJ yazılımı var mı?**
+Evet. CAYADEV Visualizer hazır şablonlar ve Otomatik VJ ile başlayan ücretsiz bir VJ yazılımıdır;
+ilk gösteri için kurulum gerekmez. Daha fazlası için Canlı sayfasında F tuşlarında sahneler, T-bar,
+vuruşa oturan klip destesi, zaman çizelgesi, MIDI ve OSC var.
+
+**Twitch ya da YouTube canlı yayınına ses görselleştirici nasıl eklenir?**
+CAYADEV Visualizer'ı OBS'e tarayıcı kaynağı (saydam katman) olarak ya da Spout/Syphon üzerinden
+ekleyin. Bilgisayardaki müziğe tepki verir, parçanın adını ve kapağını gösterebilir.
+
+**YouTube, Shorts ya da Spotify Canvas için müzik görselleştirici videosu nasıl yapılır?**
+Şarkıyı açın, bir şablon seçin ve dışa aktarın: tek tıkla profiller YouTube, Shorts ve Spotify
+Canvas'ı kapsar; dışa aktarma kare kare çizer, yavaş bilgisayarda bile kare düşürmez.
+
+**Görseller RGB ışıklarımı yönetebilir mi?**
+Evet. Windows 11'de Dynamic Lighting klavye, fare ve şeritleri sürer; OpenRGB ve Art-Net de
+konuşur, böylece ışıklar ekranla aynı renk ve vuruşları izler.
+
 **OBS katmanı olarak kullanabilir miyim?**
 Evet. Yayın Çıkışı'nı açın ve adresi bir Tarayıcı Kaynağı olarak ekleyin. Saydamlık çalışıyor ve OBS
 aynı ağdaki başka bir bilgisayarda olabilir. GPU paylaşımı için Spout (Windows) ve Syphon (macOS) da var.
