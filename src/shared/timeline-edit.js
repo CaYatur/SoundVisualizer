@@ -373,6 +373,7 @@
     scene: '#4f8cff',
     preset: '#a970ff',
     palette: '#ffb020',
+    background: '#2f9d8a',
     video: '#28c76f',
     image: '#20c9d6',
     shader: '#ff5ca8',

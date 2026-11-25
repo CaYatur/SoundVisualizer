@@ -1527,7 +1527,10 @@ const nativeDrums = new DrumHits();
    an durur); dönüşüm ucuz, gönderim yalnız isteyen alıcıya. */
 // Ham ses: köprü yayını ya da PC'nin sesini dinleyen telefon (PC bağlantısı B5, linkWatch)
 function bridgePcmWanted() { return !!bridge.sender || linkWatch.size > 0; }
+/* Kayıpsız aktarımda yardımcı PCM'i boru dolunca atmasın. Hızlı yol eskisi gibi atar. */
+function bridgePcmHold() { return linkWatch.size > 0 && phoneLinkCfg().audioIn.lossless === true; }
 let lastCapturePcm = false;
+let lastCaptureHold = false;
 /* DEMO SES KARESİ: ekran görüntüleri ve "Demo ses" kaynağı (Ses Kaynakları) aynı sesi verir.
    120 BPM vuruş, bas ağırlıklı taban, gezinen tepeler, stereo dalga (src/shared/demo-audio.js). */
 const DEMO_AUDIO = require('../shared/demo-audio.js');
@@ -1584,6 +1587,7 @@ function startVisualizerCapture() {
     if (Array.isArray(lastCaptureSource) && lastCaptureSource.some((x) => x !== 'demo')) nativeAudio.stopCapture();
     lastCaptureSource = all;
     lastCapturePcm = bridgePcmWanted();
+    lastCaptureHold = bridgePcmHold();
     const demo = all.indexOf('demo') >= 0;
     setDemoAudio(demo);
     const status = { type: demo ? 'demo' : 'none' };
@@ -1599,6 +1603,7 @@ function startVisualizerCapture() {
   if (bridge.sender && lastCaptureSource && JSON.stringify(all) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
   lastCaptureSource = all;
   lastCapturePcm = bridgePcmWanted();
+  lastCaptureHold = bridgePcmHold();
   bridge.sourceStates = {};
   nativeAudio.startCapture(
     sources,
@@ -1640,7 +1645,7 @@ function startVisualizerCapture() {
       lastCaptureStatus = status ? { type: status.type, code: status.code || '', message: String(status.message || '').slice(0, 300), device: status.device || '' } : null;
       notifyBridge();
     },
-    lastCapturePcm ? { pcm: true, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); linkWatchPcm(buf, sr, ch); } } : undefined
+    lastCapturePcm ? { pcm: true, pcmHold: lastCaptureHold, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); linkWatchPcm(buf, sr, ch); } } : undefined
   );
 }
 
@@ -2477,7 +2482,7 @@ function syncCapture() {
     return;
   }
   const wanted = configuredSources();
-  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted()) return;
+  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted() && lastCaptureHold === bridgePcmHold()) return;
   startVisualizerCapture();
 }
 
@@ -5052,7 +5057,7 @@ function phoneLinkService() {
           syncDelay: typeof args.syncDelay === 'boolean' ? args.syncDelay : cur.syncDelay !== false,
         };
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
-        return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
+        return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => { syncCapture(); return phoneAudioStatus(); });
       },
     }, linkControlOps(), linkEditOps(), linkManageOps()),
   });
@@ -5193,10 +5198,11 @@ function linkManageOps() {
       const d = (currentConfig && currentConfig.display) || {};
       const use = ids.length ? ids : linkDisplayIds(Array.isArray(d.ids) && d.ids.length ? d.ids : d.id);
       openVisualizer(use);
-      const open = Array.from(visualizerWins.keys());
-      linkRememberDisplays(open.length ? open : use);
+      /* Kapanış pencereyi listeden hemen düşürmez. Seçim istenen kimliktir;
+         yoksa ilk dokunuş yalnız pencereyi kapatır, seçim ikinciye kalır. */
+      linkRememberDisplays(use);
       const selected = currentConfig && currentConfig.display && currentConfig.display.ids;
-      return { open, selected: selected || [], floating: floatingIsOpen() };
+      return { open: use.slice(), selected: selected || [], floating: floatingIsOpen() };
     },
     'output.close': (args) => {
       if (args && args.id != null) {
@@ -5204,13 +5210,13 @@ function linkManageOps() {
         if (!getDisplayList().some((x) => x.id === id)) throw bad();
         closeVisualizer(id);
         const prev = linkDisplayIds((currentConfig && currentConfig.display && currentConfig.display.ids) || []);
-        linkRememberDisplays(prev.filter((x) => x !== id));
-      } else {
-        closeVisualizer(undefined);
-        linkRememberDisplays([]);
+        const next = prev.filter((x) => x !== id);
+        linkRememberDisplays(next);
+        return { open: next, selected: next, floating: floatingIsOpen() };
       }
-      const selected = currentConfig && currentConfig.display && currentConfig.display.ids;
-      return { open: Array.from(visualizerWins.keys()), selected: selected || [], floating: floatingIsOpen() };
+      closeVisualizer(undefined);
+      linkRememberDisplays([]);
+      return { open: [], selected: [], floating: floatingIsOpen() };
     },
     'output.set': async (args) => {
       if (typeof args.floating !== 'boolean') throw bad();
@@ -5538,23 +5544,64 @@ function linkSongState() {
       items = lyricsSnapshot().filter((it) => it && it.text && (String(it.id || '').startsWith('auto:') || String(it.title || it.name || '').toLowerCase().indexOf(title) >= 0 || title.indexOf(String(it.title || '').toLowerCase() || '\u0000') >= 0)).slice(0, 4);
     } catch { items = []; }
   }
-  let art = np && np.artwork;
+  const nowMs = Date.now();
+  const live = linkLiveAnchor(np, nowMs);
+  let art = live && live.artwork;
+  if (typeof art === 'string' && art.length > 300000) art = bridgeArtwork(art) || '';
   if (typeof art === 'string' && art.length > 300000) art = '';
   // at: PC'nin saati. Telefon aradaki farkı ölçüp damgaları kendi saatine çevirir (sözler önde gitmesin)
   const ain = phoneLinkCfg().audioIn;
   const audioDelayMs = ain.lossless === true && ain.syncDelay !== false ? linkPcmDelayMs : 0;
-  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null, at: Date.now(), audioDelayMs };
+  return { np: live ? Object.assign({}, live, { artwork: art || '' }) : null, items, clock: linkLiveClock(lyricsClockAnchor, nowMs), show: linkLiveClock(showClockAnchor, nowMs), at: nowMs, audioDelayMs };
+}
+/* Çıpa bir kez gidince iki taraf kendi saatiyle sayıyor ve kayıyordu.
+   Durdurup sürdürmek yeni çıpa kurduğu için düzeliyordu. Gönderilen kopya
+   o anki konumu taşır; PC'deki asıl çıpa değiştirilmez. */
+function linkLiveAnchor(np, now) {
+  if (!np || !np.has) return np;
+  const o = Object.assign({}, np);
+  if (!o.playing) return o;
+  const up = Number(o.updated) || 0;
+  const age = up > 0 ? Math.max(0, (now - up) / 1000) : 0;
+  let pos = Math.max(0, (Number(o.position) || 0) + age);
+  const dur = Number(o.duration) || 0;
+  if (dur > 0) pos = Math.min(pos, dur);
+  o.position = pos;
+  o.updated = now;
+  return o;
+}
+function linkLiveClock(clock, now) {
+  if (!clock || typeof clock !== 'object') return clock || null;
+  const playing = clock.run === 'play' || clock.playing === true;
+  if (!playing) return clock;
+  const epoch = Number(clock.epoch) || 0;
+  const time = Math.max(0, Number(clock.time) || 0);
+  const elapsed = epoch > 0 ? Math.max(0, (now - epoch) / 1000) : 0;
+  return Object.assign({}, clock, { time: time + elapsed, epoch: now });
 }
 function linkSongPush() {
   try { if (!linkSvc || !linkNowPlaying) return; } catch { return; } // açılışta bağlantı henüz kurulmadıysa
   if (!linkSvc || linkSvc.sessionCount() === 0) return;
+  if (!linkNowPlaying.beat && typeof setInterval === 'function') {
+    linkNowPlaying.beat = setInterval(() => {
+      try {
+        if (!linkSvc || linkSvc.sessionCount() < 1) return;
+        const np = typeof shownNowPlaying === 'function' ? shownNowPlaying() : null;
+        if ((np && np.playing) || (lyricsClockAnchor && lyricsClockAnchor.run === 'play')) linkSongPush();
+      } catch { /* parça yok */ }
+    }, 2000);
+  }
   clearTimeout(linkNowPlaying.timer);
   // Aynı anda gelen değişiklikler (parça + söz + saat) tek iletide
   linkNowPlaying.timer = setTimeout(() => {
     const s = linkSongState();
-    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round((s.np.position || 0) / 5), s.items.map((i) => i.id + ':' + i.text.length), s.clock]);
+    const hasArt = !!(s.np && s.np.artwork);
+    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round(s.np.position || 0), hasArt ? 1 : 0, s.items.map((i) => i.id + ':' + i.text.length), s.clock && Math.round((s.clock.time || 0))]);
     if (key === linkNowPlaying.key) return;
     linkNowPlaying.key = key;
+    const artId = hasArt ? (s.np.title + '|' + s.np.artist + '|' + s.np.artwork.length) : '';
+    if (hasArt && artId === linkNowPlaying.sentArt) s.np = Object.assign({}, s.np, { artwork: '' });
+    else if (hasArt) linkNowPlaying.sentArt = artId;
     linkSvc.broadcast(Object.assign({ ev: 'song' }, s));
   }, 120);
 }

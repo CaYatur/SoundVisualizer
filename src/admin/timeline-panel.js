@@ -29,7 +29,7 @@
   const P = () => window.SVPanel;
   const TL = () => window.SVTimeline;
   const TE = () => window.SVTimelineEdit;
-  const visualClip = (c) => window.SVTimelineCompose ? window.SVTimelineCompose.isVisual(c) : !!c && ['scene', 'preset', 'visualizer', 'video', 'image', 'shader'].includes(c.type);
+  const visualClip = (c) => window.SVTimelineCompose ? window.SVTimelineCompose.isVisual(c) : !!c && ['scene', 'preset', 'visualizer', 'background', 'video', 'image', 'shader'].includes(c.type);
   const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   // Ölçüler
@@ -988,9 +988,9 @@
   }
 
   const TYPE_LABELS = {
-    scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', video: 'Video', image: 'Görsel', shader: 'Shader', action: 'Eylem',
+    scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Shader', action: 'Eylem',
   };
-  const TYPE_ICONS = { scene: 'clapper', preset: 'sparkles', palette: 'palette', visualizer: 'bars', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
+  const TYPE_ICONS = { scene: 'clapper', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
 
   /* Klibin tuvaldeki etiketi: klibin kendi adı, yoksa kaynağın okunur adı.
      Raf ile AYNI çözümleyici: kalıcı "Sahne 1" / "Orman" sözlükten Scene 1 /
@@ -1009,9 +1009,10 @@
         if (tp) return tt(tp.name);
       }
       if (c.type === 'palette') return tt(c.ref);
-      if (c.type === 'visualizer') {
+      if (c.type === 'visualizer' || c.type === 'background') {
         const MC = window.SVModeCatalog;
-        const hit = MC && MC.VISUALIZERS && MC.VISUALIZERS.find((m) => m.id === c.ref);
+        const list = c.type === 'background' ? (MC && MC.BACKGROUNDS) : (MC && MC.VISUALIZERS);
+        const hit = list && list.find((m) => m.id === c.ref);
         return hit ? tt(hit.label || hit.id) : c.ref;
       }
       /* Medya ve eylem kliplerinin adı destedeki gibi: görselin kaynağı bir
@@ -3701,7 +3702,7 @@
       grid.appendChild(p.row('Klip Adı', nameInput));
       grid.appendChild(
         p.row('Tür', select(
-          [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['visualizer', 'Görselleştirici'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
+          [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
           c.type,
           /* Tür değişince kaynak listesi de değişir; yeniden çiz. Eski
              kaynağı temizle, yoksa sahne kimliği şablon alanında kalır. */
@@ -3744,6 +3745,8 @@
         box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip renk şablonuna başvurur; özel renkler Renkler bölümünde tutulur.') }));
       } else if (c.type === 'visualizer' && c.ref) {
         box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip görselleştirici kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.') }));
+      } else if (c.type === 'background' && c.ref) {
+        box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.') }));
       }
       grid.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; TE().sortClips(trk); commit(); draw(); })));
       grid.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); draw(); })));
@@ -3912,9 +3915,9 @@
       const user = (cfg.userPresets || []).map((g) => [g.name, g.name]);
       return built.concat(user);
     }
-    if (type === 'visualizer') {
+    if (type === 'visualizer' || type === 'background') {
       const MC = window.SVModeCatalog;
-      const list = (MC && MC.VISUALIZERS) || [];
+      const list = (type === 'background' ? (MC && MC.BACKGROUNDS) : (MC && MC.VISUALIZERS)) || [];
       return list.filter((m) => m && m.id && m.id !== 'none').map((m) => [m.id, m.label || m.id]);
     }
     // Eylemler destenin listesinden (MIDI/OSC eylemleri, deste eylemleri hariç)
@@ -3929,6 +3932,7 @@
     if (type === 'scene') return 'Henüz kayıtlı sahne yok. Sahne bölümünden bir sahne kaydedin.';
     if (type === 'palette') return 'Henüz renk şablonu yok.';
     if (type === 'visualizer') return 'Görselleştirici listesi yüklenemedi.';
+    if (type === 'background') return 'Arkaplan listesi yüklenemedi.';
     return 'Bu tür için seçilebilir bir kaynak yok.';
   }
 
