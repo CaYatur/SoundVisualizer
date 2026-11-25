@@ -135,6 +135,7 @@ async function desktop() {
   await ready();
   const s3 = await waitState(['connected'], 20000);
   check('yeniden açılışta kendiliğinden bağlandı', s3.state === 'connected', s3);
+  if (process.argv.includes('--pair-only')) { console.log('eşleşti, --pair-only: duruluyor'); pc.close(); process.exit(bad ? 1 : 0); }
 
   // ---- QR: kare uygulamada çözülür, eşleşme yine onay ister
   await ev(`window.SVAndroid.link.disconnect()`);

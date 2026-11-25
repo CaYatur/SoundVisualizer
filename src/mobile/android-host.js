@@ -782,7 +782,7 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
-    pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) applyPcSong(r.result); });
+    pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show); } });
     pcHeld = '';
     paintPcHeld();
     setControlFocus(sheetOpen);
@@ -807,6 +807,7 @@
       // Telefonun kendi kipinde PC'nin basılı efektleri ve parçası kalmaz
       pcHeld = '';
       ev.momentaryFx.emit([]);
+      ev.showClock.emit(ownShow);
       if (pcSong) { pcSong = null; restoreOwnSong(); }
     }
     syncAudio();
@@ -829,6 +830,9 @@
   const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
   /* PC'de basılı anlık efektler (Canlı özeti `held`) telefonun çizdiği PC sahnesinde de görünür.
      Yalnız değişince motora gider. */
+  /* Gösteri saati (zaman çizelgesi): PC hedefindeyken PC'nin çıpası; dönünce telefonunki. */
+  let ownShow = null;
+  function applyPcShow(anchor) { if (pc.on) ev.showClock.emit(anchor || null); }
   let pcHeld = '';
   function paintPcHeld() {
     if (!pc.on) return;
@@ -861,6 +865,9 @@
       paintPcHeld();
     } else if (m.ev === 'song') {
       applyPcSong(m);
+      if (m.show !== undefined) applyPcShow(m.show);
+    } else if (m.ev === 'clock') {
+      applyPcShow(m.anchor);
     } else if (m.ev === 'meter') {
       pc.meter = m.meter || null;
       ev.pcMeter.emit(pc.meter);
@@ -1276,7 +1283,8 @@
     /* Zaman çizelgesinin gösteri saati çıpası (src/shared/showclock.js). Masaüstünde
        panel `sendShowClock` ile pencerelere yollar; burada motor aynı sayfada, olay
        doğrudan `api.onShowClock` dinleyicisine gider (src/mobile/shell-timeline.js). */
-    showClock: (anchor) => ev.showClock.emit(anchor),
+    // Telefonun kendi gösteri saati; PC hedefindeyken motor PC'nin saatini izler (applyPcShow)
+    showClock: (anchor) => { ownShow = anchor || null; if (!pc.on) ev.showClock.emit(anchor); },
   });
 
   window.SV_PLATFORM = Object.freeze({ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true });
