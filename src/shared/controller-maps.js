@@ -225,7 +225,19 @@
     return { added, skipped };
   }
 
-  const api = { TEMPLATES, byId, matchDevice, toMappings, apply, portInfo, acceptsPort, paired, modeMessages, feedbackMap };
+  /* Nota iletisinin eşlemeye giden değeri (0..1, #436). Varsayılan: basılı 1, bırakılmış 0
+     (Note Off ya da hızı 0 olan Note On). Eşlemede `velocity: true` ise ve hedef bir ayarsa
+     basma gücü (hız/127) yazılır, bırakınca 0. Eylemler her zaman açık/kapalıdır: yumuşak bir
+     vuruş eylemi tetiklemeden kalmasın. */
+  function noteValue(status, raw, mapping) {
+    const on = (status & 0xf0) === 0x90 && raw > 0;
+    if (!on) return 0;
+    const m = mapping || {};
+    if (m.velocity === true && !String(m.target || '').startsWith('action:')) return Math.max(0, Math.min(127, raw)) / 127;
+    return 1;
+  }
+
+  const api = { TEMPLATES, byId, matchDevice, toMappings, apply, portInfo, acceptsPort, paired, modeMessages, feedbackMap, noteValue };
   if (typeof window !== 'undefined') window.SVControllerMaps = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

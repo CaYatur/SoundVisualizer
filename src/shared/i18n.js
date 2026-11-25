@@ -1877,6 +1877,8 @@
     'Telefondan Yapılan Değişiklikleri Bildir': 'Notify Me of Changes Made from the Phone',
     'Görüntü Gecikmesi': 'Video Delay',
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
+    'Basma gücü': 'Velocity',
+    'Notanın basma gücü (hız) değeri belirler; kapalıyken basılı = en yüksek, bırakılmış = en düşük.': 'The note\'s velocity sets the value; when off, pressed = maximum, released = minimum.',
     'Telefon ayarları değiştirdi.': 'The phone changed the settings.',
     'Ses telefondan': 'Audio from the phone',
     'Telefon sessiz: yerel giriş kullanılıyor': 'Phone is quiet: using the local input',
