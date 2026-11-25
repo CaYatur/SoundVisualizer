@@ -87,9 +87,11 @@ async function connect(pid, notId) {
   let id = 0;
   const waiting = new Map();
   const logs = [];
+  const handlers = new Map(); // CDP olayı adı → dinleyiciler (ör. Tracing.tracingComplete)
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); return; }
+    if (m.method && handlers.has(m.method)) for (const cb of handlers.get(m.method)) cb(m.params);
     if (m.method === 'Runtime.consoleAPICalled' && (m.params.type === 'error' || m.params.type === 'warning')) {
       logs.push(m.params.type + ': ' + m.params.args.map((a) => (a.value !== undefined ? a.value : a.description)).join(' '));
     } else if (m.method === 'Log.entryAdded' && (m.params.entry.level === 'error' || m.params.entry.level === 'warning')) {
@@ -114,6 +116,8 @@ async function connect(pid, notId) {
     url: page.url,
     logs,
     call,
+    /** CDP olayını dinle: on('Tracing.tracingComplete', (params) => …) */
+    on(method, cb) { if (!handlers.has(method)) handlers.set(method, []); handlers.get(method).push(cb); },
     async evaluate(expression) {
       const r = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, timeout: 120000 });
       if (r.exceptionDetails) throw new Error('sayfada hata: ' + ((r.exceptionDetails.exception && r.exceptionDetails.exception.description) || r.exceptionDetails.text));
