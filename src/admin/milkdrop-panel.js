@@ -29,6 +29,8 @@
      (katlanmış anahtar, boşsa hepsi). Aramayla birleşiyor. */
   let showSel = 'all';
   let authorSel = '';
+  // Listenin sırası (#445): 'list' kitaplığın sırası, 'recent' son kullanılan önde. Görünüm ayarı.
+  let sortSel = 'list';
   let busy = '';
   let listScroll = 0;
   // Listeden seçimde etkin kart zaten görünür (#957): yeniden çizimde kaydırma oynatılmaz
@@ -142,9 +144,10 @@
       return f ? presets.filter((p) => F(p.name).includes(f)) : presets;
     }
     const tag = showSel.indexOf('tag:') === 0 ? showSel.slice(4) : '';
-    return L.filter(presets, {
+    const out = L.filter(presets, {
       query: filter, show: tag ? 'tag' : showSel, tag, author: authorSel, nameOf: tr,
     }, cfg && cfg.milkdropLibrary);
+    return RC() ? RC().sortList(out, sortSel, cfg && cfg.milkdropLibrary) : out;
   }
 
   /* Favori ve etiket yazımı: puanlarla aynı desen (`setRating`), yeni bir
@@ -764,6 +767,8 @@
   }
   // Favoriler, etiketler, yazar, arama ve havuz (#576)
   const LB = () => window.SVMilkdropLibrary;
+  // Son kullanılan (#445; yalnız panelde yüklü)
+  const RC = () => window.SVMilkdropRecent;
   function control(cfg) {
     return cfg.milkdropControl || (cfg.milkdropControl = { locked: false, cutTo: '' });
   }
@@ -1855,6 +1860,13 @@
             .concat(authors.map((a) => [a.key, a.name + ' (' + a.count + ')'])),
           authorSel, (v) => { authorSel = String(v); })));
         }
+        if (RC()) {
+          const usedN = Object.keys(RC().usedOf(lib)).length;
+          nodes.push(P().row('Sırala', viewSel([
+            ['list', tr('Liste sırası')],
+            ['recent', tr('Son kullanılan') + (usedN ? ' (' + usedN + ')' : '')],
+          ], sortSel, (v) => { sortSel = v === 'recent' ? 'recent' : 'list'; })));
+        }
       }
     }
 
@@ -1906,6 +1918,7 @@
       if (md.presetId === p.id) load(cfg, null);
       // Puanı, favorisi ve etiketleri de gidiyor (#576): kimlik bir daha gelmiyor
       if (LBn) Object.assign(library(cfg), LBn.forget(library(cfg), p.id));
+      if (RC() && library(cfg).used) library(cfg).used = RC().without(library(cfg), p.id);
       refresh(() => rerender());
     };
     if (grid) {
@@ -1931,6 +1944,8 @@
       list.querySelectorAll('.md-cell.active, .md-item.active').forEach((n) => n.classList.remove('active'));
       list.querySelectorAll('[data-id]').forEach((n) => { if (n.dataset.id === p.id && !n.classList.contains('md-thumb-box')) n.classList.add('active'); });
       if (!uiPickOk(cfg)) return;
+      // Son kullanılan (#445): yalnız kitaplıktan elle seçim yazılır
+      if (RC()) { const lib = library(cfg); lib.used = RC().withUsed(lib, p.id, Date.now()); }
       loadWithText(cfg, p, () => rerender());
     };
     const makeItem = (p) => {
