@@ -152,7 +152,7 @@ function decodeFrames(client, onMessage, onClose) {
       len = hi * 4294967296 + lo;
       offset = 10;
     }
-    if (len > MAX_MESSAGE) { onClose(1009, 'message too big'); return Buffer.alloc(0); }
+    if (len > (client.maxMessage || MAX_MESSAGE)) { onClose(1009, 'message too big'); return Buffer.alloc(0); }
     /* Oturumu kurulmamış telefon (ağdan, kimliksiz): yalnız küçük, tek parça metin ve denetim
        kareleri. İkili kare ve parçalı ileti el sıkışmadan sonra. */
     if (client.preAuth && opcode < 0x8 && (len > 4096 || opcode !== 0x1 || !fin)) { onClose(1008, 'pre-auth'); return Buffer.alloc(0); }
@@ -178,7 +178,7 @@ function decodeFrames(client, onMessage, onClose) {
       // devam karesi
       client.fragments.push(payload);
       client.fragBytes = (client.fragBytes || 0) + payload.length;
-      if (client.fragBytes > MAX_MESSAGE) { client.fragments = []; client.fragBytes = 0; onClose(1009, 'message too big'); return Buffer.alloc(0); }
+      if (client.fragBytes > (client.maxMessage || MAX_MESSAGE)) { client.fragments = []; client.fragBytes = 0; onClose(1009, 'message too big'); return Buffer.alloc(0); }
       if (fin) {
         client.fragBytes = 0;
         onMessage(Buffer.concat(client.fragments), client.fragmentOpcode);

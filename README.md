@@ -1896,6 +1896,23 @@ Yes — it visualizes whatever your computer plays. On Windows you can capture o
 (say, Spotify) and ignore everything else, and Now Playing reads the track title and cover from the
 system media session.
 
+**Is there free VJ software for beginners?**
+Yes. CAYADEV Visualizer is free VJ software that starts with ready-made templates and Auto VJ, so a
+first show needs no setup. When you want more, the Live page has scenes on the F keys, a T-bar,
+a beat-quantised clip deck, a timeline, MIDI and OSC.
+
+**How do I add an audio visualizer to a Twitch or YouTube live stream?**
+Add CAYADEV Visualizer to OBS as a browser source (a transparent overlay) or through Spout/Syphon.
+It reacts to the music on your computer and can show the track title and cover.
+
+**How do I make a music visualizer video for YouTube, Shorts or Spotify Canvas?**
+Open the song, pick a template and export: one-click profiles cover YouTube, Shorts and Spotify
+Canvas, and the export renders frame by frame, so it does not drop frames on a slow computer.
+
+**Can the visuals drive my RGB lights?**
+Yes. On Windows 11 it drives Dynamic Lighting keyboards, mice and strips; it also speaks OpenRGB
+and Art-Net, so lights follow the same colors and beats as the screen.
+
 **Can I use it as an OBS overlay?**
 Yes. Turn on Streaming Output and add the address as a Browser Source. Transparency works, and OBS
 can run on a different computer on the same network. Spout (Windows) and Syphon (macOS) are there for

@@ -1745,6 +1745,10 @@
 
   /* Ses Kaynakları kartının denetimleri; ses köprüsünün kartı da aynısını
      gösteriyor (#813): köprü bu kaynakların karışımını gönderir. */
+  function phoneAudioIn() {
+    const pl = cfg && cfg.phoneLink;
+    return (pl && pl.audioIn && typeof pl.audioIn === 'object') ? pl.audioIn : {};
+  }
   function audioSourcesDef() {
     return {
       type: 'multisource',
@@ -2659,6 +2663,15 @@
         title: 'Ses Kaynakları',
         desc: 'Birden fazla kaynak seçilip karıştırılabilir: sistem sesi, mikrofon ve tek tek uygulamalar.',
         controls: [
+          {
+            /* Telefonun sesi giriş olarak açıkken (PC bağlantısı B4) bu kaynaklar ya yedek ya da
+               hiç kullanılmıyor; kullanıcı burada seçtiğinin neden duyulmadığını görsün. */
+            type: 'note', warn: true,
+            text: () => (phoneAudioIn().fallback !== false
+              ? 'Ses girişi telefonda: buradaki kaynaklar yalnız telefon susunca kullanılır. Kapatmak için Ayarlar → Telefon Bağlantısı ya da telefonda Ses → PC\'ye gönder.'
+              : 'Ses girişi telefonda: buradaki kaynaklar kullanılmıyor. Kapatmak için Ayarlar → Telefon Bağlantısı ya da telefonda Ses → PC\'ye gönder.'),
+            show: () => phoneAudioIn().enabled === true,
+          },
           audioSourcesDef(),
           AUDIO_REFRESH_DEF,
         ],
