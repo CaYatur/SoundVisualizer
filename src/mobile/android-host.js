@@ -930,7 +930,8 @@
     syncAudio();
     emitTarget();
   }
-  setInterval(() => {
+  // Sınama ortamında (vm) zamanlayıcı yok: yalnız gerçek sayfada
+  if (typeof setInterval === 'function') setInterval(() => {
     if (pc.state !== 'connected' || document.visibilityState === 'hidden' && !audioSend) return;
     pcAsk('state.get').then((r) => { if (r && r.ok && r.result) followPcAudioIn(r.result.audioIn); }, () => {});
   }, 5000);
