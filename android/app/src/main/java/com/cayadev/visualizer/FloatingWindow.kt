@@ -155,7 +155,16 @@ object FloatingWindow {
                 return true
             }
         })
+        // Çift dokunuş uygulamaya döndürür (kilitliyken de); pencere kapanır, motor tam ekrana geçer
+        val taps = android.view.GestureDetector(context, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                context.startActivity(android.content.Intent(context, MainActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                return true
+            }
+        })
         v.setOnTouchListener { _, e ->
+            taps.onTouchEvent(e)
             if (locked) return@setOnTouchListener true
             scaler.onTouchEvent(e)
             val p = params ?: return@setOnTouchListener true

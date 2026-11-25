@@ -69,9 +69,13 @@
           lastError = '';
           A().floating.open(Object.assign({ opacity: prefs.opacity, clickThrough: prefs.clickThrough }, sizePx(prefs.size)))
             .then(() => A().floating.set({ keepAspect: prefs.keepAspect, locked: prefs.locked }), (e) => { lastError = String((e && e.message) || e); ctx.refresh(); });
-        }, true),
+        }),
       ]));
-      body.appendChild(h('div', { class: 'section-label', text: 'Yüzen pencere' }));
+      /* Üç düğme eşit görünür: vurgulu düğme "seçili" sanılıyordu (telefon denemesi 25.11).
+         Aşağıdaki ayarlar yalnız yüzen pencereye ait; resim içinde resim Android'in kendi
+         penceresi, saydamlık/dokunuş/kilit/boyut almaz. */
+      body.appendChild(h('div', { class: 'section-label', text: 'Yüzen pencere ayarları' }));
+      body.appendChild(h('div', { class: 'row-sub', text: 'Yalnız yüzen pencerede geçerli; resim içinde resim Android\'in kendi penceresidir. Pencereye çift dokununca uygulamaya dönülür, pencere kapanır; ayarlar bir sonraki açılışta uygulanır.' }));
       const capped = prefs.clickThrough && maxPass < 1;
       const op = U.slider({
         label: 'Görünürlük', min: 0.2, max: 1, step: 0.05, percent: true, value: capped ? Math.min(prefs.opacity, maxPass) : prefs.opacity,

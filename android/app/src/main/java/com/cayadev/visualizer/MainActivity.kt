@@ -273,6 +273,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        takeBackFromFloating()
+    }
+
+    /* Uygulama öne geldi: yüzen pencere açıksa kapanır, aynı motor bu ekrana döner.
+       Son uygulamalar listesinden ya da bazı başlatıcılardan dönüşte onNewIntent
+       gelmiyor, yalnız onResume; o yolda pencere açık kalıyor, uygulama siyah ve kabuk
+       gizli kalıyordu (telefon denemesi 25.11). */
+    private fun takeBackFromFloating() {
         if (FloatingWindow.isShowing) FloatingWindow.close(this)
         // Uygulamaya dönüldü: kamera artık ön planda, hizmet gerekmez
         com.cayadev.visualizer.media.CameraService.stop(this)
@@ -354,6 +362,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (FloatingWindow.isShowing) takeBackFromFloating()
         EngineHost.web?.onResume()
         // Bildirim erişimi ayarlardan yeni verilmiş olabilir
         com.cayadev.visualizer.media.NowPlaying.start(this)
