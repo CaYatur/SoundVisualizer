@@ -11,7 +11,7 @@
    (window.api). Karşı ucu engine-env.js. Yalnız sayfada yüklenir. */
 (function () {
   // Worker'a gitmeyen betikler: sayfaya ait olanlar ve arayüz ikonları
-  const PAGE_ONLY = /\/(visualizer|exporter|yuv-readout|icons|engine-bridge)\.js(\?|$)/;
+  const PAGE_ONLY = /\/(visualizer|exporter|yuv-readout|icons|engine-bridge|tbar-hold)\.js(\?|$)/;
 
   // Sayfanın kendi <script> sırası: motorun yükleneceği tek liste
   function engineScripts(doc) {

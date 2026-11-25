@@ -607,7 +607,11 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .lv-mon.pgm { box-shadow: inset 0 0 0 2px var(--accent); }
 #sv-shell .lv-row { display: flex; align-items: center; gap: 8px; flex: none; }
 #sv-shell .tbar { position: relative; flex: 1; height: 48px; border-radius: 14px; background: var(--card2); touch-action: none; }
-#sv-shell .tbar .tb-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 14px; background: rgb(var(--accent-rgb) / .35); }
+#sv-shell .tbar .tb-fill { position: absolute; left: 0; right: auto; top: 0; bottom: 0; border-radius: 14px; background: rgb(var(--accent-rgb) / .35); }
+#sv-shell .tbar.from-right .tb-fill { left: auto; right: 0; }
+#sv-shell .tbar .tb-pct { position: absolute; right: 10px; left: auto; top: 0; height: 100%; display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--text); pointer-events: none; }
+#sv-shell .tbar.from-right .tb-pct { left: 10px; right: auto; }
+#sv-shell .lv-mon .art.tb-over { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
 #sv-shell .tbar .tb-grip { position: absolute; top: 4px; bottom: 4px; width: 28px; margin-left: -14px; border-radius: 10px; background: var(--accent); }
 #sv-shell .lv-take { flex: none; }
 #sv-shell .blk { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 56px; border-radius: 14px; font-size: 15px; font-weight: 700; color: var(--text); background: var(--card2); }

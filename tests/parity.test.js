@@ -34,6 +34,7 @@ function scripts(page) {
    nedeni: dışa aktarım çevrimdışı ve kare saatiyle çiziyor. */
 const LIVE_ONLY = {
   'src/visualizer/visualizer.js': 'canlı pencerenin kendisi (dışa aktarıcının yerine exporter.js)',
+  'src/visualizer/tbar-hold.js': 'canlı T-bar parmağı sahne ayarından önce gelebilir; dışa aktarımda parmak yok',
   'src/shared/adaptive-theme.js': 'arayüz teması; çizime girmez',
   'src/shared/icons.js': 'arayüz simgeleri',
   'src/shared/aspect.js': 'pencerenin en-boy oranı; dışa aktarımda çözünürlük seçiliyor',

@@ -91,6 +91,47 @@ test('kurulum tek geçişlik, süresi geçince ve karartmada tutmuyor', () => {
   s.beginTransition({}, SPEC, new Set());
   assert.strictEqual(s._claimManual(false), false, 'süresi geçen kurulum alakasız geçişi yakalamıyor');
   assert.ok(!s.trans.manual);
+  // Parmak geçişten önce kalktı: kuyruk layers.js dışında, küçük resim anahtarı bozulmasın
+  const { attach } = require('../src/visualizer/tbar-hold.js');
+  const held = {
+    trans: null, _manualArm: 0, ended: 0,
+    tbar(m) {
+      const ph = m && m.phase;
+      if (ph === 'arm') { this._manualArm = 1; return; }
+      if (!this.trans || !this.trans.manual) return;
+      if (ph === 'end') this.endTransition();
+    },
+    setConfig() {
+      if (!this._manualArm) return;
+      this.trans = { manual: true, manualP: 0 };
+      this._manualArm = 0;
+    },
+    endTransition() { this.ended += 1; this.trans = null; },
+  };
+  attach(held);
+  held.tbar({ phase: 'arm' });
+  held.tbar({ phase: 'move', p: 0.5 });
+  held.tbar({ phase: 'end' });
+  held.setConfig({});
+  assert.strictEqual(held.ended, 1, 'parmak geçişten önce kalktı');
+  assert.strictEqual(held.trans, null, 'kurulur kurulmaz biter, yarıda tam görüntü kalmaz');
+  const mid = {
+    trans: null, _manualArm: 0,
+    tbar(m) {
+      if (m && m.phase === 'arm') this._manualArm = 1;
+      else if (this.trans && this.trans.manual && m && m.phase === 'move') this.trans.manualP = m.p;
+    },
+    setConfig() {
+      if (!this._manualArm) return;
+      this.trans = { manual: true, manualP: 0 };
+      this._manualArm = 0;
+    },
+  };
+  attach(mid);
+  mid.tbar({ phase: 'arm' });
+  mid.tbar({ phase: 'move', p: 0.5 });
+  mid.setConfig({});
+  assert.strictEqual(mid.trans.manualP, 0.5, 'yarıda varış görüntüsü tam görünmez');
   // Elle sürülmeyen geçişe çubuk iletisi dokunmuyor
   s.tbar({ phase: 'move', p: 0.5 });
   s.tbar({ phase: 'cancel' });
@@ -130,6 +171,11 @@ test('panel: çubuk tutulurken sayfa kurulmuyor, uçta bitiyor, başta geri alı
   assert.match(admin, /if \(!sc \|\| !sc\.data \|\| isBlackedOut\(\)\) return null;/, 'karartmada çubuk çalışmıyor');
   assert.match(admin, /noRender: true \}\);\s*return snap;/);
   assert.match(admin, /if \(opts && opts\.noRender\) return;\s*render\(\);/);
+  const phone = read('src/mobile/shell-live.js');
+  const css = read('src/mobile/shell.css');
+  assert.match(phone, /bar\.classList\.toggle\('from-right', origin === 1\)/, 'telefon dolgusu çubuğun başladığı uçtan');
+  assert.match(css, /#sv-shell \.tbar\.from-right \.tb-fill \{ left: auto; right: 0; \}/);
+  assert.match(css, /#sv-shell \.tbar\.from-right \.tb-pct \{ left: 10px; right: auto; \}/);
 });
 
 test('çeviri: çubuğun metinleri İngilizcede de var', () => {

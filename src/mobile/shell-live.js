@@ -152,53 +152,112 @@
     tbarUp = false;
     return ask('tbar', { v: x, down: !release });
   }
-  function tbarPos() {
+  function tbarRead() {
     const tb = live().tbar;
-    if (!tb) return 0;
-    if (typeof tb.v === 'number') return tb.v;
-    if (!tb.live) return tb.rest;
-    return tb.rest === 0 ? tb.p : 1 - tb.p;
+    if (!tb) return { v: 0, p: 0, rest: 0, live: false };
+    const rest = tb.rest === 1 ? 1 : 0;
+    const v = typeof tb.v === 'number' ? tb.v : (tb.live ? (rest === 0 ? tb.p : 1 - tb.p) : rest);
+    return { v, p: tb.live ? (Number(tb.p) || 0) : 0, rest, live: !!tb.live };
   }
-  let tbarHold = null; // { v, until }
+  /* Parmak kalkınca PC ilerlemeyi sıfırlıyor (çubuk yeni uçta kalır). Telefon aynı
+     resmi tutsun: dolgu karışımdır, tutamak konumdur. */
+  let tbarHold = null; // { v, p, until }
+  let tbarGesture = null; // { rest }
+  let mixView = null; // { fromId, toId, p }
+  function engineTbar(m) {
+    const pc = A() && A().pc;
+    if (pc && pc.tbarLocal) pc.tbarLocal(m);
+  }
+  function mixProgress(rest, v) { return rest === 0 ? v : 1 - v; }
   function tbarEl() {
     const fill = h('i', { class: 'tb-fill' });
     const grip = h('b', { class: 'tb-grip' });
-    const bar = h('div', { class: 'tbar', role: 'slider', 'aria-label': 'T-bar', 'aria-valuemin': '0', 'aria-valuemax': '100', tabindex: '0' }, [fill, grip]);
+    const pct = h('small', { class: 'tb-pct' });
+    const bar = h('div', { class: 'tbar', role: 'slider', 'aria-label': 'T-bar', 'aria-valuemin': '0', 'aria-valuemax': '100', tabindex: '0' }, [fill, grip, pct]);
     let shown = 0;
-    const show = (v) => {
-      shown = Math.max(0, Math.min(1, v));
-      const p = Math.round(shown * 1000) / 10;
-      fill.style.width = p + '%';
-      grip.style.left = p + '%';
-      bar.setAttribute('aria-valuenow', String(Math.round(p)));
+    const show = (v, p, rest) => {
+      shown = Math.max(0, Math.min(1, Number(v) || 0));
+      const mix = Math.max(0, Math.min(1, Number(p) || 0));
+      const origin = rest === 1 ? 1 : rest === 0 ? 0 : (tbarGesture ? tbarGesture.rest : tbarRead().rest);
+      const gp = Math.round(shown * 1000) / 10;
+      const fp = Math.round(mix * 1000) / 10;
+      /* Dolgu çubuğun başladığı uçtan akar: solda bekliyorsa soldan, sağda bekliyorsa sağdan. */
+      bar.classList.toggle('from-right', origin === 1);
+      fill.style.width = fp + '%';
+      grip.style.left = gp + '%';
+      pct.textContent = mix > 0.005 ? Math.round(mix * 100) + '%' : '';
+      bar.setAttribute('aria-valuenow', String(Math.round(fp)));
+      if (mixView) mixView.p = mix;
+      paintMixFrame();
     };
     relDrag(bar, {
       get: () => shown,
-      move: (v) => { tbarHold = null; show(v); sendTbar(v); },
+      move: (v) => {
+        tbarHold = null;
+        if (!tbarGesture) {
+          const now = tbarRead();
+          tbarGesture = { rest: now.rest };
+          const l = live();
+          mixView = { fromId: l.active || '', toId: l.cue || '', p: 0 };
+          engineTbar({ phase: 'arm' });
+        }
+        const p = mixProgress(tbarGesture.rest, v);
+        if (mixView && !mixView.toId) {
+          const l = live();
+          if (l.cue) mixView.toId = l.cue;
+          else if (l.active && l.active !== mixView.fromId) mixView.toId = l.active;
+        }
+        show(v, p, tbarGesture.rest);
+        engineTbar({ phase: 'move', p });
+        sendTbar(v);
+      },
       end: (v) => {
-        if (v == null) return;
-        show(v);
+        if (v == null) { tbarGesture = null; mixView = null; return; }
+        const rest = tbarGesture ? tbarGesture.rest : tbarRead().rest;
+        tbarGesture = null;
+        const p = mixProgress(rest, v);
+        const atEnd = p >= 0.995;
+        const atStart = p <= 0.005;
+        const parked = atEnd ? (rest === 0 ? 1 : 0) : rest;
+        if (atEnd) {
+          engineTbar({ phase: 'end' });
+          mixView = null;
+          show(parked, 0, parked);
+        } else if (atStart) {
+          engineTbar({ phase: 'cancel' });
+          mixView = null;
+          show(rest, 0, rest);
+        } else {
+          engineTbar({ phase: 'move', p });
+          if (mixView) mixView.p = p;
+          show(v, p, rest);
+        }
         const sent = sendTbar(v, true, true);
-        tbarHold = { v, until: performance.now() + 600 };
+        tbarHold = { v: shown, p: atEnd || atStart ? 0 : p, rest: parked, until: performance.now() + 600 };
         if (sent && sent.then) sent.then((r) => {
           const tb = r && r.result && r.result.tbar;
           if (!tb || typeof tb.v !== 'number') return;
-          tbarHold = { v: tb.v, until: performance.now() + 600 };
-          show(tb.v);
+          const mix = tb.live ? (Number(tb.p) || 0) : 0;
+          const origin = tb.rest === 1 ? 1 : 0;
+          if (!tb.live) mixView = null;
+          tbarHold = { v: tb.v, p: mix, rest: origin, until: performance.now() + 600 };
+          show(tb.v, mix, origin);
         });
       },
     });
     const pcPos = () => {
-      const v = tbarPos();
+      const s = tbarRead();
       if (tbarHold) {
-        // PC son konuma yetişti (ya da uca varıp sahne geçti) veya süre doldu
-        if (Math.abs(v - tbarHold.v) < 0.02 || ((tbarHold.v <= 0.01 || tbarHold.v >= 0.99) && !(live().tbar || {}).live) || performance.now() > tbarHold.until) tbarHold = null;
-        else return tbarHold.v;
+        const done = !s.live && tbarHold.p === 0;
+        if (done || (Math.abs(s.v - tbarHold.v) < 0.02 && Math.abs(s.p - tbarHold.p) < 0.02) || performance.now() > tbarHold.until) tbarHold = null;
+        else return tbarHold;
       }
-      return v;
+      if (!s.live) mixView = null;
+      return s;
     };
-    show(pcPos());
-    bar.paint = () => { if (!drags.has(bar)) show(pcPos()); };
+    const first = pcPos();
+    show(first.v, first.p, first.rest);
+    bar.paint = () => { if (!drags.has(bar)) { const s = pcPos(); show(s.v, s.p, s.rest); } };
     return bar;
   }
 
@@ -372,6 +431,44 @@
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
   let tlBase = { t: 0, at: 0, playing: false };
+  /* Program kutusu PC'deki gibi karışır: altta giden sahne, üstte sıradaki,
+     saydamlık çubuğun ilerlemesi. Yarıda öbür görüntü tam görünmez. */
+  function paintMixFrame() {
+    if (!refs || !refs.mons) return;
+    const fig = refs.mons.querySelector('.pgm');
+    const pvw = refs.mons.querySelector('.pvw .art');
+    if (!fig) return;
+    if (!mixView || !mixView.fromId) {
+      const over = fig.querySelector('.tb-over');
+      if (over) over.remove();
+      if (pvw) pvw.style.opacity = '';
+      return;
+    }
+    if (!mixView.toId) {
+      const l = live();
+      if (l.cue) mixView.toId = l.cue;
+      else if (l.active && l.active !== mixView.fromId) mixView.toId = l.active;
+    }
+    let base = fig.querySelector('.art:not(.tb-over)');
+    if (!base || base.getAttribute('data-scene') !== String(mixView.fromId)) {
+      const next = S.sceneArt(sceneById(mixView.fromId));
+      if (base) base.replaceWith(next);
+      else fig.insertBefore(next, fig.firstChild);
+      base = next;
+    }
+    let over = fig.querySelector('.tb-over');
+    if (mixView.toId && (!over || over.getAttribute('data-scene') !== String(mixView.toId))) {
+      const next = S.sceneArt(sceneById(mixView.toId));
+      next.classList.add('tb-over');
+      const cap = fig.querySelector('figcaption');
+      if (cap) fig.insertBefore(next, cap);
+      else fig.appendChild(next);
+      over = next;
+    }
+    if (over) over.style.opacity = String(Math.max(0, Math.min(1, mixView.p || 0)));
+    if (pvw) pvw.style.opacity = String(Math.max(0, Math.min(1, mixView.p || 0)));
+  }
+
   function paintLive() {
     if (!refs || !refs.mons || !refs.mons.isConnected) return;
     const l = live();
@@ -385,6 +482,7 @@
     const pvwText = tr('ÖNİZLEME') + ' · ' + (q ? q.name || '' : '—');
     if (pgm && pgm.textContent !== pgmText) { refs.mons.replaceChild(sceneTile(a, 'pgm'), refs.mons.querySelector('.pgm')); }
     if (pvw && pvw.textContent !== pvwText) { refs.mons.replaceChild(sceneTile(q, 'pvw'), refs.mons.querySelector('.pvw')); }
+    paintMixFrame();
     for (const b of refs.scenes) {
       b.classList.toggle('on', b.dataset.id === l.active);
       b.classList.toggle('cue', b.dataset.id === l.cue);

@@ -6,6 +6,9 @@
  */
 package com.cayadev.visualizer.audio
 
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -40,6 +43,20 @@ object AudioHub {
     @Volatile
     var pcAudio = false
 
+    /** PC'den gelen PCM'i telefonun hoparlöründen de çal (görselleştiriciye giden akışın aynısı). */
+    @Volatile
+    var playPc = false
+
+    private val speakerLock = Any()
+    private var speaker: AudioTrack? = null
+    private var speakerRate = 0
+    private var speakerCh = 0
+
+    fun enableSpeaker(on: Boolean) {
+        playPc = on
+        if (!on) synchronized(speakerLock) { releaseSpeakerLocked() }
+    }
+
     @Volatile
     var delivered = 0L
         private set
@@ -53,8 +70,50 @@ object AudioHub {
     fun pushPcm(sampleRate: Int, channels: Int, source: Int, samples: ShortArray, count: Int) {
         if (source != Messages.SOURCE_PC) tap?.invoke(sampleRate, channels, samples, count)
         if (pcAudio != (source == Messages.SOURCE_PC)) return
+        if (source == Messages.SOURCE_PC && playPc) speak(sampleRate, channels, samples, count)
         val msg = Messages.pcmS16(pcmSeq.getAndIncrement() and 0xffffffffL, now(), sampleRate, channels, source, samples, count)
         post(msg)
+    }
+
+    private fun speak(sampleRate: Int, channels: Int, samples: ShortArray, count: Int) {
+        if (count <= 0 || sampleRate < 8000) return
+        val n = count.coerceAtMost(samples.size)
+        val ch = if (channels >= 2) 2 else 1
+        synchronized(speakerLock) {
+            if (!playPc) return
+            var track = speaker
+            if (track == null || speakerRate != sampleRate || speakerCh != ch) {
+                releaseSpeakerLocked()
+                val mask = if (ch == 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
+                val min = AudioTrack.getMinBufferSize(sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT)
+                if (min <= 0) return
+                track = try {
+                    AudioTrack.Builder()
+                        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                        .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(sampleRate).setChannelMask(mask).build())
+                        .setBufferSizeInBytes(min.coerceAtLeast(sampleRate * ch))
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build()
+                } catch (_: Exception) { null }
+                if (track == null) return
+                try { track.play() } catch (_: Exception) { track.release(); return }
+                speaker = track
+                speakerRate = sampleRate
+                speakerCh = ch
+            }
+            try { track.write(samples, 0, n) } catch (_: Exception) { releaseSpeakerLocked() }
+        }
+    }
+
+    private fun releaseSpeakerLocked() {
+        val t = speaker
+        speaker = null
+        speakerRate = 0
+        speakerCh = 0
+        if (t == null) return
+        try { t.pause() } catch (_: Exception) {}
+        try { t.flush() } catch (_: Exception) {}
+        try { t.release() } catch (_: Exception) {}
     }
 
     fun pushWave(sampleRate: Int, wave: ByteArray) {

@@ -276,12 +276,24 @@
       ])]));
     }
     if (T && (T.state === 'connected' || T.audioSend)) {
-      body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, [
+      const sendKids = [
         U.toggle({ label: 'PC\'ye gönder', value: !!T.audioSend, onChange: (on) => A().pc.audioSend(on).then(() => ctx.refresh()) }),
         h('div', { class: 'hint', text: T.audioSend
           ? (T.state === 'connected' ? window.SVI18n.t('Aşağıda seçili kaynağın sesi, çalan parça ve kapağı {pc} için ses girişi.').replace('{pc}', T.name || 'PC') : 'PC bağlanınca gönderilecek.')
           : 'Açınca seçili kaynağın sesi ve çalan parça PC\'nin ses girişi olur; PC\'nin görüntüsü, ışığı ve temposu bu sese tepki verir. Uygulama arka plandayken de sürer.' }),
-      ])]));
+      ];
+      if (T.audioSend && T.state === 'connected' && A().pc.audioIn) {
+        const ai = T.audioIn || {};
+        sendKids.push(U.toggle({ label: 'PC Hoparlöründen de Çal', value: !!ai.play, onChange: (on) => A().pc.audioIn({ play: on }).then(() => ctx.refresh()) }));
+        sendKids.push(U.toggle({ label: 'Telefon susunca PC kendi sesine döner', value: ai.fallback !== false, onChange: (on) => A().pc.audioIn({ fallback: on }).then(() => ctx.refresh()) }));
+        sendKids.push(U.slider({ label: 'Görüntü Gecikmesi', min: 0, max: 500, step: 10, value: ai.delayMs || 0, onChange: (v) => A().pc.audioIn({ delayMs: v }) }));
+        sendKids.push(h('div', { class: 'hint', text: 'Bu ayarlar PC\'deki Telefon Bağlantısı kartıyla aynıdır. Hoparlör, PC susunca yerel sese dönüş ve görüntünün sesi beklemesi.' }));
+      }
+      if (!T.audioSend && T.state === 'connected' && A().pc.playPcAudio) {
+        sendKids.push(U.toggle({ label: 'PC sesini telefonda çal', value: !!T.playPc, onChange: (on) => { A().pc.playPcAudio(on); ctx.refresh(); } }));
+        sendKids.push(h('div', { class: 'hint', text: 'PC\'de çalan ses telefonun hoparlöründen de duyulur. Kapalıyken görüntü yine bu sese göre çizilir; demo ses kullanılmaz.' }));
+      }
+      body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, sendKids)]));
     }
     body.appendChild(h('div', { class: 'section-label', text: 'Kaynak' }));
     const group = h('div', { class: 'source-list', role: 'radiogroup', 'aria-label': 'Kaynak' }, SOURCES.map(sourceCard));
@@ -292,7 +304,8 @@
     if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: error })]));
     const sb = silenceBanner();
     if (sb) body.appendChild(sb);
-    if (activeSource()) body.appendChild(h('button', { class: 'btn ghost', onclick: stopAll }, [icon('stop'), 'Demo sese dön']));
+    if (activeSource() === 'pc') body.appendChild(h('div', { class: 'hint', text: 'Ses PC\'den geliyor. Telefon demo ses kullanmıyor.' }));
+    else if (activeSource()) body.appendChild(h('button', { class: 'btn ghost', onclick: stopAll }, [icon('stop'), 'Demo sese dön']));
     body.appendChild(tempoCard());
     if (!raf) raf = requestAnimationFrame(frame);
     refs.ctx = ctx;

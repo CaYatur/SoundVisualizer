@@ -14,7 +14,7 @@ const scriptsOf = (html, base) => [...read(html).matchAll(/<script[^>]+src="([^"
 
 const Bridge = require('../src/visualizer/engine-bridge.js');
 // Sayfaya kalan betikler: motor değil
-const PAGE_SIDE = new Set(['src/visualizer/visualizer.js', 'src/exporter/exporter.js', 'src/exporter/yuv-readout.js', 'src/shared/icons.js']);
+const PAGE_SIDE = new Set(['src/visualizer/visualizer.js', 'src/visualizer/tbar-hold.js', 'src/exporter/exporter.js', 'src/exporter/yuv-readout.js', 'src/shared/icons.js']);
 const engineFiles = () => {
   const all = new Set([...scriptsOf('src/visualizer/index.html', 'src/visualizer'), ...scriptsOf('src/exporter/index.html', 'src/exporter')]);
   return [...all].filter((f) => !PAGE_SIDE.has(f));
@@ -51,6 +51,7 @@ test('Worker\'a giden liste sayfanın kendi sırası, sayfa betikleri çıkıyor
     { src: '' },
     { src: 'file:///app/src/visualizer/modes/glow.js' },
     { src: 'file:///app/src/visualizer/engine-bridge.js' },
+    { src: 'file:///app/src/visualizer/tbar-hold.js' },
     { src: 'file:///app/src/visualizer/visualizer.js' },
     { src: 'file:///app/src/exporter/exporter.js' },
     { src: 'file:///app/src/exporter/yuv-readout.js' },
