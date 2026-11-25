@@ -46,7 +46,7 @@
     link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(), pcUpdates: listeners(), update: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
-    showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
+    showClock: listeners(), momentaryFx: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
     texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(),
     silence: listeners(), audioStatus: listeners(), memory: listeners(), player: listeners(),
     insets: listeners(), back: listeners(), chrome: listeners(), meter: listeners(), lowPower: listeners(),
@@ -241,7 +241,7 @@
     const sys = systemNow && systemNow.has ? systemNow : null;
     const next = p && p.has && (p.playing || !(sys && sys.playing)) ? p : (sys || p || nowPlaying);
     nowPlaying = next;
-    ev.nowPlaying.emit(next);
+    if (!pcSongOn()) ev.nowPlaying.emit(next);
     lookupLyrics(next);
     if (typeof pcNowPlaying === 'function') pcNowPlaying(next);
   }
@@ -260,7 +260,25 @@
     if (lyricsAuto && lyricsAuto.text) out.push(lyricsAuto);
     return out;
   }
-  function emitLyrics() { ev.lyricsLib.emit(withAuto(lyricsItems || [])); }
+  function emitLyrics() { if (!pcSongOn()) ev.lyricsLib.emit(withAuto(lyricsItems || [])); }
+  /* PC'NİN PARÇASI VE SÖZLERİ (PC bağlantısı): telefon PC'nin sahnesini çizerken söz katmanı ve
+     Şimdi Çalıyor PC'de çalanı gösterir (PC'nin 'song' olayı / song.get). Telefonun kendi parçası
+     o sırada saklanır; "Bu telefon"a dönünce geri gelir. */
+  let pcSong = null;
+  function pcSongOn() { try { return !!(pc && pc.on && pcSong); } catch (e) { return false; } } // pc henüz tanımlanmadıysa
+  function applyPcSong(s) {
+    pcSong = s && typeof s === 'object' ? s : null;
+    if (!pcSongOn()) return;
+    const np = pcSong.np;
+    ev.nowPlaying.emit(np ? Object.assign({ has: !!np.title, received: Date.now() }, np) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() });
+    ev.lyricsLib.emit(Array.isArray(pcSong.items) ? pcSong.items : []);
+    ev.lyricsClock.emit(pcSong.clock || null);
+  }
+  function restoreOwnSong() {
+    if (nowPlaying) ev.nowPlaying.emit(nowPlaying);
+    ev.lyricsLib.emit(withAuto(lyricsItems || []));
+    ev.lyricsClock.emit(null);
+  }
   function followsLyrics(cfg) {
     if (!cfg) return false;
     const texts = [];
@@ -764,6 +782,9 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
+    pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show); } });
+    pcHeld = '';
+    paintPcHeld();
     setControlFocus(sheetOpen);
     syncAudio();
     emitTarget();
@@ -782,6 +803,13 @@
     setControlFocus(false);
     clearInterval(pc.ping);
     if (was) ev.config.emit(engineView(config));
+    if (was) {
+      // Telefonun kendi kipinde PC'nin basılı efektleri ve parçası kalmaz
+      pcHeld = '';
+      ev.momentaryFx.emit([]);
+      ev.showClock.emit(ownShow);
+      if (pcSong) { pcSong = null; restoreOwnSong(); }
+    }
     syncAudio();
     emitTarget();
   }
@@ -800,6 +828,20 @@
     if (st !== was && (st === 'connected' || was === 'connected')) { if (st !== 'connected') watching = false; syncAudio(); }
   }
   const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
+  /* PC'de basılı anlık efektler (Canlı özeti `held`) telefonun çizdiği PC sahnesinde de görünür.
+     Yalnız değişince motora gider. */
+  /* Gösteri saati (zaman çizelgesi): PC hedefindeyken PC'nin çıpası; dönünce telefonunki. */
+  let ownShow = null;
+  function applyPcShow(anchor) { if (pc.on) ev.showClock.emit(anchor || null); }
+  let pcHeld = '';
+  function paintPcHeld() {
+    if (!pc.on) return;
+    const list = pc.live && Array.isArray(pc.live.held) ? pc.live.held.map(String) : [];
+    const key = list.join(',');
+    if (key === pcHeld) return;
+    pcHeld = key;
+    ev.momentaryFx.emit(list);
+  }
   function onLinkEvent(m) {
     if (!m || !m.ev) return;
     if (m.ev === 'config') {
@@ -820,6 +862,12 @@
     } else if (m.ev === 'live') {
       pc.live = m.show || null;
       ev.pcLive.emit(pc.live);
+      paintPcHeld();
+    } else if (m.ev === 'song') {
+      applyPcSong(m);
+      if (m.show !== undefined) applyPcShow(m.show);
+    } else if (m.ev === 'clock') {
+      applyPcShow(m.anchor);
     } else if (m.ev === 'meter') {
       pc.meter = m.meter || null;
       ev.pcMeter.emit(pc.meter);
@@ -870,7 +918,26 @@
       if (r && r.ok && r.result && r.result.jpeg && pc.on && previewMode === 'image') ev.pcShot.emit({ src: 'data:image/jpeg;base64,' + r.result.jpeg, width: r.result.width, height: r.result.height });
     });
   }
+  /* PC'deki "Telefonun Sesini Ses Girişi Yap" anahtarı ile bu anahtar aynı şeyi söyler:
+     bağlıyken PC'nin durumu beş saniyede bir okunur (state.get audioIn); PC'de açılınca telefon
+     göndermeye başlar, kapanınca ya da başka telefon seçilince durur. */
+  function followPcAudioIn(ai) {
+    if (!ai || typeof ai !== 'object' || pc.state !== 'connected') return;
+    const want = ai.mine === true;
+    if (want === audioSend || Date.now() - audioLocalAt < 8000) return; // telefondaki değişiklik PC'ye henüz yazılıyor
+    audioSend = want;
+    try { localStorage.setItem(AUDIO_KEY, audioSend ? '1' : '0'); } catch (e) { /* */ }
+    syncAudio();
+    emitTarget();
+  }
+  // Sınama ortamında (vm) zamanlayıcı yok: yalnız gerçek sayfada
+  if (typeof setInterval === 'function') setInterval(() => {
+    if (pc.state !== 'connected' || document.visibilityState === 'hidden' && !audioSend) return;
+    pcAsk('state.get').then((r) => { if (r && r.ok && r.result) followPcAudioIn(r.result.audioIn); }, () => {});
+  }, 5000);
+  let audioLocalAt = 0;
   async function setAudioSend(on) {
+    audioLocalAt = Date.now();
     audioSend = !!on;
     try { localStorage.setItem(AUDIO_KEY, audioSend ? '1' : '0'); } catch (e) { /* */ }
     if (!audioSend && pc.state === 'connected') await pcAsk('audio.bridge', { on: false });
@@ -1217,7 +1284,8 @@
     /* Zaman çizelgesinin gösteri saati çıpası (src/shared/showclock.js). Masaüstünde
        panel `sendShowClock` ile pencerelere yollar; burada motor aynı sayfada, olay
        doğrudan `api.onShowClock` dinleyicisine gider (src/mobile/shell-timeline.js). */
-    showClock: (anchor) => ev.showClock.emit(anchor),
+    // Telefonun kendi gösteri saati; PC hedefindeyken motor PC'nin saatini izler (applyPcShow)
+    showClock: (anchor) => { ownShow = anchor || null; if (!pc.on) ev.showClock.emit(anchor); },
   });
 
   window.SV_PLATFORM = Object.freeze({ os: 'android', isWindows: false, isMac: false, isLinux: false, isAndroid: true });
@@ -1231,7 +1299,8 @@
     onConfig: (cb) => ev.config.add(cb),
     onConfigPatch: (cb) => ev.configPatch.add(cb),
     onShowClock: (cb) => ev.showClock.add(cb),
-    onMomentaryFx: noop, // Android'de anlık efekt yok (D6)
+    // Telefonun kendi kipinde anlık efekt yok (D6); PC hedefindeyken PC'de basılı olanlar (paintPcHeld)
+    onMomentaryFx: (cb) => ev.momentaryFx.add(cb),
     onMediaScrub: (cb) => ev.mediaScrub.add(cb),
     onTbar: noop, // T-bar yok (D6)
     onSharedClock: noop, // yedeklilik oturum saati yalnız masaüstünde

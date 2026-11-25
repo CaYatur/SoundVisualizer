@@ -627,6 +627,12 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .cell:disabled { opacity: .35; }
 #sv-shell .lv-stop { align-self: flex-start; }
 #sv-shell .lv-macros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; flex: none; }
+/* Makro çubuğu: dikey kaydırma sayfaya kalır (pan-y), yatay sürükleme çubuğa */
+#sv-shell .lv-knob-row { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; min-width: 0; }
+#sv-shell .lv-knob-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+#sv-shell .lv-kval { font-size: 13px; color: var(--muted); }
+#sv-shell .tbar.lv-knob { flex: none; height: 36px; border-radius: 12px; touch-action: pan-y; }
+#sv-shell .tbar.lv-knob .tb-fill { border-radius: 12px; }
 #sv-shell .lv-mdrow .ctl-label { flex: none; }
 #sv-shell .lv-md { min-width: 0; color: var(--muted); font-size: 13px; }
 #sv-shell .lv-transport .lv-time { margin-left: auto; font-size: 15px; color: var(--text-strong); }

@@ -65,8 +65,16 @@
      kalır; her değişimde kurmak sürmekte olan sürüklemeyi ve kaydedilen noktaları siliyordu. */
   let knownTl;
   function tlCfg() { return cfg().timeline || {}; }
+  let lastWritten = '';
   function ensureTransport() {
-    if (transport && cfg().timeline !== knownTl) modelDirty = true;
+    if (transport && cfg().timeline !== knownTl) {
+      /* PC hedefinde yazdığımız çizelge PC'den geri yankılanır (yeni nesne, aynı içerik):
+         içerik aynıysa model yeniden kurulmaz (sürükleme ve seçim bozulmasın). */
+      let same = false;
+      if (lastWritten) { try { same = JSON.stringify(cfg().timeline) === lastWritten; } catch (e) { same = false; } }
+      if (same) knownTl = cfg().timeline;
+      else modelDirty = true;
+    }
     if (!transport) { transport = new (TL().Transport)(TL().makeTimeline(tlCfg())); modelDirty = false; knownTl = cfg().timeline; }
     else if (modelDirty) { transport.tl = TL().makeTimeline(tlCfg()); modelDirty = false; knownTl = cfg().timeline; }
     return transport;
@@ -79,6 +87,7 @@
     const next = clone(tlCfg());
     mut(next);
     selfWrite++;
+    try { lastWritten = JSON.stringify(next); } catch (e) { lastWritten = ''; }
     try { A().config.patch({ timeline: next }); } finally { selfWrite--; }
     // Kendi yazımımız: model zaten bu içerikte (yeniden kurulmaz)
     knownTl = cfg().timeline;
@@ -143,6 +152,7 @@
   function headTime() { return syncTransportFromAnchor().time; }
   function reanchor(force) {
     if (!SC() || !A() || !A().showClock) return;
+    if (pcOn()) return; // PC hedefi: saat PC'nin (android-host applyPcShow)
     const t = ensureTransport();
     const hold = TL().holdAfter ? TL().holdAfter(t.tl.markers, t.time) : null;
     anchor = SC().anchorFrom(t, Date.now(), t.tl.loop, hold ? hold.t : null);
@@ -835,7 +845,15 @@
     if (c.type === 'action') { const hit = actionOptions().find((o) => o[0] === c.ref); return hit ? hit[1] : c.ref; }
     return c.ref;
   }
-  function clipLabel(c) { return c.name || clipSourceLabel(c) || tr(TYPE_LABELS[c.type] || c.type) + ' · ' + tr('Boş klip'); }
+  function clipLabel(c) {
+    if (c.name) return c.name;
+    const src = clipSourceLabel(c);
+    if (src) return src;
+    // Kaynağı olmayan ama içeriğini kendinde taşıyan klip (masaüstü clipContentLabel)
+    const loc = c.local && c.local.data;
+    const has = loc && ((Array.isArray(loc.layers) && loc.layers.length > 0) || (c.type === 'palette' && loc.background && loc.background.gradient));
+    return tr(TYPE_LABELS[c.type] || c.type) + ' · ' + tr(has ? 'Klip içeriği' : 'Boş klip');
+  }
   const typeLabel = (t) => tr(TYPE_LABELS[t] || t);
   /* Eylem klipleri: masaüstünün MIDI/OSC eylem listesinden telefonda karşılığı olanlar
      (src/admin/control.js eylemleri; çalışan karşılıkları burada). */

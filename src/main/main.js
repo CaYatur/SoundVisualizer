@@ -1939,6 +1939,7 @@ function bridgeMetaOut(st) {
 function forwardBridgeMeta(st) {
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
+  if (linkNowPlaying) { linkNowPlaying.np = st || null; linkSongPush(); }
   lookupLiveLyrics(st);
   if (typeof streamServer.broadcastNowPlaying === 'function') streamServer.broadcastNowPlaying(st);
 }
@@ -3403,6 +3404,9 @@ ipcMain.on('media-scrub', (e, m) => {
    orada klip yoksa siyah kalıyordu. */
 function broadcastShowClock() {
   if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'show-clock', anchor: showClockAnchor }, 'overlay');
+  /* Telefon PC'nin sahnesini çizerken zaman çizelgesi PC'nin saatiyle aksın: yoksa PC'de oynayan
+     çizelge telefonda durur, telefondan dokunulunca ilerlerdi. */
+  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'clock', anchor: showClockAnchor }); } catch { /* açılışta bağlantı yok */ }
 }
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
@@ -3830,6 +3834,7 @@ function manualLyricsKey(cfg) {
 function publishLyricsClock(anchor) {
   lyricsClockAnchor = anchor;
   sendToVisualizers('lyrics-clock', anchor);
+  linkSongPush();
   notifyAdmin('lyrics-clock', anchor);
   if (streamServer && typeof streamServer.broadcast === 'function') {
     streamServer.broadcast({ type: 'lyrics-clock', anchor });
@@ -4896,7 +4901,14 @@ function phoneLinkService() {
     extra: () => ({ audioIn: phoneAudioStatus() }),
     ops: Object.assign({
       // Bağlantıyı doğrulayan kısa özet
-      'state.get': () => ({
+      'state.get': (args, ctx) => ({
+        /* Telefonun sesi giriş mi (PC'deki anahtar): telefon "PC'ye gönder"i buna göre açar ya
+           da kapatır. mine: bu telefon için (belirli bir telefon seçiliyse yalnız o). */
+        audioIn: (() => {
+          const a = phoneLinkCfg().audioIn;
+          const me = String((ctx && ctx.device && ctx.device.id) || '');
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off' };
+        })(),
         app: app.getVersion(),
         platform: process.platform,
         docVersion: (currentConfig && currentConfig.docVersion) || 0,
@@ -4907,6 +4919,8 @@ function phoneLinkService() {
       // Ayar aynası (B2/B3): telefonun Canlı ve düzenleme sayfaları bunu okur
       'config.get': () => linkConfigSnapshot(),
       'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
+      // Çalan parça, ona uyan sözler ve söz saati (telefon PC'nin sahnesini çizerken)
+      'song.get': () => linkSongState(),
       /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
          ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
       /* Kare 250 ms paylaşılır: gösteri makinesinde ekran yakalama ve JPEG ana süreçte; birden çok
@@ -5287,6 +5301,36 @@ function phoneAudioChanged() {
   // Kapatılınca yerel yakalama kendi "başladı" durumunu yollar
   if (st) notifyAdmin('audio-source-status', { type: st === 'bridge' ? 'phone' : 'phone-lost', state: st, name: phoneAudio.name || '' });
   if (linkSvc) notifyAdmin('phonelink-state', linkSvc.status({ running: !!streamServer.status().phoneLink }));
+}
+/* PARÇA VE SÖZLER → TELEFON. Telefon PC'nin sahnesini kendisi çizerken (akıcı önizleme) söz
+   katmanı ve Şimdi Çalıyor PC'deki gibi görünsün: PC'nin çalan parçası, ona uyan sözler (bulunan
+   ve kitaplıkta adı tutanlar; bütün kitaplık değil) ve söz saati. Kapak büyükse gönderilmez. */
+var linkNowPlaying = { np: null, key: '', timer: 0 };
+function linkSongState() {
+  const np = linkNowPlaying.np || (mediaSession && typeof mediaSession.current === 'function' ? mediaSession.current() : null);
+  const title = String((np && np.title) || '').toLowerCase();
+  let items = [];
+  if (title) {
+    try {
+      items = lyricsSnapshot().filter((it) => it && it.text && (String(it.id || '').startsWith('auto:') || String(it.title || it.name || '').toLowerCase().indexOf(title) >= 0 || title.indexOf(String(it.title || '').toLowerCase() || '\u0000') >= 0)).slice(0, 4);
+    } catch { items = []; }
+  }
+  let art = np && np.artwork;
+  if (typeof art === 'string' && art.length > 300000) art = '';
+  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null };
+}
+function linkSongPush() {
+  try { if (!linkSvc || !linkNowPlaying) return; } catch { return; } // açılışta bağlantı henüz kurulmadıysa
+  if (!linkSvc || linkSvc.sessionCount() === 0) return;
+  clearTimeout(linkNowPlaying.timer);
+  // Aynı anda gelen değişiklikler (parça + söz + saat) tek iletide
+  linkNowPlaying.timer = setTimeout(() => {
+    const s = linkSongState();
+    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round((s.np.position || 0) / 5), s.items.map((i) => i.id + ':' + i.text.length), s.clock]);
+    if (key === linkNowPlaying.key) return;
+    linkNowPlaying.key = key;
+    linkSvc.broadcast(Object.assign({ ev: 'song' }, s));
+  }, 120);
 }
 function phoneAudioStatus() {
   const a = phoneLinkCfg().audioIn;
@@ -8842,6 +8886,7 @@ function syncLyricsLookup() {
 function publishLyricsLib() {
   const items = lyricsSnapshot();
   sendToVisualizers('lyrics-lib', items);
+  linkSongPush();
   notifyAdmin('lyrics-lib', items);
   if (streamServer && typeof streamServer.broadcast === 'function') {
     streamServer.broadcast({ type: 'lyrics-lib', items });
