@@ -977,6 +977,7 @@
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
     if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
     if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
+    if (window.SVTbarHold) window.SVTbarHold.attach(stack);
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
     /* Panelle aynı ekranda açılan tam ekran paneli tamamen örtüyor; "ESC ile çıkış" notu da
        panelin altında kalıyordu. Ana süreç yalnız bu durumda (ve ESC kilitli değilken) kısa bir

@@ -2049,16 +2049,9 @@
        iletiyi hiç almıyor; kaydedilen görüntü değişmiyor. */
     tbar(m) {
       const ph = m && m.phase;
-      if (ph === 'arm') { this._manualArm = nowMs(); this._tbarPending = null; return; }
+      if (ph === 'arm') { this._manualArm = nowMs(); return; }
       const tr = this.trans;
-      /* Telefon sahne ayarından önce parmağı kaldırabiliyor: geçiş henüz yok.
-         Otomatik geçişe (kurulum yok, geçiş çoktan başlamış) dokunulmuyor. */
-      if (!tr || !tr.manual) {
-        if (!tr && (ph === 'move' || ph === 'end' || ph === 'cancel')) {
-          this._tbarPending = { phase: ph, p: Math.max(0, Math.min(1, Number(m.p) || 0)) };
-        }
-        return;
-      }
+      if (!tr || !tr.manual) return;
       if (ph === 'move') tr.manualP = Math.max(0, Math.min(1, Number(m.p) || 0));
       else if (ph === 'end') this.endTransition();
       else if (ph === 'cancel') this.cancelTransition();
@@ -2068,15 +2061,11 @@
        düşüyor. Karartma geçişi elle sürülmez (panik düğmesi her zaman kendi süresinde). */
     _claimManual(blackout) {
       const armed = this._manualArm;
-      const pend = this._tbarPending;
       this._manualArm = 0;
-      this._tbarPending = null;
       if (!armed || blackout || !this.trans) return false;
       if (nowMs() - armed >= MANUAL_ARM_MS) return false;
       this.trans.manual = true;
-      this.trans.manualP = pend && pend.phase === 'move' ? pend.p : 0;
-      if (pend && pend.phase === 'end') this.endTransition();
-      else if (pend && pend.phase === 'cancel') this.cancelTransition();
+      this.trans.manualP = 0;
       return true;
     }
 

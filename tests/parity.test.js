@@ -34,6 +34,7 @@ function scripts(page) {
    nedeni: dışa aktarım çevrimdışı ve kare saatiyle çiziyor. */
 const LIVE_ONLY = {
   'src/visualizer/visualizer.js': 'canlı pencerenin kendisi (dışa aktarıcının yerine exporter.js)',
+  'src/visualizer/tbar-hold.js': 'canlı T-bar parmağı sahne ayarından önce gelebilir; dışa aktarımda parmak yok',
   'src/shared/adaptive-theme.js': 'arayüz teması; çizime girmez',
   'src/shared/icons.js': 'arayüz simgeleri',
   'src/shared/aspect.js': 'pencerenin en-boy oranı; dışa aktarımda çözünürlük seçiliyor',
@@ -53,7 +54,7 @@ test('canlı sayfada çizime giren her betik dışa aktarıcıda ve yayın katma
   const overlay = new Set(scripts('src/web/overlay.html'));
   const missingExp = live.filter((s) => !exp.has(s) && !LIVE_ONLY[s]);
   assert.deepStrictEqual(missingExp, [], 'dışa aktarıcıda eksik');
-  const missingOverlay = live.filter((s) => !overlay.has(s) && s !== 'src/visualizer/visualizer.js');
+  const missingOverlay = live.filter((s) => !overlay.has(s) && s !== 'src/visualizer/visualizer.js' && s !== 'src/visualizer/tbar-hold.js');
   assert.deepStrictEqual(missingOverlay, [], 'yayın katmanında eksik');
   // İstisna listesi bayatlamasın: listedeki her betik canlı sayfada olmalı
   Object.keys(LIVE_ONLY).forEach((s) => assert.ok(live.includes(s), 'istisna artık canlı sayfada yok: ' + s));

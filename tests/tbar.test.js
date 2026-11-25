@@ -91,14 +91,47 @@ test('kurulum tek geçişlik, süresi geçince ve karartmada tutmuyor', () => {
   s.beginTransition({}, SPEC, new Set());
   assert.strictEqual(s._claimManual(false), false, 'süresi geçen kurulum alakasız geçişi yakalamıyor');
   assert.ok(!s.trans.manual);
-  const early = new L.LayerStack(null, {});
-  early.entries = [entry(log, 'early', false)];
-  early.tbar({ phase: 'arm' });
-  early.tbar({ phase: 'move', p: 0.5 });
-  early.tbar({ phase: 'end' });
-  early.beginTransition({}, SPEC, new Set());
-  assert.strictEqual(early._claimManual(false), true, 'parmak geçişten önce kalktı');
-  assert.strictEqual(early.trans, null, 'kurulur kurulmaz biter, yarıda tam görüntü kalmaz');
+  // Parmak geçişten önce kalktı: kuyruk layers.js dışında, küçük resim anahtarı bozulmasın
+  const { attach } = require('../src/visualizer/tbar-hold.js');
+  const held = {
+    trans: null, _manualArm: 0, ended: 0,
+    tbar(m) {
+      const ph = m && m.phase;
+      if (ph === 'arm') { this._manualArm = 1; return; }
+      if (!this.trans || !this.trans.manual) return;
+      if (ph === 'end') this.endTransition();
+    },
+    setConfig() {
+      if (!this._manualArm) return;
+      this.trans = { manual: true, manualP: 0 };
+      this._manualArm = 0;
+    },
+    endTransition() { this.ended += 1; this.trans = null; },
+  };
+  attach(held);
+  held.tbar({ phase: 'arm' });
+  held.tbar({ phase: 'move', p: 0.5 });
+  held.tbar({ phase: 'end' });
+  held.setConfig({});
+  assert.strictEqual(held.ended, 1, 'parmak geçişten önce kalktı');
+  assert.strictEqual(held.trans, null, 'kurulur kurulmaz biter, yarıda tam görüntü kalmaz');
+  const mid = {
+    trans: null, _manualArm: 0,
+    tbar(m) {
+      if (m && m.phase === 'arm') this._manualArm = 1;
+      else if (this.trans && this.trans.manual && m && m.phase === 'move') this.trans.manualP = m.p;
+    },
+    setConfig() {
+      if (!this._manualArm) return;
+      this.trans = { manual: true, manualP: 0 };
+      this._manualArm = 0;
+    },
+  };
+  attach(mid);
+  mid.tbar({ phase: 'arm' });
+  mid.tbar({ phase: 'move', p: 0.5 });
+  mid.setConfig({});
+  assert.strictEqual(mid.trans.manualP, 0.5, 'yarıda varış görüntüsü tam görünmez');
   // Elle sürülmeyen geçişe çubuk iletisi dokunmuyor
   s.tbar({ phase: 'move', p: 0.5 });
   s.tbar({ phase: 'cancel' });
