@@ -50,10 +50,7 @@ object AudioHub {
     /** PC sesinin düzeyi. 1 şimdiki ses, 2 iki kat. Görüntü ve hoparlör aynı örnekleri kullanır. */
     @Volatile
     var pcGain = 1f
-
-    fun setPcGain(v: Float) {
-        pcGain = v.coerceIn(0f, 2f)
-    }
+        set(value) { field = value.coerceIn(0f, 2f) }
 
     private val speakerLock = Any()
     private var speaker: AudioTrack? = null
