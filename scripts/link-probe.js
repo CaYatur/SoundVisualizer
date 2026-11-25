@@ -125,6 +125,8 @@ function phone(port) {
   fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({
     phoneLink: { enabled: true, discoverable: false },
     stream: { enabled: false, port: streamPort },
+    // Dinlenebilir ses sınanırken hoparlörden ses çıkmasın: çalma penceresi paketleri yine sayar
+    bridge: { playVolume: 0, playVolumeSet: true },
   }));
   const env = Object.assign({}, process.env, { SV_LISTEN_LOOPBACK: '1' });
   delete env.ELECTRON_RUN_AS_NODE;
@@ -347,6 +349,13 @@ function phone(port) {
     const shown = await pc.ev('window.api.nowPlayingCurrent ? window.api.nowPlayingCurrent() : null');
     if (shown) check('PC\'nin çalan parçası telefonunki (kapak dahil)', shown.title === 'Telefon Şarkısı' && shown.artist === 'Telefon Sanatçısı' && shown.artwork === art, { title: shown.title, artist: shown.artist, art: !!shown.artwork });
     else console.log('NOTE panelden çalan parça okunamadı (nowPlayingCurrent yok)');
+    // PC hoparlöründen de çal (ses düzeyi 0): ses köprüsünün çalma penceresi telefonun paketlerini alır
+    await pc.ev('(() => { const c = window.SVPanel.cfg(); c.phoneLink.audioIn.play = true; window.SVPanel.push(true); return 1; })()');
+    await wait(1500);
+    await sendTone(1500);
+    const pl = (await pc.ev('window.api.bridgeStatus()')).player;
+    check('PC hoparlöründen çalma: pencere telefonun sesini alıyor', !!pl && pl.chunks > 10, pl);
+    await pc.ev('(() => { const c = window.SVPanel.cfg(); c.phoneLink.audioIn.play = false; window.SVPanel.push(true); return 1; })()');
     await wait(1200);
     as = await aState();
     check('telefon susunca yerel girişe döndü', as.state === 'fallback', as.state);
