@@ -26,7 +26,7 @@
   if (String(env.page || '').indexOf('src/visualizer/') !== 0) return;
 
   const SOURCE_NAMES = {
-    capture: 'Sistem sesi', mic: 'Mikrofon', visualizer: 'Çıkış karışımı', player: 'Çalar',
+    capture: 'Sistem sesi', mic: 'Mikrofon', visualizer: 'Çıkış karışımı', player: 'Çalar', pc: 'PC sesi',
   };
   const TABS = [
     { id: 'scene', icon: 'image', label: 'Sahne' },

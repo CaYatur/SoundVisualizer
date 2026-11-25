@@ -63,7 +63,13 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "linkAuto" -> { com.cayadev.visualizer.link.PcLink.setAuto(args.optString("pc"), args.optBoolean("on")); reply.ok() }
             // Telefonun sesi PC'ye (B4) ve sayfanın yalnız PC'nin sesini alması (B5)
             "linkAudioSend" -> { com.cayadev.visualizer.link.PcLink.sendAudio = args.optBoolean("on"); reply.ok(com.cayadev.visualizer.link.PcLink.audioStats()) }
-            "linkAudioWatch" -> { AudioHub.pcAudio = args.optBoolean("on"); reply.ok() }
+            "linkAudioWatch" -> {
+                val on = args.optBoolean("on")
+                AudioHub.pcAudio = on
+                if (!on) AudioHub.setPlayPc(false)
+                reply.ok()
+            }
+            "linkAudioPlay" -> { AudioHub.setPlayPc(args.optBoolean("on") && AudioHub.pcAudio); reply.ok() }
             // PC'ye dosya (B6): seç, gönder (ilerleme `linkUpload` olayı), iptal
             "linkPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }
