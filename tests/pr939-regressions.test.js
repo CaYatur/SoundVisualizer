@@ -91,7 +91,14 @@ test('canlı söz normal parça değişiminde de aranıyor; ayar değişince yen
   assert.match(shell, /PC sesini telefonda çal/);
   assert.match(read('src/mobile/shell.js'), /pc: 'PC sesi'/);
   assert.match(read('src/mobile/android-host.js'), /wantsPcSong/);
+  assert.match(read('src/mobile/android-host.js'), /rememberPcLyrics\(m\)/, 'telefonda açılan parçanın sözü PC kitaplığından gelsin');
+  assert.match(read('src/mobile/android-host.js'), /presets\.user/, 'PC kullanıcı presetleri istensin');
+  assert.match(read('src/mobile/shell-audio.js'), /PC\\'ye giden ses/);
+  assert.match(read('src/mobile/shell-audio.js'), /Telefona gelen PC sesi/);
+  assert.match(read('src/shared/presets.js'), /function setSession/);
   assert.match(read('src/mobile/android-host.js'), /source: 'pc', state: 'running'/);
+  assert.match(read('src/mobile/android-host.js'), /state\.source = 'pc'/, 'PC sesi demo karenin üstüne binmesin');
+  assert.match(read('src/mobile/android-host.js'), /needArt/, 'kapak küçülmeden gitti sayılmasın');
   assert.match(m.slice(m.indexOf('function applyIncomingConfig'), m.indexOf('function applyIncomingConfig') + 4000), /syncLyricsLookup\(\)/);
   const sync = m.slice(m.indexOf('function syncLyricsLookup'), m.indexOf('function publishLyricsLib'));
   assert.match(sync, /lyricsAutoItem = null/, 'kapatılınca bulunan söz kalkmalı');

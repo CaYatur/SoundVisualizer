@@ -417,12 +417,36 @@
   function lockShow() {
     const root = document.getElementById('sv-shell');
     if (!root || root.querySelector('.lv-lock')) return;
-    const slide = h('input', { type: 'range', min: '0', max: '100', value: '0', 'aria-label': 'Kilidi açmak için kaydırın' });
-    const box = h('div', { class: 'lv-lock' }, [h('div', { class: 'lv-lock-card glass' }, [icon('lock'), h('span', { text: 'Kilidi açmak için kaydırın' }), slide])]);
-    const reset = () => { if (+slide.value < 96) slide.value = '0'; };
-    slide.addEventListener('input', () => { if (+slide.value >= 96) box.remove(); });
-    slide.addEventListener('change', reset);
-    slide.addEventListener('pointerup', reset);
+    const fill = h('i', { class: 'lv-lock-fill' });
+    const knob = h('i', { class: 'lv-lock-knob' });
+    const track = h('div', { class: 'lv-lock-track', role: 'slider', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0', 'aria-label': 'Kilidi açmak için kaydırın' }, [fill, knob]);
+    const box = h('div', { class: 'lv-lock live' }, [h('div', { class: 'lv-lock-card glass' }, [icon('lock'), h('span', { text: 'Kilidi açmak için kaydırın' }), track])]);
+    let val = 0;
+    let drag = false;
+    const set = (p) => {
+      val = Math.max(0, Math.min(1, p));
+      fill.style.width = (val * 100) + '%';
+      knob.style.left = 'calc(' + (val * 100) + '% - ' + (val * 36) + 'px)';
+      track.setAttribute('aria-valuenow', String(Math.round(val * 100)));
+      if (val >= 0.92) box.remove();
+    };
+    track.addEventListener('pointerdown', (e) => {
+      drag = true;
+      try { track.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+      const r = track.getBoundingClientRect();
+      set((e.clientX - r.left) / (r.width || 1));
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    track.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const r = track.getBoundingClientRect();
+      set((e.clientX - r.left) / (r.width || 1));
+    });
+    const end = () => { drag = false; if (val < 0.92) set(0); };
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    box.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); });
     root.appendChild(box);
   }
 

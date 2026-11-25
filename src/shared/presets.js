@@ -262,6 +262,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     userSet = true;
   }
 
+  /* PC bağlantısı sürerken PC'deki kullanıcı presetleri. Telefona yazılmaz.
+     setUser telefonun kendi listesini yenilese de bunlar kalır; kopunca boşalır. */
+  let sessionPresets = [];
+  function setSession(list) {
+    sessionPresets = (Array.isArray(list) ? list : []).filter((p) => p && p.id).map(normalize);
+  }
+
   /* LİSTE SIRASI (#574): son değişen önce, eşitlikte kimlik. Ana süreçteki
      depo (main/presets-store.js `compare`) aynı kuralla sıralıyor; değişiklik
      yayını uygulanınca iki taraf aynı sırada kalıyor — sıralı otomatik geçiş
@@ -284,14 +291,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     const d = delta || {};
     const drop = new Set((Array.isArray(d.remove) ? d.remove : []).map(String));
     const up = (Array.isArray(d.upsert) ? d.upsert : [])
-      .filter((p) => p && typeof p === 'object' && p.id)
+      .filter((p) => p && typeof p === 'object' && p.id && !p.fromPc)
       .map(normalize);
     for (const p of up) drop.add(String(p.id));
     const kept = drop.size ? userPresets.filter((p) => !drop.has(String(p.id))) : userPresets;
     userPresets = kept.concat(up).sort(compare);
   }
   function all() {
-    return BUILTIN_LIST.concat(userPresets);
+    const drop = new Set(sessionPresets.map((p) => String(p.id)));
+    const mine = drop.size ? userPresets.filter((p) => !drop.has(String(p.id))) : userPresets;
+    return sessionPresets.concat(BUILTIN_LIST).concat(mine);
   }
   function get(id) {
     if (!id) return null;
@@ -610,6 +619,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     normalize,
     newId,
     setUser,
+    setSession,
     all,
     get,
     byKind,

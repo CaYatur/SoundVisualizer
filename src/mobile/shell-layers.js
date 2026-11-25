@@ -464,7 +464,7 @@
   function pickRef(ctx, type, options, value) {
     const palettes = () => ((window.SV && window.SV.GRADIENT_PRESETS) || []).concat(cfg().userPresets || []);
     const art = (id) => {
-      if (type === 'visualizer') return modeArt('visualizer', id);
+      if (type === 'visualizer' || type === 'background') return modeArt(type, id);
       if (type === 'scene') {
         let src = '';
         try { src = localStorage.getItem('sv-scene-thumb:' + id) || ''; } catch (e) { src = ''; }

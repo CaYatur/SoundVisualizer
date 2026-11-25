@@ -70,6 +70,8 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 reply.ok()
             }
             "linkAudioPlay" -> { AudioHub.enableSpeaker(args.optBoolean("on") && AudioHub.pcAudio); reply.ok() }
+            "linkAudioGain" -> { AudioHub.pcGain = com.cayadev.visualizer.audio.PcmGain.clamp(args.optDouble("gain", 1.0)); reply.ok() }
+            "linkAudioMode" -> { com.cayadev.visualizer.link.PcLink.lossless = args.optBoolean("lossless", false); reply.ok() }
             // PC'ye dosya (B6): seç, gönder (ilerleme `linkUpload` olayı), iptal
             "linkPick" -> {
                 if (live == null) { reply.fail("no-activity"); return }

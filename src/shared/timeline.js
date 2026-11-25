@@ -260,7 +260,7 @@
   // ==========================================================================
   // Klip ve parça
   // ==========================================================================
-  const CLIP_TYPES = ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'];
+  const CLIP_TYPES = ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'];
 
   function makeClip(spec) {
     const s = spec || {};
@@ -818,12 +818,14 @@
     const active = activeClipsAt(tl, t);
     let pal = null;
     let vis = null;
+    let bgClip = null;
     for (const e of active) {
       if (!e || !e.clip || isSceneClip(e.clip)) continue;
       if (e.clip.type === 'palette' && e.clip.ref) pal = e.clip;
       else if (e.clip.type === 'visualizer' && e.clip.ref) vis = e.clip;
+      else if (e.clip.type === 'background' && e.clip.ref) bgClip = e.clip;
     }
-    if (!pal && !vis) return { cfg: cfg, applied: false };
+    if (!pal && !vis && !bgClip) return { cfg: cfg, applied: false };
     let next = svClone(cfg);
     let applied = false;
     if (pal) {
@@ -844,6 +846,15 @@
       const target = layers && layers.find((l) => !skip(l));
       if (target) { target.type = vis.ref; applied = true; }
       else if (next.visualizer) { next.visualizer.type = vis.ref; applied = true; }
+    }
+    if (bgClip) {
+      const layers = Array.isArray(next.layers) ? next.layers : null;
+      const target = layers && layers.find((l) => l && l.kind === 'background' && !l.locked && l.enabled !== false);
+      if (target) { target.type = bgClip.ref; applied = true; }
+      else if (layers) {
+        layers.push({ id: 'tlbg_' + bgClip.id, name: 'Arkaplan', kind: 'background', type: bgClip.ref, enabled: true, opacity: 1 });
+        applied = true;
+      } else if (next.background) { next.background.type = bgClip.ref; applied = true; }
     }
     return { cfg: next, applied: applied };
   }

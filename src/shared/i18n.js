@@ -90,7 +90,14 @@
     'Telefon susunca PC kendi sesine döner': 'When the phone is silent, the PC returns to its own audio',
     'Bu ayarlar PC\'deki Telefon Bağlantısı kartıyla aynıdır. Hoparlör, PC susunca yerel sese dönüş ve görüntünün sesi beklemesi.': 'These are the same settings as the Phone Link card on the PC: the speakers, falling back to local audio when the phone is silent, and holding the picture for the audio.',
     'PC sesini telefonda çal': 'Play the PC audio on the phone',
-    'PC\'de çalan ses telefonun hoparlöründen de duyulur. Kapalıyken görüntü yine bu sese göre çizilir; demo ses kullanılmaz.': 'The audio playing on the PC is also heard from the phone speaker. When this is off, the picture still follows that audio; demo audio is not used.',
+    'Kayıpsız aktarım': 'Lossless transfer',
+    'Gecikme ile eşitle': 'Match the delay',
+    'Kayıpsız aktarım paket atmaz; gecikme biraz artar. Kapalıyken hızlı yol durur.': 'Lossless transfer does not drop packets, so the delay grows a little. Off keeps the fast path.',
+    'Görüntü, söz ve şarkı saati bu gecikme kadar geriden gelir; iki taraf aynı anda ilerler.': 'The picture, lyrics and song clock lag by this delay, so both sides stay together.',
+    'PC\'ye giden ses': 'Audio sent to the PC',
+    'Telefona gelen PC sesi': 'PC audio on the phone',
+    'Bu ayarlar PC\'deki Telefon Bağlantısı kartıyla aynıdır. Hoparlör, PC susunca yerel sese dönüş ve görüntünün sesi beklemesi. Ses düzeyi %100 normaldir, %200e kadar yükselir.': 'These are the same settings as the Phone Link card on the PC: the speakers, falling back to local audio when the phone is silent, and holding the picture for the audio. 100% is the current level, and it can be raised to 200%.',
+    'PC\'de çalan ses telefonun hoparlöründen de duyulur. Kapalıyken görüntü yine bu sese göre çizilir; demo ses kullanılmaz. Ses düzeyi görüntüyü ve hoparlörü birlikte yükseltir.': 'The audio playing on the PC is also heard from the phone speaker. When this is off, the picture still follows that audio; demo audio is not used. The level raises the picture and the speaker together.',
     'Ses PC\'den geliyor. Telefon demo ses kullanmıyor.': 'Audio is coming from the PC. The phone is not using demo audio.',
     'Preset okunamadı.': 'The preset could not be read.',
     'Ad, yazar ya da #etiket': 'Name, author or #tag',
@@ -896,6 +903,7 @@
     'Yakalama ızgarası (ölçü/vuruş veya 1 sn / 0,5 sn). Sürüklerken Alt yakalamayı askıya alır; Kapalı serbest yerleştirir. Cetvel biriminden bağımsızdır.':
       'Snap grid (bar/beat or 1 s / 0.5 s). Hold Alt while dragging to suspend snap; Off places freely. Independent of the ruler unit.',
     'Görselleştirici listesi yüklenemedi.': 'Visualizer list could not be loaded.',
+    'Arkaplan listesi yüklenemedi.': 'Background list could not be loaded.',
 
     'Bu klip sahneye başvurur; katmanlar ve efektler Sahne sayfasında düzenlenir.':
       'This clip references a scene; layers and effects are edited on the Scene page.',
@@ -905,6 +913,8 @@
       'This clip references a color preset; custom colors live in the Colors section.',
     'Bu klip görselleştirici kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.':
       'This clip references a visualizer mode; mode settings are edited on Scene layers.',
+    'Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.':
+      'This clip references a background mode; mode settings are edited on Scene layers.',
     'Sahneyi aç': 'Open scene',
     'Sahne sayfasına geç ve bu sahneyi uygula': 'Go to the Scene page and apply this scene',
     'Kaynak düzeni': 'Edit source',

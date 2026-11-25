@@ -1118,7 +1118,7 @@
       action: sp('string', 'What to do.', { enum: ['add', 'update', 'remove', 'split'] }),
       trackId: sp('string', 'Clip track id.'), clipId: sp('string', 'Clip id (update, remove, split).'),
       at: sp('number', 'split: time in seconds inside the clip.', { minimum: 0 }),
-      type: sp('string', 'Clip type.', { enum: ['scene', 'preset', 'palette', 'visualizer', 'video', 'image', 'shader', 'action'] }),
+      type: sp('string', 'Clip type.', { enum: ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'] }),
       ref: sp('string', 'What the clip plays: scene id, preset id, palette id, mode id, file or action.'),
       target: sp('string', 'Layer or surface for video, image and shader clips.'),
       name: sp('string', 'Clip name.'), start: sp('number', 'Start, seconds.', { minimum: 0 }), dur: sp('number', 'Length, seconds.', { minimum: 0.001 }),

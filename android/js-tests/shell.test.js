@@ -116,6 +116,26 @@ test('kabuk uygulamada sunucudan ve temalardan sonra yükleniyor, yalnız görse
   assert.ok(css.includes("url('../admin/fonts/Geist-Variable.woff2')"));
 });
 
+test('hedef menüsü, kilit ve kayıpsız ses gerilemesin', () => {
+  assert.match(js, /class: 'pc-banner glass live'/);
+  assert.match(js, /P\.preview\(m\)/);
+  assert.doesNotMatch(js, /T\.preview\(/);
+  assert.match(read('src/mobile/shell-live.js'), /class: 'lv-lock live'/);
+  assert.doesNotMatch(read('src/mobile/shell-pcmanage.js'), /PC'nin MilkDrop kitaplığı/);
+  assert.match(read('src/mobile/shell-audio.js'), /Kayıpsız aktarım/);
+  assert.match(read('src/mobile/android-host.js'), /syncLagMs/);
+  assert.match(read('src/mobile/android-host.js'), /state\.source = 'pc'/);
+  assert.match(read('src/mobile/android-host.js'), /!\(pc\.on && previewMode !== 'smooth'\)/);
+  assert.match(read('src/mobile/android-host.js'), /needArt/);
+  assert.match(read('src/mobile/android-host.js'), /prevNp\.artwork/);
+  assert.match(read('src/mobile/shell-pcmanage.js'), /selected: next\.slice\(\)/);
+  assert.match(read('src/mobile/shell-timeline.js'), /background: 'Arkaplan'/);
+  assert.match(read('src/mobile/shell-timeline-forms.js'), /type === 'background'/);
+  assert.match(read('src/shared/timeline-compose.js'), /kind: 'background', type: clip\.ref/);
+  assert.match(read('src/visualizer/index.html'), /user-scalable=no/);
+  assert.match(css, /#sv-shell \.hud\.tight \.target-chip/);
+});
+
 test('kabuk ekran koruyucusunun üstünde (motorun örtüsü z-index 2147483000)', () => {
   const vis = read('src/visualizer/visualizer.js');
   const saver = Number(/z-index:(\d+);pointer-events:none;background:#000/.exec(vis)[1]);

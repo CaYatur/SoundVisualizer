@@ -464,6 +464,14 @@
   const SECTIONS = [['templates', 'Şablonlar'], ['milkdrop', 'MilkDrop'], ['shader', 'Shader'], ['scenes', 'Sahneler'], ['lyrics', 'Sözler'], ['media', 'Medya']];
   /* Taslakta tam ekran sayfaydı; preset ve şablon seçerken sonucu görmek için sahnenin
      üstü açık kalan uzun sayfa (dokununca değişen görüntü hemen izlenir). */
+  let libCtx = null;
+  function watchPcPresets() {
+    if (watchPcPresets.done || !window.api || typeof window.api.onPresetsDelta !== 'function') return;
+    watchPcPresets.done = true;
+    window.api.onPresetsDelta(() => {
+      if (libCtx && (section === 'milkdrop' || section === 'shader')) libCtx.refresh();
+    });
+  }
   const page = {
     size: 'tall',
     title: 'Kitaplık',
@@ -471,6 +479,8 @@
       slot.appendChild(h('button', { class: 'btn', onclick: () => { if (window.SVShellSettings) window.SVShellSettings.startImport(ctx); } }, [icon('upload'), 'İçe aktar']));
     },
     render(body, ctx) {
+      libCtx = ctx;
+      watchPcPresets();
       // Beş bölüm dar ekrana parçalı seçimle sığmıyordu ("Templa…"): kayan sekmeler
       body.appendChild(window.SVShellUI.tabs(SECTIONS, section, (id) => { section = id; query = ''; shown = PAGE_SIZE; ctx.refresh(); }));
       if (window.SVShellSettings) { const st = window.SVShellSettings.importStatus(); if (st) body.appendChild(st); }

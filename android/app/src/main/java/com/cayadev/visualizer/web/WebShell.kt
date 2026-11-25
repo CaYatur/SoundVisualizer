@@ -95,6 +95,7 @@ object WebShell {
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
+            textZoom = 100
         }
 
         web.webViewClient = object : WebViewClientCompat() {
@@ -168,6 +169,7 @@ object WebShell {
         // PC bağlantısının uzak ayar deposu (android-host.js hedef PC iken kullanır)
         "web/src/shared/json-delta.js",
         "web/src/mobile/pc-remote.js",
+        "web/src/shared/link-phone.js",
         "web/src/mobile/android-host.js",
         "web/src/shared/ui-themes.js",
         "web/src/shared/mode-catalog.js",
