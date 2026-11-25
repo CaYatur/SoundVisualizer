@@ -1877,6 +1877,24 @@
     'Telefondan Yapılan Değişiklikleri Bildir': 'Notify Me of Changes Made from the Phone',
     'Görüntü Gecikmesi': 'Video Delay',
     'PC Hoparlöründen de Çal': 'Also Play on the PC Speakers',
+    'Basma gücü': 'Velocity',
+    'Geri Oynat': 'Play in Reverse',
+    'Kare Gecikmesi': 'Frame Delay',
+    'Yazı Yolu': 'Text Path',
+    'Düz Satır': 'Straight Line',
+    'Yay': 'Arc',
+    'Yay Açıklığı': 'Arc Spread',
+    'Dalga Yüksekliği': 'Wave Height',
+    'Yolda Dönüş': 'Spin Along Path',
+    'Sırala': 'Sort',
+    'Liste sırası': 'List order',
+    'Son kullanılan': 'Recently used',
+    'Değiştirme Ölçüsü': 'Change Amount',
+    'Sahneyi Değiştir': 'Change the Scene',
+    'Şu anki sahnenin ayarlarını seçilen ölçüde rastgele oynatır': 'Randomly moves the current scene\'s settings by the chosen amount',
+    'Değiştirilecek bir ayar bulunamadı.': 'No setting was found to change.',
+    'Arkaplan, görselleştirici, geri besleme ve 3B ayarları aralıkları içinde oynar; renklerin tonu birlikte döner. Mod türü, ses, yazı, logo ve çıkış ayarları değişmez.': 'Background, visualizer, feedback and 3D settings move within their ranges; the colors turn together. The mode type, audio, text, logo and output settings stay.',
+    'Notanın basma gücü (hız) değeri belirler; kapalıyken basılı = en yüksek, bırakılmış = en düşük.': 'The note\'s velocity sets the value; when off, pressed = maximum, released = minimum.',
     'Telefon ayarları değiştirdi.': 'The phone changed the settings.',
     'Ses telefondan': 'Audio from the phone',
     'Telefon sessiz: yerel giriş kullanılıyor': 'Phone is quiet: using the local input',
@@ -4960,6 +4978,9 @@
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
       // ISF içe aktarma notu (#759): giriş adı dosyadan geliyor
       .replace(/^"(.+)" görsel girişi medya katmanına bağlandı\.$/, '"$1" image input is bound to the media layer.')
+      // ISF ses girişleri (#404)
+      .replace(/^"(.+)" dalga formu girişi uygulamanın sesine bağlandı \(değer \.r kanalında\)\.$/, '"$1" waveform input is bound to the app\'s audio (value in the .r channel).')
+      .replace(/^"(.+)" spektrum girişi uygulamanın sesine bağlandı \(değer \.r kanalında\)\.$/, '"$1" spectrum input is bound to the app\'s audio (value in the .r channel).')
       .replace(/^Uygulama başına ses yakalama için ([a-z, ]+) gerekiyor; pulseaudio-utils paketini kurun\.$/g,
         'Per-application audio capture needs $1; install the pulseaudio-utils package.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
