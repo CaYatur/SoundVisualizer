@@ -47,7 +47,7 @@
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), momentaryFx: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
-    texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(),
+    texturesChanged: listeners(), mediaScrub: listeners(), exitHint: listeners(), tbar: listeners(),
     silence: listeners(), audioStatus: listeners(), memory: listeners(), player: listeners(),
     insets: listeners(), back: listeners(), chrome: listeners(), meter: listeners(), lowPower: listeners(),
   };
@@ -1181,6 +1181,8 @@
       preview: (mode) => setPreview(mode),
       /** "Gerçek görüntü" karesi: { src, width, height } ya da null */
       onShot: (cb) => ev.pcShot.add(cb),
+      /** Telefonun kendi çizimi PC'nin T-bar karışımını izlesin (arm / move / end / cancel). */
+      tbarLocal: (m) => { if (m && m.phase) ev.tbar.emit(m); },
       /** Hedef "Bu telefon"ken telefonun sahnesi PC'nin sesiyle sürülsün mü */
       usePcAudio: (on) => { usePcAudio = !!on; try { localStorage.setItem('sv-link-pc-audio', usePcAudio ? '1' : '0'); } catch (e) { /* */ } syncAudio(); emitTarget(); return targetInfo(); },
       /** Telefonun son PC değişikliğini geri al (en çok 20) */
@@ -1355,7 +1357,7 @@
     // Telefonun kendi kipinde anlık efekt yok (D6); PC hedefindeyken PC'de basılı olanlar (paintPcHeld)
     onMomentaryFx: (cb) => ev.momentaryFx.add(cb),
     onMediaScrub: (cb) => ev.mediaScrub.add(cb),
-    onTbar: noop, // T-bar yok (D6)
+    onTbar: (cb) => ev.tbar.add(cb),
     onSharedClock: noop, // yedeklilik oturum saati yalnız masaüstünde
     getSharedClock: () => resolved(null),
     onLyricsClock: (cb) => ev.lyricsClock.add(cb),

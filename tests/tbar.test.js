@@ -91,6 +91,14 @@ test('kurulum tek geçişlik, süresi geçince ve karartmada tutmuyor', () => {
   s.beginTransition({}, SPEC, new Set());
   assert.strictEqual(s._claimManual(false), false, 'süresi geçen kurulum alakasız geçişi yakalamıyor');
   assert.ok(!s.trans.manual);
+  const early = new L.LayerStack(null, {});
+  early.entries = [entry(log, 'early', false)];
+  early.tbar({ phase: 'arm' });
+  early.tbar({ phase: 'move', p: 0.5 });
+  early.tbar({ phase: 'end' });
+  early.beginTransition({}, SPEC, new Set());
+  assert.strictEqual(early._claimManual(false), true, 'parmak geçişten önce kalktı');
+  assert.strictEqual(early.trans, null, 'kurulur kurulmaz biter, yarıda tam görüntü kalmaz');
   // Elle sürülmeyen geçişe çubuk iletisi dokunmuyor
   s.tbar({ phase: 'move', p: 0.5 });
   s.tbar({ phase: 'cancel' });
