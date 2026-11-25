@@ -28,6 +28,8 @@ const D = require('./lib/device.js');
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };
 const CDP = arg('cdp', '9341');
 const PORT = arg('port', '8741');
+// --soak=600: PC hedefi, akıcı önizleme ve Canlı sekmesi açıkken N saniye dayanıklılık turu
+const SOAK = Number(arg('soak', '0'));
 const root = path.join(__dirname, '..', '..');
 let bad = 0;
 const check = (n, ok, d) => { if (!ok) bad++; console.log((ok ? 'OK   ' : 'FAIL ') + n + '  ' + JSON.stringify(d === undefined ? '' : d).slice(0, 300)); };
@@ -236,6 +238,54 @@ async function desktop() {
   check('PC\'ye gönder kapandı', ai.enabled === false, ai);
   await ev(`window.SVAndroid.audio.stop ? window.SVAndroid.audio.stop() : window.__svHost.audioStop()`);
 
+  // ---- Dayanıklılık (--soak): sürekli canlı işlem, PC'de ayar değişikliği; bellek, WebGL bağlamı,
+  // bağlantı ve olay sırası düzenli örneklenir. Sızıntı ya da kopma olursa hata.
+  if (SOAK > 0) {
+    await ev(`window.SVAndroid.target.set('pc')`);
+    await ev(`window.SVAndroid.pc.preview('smooth')`);
+    await ev(`(() => { document.querySelector('#sv-shell .nav [data-tab="live"]').click(); return 1; })()`);
+    const memOf = () => {
+      try {
+        const out = D.adb(['shell', 'dumpsys', 'meminfo', D.PKG]).toString();
+        const m = /TOTAL PSS:\s*(\d+)/.exec(out) || /TOTAL\s+(\d+)/.exec(out);
+        return m ? Math.round(Number(m[1]) / 1024) : 0;
+      } catch (e) { return 0; }
+    };
+    const sample = async () => Object.assign(await ev(`(() => ({ heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 0, gl: (window.__svHost.glContexts() || {}).active, link: window.SVAndroid.target.get().state, rev: window.SVAndroid.pc.debug().rev, dom: document.getElementsByTagName('*').length }))()`), { pssMB: memOf() });
+    const series = [await sample()];
+    const t0 = Date.now();
+    let ops = 0;
+    let errs = 0;
+    const scenesNow = await pc.ev('window.SVPanel.scenes().map((s) => s.id)');
+    while (Date.now() - t0 < SOAK * 1000) {
+      const k = ops % 6;
+      const r = await ev(`(async () => { const P = window.SVAndroid.pc; const k = ${k}; const ids = ${JSON.stringify(scenesNow)};
+        if (k === 0) return P.request('scene.apply', { id: ids[Math.floor(Math.random() * ids.length)] });
+        if (k === 1) return P.request('tbar', { v: Math.random() });
+        if (k === 2) { await P.hold(['flash']); await new Promise((x) => setTimeout(x, 300)); return P.hold([]); }
+        if (k === 3) return P.request('macro.set', { i: 0, v: Math.random() });
+        if (k === 4) return P.request('blackout', { on: false });
+        const c = window.SVAndroid.config.get(); window.SVAndroid.config.set(Object.assign({}, c, { master: 0.5 + Math.random() / 2 })); return { ok: true };
+      })()`);
+      if (r && r.ok === false && r.error !== 'rate') errs++;
+      ops++;
+      if (ops % 25 === 0) await pc.ev(`(() => { const c = window.SVPanel.cfg(); c.master = 1; window.SVPanel.push(true); return 1; })()`);
+      if (ops % 60 === 0) series.push(await sample());
+      await sleep(250);
+    }
+    series.push(await sample());
+    console.log('     dayanıklılık:', SOAK + ' sn, ' + ops + ' işlem, ' + errs + ' hata;', JSON.stringify(series));
+    const first = series[1] || series[0];
+    const last = series[series.length - 1];
+    check('dayanıklılık: bağlantı koptu mu', series.every((x) => x.link === 'connected'), series.map((x) => x.link));
+    check('dayanıklılık: işlem hatası yok', errs === 0, errs);
+    check('dayanıklılık: WebGL bağlamı birikmiyor', last.gl <= first.gl + 1, series.map((x) => x.gl));
+    check('dayanıklılık: JS yığını büyümüyor (+%50 altı)', !first.heap || last.heap <= first.heap * 1.5 + 8, series.map((x) => x.heap));
+    check('dayanıklılık: DOM öğesi birikmiyor', last.dom <= first.dom * 1.2 + 50, series.map((x) => x.dom));
+    check('dayanıklılık: uygulama belleği büyümüyor (+%40 altı)', !first.pssMB || last.pssMB <= first.pssMB * 1.4, series.map((x) => x.pssMB));
+    await ev('window.SVShell.close && window.SVShell.close()');
+  }
+
   // ---- Plan §4.4: telefon PC'nin tanımadığı ve masaüstüne özgü katmanlarına dokunmaz
   await pc.ev(`(() => { const c = window.SVPanel.cfg();
     c.layers = (c.layers || []).concat([
@@ -253,7 +303,9 @@ async function desktop() {
   await ev(`(() => { window.SVShell.open('layers'); return 1; })()`);
   await sleep(1200);
   // Telefonun gerçek katman düzenleyicisi: bir görselleştirici katmanını gizle (göz düğmesi)
-  const visId = await pc.ev(`(window.SVPanel.cfg().layers.find((l) => l.kind === 'visualizer' && !/^l_probe_/.test(l.id) && !l.locked) || {}).id || ''`);
+  // Telefonda gerçekten satırı olan (grup içinde olmayan) bir görselleştirici katmanı seç
+  const rowIds = await ev(`[...document.querySelectorAll('#sv-shell .row[data-id]')].map((r) => r.dataset.id)`);
+  const visId = await pc.ev(`(window.SVPanel.cfg().layers.find((l) => l.kind === 'visualizer' && !/^l_probe_/.test(l.id) && !l.locked && ${JSON.stringify(rowIds)}.indexOf(l.id) >= 0) || {}).id || ''`);
   const was = await pc.ev(`(window.SVPanel.cfg().layers.find((l) => l.id === ${JSON.stringify(visId)}) || {}).enabled !== false`);
   const clicked = await ev(`(() => { const row = document.querySelector('#sv-shell .row[data-id=' + JSON.stringify(${JSON.stringify(visId)}) + ']'); const b = row && row.querySelector('.iconbtn'); if (!b) return false; b.click(); return true; })()`);
   check('katman düzenleyicisi PC katmanını gösteriyor ve göz düğmesi çalışıyor', clicked, visId);
