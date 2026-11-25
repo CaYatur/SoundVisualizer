@@ -20,6 +20,51 @@
   let prompt = '';
   let seed = 1;
   let lastResult = null;
+  // Sahneyi değiştirme (#447): ölçü ve son değişikliğin geri alma kaydı
+  let mutateAmount = 0.25;
+  let lastMutation = null;
+
+  /* Katman yığını açıkken ekrandaki değer ilk canlı katmanın kopyası (layers.js
+     effectivePath); genel alan eskimiş olabilir. Okuma oradan, yazma ikisine birden
+     (denetim eşlemeleriyle aynı: control.js applyMappingManual). Kilitli katmana dokunulmaz:
+     kullanıcı onu sabitledi. */
+  const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const copy = (v) => (Array.isArray(v) ? v.slice() : v);
+  function effOf(cfg, path) {
+    const L = window.SVLayers;
+    return L && L.effectivePath ? L.effectivePath(cfg, path) : path;
+  }
+  function lockedAt(cfg, eff) {
+    const k = String(eff).split('.');
+    return k[0] === 'layers' && !!(cfg.layers && cfg.layers[Number(k[1])] && cfg.layers[Number(k[1])].locked);
+  }
+  function mutateScene() {
+    const M = window.SVSceneMutate;
+    if (!M || !window.SVSchema) return;
+    const cfg = P().cfg();
+    const read = (p) => { const e = effOf(cfg, p); return lockedAt(cfg, e) ? undefined : getPath(cfg, e); };
+    const r = M.mutate(cfg, mutateAmount, (Math.random() * 1e9) | 0, window.SVSchema, read);
+    if (!r.changes.length) { P().toast('Değiştirilecek bir ayar bulunamadı.', 'warn'); return; }
+    // Geri alma: yazılan her yolun (genel ve katman) kendi önceki değeri
+    const undo = [];
+    for (const c of r.changes) {
+      const eff = effOf(cfg, c.path);
+      for (const p of eff !== c.path ? [c.path, eff] : [c.path]) {
+        undo.push({ path: p, value: copy(getPath(cfg, p)) });
+        P().set(p, copy(c.to));
+      }
+    }
+    lastMutation = undo;
+    P().push(true);
+    P().rerender();
+  }
+  function undoMutation() {
+    if (!lastMutation) return;
+    for (const u of lastMutation) P().set(u.path, copy(u.value));
+    lastMutation = null;
+    P().push(true);
+    P().rerender();
+  }
 
   // Anahtar kelime -> eksen ağırlıkları. Eksenler -1..1 arası birikir.
   // [enerji, sıcaklık, karanlık, organiklik]
@@ -309,6 +354,26 @@
         }),
       ])
     );
+
+    /* SAHNEYİ DEĞİŞTİR (#447): şu anki sahne seçilen ölçüde oynar; mod türü, ses, yazı,
+       logo ve çıkış ayarları yerinde kalır. Son değişiklik tek adımda geri alınır. */
+    if (window.SVSceneMutate && window.SVScenePanels && window.SVScenePanels.miniSlider) {
+      nodes.push(window.SVScenePanels.miniSlider('Değiştirme Ölçüsü', () => mutateAmount, (v) => { mutateAmount = v; },
+        { min: 0.05, max: 1, step: 0.05, def: 0.25, percent: true }));
+      nodes.push(el('div', { class: 'gen-actions' }, [
+        el('button', {
+          class: 'btn', type: 'button', icon: 'dna', text: 'Sahneyi Değiştir',
+          title: 'Şu anki sahnenin ayarlarını seçilen ölçüde rastgele oynatır',
+          onclick: mutateScene,
+        }),
+        el('button', {
+          class: 'btn ghost', type: 'button', icon: 'undo', text: 'Geri al',
+          disabled: lastMutation ? null : true,
+          onclick: undoMutation,
+        }),
+      ]));
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Arkaplan, görselleştirici, geri besleme ve 3B ayarları aralıkları içinde oynar; renklerin tonu birlikte döner. Mod türü, ses, yazı, logo ve çıkış ayarları değişmez.' }));
+    }
 
     if (lastResult) {
       const sw = el('div', { class: 'gen-swatch' });

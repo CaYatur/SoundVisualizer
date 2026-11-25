@@ -356,7 +356,8 @@
         continue;
       }
       if (value01 < 0.5) m._armed = true; // eylem yeniden tetiklenebilir hale gelsin
-      applyMapping(m, value01);
+      // Nota: isteğe bağlı basma gücü (#436); varsayılan ve eylemler açık/kapalı
+      applyMapping(m, isNote ? CMAPS().noteValue(d[0], raw, m) : value01);
     }
   }
 
@@ -1208,6 +1209,12 @@
       }
 
       const analogOpts = surface === 'gamepad' && t && !t.action && !t.steps ? gamepadOpts(m) : null;
+      // MIDI notası bir ayara bağlıysa: basma gücü değer olarak (#436, varsayılan kapalı)
+      if (surface === 'midi' && m.kind === 'note' && t && !t.action) {
+        const vel = el('input', { type: 'checkbox', onchange: (e) => { m.velocity = e.target.checked; P().push(true); } });
+        vel.checked = m.velocity === true;
+        extras.push(el('label', { class: 'map-vel', title: T('Notanın basma gücü (hız) değeri belirler; kapalıyken basılı = en yüksek, bırakılmış = en düşük.') }, [vel, el('span', { text: T('Basma gücü') })]));
+      }
       host.appendChild(
         el('div', { class: 'map-row' + (isLearning ? ' learning' : '') }, [
           learnBtn,

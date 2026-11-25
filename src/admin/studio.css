@@ -168,6 +168,7 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   font: 11px 'Cascadia Code', 'Consolas', monospace; color: var(--muted);
   min-width: 42px; text-align: right;
 }
+.map-vel { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
 .map-signal {
   font: 11px 'Cascadia Code', 'Consolas', monospace; color: var(--muted2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;

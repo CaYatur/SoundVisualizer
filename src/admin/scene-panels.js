@@ -1361,6 +1361,12 @@
           refreshMediaCameras().then(() => rerender());
         }
       }
+      // Kare gecikmesi (#420): canlı kaynakta (kamera, ekran) görüntü bu kadar geriden gelir
+      if ((m.source || 'webcam') !== 'file') {
+        // Üst sınır motorla aynı (media.js DELAY_MAX); varsayılan ayarda alan yok, 0 sayılıyor
+        out.push(miniSlider('Kare Gecikmesi', () => (m.delay == null ? 0 : m.delay), (v) => { m.delay = v; },
+          { min: 0, max: 2, def: 0, step: 0.05, fmt: (v) => (v > 0 ? (Math.round(v * 100) / 100).toFixed(2) + ' ' + tr('sn') : tr('kapalı')) }));
+      }
       if ((m.source || 'webcam') === 'file') {
         // Seçili dosyanın adı ve küçük bir ön izlemesi
         const info = el('div', { class: 'row' }, [
@@ -1444,6 +1450,8 @@
         out.push(tSlider('Hız', 'speed', 1, { step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }));
         out.push(tSlider('Giriş Noktası', 'inPoint', 0, { step: 0.1, fmt: sec }));
         out.push(tSlider('Çıkış Noktası', 'outPoint', 0, { step: 0.1, fmt: (v) => (v > 0 ? sec(v) : tr('sona kadar')) }));
+        // Geri oynatma (#417): bölüm sondan başa; varsayılan kapalı
+        out.push(miniToggle('Geri Oynat', () => m.reverse === true, (v) => { m.reverse = v; }));
         out.push(miniSelect('Vuruşa Kilitli Döngü', [['0', 'Kapalı'], ['1', '1 vuruş'], ['2', '2 vuruş'], ['4', '4 vuruş (1 ölçü)'], ['8', '8 vuruş (2 ölçü)'], ['16', '16 vuruş (4 ölçü)']],
           () => String(m.loopBeats || 0), (v) => { m.loopBeats = Number(v) || 0; }, null, '0'));
         let scrubAt = 0;
@@ -1894,6 +1902,17 @@
         });
         out.push(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı Metni' }), area]));
         out.push(miniToggle('Kayan Yazı', () => !!txt.marquee, (v) => { txt.marquee = v; }, rerender, { def: false }));
+        // Yol üstünde yazı (#415): varsayılan düz; kayan yazı açıkken uygulanmaz
+        if (!txt.marquee) {
+          out.push(miniSelect('Yazı Yolu', [['', 'Düz Satır'], ['arc', 'Yay'], ['circle', 'Çember'], ['wave', 'Dalga']],
+            () => txt.textPath || '', (v) => { txt.textPath = v; }, rerender, ''));
+          if (txt.textPath === 'arc' || txt.textPath === 'wave') {
+            out.push(miniSlider(txt.textPath === 'arc' ? 'Yay Açıklığı' : 'Dalga Yüksekliği', () => (txt.pathBend == null ? 0.5 : txt.pathBend), (v) => { txt.pathBend = v; }, { min: 0.05, max: 1, step: 0.01, def: 0.5, percent: true }));
+          }
+          if (txt.textPath === 'circle' || txt.textPath === 'wave') {
+            out.push(miniSlider('Yolda Dönüş', () => (txt.pathSpeed == null ? 0 : txt.pathSpeed), (v) => { txt.pathSpeed = v; }, { min: -2, max: 2, step: 0.05, def: 0 }));
+          }
+        }
         if (txt.marquee) {
           out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01, def: 0.12 }));
         }

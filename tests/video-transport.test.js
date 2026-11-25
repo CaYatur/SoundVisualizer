@@ -123,3 +123,50 @@ test('sese göre hız varsayılan kapalı; vuruşa kilitli döngü açıkken dev
   }
   assert.ok(!panel.slice(panel.indexOf('function layerOwnSettings')).includes('speedReact'), 'Kaynak sekmesinde ses ayarı kalmaz');
 });
+
+/* GERİ OYNATMA (#417): bölüm sondan başa; ileri formül ve kayıtlı sahneler değişmiyor. */
+test('geri oynatma: varsayılan kapalı, reverse:false ileriyle birebir aynı', () => {
+  assert.strictEqual(T.transportOn({}), false);
+  assert.strictEqual(T.transportOn({ reverse: false }), false);
+  assert.strictEqual(T.transportOn({ reverse: true }), true);
+  for (const s of [0, 1.3, 4.9, 12.7]) {
+    for (const m of [{}, { speed: 2 }, { inPoint: 2, outPoint: 6 }, { loop: false }, { loopBeats: 4 }]) {
+      assert.strictEqual(T.transportTime(s, 10, Object.assign({ reverse: false }, m), 120), T.transportTime(s, 10, m, 120));
+    }
+  }
+});
+
+test('geri oynatma: döngüde sondan başa, bölge ve hızla', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, a + ' ≠ ' + b);
+  near(T.transportTime(0, 10, { reverse: true }), 9.999);
+  near(T.transportTime(2.5, 10, { reverse: true }), 7.499);
+  near(T.transportTime(12, 10, { reverse: true }), 7.999); // döngü: 12 → 2
+  near(T.transportTime(1, 10, { reverse: true, speed: 2 }), 7.999);
+  // 2-6 sn bölgesi: 6'dan 2'ye
+  near(T.transportTime(0, 10, { reverse: true, inPoint: 2, outPoint: 6 }), 5.999);
+  near(T.transportTime(3, 10, { reverse: true, inPoint: 2, outPoint: 6 }), 2.999);
+  near(T.transportTime(5, 10, { reverse: true, inPoint: 2, outPoint: 6 }), 4.999);
+  for (let s = 0; s < 30; s += 0.37) {
+    const p = T.transportTime(s, 10, { reverse: true, inPoint: 2, outPoint: 6 });
+    assert.ok(p >= 2 && p < 6, String(p));
+  }
+});
+
+test('geri oynatma: döngüsüz ilk karede durur, vuruş döngüsü bölümün sonundan başlar', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, a + ' ≠ ' + b);
+  near(T.transportTime(3, 10, { reverse: true, loop: false }), 6.999);
+  near(T.transportTime(40, 10, { reverse: true, loop: false }), 0);
+  near(T.transportTime(40, 10, { reverse: true, loop: false, inPoint: 1.5 }), 1.5);
+  // 120 BPM, 4 vuruş = 2 sn bölüm: 2'den 0'a, her 2 sn'de başa
+  near(T.transportTime(0, 10, { reverse: true, loopBeats: 4 }, 120), 1.999);
+  near(T.transportTime(0.5, 10, { reverse: true, loopBeats: 4 }, 120), 1.499);
+  near(T.transportTime(2.5, 10, { reverse: true, loopBeats: 4 }, 120), 1.499);
+});
+
+test('geri oynatma panelde, varsayılan kapalı; canlı oynatıcı negatif hız yazmıyor', () => {
+  const panel = read('src/admin/scene-panels.js');
+  assert.ok(panel.includes("miniToggle('Geri Oynat', () => m.reverse === true"));
+  const media = read('src/visualizer/modes/media.js');
+  assert.ok(!/playbackRate\s*=\s*-/.test(media));
+  assert.ok(media.includes('if (m.reverse === true) {'));
+});
