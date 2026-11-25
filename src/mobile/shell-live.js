@@ -175,11 +175,14 @@
     const pct = h('small', { class: 'tb-pct' });
     const bar = h('div', { class: 'tbar', role: 'slider', 'aria-label': 'T-bar', 'aria-valuemin': '0', 'aria-valuemax': '100', tabindex: '0' }, [fill, grip, pct]);
     let shown = 0;
-    const show = (v, p) => {
+    const show = (v, p, rest) => {
       shown = Math.max(0, Math.min(1, Number(v) || 0));
       const mix = Math.max(0, Math.min(1, Number(p) || 0));
+      const origin = rest === 1 ? 1 : rest === 0 ? 0 : (tbarGesture ? tbarGesture.rest : tbarRead().rest);
       const gp = Math.round(shown * 1000) / 10;
       const fp = Math.round(mix * 1000) / 10;
+      /* Dolgu çubuğun başladığı uçtan akar: solda bekliyorsa soldan, sağda bekliyorsa sağdan. */
+      bar.classList.toggle('from-right', origin === 1);
       fill.style.width = fp + '%';
       grip.style.left = gp + '%';
       pct.textContent = mix > 0.005 ? Math.round(mix * 100) + '%' : '';
@@ -204,7 +207,7 @@
           if (l.cue) mixView.toId = l.cue;
           else if (l.active && l.active !== mixView.fromId) mixView.toId = l.active;
         }
-        show(v, p);
+        show(v, p, tbarGesture.rest);
         engineTbar({ phase: 'move', p });
         sendTbar(v);
       },
@@ -215,28 +218,30 @@
         const p = mixProgress(rest, v);
         const atEnd = p >= 0.995;
         const atStart = p <= 0.005;
+        const parked = atEnd ? (rest === 0 ? 1 : 0) : rest;
         if (atEnd) {
           engineTbar({ phase: 'end' });
           mixView = null;
-          show(rest === 0 ? 1 : 0, 0);
+          show(parked, 0, parked);
         } else if (atStart) {
           engineTbar({ phase: 'cancel' });
           mixView = null;
-          show(rest, 0);
+          show(rest, 0, rest);
         } else {
           engineTbar({ phase: 'move', p });
           if (mixView) mixView.p = p;
-          show(v, p);
+          show(v, p, rest);
         }
         const sent = sendTbar(v, true, true);
-        tbarHold = { v: shown, p: atEnd || atStart ? 0 : p, until: performance.now() + 600 };
+        tbarHold = { v: shown, p: atEnd || atStart ? 0 : p, rest: parked, until: performance.now() + 600 };
         if (sent && sent.then) sent.then((r) => {
           const tb = r && r.result && r.result.tbar;
           if (!tb || typeof tb.v !== 'number') return;
           const mix = tb.live ? (Number(tb.p) || 0) : 0;
+          const origin = tb.rest === 1 ? 1 : 0;
           if (!tb.live) mixView = null;
-          tbarHold = { v: tb.v, p: mix, until: performance.now() + 600 };
-          show(tb.v, mix);
+          tbarHold = { v: tb.v, p: mix, rest: origin, until: performance.now() + 600 };
+          show(tb.v, mix, origin);
         });
       },
     });
@@ -251,8 +256,8 @@
       return s;
     };
     const first = pcPos();
-    show(first.v, first.p);
-    bar.paint = () => { if (!drags.has(bar)) { const s = pcPos(); show(s.v, s.p); } };
+    show(first.v, first.p, first.rest);
+    bar.paint = () => { if (!drags.has(bar)) { const s = pcPos(); show(s.v, s.p, s.rest); } };
     return bar;
   }
 

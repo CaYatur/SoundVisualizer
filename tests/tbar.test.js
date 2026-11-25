@@ -171,6 +171,11 @@ test('panel: çubuk tutulurken sayfa kurulmuyor, uçta bitiyor, başta geri alı
   assert.match(admin, /if \(!sc \|\| !sc\.data \|\| isBlackedOut\(\)\) return null;/, 'karartmada çubuk çalışmıyor');
   assert.match(admin, /noRender: true \}\);\s*return snap;/);
   assert.match(admin, /if \(opts && opts\.noRender\) return;\s*render\(\);/);
+  const phone = read('src/mobile/shell-live.js');
+  const css = read('src/mobile/shell.css');
+  assert.match(phone, /bar\.classList\.toggle\('from-right', origin === 1\)/, 'telefon dolgusu çubuğun başladığı uçtan');
+  assert.match(css, /#sv-shell \.tbar\.from-right \.tb-fill \{ left: auto; right: 0; \}/);
+  assert.match(css, /#sv-shell \.tbar\.from-right \.tb-pct \{ left: 10px; right: auto; \}/);
 });
 
 test('çeviri: çubuğun metinleri İngilizcede de var', () => {
