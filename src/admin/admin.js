@@ -5740,16 +5740,28 @@
     return d && d.name ? d.name : null;
   }
 
-  function resolveSelectedCaptureLabel() {
+  function selectedAudioSources() {
     const audio = cfg && cfg.audio;
-    const sources = (audio && Array.isArray(audio.sources) && audio.sources.length)
-      ? audio.sources
-      : (audio && audio.source ? [audio.source] : ['default']);
+    if (audio && Array.isArray(audio.sources)) return audio.sources;
+    if (audio && audio.source) return [audio.source];
+    return ['default'];
+  }
+
+  /* Boş liste ve yalnız örnek ses yakalama değildir. Geç gelen kare veya
+     "started" çipi yeniden "Yakalanıyor" yapmasın. */
+  function captureLabelHeld() {
+    const list = selectedAudioSources();
+    return list.length === 0 || list.every((s) => s === 'demo');
+  }
+
+  function resolveSelectedCaptureLabel() {
+    const sources = selectedAudioSources();
     const AA = window.SVAppAudio;
     const names = [];
     const seen = new Set();
     for (const s of sources) {
       let name = null;
+      if (s === 'demo') continue;
       if (AA && AA.isAppSource(s)) name = s.label || s.match || null;
       else if (s === 'default') name = pickDefaultDeviceName();
       else if (s != null && s !== '') name = String(s);
@@ -5773,6 +5785,7 @@
      Resolves the selected Ses Kaynakları label so we do not need a
      re-select (started event) just to learn the device name. */
   function ensureAudioListeningFromLevels(d) {
+    if (captureLabelHeld()) return;
     if (!d || audioUiKind === 'err') return;
     if (audioCaptureFromStatus && audioUiKind === 'capture') return;
     const signal = Math.max(+d.level || 0, +d.bass || 0, +d.mid || 0, +d.treble || 0);
@@ -7805,6 +7818,7 @@
       ensureAudioListeningFromLevels(d);
     });
     window.api.onAudioSourceStatus((s) => {
+      if (captureLabelHeld() && (s.type === 'started' || s.type === 'exited' || s.type === 'error' || s.type === 'no-loopback')) return;
       if (s.type === 'started') {
         markAudioCapturing(s.device || 'çıkış');
         audioErrShown = null;
@@ -7827,6 +7841,19 @@
         audioCaptureFromStatus = false;
         audioUiKind = 'idle';
         setAudioState(s.state === 'fallback' ? 'Köprü sessiz: yerel giriş kullanılıyor' : 'Köprüden ses bekleniyor', 'warn', 'warning');
+      } else if (s.type === 'none') {
+        // Ses Kaynakları'nda hiçbiri seçili değil: bilerek sessiz
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'idle';
+        audioErrShown = null;
+        setAudioState(tr('Ses kaynağı yok (sessiz)'), 'warn', 'speaker');
+      } else if (s.type === 'demo') {
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'capture';
+        audioErrShown = null;
+        setAudioState(tr('Örnek ses (demo)'), 'ok', 'wave');
       } else if (s.type === 'phone') {
         /* Ses girişi telefonda (PC bağlantısı B4) */
         audioCaptureDevice = null;

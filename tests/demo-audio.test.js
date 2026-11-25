@@ -260,6 +260,14 @@ test('panel ve ölçüm aynı dosyayı yüklüyor', () => {
   assert.match(p, /D\.fill\(Math\.floor\(t \* D\.SR\), synthTime, synthLeft, synthRight\)/);
   assert.match(p, /left: synthLeft, right: synthRight/);
   assert.doesNotMatch(p, /Math\.sin\(p \* 3 \+ t \* 6\)/, 'eski üç sinüs duruyor');
+  assert.match(p, /function sourcesOff\(\)/);
+  assert.match(p, /if \(sourcesOff\(\)\)/);
+
+  /* Geç gelen yakalama karesi, boş kaynakta çipi "Yakalanıyor"a geri çevirmesin. */
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /function captureLabelHeld\(\)/);
+  assert.match(admin, /if \(captureLabelHeld\(\)\) return;/);
+  assert.match(admin, /captureLabelHeld\(\) && \(s\.type === 'started'/);
 
   const h = read('scripts/milkdrop-render-rate.js');
   assert.match(h, /const SIGNAL = 'src\/shared\/demo-audio\.js'/);
@@ -275,14 +283,16 @@ test('panel ve ölçüm aynı dosyayı yüklüyor', () => {
    2048 örnekte 4, 6 ve 12 devirlik üç alçak sinüs. Panelin eski demosuyla
    aynı dar bant — üstelik seviye (RMS) de o diziden hesaplanıyor, yani her
    mod README'de başka bir sese tepki veriyordu. */
+/* Üretici artık üst düzeyde (demoAudioFrame): "Örnek ses (demo)" kaynağı da aynı kareyi veriyor. */
 function shotsFrame() {
   const src = read('src/main/main.js').replace(/\r\n/g, '\n');
-  const a = src.indexOf("  const DEMO = require('../shared/demo-audio.js');");
-  const end = 'return { freq, time, left, right, sampleRate: DEMO.SR };\n  };';
+  const a = src.indexOf('function demoAudioFrame(t) {');
+  const end = 'return { freq, time, left, right, sampleRate: DEMO.SR };\n}';
   const b = src.indexOf(end, a);
   assert.ok(a > 0 && b > a, 'üreticinin ses karesi bulunamadı');
+  assert.ok(src.includes('const makeFrame = demoAudioFrame;'), 'ekran görüntüleri aynı üreticiyi kullanıyor');
   const body = src.slice(a, b + end.length);
-  return new Function('require', body + '\nreturn makeFrame;')(() => D);
+  return new Function('DEMO_AUDIO', body + '\nreturn demoAudioFrame;')(D);
 }
 
 test('ekran görüntüsü üreticisi de aynı sesi veriyor — iki kanal birden', () => {

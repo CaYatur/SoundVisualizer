@@ -41,7 +41,7 @@ test('çalma kısık başlıyor; çıkış yakalanan aygıtsa yankı uyarısı',
 
 test('köprü kaynak değiştirirken alıcılara haber veriyor', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /if \(bridge\.sender && lastCaptureSource && JSON\.stringify\(sources\) !== JSON\.stringify\(lastCaptureSource\)\) bridge\.sender\.switching\(3000\);/);
+  assert.match(M, /if \(bridge\.sender && lastCaptureSource && JSON\.stringify\(all\) !== JSON\.stringify\(lastCaptureSource\)\) bridge\.sender\.switching\(3000\);/);
   assert.match(M, /onSwitching: \(ms\) => \{ if \(bridge\.input\) bridge\.input\.hold\(Date\.now\(\), ms\); \},/);
 });
 
@@ -55,7 +55,7 @@ test('durum penceresi dar genişlikte taşmıyor: min-width:0, üç nokta + titl
   const A = read('src/admin/admin.css');
   assert.match(A, /\.source-name \{ flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; \}/);
   // Aygıt ve uygulama adı sistemin metni: çevrilmez (Türkçe Windows'ta "Hoparlör")
-  assert.match(read('src/admin/audio-sources.js'), /el\('span', Object\.assign\(\{ class: 'source-name', text: label, title: label \}, entry === 'default' \? \{\} : \{ 'data-user-text': '' \}\)\)/);
+  assert.match(read('src/admin/audio-sources.js'), /el\('span', Object\.assign\(\{ class: 'source-name', text: label, title: label \}, entry === 'default' \|\| entry === 'demo' \? \{\} : \{ 'data-user-text': '' \}\)\)/);
   assert.match(read('src/main/main.js'), /width: 460, height: 640, minWidth: 360, minHeight: 480,/);
   assert.match(read('src/bridge-status/status.js'), /cs\.type === 'no-loopback' && cs\.message\)/);
 });

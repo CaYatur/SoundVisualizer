@@ -1461,7 +1461,9 @@ function configuredSources() {
   if (bridge.input && !bridge.input.useBridge && bc && typeof bc.fallbackSource === 'string' && bc.fallbackSource) return [bc.fallbackSource];
   const audio = currentConfig && currentConfig.audio;
   let list = ['default'];
-  if (audio && Array.isArray(audio.sources) && audio.sources.length > 0) list = audio.sources;
+  /* Boş liste bilerek seçilmiş "kaynak yok" (sessiz): panel artık hiçbirini seçmemeye izin
+     veriyor. Eski tek "source" alanı yalnız "sources" hiç yokken okunur. */
+  if (audio && Array.isArray(audio.sources)) list = audio.sources;
   else if (audio && audio.source) list = [audio.source];
   /* Köprü kipi (#813): tek uygulama seçili ama bu sistemde uygulama başına
      yakalama yok -> aygıt. Durum penceresi nedeni gösterir. */
@@ -1524,12 +1526,76 @@ const nativeDrums = new DrumHits();
 // Ham ses: köprü yayını ya da PC'nin sesini dinleyen telefon (PC bağlantısı B5, linkWatch)
 function bridgePcmWanted() { return !!bridge.sender || linkWatch.size > 0; }
 let lastCapturePcm = false;
+/* DEMO SES KARESİ: ekran görüntüleri ve "Demo ses" kaynağı (Ses Kaynakları) aynı sesi verir.
+   120 BPM vuruş, bas ağırlıklı taban, gezinen tepeler, stereo dalga (src/shared/demo-audio.js). */
+const DEMO_AUDIO = require('../shared/demo-audio.js');
+function demoAudioFrame(t) {
+  const DEMO = DEMO_AUDIO;
+  const freq = new Uint8Array(1024);
+  const beatPhase = (t * 2) % 1;               // 120 BPM
+  const beat = Math.pow(Math.max(0, 1 - beatPhase * 2.2), 2);
+  const bar = Math.floor(t * 2 / 4) % 4;
+  for (let k = 0; k < 1024; k++) {
+    const decay = Math.pow(1 - k / 1024, 2.6);
+    const kick = 1.15 * beat * Math.exp(-Math.pow((k - 8) / 12, 2));
+    const bass = 0.75 * Math.exp(-Math.pow((k - 26 - 10 * Math.sin(t * 1.1)) / 14, 2));
+    const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
+    const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
+    const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
+    const hat = 0.35 * (((t * 4) % 1) < 0.32 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
+    const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
+    let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
+    freq[k] = Math.max(0, Math.min(255, v * 148));
+  }
+  /* Sol ve sağ kanal (#566) da ortak sesten: orta + yan ve orta - yan,
+     gonyometre bir çizgi değil bir alan çiziyor. */
+  const time = new Uint8Array(2048);
+  const left = new Uint8Array(2048);
+  const right = new Uint8Array(2048);
+  DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
+  return { freq, time, left, right, sampleRate: DEMO.SR };
+}
+
+/* "Demo ses" kaynağı: yakalama yerine örnek ses, saniyede 60 kare. Gerçek kaynaklarla birlikte
+   seçilirse gerçek ses kazanır (demo yalnız tek başına). */
+let demoTimer = null;
+let demoT0 = 0;
+function setDemoAudio(on) {
+  if (on && !demoTimer) {
+    demoT0 = Date.now();
+    demoTimer = setInterval(() => {
+      if (bridge.input && bridge.input.useBridge) return;
+      if (phoneAudio.input && phoneAudio.input.useBridge) return;
+      deliverAudioFrame(demoAudioFrame((Date.now() - demoT0) / 1000));
+    }, 1000 / 60);
+  } else if (!on && demoTimer) {
+    clearInterval(demoTimer);
+    demoTimer = null;
+  }
+}
 function startVisualizerCapture() {
-  const sources = configuredSources();
+  const all = configuredSources();
+  const real = all.filter((x) => x !== 'demo');
+  /* Gerçek kaynak yok: yakalama durur. Demo seçiliyse örnek ses, değilse sessiz. Panel
+     önizlemesi sessizken kendiliğinden demoya geçmez (preview.js). */
+  if (!real.length) {
+    if (Array.isArray(lastCaptureSource) && lastCaptureSource.some((x) => x !== 'demo')) nativeAudio.stopCapture();
+    lastCaptureSource = all;
+    lastCapturePcm = bridgePcmWanted();
+    const demo = all.indexOf('demo') >= 0;
+    setDemoAudio(demo);
+    const status = { type: demo ? 'demo' : 'none' };
+    notifyAdmin('audio-source-status', status);
+    lastCaptureStatus = { type: status.type, code: '', message: '', device: '' };
+    notifyBridge();
+    return;
+  }
+  setDemoAudio(false);
+  const sources = real;
   /* Köprü yayındayken kaynak değişti: alıcılara önceden haber, yardımcı
      yeniden kurulurken yedeğe dönüp geri gelmesinler (#813). */
-  if (bridge.sender && lastCaptureSource && JSON.stringify(sources) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
-  lastCaptureSource = sources;
+  if (bridge.sender && lastCaptureSource && JSON.stringify(all) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
+  lastCaptureSource = all;
   lastCapturePcm = bridgePcmWanted();
   bridge.sourceStates = {};
   nativeAudio.startCapture(
@@ -1553,6 +1619,9 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      /* Kaynaklar kapatıldı (sessiz ya da yalnız örnek ses): durdurulan yakalamanın geç gelen
+         bildirimi paneldeki "sessiz" yazısını ezmesin, yakalamayı yeniden başlatmasın. */
+      if (!Array.isArray(lastCaptureSource) || !lastCaptureSource.some((x) => x !== 'demo')) return;
       /* Kaynak başına durum (#813): biri eksik ya da açılamadıysa ötekiler
          karışımda sürer; durum penceresi o kaynağın satırında söyler. */
       if (status && status.type === 'source') {
@@ -2397,9 +2466,10 @@ function scheduleCaptureRestart() {
 function syncCapture() {
   const current = Array.isArray(lastCaptureSource) ? lastCaptureSource : null;
   if (!captureWanted()) {
+    setDemoAudio(false);
     // Zaten durmuşsa dokunma (yapılandırma her değiştiğinde çağrıldığı için)
     if (current) {
-      nativeAudio.stopCapture();
+      if (current.some((x) => x !== 'demo')) nativeAudio.stopCapture();
       lastCaptureSource = null;
     }
     return;
@@ -13702,32 +13772,7 @@ async function runShots() {
      tiz banda yalnız nicemleme gürültüsü düşüyordu. Seviye (RMS) de bu
      diziden, yani her mod aynı sesi görüyor. Tayf eğrisi burada kalıyor;
      vuruşu ve hi-hat'i o sesle aynı ızgarada (120 BPM, sekizlik hi-hat). */
-  const DEMO = require('../shared/demo-audio.js');
-  const makeFrame = (t) => {
-    const freq = new Uint8Array(1024);
-    const beatPhase = (t * 2) % 1;               // 120 BPM
-    const beat = Math.pow(Math.max(0, 1 - beatPhase * 2.2), 2);
-    const bar = Math.floor(t * 2 / 4) % 4;
-    for (let k = 0; k < 1024; k++) {
-      const decay = Math.pow(1 - k / 1024, 2.6);
-      const kick = 1.15 * beat * Math.exp(-Math.pow((k - 8) / 12, 2));
-      const bass = 0.75 * Math.exp(-Math.pow((k - 26 - 10 * Math.sin(t * 1.1)) / 14, 2));
-      const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
-      const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
-      const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
-      const hat = 0.35 * (((t * 4) % 1) < 0.32 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
-      const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
-      let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
-      freq[k] = Math.max(0, Math.min(255, v * 148));
-    }
-    /* Sol ve sağ kanal (#566) da ortak sesten: orta + yan ve orta - yan,
-       gonyometre bir çizgi değil bir alan çiziyor. */
-    const time = new Uint8Array(2048);
-    const left = new Uint8Array(2048);
-    const right = new Uint8Array(2048);
-    DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
-    return { freq, time, left, right, sampleRate: DEMO.SR };
-  };
+  const makeFrame = demoAudioFrame;
 
   // ==========================================================================
   // 1) Yönetici paneli — İNGİLİZCE arayüzle
