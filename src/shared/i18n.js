@@ -4967,6 +4967,9 @@
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
       // ISF içe aktarma notu (#759): giriş adı dosyadan geliyor
       .replace(/^"(.+)" görsel girişi medya katmanına bağlandı\.$/, '"$1" image input is bound to the media layer.')
+      // ISF ses girişleri (#404)
+      .replace(/^"(.+)" dalga formu girişi uygulamanın sesine bağlandı \(değer \.r kanalında\)\.$/, '"$1" waveform input is bound to the app\'s audio (value in the .r channel).')
+      .replace(/^"(.+)" spektrum girişi uygulamanın sesine bağlandı \(değer \.r kanalında\)\.$/, '"$1" spectrum input is bound to the app\'s audio (value in the .r channel).')
       .replace(/^Uygulama başına ses yakalama için ([a-z, ]+) gerekiyor; pulseaudio-utils paketini kurun\.$/g,
         'Per-application audio capture needs $1; install the pulseaudio-utils package.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')

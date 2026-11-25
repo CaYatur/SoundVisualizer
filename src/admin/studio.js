@@ -907,6 +907,15 @@
         const inp = el('input', { type: 'checkbox', onchange: (e) => { store[c.name] = e.target.checked; P().push(false); } });
         inp.checked = !!cur;
         nodes.push(P().row(label, el('label', { class: 'switch' }, [inp, el('span', { class: 'track' })])));
+      } else if (Array.isArray(c.options) && c.options.length) {
+        // ISF VALUES/LABELS (#404): seçenekler açılır menüde; değer sayı olarak yazılıyor
+        const sel = el('select', { class: 'sel', 'aria-label': label, onchange: (e) => { store[c.name] = Number(e.target.value); P().push(false); } });
+        for (const o of c.options) {
+          const op = el('option', { value: String(o.value), text: String(o.label) });
+          if (Number(o.value) === Number(cur)) op.selected = true;
+          sel.appendChild(op);
+        }
+        nodes.push(P().row(label, sel));
       } else {
         const opts = { min: c.min == null ? 0 : c.min, max: c.max == null ? 1 : c.max, step: c.step == null ? 0.01 : c.step, extend: true };
         nodes.push(window.SVScenePanels.miniSlider(label, () => (c.name in store ? store[c.name] : c.default), (v) => { store[c.name] = v; }, opts));
