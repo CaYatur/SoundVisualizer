@@ -47,6 +47,14 @@ object AudioHub {
     @Volatile
     var playPc = false
 
+    /** PC sesinin düzeyi. 1 şimdiki ses, 2 iki kat. Görüntü ve hoparlör aynı örnekleri kullanır. */
+    @Volatile
+    var pcGain = 1f
+
+    fun setPcGain(v: Float) {
+        pcGain = v.coerceIn(0f, 2f)
+    }
+
     private val speakerLock = Any()
     private var speaker: AudioTrack? = null
     private var speakerRate = 0
@@ -70,8 +78,11 @@ object AudioHub {
     fun pushPcm(sampleRate: Int, channels: Int, source: Int, samples: ShortArray, count: Int) {
         if (source != Messages.SOURCE_PC) tap?.invoke(sampleRate, channels, samples, count)
         if (pcAudio != (source == Messages.SOURCE_PC)) return
-        if (source == Messages.SOURCE_PC && playPc) speak(sampleRate, channels, samples, count)
-        val msg = Messages.pcmS16(pcmSeq.getAndIncrement() and 0xffffffffL, now(), sampleRate, channels, source, samples, count)
+        val gain = if (source == Messages.SOURCE_PC) pcGain else 1f
+        val data = if (gain == 1f) samples else PcmGain.scale(samples, count, gain)
+        val n = if (data === samples) count else data.size
+        if (source == Messages.SOURCE_PC && playPc) speak(sampleRate, channels, data, n)
+        val msg = Messages.pcmS16(pcmSeq.getAndIncrement() and 0xffffffffL, now(), sampleRate, channels, source, data, n)
         post(msg)
     }
 

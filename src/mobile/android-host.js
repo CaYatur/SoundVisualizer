@@ -272,7 +272,31 @@
     if (lyricsAuto && lyricsAuto.text) out.push(lyricsAuto);
     return out;
   }
-  function emitLyrics() { if (!pcSongOn()) ev.lyricsLib.emit(withAuto(lyricsItems || [])); }
+  /* PC'nin bu parçaya bulduğu söz. Telefon kendi parçasını yollarken PC kitaplığı
+     önce gelir; PC'de yoksa telefonun kitaplığı ve otomatik araması kalır. */
+  let pcOwn = { items: [], title: '', artist: '' };
+  function shownLyrics() {
+    const LP = window.SVLinkPhone;
+    if (!LP) return pcSongOn() ? [] : withAuto(lyricsItems || []);
+    const pcItems = pcSongOn() && pcSong ? pcSong.items : pcOwn.items;
+    return LP.lyricChoice({
+      followPc: pcSongOn(),
+      connected: pc.state === 'connected',
+      audioSend,
+      track: nowPlaying,
+      pcTitle: pcSongOn() && pcSong && pcSong.np ? pcSong.np.title : pcOwn.title,
+      pcArtist: pcSongOn() && pcSong && pcSong.np ? pcSong.np.artist : pcOwn.artist,
+      pcItems,
+      phoneItems: lyricsItems || [],
+      phoneAuto: lyricsAuto,
+    }).items;
+  }
+  function emitLyrics() { if (!pcSongOn()) ev.lyricsLib.emit(shownLyrics()); }
+  function rememberPcLyrics(m) {
+    if (!audioSend || pc.state !== 'connected' || !m || !m.np) return;
+    pcOwn = { items: Array.isArray(m.items) ? m.items : [], title: m.np.title || '', artist: m.np.artist || '' };
+    if (!pcSongOn()) ev.lyricsLib.emit(shownLyrics());
+  }
   /* PC'NİN PARÇASI VE SÖZLERİ (PC bağlantısı): telefon PC'nin sahnesini çizerken söz katmanı ve
      Şimdi Çalıyor PC'de çalanı gösterir (PC'nin 'song' olayı / song.get). Telefonun kendi parçası
      o sırada saklanır; "Bu telefon"a dönünce geri gelir. */
@@ -307,13 +331,13 @@
     const np = pcSong.np;
     pcSongNp = np ? toPhoneTime(Object.assign({ has: !!np.title }, np, { received: Date.now() }), ['updated']) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() };
     ev.nowPlaying.emit(pcSongNp);
-    ev.lyricsLib.emit(Array.isArray(pcSong.items) ? pcSong.items : []);
+    ev.lyricsLib.emit(shownLyrics());
     ev.lyricsClock.emit(toPhoneTime(pcSong.clock, ['epoch']) || null);
   }
   function restoreOwnSong() {
     pcSongNp = null;
     if (nowPlaying) ev.nowPlaying.emit(nowPlaying);
-    ev.lyricsLib.emit(withAuto(lyricsItems || []));
+    ev.lyricsLib.emit(shownLyrics());
     ev.lyricsClock.emit(null);
   }
   function followsLyrics(cfg) {
@@ -344,7 +368,12 @@
   }
   function lookupLyrics(st) {
     const cfg = config;
-    const L = cfg && cfg.lyricsLookup;
+    let shown = cfg;
+    try { shown = viewCfg() || cfg; } catch (e) { shown = cfg; }
+    const phoneL = cfg && cfg.lyricsLookup;
+    const shownL = shown && shown.lyricsLookup;
+    /* Telefonun kendi söz ayarı yedek. Kapalıysa ekrandaki (PC) sahnenin ayarı. */
+    const L = phoneL && phoneL.enabled === true ? phoneL : (shownL && shownL.enabled === true ? shownL : phoneL);
     const enabled = !!(L && L.enabled === true);
     const cs = enabled ? JSON.stringify(L) : '';
     if (cs !== lyricsCfgSig) {
@@ -352,7 +381,8 @@
       lyricsSig = '';
       if (!enabled && lyricsAuto) { lyricsAuto = null; emitLyrics(); }
     }
-    if (!enabled || !native || !followsLyrics(cfg) || !st || !st.has || !st.title) return;
+    const follow = followsLyrics(shown) || followsLyrics(cfg);
+    if (!enabled || !native || !follow || !st || !st.has || !st.title) return;
     const meta = { title: st.title || '', artist: st.artist || '', album: st.album || '', duration: st.duration > 0 ? st.duration : 0 };
     const sig = meta.artist + '\u0001' + meta.title;
     if (sig === lyricsSig) return;
@@ -787,7 +817,7 @@
   function targetInfo() {
     return {
       target: pc.on ? 'pc' : 'phone', wanted: pc.wanted, name: pc.name, state: pc.state, rtt: pc.rtt, standby: pc.standby, loading: pc.loading,
-      audioSend, preview: previewMode, usePcAudio, playPc, audioIn: pcIn, level: pc.level || '', readOnly: readOnly(), undo: undoStack.length, error: pc.error || '',
+      audioSend, preview: previewMode, usePcAudio, playPc, pcGain, audioIn: pcIn, level: pc.level || '', readOnly: readOnly(), undo: undoStack.length, error: pc.error || '',
     };
   }
   async function pcLoad() {
@@ -821,6 +851,7 @@
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
     pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show, r.result.at); } });
+    schedulePcPresets();
     pcHeld = '';
     paintPcHeld();
     setControlFocus(sheetOpen);
@@ -863,7 +894,11 @@
     else if (st === 'connected' && pc.wanted && !pc.on) setTarget('pc');
     else emitTarget();
     // Bağlanınca "PC'ye gönder" kaldığı yerden; kopunca bilgisayarın sesi beklenmez
-    if (st !== was && (st === 'connected' || was === 'connected')) { if (st !== 'connected') watching = false; syncAudio(); }
+    if (st !== was && (st === 'connected' || was === 'connected')) {
+      if (st !== 'connected') { watching = false; clearPcPresets(); }
+      else schedulePcPresets();
+      syncAudio();
+    }
   }
   const evLog = []; // son ayar olayları (tanılama: sürüm ve anahtarlar)
   /* PC'de basılı anlık efektler (Canlı özeti `held`) telefonun çizdiği PC sahnesinde de görünür.
@@ -915,8 +950,11 @@
       ev.pcLive.emit(pc.live);
       paintPcHeld();
     } else if (m.ev === 'song') {
-      applyPcSong(m);
+      if (wantsPcSong()) applyPcSong(m);
+      else rememberPcLyrics(m);
       if (m.show !== undefined) applyPcShow(m.show, m.at);
+    } else if (m.ev === 'presets') {
+      schedulePcPresets();
     } else if (m.ev === 'clock') {
       applyPcShow(m.anchor, m.at);
     } else if (m.ev === 'meter') {
@@ -946,9 +984,55 @@
   try { usePcAudio = localStorage.getItem('sv-link-pc-audio') === '1'; } catch (e) { /* */ }
   let playPc = false;
   try { playPc = localStorage.getItem('sv-link-pc-play') === '1'; } catch (e) { /* */ }
-  let pcIn = { known: false, enabled: false, play: false, fallback: true, delayMs: 0, state: '', name: '' };
+  let pcIn = { known: false, enabled: false, play: false, fallback: true, delayMs: 0, gain: 1, state: '', name: '' };
   let songArmed = false;
   wantsPcSong = () => pc.state === 'connected' && !audioSend && (pc.on || usePcAudio || playPc);
+  let pcGain = 1;
+  try { const g = Number(localStorage.getItem('sv-link-pc-gain')); if (Number.isFinite(g)) pcGain = Math.max(0, Math.min(2, Math.round(g * 100) / 100)); } catch (e) { /* */ }
+  let pcPresetSig = '';
+  let pcPresetIds = [];
+  let presetPullTimer = 0;
+  let presetPullBusy = false;
+  let presetPullAgain = false;
+  function schedulePcPresets() {
+    if (pc.state !== 'connected') return;
+    clearTimeout(presetPullTimer);
+    presetPullTimer = setTimeout(() => { presetPullTimer = 0; pullPcPresets(); }, 200);
+  }
+  function applyPcPresetList(items) {
+    const S = window.SVPresets;
+    if (!S || typeof S.setSession !== 'function') return;
+    const sig = items.map((p) => String(p.id) + ':' + (p.updatedAt || 0) + ':' + String((p && (p.shader || p.source)) || '').length).join('\n');
+    if (sig === pcPresetSig) return;
+    pcPresetSig = sig;
+    const prev = pcPresetIds;
+    S.setSession(items);
+    pcPresetIds = items.map((p) => String(p.id));
+    const drop = prev.filter((id) => pcPresetIds.indexOf(id) < 0);
+    ev.presetsDelta.emit({ upsert: items, remove: drop, gen: Date.now() });
+  }
+  function clearPcPresets() {
+    clearTimeout(presetPullTimer);
+    presetPullTimer = 0;
+    pcPresetSig = '';
+    const drop = pcPresetIds;
+    pcPresetIds = [];
+    const S = window.SVPresets;
+    if (S && typeof S.setSession === 'function') S.setSession([]);
+    if (drop.length) ev.presetsDelta.emit({ upsert: [], remove: drop, gen: Date.now() });
+  }
+  function pullPcPresets() {
+    if (pc.state !== 'connected') return;
+    if (presetPullBusy) { presetPullAgain = true; return; }
+    presetPullBusy = true;
+    pcAsk('presets.user', {}).then((r) => {
+      presetPullBusy = false;
+      if (pc.state !== 'connected') { clearPcPresets(); return; }
+      const items = r && r.ok && r.result && Array.isArray(r.result.items) ? r.result.items : [];
+      applyPcPresetList(items);
+      if (presetPullAgain) { presetPullAgain = false; pullPcPresets(); }
+    }, () => { presetPullBusy = false; });
+  }
   function takeAudioIn(ai) {
     if (!ai || typeof ai !== 'object') return;
     const delay = Number(ai.delayMs);
@@ -958,6 +1042,7 @@
       play: ai.play === true,
       fallback: ai.fallback !== false,
       delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : 0,
+      gain: window.SVLinkPhone ? window.SVLinkPhone.clampGain(ai.gain == null ? 1 : ai.gain) : 1,
       state: typeof ai.state === 'string' ? ai.state : '',
       name: typeof ai.name === 'string' ? ai.name : '',
     };
@@ -967,9 +1052,10 @@
   function syncAudio() {
     const on = pc.state === 'connected';
     request('linkAudioSend', { on: on && audioSend }).catch(() => {});
+    request('linkAudioGain', { gain: pcGain }).catch(() => {});
     if (on && audioSend) {
       const args = { on: true };
-      if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; }
+      if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; args.gain = pcIn.gain; }
       pcAsk('audio.bridge', args).then((r) => { if (r && r.ok && r.result) { takeAudioIn(r.result); emitTarget(); } pcNowPlaying(nowPlaying, true); });
     }
     const watch = !audioSend && pc.state === 'connected' && ((pc.on && previewMode === 'smooth') || (!pc.on && usePcAudio) || playPc);
@@ -1030,7 +1116,7 @@
   }
   async function setAudioIn(patch) {
     audioLocalAt = Date.now();
-    const args = Object.assign({ on: true, play: !!pcIn.play, fallback: pcIn.fallback !== false, delayMs: pcIn.delayMs || 0 }, patch || {});
+    const args = Object.assign({ on: true, play: !!pcIn.play, fallback: pcIn.fallback !== false, delayMs: pcIn.delayMs || 0, gain: pcIn.gain == null ? 1 : pcIn.gain }, patch || {});
     const r = await pcAsk('audio.bridge', args);
     if (r && r.ok && r.result) takeAudioIn(r.result);
     emitTarget();
@@ -1246,6 +1332,13 @@
       usePcAudio: (on) => { usePcAudio = !!on; try { localStorage.setItem('sv-link-pc-audio', usePcAudio ? '1' : '0'); } catch (e) { /* */ } syncAudio(); emitTarget(); return targetInfo(); },
       /** PC'de çalan sesi telefonun hoparlöründen de çal. Gönderim açıkken kapalı kalır. */
       playPcAudio: (on) => { playPc = !!on; try { localStorage.setItem('sv-link-pc-play', playPc ? '1' : '0'); } catch (e) { /* */ } syncAudio(); emitTarget(); return targetInfo(); },
+      playPcGain: (v) => {
+        pcGain = window.SVLinkPhone ? window.SVLinkPhone.clampGain(v) : 1;
+        try { localStorage.setItem('sv-link-pc-gain', String(pcGain)); } catch (e) { /* */ }
+        request('linkAudioGain', { gain: pcGain }).catch(() => {});
+        emitTarget();
+        return targetInfo();
+      },
       /** PC'deki telefon sesi ayarları: hoparlör, yedek giriş, görüntü gecikmesi. */
       audioIn: (patch) => setAudioIn(patch),
       /** Telefonun son PC değişikliğini geri al (en çok 20) */
