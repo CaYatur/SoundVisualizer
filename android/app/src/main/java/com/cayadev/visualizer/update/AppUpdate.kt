@@ -182,6 +182,8 @@ object AppUpdate {
         }
         if (o.optString("status") == "available") o.put("skipped", p.getString("skip", null) == o.optString("latest"))
         else o.remove("skipped")
+        // Bildirimi gösterilen sürüm (sayfanın localStorage'ı süreç hemen kapanınca yazılmamış olabiliyor)
+        p.getString("told", null)?.let { o.put("told", it) }
         return o.put("mode", mode(ctx)).put("checkedAt", p.getLong("checkedAt", 0L)).put("checking", running)
     }
 
@@ -229,6 +231,9 @@ object AppUpdate {
             done(state(app, current))
         }.apply { name = "app-update"; isDaemon = true }.start()
     }
+
+    /** Bu sürümün bildirimi gösterildi: sürüm başına bir kez (commit: hemen diske). */
+    fun told(ctx: Context, version: String) { if (parse(version) != null) prefs(ctx).edit().putString("told", version.take(40)).commit() }
 
     /** Sınama: kalıcı durumu sil (kip, atlama, son denetim). */
     fun reset(ctx: Context) { prefs(ctx).edit().clear().apply(); debugGets = 0 }

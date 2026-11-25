@@ -1174,6 +1174,8 @@
       check: () => request('updateCheck', { manual: true }),
       setMode: (mode) => request('updateMode', { mode: mode === 'off' ? 'off' : 'notify' }),
       skip: () => request('updateSkip'),
+      /** Bu sürümün bildirimi gösterildi (sürüm başına bir kez; uygulamada kalıcı) */
+      told: (version) => request('updateTold', { version: String(version || '') }),
       open: () => request('updateOpen'),
       onChange: (cb) => ev.update.add(cb),
     }),

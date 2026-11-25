@@ -111,6 +111,7 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 com.cayadev.visualizer.update.AppUpdate.setMode(app, args.optString("mode"))
                 reply.ok(com.cayadev.visualizer.update.AppUpdate.state(app, BuildConfig.VERSION_NAME))
             }
+            "updateTold" -> { com.cayadev.visualizer.update.AppUpdate.told(app, args.optString("version")); reply.ok() }
             "updateSkip" -> reply.ok(com.cayadev.visualizer.update.AppUpdate.skip(app, BuildConfig.VERSION_NAME))
             "updateOpen" -> {
                 if (live == null) { reply.fail("no-activity"); return }
