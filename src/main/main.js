@@ -2616,6 +2616,8 @@ function notifyAdmin(channel, payload) {
   }
   // Dışa aktarmanın ilerlemesi telefona da (PC bağlantısı B6; saniyede en çok bir kez, aşama değişince hemen)
   if (channel === 'export-progress' && typeof linkExportNote === 'function') linkExportNote(payload);
+  // Güncelleme durumu telefonlara da (salt okunur; kurulum PC'de)
+  if (channel === 'updates:status' && typeof linkUpdateNote === 'function') linkUpdateNote();
   // Bitiş ayrı kanalda: telefon da bitti/olmadı/iptal görsün (yol değil, yalnız dosya adı)
   if (channel === 'export-done' && typeof linkExportNote === 'function') {
     const d = payload || {};
@@ -4989,6 +4991,39 @@ function linkExportNote(p) {
   linkExportAt = t;
   linkSvc.broadcast({ ev: 'export', p: linkExportLast });
 }
+/* Bilgisayarın güncelleme durumu telefona (izin listesiyle): sürüm, yeni sürüm, son denetim.
+   Dosya yolu, indirme adresi ve sürüm notu gönderilmez; sürüm sayfası yalnız github.com. */
+function linkUpdateState() {
+  const s = updateState || {};
+  const url = typeof s.releaseUrl === 'string' && /^https:\/\/github\.com\//.test(s.releaseUrl) ? s.releaseUrl.slice(0, 300) : '';
+  const err = s.status === 'error' ? s.error : s.checkError;
+  return {
+    status: String(s.status || 'idle'),
+    current: app.getVersion(),
+    latest: typeof s.latest === 'string' ? s.latest.slice(0, 40) : '',
+    name: typeof s.name === 'string' ? s.name.slice(0, 120) : '',
+    publishedAt: typeof s.publishedAt === 'string' ? s.publishedAt.slice(0, 40) : '',
+    releaseUrl: url,
+    skipped: !!s.skipped,
+    installable: !!s.installable,
+    checkedAt: Number(s.checkedAt) || 0,
+    error: err ? String(err).slice(0, 120) : '',
+    mode: updateMode(),
+    auto: UPDATE_AUTO,
+  };
+}
+let linkUpdateAt = 0;
+let linkUpdateLast = '';
+function linkUpdateNote() {
+  if (!linkSvc || linkSvc.sessionCount() < 1) return;
+  const st = linkUpdateState();
+  const t = Date.now();
+  // İndirme ilerlemesi sık gelir: durum değişmedikçe saniyede en çok bir kez
+  if (st.status === linkUpdateLast && t - linkUpdateAt < 1000) return;
+  linkUpdateAt = t;
+  linkUpdateLast = st.status;
+  linkSvc.broadcast({ ev: 'updates', state: st });
+}
 function linkManageOps() {
   const bad = (code) => Object.assign(new Error(code || 'bad-args'), { code: code || 'bad-args' });
   const ID = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -4999,6 +5034,9 @@ function linkManageOps() {
   const exportDir = () => path.join(app.getPath('videos'), 'SoundVisualizer');
   return {
     // Ekranlar ve çıkışlar (yalnız bu makinenin ekran kimlikleri)
+    'updates.state': () => linkUpdateState(),
+    // PC'deki "Şimdi denetle" ile aynı (elle denetim kip kapalıyken de çalışır)
+    'updates.check': () => runUpdateCheck(true).then(() => linkUpdateState(), () => linkUpdateState()),
     'output.list': () => ({
       displays: getDisplayList().map((d) => ({ id: d.id, label: d.label, width: d.size && d.size.width, height: d.size && d.size.height, primary: !!d.isPrimary })),
       open: Array.from(visualizerWins.keys()),

@@ -110,6 +110,20 @@ async function desktop() {
   const devs = (await pcStatus()).devices;
   check('bilgisayarda cihaz çevrimiçi', devs.length === 1 && devs[0].online && devs[0].level === 'full', devs);
 
+  // ---- Ayarlar → Güncellemeler: bağlıyken PC'nin sürümü (updates.state, salt okunur)
+  const pcVer = require('../../package.json').version;
+  await ev(`(() => { window.SVShell.close(); window.SVShell.open('settings'); return 1; })()`);
+  let low = '';
+  for (let i = 0; i < 20; i++) {
+    await sleep(300);
+    low = (await ev(`document.querySelector('#sv-shell').innerText`)).toLowerCase();
+    if (low.indexOf((await T("PC'nin Sürümü")).toLowerCase()) >= 0) break;
+  }
+  check('Ayarlar: bağlıyken PC\'nin sürümü görünüyor', low.indexOf((await T("PC'nin Sürümü")).toLowerCase()) >= 0 && low.indexOf(String(pcVer)) >= 0, { pcVer });
+  const upd = await ev(`window.SVAndroid.link.request('updates.state', {})`);
+  check('updates.state şifreli yanıt, sürüm notu ve dosya adresi yok', upd && upd.ok && upd.result.current === String(pcVer) && !('notes' in upd.result) && !('asset' in upd.result), upd);
+  await ev('window.SVShell.close()');
+
   // ---- Uygulama yeniden açılınca kendiliğinden bağlanır
   page.close();
   D.adb(['shell', 'am', 'force-stop', D.PKG]);

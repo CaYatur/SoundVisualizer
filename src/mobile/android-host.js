@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(), pcUpdates: listeners(), update: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -135,6 +135,7 @@
   }
 
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  let appUpdate = null; // son bilinen yeni sürüm durumu (update/AppUpdate.kt)
   let systemDark = null; // cihazın gece kipi (uygulamadan; WebView'in prefers-color-scheme'i izlemiyor)
   const systemDarkEv = listeners();
   function onEvent(name, v) {
@@ -187,6 +188,10 @@
       ev.link.emit(v);
     } else if (name === 'linkEvent') {
       ev.linkEvent.emit(v);
+    } else if (name === 'updateState') {
+      // Telefon uygulamasının yeni sürüm denetimi bitti (update/AppUpdate.kt)
+      appUpdate = v || null;
+      ev.update.emit(appUpdate);
     } else if (name === 'linkUpload') {
       // PC'ye dosya gönderiminin ilerlemesi (link/LinkUpload.kt)
       ev.pcUpload.emit(v);
@@ -820,6 +825,9 @@
       ev.pcMeter.emit(pc.meter);
     } else if (m.ev === 'export') {
       ev.pcExport.emit(m.p || null);
+    } else if (m.ev === 'updates') {
+      // Bilgisayarın güncelleme durumu (salt okunur; kurulum PC'de)
+      ev.pcUpdates.emit(m.state || null);
     }
   }
   /* ---- SES VE ÖNİZLEME (B4/B5) ----
@@ -1063,6 +1071,8 @@
       cancelUpload: (key) => request('linkUploadCancel', { key }),
       onUpload: (cb) => ev.pcUpload.add(cb),
       onExport: (cb) => ev.pcExport.add(cb),
+      /** Bilgisayarın güncelleme durumu (değişince `updates` olayıyla da gelir) */
+      onUpdates: (cb) => ev.pcUpdates.add(cb),
       /** Telefonun KENDİ ayarına yazar (hedef PC iken de; ör. PC'deki sahneyi telefona kopyalamak) */
       copyToPhone: (c) => { if (!c || typeof c !== 'object') return; config = c; profile.save(c); if (!pc.on) ev.config.emit(engineView(c)); },
       /** Tanılama (sınama betikleri): aynanın sürümü, bekleyen ve yazılan anahtarlar, son olaylar */
@@ -1153,6 +1163,20 @@
     onMeter: (cb) => ev.meter.add(cb),
     onLowPower: (cb) => { ev.lowPower.add(cb); if (lowPowerOn != null) cb(lowPowerOn); },
     app: Object.freeze({ toBackground: () => request('appToBack') }),
+    /* Yeni sürüm uyarısı (PLAN K13): denetim uygulamada, sayfa adres vermez. Uygulama kendini
+       kurmaz; open() sürüm sayfasını tarayıcıda açar. Durum: { status: idle|available|latest|
+       none|error, current, latest?, name?, notes?, url?, skipped?, error?, mode, checkedAt, checking } */
+    updates: Object.freeze({
+      state: () => (native ? request('updateState').then((v) => { appUpdate = v || appUpdate; return appUpdate; }) : resolved(null)),
+      last: () => appUpdate,
+      /** Kendiliğinden denetim (zamanı geldiyse; kip kapalıysa ağa çıkmaz) */
+      auto: () => (native ? request('updateCheck', { manual: false }) : resolved(null)),
+      check: () => request('updateCheck', { manual: true }),
+      setMode: (mode) => request('updateMode', { mode: mode === 'off' ? 'off' : 'notify' }),
+      skip: () => request('updateSkip'),
+      open: () => request('updateOpen'),
+      onChange: (cb) => ev.update.add(cb),
+    }),
     /* Sistemin resim içinde resmi; w:h görüntünün oranı (1:2,39 … 2,39:1 arası). */
     pip: (w, h) => request('pipEnter', { w: w || 16, h: h || 9 }),
     /* Galeriden dosya: 'video' → { url, name, mime } (kopyalanmaz, akıtılır),
