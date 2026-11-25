@@ -1902,6 +1902,17 @@
         });
         out.push(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı Metni' }), area]));
         out.push(miniToggle('Kayan Yazı', () => !!txt.marquee, (v) => { txt.marquee = v; }, rerender, { def: false }));
+        // Yol üstünde yazı (#415): varsayılan düz; kayan yazı açıkken uygulanmaz
+        if (!txt.marquee) {
+          out.push(miniSelect('Yazı Yolu', [['', 'Düz Satır'], ['arc', 'Yay'], ['circle', 'Çember'], ['wave', 'Dalga']],
+            () => txt.textPath || '', (v) => { txt.textPath = v; }, rerender, ''));
+          if (txt.textPath === 'arc' || txt.textPath === 'wave') {
+            out.push(miniSlider(txt.textPath === 'arc' ? 'Yay Açıklığı' : 'Dalga Yüksekliği', () => (txt.pathBend == null ? 0.5 : txt.pathBend), (v) => { txt.pathBend = v; }, { min: 0.05, max: 1, step: 0.01, def: 0.5, percent: true }));
+          }
+          if (txt.textPath === 'circle' || txt.textPath === 'wave') {
+            out.push(miniSlider('Yolda Dönüş', () => (txt.pathSpeed == null ? 0 : txt.pathSpeed), (v) => { txt.pathSpeed = v; }, { min: -2, max: 2, step: 0.05, def: 0 }));
+          }
+        }
         if (txt.marquee) {
           out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01, def: 0.12 }));
         }

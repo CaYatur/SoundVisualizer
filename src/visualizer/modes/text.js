@@ -391,7 +391,34 @@
         });
       };
 
-      if (T.marquee) {
+      // Yol üstünde yazı (#415): tek satır harf harf yolun üstüne; kayan yazı açıksa o önce gelir
+      const pathKind = !T.marquee && TEXT_PATHS.indexOf(T.textPath) >= 0 ? T.textPath : '';
+      if (pathKind) {
+        const flat = String(content).replace(/\s*\r?\n\s*/g, ' ');
+        const chars = Array.from(flat);
+        const widths = chars.map((c) => ctx.measureText(c).width);
+        const spin = clamp(T.pathSpeed == null ? 0 : Number(T.pathSpeed) || 0, -2, 2);
+        this.pathPhase = (this.pathPhase || 0) + step * spin;
+        const pts = pathLayout(pathKind, widths, { size, bend: T.pathBend, phase: this.pathPhase });
+        const prevAlign = ctx.textAlign;
+        ctx.textAlign = 'center';
+        if (pts) {
+          for (let i = 0; i < chars.length; i++) {
+            if (!chars[i].trim()) continue;
+            ctx.save();
+            ctx.translate(pts[i].x, pts[i].y);
+            ctx.rotate(pts[i].a);
+            drawOne(chars[i], 0, 0, rgba(baseColor, 1));
+            ctx.restore();
+          }
+          // Yerleşim kutusu: harf merkezlerinin kapsadığı alan, yazı boyu kadar payla
+          let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+          for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+          const pad = size * 0.7;
+          this.layoutBounds = W > 0 && H > 0 ? { x: (cx + x0 - pad) / W, y: (cy + yBias + y0 - pad) / H, w: (x1 - x0 + pad * 2) / W, h: (y1 - y0 + pad * 2) / H } : null;
+        }
+        ctx.textAlign = prevAlign;
+      } else if (T.marquee) {
         // Kayan yazı: metin genişliğinden uzun bir döngüde sürekli akar
         this.marquee += step * (T.marqueeSpeed == null ? 0.12 : T.marqueeSpeed) * W;
         const wdt = ctx.measureText(content).width + size * 2;
@@ -510,6 +537,48 @@
 
     dispose() { this.doc = null; }
   }
+
+  /* YOL ÜSTÜNDE YAZI (#415). Harflerin genişliklerinden (yazının yerel biriminde) her harfin
+     merkezini ve dönüş açısını veren saf işlev; çizim ve sınama aynı formülü kullanıyor.
+     kind: 'arc' (yay, bend 0..1 yayın açıklığı: 1 yarım daire), 'circle' (yazı bir çemberin
+     tepesinden saat yönünde dolanıyor; spin zamanla döndürür), 'wave' (dalga: bend genlik,
+     spin dalgayı kaydırır). Başka değer: null (düz yazı, eski yol). */
+  const TEXT_PATHS = ['arc', 'circle', 'wave'];
+  function pathLayout(kind, widths, o) {
+    if (TEXT_PATHS.indexOf(kind) < 0 || !widths || !widths.length) return null;
+    const opt = o || {};
+    const size = Math.max(1, Number(opt.size) || 16);
+    const bend = clamp(opt.bend == null ? 0.5 : Number(opt.bend), 0.05, 1);
+    const phase = Number(opt.phase) || 0;
+    const L = widths.reduce((s, w) => s + Math.max(0, w), 0);
+    const out = [];
+    let s = 0;
+    for (const w0 of widths) {
+      const w = Math.max(0, w0);
+      const mid = s + w / 2;
+      s += w;
+      if (kind === 'arc') {
+        // Yay: toplam açı bend·π; merkez yazının altında, yazı gökkuşağı gibi kavisli
+        const R = Math.max(size, L / (bend * Math.PI));
+        const th = (mid - L / 2) / R;
+        out.push({ x: R * Math.sin(th), y: R * (1 - Math.cos(th)), a: th });
+      } else if (kind === 'circle') {
+        // Çember: çevre en az yazının boyu; harfler dışa bakıyor, tepeden başlıyor
+        const R = Math.max(size * 1.5, L / (2 * Math.PI * 0.92));
+        const th = -Math.PI / 2 + (mid - L / 2) / R + phase;
+        out.push({ x: R * Math.cos(th), y: R * Math.sin(th), a: th + Math.PI / 2 });
+      } else {
+        // Dalga: 1,5 dalga boyu; eğim harfin açısı
+        const A = size * 1.2 * bend;
+        const k = (2 * Math.PI * 1.5) / Math.max(1, L);
+        const x = mid - L / 2;
+        out.push({ x, y: A * Math.sin(k * x + phase), a: Math.atan(A * k * Math.cos(k * x + phase)) });
+      }
+    }
+    return out;
+  }
+  TextMode.pathLayout = pathLayout;
+  TextMode.PATHS = TEXT_PATHS;
 
   window.SVModes = window.SVModes || {};
   window.SVModes.text = TextMode;
