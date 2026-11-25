@@ -163,6 +163,10 @@
 #sv-shell .nav button { flex: 1; min-width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 18px; color: var(--muted); font-size: 11px; font-weight: 600; }
 #sv-shell .nav button.on { color: var(--text-strong); background: rgb(var(--accent-rgb) / .22); }
 #sv-shell .nav button.on .svi { color: var(--accent2); }
+/* Yeni sürüm uyarısı: Ayarlar düğmesinde nokta (src/mobile/shell-updates.js) */
+#sv-shell .nav button.has-dot { position: relative; }
+#sv-shell .nav button.has-dot::after { content: ''; position: absolute; top: 8px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+#sv-shell .update-notes { white-space: pre-line; font-size: 13px; line-height: 1.45; color: var(--muted); max-height: 220px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 0 4px; }
 html[data-ui-scheme="light"] #sv-shell .nav button.on { color: var(--accent-label); }
 html[data-ui-scheme="light"] #sv-shell .nav button.on .svi { color: var(--accent); }
 

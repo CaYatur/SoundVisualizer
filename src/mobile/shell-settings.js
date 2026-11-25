@@ -13,7 +13,8 @@
    - Performans: çizim ölçeği (`power.renderScale`), kare sınırı (`power.fpsCap`, 0 = ekran),
      pilde düşük güç (`power.lowPower` 'battery' / 'off').
    - Veri: bölüm bölüm yedek alma ve geri yükleme (src/mobile/shell-backup.js)
-     ve Hakkında. */
+     ve Hakkında.
+   - Güncellemeler: yeni sürüm uyarısı (src/mobile/shell-updates.js, PLAN K13). */
 (function () {
   if (typeof window === 'undefined' || !window.SVShell || !window.SVShellUI) return;
   const S = window.SVShell;
@@ -142,6 +143,10 @@
       const c = cfg();
       const power = Object.assign({ renderScale: 1, fpsCap: 0, lowPower: 'off' }, c.power);
       const current = T ? T.normalizeId(c.ui && c.ui.theme) : 'cayadev';
+      // Yeni sürüm varken en üstte şerit (src/mobile/shell-updates.js)
+      const UP = window.SVShellUpdates;
+      const upBanner = UP && UP.banner();
+      if (upBanner) body.appendChild(upBanner);
       body.appendChild(h('div', { class: 'section-label', text: 'Görünüm' }));
       body.appendChild(U.card([
         h('div', { class: 'ctl-row col' }, [
@@ -180,6 +185,7 @@
         h('div', { class: 'divider flush' }),
         navRow('info', 'Hakkında ve lisanslar', (en() ? 'Version ' : 'Sürüm ') + (env.version || '?'), () => ctx.push(aboutPage)),
       ]));
+      if (UP) for (const n of UP.section(ctx)) body.appendChild(n);
       const st = importStatus() || window.SVShellBackup.status();
       if (st) body.appendChild(st);
     },

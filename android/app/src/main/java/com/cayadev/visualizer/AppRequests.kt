@@ -100,6 +100,30 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 if (bytes == null) { reply.fail("bad-frame"); return }
                 Thread { reply.ok(com.cayadev.visualizer.link.QrDecode.gray(bytes, w, h) ?: JSONObject.NULL) }.start()
             }
+            /* Yeni sürüm uyarısı (update/AppUpdate.kt, PLAN K13). Ağ işi kendi iş parçacığında;
+               sonuç yanıtla ve `updateState` olayıyla gelir. Sayfa adres vermez. */
+            "updateState" -> reply.ok(com.cayadev.visualizer.update.AppUpdate.state(app, BuildConfig.VERSION_NAME))
+            "updateCheck" -> com.cayadev.visualizer.update.AppUpdate.run(app, BuildConfig.VERSION_NAME, args.optBoolean("manual")) { s ->
+                reply.ok(s)
+                EngineHost.bridge?.event("updateState", s)
+            }
+            "updateMode" -> {
+                com.cayadev.visualizer.update.AppUpdate.setMode(app, args.optString("mode"))
+                reply.ok(com.cayadev.visualizer.update.AppUpdate.state(app, BuildConfig.VERSION_NAME))
+            }
+            "updateSkip" -> reply.ok(com.cayadev.visualizer.update.AppUpdate.skip(app, BuildConfig.VERSION_NAME))
+            "updateOpen" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                val url = com.cayadev.visualizer.update.AppUpdate.pageUrl(app, BuildConfig.VERSION_NAME)
+                try { live.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())); reply.ok(JSONObject().put("url", url)) } catch (e: Exception) { reply.fail("no-browser", e.message ?: "") }
+            }
+            "debugUpdateFeed" -> {
+                if (!BuildConfig.DEBUG) { reply.fail("unknown-op", op); return }
+                val up = com.cayadev.visualizer.update.AppUpdate
+                if (args.optBoolean("reset")) up.reset(app)
+                up.debugResponse = if (args.has("code")) com.cayadev.visualizer.update.AppUpdate.HttpResult(args.optInt("code"), if (args.has("body")) args.optString("body") else null) else null
+                reply.ok(JSONObject().put("gets", up.debugGets))
+            }
             "debugNowPlayingSelf" -> {
                 if (!BuildConfig.DEBUG) { reply.fail("unknown-op", op); return }
                 com.cayadev.visualizer.media.NowPlaying.includeSelf = args.optBoolean("on")
