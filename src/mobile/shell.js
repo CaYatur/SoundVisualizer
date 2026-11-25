@@ -725,14 +725,19 @@
     const targetIcon = h('span', { class: 'target-icon' }, [icon('phone')]);
     const targetChip = h('button', { class: 'chip glass live target-chip', hidden: true, 'aria-label': 'Hedef', onclick: targetMenu }, [targetIcon, targetLabel, targetDim]);
     hud.insertBefore(targetChip, hud.firstChild);
-    const toastBox = h('div', { class: 'toast glass', role: 'status', 'aria-live': 'polite', hidden: true });
+    const toastText = h('span', { class: 'grow-text' });
+    const toastBox = h('div', { class: 'toast glass live', role: 'status', 'aria-live': 'polite', hidden: true }, [
+      toastText,
+      h('button', { class: 'iconbtn plain toast-x', 'aria-label': 'Kapat', onclick: () => { toastBox.hidden = true; clearTimeout(toastTimer); } }, [icon('x')]),
+    ]);
     // "Gerçek görüntü" önizlemesi: PC'nin gösterdiği kare sahnenin üstünde, arayüzün altında
     const pcShot = h('img', { class: 'pc-shot', alt: '', hidden: true, decoding: 'async' });
     const pcBannerText = h('span', { class: 'grow-text' });
-    const pcBanner = h('div', { class: 'pc-banner glass', role: 'status', hidden: true }, [icon('monitor'), pcBannerText,
-      h('button', { class: 'btn', onclick: () => { if (A().target) A().target.set('phone'); } }, [h('span', { text: 'Bu telefona dön' })])]);
+    const pcBanner = h('div', { class: 'pc-banner glass live', role: 'status', hidden: true }, [icon('monitor'), pcBannerText,
+      h('button', { class: 'btn', onclick: () => { if (A().target) A().target.set('phone'); } }, [h('span', { text: 'Bu telefona dön' })]),
+      h('button', { class: 'iconbtn plain', 'aria-label': 'Kapat', onclick: () => { bannerDismissed = bannerKey(); paintBanner(); } }, [icon('x')])]);
     root = h('div', { id: 'sv-shell' }, [pcShot, hud, pcBanner, sceneCard, scenesStrip, nav, toastBox]);
-    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, pcShot, pcBanner, pcBannerText };
+    refs = { hud, tlChip, meterBars, sourceDot, sourceLabel, bpmChip, bpmValue, sceneTitle, sceneSub, vj, sceneCard, scenes: scenesStrip, nav, navButtons, sheet: null, targetChip, targetLabel, targetDim, targetIcon, toastBox, toastText, pcShot, pcBanner, pcBannerText };
     document.body.appendChild(root);
     if (typeof ResizeObserver === 'function') new ResizeObserver(fitHud).observe(hud);
     fitHud();
@@ -741,6 +746,7 @@
   // ---- Hedef: bu telefon ya da PC (PC bağlantısı) ----
   let targetSt = { target: 'phone', wanted: false, name: '', state: 'idle', rtt: 0, standby: false };
   let savedPcs = 0;
+  let linkSnap = { saved: [], state: 'idle', pc: null };
   function paintTarget() {
     if (!refs.targetChip) return;
     const pcOn = targetSt.target === 'pc';
@@ -760,44 +766,66 @@
   }
   async function targetMenu() {
     const T = A().target;
+    const P = A().pc;
     if (!T) return;
     const st = T.get();
     const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
-    const pcLabel = (st.name || 'PC') + ' · ' + (st.state === 'connected' ? tr('bağlı') : st.state === 'connecting' || st.state === 'reconnecting' ? tr('bağlanıyor') : tr('bağlı değil'));
+    const saved = Array.isArray(linkSnap.saved) ? linkSnap.saved : [];
+    const session = linkSnap.pc && linkSnap.pc.id ? linkSnap.pc : null;
+    const seen = new Set();
+    const pcs = [];
+    for (const p of saved) {
+      if (!p || !p.id || seen.has(p.id)) continue;
+      seen.add(p.id);
+      pcs.push(p);
+    }
+    if (session && !seen.has(session.id)) pcs.push({ id: session.id, name: session.name || st.name || 'PC' });
+    const liveId = session && (linkSnap.state === 'connected' || linkSnap.state === 'connecting' || linkSnap.state === 'reconnecting') ? String(session.id) : '';
     const PREV = { smooth: tr('Akıcı'), image: tr('Gerçek görüntü'), off: tr('Kapalı') };
-    const opts = [['phone', tr('Bu telefon')], ['pc', pcLabel]];
+    const opts = [['phone', tr('Bu telefon')]];
+    for (const p of pcs) {
+      const on = liveId && liveId === String(p.id);
+      const label = (p.name || 'PC') + ' · ' + (on ? (linkSnap.state === 'connected' ? tr('bağlı') : tr('bağlanıyor')) : tr('bağlı değil'));
+      opts.push(['pc:' + p.id, label]);
+    }
     if (st.target === 'pc') {
       opts.push(['preview', tr('Önizleme') + ': ' + (PREV[st.preview] || PREV.smooth)]);
       opts.push(['manage', tr('PC Ayarları')]);
       if (st.undo > 0) opts.push(['undo', tr('Son değişikliği geri al') + ' (' + st.undo + ')']);
     }
     opts.push(['display', tr('Ek ekran olarak kullan')], ['setup', tr('Bağlantı ayarları')]);
-    const v = await chooseBox('Hedef', opts, st.target);
+    const current = (st.target === 'pc' || st.wanted) && liveId ? 'pc:' + liveId : 'phone';
+    const v = await chooseBox('Hedef', opts, current);
+    if (!v) return;
     if (v === 'preview') {
       /* Akıcı: telefon bilgisayarın ayarını bilgisayarın sesiyle kendisi çizer (az veri, piksel
          piksel aynı değil: bilgisayardaki kamera, ekran yakalama, web sayfası telefonda yok).
          Gerçek görüntü: bilgisayarın gösterdiği kare, saniyede birkaç kez. Kapalı: bilgisayarın
-         ayarı telefonun kendi sesiyle. */
+         ayarı telefonun kendi sesiyle. Önizleme hedefte değil, PC bağlantısında. */
       const m = await chooseBox('Önizleme', [['smooth', PREV.smooth], ['image', PREV.image], ['off', PREV.off]], st.preview || 'smooth');
-      if (m) T.preview(m);
+      if (m && P && P.preview) P.preview(m);
       return;
     }
     if (v === 'manage' && window.SVShellPcManage) { openSheetWith(window.SVShellPcManage.page()); return; }
-    if (v === 'undo') { if (!(A().pc && A().pc.undo())) toast('Geri alınacak değişiklik yok.'); return; }
+    if (v === 'undo') { if (!(P && P.undo())) toast('Geri alınacak değişiklik yok.'); return; }
     if (v === 'display') {
       // Telefon PC'nin bir çıkışı gibi: PC hedefi, akıcı önizleme, arayüzsüz tam ekran
       const r = await T.set('pc');
       if (!r || r.target !== 'pc') { toast('PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.'); return; }
-      T.preview('smooth');
+      if (P && P.preview) P.preview('smooth');
       setFullscreen(true);
       return;
     }
-    if (v === 'phone' || v === 'pc') {
-      const r = await T.set(v);
-      if (v === 'pc' && r && r.target !== 'pc') toast(st.state === 'connected' ? 'PC ayarı okunamadı. Yeniden deneyin.' : 'PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.');
-    } else if (v === 'setup' && window.SVShellPcLink) {
-      openSheetWith(window.SVShellPcLink.page());
+    if (v.indexOf('pc:') === 0) {
+      const id = v.slice(3);
+      const already = liveId === id && linkSnap.state === 'connected';
+      if (!already && A().link) A().link.connect(id).catch(() => {});
+      const r = await T.set('pc');
+      if (!r || r.target !== 'pc') toast(already ? 'PC ayarı okunamadı. Yeniden deneyin.' : 'PC\'ye bağlı değil. Bağlanınca PC\'ye geçilecek.');
+      return;
     }
+    if (v === 'phone') { await T.set('phone'); return; }
+    if (v === 'setup' && window.SVShellPcLink) openSheetWith(window.SVShellPcLink.page());
   }
   /* Kısa bildirim (PC bir değişikliği kabul etmediğinde gibi). Dört saniyede kendiliğinden kalkar. */
   let toastTimer = 0;
@@ -805,7 +833,7 @@
     const box = refs.toastBox;
     if (!box) return;
     const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
-    box.textContent = tr(text);
+    if (refs.toastText) refs.toastText.textContent = tr(text);
     box.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { box.hidden = true; }, 4000);
@@ -834,10 +862,16 @@
     'unknown-device': 'Bu telefonun bağlantısı PC\'de kaldırılmış. Yeniden eşleşmek için PC\'de yeni kod oluşturun.',
     protocol: 'PC\'deki uygulama bu sürümle uyumsuz. İkisini de güncelleyin.',
   };
+  let bannerDismissed = '';
+  function bannerKey() {
+    return [targetSt.state, targetSt.error || '', targetSt.name || '', targetSt.wanted ? '1' : '0'].join('|');
+  }
   function paintBanner() {
     const b = refs.pcBanner;
     if (!b) return;
-    const show = targetSt.wanted && targetSt.target !== 'pc' && targetSt.state !== 'connected';
+    const key = bannerKey();
+    if (bannerDismissed && bannerDismissed !== key) bannerDismissed = '';
+    const show = !bannerDismissed && targetSt.wanted && targetSt.target !== 'pc' && targetSt.state !== 'connected';
     b.hidden = !show;
     if (!show) return;
     const tr = (t) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(t) : t);
@@ -877,7 +911,11 @@
       S.target.onChange((v) => { targetSt = v || targetSt; paintTarget(); });
       targetSt = S.target.get();
       if (S.link) {
-        const seen = (v) => { savedPcs = v && Array.isArray(v.saved) ? v.saved.length : savedPcs; paintTarget(); };
+        const seen = (v) => {
+          if (v) linkSnap = v;
+          savedPcs = v && Array.isArray(v.saved) ? v.saved.length : savedPcs;
+          paintTarget();
+        };
         S.link.onState(seen);
         S.link.status().then(seen, () => {});
       }

@@ -12,6 +12,7 @@ html, body {
   overflow: hidden;
   background: #000;
   cursor: none;
+  touch-action: manipulation;
 }
 
 /* Şeffaf arkaplan. Sayfanın kendi siyah zemini de kalkmak zorunda: pencere

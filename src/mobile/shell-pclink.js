@@ -155,7 +155,8 @@
         ]));
 
         const savedIds = new Set(saved.map((p) => p.id));
-        const found = (st.discovered || []).filter((d) => !savedIds.has(d.id));
+        const savedNames = new Set(saved.map((p) => String(p.name || '').toLocaleLowerCase('tr')));
+        const found = (st.discovered || []).filter((d) => d && !savedIds.has(d.id) && !savedNames.has(String(d.name || '').toLocaleLowerCase('tr')));
         body.appendChild(h('div', { class: 'section-label', text: 'Ağda bulunanlar' }));
         if (found.length) {
           body.appendChild(h('div', { class: 'card nav-card' }, found.map((d, i) => h('div', {}, [

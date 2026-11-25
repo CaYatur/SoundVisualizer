@@ -290,6 +290,15 @@
         sendKids.push(U.slider({ label: 'PC\'ye giden ses', min: 0, max: 2, step: 0.05, percent: true, value: ai.gain == null ? 1 : ai.gain, def: 1, onChange: (v) => A().pc.audioIn({ gain: v }) }));
         sendKids.push(h('div', { class: 'hint', text: 'Bu ayarlar PC\'deki Telefon Bağlantısı kartıyla aynıdır. Hoparlör, PC susunca yerel sese dönüş ve görüntünün sesi beklemesi. Ses düzeyi %100 normaldir, %200e kadar yükselir.' }));
       }
+      if (T.state === 'connected' && A().pc.audioIn) {
+        const ai = T.audioIn || {};
+        sendKids.push(U.toggle({ label: 'Kayıpsız aktarım', value: !!ai.lossless, onChange: (on) => A().pc.audioIn({ lossless: on }).then(() => ctx.refresh()) }));
+        sendKids.push(h('div', { class: 'hint', text: 'Kayıpsız aktarım paket atmaz; gecikme biraz artar. Kapalıyken hızlı yol durur.' }));
+        if (ai.lossless) {
+          sendKids.push(U.toggle({ label: 'Gecikme ile eşitle', value: ai.syncDelay !== false, onChange: (on) => A().pc.audioIn({ syncDelay: on }) }));
+          sendKids.push(h('div', { class: 'hint', text: 'Görüntü, söz ve şarkı saati bu gecikme kadar geriden gelir; iki taraf aynı anda ilerler.' }));
+        }
+      }
       if (!T.audioSend && T.state === 'connected' && A().pc.playPcAudio) {
         sendKids.push(U.toggle({ label: 'PC sesini telefonda çal', value: !!T.playPc, onChange: (on) => { A().pc.playPcAudio(on); ctx.refresh(); } }));
         sendKids.push(U.slider({ label: 'Telefona gelen PC sesi', min: 0, max: 2, step: 0.05, percent: true, value: T.pcGain == null ? 1 : T.pcGain, def: 1, onChange: (v) => { A().pc.playPcGain(v); } }));

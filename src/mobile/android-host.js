@@ -323,16 +323,37 @@
     for (const k of keys) if (Number(r[k]) > 0) r[k] = Number(r[k]) + pcSkew;
     return r;
   }
+  function syncLagMs(fromSong) {
+    if (!pcIn.lossless || pcIn.syncDelay === false || audioSend) return 0;
+    const n = Number(fromSong ? pc.watchDelayMs : pc.audioDelayMs) || 0;
+    return n > 0 ? Math.min(2500, n) : 0;
+  }
+  function lagClock(clock, ms) {
+    if (!clock || !ms) return clock;
+    const o = Object.assign({}, clock);
+    /* Çıpa `time + (now - epoch)`. İkisini birden kaydırmak gecikmeyi siler.
+       Yalnız süre geri alınır; epoch duyulduğu an olarak kalır. */
+    if (Number(o.time) > 0) o.time = Math.max(0, Number(o.time) - ms / 1000);
+    return o;
+  }
   function applyPcSong(s) {
     if (!wantsPcSong()) return;
     pcSong = s && typeof s === 'object' ? s : null;
-    if (pcSong) noteSkew(pcSong.at);
+    if (pcSong) {
+      noteSkew(pcSong.at);
+      pc.watchDelayMs = Math.max(0, Math.min(2500, Math.round(Number(pcSong.audioDelayMs) || 0)));
+    }
     if (!pcSongOn()) return;
     const np = pcSong.np;
     pcSongNp = np ? toPhoneTime(Object.assign({ has: !!np.title }, np, { received: Date.now() }), ['updated']) : { has: false, playing: false, title: '', artist: '', album: '', artwork: '', position: 0, duration: 0, received: Date.now() };
+    const lag = syncLagMs(true);
+    if (lag && pcSongNp && pcSongNp.playing) {
+      /* updated yerinde kalır: o anda duyulan konum, PC'nin konumundan `lag` kadar geridedir. */
+      pcSongNp.position = Math.max(0, (Number(pcSongNp.position) || 0) - lag / 1000);
+    }
     ev.nowPlaying.emit(pcSongNp);
     ev.lyricsLib.emit(shownLyrics());
-    ev.lyricsClock.emit(toPhoneTime(pcSong.clock, ['epoch']) || null);
+    ev.lyricsClock.emit(lagClock(toPhoneTime(pcSong.clock, ['epoch']), lag) || null);
   }
   function restoreOwnSong() {
     pcSongNp = null;
@@ -886,7 +907,11 @@
     const st = (v && v.state) || 'idle';
     pc.state = st;
     pc.error = (v && v.error) || '';
-    if (v && v.pc && v.pc.name) pc.name = v.pc.name;
+    if (v && v.pc && typeof v.pc === 'object') {
+      if (v.pc.id) pc.id = String(v.pc.id);
+      if (v.pc.name) pc.name = String(v.pc.name);
+    }
+    if (v && Number.isFinite(Number(v.audioDelayMs))) pc.audioDelayMs = Math.max(0, Math.min(2500, Math.round(Number(v.audioDelayMs))));
     const was = pc.lastState;
     pc.lastState = st;
     pc.level = (v && v.level) || pc.level || '';
@@ -905,7 +930,11 @@
      Yalnız değişince motora gider. */
   /* Gösteri saati (zaman çizelgesi): PC hedefindeyken PC'nin çıpası; dönünce telefonunki. */
   let ownShow = null;
-  function applyPcShow(anchor, at) { if (at) noteSkew(at); if (pc.on) ev.showClock.emit(toPhoneTime(anchor, ['epoch']) || null); }
+  function applyPcShow(anchor, at) {
+    if (at) noteSkew(at);
+    if (!pc.on) return;
+    ev.showClock.emit(lagClock(toPhoneTime(anchor, ['epoch']), syncLagMs(true)) || null);
+  }
   let pcHeld = '';
   function paintPcHeld() {
     if (!pc.on) return;
@@ -984,7 +1013,7 @@
   try { usePcAudio = localStorage.getItem('sv-link-pc-audio') === '1'; } catch (e) { /* */ }
   let playPc = false;
   try { playPc = localStorage.getItem('sv-link-pc-play') === '1'; } catch (e) { /* */ }
-  let pcIn = { known: false, enabled: false, play: false, fallback: true, delayMs: 0, gain: 1, state: '', name: '' };
+  let pcIn = { known: false, enabled: false, play: false, fallback: true, delayMs: 0, gain: 1, lossless: false, syncDelay: true, state: '', name: '' };
   let songArmed = false;
   wantsPcSong = () => pc.state === 'connected' && !audioSend && (pc.on || usePcAudio || playPc);
   let pcGain = 1;
@@ -1043,9 +1072,20 @@
       fallback: ai.fallback !== false,
       delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : 0,
       gain: window.SVLinkPhone ? window.SVLinkPhone.clampGain(ai.gain == null ? 1 : ai.gain) : 1,
+      lossless: ai.lossless === true,
+      syncDelay: ai.syncDelay !== false,
       state: typeof ai.state === 'string' ? ai.state : '',
       name: typeof ai.name === 'string' ? ai.name : '',
     };
+    request('linkAudioMode', { lossless: pcIn.lossless }).catch(() => {});
+    if (Number.isFinite(Number(ai.audioDelayMs))) {
+      const n = Math.max(0, Math.min(2500, Math.round(Number(ai.audioDelayMs))));
+      if (n !== pc.watchDelayMs) {
+        pc.watchDelayMs = n;
+        if (pcSong) pcSong.audioDelayMs = n;
+        if (wantsPcSong() && pcSong) applyPcSong(pcSong);
+      }
+    }
   }
   let shotTimer = 0;
   let shotBusy = false;
@@ -1055,7 +1095,7 @@
     request('linkAudioGain', { gain: pcGain }).catch(() => {});
     if (on && audioSend) {
       const args = { on: true };
-      if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; args.gain = pcIn.gain; }
+      if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; args.gain = pcIn.gain; args.lossless = pcIn.lossless; args.syncDelay = pcIn.syncDelay; }
       pcAsk('audio.bridge', args).then((r) => { if (r && r.ok && r.result) { takeAudioIn(r.result); emitTarget(); } pcNowPlaying(nowPlaying, true); });
     }
     const watch = !audioSend && pc.state === 'connected' && ((pc.on && previewMode === 'smooth') || (!pc.on && usePcAudio) || playPc);
@@ -1116,7 +1156,7 @@
   }
   async function setAudioIn(patch) {
     audioLocalAt = Date.now();
-    const args = Object.assign({ on: true, play: !!pcIn.play, fallback: pcIn.fallback !== false, delayMs: pcIn.delayMs || 0, gain: pcIn.gain == null ? 1 : pcIn.gain }, patch || {});
+    const args = Object.assign({ on: true, play: !!pcIn.play, fallback: pcIn.fallback !== false, delayMs: pcIn.delayMs || 0, gain: pcIn.gain == null ? 1 : pcIn.gain, lossless: !!pcIn.lossless, syncDelay: pcIn.syncDelay !== false }, patch || {});
     const r = await pcAsk('audio.bridge', args);
     if (r && r.ok && r.result) takeAudioIn(r.result);
     emitTarget();
@@ -1137,8 +1177,24 @@
     const key = np.has ? np.title + '|' + np.artist + '|' + np.album : '';
     const now = Date.now();
     if (!force && key === npSent.key && np.playing === npSent.playing && now - npSent.at < 5000) return;
-    const args = { has: !!np.has, title: np.title || '', artist: np.artist || '', album: np.album || '', position: Number(np.position) || 0, duration: Number(np.duration) || 0, playing: !!np.playing, app: np.app || '' };
-    const send = (art) => { if (art != null) args.artwork = art; npSent = { key, at: now, playing: np.playing, artKey: art != null ? key : npSent.artKey }; pcAsk('nowplaying.set', args); };
+    const send = (art) => {
+      const lag = pcIn.lossless && pcIn.syncDelay !== false ? (Number(pc.audioDelayMs) || 0) : 0;
+      const age = np.playing && Number(np.updated) > 0 ? Math.max(0, Date.now() - Number(np.updated)) / 1000 : 0;
+      const livePos = (Number(np.position) || 0) + (lag ? age : 0);
+      const args = { has: !!np.has, title: np.title || '', artist: np.artist || '', album: np.album || '', position: Math.max(0, livePos - (np.playing ? lag / 1000 : 0)), duration: Number(np.duration) || 0, playing: !!np.playing, app: np.app || '' };
+      if (art != null) args.artwork = art;
+      npSent = { key, at: now, playing: np.playing, artKey: art != null ? key : npSent.artKey };
+      pcAsk('nowplaying.set', args);
+    };
+    if (pcIn.lossless && pcIn.syncDelay !== false) {
+      request('linkStatus').then((v) => {
+        if (v && Number.isFinite(Number(v.audioDelayMs))) pc.audioDelayMs = Math.max(0, Math.min(2500, Math.round(Number(v.audioDelayMs))));
+      }, () => {}).then(() => {
+        if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
+        else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
+      });
+      return;
+    }
     if (np.has && np.artwork && (force || npSent.artKey !== key)) shrinkArt(np.artwork).then(send, () => send(''));
     else send(np.has && !np.artwork && npSent.artKey !== key ? '' : null);
   }

@@ -95,6 +95,7 @@ object WebShell {
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
+            textZoom = 100
         }
 
         web.webViewClient = object : WebViewClientCompat() {

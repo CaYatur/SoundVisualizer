@@ -26,10 +26,11 @@
   const uploads = new Map(); // anahtar → son ilerleme
   let exportP = null;
   let song = null; // { id, name } gönderilmiş şarkı
-  let mdQuery = '';
-  let mdList = null;
   let outputs = null;
   let devices = null;
+  let outputTimer = 0;
+  let outputSig = '';
+  let outputHold = 0;
   let wired = false;
   let page = null;
 
@@ -78,15 +79,40 @@
     if (st.level && st.level !== 'full') body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { text: 'Bu sayfadaki işler bilgisayarda tam erişim ister. Erişim düzeyi bilgisayardaki Telefon Bağlantısı kartından değiştirilir.' })]));
     const c = cfg();
 
-    // ---- Çıkışlar
+    // ---- Çıkışlar. Açık pencereler ve PC'deki ekran seçimi birlikte güncellenir;
+    // yalnız bir kimlik yollamak diğer ekranları kapatıyordu ve seçim PC'de eski kalıyordu.
     body.appendChild(h('div', { class: 'section-label', text: 'Çıkışlar' }));
-    if (!outputs) ask('output.list').then((r) => { outputs = r && r.ok ? r.result : { displays: [], open: [], floating: false }; ctx.refresh(); });
+    if (!outputTimer) outputTimer = setInterval(() => {
+      if (Date.now() < outputHold || S.state().sheet !== page) return;
+      ask('output.list').then((r) => {
+        if (!r || !r.ok || !r.result || Date.now() < outputHold) return;
+        const sig = JSON.stringify([r.result.open, r.result.selected, r.result.floating]);
+        if (sig === outputSig) return;
+        outputSig = sig;
+        outputs = r.result;
+        if (page.ctx) page.ctx.refresh();
+      });
+    }, 1500);
+    if (!outputs) ask('output.list').then((r) => { outputs = r && r.ok ? r.result : { displays: [], open: [], floating: false, selected: [] }; ctx.refresh(); });
     else {
+      const open = [];
+      for (const x of outputs.open || []) { const n = Number(x); if (Number.isFinite(n) && open.indexOf(n) < 0) open.push(n); }
       const card = [];
       for (const d of outputs.displays) {
+        const id = Number(d.id);
         card.push(U.toggle({
-          label: d.label + (d.width ? ' · ' + d.width + '×' + d.height : ''), value: outputs.open.indexOf(d.id) >= 0,
-          onChange: (on) => ask(on ? 'output.open' : 'output.close', on ? { ids: [d.id] } : { id: d.id }).then((r) => { if (r && r.ok) outputs.open = r.result.open; ctx.refresh(); }),
+          label: d.label + (d.width ? ' · ' + d.width + '×' + d.height : ''), value: open.indexOf(id) >= 0,
+          onChange: (on) => {
+            const next = on ? (open.indexOf(id) >= 0 ? open.slice() : open.concat([id])) : open.filter((n) => n !== id);
+            outputHold = Date.now() + 1500;
+            const job = next.length ? ask('output.open', { ids: next }) : ask('output.close', {});
+            job.then((r) => {
+              if (r && r.ok && r.result) outputs = Object.assign({}, outputs, r.result);
+              else S.toast('Açılamadı.');
+              outputSig = '';
+              ctx.refresh();
+            });
+          },
         }));
       }
       card.push(U.toggle({ label: 'Yüzen pencere', value: !!outputs.floating, onChange: (on) => ask('output.set', { floating: on }).then((r) => { if (r && r.ok) outputs.floating = r.result.floating; ctx.refresh(); }) }));
@@ -130,19 +156,6 @@
       ]),
       h('div', { class: 'hint', text: 'Video bilgisayarın Videolar/SoundVisualizer klasörüne yazılır.' }),
     ]));
-
-    // ---- MilkDrop kitaplığı
-    body.appendChild(h('div', { class: 'section-label', text: 'PC\'nin MilkDrop kitaplığı' }));
-    const q = h('input', { class: 'field search', type: 'search', placeholder: 'Preset ara', value: mdQuery, 'aria-label': 'Preset ara' });
-    q.addEventListener('change', () => { mdQuery = q.value; mdList = null; ctx.refresh(); });
-    body.appendChild(q);
-    if (!mdList) ask('library.list', { kind: 'milkdrop', q: mdQuery, limit: 40 }).then((r) => { mdList = r && r.ok ? r.result : { total: 0, items: [] }; ctx.refresh(); });
-    else {
-      body.appendChild(h('div', { class: 'hint', text: tr('{n} preset').replace('{n}', String(mdList.total)) }));
-      body.appendChild(h('div', { class: 'choice-list' }, mdList.items.map((p) => h('button', {
-        class: 'choice', onclick: () => ask('milkdrop.load', { id: p.id }).then((r) => S.toast(r && r.ok ? tr('PC\'de açıldı') + ': ' + p.name : 'Açılamadı.')),
-      }, [h('span', { class: 'grow-text', text: p.name }), icon('play')]))));
-    }
 
     // ---- Dosya gönder
     body.appendChild(h('div', { class: 'section-label', text: 'PC\'ye dosya gönder' }));
@@ -197,7 +210,7 @@
     title: 'PC Ayarları',
     subtitle: () => (A() && A().target ? A().target.get().name || '' : ''),
     render,
-    onLeave() { outputs = null; devices = null; mdList = null; },
+    onLeave() { clearInterval(outputTimer); outputTimer = 0; outputs = null; devices = null; outputSig = ''; },
   };
-  window.SVShellPcManage = { page: () => { outputs = null; devices = null; mdList = null; return page; } };
+  window.SVShellPcManage = { page: () => { clearInterval(outputTimer); outputTimer = 0; outputs = null; devices = null; outputSig = ''; return page; } };
 })();

@@ -49,29 +49,50 @@ object PcLink {
        bağlantının iş parçacığında şifreli yollanır. Ağ yavaşsa kuyruk 24 paketi geçince atılır:
        gecikme birikmesin. */
     @Volatile var sendAudio = false
+    @Volatile var lossless = false
+    @Volatile var audioDelayMs = 0
+        private set
     private var audioSeq = 0L
     private val audioQueued = java.util.concurrent.atomic.AtomicInteger(0)
+    private val queuedFrames = java.util.concurrent.atomic.AtomicInteger(0)
     @Volatile var audioSent = 0L
         private set
     @Volatile var audioDropped = 0L
         private set
     fun pushAudio(sampleRate: Int, channels: Int, samples: ShortArray, count: Int) {
         if (!sendAudio || state != "connected" || count <= 0) return
-        if (audioQueued.get() > 24) { audioDropped++; return }
+        val frames = count / channels.coerceAtLeast(1)
+        if (!lossless && audioQueued.get() > 24) { audioDropped++; return }
+        if (lossless) {
+            val cap = ((sampleRate.coerceAtLeast(8000) * 2) / frames.coerceAtLeast(1)).coerceAtLeast(8)
+            var spins = 0
+            while (audioQueued.get() >= cap && sendAudio && spins < 200) {
+                try { Thread.sleep(5) } catch (_: InterruptedException) { return }
+                spins++
+            }
+            if (audioQueued.get() >= cap) { audioDropped++; return }
+        }
         val copy = samples.copyOf(count)
         audioQueued.incrementAndGet()
+        queuedFrames.addAndGet(frames)
+        audioDelayMs = queuedFrames.get() * 1000 / sampleRate.coerceAtLeast(1)
         exec.execute {
             audioQueued.decrementAndGet()
-            val s = sealer
-            val w = ws
-            if (!sendAudio || state != "connected" || s == null || w == null) return@execute
-            val frames = copy.size / channels
-            var at = 0
-            while (at < frames) {
-                val n = minOf(LinkAudio.MAX_FRAMES, frames - at)
-                val pkt = LinkAudio.encode(audioSeq++, sampleRate, channels, copy, at * channels, n)
-                if (w.sendBinary(s.seal(pkt))) audioSent++ else audioDropped++
-                at += n
+            try {
+                val s = sealer
+                val w = ws
+                if (!sendAudio || state != "connected" || s == null || w == null) return@execute
+                val nFrames = copy.size / channels
+                var at = 0
+                while (at < nFrames) {
+                    val n = minOf(LinkAudio.MAX_FRAMES, nFrames - at)
+                    val pkt = LinkAudio.encode(audioSeq++, sampleRate, channels, copy, at * channels, n)
+                    if (w.sendBinary(s.seal(pkt))) audioSent++ else audioDropped++
+                    at += n
+                }
+            } finally {
+                queuedFrames.addAndGet(-frames)
+                audioDelayMs = (queuedFrames.get().coerceAtLeast(0) * 1000 / sampleRate.coerceAtLeast(1))
             }
         }
     }
@@ -394,4 +415,5 @@ object PcLink {
         .put("error", error ?: JSONObject.NULL)
         .put("saved", if (ready) store.publicList() else JSONArray())
         .put("discovered", LinkDiscovery.list())
+        .put("audioDelayMs", audioDelayMs)
 }

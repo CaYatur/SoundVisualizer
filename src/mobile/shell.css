@@ -123,6 +123,12 @@
 #sv-shell .hud.compact .tl-mode-chip { flex: none; width: 48px; padding: 0; justify-content: center; }
 #sv-shell .hud.compact .tl-mode-chip .label { display: none; }
 #sv-shell .hud.tight.tl-on .source-chip .label { display: none; }
+/* Dar üst bilgi: hedef ve kaynak çipleri birbirinin üstüne yazmasın */
+#sv-shell .target-chip, #sv-shell .source-chip { min-width: 0; max-width: 46%; overflow: hidden; }
+#sv-shell .target-chip .label, #sv-shell .source-chip .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#sv-shell .hud.compact .target-chip .dim { display: none; }
+#sv-shell .hud.tight .target-chip { flex: none; width: 48px; max-width: 48px; padding: 0; justify-content: center; }
+#sv-shell .hud.tight .target-chip .label, #sv-shell .hud.tight .target-chip .dim { display: none; }
 #sv-shell .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
 #sv-shell .dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgb(var(--ok-rgb) / .25); }
 #sv-shell .meter { display: inline-flex; align-items: center; gap: 2px; height: 16px; }
@@ -598,7 +604,8 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .target-chip .target-icon { display: inline-flex; }
 #sv-shell .target-chip.on { box-shadow: inset 0 0 0 1.5px var(--accent); }
 #sv-shell .target-chip .dim { font-size: 12px; }
-#sv-shell .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--inset-bottom) + 92px); max-width: min(92vw, 420px); padding: 12px 16px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; z-index: 30; color: var(--text-strong); }
+#sv-shell .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--inset-bottom) + 92px); max-width: min(92vw, 420px); padding: 8px 8px 8px 16px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; z-index: 30; color: var(--text-strong); display: flex; align-items: center; gap: 8px; }
+#sv-shell .toast .grow-text { min-width: 0; }
 #sv-shell .lv-mons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex: none; }
 #sv-shell .lv-mon { margin: 0; position: relative; border-radius: 14px; overflow: hidden; height: 92px; background: var(--card3); }
 #sv-shell .lv-mon .art { width: 100%; height: 100%; border-radius: 0; background: linear-gradient(135deg, rgb(var(--accent-rgb) / .45), var(--card3)); }
@@ -640,9 +647,11 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .lv-mdrow .ctl-label { flex: none; }
 #sv-shell .lv-md { min-width: 0; color: var(--muted); font-size: 13px; }
 #sv-shell .lv-transport .lv-time { margin-left: auto; font-size: 15px; color: var(--text-strong); }
-#sv-shell .lv-lock { position: absolute; inset: 0; z-index: 40; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--inset-bottom) + 120px); touch-action: none; }
+#sv-shell .lv-lock { position: absolute; inset: 0; z-index: 80; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--inset-bottom) + 120px); touch-action: none; }
 #sv-shell .lv-lock-card { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(86vw, 360px); padding: 16px; border-radius: 18px; color: var(--text-strong); font-weight: 600; }
-#sv-shell .lv-lock-card input { width: 100%; height: 48px; }
+#sv-shell .lv-lock-track { position: relative; width: 100%; height: 48px; border-radius: 999px; background: var(--card2); touch-action: none; overflow: hidden; }
+#sv-shell .lv-lock-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgb(var(--accent-rgb) / .45); }
+#sv-shell .lv-lock-knob { position: absolute; top: 4px; left: 4px; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 380px) {
   #sv-shell .lv-scenes, #sv-shell .lv-fx { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #sv-shell .lv-macros { grid-template-columns: minmax(0, 1fr); }
