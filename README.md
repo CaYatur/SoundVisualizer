@@ -14,6 +14,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 **AI control over MCP**.
 
 **Windows** · **macOS** · **Linux** — no account, no telemetry, MIT licensed.
+**Android** app in final testing — [see it on a phone](#on-your-phone-android).
 
 [![Latest release](https://img.shields.io/github/v/release/CaYatur/SoundVisualizer?label=release&color=e11d2a)](https://github.com/CaYatur/SoundVisualizer/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
@@ -167,6 +168,54 @@ fluid gradient backgrounds that move with the music.
 | [![Layout Editor: the preview framed as 16:9 with safe areas and the element list](docs/screenshots/panel-layout.png)](#broadcast-layout-editor) | [![Recording and export with YouTube, Shorts and Spotify Canvas profiles](docs/screenshots/panel-record.png)](#recording-and-video-export) |
 
 </div>
+
+---
+
+## On your phone (Android)
+
+**CAYADEV Visualizer for Android** is a free, open-source music visualizer app for Android phones.
+It turns the music playing on your phone — from any music app, the built-in player or the
+microphone — into audio-reactive visuals, runs the same visual engine as the desktop app, and can
+also act as a Wi-Fi remote for CAYADEV Visualizer on your computer. No ads, no account, no tracking.
+
+<div align="center">
+
+<img src="docs/screenshots/android-scene.webp" alt="CAYADEV Visualizer on Android: the Mandala Drop template reacting to music, with the audio source, BPM, Auto VJ and the bottom tabs" width="200" />
+<img src="docs/screenshots/android-library.webp" alt="Library on Android: Club, Ambient, Streaming and Music Video templates such as Strobe Wall, Hyper Tunnel, Laser Grid and Mandala Drop, plus MilkDrop, Shader and Scenes tabs" width="200" />
+<img src="docs/screenshots/android-layers.webp" alt="Layers on Android: a visualizer layer over a background layer, with visibility toggles and drag to reorder" width="200" />
+<img src="docs/screenshots/android-audio.webp" alt="Audio on Android: level meter and four sources (in-app player, system audio, output mix, microphone), Now Playing and tempo" width="200" />
+
+**Scene** · **Library** · **Layers** · **Audio**
+
+</div>
+
+- **Visualize any music app.** System audio capture (Android 10 and later) picks up what other
+  apps play; there is also an output-mix source for apps that block capture, the microphone and an
+  in-app player for the cleanest sound. One audio analysis feeds every layer, just like on the
+  desktop.
+- **The desktop engine, on the phone.** Visualizer modes, MilkDrop presets, shaders, layers and
+  effects, ready-made templates for club, ambient, streaming and music-video looks, Auto VJ and
+  automatic BPM.
+- **Now Playing and lyrics.** The track name, cover and synced lyrics of the song playing in your
+  music app (with notification access, which only reads the playing track).
+- **Full screen, picture-in-picture and a floating window** that stays on top while you use other
+  apps, with visibility, touch pass-through, position lock and size settings. Double-tap the
+  window to go back to the app.
+- **Make videos on the phone.** Export an MP4 (H.264) of a song with your scene and a timeline,
+  encoded on the device.
+- **Remote for the computer.** Pair with the desktop app by QR code over Wi-Fi and drive the show
+  from the phone: Live tab with blackout, scenes, T-bar and momentary effects, edit the computer's
+  scenes, see its real output, or send the phone's audio to the computer. Local network only,
+  encrypted end to end ([Phone link](#phone-link-android)).
+- **Light on battery.** Resolution and frame-rate limits, a low-power mode on battery, keep-screen-on,
+  themes, English and Turkish.
+
+Measured on a mid-range phone (Redmi Note 9 Pro, Adreno 618, Android 12): **60 fps with no dropped
+frames** over 20 seconds, steady memory over a 5-minute session connected to the computer.
+
+**Status:** the Android app is in final testing on real phones. The first release
+(`android-v1.0.0`) will be an APK on the [Releases](https://github.com/CaYatur/SoundVisualizer/releases)
+page with its SHA-256 checksum; the app tells you when a new version is out. Minimum Android 10.
 
 ---
 
@@ -1736,6 +1785,15 @@ Protocol and security model: [docs/PHONE-LINK.md](docs/PHONE-LINK.md).
 ---
 
 ## FAQ
+
+**Is there a music visualizer for Android that works with Spotify or YouTube Music?**
+Yes — the CAYADEV Visualizer Android app captures the audio other apps play (Android 10 and later),
+so it reacts to Spotify, YouTube Music or any player, and shows the track and synced lyrics. It is
+free and open source. See [On your phone](#on-your-phone-android).
+
+**Can my phone control the visuals on my computer?**
+Yes. Pair the Android app with the desktop app by QR code over Wi-Fi; the phone becomes a live
+remote and editor for the computer's show. See [Phone link](#phone-link-android).
 
 **Is it free?**
 Yes. CAYADEV Visualizer is open source under the MIT licence. There is no paid tier, no account and

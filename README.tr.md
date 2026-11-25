@@ -15,6 +15,7 @@ canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde vid
 kontrolü**.
 
 **Windows** · **macOS** · **Linux** — hesap yok, telemetri yok, MIT lisanslı.
+**Android** uygulaması son denemelerde — [telefonda görün](#telefonunuzda-android).
 
 [![Son sürüm](https://img.shields.io/github/v/release/CaYatur/SoundVisualizer?label=s%C3%BCr%C3%BCm&color=e11d2a)](https://github.com/CaYatur/SoundVisualizer/releases/latest)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
@@ -167,6 +168,55 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 | [![Düzen Editörü: güvenli alanlarıyla 16:9 çerçevede önizleme ve öğe listesi](docs/screenshots/panel-layout.png)](#yayın-düzeni-editörü) | [![YouTube, Shorts ve Spotify Canvas profilleriyle kayıt ve dışa aktarma](docs/screenshots/panel-record.png)](#kayıt-ve-video-dışa-aktarma) |
 
 </div>
+
+---
+
+## Telefonunuzda (Android)
+
+**CAYADEV Visualizer Android**, Android telefonlar için ücretsiz ve açık kaynak bir müzik
+görselleştirici uygulamasıdır. Telefonunuzda çalan müziği — herhangi bir müzik uygulamasından,
+yerleşik çalardan ya da mikrofondan — sese tepki veren görsellere dönüştürür, masaüstüyle aynı
+görsel motoru çalıştırır ve bilgisayarınızdaki CAYADEV Visualizer için Wi-Fi kumandası olur.
+Reklam yok, hesap yok, izleme yok.
+
+<div align="center">
+
+<img src="docs/screenshots/android-scene.webp" alt="Android'de CAYADEV Visualizer: müziğe tepki veren Mandala Drop şablonu; ses kaynağı, BPM, Otomatik VJ ve alt sekmeler" width="200" />
+<img src="docs/screenshots/android-library.webp" alt="Android'de Kitaplık: Strobe Wall, Hyper Tunnel, Laser Grid ve Mandala Drop gibi Kulüp, Ambiyans, Yayın ve Müzik Videosu şablonları; MilkDrop, Shader ve Sahneler sekmeleri" width="200" />
+<img src="docs/screenshots/android-layers.webp" alt="Android'de Katmanlar: arka plan katmanının üstünde görselleştirici katmanı; görünürlük düğmeleri ve sürükleyerek sıralama" width="200" />
+<img src="docs/screenshots/android-audio.webp" alt="Android'de Ses: seviye göstergesi ve dört kaynak (uygulama içi çalar, sistem sesi, çıkış karışımı, mikrofon), Şimdi Çalıyor ve tempo" width="200" />
+
+**Sahne** · **Kitaplık** · **Katmanlar** · **Ses**
+
+</div>
+
+- **Her müzik uygulamasını görselleştirir.** Sistem sesi yakalama (Android 10 ve sonrası) diğer
+  uygulamaların çaldığını alır; yakalamayı engelleyen uygulamalar için çıkış karışımı, mikrofon ve
+  en temiz ses için uygulama içi çalar da var. Masaüstündeki gibi tek ses çözümlemesi her katmanı
+  besler.
+- **Masaüstü motoru telefonda.** Görselleştirici modları, MilkDrop presetleri, shader'lar, katmanlar
+  ve efektler; kulüp, ambiyans, yayın ve müzik videosu görünümleri için hazır şablonlar, Otomatik
+  VJ ve otomatik BPM.
+- **Şimdi Çalıyor ve sözler.** Müzik uygulamanızda çalan şarkının adı, kapağı ve zamanlı sözleri
+  (bildirim erişimiyle; yalnız çalan parçayı okur).
+- **Tam ekran, resim içinde resim ve yüzen pencere.** Yüzen pencere başka uygulamaları kullanırken
+  üstte kalır; görünürlük, dokunuşları geçirme, konum kilidi ve boyut ayarları var. Pencereye çift
+  dokununca uygulamaya dönülür.
+- **Telefonda video yapın.** Bir şarkıyı sahneniz ve zaman çizelgesiyle MP4 (H.264) olarak dışa
+  aktarın; kodlama cihazda yapılır.
+- **Bilgisayar için kumanda.** Masaüstü uygulamasıyla Wi-Fi üzerinden QR koduyla eşleşin ve gösteriyi
+  telefondan yönetin: karartma, sahneler, T-bar ve anlık efektlerle Canlı sekmesi, bilgisayarın
+  sahnelerini düzenleme, gerçek çıkışını görme ya da telefonun sesini bilgisayara gönderme. Yalnız
+  yerel ağ, uçtan uca şifreli ([Telefon bağlantısı](#telefon-bağlantısı-android)).
+- **Pili yormaz.** Çözünürlük ve kare hızı sınırı, pildeyken düşük güç modu, ekranı açık tutma,
+  temalar, Türkçe ve İngilizce.
+
+Orta sınıf bir telefonda ölçüldü (Redmi Note 9 Pro, Adreno 618, Android 12): 20 saniye boyunca
+**60 fps, düşen kare yok**; bilgisayara bağlı 5 dakikalık oturumda bellek sabit.
+
+**Durum:** Android uygulaması gerçek telefonlarda son denemelerde. İlk sürüm (`android-v1.0.0`)
+[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases) sayfasında SHA-256 sağlamasıyla
+APK olarak yayınlanacak; uygulama yeni sürüm çıkınca haber verir. En az Android 10.
 
 ---
 
@@ -1753,6 +1803,16 @@ modeli: [docs/PHONE-LINK.tr.md](docs/PHONE-LINK.tr.md).
 ---
 
 ## SSS
+
+**Spotify ya da YouTube Music ile çalışan bir Android müzik görselleştirici var mı?**
+Evet — CAYADEV Visualizer Android uygulaması diğer uygulamaların çaldığı sesi yakalar (Android 10 ve
+sonrası); Spotify'a, YouTube Music'e ya da herhangi bir çalara tepki verir, parçayı ve zamanlı
+sözleri gösterir. Ücretsiz ve açık kaynak. Bkz. [Telefonunuzda](#telefonunuzda-android).
+
+**Telefonum bilgisayardaki görselleri yönetebilir mi?**
+Evet. Android uygulamasını masaüstü uygulamasıyla Wi-Fi üzerinden QR koduyla eşleştirin; telefon
+bilgisayardaki gösteri için canlı kumanda ve editör olur. Bkz.
+[Telefon bağlantısı](#telefon-bağlantısı-android).
 
 **Ücretsiz mi?**
 Evet. CAYADEV Visualizer MIT lisansıyla açık kaynak. Ücretli katman, hesap ya da filigran yok.
