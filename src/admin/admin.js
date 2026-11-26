@@ -694,7 +694,8 @@
     activeSceneId: () => (draftOn() && activeCategory === 'live' ? programSceneId : activeSceneId),
     draftCue: DRAFT_CUE,
     programView: () => programView(),
-    programEdit: (fn, now) => programEdit(fn, now),
+    programEdit: (fn, now, key) => programEdit(fn, now, key),
+    liveKeepCount: () => liveKeep.size,
     /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
        gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
     sectionCard: (id, opts) => {
@@ -5793,8 +5794,14 @@
   /* Program'a canlı düzenleme (Canlı sayfası faderleri): sık çağrı kare başına birleşir. */
   const programEdits = [];
   let programEditRaf = 0;
-  function programEdit(fn, now) {
+  /* Canlı sayfasında yalnız Program'a yapılan fader/solo/sessiz/efekt değişiklikleri.
+     Sahneye Gönder taslağın tamamını gönderir; bu değişiklikler seçiliyse (varsayılan açık)
+     gönderilen görünüme ve taslağa yeniden uygulanır, yani gönderim onları ezmez. */
+  const liveKeep = new Map();
+  const keepLiveOn = () => { try { return localStorage.getItem('sv-pvw-keeplive') !== '0'; } catch { return true; } };
+  function programEdit(fn, now, key) {
     if (!draftOn()) { fn(cfg); push(!!now); return; }
+    if (key) { liveKeep.delete(key); liveKeep.set(key, fn); }
     programEdits.push(fn);
     const run = () => {
       programEditRaf = 0;
@@ -5830,6 +5837,7 @@
     const leave = () => { replaceCfg(draft.end()); activeSceneId = programSceneId; };
     const H = window.SVUndoHistory;
     if (H && H.setBase) { H.setBase('', leave); H.dropBase('draft'); } else leave();
+    liveKeep.clear();
     prevTakeCfg = null;
     prevTakeScene = null;
     try { localStorage.removeItem(DRAFT_STORE); } catch { /* yok */ }
@@ -5864,6 +5872,8 @@
     const over = window.SVProgramDraftCore.transitionFor(mode, own, seconds);
     const draftScene = activeSceneId;
     let seq = 0;
+    const keep = keepLiveOn() ? Array.from(liveKeep.values()) : [];
+    liveKeep.clear();
     onProgram(() => {
       prevTakeCfg = window.SV.clone(cfg);
       prevTakeScene = activeSceneId;
@@ -5871,6 +5881,7 @@
          T-bar'ın sürebileceği bir geçiş olmalı. */
       seq = ((cfg._sceneSeq | 0) + 1) % 1000000000;
       programReplace(view);
+      if (keep.length) keep.forEach((f) => { try { f(cfg); } catch { /* katman artık yok */ } });
       cfg._sceneSeq = seq;
       cfg.transition = over;
       activeSceneId = draftScene;
@@ -5881,6 +5892,8 @@
       if (tbar && own) cfg.transition = window.SV.clone(own);
     });
     cfg._sceneSeq = seq; // taslak sayacı Program'la aynı: sonraki gönderim yine artırır
+    // Korunan canlı değişiklikler taslağa da yazılır: taslak gönderilen görünümle aynı kalsın
+    if (keep.length) { keep.forEach((f) => { try { f(cfg); } catch { /* katman artık yok */ } }); push(true); }
     // Geri al (#1170): gönderilen taslağın geçmişi kapanır; gönderimin kendisi "Geri Al" ile döner
     const H = window.SVUndoHistory;
     if (H && H.base && H.base() === 'draft') { H.dropBase('draft'); H.reset(); }
