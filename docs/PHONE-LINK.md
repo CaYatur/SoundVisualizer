@@ -202,6 +202,7 @@ for a change made in the panel.
 | `updates.state` | → `{ status, current, latest, name, publishedAt, releaseUrl, skipped, installable, checkedAt, error, mode, auto }`; `releaseUrl` is a github.com address or empty, and no file path, download address or release notes are sent. Changes also arrive as `{ ev:"updates", state }` | view |
 | `updates.check` | the same as "Check now" on the desktop (also works while automatic checks are off) → the state above | edit |
 | `library.list` | `{ kind, q?, offset?, limit? }` `video`, `logo`, `lyrics` or `milkdrop` → `{ total, items:[{ id, name }] }` (no paths) | view |
+| `media.fetch` | `{ id, at }` a video id from `library.list`, or `{ file, at }` a video address that is already in this machine's settings → `{ id, name, size, at, data, done }` up to 256 KB of the file, base64 (see Videos) | view |
 | `thumb.get` | `{ kind, type }` `visualizer` or `background` mode thumbnail → `{ type, data }` base64 | view |
 | `milkdrop.load` | `{ id }` a preset id from `library.list` | control |
 | `file.begin`, `file.chunk`, `file.end`, `file.cancel` | see Files | full |
@@ -294,6 +295,21 @@ At most two transfers per phone; a transfer with no part for two minutes is dele
 transfer of a phone whose session closes. The folder is emptied when the app starts. The panel
 shows a short note when a file arrives (Phone Link → "Notify Me of Changes Made from the Phone",
 on by default; the same switch covers settings changes).
+
+## Videos
+
+Settings are shared, file addresses are not: the desktop's `sv-media://local/...` address does not
+open on the phone and the phone's `https://appassets.androidplatform.net/...` address does not open on
+the desktop. The shared reference is the id of a video in the desktop's video library (`libraryId`).
+
+- **Phone to desktop.** The phone sends the video with `file.*` (`kind: "video"`); `file.end`
+  returns its library id. The phone then writes the layer (or the video clip) with that `libraryId`
+  and its own address. The desktop replaces the phone's address with its own file before the settings
+  rules run (`src/main/link-media.js`), so a phone address never reaches the desktop's settings.
+- **Desktop to phone.** The phone's own engine needs a local copy. It asks `media.fetch { id, at }`
+  (or `{ file, at }` for a video that is in the settings but not in the library) part by part, writes
+  the file into its own library under the same id and draws its own address. Only a library video or
+  a video address already in the settings is read; at most 512 MB, 256 KB per part.
 
 ## Desktop panel
 

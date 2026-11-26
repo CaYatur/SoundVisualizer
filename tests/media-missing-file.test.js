@@ -21,7 +21,7 @@ function loadMedia(fetchImpl, protocol) {
   const videos = [];
   const el = (tag) => {
     const v = {
-      tag, muted: false, error: null, onerror: null,
+      tag, muted: false, paused: true, error: null, onerror: null,
       removeAttribute() {}, load() {}, pause() {}, getContext: () => ({}),
       play() { return new Promise((resolve, reject) => { v._reject = reject; }); },
     };
