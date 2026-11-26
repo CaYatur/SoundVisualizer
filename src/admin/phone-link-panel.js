@@ -204,6 +204,10 @@
       a.enabled ? p.toggle(T('PC Hoparlöründen de Çal'), 'phoneLink.audioIn.play') : null,
       // Kablosuz ağın gecikmesi: görüntü sesin önüne geçerse kareler bu kadar bekletilir
       a.enabled ? p.slider(T('Görüntü Gecikmesi'), 'phoneLink.audioIn.delayMs', { min: 0, max: 500, step: 10, fmt: (v) => Math.round(v) + ' ms' }) : null,
+      a.enabled ? p.slider(T('Telefon sesi düzeyi'), 'phoneLink.audioIn.gain', { min: 0, max: 2, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }) : null,
+      p.toggle(T('Kayıpsız aktarım'), 'phoneLink.audioIn.lossless'),
+      a.lossless ? p.toggle(T('Gecikme ile eşitle'), 'phoneLink.audioIn.syncDelay') : null,
+      el('div', { class: 'note', text: T('Kayıpsız aktarım paket atmaz. Gecikme biraz artar; kapalıyken hızlı yol durur.') }),
       a.enabled ? el('div', { class: 'note', text: T(STATE[ai.state] || STATE.off) + (ai.name ? ' · ' + ai.name : '') + kbps }) : null,
       el('div', { class: 'note', text: T('Telefonda Ses → "PC\'ye gönder" açılınca telefonun sesi (mikrofon, telefonda çalan müzik ya da uygulama içi çalar) bu bilgisayarın ses girişi olur. Görüntü, ışık ve tempo bu sese tepki verir.') }),
     ].filter(Boolean));
@@ -216,6 +220,9 @@
     if (!cfg.phoneLink) cfg.phoneLink = { enabled: false, discoverable: true };
     if (!cfg.phoneLink.audioIn) cfg.phoneLink.audioIn = { enabled: false, device: '', fallback: true, delayMs: 0 };
     if (cfg.phoneLink.audioIn.delayMs == null) cfg.phoneLink.audioIn.delayMs = 0;
+    if (cfg.phoneLink.audioIn.gain == null) cfg.phoneLink.audioIn.gain = 1;
+    if (cfg.phoneLink.audioIn.lossless == null) cfg.phoneLink.audioIn.lossless = false;
+    if (cfg.phoneLink.audioIn.syncDelay == null) cfg.phoneLink.audioIn.syncDelay = true;
     if (cfg.phoneLink.notify === undefined) cfg.phoneLink.notify = true;
     const on = cfg.phoneLink.enabled === true;
     const running = !!(st && st.running);

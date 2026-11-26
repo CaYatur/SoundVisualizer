@@ -1839,6 +1839,13 @@
       const R = typeof window !== 'undefined' ? window.SVReveal : null;
       const spec = R ? R.specOf(l) : null;
       if (!spec) { e._rv = null; e._revealDone = true; return null; }
+      // Zaman çizelgesi klibi: saat klibin kendi zamanı (timeline-render.js _revealClock)
+      if (typeof this._revealClock === 'number' && isFinite(this._revealClock)) {
+        const box0 = (e.mode && e.mode.layoutBounds) || e.layoutBounds || null;
+        const f0 = R.frame(spec, Math.max(0, this._revealClock), box0, this.height > 0 ? this.width / this.height : 0);
+        e._revealDone = f0.done;
+        return f0.done ? null : f0;
+      }
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
       if (!e._rv || e._rv.sig !== sig) {
         e._rv = { t0: t, sig, last: t };

@@ -600,7 +600,7 @@ test('yardımcı ve ana süreç PCM isteğini taşıyor', () => {
   assert.match(helper, /const wantPcm = opts\.pcm === true;/);
   assert.match(helper, /makeCallback\(src, nCh, instances\.length === 0 \? d\.sampleRate \|\| 48000 : 0\)/);
   const na = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'native-audio.js'), 'utf8');
-  assert.match(na, /opts && opts\.pcm \? \{ devices: arr, pcm: true \}/);
+  assert.match(na, /opts && opts\.pcm \? \{ devices: arr, pcm: true, pcmHold: opts\.pcmHold === true \}/);
   assert.match(na, /frameFormat\.splitHelperStream\(acc,/);
 });
 

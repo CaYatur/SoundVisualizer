@@ -50,6 +50,12 @@ test('rewind after future visualizer clip removes the extra layer (t754/t755)', 
   assert.deepStrictEqual(types(back), ['gradient', 'wave']);
   assert.strictEqual(vis(back), 1);
   assert.strictEqual(JSON.stringify(cfg), before, 'manual cfg/sources untouched');
+  const zemin = tlWith([{ id: 'bg', clips: [{ id: 'z1', type: 'background', ref: 'aurora', start: 0, dur: 2 }] }]);
+  const zb = TC.composeAt(cfg, zemin, 1);
+  assert.strictEqual(zb.cfg.layers.length, 1);
+  assert.strictEqual(zb.cfg.layers[0].kind, 'background');
+  assert.strictEqual(zb.cfg.layers[0].type, 'aurora');
+  assert.ok(TC.composeAt(cfg, zemin, 3).black);
 });
 
 test('exact boundaries, fractional times, gap and end are BLACK', () => {

@@ -93,6 +93,11 @@
         if (s.width !== w || s.height !== h) s.resize(w, h);
         s._ensureComp(); this.size(s.compCanvas, w, h);
         if (c.modulator && c.modulator.touches('postfx')) s.setPostFX(childCfg.postfx);
+        /* Klibin açılış animasyonu klibin kendi zamanıyla (#537): duraklatınca son hâlinde kalır,
+           geri sarınca yeniden oynar, dışa aktarımda aynı. Eskiden "ilk çizildiği an"dan sayılıyordu;
+           duraklatmada yığın yeniden kurulunca donmuş saatte hep 0. saniyede kalıyor, gecikmeli
+           açılışlı logo ve yazı çıkışta görünmüyordu (önizlemede görünüyordu). */
+        s._revealClock = u.localTime;
         s.drawTo(s.compCtx, audio, childCfg, localT, dt, drawLogo);
         let image = s.compCanvas;
         if (s.postfx && s._lostNow && s._lostNow(s.postfx, '_fxRevivedAt')) {
