@@ -212,6 +212,7 @@
       ev.update.emit(appUpdate);
     } else if (name === 'linkUpload') {
       // PC'ye dosya gönderiminin ilerlemesi (link/LinkUpload.kt)
+      onUploadDone(v);
       ev.pcUpload.emit(v);
     }
   }
@@ -829,7 +830,62 @@
   };
   try { pc.wanted = localStorage.getItem(TARGET_KEY) === 'pc'; } catch (e) { pc.wanted = false; }
   const viewCfg = () => (pc.on && pc.cfg && PR() ? PR().view(pc.cfg, config) : config);
-  const engineOf = (c) => engineView(pc.on && PR() ? PR().engine(c, config) : c);
+  const engineOf = (c) => engineView(pc.on && PR() ? localMedia(PR().engine(c, config)) : c);
+  const pcEnginePatch = (p) => engineView(localMedia(PR().enginePatch(p)));
+  /* PC'NİN VİDEOLARI (docs/PHONE-LINK.md "Videos"). PC'nin ayarındaki video adresi telefonda
+     açılmaz; motora giden kopyada telefonun adresine çevrilir (pc-remote.js localizeMedia).
+     Karşılık: telefonun kitaplığında aynı kimlik, telefondan PC'ye yollanmış video ya da
+     uygulamanın `media.fetch` ile indirdiği kopya (link/LinkDownload.kt). Sahne listesindeki
+     videolar çizilmez, indirilmez. */
+  const MEDIA_ORIGIN = 'https://appassets.androidplatform.net/files/lib-media/';
+  const pcMedia = { byId: {}, byRef: {}, loaded: false, busy: false, again: false, failed: {} };
+  const uploadWait = new Map(); // gönderim anahtarı → { resolve, reject, url }
+  function localMedia(v) { return PR() && PR().localizeMedia ? PR().localizeMedia(v, pcMedia) : v; }
+  async function syncPcMedia() {
+    if (!pc.on || !pc.cfg || !native || !PR() || !PR().missingMedia) return;
+    if (pcMedia.busy) { pcMedia.again = true; return; }
+    pcMedia.busy = true;
+    try {
+      if (!pcMedia.loaded) {
+        pcMedia.loaded = true;
+        const list = await request('libraryList', { key: 'media' }).catch(() => null);
+        for (const it of Array.isArray(list) ? list : []) {
+          if (it && it.id && it.file && !pcMedia.byId[it.id]) pcMedia.byId[it.id] = MEDIA_ORIGIN + encodeURIComponent(it.file);
+        }
+      }
+      do {
+        pcMedia.again = false;
+        const drawn = Object.assign({}, pc.cfg, { scenes: null });
+        const want = PR().missingMedia(drawn, pcMedia).filter((m) => !pcMedia.failed[m.id || m.file]);
+        for (const m of want) {
+          if (!pc.on) return;
+          let r = null;
+          try { r = await request('linkMediaFetch', { id: m.id, file: m.file }); } catch (e) { pcMedia.failed[m.id || m.file] = String((e && e.message) || 'failed'); }
+          if (!r || !r.url) continue;
+          if (m.id) pcMedia.byId[m.id] = r.url; else pcMedia.byRef[m.file] = r.url;
+          if (pc.on) ev.config.emit(engineOf(viewCfg()));
+        }
+      } while (pcMedia.again && pc.on);
+    } finally { pcMedia.busy = false; }
+  }
+  /* Telefonda seçilen video PC'ye: kitaplığa girer, kimliği döner. Katman telefonun adresi ve
+     bu kimlikle yazılır; PC adresi kendi dosyasına çevirir (src/main/link-media.js). */
+  function sendVideo(f) {
+    if (!f || !f.uri) return Promise.reject(new Error('no-uri'));
+    return request('linkUpload', { uri: f.uri, name: f.name || '', kind: 'video' }).then((r) => new Promise((resolve, reject) => {
+      if (!r || !r.key) { reject(new Error('failed')); return; }
+      uploadWait.set(r.key, { resolve, reject, url: f.url || '' });
+    }));
+  }
+  function onUploadDone(u) {
+    const w = u && uploadWait.get(u.key);
+    if (!w || (u.state !== 'done' && u.state !== 'error' && u.state !== 'cancelled')) return;
+    uploadWait.delete(u.key);
+    const id = u.state === 'done' && u.result && u.result.id;
+    if (!id) { w.reject(new Error(u.error || u.state)); return; }
+    if (w.url) pcMedia.byId[id] = w.url;
+    w.resolve(String(id));
+  }
   function pcAsk(op, args) {
     const t0 = Date.now();
     return request('linkRequest', { op, args: args || {} }).then((r) => {
@@ -880,6 +936,8 @@
     if (!(await pcLoad())) return targetInfo();
     pc.on = true;
     ev.config.emit(engineOf(viewCfg()));
+    pcMedia.failed = {};
+    syncPcMedia();
     pcAsk('song.get').then((r) => { if (r && r.ok && pc.on) { applyPcSong(r.result); if (r.result && r.result.show !== undefined) applyPcShow(r.result.show, r.result.at); } });
     schedulePcPresets();
     pcHeld = '';
@@ -966,18 +1024,18 @@
         const patch = Object.assign({}, m.patch || {});
         for (const k of Object.keys(m.delta)) {
           const v = J && pc.srv && m.rev === pc.rev + 1 ? J.apply(pc.srv[k], m.delta[k]) : null;
-          if (v == null) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
+          if (v == null) { pcLoad().then((ok) => { if (ok && pc.on) { ev.config.emit(engineOf(viewCfg())); syncPcMedia(); } }); return; }
           patch[k] = v;
         }
         m = Object.assign({}, m, { patch });
       }
       if (pc.srv && m.rev === pc.rev + 1) for (const k of Object.keys(m.patch || {})) pc.srv[k] = m.patch[k];
       const r = PR().applyEvent(pc, m, Date.now(), 600);
-      if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) ev.config.emit(engineOf(viewCfg())); }); return; }
+      if (r.refetch) { pcLoad().then((ok) => { if (ok && pc.on) { ev.config.emit(engineOf(viewCfg())); syncPcMedia(); } }); return; }
       if (r.stale) return;
       pc.cfg = r.cfg;
       pc.rev = r.rev;
-      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (pc.on && Object.keys(r.patch).length) { ev.configPatch.emit(pcEnginePatch(r.patch)); syncPcMedia(); }
       if (pc.deferred) for (const k of r.superseded || []) delete pc.deferred[k];
       if (Object.keys(r.deferred).length) {
         pc.deferred = Object.assign(pc.deferred || {}, r.deferred);
@@ -1244,7 +1302,7 @@
       const r = PR().settle(pc, Date.now(), 600);
       pc.cfg = r.cfg;
       pc.deferred = r.deferred;
-      if (pc.on && Object.keys(r.patch).length) ev.configPatch.emit(engineView(PR().enginePatch(r.patch)));
+      if (pc.on && Object.keys(r.patch).length) { ev.configPatch.emit(pcEnginePatch(r.patch)); syncPcMedia(); }
       if (Object.keys(r.deferred).length) scheduleSettle();
     }, 650);
   }
@@ -1308,7 +1366,8 @@
       const t = Date.now();
       for (const k of keys) pc.writing[k] = t;
       pc.cfg = Object.assign({}, pc.cfg, d.patch);
-      ev.configPatch.emit(engineView(PR().enginePatch(d.patch)));
+      ev.configPatch.emit(pcEnginePatch(d.patch));
+      syncPcMedia();
       pc.drag = Object.assign(pc.drag || {}, d.patch);
       if (final) flushDrag(true);
       else {
@@ -1418,6 +1477,8 @@
       /** PC'ye dosya: önce seçici (kind: video | logo | lyrics | milk | audio), sonra gönderim */
       pick: (kind) => request('linkPick', { kind }),
       upload: (file, kind) => request('linkUpload', { uri: file.uri, name: file.name || '', kind }),
+      /** Telefonda seçilen videoyu PC'nin kitaplığına yollar; bitince PC'deki kimlik (katmanın `libraryId`'si). */
+      sendVideo: (file) => sendVideo(file),
       cancelUpload: (key) => request('linkUploadCancel', { key }),
       onUpload: (cb) => ev.pcUpload.add(cb),
       onExport: (cb) => ev.pcExport.add(cb),

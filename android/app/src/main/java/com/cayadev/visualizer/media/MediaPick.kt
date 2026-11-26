@@ -39,7 +39,7 @@ object MediaPick {
     }
 
     fun video(context: Context, uri: Uri): JSONObject =
-        JSONObject().put("url", ContentPathHandler.urlOf(uri)).put("name", displayName(context, uri))
+        JSONObject().put("url", ContentPathHandler.urlOf(uri)).put("uri", uri.toString()).put("name", displayName(context, uri))
             .put("mime", context.contentResolver.getType(uri) ?: "")
 
     private fun gif(context: Context, uri: Uri): JSONObject? {
