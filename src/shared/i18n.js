@@ -2225,6 +2225,7 @@
     'Bu telefonun sahnesi PC\'de çalan sese tepki verir; telefonun kendi kaynağı o sırada kullanılmaz.': 'This phone\'s scene reacts to what plays on the PC; the phone\'s own source is not used meanwhile.',
     'MilkDrop preseti': 'MilkDrop preset',
     'PC\'ye gönderildi': 'Sent to the PC',
+    'PC\'ye gönderiliyor': 'Sending to the PC',
     'Gönderilemedi': 'Could not send',
     'Önce hedef olarak PC\'yi seçin.': 'Choose the PC as the target first.',
     'Bu sayfadaki işler bilgisayarda tam erişim ister. Erişim düzeyi bilgisayardaki Telefon Bağlantısı kartından değiştirilir.': 'This page needs full access on the computer. The access level is changed in the Phone Link card on the computer.',
