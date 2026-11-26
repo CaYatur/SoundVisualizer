@@ -2744,6 +2744,17 @@
     _recordTick: (t) => recordTick(t),
     _catalog: () => { catCache = null; return targetCatalog(); },
     shortcuts: () => SHORTCUTS.slice(),
+    // Ses bölümü (#1171) için: aynı zaman ekseni ve aynı geri al geçmişi
+    tlConfig: () => tlCfg(),
+    xOf,
+    tOf,
+    canvasRect: () => (canvas && canvas.isConnected ? canvas.getBoundingClientRect() : null),
+    commitAudio: () => {
+      history_().push(TE().snapshot(tlCfg()));
+      P().push(true);
+      refreshToolbar();
+      afterTimelineEdit();
+    },
   };
 
   if (typeof window !== 'undefined') window.SVTimelinePanel = api;
@@ -2851,6 +2862,8 @@
       if (editor.isConnected && document.activeElement !== editor) editorFocus = false;
     }, 0));
     host.appendChild(editor);
+    // Ses parçaları (#1171): kalıcı bölüm, yeniden kurulumda aynı düğüm taşınır
+    if (window.SVTimelineAudio) host.appendChild(window.SVTimelineAudio.section());
     if (editorFocus) setTimeout(() => { if (editor.isConnected && editor.focus) editor.focus({ preventScroll: true }); }, 0);
     /* bindCanvas panel yerleştikten sonra: canvas henüz DOM'a girmediği
        için clientWidth 0 döner ve ilk çizim boş kalırdı. Zamanlayıcıyla,

@@ -9954,6 +9954,35 @@ ipcMain.handle('export:pick-audio', async () => {
   return r.filePaths[0];
 });
 
+/* Zaman çizelgesi sesi (#1171). Seçilen dosyalar sv-media ile sunulabilir
+   (taslakta henüz kayıtlı yapılandırmada olmasalar da). Süre ffmpeg'den. */
+const timelineAudio = require('./timeline-audio-main');
+const timelineAudioPicked = new Set();
+ipcMain.handle('timeline-audio:pick', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Ses Ekle', 'Add Audio'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: trUi('Ses Dosyaları', 'Audio Files'), extensions: require('../shared/timeline-audio.js').EXTS }],
+  });
+  if (r.canceled || !r.filePaths.length) return [];
+  const ff = resolveFfmpeg();
+  const out = [];
+  for (const f of r.filePaths) {
+    const dur = await audioDurationSec(ff, f);
+    // Çözülemeyen ya da desteklenmeyen dosya çizelgeye girmez
+    if (!(dur > 0)) { out.push({ path: f, name: path.basename(f), error: true }); continue; }
+    timelineAudioPicked.add(path.resolve(f));
+    out.push({ path: f, url: mediaUrl.toMediaUrl(f), name: path.basename(f), dur });
+  }
+  return out;
+});
+ipcMain.handle('timeline-audio:peaks', async (e, src) => {
+  const raw = mediaUrl.fromMediaUrl(String(src || ''));
+  if (!raw || !(timelineAudioPicked.has(path.resolve(raw)) || isConfiguredMedia(currentConfig, raw, mediaUrl))) return null;
+  const p = await timelineAudio.peaks(resolveFfmpeg(), raw);
+  return p ? { rate: p.rate, dur: p.dur, data: p.data } : null;
+});
+
 ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
   const fmt = exportFormats.format(formatId) || exportFormats.format(exportFormats.DEFAULT_FORMAT);
   const seq = fmt.kind === 'sequence';
@@ -10884,7 +10913,8 @@ app.whenReady().then(async () => {
       const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
       const inExport = !!(raw && ((exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl))
         || exportMediaPaths.has(path.resolve(raw)) || exportMediaTemp.paths.has(path.resolve(raw))));
-      if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport)) {
+      const picked = !!(raw && timelineAudioPicked.has(path.resolve(raw)));
+      if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport && !picked)) {
         return new Response('forbidden', { status: 403 });
       }
       return serveMediaFile(raw, request.headers.get('range'));

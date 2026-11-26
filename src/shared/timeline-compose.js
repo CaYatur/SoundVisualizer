@@ -413,6 +413,8 @@
     if (!selected) fail('EXPORT_TIMELINE_MISSING', 'Dışa aktarılacak çizelge bulunamadı; yeniden seçin.');
     if (selected.itemEnabled === false) fail('EXPORT_TIMELINE_PASSIVE', 'Seçilen çizelge pasif; dışa aktarmadan önce etkinleştirin.');
     out.timeline = Object.assign({}, out.timeline, selected, { bank: [], order: [selected.id] });
+    // Seçilen çizelgenin sesi yoksa etkin sekmenin sesi işe karışmaz (#1172)
+    if (!Array.isArray(selected.audioTracks)) delete out.timeline.audioTracks;
     out.export.timelineId = selected.id;
     /* Canlı karartma (panik düğmesi) çevrimdışı çizelge işini etkilemez.
        Aşağıdaki içerik denetimi karartmayı zaten yok sayıyordu; bayrak işe
