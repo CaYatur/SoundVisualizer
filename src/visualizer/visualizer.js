@@ -528,6 +528,7 @@
     }
   }
 
+  let outputFrozen = false; // çıkış dondurma (#1168)
   function frame(now) {
     raf = requestAnimationFrame(frame);
 
@@ -654,7 +655,7 @@
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       if (showT >= 0 && stack.syncTimeline) stack.syncTimeline(cfg.timeline, showT);
-      stack.draw(audio, mcfg, t, dt);
+      if (!outputFrozen) stack.draw(audio, mcfg, t, dt);
       needsPaint = false;
       drawCount++;
       applyMapping(mcfg);
@@ -981,6 +982,11 @@
     if (window.api.onMomentaryFx) window.api.onMomentaryFx((list) => { if (stack) stack.setMomentary(list); });
     if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
+    /* Dondur / sessiz (#1168): donukken çizim atlanır, tuval son kareyi gösterir; ses çözümlemesi sürer. */
+    if (window.api.onOutputSafety) window.api.onOutputSafety((m) => {
+      outputFrozen = !!(m && m.freeze);
+      if (m && m.mute) document.querySelectorAll('video, audio').forEach((v) => { v.muted = true; });
+    });
     /* Panelle aynı ekranda açılan tam ekran paneli tamamen örtüyor; "ESC ile çıkış" notu da
        panelin altında kalıyordu. Ana süreç yalnız bu durumda (ve ESC kilitli değilken) kısa bir
        not yollar. Not sayfa katmanında: tuvale çizilmez, Spout'a, yayına ve dışa aktarıma girmez. */
