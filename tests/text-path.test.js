@@ -64,8 +64,9 @@ test('dalga: x düz sırada, genlik bend ile, eğim türeve uyuyor', () => {
 
 test('çizim: düz yazı (varsayılan) ve kayan yazı eski yolda; panel seçeneği kayan yazı kapalıyken', () => {
   const src = read('src/visualizer/modes/text.js');
-  assert.ok(src.includes("const pathKind = !T.marquee && TEXT_PATHS.indexOf(T.textPath) >= 0 ? T.textPath : '';"));
-  assert.ok(src.includes('} else if (T.marquee) {'));
+  assert.ok(src.includes("const marquee = !!T.marquee && src !== 'lyrics';"));
+  assert.ok(src.includes("const pathKind = !marquee && TEXT_PATHS.indexOf(T.textPath) >= 0 ? T.textPath : '';"));
+  assert.ok(src.includes('} else if (marquee) {'));
   const panel = read('src/admin/scene-panels.js');
   const i = panel.indexOf("miniSelect('Yazı Yolu'");
   assert.ok(i > 0 && panel.slice(i - 200, i).includes('if (!txt.marquee) {'));
