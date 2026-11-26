@@ -5433,6 +5433,8 @@
     'Program\'ı karart': 'Black out Program',
     'Sahne Olarak Kaydet': 'Save As Scene',
     'Çapraz geçiş': 'Crossfade',
+    'Canlıyı koru': 'Keep live',
+    'Canlı sayfasında yayına yapılan fader, solo, sessiz ve efekt değişiklikleri Sahneye Gönder\'de korunur': 'Fader, solo, mute and effect changes made to program on the Live page are kept on Take',
     'Geri al: son çalışılan alan (sahne, zaman çizelgesi ya da önizleme taslağı)': 'Undo: the area you last worked in (scene, timeline or preview draft)',
     'Önizleme kipinde taslağı sahneye gönder': 'In preview mode, take the draft to program',
     'Önizleme taslağı': 'Preview draft',

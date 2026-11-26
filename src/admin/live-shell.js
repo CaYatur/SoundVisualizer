@@ -390,8 +390,9 @@
     const pv = previewOn();
     const cfg = pv ? P().programView() : P().cfg();
     const byId = (c, l) => (c.layers || []).find((x) => x && x.id === l.id);
-    const progSet = (fn) => (now) => P().programEdit(fn, now);
-    const layerSet = (l, key, val) => P().programEdit((c) => { const x = byId(c, l); if (x) x[key] = val; }, true);
+    // Anahtar: aynı denetimin son değeri Sahneye Gönder'de korunur (programEdit liveKeep)
+    const progSet = (fn, key) => (now) => P().programEdit(fn, now, key);
+    const layerSet = (l, key, val) => P().programEdit((c) => { const x = byId(c, l); if (x) x[key] = val; }, true, key + ':' + l.id);
     const list = (cfg.layers || []).filter((l) => l && l.kind !== 'logo');
     const SP = window.SVScenePanels;
     const nameOf = (l) => {
@@ -405,7 +406,7 @@
     const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan', style: '--chan:' + reach(l) }, [
       window.SVSceneShell && window.SVSceneShell.thumbOf ? window.SVSceneShell.thumbOf(l) : el('span', { class: 'sv-th' }),
       fader(() => (l.opacity == null ? 1 : l.opacity), (v) => { l.opacity = v; }, nameOf(l),
-        pv ? progSet((c) => { const x = byId(c, l); if (x) x.opacity = l.opacity; }) : null),
+        pv ? progSet((c) => { const x = byId(c, l); if (x) x.opacity = l.opacity; }, 'opacity:' + l.id) : null),
       el('span', { class: 'sv-lbl', text: SP && SP.layerSummary ? SP.layerSummary(l) : tr(l.name || l.kind), title: nameOf(l) }),
       el('span', { class: 'sv-sm' }, [
         el('button', { class: 'sv-tgl solo' + (l.solo ? ' act' : ''), type: 'button', text: 'S', title: tr('Solo: yalnızca solo katmanlar çizilir'), onclick: () => { l.solo = !l.solo; if (pv) { layerSet(l, 'solo', l.solo); paint(); } else P().apply(); } }),
@@ -421,7 +422,7 @@
         f.enabled = e.target.checked;
         if (!pv) { P().apply(); return; }
         const on = f.enabled;
-        P().programEdit((c) => { const x = Array.isArray(c.postfx) ? c.postfx[at] : null; if (x && x.type === f.type) x.enabled = on; }, true);
+        P().programEdit((c) => { const x = Array.isArray(c.postfx) ? c.postfx[at] : null; if (x && x.type === f.type) x.enabled = on; }, true, 'fx:' + at + ':' + f.type);
       } });
       inp.checked = f.enabled !== false;
       return el('label', { class: 'sv-fxrow' }, [el('span', { class: 'switch small' }, [inp, el('span', { class: 'track' })]), el('span', { text: tr(def ? def.label : f.type) })]);
@@ -430,7 +431,7 @@
     const master = el('div', { class: 'sv-chan sv-master', style: '--chan:' + (cfg.master == null ? 1 : cfg.master) }, [
       el('span', { class: 'sv-th' }, [el('span', { icon: 'upload' })]),
       fader(() => (cfg.master == null ? 1 : cfg.master), (v) => { cfg.master = v; }, tr('Çıkış'),
-        pv ? progSet((c) => { c.master = cfg.master; }) : null),
+        pv ? progSet((c) => { c.master = cfg.master; }, 'master') : null),
       el('span', { class: 'sv-lbl', text: tr('Çıkış') }),
       el('span', { class: 'sv-sm' }, [el('button', {
         class: 'sv-tgl mute' + (P().isBlackedOut() ? ' act' : ''), type: 'button', text: 'K', title: tr('Karart'), onclick: () => { P().toggleBlackout(); paint(); },
