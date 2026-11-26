@@ -630,3 +630,10 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 .sv-pvw-bar .btn.on { background: var(--danger); color: var(--on-solid); }
 .sv-pvw-take.wait { opacity: .7; }
 body[data-preview-mode] #previewStage { box-shadow: 0 0 0 3px var(--ok); }
+.sv-pvw-bar .sv-pvw-lbl { margin-left: 6px; }
+/* Dar pencere: düğmeler yalnız ikon, Sahneye Gönder yazılı kalır (#1168) */
+@media (max-width: 1440px) {
+  .sv-pvw-bar .btn:not(.sv-pvw-take) .sv-pvw-lbl { display: none; }
+  .sv-pvw-bar { gap: 4px; }
+  .sv-pvw-monnote { display: none; }
+}

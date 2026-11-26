@@ -147,6 +147,8 @@ ones used here. Mode and transition ids come from `src/shared/mode-catalog.js` a
 | `tlNextMarker`, `tlPrevMarker` | Jump between timeline markers |
 | `deckStopAll` | Stops every clip deck cell |
 | `mdNext`, `mdPrev`, `mdRandom` | MilkDrop preset navigation |
+| `previewTake` | Preview mode: send the staged draft to the outputs (the panel's transition and beat settings apply; nothing happens while preview mode is off) |
+| `outputFreeze` | Freeze or unfreeze the outputs on their last frame (toggle; not stored in the config) |
 
 Redundancy takeover, deck slots and MilkDrop sprites are deliberately not on the list.
 

@@ -150,6 +150,27 @@ vuruşta ateşleyen bir ızgaradır. **Zaman** sayfası bir parçayı baştan so
 [gösteri kontrolü bölümünde](../README.tr.md#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
 anlatılır.
 
+**Önizleme kipi** (Geri al'ın yanındaki göz düğmesi) bir görünümü seyirci görmeden hazırlamanızı
+sağlar. Açıkken:
+- her düzenleme taslağa gider, çıkışlar programı göstermeye devam eder;
+- **Sahneye Gönder** (`Ctrl+Shift+Enter`) taslağı kesme, çapraz geçiş ya da sahnenin kendi
+  geçişiyle, isterseniz bir sonraki vuruşta yayına gönderir;
+- **T-bar** programdan taslağa elle karıştırır;
+- Canlı sayfasındaki faderler, solo, sessiz ve efekt anahtarları programı değiştirir;
+- **Dondur** OBS kaplaması ve video katmanları dahil her çıkışı son karede tutar;
+- telefon kumandası ve MCP (`sv_preview_take`, `sv_set_output_freeze`) Sahneye Gönder ve Dondur'u
+  tetikleyebilir.
+
+**Geri al** (`Ctrl+Z`) en son çalıştığınız alana gider:
+- Zaman sayfasında zaman çizelgesini geri alır.
+- Önizleme kipinde yalnız taslağı geri alır. Hazırlanan aygıt, kaynak ve ağ değişiklikleri buna
+  dahildir; programa hiç dokunmaz.
+- Bir Timeline klibi düzenlenirken o klibi geri alır.
+- Bunların dışında sahneyi geri alır.
+
+Geri al düğmesinin ipucu kapsamı ve son adımları gösterir. Sahneye Gönder taslağın geçmişini
+kapatır; önizleme çubuğundaki **Geri Al** son gönderimi geri alır.
+
 ## 7. İstediğiniz gibi tepki versin
 
 **Efektler.** Rafın araçlarında **Efekt Zinciri → Efekt Ekle** bütün görüntüye bir efekt koyar:

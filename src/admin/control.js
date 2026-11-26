@@ -35,6 +35,8 @@
     { action: 'nextScene', label: 'Eylem · Sonraki Sahne' },
     { action: 'nextPalette', label: 'Eylem · Sonraki Renk Şablonu' },
     { action: 'blackout', label: 'Eylem · Karart (aç/kapa)' },
+    { action: 'previewTake', label: 'Eylem · Önizlemeyi Sahneye Gönder' },
+    { action: 'outputFreeze', label: 'Eylem · Çıkışı Dondur (aç/kapa)' },
     { action: 'tlPlay', label: 'Çizelge · Oynat' },
     { action: 'tlPause', label: 'Çizelge · Duraklat' },
     { action: 'tlStop', label: 'Çizelge · Durdur ve Başa Dön' },
@@ -189,6 +191,20 @@
   function runAction(action, cfg) {
     /* Önizleme modu (#1167): kısayol, MIDI, uzak eylem ve klip destesi Program'ı sürer. */
     const panel = P();
+    /* Önizleme gönderimi ve çıkış dondurma (#1168): telefon, MCP, kısayol ve MIDI aynı yoldan.
+       Program'a sarılmaz: gönderim taslağı okur, dondurma yapılandırmaya yazılmaz. */
+    if (action === 'previewTake' || action === 'outputFreeze') {
+      const M = typeof window !== 'undefined' ? window.SVPreviewMode : null;
+      if (action === 'previewTake') {
+        if (M && M.take) M.take();
+        else if (panel && panel.draftTake) panel.draftTake('fade', 1);
+      } else if (panel && panel.outputSafety) {
+        const st = panel.outputSafetyState();
+        panel.outputSafety({ freeze: !st.freeze });
+      }
+      if (M && M.sync) M.sync();
+      return true;
+    }
     if (panel && panel.draftOn && panel.draftOn() && panel.cfg() === cfg) {
       panel.onProgram(() => { if (runAction(action, panel.cfg()) !== true) panel.push(true); });
       panel.rerender();
