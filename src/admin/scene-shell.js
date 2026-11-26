@@ -1354,6 +1354,30 @@
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; e.target.parentNode.classList.toggle('has', !!query); paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
+      shelfTab === 'scenes' ? el('div', { class: 'sv-scene-tools' }, [
+        el('div', { class: 'scene-view sv-seg', role: 'group', 'aria-label': tr('Sahne düzeni') },
+          [['list', 'list', 'Liste'], ['grid', 'grid', 'Izgara']].map(([v, ic, lb]) => {
+            const view = (P().cfg() && P().cfg().ui && P().cfg().ui.sceneView === 'grid') ? 'grid' : 'list';
+            return el('button', {
+              class: 'icon-btn small' + (view === v ? ' on' : ''), type: 'button', icon: ic,
+              title: tr(lb), 'aria-label': tr(lb), 'aria-pressed': String(view === v),
+              onclick: () => {
+                const c = P().cfg();
+                c.ui = c.ui || {};
+                if (c.ui.sceneView === v) return;
+                c.ui.sceneView = v;
+                if (P().push) P().push(true);
+                if (P().renderScenes) P().renderScenes();
+                paint();
+              },
+            });
+          })),
+        el('button', {
+          class: 'btn small sv-scene-save', type: 'button', icon: 'plus', text: tr('Kaydet'),
+          title: tr('Mevcut görünümü yeni sahne olarak kaydet'),
+          onclick: () => { P().saveScene(); paint(); },
+        }),
+      ]) : null,
       lib ? el('label', { class: 'sv-card-size', title: tr('Kart boyu (Ctrl + tekerlek)') }, [
         el('span', { icon: 'grid' }),
         el('input', {
@@ -1367,7 +1391,7 @@
         onclick: () => { shelfOpen = !shelfOpen; write(STORE.open, shelfOpen ? '1' : '0'); paint(); },
       }),
     ]);
-    const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
+    const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' || shelfTab === 'studio' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
     host.replaceChildren(head, body);
     applyCardSize(host);
     if (!host.dataset.svCardWheel) {
