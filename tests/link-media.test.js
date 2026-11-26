@@ -78,7 +78,7 @@ test('telefonun adresi PC ayarına girmez: kitaplık kimliği PC dosyasına çev
 });
 
 test('bağlantı: media.fetch izle düzeyinde, yamalar kontrolden önce çevrilir', () => {
-  const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n'); // Windows'ta satır sonu CRLF
   assert.match(read('src/main/phone-link.js'), /'media\.fetch': 'view'/);
   const main = read('src/main/main.js');
   assert.match(main, /'media\.fetch': \(args\) => linkMediaApi\(\)\.fetch\(args, currentConfig \|\| \{\}\)/);
