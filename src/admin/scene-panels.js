@@ -531,8 +531,8 @@
     ['web', 'Web Sayfası'],
   ];
 
-  /* Katman Ekle menüsünde her türün kendi simgesi: on iki düğmenin hepsi "+" taşıyordu,
-     aranan tür ancak yazıyı okuyarak bulunuyordu. */
+  /* Katman Ekle menüsünde her türün kendi simgesi: eskiden hepsi "+" taşıyordu,
+     aranan tür ancak yazıyı okuyarak bulunuyordu. MilkDrop'un yanında Studio da var. */
   const TEXT_ADD_ICONS = { static: 'text', lyrics: 'mic', now: 'tag' };
   const ADD_ICONS = {
     background: 'background', visualizer: 'bars', media: 'video', sprites: 'sparkles', logo: 'image',
@@ -734,6 +734,34 @@
         if (MP && MP.pickFor) MP.pickFor(made.settings && made.settings.milkdrop ? made.id : '');
         openNew(made);
         if (window.SVSceneShell && window.SVSceneShell.setShelf) window.SVSceneShell.setShelf('milkdrop');
+        rerender();
+      },
+    });
+  }
+  /* Varsayılan Studio katmanı: yerleşik bir görselleştirici shader (ilk bulunan). */
+  function defaultStudioPreset() {
+    const IS = window.SVPresets;
+    const list = IS && IS.all ? IS.all() : [];
+    return list.find((p) => p && p.engine === 'shader' && p.kind === 'visualizer' && p.builtin)
+      || list.find((p) => p && p.engine === 'shader' && p.kind === 'visualizer')
+      || null;
+  }
+  function addStudioLayer(cfg, list) {
+    const p = defaultStudioPreset();
+    const made = window.SVLayers.normalizeLayer({
+      kind: 'visualizer', type: 'custom', name: 'Studio', presetId: p ? p.id : null,
+    });
+    if (typeof seedFactoryVisualizer === 'function') seedFactoryVisualizer(made);
+    list.push(made);
+    return made;
+  }
+  function studioAddButton(cfg, list, openNew, rerender) {
+    return P().el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'code', text: 'Studio', 'data-add': 'studio',
+      onclick: () => {
+        const made = addStudioLayer(cfg, list);
+        openNew(made);
+        if (window.SVSceneShell && window.SVSceneShell.setShelf) window.SVSceneShell.setShelf('studio');
         rerender();
       },
     });
@@ -3065,7 +3093,10 @@
           },
         })
       );
-      if (kind === 'visualizer') addRow.appendChild(milkdropAddButton(cfg, list, openNew, rerender));
+      if (kind === 'visualizer') {
+        addRow.appendChild(milkdropAddButton(cfg, list, openNew, rerender));
+        addRow.appendChild(studioAddButton(cfg, list, openNew, rerender));
+      }
     });
     TEXT_ADD_PRESETS.forEach((preset) => {
       addRow.appendChild(

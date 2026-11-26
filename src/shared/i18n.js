@@ -3337,6 +3337,7 @@
       'A thumbnail shows the first two seconds of a preset, drawn with the demo sound from a black screen. Each preset is drawn once and kept, and drawn again when it changes.',
     'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.':
       'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double preset) files are added too.',
+    'Önce ne ekleneceği gösterilir; onaylamadan kopyalanmaz.': 'What will be added is shown first; nothing is copied until you confirm.',
     'Sil': 'Delete',
     
     

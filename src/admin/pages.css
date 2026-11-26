@@ -621,7 +621,7 @@ input[type='color'].tl-swatch::-webkit-color-swatch { border-radius: 3px; }
 .md-lib-bar > .ctrl:has(input[type='search']) .row > input.p-in[type='search'] { width: 100%; max-width: none; flex: 1 1 auto; }
 .md-lib-bar .ctrl .row > select, .md-lib-bar select { max-width: 150px; }
 /* İçe aktarma menüsü: düğmeler iki sütun, yazı altta */
-.md-imports-body.md-imports-body { max-height: min(56vh, 380px); border: 0; border-radius: 14px; background: var(--popover); box-shadow: var(--sv-popover-line), 0 18px 50px rgb(var(--shadow-rgb) / .55); }
+.md-imports-body.md-imports-body { border: 0; border-radius: 14px; background: var(--popover); box-shadow: var(--sv-popover-line), 0 18px 50px rgb(var(--shadow-rgb) / .55); }
 .md-imports-body .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0 0 6px; }
 .md-imports-body .row > .btn { width: 100%; justify-content: flex-start; }
 .md-imports-body .studio-note { margin: 8px 2px 0; }
