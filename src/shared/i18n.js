@@ -308,6 +308,8 @@
     'bilinmeyen hata': 'unknown error', 'Ses alınamıyor — yönetici panelinden çıkış aygıtı seçin': 'No audio — select an output device in the admin panel',
     'Ses kaynağı seçilmedi — Ses Kaynakları\'ndan bir kaynak seçin': 'No audio source selected — choose one in Audio Sources',
     'Ses alınamıyor — Ses Kaynakları\'ndan bir aygıt seçin': 'No audio — choose a device in Audio Sources',
+    'Canlı ses bağlantısı yok — önizleme ses alamıyor. Ses Kaynakları\'ndan bir kaynak seçin.': 'No live audio connection — the preview gets no audio. Choose a source in Audio Sources.',
+    'Canlı seçili ama ses gelmiyor — demo sinyaline dönmek için tıklayın': 'Live is selected but no audio arrives — click to switch to the demo signal',
     'Gün Batımı': 'Sunset', 'Okyanus': 'Ocean', 'Gece': 'Night', 'Buz': 'Ice', 'Lav': 'Lava', 'Orman': 'Forest', 'Aurora': 'Aurora',
     'Windows Dynamic Lighting': 'Windows Dynamic Lighting',
     'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.': 'Synchronizes compatible RGB devices with the visualizer colors. Disabled by default.',
