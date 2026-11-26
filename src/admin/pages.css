@@ -455,16 +455,22 @@ body[data-page='time'] .dock-block:first-child { order: 1; overflow: hidden; dis
 body[data-page='time'] .dock-block:nth-child(2) { display: none; }
 body[data-page='time'] #svTimeSide { order: 2; display: block; padding: 8px 12px 12px; }
 body[data-page='time'] #dockScenes { order: 0; display: flex; flex-direction: column; padding: 0 0 8px; border-radius: 16px; }
-body[data-page='time'] #dockScenes .dock-head { height: 46px; padding: 0 10px 0 14px; margin: 0; }
+body[data-page='time'] #dockScenes .dock-head { height: 46px; padding: 0 10px 0 14px; margin: 0; min-width: 0; overflow: hidden; gap: 8px; }
+body[data-page='time'] #dockScenes .dock-head h3 { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+body[data-page='time'] #dockScenes #sceneSaveBtn { flex: none; }
+body[data-page='time'] #dockScenes .scene-view { display: none; }
 body[data-page='time'] #dockScenes .scene-toolbar { display: none; }
 body[data-page='time'] #dockScenes .scene-list { padding: 0 6px; display: block; }
 body[data-page='time'] #dockScenes .scene-item { margin: 0 0 1px; padding: 4px 8px; min-height: 38px; border: 0; border-radius: 8px; background: none; box-shadow: none; }
 body[data-page='time'] #dockScenes .scene-item:hover { background: rgb(var(--fg-rgb) / .05); }
+body[data-page='time'] #dockScenes .scene-item.active { background: rgb(var(--accent-rgb) / .15); box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / .6); }
+body[data-page='time'] #dockScenes .scene-item.active:hover { background: rgb(var(--accent-rgb) / .2); }
 body[data-page='time'] #dockScenes .scene-item .scene-thumb { width: 42px; height: 26px; border-radius: 5px; }
 body[data-page='time'] #dockScenes .scene-item .drag-handle,
 body[data-page='time'] #dockScenes .scene-item .icon-btn:not(.sv-tl-add) { display: none; }
 .sv-tl-add { display: none; }
-body[data-page='time'] .sv-tl-add { display: inline-flex; }
+body[data-page='time'] .sv-tl-add { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; }
+body[data-page='time'] .sv-tl-add .svi { display: block; margin: 0; }
 body[data-page='time'] .dock-block:first-child .dock-head { display: none; }
 body[data-page='time'] .dock-block:first-child .dim-hint, body[data-page='time'] .dock-block:first-child .dock-note { display: none; }
 body[data-page='time'] #dockStageHost { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; align-items: center; container-type: size; }

@@ -7148,7 +7148,7 @@
     if (head) {
       let tg = head.querySelector('.scene-view');
       if (!tg) {
-        tg = el('div', { class: 'scene-view sv-seg', role: 'group', 'aria-label': tr('Sahne düzeni') });
+        tg = el('div', { class: 'scene-view', role: 'group', 'aria-label': tr('Sahne düzeni') });
         head.insertBefore(tg, head.querySelector('#sceneSaveBtn'));
       }
       tg.replaceChildren(...[['list', 'list', 'Liste'], ['grid', 'grid', 'Izgara']].map(([v, ic, lb]) => el('button', {

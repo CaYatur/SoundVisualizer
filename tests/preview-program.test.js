@@ -146,6 +146,7 @@ test('mod varsayılan kapalı: arayüz kendiliğinden taslak açmaz', () => {
   const begins = ui.match(/draftBegin\(\)/g) || [];
   assert.strictEqual(begins.length, 1, 'yalnız enter() taslak açar');
   assert.match(ui, /function enter\(\) \{\n\s*if \(armed\(\)\) return;\n\s*if \(!P\(\)\.draftBegin\(\)\) return;/);
+  assert.ok(!/iconBtn\('moon'/.test(ui), 'karart şeritte yinelenmemeli');
   const html = read('src/admin/index.html');
   const iCore = html.indexOf('../shared/program-draft.js');
   const iAdmin = html.indexOf('<script src="admin.js">');
