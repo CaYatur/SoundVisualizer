@@ -940,6 +940,8 @@
     snap.loop = norm.loop;
     snap.snap = norm.snap;
     snap.fps = norm.fps;
+    // Ses parçaları ayrı dizide (#1171); yoksa anahtar hiç yazılmaz (eski biçim aynı kalır)
+    if (Array.isArray(s.audioTracks)) snap.audioTracks = svClone(s.audioTracks);
     return snap;
   }
 
@@ -955,6 +957,9 @@
     cfgTl.loop = norm.loop;
     cfgTl.snap = norm.snap;
     cfgTl.fps = norm.fps;
+    // Sekme değişince ses parçaları da o çizelgeninkine geçer (#1171)
+    if (Array.isArray(snap.audioTracks)) cfgTl.audioTracks = svClone(snap.audioTracks);
+    else delete cfgTl.audioTracks;
     return cfgTl;
   }
 

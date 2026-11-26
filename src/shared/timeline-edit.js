@@ -86,8 +86,11 @@
      sonraki bir klip adımını geri almak BPM'i de sessizce geri alırdı. */
   function snapshot(tlCfg) {
     const c = tlCfg || {};
-    return JSON.stringify({ tracks: c.tracks || [], markers: c.markers || [], loop: c.loop || null,
-      tempo: Array.isArray(c.tempo) ? c.tempo : null });
+    const s = { tracks: c.tracks || [], markers: c.markers || [], loop: c.loop || null,
+      tempo: Array.isArray(c.tempo) ? c.tempo : null };
+    // Ses parçaları (#1171) aynı geri al adımında; yoksa anlık görüntü eskisiyle aynı
+    if (Array.isArray(c.audioTracks)) s.audioTracks = c.audioTracks;
+    return JSON.stringify(s);
   }
 
   function restore(tlCfg, snap) {
@@ -96,6 +99,8 @@
     tlCfg.markers = s.markers;
     if (s.loop) tlCfg.loop = s.loop;
     if (Array.isArray(s.tempo)) tlCfg.tempo = s.tempo;
+    if (Array.isArray(s.audioTracks)) tlCfg.audioTracks = s.audioTracks;
+    else delete tlCfg.audioTracks;
     return tlCfg;
   }
 
