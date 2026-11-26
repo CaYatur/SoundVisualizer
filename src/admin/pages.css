@@ -485,7 +485,7 @@ body[data-page='time'] .tl-panel:not(.tl-full) > .tl-actions { flex: none; order
 body[data-page='time'] .tl-panel:not(.tl-full) > .tl-editor { flex: 1 1 auto; min-height: 0; order: 2; display: flex; flex-direction: column; border: 0; border-top: 1px solid rgb(var(--fg-rgb) / .06); border-radius: 0; background: none; box-shadow: none; }
 body[data-page='time'] .tl-panel:not(.tl-full) .tl-body { flex: 1 1 auto; height: auto !important; min-height: 0; resize: none; border-radius: 0; }
 /* Ses parçaları görsel parçaların altında (#1171) */
-body[data-page='time'] .tl-panel:not(.tl-full) > .tla { order: 2; flex: none; max-height: 40%; overflow: auto; padding: 0 8px 6px; }
+body[data-page='time'] .tl-panel:not(.tl-full) > .tla { order: 2; flex: none; max-height: 45%; overflow-y: auto; overflow-x: hidden; }
 body[data-page='time'] .tl-panel:not(.tl-full) > .settings-io-note { order: 3; flex: none; display: block; box-sizing: border-box; width: 100%; margin: 0; min-height: 0; padding: 0 14px 8px; }
 
 .tl-toolbar { gap: 4px; padding: 0 12px 8px; margin: 0; border: 0; border-radius: 0; background: none; }
