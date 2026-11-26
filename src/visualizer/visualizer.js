@@ -668,13 +668,11 @@
       logoImg.style.display = 'none';
     }
 
-    // ses gelmiyorsa ipucu göster
-    if (audio.ready && now - audio.lastFrameTs > 1500) {
-      hint.style.display = 'block';
-      hint.textContent = 'Ses alınamıyor — yönetici panelinden çıkış aygıtı seçin';
-    } else if (hint.style.display === 'block' && audio.ready && now - audio.lastFrameTs < 600) {
-      hint.style.display = 'none';
-    }
+    /* "Ses alınamıyor" uyarısı çıkışta GÖSTERİLMEZ. Çıkış pencereleri (ana ekranlar,
+       yüzen pencere, OBS/yayın sayfası) seyirciye gider; ses kaynağı seçilmemişken bile
+       ekranın ortasında operatör iletisi görünüyordu. Uyarı yalnız yönetici panelinin
+       önizlemesinde (src/admin/preview.js, #pvAudioHint). */
+    if (hint.style.display === 'block') hint.style.display = 'none';
 
     // seviye göstergesini ve LED spektrumunu ana sürece bildir (~30 Hz)
     if (now - meterT > 32) {

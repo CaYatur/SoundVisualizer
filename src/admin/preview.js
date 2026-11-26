@@ -203,6 +203,25 @@
   let frameTap = null;
   const nextTaps = [];
 
+  /* Ses uyarısı yalnız burada (operatörün önizlemesi). Çıkış pencereleri seyirciye
+     gittiği için orada gösterilmez (visualizer.js). Kaynak hiç seçilmemişse ve seçili
+     kaynaktan kare gelmiyorsa iki ayrı cümle; kare gelince gizlenir. */
+  let audioHintKey = '';
+  function audioHintText(live, now) {
+    if (live || now - lastRealFrame < 1500) return '';
+    return sourcesOff()
+      ? 'Ses kaynağı seçilmedi — Ses Kaynakları\'ndan bir kaynak seçin'
+      : 'Ses alınamıyor — Ses Kaynakları\'ndan bir aygıt seçin';
+  }
+  function showAudioHint(text) {
+    if (text === audioHintKey) return;
+    audioHintKey = text;
+    const el = typeof document !== 'undefined' ? document.getElementById('pvAudioHint') : null;
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = !text;
+  }
+
   function renderFrame(now, dt, t, skipScene) {
     if (!stack || !audio) return;
     const live = now - lastRealFrame < REAL_FRAME_TIMEOUT;
@@ -210,6 +229,7 @@
       liveSource = live;
       if (onSourceChange) onSourceChange(live);
     }
+    showAudioHint(audioHintText(live, now));
     if (!live) {
       /* Ses kaynağı bilerek kapatıldıysa (Ses Kaynakları'nda hiçbiri) önizleme sessiz kalır,
          demoya geçmez; demo isteyen "Demo ses"i seçer (ana süreç örnek sesi gerçek kare gibi
