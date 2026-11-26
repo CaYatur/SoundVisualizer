@@ -264,7 +264,7 @@
         top = data;
         const transition = transitionFor(c, data, tl, wt);
         if (transition) op = T.entryOpacity(tl, e.track, Object.assign({}, c, { fadeIn: 0, fadeOut: 0 }), wt);
-        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: data, layers: emitLayers(c, layersOf(data), 1), transition });
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), rate: c.speed > 0 ? c.speed : 1, cfg: data, layers: emitLayers(c, layersOf(data), 1), transition });
         scene.layers = scene.layers.concat(emitLayers(c, layersOf(data), op));
         ids.push(c.id);
       } else {
@@ -272,7 +272,7 @@
         const own = hasLocal(c) ? materializeData(c.local.data) : blackScene();
         const transition = transitionFor(c, own, tl, wt);
         if (transition) op = T.entryOpacity(tl, e.track, Object.assign({}, c, { fadeIn: 0, fadeOut: 0 }), wt);
-        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), cfg: own, layers: emitLayers(c, ml.filter(Boolean), 1), transition });
+        units.push({ id: c.id, opacity: op, localTime: sourceTime(c, wt), rate: c.speed > 0 ? c.speed : 1, cfg: own, layers: emitLayers(c, ml.filter(Boolean), 1), transition });
         scene.layers = scene.layers.concat(emitLayers(c, ml.filter(Boolean), op));
         ids.push(c.id);
       }

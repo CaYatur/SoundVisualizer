@@ -89,7 +89,12 @@
         const localT = plan.time == null ? t : plan.time;
         let childCfg = u.cfg;
         if (c.modulator) { c.modulator.update(childCfg, audio, localT, dt); childCfg = c.modulator.apply(childCfg, dt); }
-        if (s._mediaPool) for (const m of s._mediaPool.values()) if (!m.offline && m.seekTimeline) m.seekTimeline(u.localTime);
+        /* Video klibin saatine bağlı: çizelge oynarken kendi hızında oynar, dururken
+           oynatma kafasının karesinde bekler. Hız = klip hızı × taşıma hızı (J/K/L 2×, 4×).
+           Geri oynatmada (J) tarayıcı videoyu geriye oynatamaz: kare kare sarılır. */
+        const trRate = Number(plan.rate) || 1;
+        const vidPlaying = plan.playing === true && trRate > 0;
+        if (s._mediaPool) for (const m of s._mediaPool.values()) if (!m.offline && m.seekTimeline) m.seekTimeline(u.localTime, vidPlaying, (Number(u.rate) || 1) * Math.abs(trRate));
         if (s.width !== w || s.height !== h) s.resize(w, h);
         s._ensureComp(); this.size(s.compCanvas, w, h);
         if (c.modulator && c.modulator.touches('postfx')) s.setPostFX(childCfg.postfx);

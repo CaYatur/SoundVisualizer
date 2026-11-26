@@ -606,6 +606,11 @@
         showT = TC.modeOn(cfg) ? window.SVShowClock.resolve(showAnchor || window.SVShowClock.idle(), Date.now()) : -1;
         const r = TC.live(cfg, showT, tlLive);
         base = r.cfg;
+        // Video klipleri çizelge oynarken oynar, dururken kafanın karesinde bekler
+        if (base.timelineComposition) {
+          base.timelineComposition.playing = tlDriving;
+          base.timelineComposition.rate = showAnchor && Number(showAnchor.rate) ? Number(showAnchor.rate) : 1;
+        }
         if (r.rebuild) {
           analysisWanted = !window.SVAnalysis || window.SVAnalysis.neededBy(base);
           stack.setConfig(base);

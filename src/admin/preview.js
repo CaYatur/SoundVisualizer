@@ -238,6 +238,11 @@
       if (!a) a = window.SVShowClock.idle();
       const r = TC.live(cfg, TC.modeOn(cfg) ? window.SVShowClock.resolve(a, Date.now()) : 0, tlLive);
       base = r.cfg;
+      // Video klipleri çıkıştaki gibi: oynarken oynar, dururken kafanın karesinde bekler
+      if (base.timelineComposition) {
+        base.timelineComposition.playing = !!(a && a.playing);
+        base.timelineComposition.rate = a && Number(a.rate) ? Number(a.rate) : 1;
+      }
       if (r.rebuild) stack.setConfig(base);
       if (r.fx) stack.setPostFX(base.postfx);
     } else
