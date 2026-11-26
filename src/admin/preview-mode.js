@@ -36,9 +36,10 @@
     return n;
   }
   function iconBtn(icon, label, title, onclick, cls) {
-    const b = el('button', { type: 'button', class: 'btn small' + (cls ? ' ' + cls : ''), title: tr(title || label), onclick });
-    if (window.SVIcons) window.SVIcons.set(b, icon, tr(label));
-    else b.textContent = tr(label);
+    const b = el('button', { type: 'button', class: 'btn small' + (cls ? ' ' + cls : ''), title: tr(title || label), 'aria-label': tr(label), onclick });
+    if (window.SVIcons) window.SVIcons.set(b, icon, '');
+    // Yazı ayrı öğede: dar pencerede gizlenir, düğme ikon olarak kalır (1024 px'de tek satır)
+    b.appendChild(el('span', { class: 'sv-pvw-lbl', text: tr(label) }));
     return b;
   }
 

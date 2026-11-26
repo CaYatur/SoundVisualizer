@@ -25,6 +25,8 @@ const ACTIONS = Object.freeze([
   'nextScene', 'nextPalette', 'nextVisualizer', 'prevVisualizer', 'nextBackground',
   'tlPlay', 'tlPause', 'tlStop', 'tlNextMarker', 'tlPrevMarker', 'deckStopAll',
   'mdNext', 'mdPrev', 'mdRandom',
+  // Önizleme kipi (#1168): taslağı sahneye gönder, çıkışı dondur/çöz
+  'previewTake', 'outputFreeze',
 ]);
 
 const PATH_RE = /^[a-z0-9]+(\/[a-z0-9]+){0,3}$/i;

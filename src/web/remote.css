@@ -180,6 +180,8 @@ input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; bord
 /* Karartma şeridi: her sayfada görünür, tek dokunuş */
 .panic { position: sticky; top: calc(56px + env(safe-area-inset-top)); z-index: 15; margin-top: 10px; }
 .panic .btn { width: 100%; min-height: 50px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.pvw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pvw-row .btn { min-height: 40px; }
 
 /* Alt gezinme */
 .nav {

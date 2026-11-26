@@ -98,6 +98,9 @@
   let draftProgramDirty = false;
   let draftSaveTimer = 0;
   let prevTakeCfg = null;
+  let prevTakeScene = null;
+  let programSceneId = null; // önizleme kipinde Program'ın etkin sahnesi
+  const DRAFT_CUE = '__draft__'; // T-bar: önizleme kipinde sıradaki "sahne" taslağın kendisi
   // Taslağın imzası (önizleme modu): önizleme taslak değişince yeniden kurulsun
   function draftSig() {
     const o = draftView();
@@ -687,7 +690,11 @@
     sectionsOf: (cat) => sectionSchema().filter((x) => x.category === cat && (!x.show || x.show())).map((x) => x.id),
     renderScenes: (o) => renderScenes(o),
     _sendStats: () => Object.assign({}, sendStats),
-    activeSceneId: () => activeSceneId,
+    // Önizleme kipinde Canlı sayfası Program'ın sahnesini görür
+    activeSceneId: () => (draftOn() && activeCategory === 'live' ? programSceneId : activeSceneId),
+    draftCue: DRAFT_CUE,
+    programView: () => programView(),
+    programEdit: (fn, now) => programEdit(fn, now),
     /* Tek kartı çizer (Sahne sayfasının denetçisi ve rafı). Çizilemiyorsa ya da o anda
        gösterilmiyorsa null. `part`: MilkDrop kartının rafa ya da denetçiye giden parçası. */
     sectionCard: (id, opts) => {
@@ -4073,6 +4080,7 @@
     localStorage.setItem('sv-category', id);
     pendingCategoryScrollId = id;
     render();
+    if (window.SVUndoScope) window.SVUndoScope.paint(); // geri al kapsamı sayfayla değişir (#1170)
   }
 
   // --------------------------------------------------------------------------
@@ -5746,6 +5754,8 @@
   // Taslak düzenlemesinden sonra: kitaplık Program'a, taslak kurtarma kaydına
   function draftAfterEdit() {
     if (draft.syncShared(cfg)) { draftProgramDirty = true; lastOutSig = null; }
+    // Taslak düzenlemesi çıkışa gitmiyor; geri al adımı burada not edilir (#1170)
+    if (window.SVUndoHistory && !(window.SVTimelineTarget && window.SVTimelineTarget.manualWriting())) window.SVUndoHistory.note();
     if (draftSaveTimer) clearTimeout(draftSaveTimer);
     draftSaveTimer = setTimeout(saveDraftNow, 800);
   }
@@ -5764,18 +5774,47 @@
   function onProgram(fn) {
     if (!draftOn()) return fn();
     let r;
-    draft.withProgram(cfg, () => {
-      r = fn();
-      flushConfig();
-    });
+    /* Etkin sahne kimliği yapılandırmada değil panelde: Program işleri Program'ın
+       kimliğini görür, iş bitince taslağınki geri konur (#1170 sızıntı düzeltmesi). */
+    const mine = activeSceneId;
+    activeSceneId = programSceneId;
+    try {
+      draft.withProgram(cfg, () => {
+        r = fn();
+        flushConfig();
+      });
+    } finally {
+      programSceneId = activeSceneId;
+      activeSceneId = mine;
+    }
     previewConfig(true);
     return r;
   }
+  /* Program'a canlı düzenleme (Canlı sayfası faderleri): sık çağrı kare başına birleşir. */
+  const programEdits = [];
+  let programEditRaf = 0;
+  function programEdit(fn, now) {
+    if (!draftOn()) { fn(cfg); push(!!now); return; }
+    programEdits.push(fn);
+    const run = () => {
+      programEditRaf = 0;
+      const list = programEdits.splice(0);
+      if (!list.length || !draftOn()) return;
+      onProgram(() => { list.forEach((f) => f(cfg)); push(true); });
+    };
+    if (now) { if (programEditRaf) cancelAnimationFrame(programEditRaf); run(); return; }
+    if (!programEditRaf) programEditRaf = requestAnimationFrame(run);
+  }
+  function programView() { return draftOn() ? draft.program() : cfg; }
 
   function draftBegin() {
     if (!draft || draft.armed()) return false;
     flushConfig();
-    draft.begin(outputConfig());
+    programSceneId = activeSceneId;
+    // Geri al (#1170): taslağın kendi yığını; sahne yığını kapanınca olduğu gibi döner
+    const begin = () => draft.begin(outputConfig());
+    if (window.SVUndoHistory && window.SVUndoHistory.setBase) window.SVUndoHistory.setBase('draft', begin);
+    else begin();
     prevTakeCfg = null;
     lastPreviewSig = null;
     saveDraftNow();
@@ -5788,9 +5827,11 @@
     if (!draft || !draft.armed()) return false;
     if (window.SVTimelineTarget && window.SVTimelineTarget.active()) window.SVTimelineTarget.clear();
     if (draft.frozen() || draft.muted()) outputSafety({ freeze: false, mute: false });
-    const p = draft.end();
-    replaceCfg(p);
+    const leave = () => { replaceCfg(draft.end()); activeSceneId = programSceneId; };
+    const H = window.SVUndoHistory;
+    if (H && H.setBase) { H.setBase('', leave); H.dropBase('draft'); } else leave();
     prevTakeCfg = null;
+    prevTakeScene = null;
     try { localStorage.removeItem(DRAFT_STORE); } catch { /* yok */ }
     lastOutSig = null;
     previewConfig(true);
@@ -5814,22 +5855,37 @@
   }
   /* SAHNEYE GÖNDER. mode: 'cut' | 'fade' | 'scene' (taslağın kendi geçişi). Karartılmışken
      gönderilen taslak karartmanın arkasına yazılır; karartma kalkınca o görünür. */
-  function draftTake(mode, seconds) {
+  function draftTake(mode, seconds, opts) {
     if (!draftOn()) return false;
+    const tbar = !!(opts && opts.tbar);
     const view = window.SV.clone(draftView());
     const own = window.SV.clone(view.transition);
     const blacked = isBlackedOut();
     const over = window.SVProgramDraftCore.transitionFor(mode, own, seconds);
+    const draftScene = activeSceneId;
+    let seq = 0;
     onProgram(() => {
       prevTakeCfg = window.SV.clone(cfg);
-      replaceCfg(view);
+      prevTakeScene = activeSceneId;
+      /* Sahne sayacı: yalnız ayarı değişen taslakta da çıkış geçiş yapsın (imza değişir);
+         T-bar'ın sürebileceği bir geçiş olmalı. */
+      seq = ((cfg._sceneSeq | 0) + 1) % 1000000000;
+      programReplace(view);
+      cfg._sceneSeq = seq;
       cfg.transition = over;
+      activeSceneId = draftScene;
       if (blacked) { blackoutSaved = null; toggleBlackoutRaw({ quiet: true }); }
       lastOutSig = null;
       push(true);
+      // T-bar: geçişi çubuk sürüyor; Program'ın kalıcı geçişi taslağınki (gönderilmez)
+      if (tbar && own) cfg.transition = window.SV.clone(own);
     });
+    cfg._sceneSeq = seq; // taslak sayacı Program'la aynı: sonraki gönderim yine artırır
+    // Geri al (#1170): gönderilen taslağın geçmişi kapanır; gönderimin kendisi "Geri Al" ile döner
+    const H = window.SVUndoHistory;
+    if (H && H.base && H.base() === 'draft') { H.dropBase('draft'); H.reset(); }
     // Seçilen geçiş yalnız bu gönderim içindi: bitince Program taslağın geçişine döner
-    if (mode !== 'scene' && own) {
+    if (!tbar && mode !== 'scene' && own) {
       const wait = (mode === 'fade' ? Math.max(0.05, Number(seconds) || 1) : 0) * 1000 + 400;
       setTimeout(() => {
         if (!draftOn()) return;
@@ -5843,11 +5899,38 @@
     render();
     return true;
   }
+  /* Program'ı başka bir kopyayla değiştir; kitaplık (ortak) olduğu gibi kalır. */
+  function programReplace(src) {
+    const shared = {};
+    for (const k of SHARED) shared[k] = cfg[k];
+    replaceCfg(src);
+    for (const k of SHARED) { if (shared[k] !== undefined) cfg[k] = shared[k]; else delete cfg[k]; }
+  }
+  /* T-bar önizleme kipinde (#1168 açığı): sıradaki sahne yerine taslak karışır. Çubuk
+     başlayınca taslak geçişle gönderilir, çubuk geçişi sürer; başa dönerse Program geri gelir.
+     Sahnenin geçişi kesme ise çubuğun sürebileceği çapraz geçiş kullanılır. */
+  function draftTbarStart() {
+    if (!draftOn() || isBlackedOut()) return null;
+    const t = draftView().transition || {};
+    const snap = { draft: true, active: programSceneId, prev: prevTakeCfg, prevScene: prevTakeScene };
+    if (!draftTake(t.enabled !== false && t.type && t.type !== 'cut' ? 'scene' : 'fade', 1, { tbar: true })) return null;
+    snap.program = prevTakeCfg;
+    snap.programScene = prevTakeScene;
+    return snap;
+  }
+  function draftTbarRestore(snap) {
+    if (!snap || !snap.program || !draftOn()) return;
+    onProgram(() => { programReplace(snap.program); activeSceneId = snap.programScene; push(true); });
+    prevTakeCfg = snap.prev;
+    prevTakeScene = snap.prevScene;
+  }
   function draftRevert() {
     if (!draftOn() || !prevTakeCfg) return false;
     const back = prevTakeCfg;
+    const backScene = prevTakeScene;
     prevTakeCfg = null;
-    onProgram(() => { replaceCfg(back); lastOutSig = null; push(true); });
+    prevTakeScene = null;
+    onProgram(() => { programReplace(back); activeSceneId = backScene; lastOutSig = null; push(true); });
     render();
     return true;
   }
@@ -6744,7 +6827,8 @@
   actions.applyScene = (id, opts) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
-    grabSceneThumb(id);
+    // Önizleme kipinde Program'a uygulanan sahnenin küçük resmi önizlemeden (taslak) alınmaz
+    if (!(draft && draft.armed() && !draft.active())) grabSceneThumb(id);
     /* Yuvanın geçişi yalnız bu gönderim için. Görüntü sahne anahtarlarından
        ÖNCE alınır: sahnede geçiş yoksa anahtarlar varsayılanı (0.7 sn)
        yazar ve sonraki görüntü kullanıcının süresini kaybederdi. */
@@ -6753,7 +6837,8 @@
       keepTransition = window.SV.clone(cfg.transition);
     }
     const def = window.SV.DEFAULT_CONFIG;
-    const blacked = isBlackedOut();
+    // Karartma Program'ın: taslağa uygulanan sahne karartma kaydına değil taslağa yazılır
+    const blacked = isBlackedOut() && !draftOn();
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
     const keepKey = cfg.background && cfg.background.transparentKey;
     const keepCover = cfg.background && cfg.background.coverTaskbar;
@@ -6891,6 +6976,7 @@
      ve etkin sahne geri yazılıyor; çıkışlar giden sahneyi zaten geri almış oluyor
      (LayerStack.cancelTransition), aynı imzalı görünüm yeni geçiş başlatmıyor. */
   actions.tbarStart = (id) => {
+    if (id === DRAFT_CUE) return draftTbarStart();
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data || isBlackedOut()) return null;
     const snap = { data: snapshotScene(), active: activeSceneId, activeCfg: cfg._activeSceneId, seq: cfg._sceneSeq, transition: window.SV.clone(cfg.transition) };
@@ -6899,6 +6985,7 @@
     return snap;
   };
   actions.tbarRestore = (snap) => {
+    if (snap && snap.draft) { draftTbarRestore(snap); return; }
     if (!snap || !snap.data) return;
     SCENE_KEYS.forEach((k) => {
       if (snap.data[k] !== undefined) cfg[k] = window.SV.clone(snap.data[k]);
@@ -7761,17 +7848,47 @@
     if (chip) chip.addEventListener('click', () => setCategory('audio'));
     const undoBtn = $('undoBtn');
     const redoBtn = $('redoBtn');
+    /* GERİ AL KAPSAMLARI (#1170). Ctrl+Z ve düğme kullanıcının en son çalıştığı alana gider:
+       Zaman sayfasında zaman çizelgesi, önizleme kipinde taslak (yapılandırmanın tamamı,
+       kitaplık hariç; Program'a hiç dokunmaz), Timeline klibi düzenlenirken o klip, yoksa sahne.
+       Kip kapalıyken sahne kapsamı eskisi gibi yalnız sahne anahtarlarını tutar. */
+    const undoKeys = () => (draftOn() ? Object.keys(cfg).filter((k) => SHARED.indexOf(k) < 0) : SCENE_KEYS);
+    const timelineUndo = () => activeCategory === 'time' && window.SVTimelinePanel && typeof window.SVTimelinePanel.undo === 'function';
     const undoHistory = window.SVUndo.create({
-      keys: SCENE_KEYS,
+      get keys() { return undoKeys(); },
       get: (k) => cfg[k],
       set: (k, v) => { if (v === undefined) delete cfg[k]; else cfg[k] = v; },
       apply: applyAll,
-      changed: () => { undoBtn.disabled = !undoHistory.canUndo(); redoBtn.disabled = !undoHistory.canRedo(); },
+      changed: () => { undoBtn.disabled = !undoHistory.canUndo(); redoBtn.disabled = !undoHistory.canRedo(); paintUndo(); },
     });
+    function undoScopeName() {
+      if (timelineUndo()) return tr('Zaman çizelgesi');
+      if (draftOn()) return tr('Önizleme taslağı');
+      if (window.SVTimelineTarget && window.SVTimelineTarget.active && window.SVTimelineTarget.active()) return tr('Timeline klibi');
+      return tr('Sahne');
+    }
+    // Düğme ipucu: kapsam, son adımın değişen alanları ve son birkaç adım (salt okunur geçmiş)
+    function paintUndo() {
+      const scope = undoScopeName();
+      const tl = timelineUndo();
+      const names = (ks) => (ks && ks.length ? ks.slice(0, 3).join(', ') + (ks.length > 3 ? '…' : '') : '');
+      const list = (st) => (st.length > 1 ? '\n' + st.slice(1).map((ks, i) => (i + 2) + '. ' + (names(ks) || '—')).join('\n') : '');
+      const us = tl ? [] : undoHistory.steps(5);
+      const rs = tl ? [] : undoHistory.redoSteps(5);
+      undoBtn.title = tr('Geri al') + ' · ' + scope + (us[0] && us[0].length ? ': ' + names(us[0]) : '') + ' (Ctrl+Z)' + list(us);
+      redoBtn.title = tr('Yinele') + ' · ' + scope + (rs[0] && rs[0].length ? ': ' + names(rs[0]) : '') + ' (Ctrl+Y)' + list(rs);
+      undoBtn.dataset.scope = scope;
+      redoBtn.dataset.scope = scope;
+      if (tl) { undoBtn.disabled = false; redoBtn.disabled = false; }
+    }
     window.SVUndoHistory = undoHistory;
+    window.SVUndoScope = { name: undoScopeName, paint: paintUndo };
     undoHistory.note();
-    const undo = () => undoHistory.undo();
-    const redo = () => undoHistory.redo();
+    const undo = () => (timelineUndo() ? window.SVTimelinePanel.undo() : undoHistory.undo());
+    const redo = () => (timelineUndo() ? window.SVTimelinePanel.redo() : undoHistory.redo());
+    // Sayfa değişince kapsam değişir (Zaman sayfası ↔ sahne): ipucu fareyle gelince tazelenir
+    undoBtn.addEventListener('pointerenter', paintUndo);
+    redoBtn.addEventListener('pointerenter', paintUndo);
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);
     document.addEventListener('keydown', (e) => {

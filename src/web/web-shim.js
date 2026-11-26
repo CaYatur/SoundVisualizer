@@ -29,7 +29,7 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], tbar: [], live: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [], momentaryFx: [], tbar: [], outputSafety: [], live: [],
   };
   let lyricsLibItems = [];
   let lyricsLibSeen = false;
@@ -282,6 +282,9 @@
         handlers.momentaryFx.forEach((h) => h(msg.list));
       } else if (msg.type === 'tbar') {
         handlers.tbar.forEach((h) => h(msg.m));
+      } else if (msg.type === 'output-safety') {
+        // Çıkış dondurma (#1168): OBS kaplaması da son karede kalır
+        handlers.outputSafety.forEach((h) => h(msg.m));
       } else if (msg.type === 'show-clock') {
         /* Çıpa uygulamanın Date.now'uyla damgalı; sayfa kendi saatiyle
            hesaplıyor. Başka makinedeki OBS için damga bu saate çevrilir. */
@@ -386,6 +389,7 @@
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onMomentaryFx: (cb) => handlers.momentaryFx.push(cb),
     onTbar: (cb) => handlers.tbar.push(cb),
+    onOutputSafety: (cb) => handlers.outputSafety.push(cb),
     // Zaman çizelgesi çıpası da dinleyiciden önce gelebilir: son örnek yeniden verilir
     onShowClock: (cb) => {
       handlers.showClock.push(cb);

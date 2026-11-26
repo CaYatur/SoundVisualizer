@@ -96,15 +96,25 @@
          Program'ın yeni hâli saklanır ve taslak geri konur. Mod kapalıysa fn doğrudan. */
       withProgram(cfg, fn) {
         if (!program || suspended) return fn();
-        const draft = clone(cfg);
-        replaceInPlace(cfg, program);
+        /* Taslak anahtarları kopyalanmadan kenara alınır (fn yeni nesnelerle çalışır);
+           kitaplık anahtarları yerinde kalır, Program tarafındaki değişiklik taslağa da geçer.
+           Böylece canlı fader gibi sık çağrılarda yalnız Program'ın sahne kısmı kopyalanır. */
+        const shared = new Set(SHARED_KEYS);
+        const keep = {};
+        for (const k of Object.keys(cfg)) if (!shared.has(k)) { keep[k] = cfg[k]; delete cfg[k]; }
+        for (const k of Object.keys(program)) if (!shared.has(k)) cfg[k] = clone(program[k]);
         suspended++;
         try {
           return fn();
         } finally {
           suspended--;
-          program = clone(cfg);
-          replaceInPlace(cfg, draft);
+          const next = {};
+          for (const k of Object.keys(cfg)) {
+            if (shared.has(k)) next[k] = JSON.stringify(cfg[k]) === JSON.stringify(program[k]) ? program[k] : clone(cfg[k]);
+            else { next[k] = cfg[k]; delete cfg[k]; }
+          }
+          program = next;
+          for (const k of Object.keys(keep)) cfg[k] = keep[k];
         }
       },
       /* Sahneye Gönder: taslağın tamamı Program olur. Önceki Program geri alma için tutulur. */
