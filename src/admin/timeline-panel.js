@@ -2749,6 +2749,20 @@
     xOf,
     tOf,
     canvasRect: () => (canvas && canvas.isConnected ? canvas.getBoundingClientRect() : null),
+    headsRect: () => (headsBox && headsBox.isConnected ? headsBox.getBoundingClientRect() : null),
+    laneH: () => TRACK_H,
+    /* Ses klibi/parçası seçilince sağdaki Seçim panelinde onun ayarları.
+       Görsel seçim kalkar; görsel bir şey seçilince panel kendi denetçisini kurar. */
+    showSide: (node) => {
+      selection = null;
+      multi = [];
+      draw();
+      if (!inspectorBox || !inspectorBox.isConnected) return false;
+      inspectorBox.replaceChildren(node);
+      return true;
+    },
+    refreshInspector: () => refreshInspector(),
+    row: (label, input) => P().row(label, input),
     commitAudio: () => {
       history_().push(TE().snapshot(tlCfg()));
       P().push(true);
@@ -2933,6 +2947,9 @@
         addClipAt(trk, snap(ensureTransport().time, false));
         p.rerender();
       }],
+      // Ses şeridi (#1171): görsel parçaların altında, aynı zaman ekseninde
+      ['music', 'Ses Şeridi', 'Ses klipleri için bir şerit', () => { if (window.SVTimelineAudio) window.SVTimelineAudio.addTrack(); }],
+      ['music', 'Ses Dosyası Ekle', 'Oynatma kafasına ses dosyası (MP3, WAV, FLAC, OGG, M4A, Opus)', () => { if (window.SVTimelineAudio) window.SVTimelineAudio.addAudio(); }],
       ['plus', 'Kafada İşaret', 'Oynatma kafasına adlandırılmış bir işaret (M)', () => {
         addMarkerAtPlayhead();
         p.rerender();

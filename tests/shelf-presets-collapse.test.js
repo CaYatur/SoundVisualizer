@@ -31,13 +31,38 @@ test('Preset sekmesi: MilkDrop ve Studio aynı sekmede, sekme sayısı artmıyor
 });
 
 test('dar raf: sekmeler sarılmıyor ya da gizlenmiyor, arama simgeye iniyor', () => {
-  const q = CSS.match(/@container svshelf \(max-width: 820px\) \{([\s\S]*?)\n\}/);
+  const q = CSS.match(/@container svshelf \(max-width: 640px\) \{([\s\S]*?)\n\}/);
   assert.ok(q, 'kap sorgusu yok');
   assert.match(q[1], /\.sv-shelf-search:not\(:focus-within\) \{ flex: none; width: 34px;/);
   assert.match(q[1], /\.sv-shelf-search:focus-within \{ position: absolute;/);
-  assert.match(q[1], /\.sv-card-size input\[type='range'\] \{ width: 40px; \}/);
+  assert.ok(!/sv-card-size input/.test(q[1]), 'kart boyu kaydırıcısı 640 px\'te kısalmamalı');
+  const tight = CSS.match(/@container svshelf \(max-width: 480px\) \{([\s\S]*?)\n\}/);
+  assert.ok(tight, 'dar kap sorgusu yok');
+  assert.match(tight[1], /\.sv-card-size input\[type='range'\] \{ width: 56px; \}/);
   assert.ok(!/\.sv-tabs( button)? \{[^}]*(display: none|flex-wrap: wrap)/.test(CSS), 'sekmeler gizlenmemeli');
-  assert.match(CSS, /\.sv-shelf \{ flex: 1 1 auto; container: svshelf \/ inline-size; \}/);
+  assert.match(CSS, /\.sv-shelf \{ flex: 1 1 auto; container: svshelf \/ size; \}/);
+  // Sekme çubuğu denetimleri aynı orta çizgide
+  assert.match(CSS, /\.sv-shelf \.sv-chead > \.sv-ib\.sm \{ width: 34px; height: 34px; \}/);
+});
+
+test('Studio rafı: üst satırlar yerinde kalır, yalnız kartlar kayar', () => {
+  assert.match(SHELL, /shelfTab === 'milkdrop' \|\| shelfTab === 'studio' \? ' sv-fill'/);
+  assert.match(CSS, /\.sv-fill > \.sv-target, \.sv-fill > \.sv-psrc \{ flex: none; \}/);
+  assert.match(CSS, /\.sv-fill > \.sv-studio \{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; \}/);
+  assert.match(CSS, /\.sv-studio \.sv-gal \{ flex: 1 1 auto; min-height: 0; overflow: auto; \}/);
+});
+
+test('MilkDrop İçe Aktar paneli rafın içinde kalır, sonuç listesi kendi kayar', () => {
+  assert.match(CSS, /\.md-imports-body \{[^}]*max-height: min\(320px, calc\(100cqb - 8rem\)\)/);
+  assert.match(CSS, /\.md-imports-body \.md-libs \{ flex: 1 1 auto; min-height: 0; max-height: 10\.5em; overflow: auto; \}/);
+  assert.match(CSS, /\.md-imports-body \.md-lib \{ display: grid; grid-template-columns: minmax\(10em, 1fr\) auto auto;/);
+  const md = read('src/admin/milkdrop-panel.js');
+  assert.match(md, /placeMdImports/);
+  assert.match(md, /class: 'studio-note dim-hint md-imports-hint'/);
+  assert.match(md, /Önce ne ekleneceği gösterilir; onaylamadan kopyalanmaz\./);
+  assert.match(md, /title: s\.where \|\| s\.label/);
+  const i18n = read('src/shared/i18n.js');
+  assert.match(i18n, /'Önce ne ekleneceği gösterilir; onaylamadan kopyalanmaz.': 'What will be added is shown first; nothing is copied until you confirm.'/);
 });
 
 function groupsFn() {

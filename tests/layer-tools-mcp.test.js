@@ -105,6 +105,55 @@ test('Katman Ekle > MilkDrop kartı: MilkDrop katmanı ekliyor, seçiyor ve Milk
   }
 });
 
+test('Katman Ekle > Studio kartı: Studio katmanı ekliyor, seçiyor ve Studio rafını açıyor', () => {
+  const cfg = base([{ id: 'v', kind: 'visualizer', type: 'bars' }]);
+  const calls = [];
+  const el = (tag, attrs, children) => {
+    const node = { tag, attrs: attrs || {}, children: (children || []).filter(Boolean), style: {}, classList: { toggle() {}, add() {} } };
+    node.appendChild = (c) => { node.children.push(c); return c; };
+    node.setAttribute = (k, v) => { node.attrs[k] = v; };
+    node.querySelector = () => null;
+    node.getAttribute = (k) => node.attrs[k];
+    return node;
+  };
+  const store = {};
+  global.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem() {} };
+  window.SVLayers = L;
+  window.SVPanel = {
+    sliderMax: (d) => d.max, el, cfg: () => cfg,
+    row: (label, ctrl) => el('div', { class: 'ctrl' }, [el('label', { text: label }), ctrl]),
+    push() {}, apply: () => calls.push('apply'), rerender() {}, toast() {}, confirm: async () => true,
+    isModified: () => false, resetPath() {}, defaultAt: () => undefined,
+  };
+  window.SVSceneShell = { select: (id) => calls.push('select:' + id), setShelf: (s) => calls.push('shelf:' + s) };
+  window.SVPresets = { all: () => [{ id: 'sh_curtain', name: 'Dalga Perdesi', kind: 'visualizer', engine: 'shader', builtin: true }] };
+  try {
+    delete require.cache[require.resolve('../src/admin/scene-panels.js')];
+    require('../src/admin/scene-panels.js');
+    const row = window.SVScenePanels.layersPanel({ add: true });
+    const flat = [];
+    (function walk(n) { if (n && typeof n === 'object') { flat.push(n); (n.children || []).forEach(walk); } })(row);
+    const btns = flat.filter((n) => n.tag === 'button');
+    const i = btns.findIndex((n) => n.attrs['data-add'] === 'studio');
+    assert.ok(i > 0, 'kart var');
+    assert.strictEqual(btns[i].attrs.text, 'Studio');
+    assert.strictEqual(btns[i].attrs.icon, 'code');
+    const md = btns.findIndex((n) => n.attrs['data-add'] === 'milkdrop');
+    assert.strictEqual(i, md + 1, 'MilkDrop kartının hemen yanında');
+    assert.strictEqual(btns[i].attrs.class, btns[md].attrs.class, 'aynı kart biçimi');
+    btns[i].attrs.onclick();
+    const made = cfg.layers[cfg.layers.length - 1];
+    assert.strictEqual(made.kind, 'visualizer');
+    assert.strictEqual(made.type, 'custom');
+    assert.strictEqual(made.presetId, 'sh_curtain');
+    assert.deepStrictEqual(calls, ['select:' + made.id, 'shelf:studio', 'apply']);
+    assert.strictEqual(cfg.layers[0].type, 'bars');
+  } finally {
+    delete window.SVSceneShell;
+    delete window.SVPresets;
+  }
+});
+
 /* ---------------------------------------------------------------- kopya */
 
 test('sv_duplicate_layer: yeni kimlik, hemen üstte, ayarlar kopyalanıyor, solo kapalı', async () => {

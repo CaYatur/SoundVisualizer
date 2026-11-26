@@ -1778,7 +1778,7 @@
           const count = !s.searchCut ? fmt('{p} preset · {t} doku · {mb} MB', vars)
             : s.presets ? fmt('{p}+ preset · {t}+ doku · {mb}+ MB', vars) : tr('sayılmadı');
           box.appendChild(el('div', { class: 'md-lib' }, [
-            el('span', { class: 'md-lib-name', text: s.label, title: s.where || '' }),
+            el('span', { class: 'md-lib-name', text: s.label, title: s.where || s.label }),
             el('span', { class: 'md-lib-count', text: count }),
             el('button', {
               class: 'btn ghost tiny', type: 'button', text: tr('İçe Aktar'), disabled: !!libBusy,
@@ -1801,10 +1801,11 @@
         }));
       }
     }
-    nodes.push(el('div', {
-      class: 'studio-note dim-hint',
-      text: 'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.',
-    }));
+    const importHelp = 'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.';
+    nodes.push(el('div', { class: 'studio-note dim-hint md-imports-hint' }, [
+      el('span', { text: 'Önce ne ekleneceği gösterilir; onaylamadan kopyalanmaz.' }),
+      el('button', { class: 'sv-info', type: 'button', icon: 'info', 'aria-label': tr(importHelp), title: tr(importHelp) }),
+    ]));
 
     // Arama
     const listFrom = nodes.length;
@@ -2220,6 +2221,34 @@
         el('summary', { class: 'btn small', text: tr('İçe Aktar') }),
         el('div', { class: 'md-imports-body' }, nodes.slice(libFrom, listFrom)),
       ]);
+      /* Panel rafın görünür alanına sığar: yer yoksa yukarı açılır, gövde kayar. */
+      const placeMdImports = () => {
+        const body = more.querySelector('.md-imports-body');
+        if (!body) return;
+        if (!more.open) {
+          body.style.maxHeight = '';
+          body.style.top = '';
+          body.style.bottom = '';
+          body.style.marginTop = '';
+          body.style.marginBottom = '';
+          return;
+        }
+        const shelf = more.closest('#svShelf') || more.closest('.sv-shelf');
+        const anchor = more.querySelector('summary') || more;
+        if (!shelf) return;
+        const br = anchor.getBoundingClientRect();
+        const sr = shelf.getBoundingClientRect();
+        const pad = 8;
+        const below = sr.bottom - br.bottom - pad;
+        const above = br.top - sr.top - pad;
+        const flip = below < 160 && above > below;
+        body.style.maxHeight = Math.max(120, Math.min(320, flip ? above : below)) + 'px';
+        body.style.top = flip ? 'auto' : '100%';
+        body.style.bottom = flip ? '100%' : 'auto';
+        body.style.marginTop = flip ? '0' : '4px';
+        body.style.marginBottom = flip ? '4px' : '0';
+      };
+      more.addEventListener('toggle', placeMdImports);
       return el('div', { class: 'md-panel md-library' }, [
         el('div', { class: 'md-lib-bar' }, bar.concat([more])),
       ].concat(nodes.slice(listAt, libTo)));
