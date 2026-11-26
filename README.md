@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4734%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4741%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -997,7 +997,10 @@ one playhead drives every screen together, and offline export plays the same sho
   moment; **GO** (or <kbd>Enter</kbd>) runs on to the next cue. Exports ignore holds.
 - **MIDI Time Code chase** — the timeline follows incoming MTC at 24, 25, 29.97 drop-frame and
   30 fps, with an offset for a show that starts at 01:00:00:00.
-- **Audio tracks** — **Add Audio** places MP3, WAV, FLAC, OGG, M4A/AAC or Opus files under the
+- **Audio lanes** — **New Track → Audio Lane** adds a lane under the visual tracks with the same
+  header column, lane height, ruler and playhead; selecting an audio clip or lane shows its settings
+  in the **Selection** panel, and the **Now Playing** layer shows the title, artist and cover of the
+  clip on the topmost audio lane (file tags, else the file name), live and in exports. **Add Audio** places MP3, WAV, FLAC, OGG, M4A/AAC or Opus files under the
   visual tracks with a waveform. Audio plays only from the control panel (never from output windows),
   locked to the playhead, on the default or a chosen output device. Tracks have gain, balance, mute,
   solo and a level meter; clips have trim, gain, fade in/out (linear, equal power, exponential) and
@@ -2306,7 +2309,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4734 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4741 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

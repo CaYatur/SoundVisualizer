@@ -180,3 +180,47 @@ test('ffmpeg karışımı modelin kazancıyla aynı (ffmpeg varsa)', async (t) =
     assert.ok(!fs.existsSync(r.file), 'geçici dosya silindi');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('Çalan Parça: en üstteki duyulur ses şeridinin klibi, etiket ya da dosya adı', () => {
+  const tracks = [
+    { id: 'top', clips: [{ id: 'a', src: 'sv-media://local/%2Fm%2FIntro%20Song.mp3', start: 0, dur: 4, in: 1, srcDur: 10 }] },
+    { id: 'low', clips: [{ id: 'b', src: 'sv-media://local/%2Fm%2Fbed.wav', start: 0, dur: 20 }] },
+  ];
+  assert.strictEqual(A.clipAt(tracks, 2).clip.id, 'a');
+  assert.strictEqual(A.clipAt(tracks, 5).clip.id, 'b');
+  assert.strictEqual(A.clipAt(tracks, 25), null);
+  // Üstteki susturulunca alttaki; solo kuralı aynı
+  assert.strictEqual(A.clipAt([Object.assign({}, tracks[0], { mute: true }), tracks[1]], 2).clip.id, 'b');
+  assert.strictEqual(A.clipAt([tracks[0], Object.assign({}, tracks[1], { solo: true })], 2).clip.id, 'b');
+  const tags = { [tracks[0].clips[0].src]: { title: 'Intro', artist: 'CaYaDev', album: 'X', artwork: 'data:image/png;base64,AA' } };
+  const st = A.nowPlayingAt(tracks, 2, (s) => tags[s], { now: 7 });
+  assert.deepStrictEqual([st.has, st.title, st.artist, st.artwork, st.position, st.duration, st.updated, st.playing], [true, 'Intro', 'CaYaDev', 'data:image/png;base64,AA', 3, 10, 7, false]);
+  // Etiket yoksa dosya adı
+  assert.strictEqual(A.nowPlayingAt(tracks, 6, () => null).title, 'bed');
+  assert.strictEqual(A.nowPlayingAt(tracks, 30, () => null), null);
+});
+
+test('Çalan Parça: canlıda ana süreç çizelge klibini öne alır, dışa aktarmada kare başına', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /function shownNowPlaying\(\) \{\n  if \(timelineNow\) return timelineNow;/);
+  assert.match(main, /if \(timelineNow\) return; \/\/ çizelge sesi çalıyor/);
+  assert.match(main, /ipcMain\.on\('timeline-audio:now'/);
+  assert.match(main, /timelineAudioTags: await exportTimelineTags\(jobCfg\)/);
+  const ex = read('src/exporter/exporter.js');
+  assert.match(ex, /TA\.nowPlayingAt\(tl\.tracks, Math\.max\(0, t\), \(src\) => tl\.tags\[src\]\)/);
+  assert.match(read('src/exporter/index.html'), /<script src="\.\.\/shared\/timeline-audio\.js"><\/script>/);
+  const ui = read('src/admin/timeline-audio.js');
+  assert.match(ui, /window\.api\.timelineAudioNow\(null\)/);
+  assert.match(read('src/main/preload-admin.js'), /timelineAudioNow: \(info\) => ipcRenderer\.send\('timeline-audio:now', info\)/);
+});
+
+test('ses şeritleri görsel parçalarla aynı düzende; ayarlar Seçim panelinde', () => {
+  const panel = read('src/admin/timeline-panel.js');
+  assert.match(panel, /\['music', 'Ses Şeridi',/);
+  assert.match(panel, /showSide: \(node\) => \{/);
+  assert.match(panel, /laneH: \(\) => TRACK_H,/);
+  const ui = read('src/admin/timeline-audio.js');
+  assert.match(ui, /class: 'tl-head tla-head'/);
+  assert.match(ui, /p\.showSide\(box\)/);
+  assert.ok(!/tla-inspector/.test(ui), 'satır içi denetçi yok');
+});

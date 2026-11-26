@@ -161,6 +161,11 @@
     if (immediate) {
       const sig = outputSig();
       if (sig === lastOutSig) {
+        /* Önizleme modunda çıkış (Program) değişmez ama taslak değişmiş olabilir:
+           katman göster/gizle, solo, rafta mod/preset değişimi push(true) ile geliyor.
+           Erken dönüş önizlemeyi atlıyordu; taslak bir sonraki ilgisiz çizime dek eski
+           kalıyordu ("bazen çalışıyor"). Taslak imzası değiştiyse önizleme hemen kurulur. */
+        if (draftOn()) previewConfig();
         if (!marksFresh) refreshModifiedMarks();
         return;
       }
