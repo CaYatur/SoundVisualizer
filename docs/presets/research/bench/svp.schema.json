@@ -1,0 +1,685 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://cayadev.com/schema/svpreset-v2-draft.json",
+ "title": "SV Preset v2 draft (declarative blocks and expressions)",
+ "type": "object",
+ "properties": {
+  "format": {
+   "const": "svpreset"
+  },
+  "version": {
+   "const": 2
+  },
+  "name": {
+   "type": "string",
+   "maxLength": 60
+  },
+  "bpm_sync": {
+   "type": "boolean"
+  },
+  "layers": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 8,
+   "items": {
+    "$ref": "#/$defs/block"
+   },
+   "description": "drawn bottom to top; blocks are applied in order"
+  },
+  "mod": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "src": {
+      "enum": [
+       "bass",
+       "mid",
+       "treble",
+       "beat",
+       "kick",
+       "energy"
+      ]
+     },
+     "dst": {
+      "type": "string",
+      "pattern": "^layers\\.[0-7]\\.[a-z_]+$"
+     },
+     "min": {
+      "type": "number"
+     },
+     "max": {
+      "type": "number"
+     },
+     "smooth": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+     }
+    },
+    "required": [
+     "src",
+     "dst",
+     "min",
+     "max"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "format",
+  "version",
+  "name",
+  "layers"
+ ],
+ "additionalProperties": false,
+ "$defs": {
+  "expr": {
+   "type": "string",
+   "pattern": "^[a-z0-9_+*/(). -]{1,60}$",
+   "description": "safe expression using vars bass,mid,treble,beat,kick,energy,time and funcs sin,cos,abs,min,max,smooth. e.g. 1.01 + 0.03*bass"
+  },
+  "block": {
+   "oneOf": [
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "feedback"
+      },
+      "zoom": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.9,
+         "maximum": 1.1
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "rotate": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": -0.2,
+         "maximum": 0.2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "decay": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.8,
+         "maximum": 0.999
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "warp": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "blur": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 4
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "zoom",
+      "decay"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "gradient"
+      },
+      "colors": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^#[0-9a-fA-F]{6}$"
+       },
+       "minItems": 2,
+       "maxItems": 5
+      },
+      "angle": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 360
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "speed": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": -2,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "colors"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "particles"
+      },
+      "count": {
+       "type": "integer",
+       "minimum": 10,
+       "maximum": 50000
+      },
+      "size": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.5,
+         "maximum": 20
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "speed": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 5
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "color": {
+       "type": "string",
+       "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "emit": {
+       "enum": [
+        "center",
+        "spectrum",
+        "random",
+        "ring"
+       ]
+      }
+     },
+     "required": [
+      "type",
+      "count"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "mesh3d"
+      },
+      "shape": {
+       "enum": [
+        "cube",
+        "sphere",
+        "torus",
+        "crystal",
+        "icosahedron",
+        "tunnel"
+       ]
+      },
+      "scale": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.1,
+         "maximum": 5
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "rotate": {
+       "type": "array",
+       "items": {
+        "anyOf": [
+         {
+          "type": "number",
+          "minimum": -3,
+          "maximum": 3
+         },
+         {
+          "$ref": "#/$defs/expr"
+         }
+        ],
+        "description": ""
+       },
+       "minItems": 3,
+       "maxItems": 3
+      },
+      "color": {
+       "type": "string",
+       "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "material": {
+       "enum": [
+        "glass",
+        "metal",
+        "emissive",
+        "wire"
+       ]
+      },
+      "displace": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "shape"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "camera"
+      },
+      "mode": {
+       "enum": [
+        "static",
+        "orbit",
+        "fly",
+        "shake"
+       ]
+      },
+      "distance": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.5,
+         "maximum": 20
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "fov": {
+       "type": "number",
+       "minimum": 20,
+       "maximum": 120
+      },
+      "speed": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": -2,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "mode"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "text"
+      },
+      "content": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "size": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 8,
+         "maximum": 200
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "color": {
+       "type": "string",
+       "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "align": {
+       "enum": [
+        "left",
+        "center",
+        "right"
+       ]
+      }
+     },
+     "required": [
+      "type",
+      "content"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "bloom"
+      },
+      "intensity": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 3
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "threshold": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "radius": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 10
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "intensity"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "colorgrade"
+      },
+      "hue": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": -180,
+         "maximum": 180
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "saturation": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "contrast": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.5,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "exposure": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": -2,
+         "maximum": 2
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "kaleido"
+      },
+      "segments": {
+       "type": "integer",
+       "minimum": 2,
+       "maximum": 16
+      },
+      "angle": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 360
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "segments"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "waveform"
+      },
+      "style": {
+       "enum": [
+        "line",
+        "circle",
+        "bars"
+       ]
+      },
+      "color": {
+       "type": "string",
+       "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "thickness": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0.5,
+         "maximum": 10
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type",
+      "style"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "glitch"
+      },
+      "amount": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      },
+      "on": {
+       "enum": [
+        "beat",
+        "kick",
+        "always"
+       ]
+      }
+     },
+     "required": [
+      "type"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "type": {
+       "const": "vignette"
+      },
+      "strength": {
+       "anyOf": [
+        {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        {
+         "$ref": "#/$defs/expr"
+        }
+       ],
+       "description": ""
+      }
+     },
+     "required": [
+      "type"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  }
+ }
+}
