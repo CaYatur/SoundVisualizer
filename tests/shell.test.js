@@ -209,6 +209,16 @@ test('Sahne rafı: Liste / Izgara seçimi, varsayılan liste, numara rozeti (#95
   assert.match(admin, /scene-num/);
   assert.match(css, /#dockScenes \.scene-list\.is-list/);
   assert.match(css, /\.scene-num/);
+  assert.match(css, /#svShelf #dockScenes \.dock-head \{ display: flex/);
+  assert.match(css, /\.scene-view \.icon-btn \{[^}]*justify-content: center/);
+  assert.ok(!/sv-scene-tools/.test(read('src/admin/scene-shell.js')), 'liste ve kaydet sahne kartında kalmalı');
+  assert.match(admin, /class: 'scene-view'/);
+  assert.match(admin, /view === v \? ' on' : ''/);
+  const pages = read('src/admin/pages.css');
+  assert.match(pages, /body\[data-page='time'\] #dockScenes \.scene-view \{ display: none; \}/);
+  assert.match(pages, /body\[data-page='time'\] #dockScenes #sceneSaveBtn \{ flex: none; \}/);
+  assert.match(pages, /body\[data-page='time'\] \.sv-tl-add \{ display: inline-flex; align-items: center; justify-content: center;/);
+  assert.match(pages, /body\[data-page='time'\] #dockScenes \.scene-item\.active \{ background: rgb\(var\(--accent-rgb\) \/ \.15\)/);
   assert.match(i18n, /'Sahne düzeni': 'Scene layout'/);
   for (const k of ['Liste', 'Izgara']) assert.ok(i18n.includes("'" + k + "':"), k);
 });

@@ -10,7 +10,8 @@
    Üst çubuktaki "Önizleme" düğmesi modu açar (varsayılan KAPALI). Açıkken Sahne ve Zaman
    sayfaları taslağı düzenler, çıkış ekranları Program'da kalır. Şerit: Program monitörü,
    geçiş seçimi, Sahneye Gönder, son gönderimi geri al, dondur, sessiz, sahne olarak kaydet,
-   Program'dan kopyala, boşalt ve çık. Asıl mantık admin.js'te (SVPanel.draft*). */
+   Program'dan kopyala, boşalt ve çık. Karart üst çubukta durur; şeritte yinelenmez.
+   Asıl mantık admin.js'te (SVPanel.draft*). */
 (function () {
   const P = () => window.SVPanel;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
@@ -71,7 +72,6 @@
     ui.revert = iconBtn('undo', 'Geri Al', 'Son gönderimi geri al', () => { P().draftRevert(); sync(); });
     ui.freeze = iconBtn('pause', 'Dondur', 'Çıkışta son kareyi tut', () => toggleSafety('freeze'));
     ui.mute = iconBtn('mute', 'Sessiz', 'Uygulamanın çaldığı sesi kapat', () => toggleSafety('mute'));
-    ui.black = iconBtn('moon', 'Karart', 'Program\'ı karart', () => { P().toggleBlackout(); sync(); });
     const save = iconBtn('save', 'Sahne Olarak Kaydet', 'Taslağı kayıtlı sahnelere ekle; Canlı sayfasından çağrılabilir', () => { P().saveScene(); P().toast(tr('Taslak sahne olarak kaydedildi.'), 'ok'); });
     const copy = iconBtn('layers', 'Program\'dan Kopyala', 'Taslağı yayındaki görünüme döndür', () => P().draftFromProgram());
     const clear = iconBtn('x', 'Boşalt', 'Taslağın sahnesini boşalt (aygıt ve ağ ayarları kalır)', () => P().draftClearScene());
@@ -81,7 +81,7 @@
       el('div', { class: 'sv-pvw-pgm', title: tr('Program: seyircinin gördüğü') }, [el('span', { class: 'sv-pvw-pgmlbl', text: 'PGM' }), ui.monitor, ui.monNote]),
       ui.mode, ui.secs, beatLbl, keepLbl, ui.take, ui.revert,
       el('span', { class: 'sv-pvw-sep' }),
-      ui.freeze, ui.mute, ui.black,
+      ui.freeze, ui.mute,
       el('span', { class: 'sv-pvw-sep' }),
       save, copy, clear, exit,
     ]);
@@ -105,7 +105,6 @@
     const st = P().outputSafetyState();
     ui.freeze.classList.toggle('on', st.freeze);
     ui.mute.classList.toggle('on', st.mute);
-    ui.black.classList.toggle('on', !!P().isBlackedOut());
     ui.revert.disabled = !P().draftCanRevert();
     ui.secs.hidden = ui.mode.value !== 'fade';
     ui.take.classList.toggle('wait', !!beatRaf);

@@ -11,8 +11,8 @@ const SHELL = read('src/admin/scene-shell.js');
 const CSS = read('src/admin/shell.css');
 
 test('kapalı raf yalnız sekme çubuğu kadar, önizleme boşalan yeri alıyor', () => {
-  assert.match(CSS, /\.sv-center\.tall > \.sv-shelf \{ flex: none; \}/);
-  assert.match(CSS, /\.sv-center\.tall > \.sv-stagebox \{ flex: 1 1 auto; height: auto;/);
+  assert.match(CSS, /\.sv-center\.tall > \.sv-shelf \{ flex: none; height: 50px; min-height: 50px; \}/);
+  assert.match(CSS, /\.sv-center\.tall > \.sv-stagebox \{ flex: 1 1 auto; height: auto; min-height: 0;/);
   // Kapatma düğmesi durumu saklıyor ve sınıfı çiziyor
   assert.match(SHELL, /shelfOpen = !shelfOpen; write\(STORE\.open, shelfOpen \? '1' : '0'\)/);
   assert.match(SHELL, /c\.classList\.toggle\('tall', !shelfOpen\)/);
@@ -30,11 +30,22 @@ test('Preset sekmesi: MilkDrop ve Studio aynı sekmede, sekme sayısı artmıyor
   assert.match(SHELL, /tab\.id === 'studio'\) \{\s*kids\.push\(studioGallery\(\)\);/);
 });
 
-test('dar raf: sekmeler sarılmıyor ya da gizlenmiyor, arama simgeye iniyor', () => {
+test('dar raf: sekmeler sarılmıyor ya da gizlenmiyor, arama sekmelere değince simgeye iniyor', () => {
   const q = CSS.match(/@container svshelf \(max-width: 640px\) \{([\s\S]*?)\n\}/);
   assert.ok(q, 'kap sorgusu yok');
-  assert.match(q[1], /\.sv-shelf-search:not\(:focus-within\) \{ flex: none; width: 34px;/);
-  assert.match(q[1], /\.sv-shelf-search:focus-within \{ position: absolute;/);
+  assert.ok(!/\.sv-shelf-search:not\(:focus-within\)/.test(q[1]), 'simge sabit 640 px eşiğine bağlı olmamalı');
+  assert.match(CSS, /\.sv-shelf-search \{ flex: 0 0 190px; width: 190px; min-width: 190px;/);
+  assert.match(CSS, /\.sv-shelf-search\.sv-icon:not\(:focus-within\) \{[^}]*width: 34px/);
+  assert.match(CSS, /\.sv-shelf-search\.sv-icon:focus-within \{ position: absolute;/);
+  assert.match(SHELL, /function fitShelfSearch\(\)/);
+  assert.match(SHELL, /tabs\.scrollWidth > tabs\.clientWidth \+ 1/);
+  assert.match(SHELL, /function shelfRowFree\(head\)/);
+  assert.match(SHELL, /SHELF_SEARCH_FULL - search\.offsetWidth/);
+  assert.match(SHELL, /shelfRowFree\(head\) >= need - 1/);
+  assert.match(SHELL, /head\.classList\.add\('sv-tight'\)/);
+  assert.match(CSS, /\.sv-chead\.sv-tight \.sv-tabs button \{ height: 30px; padding: 0 6px; font-size: 12px; \}/);
+  assert.match(CSS, /\.sv-chead\.sv-tight \.sv-shelf-mode button \{ width: 28px; height: 24px; \}/);
+  assert.match(CSS, /\.sv-chead\.sv-tight > \.sv-ib\.sm \{ width: 28px; height: 28px; \}/);
   assert.ok(!/sv-card-size input/.test(q[1]), 'kart boyu kaydırıcısı 640 px\'te kısalmamalı');
   const tight = CSS.match(/@container svshelf \(max-width: 480px\) \{([\s\S]*?)\n\}/);
   assert.ok(tight, 'dar kap sorgusu yok');
