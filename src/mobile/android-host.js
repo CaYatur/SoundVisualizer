@@ -1653,6 +1653,7 @@
     onMediaScrub: (cb) => ev.mediaScrub.add(cb),
     onTbar: (cb) => ev.tbar.add(cb),
     onSharedClock: noop, // yedeklilik oturum saati yalnız masaüstünde
+    onOutputSafety: noop, // önizleme kipi çıkış dondur/sessiz (#1168) yalnız masaüstünde
     getSharedClock: () => resolved(null),
     onLyricsClock: (cb) => ev.lyricsClock.add(cb),
     onNowPlaying: (cb) => ev.nowPlaying.add(cb),

@@ -44,6 +44,7 @@ Status: **Real** (implemented, phase in brackets) · **Local** (answered inside 
 | `onMomentaryFx` | Empty | Momentary effects are a VJ tool that is not on Android (D6). |
 | `onMediaScrub` | Local (5) | Scrubbing a media layer from the timeline. |
 | `onTbar` | Empty | No T-bar on Android (D6). |
+| `onOutputSafety` | Empty | Output freeze/mute from the desktop preview mode (#1168); desktop only. |
 | `onSharedClock` | Empty | Redundancy session clock, desktop only. |
 | `getSharedClock` | Empty | Resolves `null`. |
 | `onLyricsClock` | Local (4) | Clock of manually loaded lyrics. |
