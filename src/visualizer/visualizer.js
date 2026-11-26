@@ -983,8 +983,18 @@
     if (window.api.onMediaScrub) window.api.onMediaScrub((m) => { if (stack && m) stack.scrubMedia(m.layerId, m.frac); });
     if (window.api.onTbar) window.api.onTbar((m) => { if (stack) stack.tbar(m); });
     /* Dondur / sessiz (#1168): donukken çizim atlanır, tuval son kareyi gösterir; ses çözümlemesi sürer. */
+    /* Donunca oynayan DOM videoları da durur (yoksa video katmanı kareyi ilerletirdi);
+       çözülünce yalnız bizim durdurduklarımız sürer. Web çıkışı (OBS) aynı iletiyi alır. */
+    const frozenMedia = new Set();
     if (window.api.onOutputSafety) window.api.onOutputSafety((m) => {
-      outputFrozen = !!(m && m.freeze);
+      const freeze = !!(m && m.freeze);
+      if (freeze && !outputFrozen) {
+        document.querySelectorAll('video, audio').forEach((v) => { if (!v.paused) { frozenMedia.add(v); try { v.pause(); } catch (e) { /* çözülmemiş */ } } });
+      } else if (!freeze && outputFrozen) {
+        frozenMedia.forEach((v) => { if (v.isConnected) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } });
+        frozenMedia.clear();
+      }
+      outputFrozen = freeze;
       if (m && m.mute) document.querySelectorAll('video, audio').forEach((v) => { v.muted = true; });
     });
     /* Panelle aynı ekranda açılan tam ekran paneli tamamen örtüyor; "ESC ile çıkış" notu da

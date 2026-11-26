@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4692%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4702%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -104,7 +104,7 @@ Companion'a kurulan Companion modülü.
 </tr>
 <tr>
 <td width="50%" valign="top"><b>Shader taslakları</b><br />Canlı önizlemeli GLSL, çok geçişli tamponlar, Shadertoy ve ISF içe aktarma. Yazdığınız şey bir gösteride kullanılabilen bir katman olur. <a href="#studio--kendi-shaderınızı-yazın">&rarr;&nbsp;Studio</a></td>
-<td width="50%" valign="top"><b>Yapay zekâ ajanının kurduğu gösteriler</b><br />106 araçlı bir MCP sunucusu Claude, Codex, Cursor ve başka ajanların gösteriyi okumasını, sahne kurmasını ve çıkışları sürmesini izin düzeyleri ardında sağlar. <a href="#mcp--bir-yapay-zekâ-ajanıyla-kontrol">&rarr;&nbsp;MCP</a></td>
+<td width="50%" valign="top"><b>Yapay zekâ ajanının kurduğu gösteriler</b><br />108 araçlı bir MCP sunucusu Claude, Codex, Cursor ve başka ajanların gösteriyi okumasını, sahne kurmasını ve çıkışları sürmesini izin düzeyleri ardında sağlar. <a href="#mcp--bir-yapay-zekâ-ajanıyla-kontrol">&rarr;&nbsp;MCP</a></td>
 </tr>
 </table>
 
@@ -292,7 +292,7 @@ v3.1.7'den bu yana her değişiklik, konusuna göre ve çekme isteğiyle birlikt
   video kılavuzlarıyla. Açılış animasyonları, vuruşla logo değiştirme, yayın yazı biçemleri ve
   dosya olarak kaydedilen düzenler. Yerleştirdiğiniz neyse dışa aktarım onu çizer; piksel piksel
   denetlendi. [→ Düzen editörü](#yayın-düzeni-editörü)
-- **Yapay zekâya hazır.** 106 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
+- **Yapay zekâya hazır.** 108 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
@@ -363,7 +363,7 @@ npm start
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, GO ile cue işaretleri ve MIDI Zaman Kodu, ışık masasından Art-Net girişi, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, gösterinin tam yedeği, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB, WLED, sACN ve Art-Net/DMX; Home Assistant için MQTT; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
 | **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 60 CaYaDev presetiyle gelen bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Çok geçişli tamponlu, Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 106 araçlı bir MCP sunucusu, OpenAPI belgeli HTTP API, belgelenmiş kumanda protokolü ve yapılandırma, ve satır değil cevap denetleyen 4.500'ü aşkın test. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Çok geçişli tamponlu, Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 108 araçlı bir MCP sunucusu, OpenAPI belgeli HTTP API, belgelenmiş kumanda protokolü ve yapılandırma, ve satır değil cevap denetleyen 4.500'ü aşkın test. |
 
 ---
 
@@ -1349,7 +1349,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **106 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **108 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -1549,6 +1549,9 @@ Canlı yüzeyleri açar.
   (`tl.track.<id>.opacity`, `tl.clip.<id>.opacity`).
 - `sv_set_blackout` `on`, `off` ya da `toggle` alır ve kayıtlı sahneyi yerinde bırakır.
   `sv_set_blackout_transition` karartma geçişinin türünü ve süresini ayarlar.
+- `sv_set_output_freeze` (`on`, `off`, `toggle`) yapılandırmaya yazmadan her çıkışı son karede
+  tutar. `sv_preview_take` önizleme taslağını çıkışlara gönderir (`fade`, `cut` ya da `scene`);
+  yalnız panelde önizleme kipi açıkken çalışır.
 
 #### Her şey, ve genel yama
 
@@ -2308,7 +2311,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4692 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4702 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

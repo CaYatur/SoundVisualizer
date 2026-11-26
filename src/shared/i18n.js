@@ -4919,6 +4919,14 @@
     'Program\'ı karart': 'Black out Program',
     'Sahne Olarak Kaydet': 'Save As Scene',
     'Çapraz geçiş': 'Crossfade',
+    'Geri al: son çalışılan alan (sahne, zaman çizelgesi ya da önizleme taslağı)': 'Undo: the area you last worked in (scene, timeline or preview draft)',
+    'Önizleme kipinde taslağı sahneye gönder': 'In preview mode, take the draft to program',
+    'Önizleme taslağı': 'Preview draft',
+    'Timeline klibi': 'Timeline clip',
+    'Eylem · Önizlemeyi Sahneye Gönder': 'Action · Take Preview to Program',
+    'Eylem · Çıkışı Dondur (aç/kapa)': 'Action · Freeze Output (toggle)',
+    'PC\'deki önizleme taslağını yayına gönder': 'Send the PC\'s preview draft to the outputs',
+    'Çıkışta son kareyi tut (aç/kapa)': 'Hold the last frame on the outputs (toggle)',
     'Sahnenin geçişi': 'Scene\'s transition',
     'Sahneye Gönder': 'Take',
     'Son gönderimi geri al': 'Revert the last take',
@@ -5824,6 +5832,14 @@
   "mcp.tool.sv_set_blackout": {
     "tr": "Gösteriyi karartır veya geri açar. state on, off veya toggle olabilir. Sahne verisi durur.",
     "en": "Black out or restore the show. state is on, off, or toggle. Scene data stays intact."
+  },
+  "mcp.tool.sv_preview_take": {
+    "tr": "Yalnız önizleme kipinde: hazırlanan taslağı çıkışlara gönderir. mode fade (varsayılan), cut veya scene (taslağın kendi geçişi) olabilir.",
+    "en": "Preview mode only: send the staged draft to the outputs. mode is fade (default), cut, or scene (the draft's own transition)."
+  },
+  "mcp.tool.sv_set_output_freeze": {
+    "tr": "Çıkışları son karede dondurur veya çözer. state on, off veya toggle olabilir. Yapılandırmaya bir şey yazılmaz.",
+    "en": "Freeze or unfreeze the outputs on their last frame. state is on, off, or toggle. Nothing is written to the config."
   },
   "mcp.tool.sv_set_blackout_transition": {
     "tr": "Karartma geçişinin türünü ve süresini ayarlar.",

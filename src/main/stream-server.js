@@ -989,6 +989,11 @@ function handleUpgrade(req, socket) {
     const lyricClock = hooks.getLyricsClock();
     if (lyricClock) sendJson(client, { type: 'lyrics-clock', anchor: lyricClock });
   }
+  // Çıkış dondurulmuşken açılan web çıkışı da donuk başlasın (#1168)
+  if (client.kind === 'overlay' && typeof hooks.getOutputSafety === 'function') {
+    const safety = hooks.getOutputSafety();
+    if (safety && (safety.freeze || safety.mute)) sendJson(client, { type: 'output-safety', m: safety });
+  }
   // Zaman çizelgesi çıpası: sonradan açılan web çıkışı oynatma kafasını bilsin
   if (client.kind === 'overlay' && typeof hooks.getShowClock === 'function') {
     const showClock = hooks.getShowClock();

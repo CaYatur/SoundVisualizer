@@ -1326,6 +1326,8 @@
     },
     sv_export_json: { props: { path: sp('string', 'Absolute .json path.'), what: sp('string', 'config (default) or scenes. Stream tokens are never written.', { enum: ['config', 'scenes'] }), overwrite: OVERWRITE }, required: ['path'] },
     sv_save_snapshot: { props: { path: sp('string', 'Absolute .jpg or .jpeg path.'), overwrite: OVERWRITE }, required: ['path'] },
+    sv_preview_take: { props: { mode: sp('string', 'Transition for this take.', { enum: ['fade', 'cut', 'scene'] }), seconds: sp('number', 'Crossfade length in seconds for mode fade (0.05-10).') } },
+    sv_set_output_freeze: { props: { state: sp('string', 'Freeze state.', { enum: ['on', 'off', 'toggle'] }) }, required: ['state'] },
     sv_set_blackout: { props: { state: sp('string', 'Blackout state.', { enum: ['on', 'off', 'toggle'] }), on: sp('boolean', 'Same as state on/off.') } },
     sv_set_blackout_transition: { props: { type: sp('string', 'crossfade, cut or dissolve.'), duration: sp('number', 'Seconds.', { minimum: 0 }) } },
     sv_patch_config: { props: { path: sp('string', 'Dotted config path; list items by index (layers.0.opacity). The top key must exist.'), value: ANY('New value.') }, required: ['path', 'value'] },
@@ -2914,6 +2916,18 @@
       cfg.isBlackout = next;
       return { blackout: next, visual: visualState(cfg, ctx) };
     });
+  });
+  tool('sv_preview_take', 'sceneApply', 'Preview mode only: send the staged draft to the outputs. mode is fade (default), cut, or scene (the draft\'s own transition).', function (args, ctx) {
+    if (!ctx.previewTake) return fail('Preview mode is not available. Keep the admin window open.');
+    const mode = args && args.mode ? String(args.mode) : 'fade';
+    if (['fade', 'cut', 'scene'].indexOf(mode) < 0) return fail('mode must be fade, cut, or scene.');
+    return Promise.resolve(ctx.previewTake(mode, args && args.seconds)).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
+  });
+  tool('sv_set_output_freeze', 'blackout', 'Freeze or unfreeze the outputs on their last frame. state is on, off, or toggle. Nothing is written to the config.', function (args, ctx) {
+    const state = args && args.state;
+    if (['on', 'off', 'toggle'].indexOf(state) < 0) return fail('state must be on, off, or toggle.');
+    if (!ctx.outputFreeze) return fail('Output freeze is not available. Keep the admin window open.');
+    return Promise.resolve(ctx.outputFreeze(state)).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
   });
   tool('sv_set_blackout_transition', 'blackout', 'Set the blackout transition type and duration.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {

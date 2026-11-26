@@ -3470,6 +3470,7 @@ let outputSafetyState = { freeze: false, mute: false };
 ipcMain.on('output-safety', (e, m) => {
   outputSafetyState = { freeze: !!(m && m.freeze), mute: !!(m && m.mute) };
   sendToVisualizers('output-safety', outputSafetyState);
+  if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'output-safety', m: outputSafetyState }, 'overlay');
 });
 /* Program monitörü (#1167): ilk çıkış penceresinin gösterdiği kare, küçük JPEG. */
 ipcMain.handle('program:snapshot', async () => {
@@ -3695,6 +3696,9 @@ function ensureMcp() {
     capturePreview: () => mcpCapturePreview(),
     recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; const r = await R.start(window.SVPanel.cfg()); return r && r.ok === false ? r : { ok:true }; })()'),
     recordStop: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"Recorder is not loaded." }; await R.stop(); return { ok:true }; })()'),
+    // Önizleme kipi (#1168): panelin kendi gönderim/dondurma yolu
+    previewTake: (mode, seconds) => mcpAdminCall('(() => { const P = window.SVPanel; const a = ' + JSON.stringify({ mode: ['cut', 'fade', 'scene'].includes(mode) ? mode : 'fade', seconds: Math.max(0.05, Math.min(10, Number(seconds) || 1)) }) + '; if (!P || !P.draftOn) return { ok:false, error:"Preview mode is not available." }; if (!P.draftOn()) return { ok:false, error:"Preview mode is off. Turn it on in the panel first." }; P.draftTake(a.mode, a.seconds); if (window.SVPreviewMode) window.SVPreviewMode.sync(); return { ok:true, mode:a.mode }; })()'),
+    outputFreeze: (state) => mcpAdminCall('(() => { const P = window.SVPanel; const s = ' + JSON.stringify(String(state || '')) + '; if (!P || !P.outputSafety) return { ok:false, error:"Output freeze is not available." }; const cur = P.outputSafetyState().freeze; const next = s === "toggle" ? !cur : s === "on"; P.outputSafety({ freeze: next }); if (window.SVPreviewMode) window.SVPreviewMode.sync(); return { ok:true, frozen: next }; })()'),
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
     launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; const hit = C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return hit === false ? { ok:false, error:"No clip in that slot. Read sv_get_clipdeck for the filled slots." } : { ok:true }; })()'),
     locale: () => appLocale(),
@@ -5896,6 +5900,7 @@ function syncStreamServer() {
       getVersion: () => app.getVersion(),
       getNowPlaying: () => shownNowPlaying(),
       getLyricsLibrary: () => lyricsSnapshot(),
+      getOutputSafety: () => outputSafetyState,
       getLyricsClock: () => lyricsClockAnchor,
       getShowClock: () => showClockAnchor,
       /* MilkDrop dokuları (#586): adlar ve doğrulanmış dosya. Web çıkışı

@@ -151,6 +151,27 @@ media that fire on the beat; the **Time** page is for a show that follows a trac
 end. Both are described in the
 [show control section](../README.md#show-control-timeline-clip-deck-auto-vj-midi-and-osc).
 
+**Preview mode** (the eye button next to Undo) lets you prepare a look without the audience
+seeing it. While it is on:
+- every edit goes to a draft, and the outputs keep showing the program;
+- **Take** (`Ctrl+Shift+Enter`) sends the draft out with a cut, a crossfade or the scene's own
+  transition, optionally on the next beat;
+- the **T-bar** mixes from the program to the draft by hand;
+- the Live page faders, solo, mute and effect switches act on the program;
+- **Freeze** holds the last frame on every output, including the OBS overlay and video layers;
+- the phone remote and MCP (`sv_preview_take`, `sv_set_output_freeze`) can trigger Take and
+  Freeze.
+
+**Undo** (`Ctrl+Z`) acts on the area you last worked in:
+- On the Time page it undoes the timeline.
+- In preview mode it undoes the draft only. That includes staged device, source and network
+  changes, and it never touches the program.
+- While a timeline clip is being edited, it undoes that clip.
+- Otherwise it undoes the scene.
+
+The Undo button's tooltip names the scope and the last steps. Take clears the draft's history; the
+preview bar's own **Undo** button reverts the last take.
+
 ## 7. Make it react the way you want
 
 **Effects.** On the shelf's tools, **Effect Chain → Add Effect** puts an effect on the whole
