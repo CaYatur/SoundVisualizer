@@ -3477,6 +3477,52 @@ ipcMain.handle('program:snapshot', async () => {
   const win = openWindows()[0];
   try { return win ? await captureShown(win) : null; } catch { return null; }
 });
+/* Canlıya yakın Program monitörü: önizleme kipi açıkken ilk çıkış penceresinden küçük
+   JPEG kareler, panel abone olduğu sürece itilir. Yakalama süresi ölçülür: pahalıysa
+   (zayıf GPU, büyük pencere) hız anlık görüntü aralığına düşer, ucuzsa ~10 kare/sn. */
+const PGM_W = 320;
+let pgmOn = false;
+let pgmTimer = null;
+let pgmCost = 0; // yakalama + küçültme süresi, üstel ortalama (ms)
+function pgmInterval() {
+  if (pgmCost > 45) return 1500;
+  if (pgmCost > 20) return 250;
+  return 100;
+}
+function pgmSchedule(ms) {
+  if (pgmTimer) clearTimeout(pgmTimer);
+  pgmTimer = pgmOn ? setTimeout(pgmTick, ms) : null;
+}
+async function pgmTick() {
+  pgmTimer = null;
+  if (!pgmOn || !adminWin || adminWin.isDestroyed()) return;
+  const win = openWindows()[0];
+  if (!win || win.webContents.isDestroyed()) {
+    adminWin.webContents.send('program:frame', null);
+    pgmSchedule(1000);
+    return;
+  }
+  const t0 = Date.now();
+  let frame = null;
+  try {
+    const image = await win.webContents.capturePage();
+    if (image && !image.isEmpty()) {
+      const size = image.getSize();
+      const out = size.width > PGM_W ? image.resize({ width: PGM_W, height: Math.max(1, Math.round(size.height * PGM_W / size.width)), quality: 'good' }) : image;
+      const buf = out.toJPEG(55);
+      if (buf && buf.length) frame = { dataUrl: 'data:image/jpeg;base64,' + buf.toString('base64'), interval: 0 };
+    }
+  } catch { frame = null; }
+  const cost = Date.now() - t0;
+  pgmCost = pgmCost ? pgmCost * 0.8 + cost * 0.2 : cost;
+  if (frame) frame.interval = pgmInterval();
+  if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('program:frame', frame);
+  pgmSchedule(pgmInterval());
+}
+ipcMain.on('program:monitor', (e, on) => {
+  pgmOn = !!on;
+  if (pgmOn) { pgmCost = 0; pgmSchedule(0); } else pgmSchedule(0);
+});
 const TBAR_PHASES = new Set(['arm', 'move', 'end', 'cancel']);
 ipcMain.on('tbar', (e, m) => {
   if (!m || !TBAR_PHASES.has(m.phase)) return;

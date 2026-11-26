@@ -122,6 +122,9 @@ contextBridge.exposeInMainWorld('api', {
   // Önizleme modu (#1168): çıkışı dondur / sessize al ve Program monitörü görüntüsü
   sendOutputSafety: (m) => ipcRenderer.send('output-safety', m),
   programSnapshot: () => ipcRenderer.invoke('program:snapshot'),
+  // Canlıya yakın Program monitörü: abone olunca kareler itilir
+  programMonitor: (on) => ipcRenderer.send('program:monitor', !!on),
+  onProgramFrame: (cb) => ipcRenderer.on('program:frame', (e, f) => cb(f)),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
   sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),

@@ -172,3 +172,25 @@ test('önizleme kipi: T-bar taslağı karıştırır, Canlı faderleri Program\'
   // programEdit kip kapalıyken doğrudan cfg + push
   assert.match(admin, /if \(!draftOn\(\)\) \{ fn\(cfg\); push\(!!now\); return; \}/);
 });
+
+test('Program monitörü canlıya yakın kare itiyor, pahalıysa anlık görüntü hızına düşüyor', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /ipcMain\.on\('program:monitor'/);
+  assert.match(main, /if \(pgmCost > 45\) return 1500;/);
+  assert.match(main, /adminWin\.webContents\.send\('program:frame', frame\)/);
+  const pm = read('src/admin/preview-mode.js');
+  // İtme yoksa eski anlık görüntü yolu
+  assert.match(pm, /if \(want && !snapTimer\) \{ snapTimer = setInterval\(snap, SNAP_MS\); snap\(\); \}/);
+  assert.match(read('src/main/preload-admin.js'), /onProgramFrame: \(cb\) => ipcRenderer\.on\('program:frame'/);
+});
+
+test('Sahneye Gönder Canlı sayfasındaki Program değişikliklerini korur (seçenekle kapatılabilir)', () => {
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /const keep = keepLiveOn\(\) \? Array\.from\(liveKeep\.values\(\)\) : \[\];/);
+  assert.match(admin, /if \(keep\.length\) keep\.forEach\(\(f\) => \{ try \{ f\(cfg\); \}/);
+  // Kip kapalıyken anahtar kaydı yok: doğrudan cfg
+  const at = admin.indexOf('function programEdit(fn, now, key)');
+  const body = admin.slice(at, at + 200);
+  assert.ok(body.indexOf('if (!draftOn()) { fn(cfg); push(!!now); return; }') < body.indexOf('liveKeep.set'));
+  assert.match(read('src/admin/live-shell.js'), /'opacity:' \+ l\.id/);
+});

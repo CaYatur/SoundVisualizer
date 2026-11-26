@@ -156,7 +156,10 @@ sağlar. Açıkken:
 - **Sahneye Gönder** (`Ctrl+Shift+Enter`) taslağı kesme, çapraz geçiş ya da sahnenin kendi
   geçişiyle, isterseniz bir sonraki vuruşta yayına gönderir;
 - **T-bar** programdan taslağa elle karıştırır;
-- Canlı sayfasındaki faderler, solo, sessiz ve efekt anahtarları programı değiştirir;
+- Canlı sayfasındaki faderler, solo, sessiz ve efekt anahtarları programı değiştirir; **Canlıyı koru**
+  açıkken (varsayılan) Sahneye Gönder bu değişiklikleri taslağın değerleriyle ezmez;
+- **PGM** monitörü programı saniyede 10 kareye kadar gösterir (yakalama pahalıysa daha yavaş);
+  üzerine gelince büyür;
 - **Dondur** OBS kaplaması ve video katmanları dahil her çıkışı son karede tutar;
 - telefon kumandası ve MCP (`sv_preview_take`, `sv_set_output_freeze`) Sahneye Gönder ve Dondur'u
   tetikleyebilir.
