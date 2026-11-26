@@ -334,7 +334,6 @@
     'Studio editöründe aç': 'Open in the Studio editor',
     'Henüz favori yok. Kartın yıldızına tıklayın.': 'No favourites yet. Click the star on a card.',
     'Henüz kendi presetin yok. Studio editöründe yap ya da içe aktar.': 'No presets of your own yet. Make one in the Studio editor or import one.',
-    'Sonuç yok.': 'No results.',
     'Kart boyu': 'Card size',
     'Kart boyu (Ctrl + tekerlek)': 'Card size (Ctrl + wheel)',
     'Rafı kapat, sahneyi büyüt': 'Close the shelf, enlarge the scene',
