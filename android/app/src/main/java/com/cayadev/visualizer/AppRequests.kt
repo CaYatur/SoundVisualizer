@@ -87,6 +87,10 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 reply.ok(JSONObject().put("key", com.cayadev.visualizer.link.LinkUpload.start(app, uri, kind, args.optString("name").take(120))))
             }
             "linkUploadCancel" -> { com.cayadev.visualizer.link.LinkUpload.cancel(args.optString("key")); reply.ok() }
+            // PC'nin ayarındaki video telefona (hedef PC'yken motor kendi kopyasıyla çizer)
+            "linkMediaFetch" -> com.cayadev.visualizer.link.LinkDownload.start(app, args.optString("id"), args.optString("file")) { r, e ->
+                if (r != null) reply.ok(r) else reply.fail(e ?: "failed")
+            }
             // Canlı sekmesinin basılı tuttuğu anlık efektler; kirayı uygulama yeniler (PcLink.setHeld)
             "linkHeld" -> {
                 val a = args.optJSONArray("list") ?: JSONArray()

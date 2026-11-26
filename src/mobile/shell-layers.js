@@ -608,6 +608,19 @@
     return { deviceId: d.deviceId, label: d.label || '' };
   }
 
+  /* Seçilen video. Hedef PC'yken telefonun adresi PC'de açılmaz: önce PC'nin kitaplığına
+     yollanır, katman telefonun adresi ve PC'deki kimlikle yazılır (PC kendi dosyasına çevirir,
+     docs/PHONE-LINK.md "Videos"). Yollanamazsa katman değişmez. */
+  function videoPicked(f, setMany, ctx) {
+    const pcOn = A().target && A().target.get && A().target.get().target === 'pc';
+    if (!pcOn) { setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' }); ctx.refresh(); return; }
+    S.toast(tr('PC\'ye gönderiliyor') + ': ' + (f.name || ''));
+    A().pc.sendVideo(f).then((id) => {
+      setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: id });
+      ctx.refresh();
+    }, (e) => S.toast(tr('Gönderilemedi') + ': ' + (f.name || '') + ' (' + String((e && e.message) || e) + ')'));
+  }
+
   function mediaControls(l, set, ctx, def) {
     const out = [];
     if (l.kind === 'media') {
@@ -620,15 +633,12 @@
         onChange: (v) => {
           if (v === 'webcam') { setMany({ enabled: true, source: 'webcam' }); ctx.refresh(); return; }
           if (m.file) { setMany({ source: 'file' }); ctx.refresh(); return; }
-          filePick('video', (f) => { setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' }); ctx.refresh(); });
+          filePick('video', (f) => videoPicked(f, setMany, ctx));
         },
       }));
       if (src === 'screen') out.push(h('div', { class: 'hint', text: 'Ekran kaynağı telefonda yok; bir video ya da kamera seçin.' }));
       if (src === 'file') {
-        out.push(fileRow('Video', m.fileName, null, () => filePick('video', (f) => {
-          setMany({ enabled: true, source: 'file', file: f.url, fileName: f.name || '', libraryId: '' });
-          ctx.refresh();
-        })));
+        out.push(fileRow('Video', m.fileName, null, () => filePick('video', (f) => videoPicked(f, setMany, ctx))));
         out.push(libraryButton(() => libraryList('media').then((list) => pickTile(ctx, {
           title: 'Video', value: m.libraryId, empty: 'Kitaplıkta video yok. Bilgisayar yedeğinden gelen videolar burada görünür.',
           items: list.map((it) => ({ id: it.id, label: it.name || it.file, icon: 'video', file: it.file })),

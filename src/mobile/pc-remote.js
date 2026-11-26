@@ -140,7 +140,63 @@
     return { cfg, patch: out, deferred: left };
   }
 
-  const api = { SCENE_KEYS, LOCAL_KEYS, ENGINE_LOCAL, view, engine, enginePatch, diff, diffScenes, applyEvent, settle };
+  /* PC'NİN VİDEOLARI TELEFONDA (docs/PHONE-LINK.md "Videos"). PC'nin ayarındaki video adresi
+     (`sv-media://local/C%3A...`) telefonda açılmaz: telefonun motoru seçimi görür, videoyu
+     çizemezdi. Motora giden kopyada her video başvurusu telefonun kendi adresine çevrilir:
+     önce PC kitaplık kimliği (`libraryId`), yoksa adresin kendisi. Telefonun karşılığı
+     yoksa başvuru `missingMedia` listesine girer; uygulama dosyayı `media.fetch` ile
+     indirir. Düzenleyicinin gördüğü ve PC'ye yazılan ayara dokunulmaz. */
+  const PHONE_URL = /^(?:https:\/\/appassets\.androidplatform\.net\/|content:\/\/)/i;
+  const MEDIA_DEPTH = 40;
+  // Video başvurusu: medya ayarının dosyası ya da çizelgedeki video klibinin kaynağı
+  function mediaRef(o) {
+    if (typeof o.file === 'string' && o.file && (o.source === 'file' || o.fileName !== undefined)) return { key: 'file', ref: o.file };
+    if (o.type === 'video' && typeof o.ref === 'string' && o.ref) return { key: 'ref', ref: o.ref };
+    return null;
+  }
+  function walkMedia(v, fn, depth) {
+    if (depth > MEDIA_DEPTH || v == null || typeof v !== 'object') return v;
+    if (Array.isArray(v)) {
+      let out = null;
+      v.forEach((x, i) => { const y = walkMedia(x, fn, depth + 1); if (y !== x) { if (!out) out = v.slice(); out[i] = y; } });
+      return out || v;
+    }
+    let out = null;
+    for (const k of Object.keys(v)) {
+      const y = walkMedia(v[k], fn, depth + 1);
+      if (y !== v[k]) { if (!out) out = Object.assign({}, v); out[k] = y; }
+    }
+    const cur = out || v;
+    const m = mediaRef(cur);
+    if (!m || PHONE_URL.test(m.ref)) return cur;
+    const next = fn(m.ref, typeof cur.libraryId === 'string' ? cur.libraryId : '');
+    if (!next || next === m.ref) return cur;
+    return Object.assign({}, cur, { [m.key]: next });
+  }
+  /** Motora giden kopyada PC adresleri telefonun adresine (local: { byId, byRef }). Yerinde değiştirmez. */
+  function localizeMedia(v, local) {
+    const L = local || {};
+    const byId = L.byId || {};
+    const byRef = L.byRef || {};
+    return walkMedia(v, (ref, id) => (id && byId[id]) || byRef[ref] || '', 0);
+  }
+  /** Telefonda karşılığı olmayan PC videoları: [{ id, file }] (tekrarsız). */
+  function missingMedia(v, local) {
+    const L = local || {};
+    const byId = L.byId || {};
+    const byRef = L.byRef || {};
+    const out = [];
+    const seen = {};
+    walkMedia(v, (ref, id) => {
+      if ((id && byId[id]) || byRef[ref]) return '';
+      const k = id ? 'id:' + id : 'ref:' + ref;
+      if (!seen[k]) { seen[k] = true; out.push(id ? { id, file: ref } : { id: '', file: ref }); }
+      return '';
+    }, 0);
+    return out;
+  }
+
+  const api = { SCENE_KEYS, LOCAL_KEYS, ENGINE_LOCAL, view, engine, enginePatch, diff, diffScenes, applyEvent, settle, localizeMedia, missingMedia };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SVPcRemote = api;
 })(typeof window !== 'undefined' ? window : null);
