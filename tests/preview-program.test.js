@@ -161,3 +161,60 @@ test('çıkış güvenliği: dondur çizimi atlar, yeni pencere durumu alır', (
   assert.match(m, /ipcMain\.handle\('program:snapshot'/);
   assert.match(m, /win\.webContents\.send\('output-safety', outputSafetyState\)/);
 });
+
+/* Taslak katman değişimi (göster/gizle, solo, rafta mod/preset) push(true) ile gelir.
+   Program değişmediği için çıkış imzası aynı kalıyor ve push erken dönüyordu: önizleme
+   ancak sonraki ilgisiz bir çizimde güncelleniyordu. Gerçek push/previewConfig kodu
+   taklitlerle çalıştırılıyor. */
+test('önizleme modu: Program değişmese de taslak değişimi önizlemeyi hemen yeniler', () => {
+  const src = read('src/admin/admin.js');
+  const cut = (from, to) => { const a = src.indexOf(from); const b = src.indexOf(to, a); assert.ok(a >= 0 && b > a, from); return src.slice(a, b); };
+  const code = cut('  function draftSig() {', '  /* AYAR GÖNDERİMİ (#695).');
+  const env = {
+    window: { SVPreview: { setConfig: (c) => env.sent.push(JSON.stringify(c)) } },
+    sent: [], full: 0,
+  };
+  const make = new Function('env', `
+    const window = env.window;
+    let program = { layers: [{ id: 'a', enabled: true }] };
+    let cfg = { layers: [{ id: 'a', enabled: true }] };
+    let draft = { active: () => true, persistent: () => program };
+    const sendStats = { preview: 0 };
+    let lastOutSig = null, pendingOutSig = null, pushTimer = null, marksFresh = false;
+    let activeSceneId = '', sceneActionInFlight = false;
+    const isBlackedOut = () => false, refreshModifiedMarks = () => {}, clearActiveScene = () => {};
+    const draftAfterEdit = () => {}, sendConfigPatch = () => {};
+    const sendFullConfig = () => { env.full++; lastOutSig = pendingOutSig; };
+    function draftOn() { return !!(draft && draft.active()); }
+    function draftView() { return cfg; }
+    function outputConfig() { return draft.persistent(cfg); }
+    function previewTarget() { return cfg; }
+    ${code}
+    return { push, cfg: () => cfg };
+  `);
+  const api = make(env);
+  api.push(true); // ilk tam gönderim
+  // Her katman türü aynı yoldan: MilkDrop, şarkı sözü, görselleştirici, Studio, medya, metin, çalan parça
+  const kinds = [['milkdrop', {}], ['text', { settings: { text: { source: 'lyrics' } } }], ['visualizer', { type: 'bars' }],
+    ['studio', {}], ['media', {}], ['text', {}], ['nowplaying', {}]];
+  api.cfg().layers = kinds.map(([kind, extra], i) => Object.assign({ id: 'l' + i, kind, enabled: true, solo: false, opacity: 1 }, extra));
+  api.push(true);
+  for (let i = 0; i < kinds.length; i++) {
+    for (const [key, val] of [['enabled', false], ['solo', true], ['opacity', 0.4], ['type', 'wave']]) {
+      const before = env.sent.length;
+      const l = api.cfg().layers[i];
+      const old = l[key];
+      l[key] = val; // yalnız taslak
+      api.push(true);
+      assert.strictEqual(env.sent.length, before + 1, kinds[i][0] + ' ' + key + ': önizleme yenilenmedi');
+      assert.deepStrictEqual(JSON.parse(env.sent[env.sent.length - 1]).layers[i][key], val);
+      l[key] = old;
+      api.push(true);
+    }
+  }
+  assert.strictEqual(env.full, 1, 'Program değişmedi: çıkışa yeniden tam gönderim yok');
+  // Hiçbir şey değişmediyse önizleme de yeniden kurulmaz
+  const n = env.sent.length;
+  api.push(true);
+  assert.strictEqual(env.sent.length, n);
+});
