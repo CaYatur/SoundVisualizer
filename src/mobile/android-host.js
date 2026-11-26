@@ -43,7 +43,7 @@
   }
 
   const ev = {
-    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(), pcUpdates: listeners(), update: listeners(),
+    link: listeners(), linkEvent: listeners(), target: listeners(), pcShot: listeners(), pcUpload: listeners(), pcDownload: listeners(), pcExport: listeners(), pcLive: listeners(), pcMeter: listeners(), pcError: listeners(), pcUpdates: listeners(), update: listeners(),
     config: listeners(), configPatch: listeners(), audio: listeners(), presets: listeners(),
     presetsDelta: listeners(), powerSource: listeners(), nowPlaying: listeners(), windowChrome: listeners(),
     showClock: listeners(), momentaryFx: listeners(), lyricsClock: listeners(), lyricsLib: listeners(), mdSprite: listeners(),
@@ -214,6 +214,9 @@
       // PC'ye dosya gönderiminin ilerlemesi (link/LinkUpload.kt)
       onUploadDone(v);
       ev.pcUpload.emit(v);
+    } else if (name === 'linkDownload') {
+      // PC'nin videosunun telefona indirilmesi (link/LinkDownload.kt)
+      ev.pcDownload.emit(v);
     }
   }
 
@@ -1481,6 +1484,8 @@
       sendVideo: (file) => sendVideo(file),
       cancelUpload: (key) => request('linkUploadCancel', { key }),
       onUpload: (cb) => ev.pcUpload.add(cb),
+      /** PC'nin videosu telefona iniyor: { key, name, size, got, state: begin | sending | done | error } */
+      onDownload: (cb) => ev.pcDownload.add(cb),
       onExport: (cb) => ev.pcExport.add(cb),
       /** Bilgisayarın güncelleme durumu (değişince `updates` olayıyla da gelir) */
       onUpdates: (cb) => ev.pcUpdates.add(cb),

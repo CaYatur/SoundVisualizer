@@ -98,6 +98,7 @@ object EngineHost {
         // PC bağlantısı (docs/PHONE-LINK.md): kayıtlı bilgisayara kendiliğinden bağlanır
         com.cayadev.visualizer.link.PcLink.init(app) { name, v -> bridge?.event(name, v) }
         com.cayadev.visualizer.link.LinkUpload.events = { name, v -> bridge?.event(name, v) }
+        com.cayadev.visualizer.link.LinkDownload.events = { name, v -> bridge?.event(name, v) }
         // Telefonun sesi bilgisayara da (yalnız "PC'ye gönder" açıkken, PcLink.sendAudio)
         com.cayadev.visualizer.audio.AudioHub.tap = { rate, ch, s, n -> com.cayadev.visualizer.link.PcLink.pushAudio(rate, ch, s, n) }
         com.cayadev.visualizer.media.NowPlaying.start(app)
