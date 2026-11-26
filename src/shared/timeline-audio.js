@@ -355,6 +355,47 @@
     for (const t of normalize(tracks)) for (const c of t.clips) end = Math.max(end, c.start + c.dur);
     return end;
   }
+  /* Oynatma kafasında çalan klip: EN ÜSTTEKİ duyulur ses parçasının klibi
+     (liste sırası = ekrandaki sıra). Çalan Parça katmanı bunu gösterir. */
+  function clipAt(tracks, t) {
+    for (const trk of audibleTracks(tracks)) {
+      for (const c of trk.clips) {
+        if (c.mute || !c.src) continue;
+        if (t >= c.start && t < c.start + c.dur) return { track: trk, clip: c, local: t - c.start };
+      }
+    }
+    return null;
+  }
+  function baseName(src) {
+    let s = String(src || '');
+    try { s = decodeURIComponent(s); } catch { /* ham ad */ }
+    return s.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+  }
+  /* Çalan Parça durumu (SVNowLive.state biçimi). tagsOf(src) → { title, artist,
+     album, artwork } ya da boş; başlık yoksa klip adı / dosya adı. */
+  function nowPlayingAt(tracks, t, tagsOf, opts) {
+    const hit = clipAt(tracks, t);
+    if (!hit) return null;
+    const c = hit.clip;
+    const tag = (tagsOf && tagsOf(c.src)) || {};
+    const o = opts || {};
+    return {
+      has: true,
+      playing: o.playing === true,
+      title: tag.title || (c.name ? c.name.replace(/\.[^.]+$/, '') : '') || baseName(c.src),
+      artist: tag.artist || '',
+      album: tag.album || '',
+      artwork: tag.artwork || '',
+      app: '',
+      position: Math.max(0, c.in + hit.local),
+      duration: c.srcDur > 0 ? c.srcDur : c.in + c.dur,
+      updated: num(o.now, 0),
+      received: num(o.now, 0),
+      src: c.src,
+      clipId: c.id,
+    };
+  }
+
   function isAudioFile(name) {
     const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
     return !!m && EXTS.indexOf(m[1].toLowerCase()) >= 0;
@@ -365,7 +406,7 @@
     dbToGain, makeClip, makeTrack, makeDuck, normalize, audibleTracks, hasAudio,
     shape, clipGainAt, automationDbAt, duckCurve, trackEnvelope, mixDescription, gainAtPoints,
     panGains, ffmpegFilter, volumeExpr, splitClip, canJoin, joinClips, trimStart, trimEnd,
-    audioLength, isAudioFile, newId,
+    audioLength, isAudioFile, newId, clipAt, nowPlayingAt,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SVTimelineAudioCore = api;

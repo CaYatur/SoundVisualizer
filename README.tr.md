@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4720%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4723%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1005,7 +1005,11 @@ gösteriyi oynatıyor.
 - **GO ile cue işaretleri** — "Cue: burada bekle" açık bir işaret oynatmayı her ekranda aynı anda
   orada durduruyor; **GO** (ya da <kbd>Enter</kbd>) sonraki cue'ya kadar sürdürüyor. Dışa aktarma
   beklemeleri yok sayıyor.
-- **Ses parçaları** — **Ses Ekle** MP3, WAV, FLAC, OGG, M4A/AAC ya da Opus dosyalarını görsel
+- **Ses şeritleri** — **Yeni Şerit → Ses Şeridi** görsel parçaların altına aynı başlık sütunu,
+  şerit yüksekliği, cetvel ve oynatma kafasıyla bir şerit ekler; ses klibi ya da şeridi seçilince
+  ayarları **Seçim** panelinde görünür. **Çalan Parça** katmanı en üstteki ses şeridinin klibinin
+  başlığını, sanatçısını ve kapağını gösterir (dosya etiketleri, yoksa dosya adı), canlıda ve dışa
+  aktarmada. **Ses Ekle** MP3, WAV, FLAC, OGG, M4A/AAC ya da Opus dosyalarını görsel
   parçaların altına dalga biçimiyle yerleştirir. Ses yalnız denetim panelinden çalar (çıkış
   pencerelerinden asla), oynatma kafasına kilitli, varsayılan ya da seçilen çıkış aygıtında.
   Parçalarda kazanç, denge, sessiz, solo ve seviye ölçer; kliplerde kırpma, kazanç, giriş/çıkış
@@ -2321,7 +2325,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4720 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4723 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

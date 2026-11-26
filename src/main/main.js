@@ -1985,7 +1985,10 @@ function onBridgeInputChanged() {
 }
 /* Çalan parça (#813): ses girişi köprüdeyse köprünün parçası, değilse bu
    makinenin oturumu. Çıkışlar, OSC, yayın sayfası ve MCP aynı bilgiyi görsün. */
+/* Çizelge sesi çalarken (#1171) Çalan Parça en üstteki ses klibinin etiketleri. */
+let timelineNow = null;
 function shownNowPlaying() {
+  if (timelineNow) return timelineNow;
   if (bridge.input && bridge.input.useBridge && bridge.meta && bridge.meta.has) return bridge.meta;
   if (phoneMetaShown()) return phoneAudio.meta;
   return mediaSession.current();
@@ -8309,6 +8312,7 @@ mediaSession.subscribe((st) => {
   // Ses girişi köprüdeyken parça bilgisi de köprünün (telefondayken telefonun)
   if (bridge.input && bridge.input.useBridge && bridge.meta) return;
   if (phoneMetaShown()) return;
+  if (timelineNow) return; // çizelge sesi çalıyor: kart onun
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
   /* Telefon PC'nin parçasını izler. Önbellek ilk parçada kalırsa sonraki
@@ -9976,6 +9980,43 @@ ipcMain.handle('timeline-audio:pick', async () => {
   }
   return out;
 });
+/* Ses klibi etiketleri (başlık, sanatçı, kapak); dosya başına bir kez. */
+const timelineTagCache = new Map();
+function timelineAudioTags(raw) {
+  const key = path.resolve(raw);
+  if (!timelineTagCache.has(key)) {
+    const p = require('../shared/audio-tags.js').readAudioTags(resolveFfmpeg(), raw, path.basename(raw, path.extname(raw)))
+      .catch(() => ({ title: path.basename(raw, path.extname(raw)), artist: '', album: '', artwork: '' }));
+    if (timelineTagCache.size > 64) timelineTagCache.delete(timelineTagCache.keys().next().value);
+    timelineTagCache.set(key, p);
+  }
+  return timelineTagCache.get(key);
+}
+function publishNowPlaying(st) {
+  sendToVisualizers('now-playing', st);
+  notifyAdmin('now-playing', st);
+  if (typeof streamServer.broadcastNowPlaying === 'function') streamServer.broadcastNowPlaying(st);
+}
+/* Panel çalan klibi bildirir (yalnız değişince); null: çizelge sesi durdu,
+   kart yeniden sistemin/köprünün parçasına döner. */
+let timelineNowSeq = 0;
+ipcMain.on('timeline-audio:now', async (e, info) => {
+  const seq = ++timelineNowSeq;
+  const raw = info && info.src ? mediaUrl.fromMediaUrl(String(info.src)) : '';
+  if (!raw || !(timelineAudioPicked.has(path.resolve(raw)) || isConfiguredMedia(currentConfig, raw, mediaUrl))) {
+    if (timelineNow) { timelineNow = null; publishNowPlaying(shownNowPlaying()); }
+    return;
+  }
+  const tag = await timelineAudioTags(raw);
+  if (seq !== timelineNowSeq) return;
+  const now = Date.now();
+  const A = require('../shared/timeline-audio.js');
+  timelineNow = Object.assign({}, A.nowPlayingAt([{ clips: [Object.assign({}, info.clip || {}, { src: info.src })] }], Number(info.t) || 0, () => tag, { playing: info.playing !== false, now }) || {},
+    { has: true, app: 'Timeline' });
+  if (!timelineNow.title) timelineNow = null;
+  publishNowPlaying(shownNowPlaying());
+});
+
 ipcMain.handle('timeline-audio:peaks', async (e, src) => {
   const raw = mediaUrl.fromMediaUrl(String(src || ''));
   if (!raw || !(timelineAudioPicked.has(path.resolve(raw)) || isConfiguredMedia(currentConfig, raw, mediaUrl))) return null;
@@ -10063,6 +10104,19 @@ function cleanupExportMedia() {
   exportMediaTemp.paths.clear();
   if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* kilitli: işletim sistemi temizler */ } }
 }
+async function exportTimelineTags(cfg) {
+  const A = require('../shared/timeline-audio.js');
+  const ats = cfg && cfg.export && cfg.export.includeTimeline === true && cfg.timeline ? cfg.timeline.audioTracks : null;
+  if (!A.hasAudio(ats)) return null;
+  const out = {};
+  for (const t of A.audibleTracks(ats)) for (const c of t.clips) {
+    if (!c.src || out[c.src]) continue;
+    const raw = mediaUrl.fromMediaUrl(c.src);
+    if (raw && fs.existsSync(raw)) out[c.src] = await timelineAudioTags(raw);
+  }
+  return out;
+}
+
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
   opts = opts || {};
@@ -10376,6 +10430,8 @@ async function startExportJob(opts, bench, extra) {
     /* Dosyanın adı, kapağı ve — takip açıksa — kütüphane sözü.
        Normal söz dosyası kütüphaneyle değiştirilmez. */
     track,
+    // Çizelge ses klipleri (#1171): Çalan Parça karedeki en üst klibi gösterir
+    timelineAudioTags: await exportTimelineTags(jobCfg),
     profile: !!bench,
     /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
