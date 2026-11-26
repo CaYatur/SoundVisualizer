@@ -106,9 +106,19 @@
       if (v.indexOf('lib:') === 0) {
         const file = v.slice(4);
         const it = libs.find((x) => (x.file || '') === file) || {};
-        return { ref: 'https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(file), name: it.name || file, target: firstTarget(core, 'video') };
+        return { ref: 'https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(file), name: it.name || file, target: firstTarget(core, 'video'), libraryId: it.id || '' };
       }
-      try { const f = await A().media.pick('video'); return f && f.url ? { ref: f.url, name: f.name || '', target: firstTarget(core, 'video') } : null; } catch (e) { return null; }
+      let f = null;
+      try { f = await A().media.pick('video'); } catch (e) { return null; }
+      if (!f || !f.url) return null;
+      /* Hedef PC'yken telefonun adresi PC'de açılmaz: video önce PC'nin kitaplığına gider,
+         klip PC'deki kimlikle yazılır (katmandaki gibi; docs/PHONE-LINK.md "Videos"). */
+      let libraryId = '';
+      if (A().target && A().target.get && A().target.get().target === 'pc' && A().pc.sendVideo) {
+        S.toast(core.tr('PC\'ye gönderiliyor') + ': ' + (f.name || ''));
+        try { libraryId = await A().pc.sendVideo(f); } catch (e) { S.toast(core.tr('Gönderilemedi') + ': ' + (f.name || '') + ' (' + String((e && e.message) || e) + ')'); return null; }
+      }
+      return { ref: f.url, name: f.name || '', target: firstTarget(core, 'video'), libraryId };
     }
     if (type === 'image') {
       try { const f = await A().media.pick('image'); return f && f.dataUrl ? { ref: f.dataUrl, name: f.name || '', target: firstTarget(core, 'image') } : null; } catch (e) { return null; }
@@ -218,6 +228,8 @@
       if (!r) return;
       if (r.type) c.type = r.type;
       c.ref = r.ref;
+      // Video klibinin PC kitaplığı kimliği: yeni kaynakla birlikte yazılır, eskisi kalmaz
+      if (c.type === 'video' && r.libraryId) c.libraryId = r.libraryId; else delete c.libraryId;
       if (r.name && !c.name && (c.type === 'video' || c.type === 'image')) c.name = r.name;
       if (r.target && !c.target) c.target = r.target;
       save();

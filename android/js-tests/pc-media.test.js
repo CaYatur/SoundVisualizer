@@ -87,3 +87,25 @@ test('uygulama: indirme yalnız kimlik ya da özetle adlandırılır, kitaplığ
   const req = read('android/app/src/main/java/com/cayadev/visualizer/AppRequests.kt');
   assert.match(req, /"linkMediaFetch" -> com\.cayadev\.visualizer\.link\.LinkDownload\.start\(app, args\.optString\("id"\), args\.optString\("file"\)\)/);
 });
+
+test('çizelge video klibi: kitaplıktan kimlikle, hedef PC\'yken galeriden önce PC\'ye yollanarak', () => {
+  const s = read('src/mobile/shell-timeline-forms.js');
+  assert.match(s, /name: it\.name \|\| file, target: firstTarget\(core, 'video'\), libraryId: it\.id \|\| '' \}/);
+  assert.match(s, /try \{ libraryId = await A\(\)\.pc\.sendVideo\(f\); \} catch \(e\) \{[^\n]*return null; \}/, 'yollanamazsa klip değişmez');
+  assert.match(s, /if \(c\.type === 'video' && r\.libraryId\) c\.libraryId = r\.libraryId; else delete c\.libraryId;/, 'eski kimlik yeni kaynağa taşınmaz');
+});
+
+test('PC\'den inen video: ilerleme olayı, bildirim ve PC Ayarları\'nda çubuk', () => {
+  const k = read('android/app/src/main/java/com/cayadev/visualizer/link/LinkDownload.kt');
+  assert.match(k, /events\("linkDownload", o\)/);
+  assert.match(k, /emit\(key, label, size, 0L, "begin"\)/);
+  assert.match(k, /emit\(key, label, size, part\.length\(\), "sending"\)/);
+  assert.match(read('android/app/src/main/java/com/cayadev/visualizer/EngineHost.kt'), /LinkDownload\.events = \{ name, v -> bridge\?\.event\(name, v\) \}/);
+  const host = read('src/mobile/android-host.js');
+  assert.match(host, /name === 'linkDownload'\) \{\s*\/\/[^\n]*\n\s*ev\.pcDownload\.emit\(v\);/);
+  assert.match(host, /onDownload: \(cb\) => ev\.pcDownload\.add\(cb\),/);
+  const pm = read('src/mobile/shell-pcmanage.js');
+  assert.match(pm, /if \(d\.state === 'done' && seen\)/, 'zaten telefonda olan dosya bildirilmez');
+  assert.match(pm, /uploadRows\(body\);\s*downloadRows\(body\);/);
+  assert.match(pm, /if \(A\(\)\) wireDownloads\(\);/, 'sayfa açılmadan da bildirir');
+});

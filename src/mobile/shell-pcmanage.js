@@ -24,6 +24,7 @@
 
   const KINDS = [['video', 'Video'], ['logo', 'Logo'], ['lyrics', 'Söz'], ['milk', 'MilkDrop preseti']];
   const uploads = new Map(); // anahtar → son ilerleme
+  const downloads = new Map(); // PC'den inen videolar: anahtar → son ilerleme
   let exportP = null;
   let song = null; // { id, name } gönderilmiş şarkı
   let outputs = null;
@@ -49,6 +50,37 @@
       refresh();
     });
     A().pc.onExport((p) => { exportP = p; refresh(); });
+  }
+
+  /* PC'NİN VİDEOSU TELEFONA İNİYOR (link/LinkDownload.kt). Hedef PC'yken video indirme bitene
+     kadar telefonda çizilmez; eskiden bu arada hiçbir şey görünmüyordu. Başlarken ve bitince
+     bildirim, sürerken PC Ayarları'nda ilerleme çubuğu. Zaten telefonda olan dosya ("begin"
+     gelmeden "done") bildirilmez. */
+  function wireDownloads() {
+    if (!A().pc || !A().pc.onDownload) return;
+    A().pc.onDownload((d) => {
+      if (!d || !d.key) return;
+      const seen = downloads.has(d.key);
+      if (d.state === 'begin') S.toast(tr('PC\'den video indiriliyor') + ': ' + d.name);
+      if (d.state === 'done' && seen) S.toast(tr('Video indirildi') + ': ' + d.name);
+      if (d.state === 'error' && seen) S.toast(tr('Video indirilemedi') + ': ' + d.name + ' (' + (d.error || '') + ')');
+      if (d.state === 'begin' || d.state === 'sending') downloads.set(d.key, d);
+      else downloads.delete(d.key);
+      refresh();
+    });
+  }
+  // Ev sahibi (android-host.js) bu betikten önce yükleniyor (WebShell.kt)
+  if (A()) wireDownloads();
+
+  function downloadRows(body) {
+    for (const d of downloads.values()) {
+      const pct = d.size ? Math.round((d.got / d.size) * 100) : 0;
+      body.appendChild(h('div', { class: 'card export-card' }, [
+        h('div', { class: 'export-head' }, [h('span', { class: 'grow-text', text: tr('İndiriliyor') + ': ' + d.name }), h('span', { class: 'export-pct mono', text: pct + '%' })]),
+        h('div', { class: 'export-bar' }, [h('i', { style: 'width:' + pct + '%' })]),
+        h('div', { class: 'hint', text: mb(d.got) + ' / ' + mb(d.size) }),
+      ]));
+    }
   }
 
   async function send(kind) {
@@ -164,6 +196,7 @@
     body.appendChild(h('div', { class: 'section-label', text: 'PC\'ye dosya gönder' }));
     body.appendChild(h('div', { class: 'btn-row' }, KINDS.map(([k, label]) => h('button', { class: 'btn', onclick: () => send(k) }, [icon('upload'), h('span', { text: label })]))));
     uploadRows(body);
+    downloadRows(body);
     body.appendChild(h('div', { class: 'hint', text: 'Dosya PC\'nin kitaplığına eklenir. Gönderim uygulama arka plandayken de sürer.' }));
 
     // ---- Işık ve güç
