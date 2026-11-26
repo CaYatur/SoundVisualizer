@@ -23,6 +23,7 @@ const linkGuard = require('./link-guard');
 const JsonDelta = require('../shared/json-delta.js');
 const linkAudio = require('./link-audio');
 const linkUpload = require('./link-upload');
+const linkMediaLib = require('./link-media');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -5094,6 +5095,12 @@ function linkControlOps() {
    öğesi kendi kimliği. Telefonun dosyaları uygulamanın link-uploads klasörüne yazılır
    (src/main/link-upload.js), kitaplığa alınınca silinir; açılışta artakalan temizlenir. */
 let linkUp = null;
+/* Telefon ↔ PC video başvurusu (link-media.js): kitaplık kimliği ortak dil */
+let linkMedia = null;
+function linkMediaApi() {
+  if (!linkMedia) linkMedia = linkMediaLib.createLinkMedia({ library: mediaLibrary, libDir: () => mediaLibDir(), mediaUrl });
+  return linkMedia;
+}
 const linkUploadsDir = () => path.join(app.getPath('userData'), 'link-uploads');
 function linkUploads() {
   if (!linkUp) {
@@ -5292,6 +5299,9 @@ function linkManageOps() {
       if (typeof args.id !== 'string' || !ID.test(args.id)) throw bad();
       return adminRun('(() => { const M = window.SVMilkdropPanel; const id = ' + JSON.stringify(args.id) + '; const p = M && M.presetById ? M.presetById(id) : null; if (!p) return { ok:false, error:"bad-args" }; const c = window.SVPanel.cfg(); if (p.lazy && M.go) M.go(c, p); else if (M.load) M.load(c, p); return { ok:true, name: p.name || id }; })()');
     },
+    /* PC'nin videosu telefona (link-media.js): kitaplık kimliğiyle ya da ayarda video olarak
+       duran adresle, parça parça. Telefon kendi kitaplığına yazar ve kendi adresiyle çizer. */
+    'media.fetch': (args) => linkMediaApi().fetch(args, currentConfig || {}),
     // Dosya gönderme: parça parça, sırayla; bitince türüne göre kitaplığa
     'file.begin': (args, ctx) => linkUploads().begin(ctx.client, args),
     'file.chunk': (args, ctx) => linkUploads().chunk(ctx.client, args),
@@ -5688,7 +5698,9 @@ function linkEditOps() {
   return {
     'config.patch': (args, ctx) => {
       const level = (ctx && ctx.device && ctx.device.level) || 'view';
-      const g = linkGuard.check(args.patch, currentConfig || {}, level);
+      // Telefonun kendi video adresi PC'ye yazılmaz: kitaplık kimliği PC'nin dosyasına çevrilir
+      const patch = linkMediaApi().rewritePatch(args.patch).patch;
+      const g = linkGuard.check(patch, currentConfig || {}, level);
       if (!g.ok) throw bad(g.error, g.key);
       return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
     },
@@ -5701,7 +5713,7 @@ function linkEditOps() {
       const cur = currentConfig && currentConfig.timeline !== undefined ? currentConfig.timeline : null;
       const next = JsonDelta.apply(cur, args.ops);
       if (next == null || typeof next !== 'object' || Array.isArray(next)) throw bad('stale');
-      const g = linkGuard.check({ timeline: next }, currentConfig || {}, level);
+      const g = linkGuard.check(linkMediaApi().rewritePatch({ timeline: next }).patch, currentConfig || {}, level);
       if (!g.ok) throw bad(g.error, g.key);
       return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
     },

@@ -389,6 +389,8 @@ function createHost(opts) {
 const OPS = {
   // izle
   'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'song.get': 'view', 'logo.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view', 'presets.user': 'view',
+  // ayardaki videonun dosyası telefonun kendi motoru için (link-media.js); yol telefondan gelmez
+  'media.fetch': 'view',
   'audio.watch': 'view', 'output.list': 'view',
   // bilgisayarın güncelleme durumu (salt okunur); denetimi başlatmak düzenleme düzeyinde,
   // indirme ve kurma telefondan yok ('updates', PC'de onay gerektirir)

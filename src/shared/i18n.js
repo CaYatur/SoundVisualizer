@@ -589,6 +589,8 @@
     'Tüm ayarlar varsayılana dönecek. Emin misiniz?': 'All settings will be reset to defaults. Are you sure?',
     'Kodlanıyor': 'Encoding', 'kareler bitti, video yazılıyor.': 'frames complete, writing video.',
     'bilinmeyen hata': 'unknown error', 'Ses alınamıyor — yönetici panelinden çıkış aygıtı seçin': 'No audio — select an output device in the admin panel',
+    'Ses kaynağı seçilmedi — Ses Kaynakları\'ndan bir kaynak seçin': 'No audio source selected — choose one in Audio Sources',
+    'Ses alınamıyor — Ses Kaynakları\'ndan bir aygıt seçin': 'No audio — choose a device in Audio Sources',
     'Gün Batımı': 'Sunset', 'Okyanus': 'Ocean', 'Gece': 'Night', 'Buz': 'Ice', 'Lav': 'Lava', 'Orman': 'Forest', 'Aurora': 'Aurora',
     'Windows Dynamic Lighting': 'Windows Dynamic Lighting',
     'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.': 'Synchronizes compatible RGB devices with the visualizer colors. Disabled by default.',
