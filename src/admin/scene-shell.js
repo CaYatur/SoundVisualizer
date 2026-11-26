@@ -974,7 +974,62 @@
     return wrap;
   }
 
-  /* Ctrl+F rafın içindeyken rafın aramasını açıyor (dar rafta simgeye inmiş kutu). Raf dışında
+  /* Arama kutusu 190 px kalır. Sekme yazıları (Preset, Görsel, Zemin…) kutuya
+     değip taşacağı anda simgeye iner; yer açılınca kutu geri gelir. Odaktayken
+     kutu açık kalır, ölçüm o sırada sınıfı değiştirmez. */
+  const SHELF_SEARCH_FULL = 190;
+  let shelfFitObs = null;
+  /* Sekmeler büyümüyor; artan boşluk satırın sonunda. scrollWidth o boşluğu söylemez. */
+  function shelfRowFree(head) {
+    const cs = getComputedStyle(head);
+    const gap = parseFloat(cs.columnGap || cs.gap) || 0;
+    let used = 0;
+    let n = 0;
+    for (const el of head.children) {
+      const w = el.getBoundingClientRect().width;
+      if (w <= 0) continue;
+      used += w;
+      n++;
+    }
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    return head.clientWidth - used - gap * Math.max(0, n - 1) - pad;
+  }
+  function tabsClip(tabs) {
+    return tabs.scrollWidth > tabs.clientWidth + 1;
+  }
+  function fitShelfSearch() {
+    const shelf = document.getElementById('svShelf');
+    const head = shelf && shelf.querySelector('.sv-chead');
+    const search = head && head.querySelector('.sv-shelf-search');
+    const tabs = head && head.querySelector('.sv-tabs');
+    if (!search || !tabs) return;
+    if (search.matches(':focus-within')) return;
+    if (search.classList.contains('sv-icon')) {
+      const need = SHELF_SEARCH_FULL - search.offsetWidth;
+      if (shelfRowFree(head) >= need - 1) {
+        search.classList.remove('sv-icon');
+        head.classList.remove('sv-tight');
+      }
+    }
+    if (!search.classList.contains('sv-icon')) {
+      if (tabsClip(tabs)) search.classList.add('sv-icon');
+      else { head.classList.remove('sv-tight'); return; }
+    }
+    /* Simge de sekmelere değiyorsa çubuktaki düğmeler bir kademe küçülür. */
+    if (tabsClip(tabs)) { head.classList.add('sv-tight'); return; }
+    if (!head.classList.contains('sv-tight')) return;
+    head.classList.remove('sv-tight');
+    if (tabsClip(tabs)) head.classList.add('sv-tight');
+  }
+  function watchShelfFit() {
+    const shelf = document.getElementById('svShelf');
+    if (!shelf || shelfFitObs || typeof ResizeObserver === 'undefined') return;
+    shelfFitObs = new ResizeObserver(() => fitShelfSearch());
+    shelfFitObs.observe(shelf);
+    shelf.addEventListener('focusout', () => fitShelfSearch());
+  }
+
+  /* Ctrl+F rafın içindeyken rafın aramasını açıyor (simgeye inmiş kutu da). Raf dışında
      genel arama (admin.js) çalışmaya devam ediyor. Yakalama evresinde: genel kısayoldan önce. */
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('keydown', (e) => {
@@ -1347,37 +1402,12 @@
         class: tabOn(t) ? 'on' : '', type: 'button', role: 'tab', text: tabText(t), 'data-tab': t.id,
         onclick: () => setShelf(t.subs ? presetSub : t.id),
       }))),
-      /* Dar rafta (shell.css, kap sorgusu) arama kutusu büyüteç simgesine iniyor; tıklayınca
-         ya da Ctrl+F ile açılıyor. Sekmeler hiç gizlenmiyor, açılan kutu boyut kaydırıcısının
-         üstüne biniyor. `has`: kapalı simgede etkin süzgeç olduğu görünsün. */
+      /* Yer daralınca fitShelfSearch kutuyu simgeye indirir. Tıklayınca ya da Ctrl+F
+         ile açılır; açık kutu kaydırıcının üstüne biner. `has`: kapalı simgede süzgeç var. */
       lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' + (query ? ' has' : ''), title: tr('Ara') + ' (Ctrl+F)' }, [
         el('span', { icon: 'search' }),
         el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; e.target.parentNode.classList.toggle('has', !!query); paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
-      shelfTab === 'scenes' ? el('div', { class: 'sv-scene-tools' }, [
-        el('div', { class: 'scene-view sv-seg', role: 'group', 'aria-label': tr('Sahne düzeni') },
-          [['list', 'list', 'Liste'], ['grid', 'grid', 'Izgara']].map(([v, ic, lb]) => {
-            const view = (P().cfg() && P().cfg().ui && P().cfg().ui.sceneView === 'grid') ? 'grid' : 'list';
-            return el('button', {
-              class: 'icon-btn small' + (view === v ? ' on' : ''), type: 'button', icon: ic,
-              title: tr(lb), 'aria-label': tr(lb), 'aria-pressed': String(view === v),
-              onclick: () => {
-                const c = P().cfg();
-                c.ui = c.ui || {};
-                if (c.ui.sceneView === v) return;
-                c.ui.sceneView = v;
-                if (P().push) P().push(true);
-                if (P().renderScenes) P().renderScenes();
-                paint();
-              },
-            });
-          })),
-        el('button', {
-          class: 'btn small sv-scene-save', type: 'button', icon: 'plus', text: tr('Kaydet'),
-          title: tr('Mevcut görünümü yeni sahne olarak kaydet'),
-          onclick: () => { P().saveScene(); paint(); },
-        }),
-      ]) : null,
       lib ? el('label', { class: 'sv-card-size', title: tr('Kart boyu (Ctrl + tekerlek)') }, [
         el('span', { icon: 'grid' }),
         el('input', {
@@ -1403,6 +1433,8 @@
       }, { passive: false });
     }
     paintShelfBody(host);
+    watchShelfFit();
+    fitShelfSearch();
     const c = document.getElementById('svCenter');
     if (c) c.classList.toggle('tall', !shelfOpen);
   }

@@ -238,9 +238,11 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: var(--
 /* Raf kapalı (#1140 sonrası): raf yalnız sekme çubuğu kadar, önizleme boşalan yeri alıyor.
    Eskiden raf `flex: 1` ile kalan yüksekliği tutuyordu; sahne 16:9 genişliğe dayanınca
    büyüyemiyor, rafın içi boşalıyor ama alanı küçülmüyordu. Önizleme kutusu artık esniyor ve
-   çerçeve kutunun ortasında; geniş pencerede de yer kalırsa üstte/altta eşit boşluk. */
-.sv-center.tall > .sv-shelf { flex: none; }
-.sv-center.tall > .sv-stagebox { flex: 1 1 auto; height: auto; align-items: center; }
+   çerçeve kutunun ortasında; geniş pencerede de yer kalırsa üstte/altta eşit boşluk.
+   `min-height: 0` ve `overflow: hidden` yüzünden `flex: none` rafı 0 px'e indiriyordu:
+   açma düğmesi kartın içinde kırpılıp pencerenin altında kalıyordu. 50 px, sekme çubuğu. */
+.sv-center.tall > .sv-shelf { flex: none; height: 50px; min-height: 50px; }
+.sv-center.tall > .sv-stagebox { flex: 1 1 auto; height: auto; min-height: 0; align-items: center; overflow: hidden; }
 /* Ayraçlar: panellerin arasındaki 10 px boşluğun üstünde, yerleşimi değiştirmiyorlar */
 .sv-split { position: absolute; z-index: 6; touch-action: none; }
 /* Klavye odağı: kutu çerçevesi yerine ayracın ortasında ince çizgi */
@@ -336,15 +338,15 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-shelf .sv-shelf-mode { height: 34px; align-items: center; box-sizing: border-box; }
 .sv-shelf .sv-shelf-search,
 .sv-shelf .sv-card-size,
-.sv-shelf .sv-chead > .sv-ib,
-.sv-shelf .sv-scene-tools {
+.sv-shelf .sv-chead > .sv-ib {
   display: flex; align-items: center; justify-content: center;
   height: 34px; line-height: 0; margin: 0; box-sizing: border-box;
 }
 .sv-shelf .sv-chead > .sv-ib.sm { width: 34px; height: 34px; }
-.sv-shelf .sv-scene-tools { gap: 8px; flex: none; }
-.sv-shelf .sv-scene-tools .sv-scene-save { height: 34px; }
-#svShelf #dockScenes .dock-head { display: none; }
+/* Arama, kart boyu ve rafı kapat sağ kenarda bir arada dursun. */
+.sv-shelf .sv-chead > .sv-shelf-search,
+.sv-shelf .sv-chead > .sv-grow { margin-left: auto; }
+#svShelf #dockScenes .dock-head { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0 0 8px; padding: 0 2px; }
 .sv-shelf-mode { display: flex; gap: 2px; padding: 3px; border-radius: 11px; background: rgb(var(--fg-rgb) / .05); flex: none; }
 .sv-shelf-mode button { width: 34px; height: 28px; border: 0; border-radius: 8px; background: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; }
 .sv-shelf-mode button .svi { width: 16px; height: 16px; }
@@ -355,8 +357,22 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-tabs button { height: 34px; padding: 0 11px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 550; white-space: nowrap; flex: none; cursor: pointer; }
 .sv-tabs button:hover { color: var(--text); background: rgb(var(--fg-rgb) / .05); }
 .sv-tabs button.on { color: var(--text-strong); background: rgb(var(--fg-rgb) / .09); }
-.sv-shelf-search { flex: 0 1 190px; min-width: 110px; height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border-radius: 10px; background: rgb(var(--fg-rgb) / .055); color: var(--muted2); margin-left: auto; }
+/* Kutu küçülmez: sekme yazıları ona değeceği anda simgeye iner (fitShelfSearch). */
+.sv-shelf-search { flex: 0 0 190px; width: 190px; min-width: 190px; height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border-radius: 10px; background: rgb(var(--fg-rgb) / .055); color: var(--muted2); margin-left: auto; }
+.sv-shelf-search.sv-icon:not(:focus-within) { flex: 0 0 34px; width: 34px; min-width: 34px; height: 34px; padding: 0; justify-content: center; cursor: pointer; position: relative; overflow: hidden; }
+.sv-shelf-search.sv-icon:not(:focus-within) input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.sv-shelf-search.sv-icon.has:not(:focus-within) { color: var(--accent-text); background: rgb(var(--accent-rgb) / .22); }
+.sv-shelf-search.sv-icon:focus-within { position: absolute; z-index: 4; right: 8px; top: 8px; width: min(190px, calc(100% - 16px)); min-width: 0; height: 34px; margin: 0; background: var(--card2); box-shadow: 0 0 0 2px var(--accent2); }
 .sv-shelf-search .svi { width: 14px; height: 14px; flex: none; }
+/* Arama simgesi de sekmelere değince çubuktaki düğmeler bir kademe küçülür. */
+.sv-shelf .sv-chead.sv-tight { gap: 4px; padding-left: 6px; padding-right: 6px; }
+.sv-shelf .sv-chead.sv-tight .sv-tabs button { height: 30px; padding: 0 6px; font-size: 12px; }
+.sv-shelf .sv-chead.sv-tight .sv-shelf-mode { height: 30px; padding: 2px; }
+.sv-shelf .sv-chead.sv-tight .sv-shelf-mode button { width: 28px; height: 24px; }
+.sv-shelf .sv-chead.sv-tight .sv-shelf-mode button .svi { width: 14px; height: 14px; }
+.sv-shelf .sv-chead.sv-tight > .sv-ib.sm { width: 28px; height: 28px; }
+.sv-shelf .sv-chead.sv-tight .sv-shelf-search.sv-icon:not(:focus-within) { flex-basis: 28px; width: 28px; min-width: 28px; height: 28px; }
+.sv-shelf .sv-chead.sv-tight .sv-card-size input[type='range'] { width: 64px; }
 .sv-shelf-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: none; font-size: 12.5px; color: var(--text); }
 .sv-target { padding: 0 14px 8px; font-size: 12px; color: var(--muted2); }
 /* Preset sekmesi: MilkDrop | Studio düğmeleri hedef satırıyla aynı satırda */
@@ -631,8 +647,13 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
   background: rgb(var(--fg-rgb) / .08); color: var(--text);
 }
 .scene-item.active .scene-num { background: var(--accent); color: var(--on-accent); }
-.scene-view { display: inline-flex; gap: 4px; margin-left: auto; margin-right: 6px; }
-.scene-view .icon-btn.on { background: rgb(var(--accent-rgb) / .18); color: var(--accent); }
+.scene-view { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; margin-right: 6px; padding: 3px; border-radius: 11px; background: rgb(var(--fg-rgb) / .05); }
+.scene-view .icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 28px; padding: 0; border: 0;
+}
+.scene-view .icon-btn .svi { display: block; margin: 0; }
+.scene-view .icon-btn.on { background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); }
 
 /* Satır içi ad düzenleme (#957): kutu satır düğmelerinin üstüne binmesin */
 .sv-lt.sv-renaming .sv-lt-acts, .sv-lt.sv-renaming .sv-op { display: none; }
@@ -659,22 +680,11 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 #svShelf .md-grid .md-thumb-box, #svShelf .sv-gi .sv-th { aspect-ratio: 16 / 9; }
 #svShelf .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); }
 
-/* DAR RAF. Sekmeler hiç gizlenmiyor ya da alt satıra
-   inmiyor: yer gerçekten daralınca arama kutusu
-   büyüteç simgesine iniyor. Simgeye tıklayınca (ya da raf içindeyken Ctrl+F) kutu sağda,
-   kaydırıcının üstüne binerek açılıyor; sekmelerin yerine dokunmuyor. Geniş rafta hiçbir şey
-   değişmiyor. */
-/* Sıkışık raf (~1024 px pencere, orta sütun ~520 px). 1280+ genişlikte
-   (raf ~700 px) buraya girilmez: aralıklar ve kart boyu kaydırıcısı normal kalır.
-   Önce yalnız arama simgeye iner; kaydırıcı ancak gerçekten daralınca kısalır. */
+/* Dar rafta aralıklar sıkışır. Arama kutusu burada genişliğe göre simge
+   olmuyor: sekme yazılarına değdiği anda fitShelfSearch simgeye alır. */
 @container svshelf (max-width: 640px) {
   .sv-shelf .sv-chead { gap: 6px; padding-left: 8px; padding-right: 8px; }
   .sv-tabs button { padding: 0 8px; }
-  .sv-shelf-search:not(:focus-within) { flex: none; width: 34px; min-width: 34px; height: 34px; padding: 0; justify-content: center; cursor: pointer; position: relative; overflow: hidden; }
-  .sv-shelf-search:not(:focus-within) input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-  .sv-shelf-search.has:not(:focus-within) { color: var(--accent-text); background: rgb(var(--accent-rgb) / .22); }
-  .sv-shelf-search:focus-within { position: absolute; z-index: 4; right: 8px; top: 8px; width: min(168px, calc(100% - 16px)); height: 34px; margin: 0; background: var(--card2); box-shadow: 0 0 0 2px var(--accent2); }
-  .sv-shelf .sv-scene-tools .sv-scene-save { font-size: 0; padding: 0 10px; gap: 0; }
 }
 @container svshelf (max-width: 480px) {
   .sv-tabs button { padding: 0 5px; font-size: 12.5px; }
@@ -684,33 +694,61 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
   .sv-seg button { padding: 0 9px; }
 }
 
-/* Önizleme modu (#1167): yayında olmayan taslak yeşil çerçeve, Program monitörü kırmızı */
+/* Önizleme şeridi: üst çubukla aynı düğme boyu ve kart yüzeyi. */
 .sv-pvw-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px;
-  background: rgb(var(--ok-rgb) / .1); border-bottom: 1px solid rgb(var(--fg-rgb) / .1);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 0 12px 10px; padding: 8px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card) 93%, transparent), color-mix(in srgb, var(--card-end) 93%, transparent));
+  box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .07);
 }
 .sv-pvw-bar[hidden] { display: none; }
-.sv-pvw-badge { font-weight: 700; font-size: 12px; color: var(--ok); margin-right: 6px; white-space: nowrap; }
-.sv-pvw-pgm { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 8px; box-shadow: 0 0 0 2px var(--danger); }
-.sv-pvw-pgmlbl { font-size: 10px; font-weight: 700; color: var(--danger-text); }
-.sv-pvw-mon { width: 96px; height: 54px; object-fit: contain; background: rgb(var(--fg-rgb) / .06); border-radius: 4px; }
+.sv-pvw-badge {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 10px;
+  background: rgb(var(--ok-rgb) / .14); color: var(--ok); font-weight: 650; font-size: 12.5px; white-space: nowrap;
+}
+.sv-pvw-pgm {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px 0 10px;
+  border-radius: 10px; background: rgb(var(--fg-rgb) / .05);
+}
+.sv-pvw-pgmlbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--danger-text); }
+.sv-pvw-mon { width: 48px; height: 27px; object-fit: contain; background: rgb(var(--fg-rgb) / .06); border-radius: 6px; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .12); }
 .sv-pvw-mon[hidden], .sv-pvw-monnote[hidden], .sv-pvw-secs[hidden] { display: none; }
-.sv-pvw-monnote { font-size: 11px; color: var(--muted); }
+.sv-pvw-monnote { font-size: 12px; color: var(--muted); }
+.sv-pvw-bar select, .sv-pvw-bar input[type='number'] {
+  height: 32px; border: 0; border-radius: 9px; background: rgb(var(--fg-rgb) / .07); color: var(--text);
+  padding: 0 8px; font: inherit; font-size: 12.5px; font-weight: 550;
+}
 .sv-pvw-bar select, .sv-pvw-bar input { width: auto; flex: 0 0 auto; }
-.sv-pvw-bar .sv-pvw-secs { width: 56px; }
-.sv-pvw-beatlbl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
-.sv-pvw-sep { width: 1px; height: 22px; background: rgb(var(--fg-rgb) / .12); margin: 0 2px; }
-.sv-pvw-bar .btn.on { background: var(--danger); color: var(--on-solid); }
+.sv-pvw-bar .sv-pvw-secs { width: 64px; }
+.sv-pvw-beatlbl {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 9px;
+  background: rgb(var(--fg-rgb) / .05); color: var(--text); font-size: 12.5px; font-weight: 550;
+}
+.sv-pvw-beatlbl input { accent-color: var(--accent); margin: 0; }
+.sv-pvw-sep { width: 1px; height: 20px; background: rgb(var(--fg-rgb) / .1); margin: 0 2px; flex: none; }
+.sv-pvw-bar .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 10px; border: 0; border-radius: 9px;
+  background: rgb(var(--fg-rgb) / .07); color: var(--text); font-weight: 600; box-shadow: none;
+}
+.sv-pvw-bar .btn:hover { background: rgb(var(--fg-rgb) / .12); filter: none; }
+.sv-pvw-bar .btn.primary {
+  background: linear-gradient(180deg, var(--accent-grad), var(--accent)); color: var(--on-accent);
+  box-shadow: 0 6px 16px rgb(var(--accent-rgb) / .28), inset 0 1px 0 rgb(var(--fg-rgb) / .16);
+}
+.sv-pvw-bar .btn .svi { width: 15px; height: 15px; margin: 0; display: block; }
+.sv-pvw-bar .btn.on { background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); }
+.sv-pvw-bar .btn:disabled { opacity: .45; }
 .sv-pvw-take.wait { opacity: .7; }
 body[data-preview-mode] #previewStage { box-shadow: 0 0 0 3px var(--ok); }
-.sv-pvw-bar .sv-pvw-lbl { margin-left: 6px; }
 /* Dar pencere: düğmeler yalnız ikon, Sahneye Gönder yazılı kalır (#1168) */
 @media (max-width: 1440px) {
   .sv-pvw-bar .btn:not(.sv-pvw-take) .sv-pvw-lbl { display: none; }
   .sv-pvw-beatlbl .sv-pvw-lbl { display: none; }
-  .sv-pvw-bar { gap: 4px; }
+  .sv-pvw-bar { gap: 6px; }
   .sv-pvw-monnote { display: none; }
 }
 /* Program monitörü: üzerine gelince büyür (çubuk tek satır kalır) */
-.sv-pvw-mon { transition: transform .12s ease; transform-origin: top left; }
-.sv-pvw-mon:hover { transform: scale(3.2); position: relative; z-index: 60; box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / .35); }
+.sv-pvw-mon { transition: transform .12s ease; transform-origin: center left; }
+.sv-pvw-mon:hover { transform: scale(2.6); position: relative; z-index: 60; box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / .35); }
