@@ -261,7 +261,7 @@ test('panel ve ölçüm aynı dosyayı yüklüyor', () => {
   assert.match(p, /left: synthLeft, right: synthRight/);
   assert.doesNotMatch(p, /Math\.sin\(p \* 3 \+ t \* 6\)/, 'eski üç sinüs duruyor');
   assert.match(p, /function sourcesOff\(\)/);
-  assert.match(p, /if \(sourcesOff\(\)\)/);
+  assert.match(p, /if \(sourcesOff\(\) && !demoForced\)/);
 
   /* Geç gelen yakalama karesi, boş kaynakta çipi "Yakalanıyor"a geri çevirmesin. */
   const admin = read('src/admin/admin.js');

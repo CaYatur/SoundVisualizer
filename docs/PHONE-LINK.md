@@ -312,6 +312,8 @@ the desktop. The shared reference is the id of a video in the desktop's video li
   (or `{ file, at }` for a video that is in the settings but not in the library) part by part, writes
   the file into its own library under the same id and draws its own address. Only a library video or
   a video address already in the settings is read; at most 512 MB, 256 KB per part.
+- **Timeline video clips** keep `libraryId` next to `ref` (`src/shared/timeline.js` `makeClip`), so a
+  clip the phone picked is translated the same way as a media layer.
 
 ## Desktop panel
 

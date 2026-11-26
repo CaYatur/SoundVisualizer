@@ -207,8 +207,14 @@
      gittiği için orada gösterilmez (visualizer.js). Kaynak hiç seçilmemişse ve seçili
      kaynaktan kare gelmiyorsa iki ayrı cümle; kare gelince gizlenir. */
   let audioHintKey = '';
+  /* Rozetin seçimi (Canlı / Demo). Demo seçiliyken gelen gerçek kareler önizlemeye
+     girmez: görselleştirici açıkken ana süreç kare yollamayı sürdürüyor, eskiden bu
+     kareler önizlemeyi "Canlı"da tutuyor, rozete tıklamak hiçbir şeyi değiştirmiyordu.
+     Bağlantı (lastAnyFrame) Demo'dayken de izlenir: Canlı'ya dönülünce ses yoksa uyarılır. */
+  let demoForced = false;
+  let lastAnyFrame = 0;
   function audioHintText(live, now) {
-    if (live || now - lastRealFrame < 1500) return '';
+    if (demoForced || live || now - lastRealFrame < 1500) return '';
     return sourcesOff()
       ? 'Ses kaynağı seçilmedi — Ses Kaynakları\'ndan bir kaynak seçin'
       : 'Ses alınamıyor — Ses Kaynakları\'ndan bir aygıt seçin';
@@ -234,7 +240,7 @@
       /* Ses kaynağı bilerek kapatıldıysa (Ses Kaynakları'nda hiçbiri) önizleme sessiz kalır,
          demoya geçmez; demo isteyen "Demo ses"i seçer (ana süreç örnek sesi gerçek kare gibi
          yollar). */
-      if (sourcesOff()) {
+      if (sourcesOff() && !demoForced) {
         synthFreq.fill(0); synthTime.fill(128); synthLeft.fill(128); synthRight.fill(128);
         audio.ingestFrame(synthFrame);
       } else audio.ingestFrame(buildSyntheticFrame(t));
@@ -432,7 +438,9 @@
 
   function ingest(f) {
     if (!audio || !f || !f.freq) return;
-    lastRealFrame = performance.now();
+    lastAnyFrame = performance.now();
+    if (demoForced) return;
+    lastRealFrame = lastAnyFrame;
     audio.ingestFrame(f);
   }
 
@@ -473,5 +481,10 @@
     getLevels,
     isPaused: () => paused,
     isLive: () => liveSource,
+    // Rozet: Demo seçiliyken gerçek kareler yok sayılır (çıkışlar etkilenmez)
+    setDemo: (on) => { demoForced = !!on; if (demoForced) lastRealFrame = 0; },
+    isDemo: () => demoForced,
+    // Ana süreçten son `ms` içinde (sessiz de olsa) ses karesi geldi mi
+    hasConnection: (ms) => performance.now() - lastAnyFrame < (ms || 1500),
   };
 })();

@@ -36,6 +36,10 @@
   let sceneActionInFlight = false; // sahne uygula/kaydet sırasındaki push'lar vurguyu silmesin
   // Önizlemenin gerçek sesi yakalaması kullanıcı isteğine bağlıdır (varsayılan: demo)
   let previewWantsLive = localStorage.getItem('sv-preview-live') === '1';
+  // Önizleme rozeti (setupPreview kurar) ve Canlı'ya geçince bağlantı denetimi
+  let paintPreviewPill = () => {};
+  let previewLiveCheck = 0;
+  const PREVIEW_LIVE_WAIT = 1500;
   let previewReady = false;
   // Genişletilmiş aralıklar: kaydırıcıların üst sınırını 5 katına çıkarır
   let extendedRange = localStorage.getItem('sv-extended-range') === '1';
@@ -6190,13 +6194,19 @@
     if (!window.SVPreview) return;
     const pill = $('previewSource');
 
+    /* Rozet SEÇİMİ gösterir (Canlı / Demo), gelen sesi değil. Eskiden gelen sesi
+       gösteriyor, tıklama ise gizli bir tercihi çeviriyordu: görselleştirici açıkken
+       kareler zaten geldiği için "Canlı"ya tıklamak Demo'ya geçmiyordu; tercih zaten
+       açıkken "Demo"ya tıklamak onu kapatıyordu, rozet yine Demo kalıyordu. */
     const setPill = (live) => {
       if (!pill) return;
-      pill.textContent = live ? 'Canlı' : 'Demo';
-      pill.title = live
-        ? 'Gerçek ses yakalanıyor — demo sinyaline dönmek için tıklayın'
-        : 'Örnek sinyalle sürülüyor — gerçek sesi yakalamak için tıklayın';
-      pill.classList.toggle('live', live);
+      pill.textContent = previewWantsLive ? 'Canlı' : 'Demo';
+      pill.title = !previewWantsLive
+        ? 'Örnek sinyalle sürülüyor — gerçek sesi yakalamak için tıklayın'
+        : live
+          ? 'Gerçek ses yakalanıyor — demo sinyaline dönmek için tıklayın'
+          : 'Canlı seçili ama ses gelmiyor — demo sinyaline dönmek için tıklayın';
+      pill.classList.toggle('live', previewWantsLive && live);
       // Gerçek ses kesildiğinde çubuklar donmuş değerde kalmasın
       if (!live && !visOpen) ['mLevel', 'mBass', 'mMid', 'mTreble'].forEach((id) => setMeter(id, 0));
     };
@@ -6204,6 +6214,8 @@
     const ok = window.SVPreview.init({ onSourceChange: setPill });
     if (!ok) return; // önizleme kurulamadı: kare de istemeyiz (bkz. syncPreviewSubscription)
     previewReady = true;
+    paintPreviewPill = () => setPill(window.SVPreview.isLive());
+    if (window.SVPreview.setDemo) window.SVPreview.setDemo(!previewWantsLive);
     setPill(false);
     window.SVPreview.setConfig(outputConfig());
 
@@ -6216,11 +6228,7 @@
 
     if (pill) {
       pill.style.cursor = 'pointer';
-      pill.addEventListener('click', () => {
-        previewWantsLive = !previewWantsLive;
-        localStorage.setItem('sv-preview-live', previewWantsLive ? '1' : '0');
-        syncPreviewSubscription();
-      });
+      pill.addEventListener('click', () => setPreviewLive(!previewWantsLive, true));
     }
 
     // Görselleştirici kapalıyken ana süreçten 'audio-meter' gelmez; önizleme
@@ -6285,9 +6293,25 @@
      değişmediği görülüyordu. Seçim rozete tıklamakla aynı sayılır; rozet yine geri alır. */
   function wantPreviewLive() {
     if (previewWantsLive) return;
-    previewWantsLive = true;
-    localStorage.setItem('sv-preview-live', '1');
+    setPreviewLive(true, false);
+  }
+  /* Önizlemenin sesi: Canlı (ana süreçten gelen kareler) ya da Demo (örnek sinyal).
+     Seçim her zaman uygulanır. Canlı'ya geçilip hiç ses bağlantısı yoksa (kare gelmiyor,
+     sessiz kare de yok) uyarılır; bağlı ama sessizse uyarı yok. */
+  function setPreviewLive(on, warn) {
+    previewWantsLive = !!on;
+    localStorage.setItem('sv-preview-live', previewWantsLive ? '1' : '0');
+    if (window.SVPreview && window.SVPreview.setDemo) window.SVPreview.setDemo(!previewWantsLive);
     syncPreviewSubscription();
+    paintPreviewPill();
+    clearTimeout(previewLiveCheck);
+    if (!previewWantsLive || !warn) return;
+    previewLiveCheck = setTimeout(() => {
+      paintPreviewPill();
+      const SP = window.SVPreview;
+      if (!previewWantsLive || !SP || !SP.hasConnection || SP.hasConnection(PREVIEW_LIVE_WAIT)) return;
+      svToast('Canlı ses bağlantısı yok — önizleme ses alamıyor. Ses Kaynakları\'ndan bir kaynak seçin.', 'warn');
+    }, PREVIEW_LIVE_WAIT + 200);
   }
 
   function syncPreviewSubscription() {
