@@ -681,6 +681,8 @@
       }
       this._wantPlay = false;
       this._playing = null;
+      this._heldOk = false;
+      this._seekAt = 0;
       try {
         this.video.onloadeddata = null;
         this.video.onerror = null;
@@ -737,7 +739,10 @@
        Eskiden her karede pause() + currentTime yazılıyordu: video hiç oynamıyor, yalnız
        sarmanın bittiği seyrek karelerde görüntü değişiyordu (anahtar karesi seyrek
        videolarda donmuş tek kare). Çizelge DURAKKEN video duraklatılır ve oynatma
-       kafasının karesine sarılır. Geri oynatma (reverse) her zaman kare kare sarılır. */
+       kafasının karesine sarılır. Geri oynatma (reverse) her zaman kare kare sarılır.
+       `rate` eksiyse çizelge geri oynuyor (J): her sarma, bittiği ana göre önden (ölçülen
+       sarma süresi × hız kadar geriden) hedeflenir; görüntü kafanın arkasında kalmaz.
+       Sarma sürerken son kare tutulur (_hold), arada siyah kare görünmez. */
     seekTimeline(sec, playing, rate) {
       if (this.offline || this._source !== 'file') return;
       this._tlDriven = true;
@@ -745,16 +750,26 @@
       if (!(d > 0) || !isFinite(d) || v.readyState < 1) { this._pause(); return; }
       const target = transportTime(sec, d, Object.assign({}, this._m, { loop: v.loop }), this._bpm || 0);
       const m = this._m || {};
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      // Son sarmanın süresi (ms, yumuşatılmış): geri oynatmanın önden hedeflemesi için
+      if (this._seekAt && !v.seeking) {
+        const ms = Math.min(1000, now - this._seekAt);
+        this._seekLag = this._seekLag ? this._seekLag * 0.7 + ms * 0.3 : ms;
+        this._seekAt = 0;
+      }
+      const back = Number(rate) < 0;
       const seek = (tol) => {
         if (v.seeking || !(Math.abs(v.currentTime - target) > tol)) return;
-        try { v.currentTime = target; } catch { /* dosya henüz hazır değil */ }
+        const lead = back ? Math.min(0.5, Math.abs(Number(rate)) * (this._seekLag || 0) / 1000) : 0;
+        this._hold();
+        try { v.currentTime = Math.max(0, target - lead); this._seekAt = now; } catch { /* dosya henüz hazır değil */ }
       };
-      if (!playing || m.reverse === true) {
+      if (!playing || back || m.reverse === true) {
         this._pause();
         seek(1 / 120);
         return;
       }
-      const clipRate = Number(rate) > 0 ? Number(rate) : 1;
+      const clipRate = Math.abs(Number(rate)) > 0 ? Math.abs(Number(rate)) : 1;
       const layerRate = speedReactOn(m) && this._rate > 0 ? this._rate : clampRate(m.speed, 1);
       const want = Math.max(0.0625, Math.min(16, clipRate * layerRate));
       if (Math.abs(v.playbackRate - want) > 1e-3) v.playbackRate = want;
@@ -793,6 +808,17 @@
         timer = setTimeout(() => fin(false), 5000);
         v.currentTime = target;
       });
+    }
+
+    /* Sarmadan önce son kare: sarma sürerken öğenin karesi düşebilir (readyState < 2),
+       çizelge videosu o arada bu kareyle çizilir. Kaynak değişince (stop) atılır. */
+    _hold() {
+      const v = this.video;
+      if (typeof document === 'undefined' || !(v.readyState >= 2) || !(v.videoWidth > 0)) return;
+      const c = this._held || (this._held = document.createElement('canvas'));
+      if (c.width !== v.videoWidth) c.width = v.videoWidth;
+      if (c.height !== v.videoHeight) c.height = v.videoHeight;
+      try { c.getContext('2d').drawImage(v, 0, 0); this._heldOk = true; } catch { this._heldOk = false; }
     }
 
     hasFrame() {
@@ -899,7 +925,9 @@
            sekme arka planda) ya da döngüsü açık videonun durması kendiliğinden toparlanır. */
         else if (this.video.paused && this.video.loop && this.video.readyState >= 2 && !this._playing) this._play();
       }
-      if (!this.hasFrame()) {
+      // Çizelge videosu sarılırken son tutulan kare (siyah kare yerine)
+      const held = !this.hasFrame() && this._tlDriven && this._heldOk && !this.error ? this._held : null;
+      if (!this.hasFrame() && !held) {
         /* Hata yazısı yalnız yönetici panelinin önizlemesinde. Çıkış,
            yüzen pencere ve yayın sayfası seyirciye gider: kamera yokken
            "Seçilen kamera bulunamadı" ve %55 karartma projeksiyonda
@@ -929,7 +957,7 @@
         return;
       }
 
-      const pic = this.drawable();
+      const pic = held || this.drawable();
       const vw = pic.videoWidth || pic.width;
       const vh = pic.videoHeight || pic.height;
       const kb = kenBurns(m, t);

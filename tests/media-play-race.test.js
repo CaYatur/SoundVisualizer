@@ -13,13 +13,13 @@ const vm = require('vm');
 
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
-function load() {
+function load(clock) {
   const videos = [];
   const el = (tag) => {
     const v = {
       tag, paused: true, readyState: 0, duration: NaN, currentTime: 0, playbackRate: 1, seeking: false,
       loop: true, error: null, onerror: null, onloadeddata: null, plays: 0, pauses: 0,
-      removeAttribute() {}, load() {}, getContext: () => ({}),
+      removeAttribute() {}, load() {}, getContext: () => ({ drawImage() {} }), videoWidth: 0, videoHeight: 0,
       play() {
         v.plays++;
         return new Promise((resolve, reject) => { v._resolve = () => { v.paused = false; resolve(); }; v._reject = reject; });
@@ -39,6 +39,7 @@ function load() {
     setTimeout, clearTimeout, setInterval, clearInterval, URLSearchParams, Promise,
     fetch: () => Promise.resolve({ status: 200 }),
   };
+  if (clock) ctx.performance = { now: () => clock.t };
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(read('src/visualizer/modes/media.js'), ctx);
@@ -132,5 +133,62 @@ test('Renderer: oynarken/dururken, taşıma hızı ve geri oynatma videoya doğr
   r.draw(ctx, { units: [unit], time: 2, playing: true, rate: 2 }, null, 0, 0.016, 10, 10);
   r.draw(ctx, { units: [unit], time: 2, playing: false }, null, 0, 0.016, 10, 10);
   r.draw(ctx, { units: [unit], time: 2, playing: true, rate: -1 }, null, 0, 0.016, 10, 10);
-  assert.deepStrictEqual(seen, [[2, true, 3], [2, false, 1.5], [2, false, 1.5]]);
+  assert.deepStrictEqual(seen, [[2, true, 3], [2, false, 1.5], [2, false, -1.5]], 'geri oynatmada hız eksi gider');
+});
+
+test('geri oynatma (J): sarma ölçülen sarma süresi kadar önden hedeflenir, son kare tutulur', async () => {
+  const clock = { t: 1000 };
+  const env = load(clock);
+  const m = new env.ctx.SVMedia();
+  m.apply({ enabled: true, source: 'file', file: 'sv-media://local/a.mp4', loop: true });
+  const v = env.videos[0];
+  v._resolve(); await flush();
+  Object.assign(v, { duration: 10, readyState: 4, currentTime: 5, videoWidth: 64, videoHeight: 36 });
+  m.seekTimeline(4, true, -2);
+  assert.strictEqual(v.paused, true, 'geri oynatmada video oynamaz');
+  assert.strictEqual(v.currentTime, 4, 'ilk sarmada süre bilinmiyor: tam hedef');
+  assert.strictEqual(m._heldOk, true, 'sarmadan önce son kare tutuldu');
+  // Sarma 100 ms sürdü; sonraki sarma 2× hızda 0,2 sn önden hedeflenir
+  clock.t += 100;
+  m.seekTimeline(3.8, true, -2);
+  assert.ok(Math.abs(v.currentTime - 3.6) < 1e-9, 'önden hedef: ' + v.currentTime);
+  // Sarma sürerken kare düşse de çizim tutulan kareyle yapılır
+  assert.match(read('src/visualizer/modes/media.js'), /const held = !this\.hasFrame\(\) && this\._tlDriven && this\._heldOk && !this\.error \? this\._held : null;/);
+  assert.match(read('src/visualizer/modes/media.js'), /const pic = held \|\| this\.drawable\(\);/);
+  // Kaynak değişince tutulan kare atılır
+  m.apply({ enabled: true, source: 'file', file: 'sv-media://local/b.mp4', loop: true });
+  assert.strictEqual(m._heldOk, false);
+});
+
+test('Renderer: geri sarmada yığın yeniden kurulur ama video oynatıcıları korunur', () => {
+  global.window = global.window || {};
+  const { Renderer } = require('../src/visualizer/timeline-render.js');
+  const made = [];
+  const disposed = [];
+  const stack = () => {
+    const s = {
+      _mediaPool: null, setConfig() {}, setPostFX() {}, resize() {}, _ensureComp() {},
+      syncMedia() {
+        // LayerStack gibi: havuz yoksa kurulur, aynı anahtar yeniden açılmaz
+        if (!this._mediaPool) this._mediaPool = new Map();
+        if (!this._mediaPool.has('f')) this._mediaPool.set('f', { offline: false, seekTimeline() {}, dispose() { disposed.push(this); } });
+      },
+      compCanvas: { width: 0, height: 0 }, compCtx: {}, drawTo() {},
+      dispose() { if (this._mediaPool) for (const m of this._mediaPool.values()) m.dispose(); this._mediaPool = null; },
+    };
+    made.push(s);
+    return s;
+  };
+  const canvas = () => ({ width: 0, height: 0, getContext: () => ({}) });
+  const r = new Renderer({ canvas, stack, compositor: () => ({ compose() {} }) });
+  const ctx = { save() {}, restore() {}, setTransform() {}, clearRect() {}, fillRect() {}, drawImage() {}, canvas: {} };
+  const unit = (id, t) => ({ id, opacity: 1, localTime: t, rate: 1, cfg: { a: id }, layers: [] });
+  r.draw(ctx, { units: [unit('v', 5), unit('w', 5)], time: 5, playing: true }, null, 0, 0.016, 10, 10);
+  const player = made[0]._mediaPool.get('f');
+  const other = made[1]._mediaPool.get('f');
+  // Döngü başı: zaman geri gitti, 'w' klibi artık yok
+  r.draw(ctx, { units: [unit('v', 0)], time: 0, playing: true }, null, 0, 0.016, 10, 10);
+  assert.strictEqual(made.length, 3, 'yığın yeniden kuruldu (belirlenimcilik)');
+  assert.strictEqual(made[2]._mediaPool.get('f'), player, 'aynı video öğesi: yeniden yüklenmez, siyah kare yok');
+  assert.deepStrictEqual(disposed, [other], 'yalnız artık çizilmeyen klibin oynatıcısı kapanır');
 });
