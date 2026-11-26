@@ -69,10 +69,47 @@ test('Studio rafı: kategori, favori ve arama süzgeci; her preset bir kez', () 
 
 test('Studio rafı: kart katmana uygular, Ctrl+F raf aramasını açar, küçük resim paylaşılır', () => {
   assert.match(SHELL, /window\.SVLayers\.setLayerMode\(cfg, l, \{ type: 'custom', presetId: p\.id, reveal: true \}\)/);
-  assert.match(SHELL, /let l = cur && cur\.kind === want && !cur\.locked \? cur : null;/);
+  assert.match(SHELL, /function studioApplyTarget\(cur\)/);
   assert.match(SHELL, /studio: \{\s*sel: '\.sv-gi\[data-cur\]'/);
   assert.match(SHELL, /String\(e\.key \|\| ''\)\.toLowerCase\(\) !== 'f'/);
   const studio = read('src/admin/studio.js');
   assert.match(studio, /window\.SVStudio = \{[^}]*thumbAsync, importAny \}/);
   assert.match(studio, /v\.w === THUMB_W/);
+});
+
+function studioTargetFn() {
+  const isSrc = SHELL.match(/function isStudioLayer\(l\) \{[\s\S]*?\n  \}/)[0];
+  const tSrc = SHELL.match(/function studioApplyTarget\(cur\) \{[\s\S]*?\n  \}/)[0];
+  // eslint-disable-next-line no-new-func
+  return new Function('return (function(){ ' + isSrc + '\n' + tSrc + '\n return { isStudioLayer, studioApplyTarget }; })();')();
+}
+
+test('Studio uygulama: seçili kilitsiz Studio katmanı (zemin veya görsel) yerinde, seçimsiz yeni katman', () => {
+  const { isStudioLayer, studioApplyTarget } = studioTargetFn();
+  const bg = { id: 's1', kind: 'background', type: 'custom', name: 'Su Kostikleri — Studio' };
+  const vis = { id: 's2', kind: 'visualizer', type: 'custom', name: 'Frekans Halkaları — Studio' };
+  const bars = { id: 'v1', kind: 'visualizer', type: 'bars', name: 'Barlar' };
+  const locked = { id: 's3', kind: 'background', type: 'custom', locked: true };
+  assert.strictEqual(isStudioLayer(bg), true);
+  assert.strictEqual(isStudioLayer(vis), true);
+  assert.strictEqual(isStudioLayer(bars), false);
+  assert.deepStrictEqual(studioApplyTarget(bg), { apply: true });
+  assert.deepStrictEqual(studioApplyTarget(vis), { apply: true });
+  assert.deepStrictEqual(studioApplyTarget(null), { create: true });
+  assert.deepStrictEqual(studioApplyTarget(undefined), { create: true });
+  assert.strictEqual(studioApplyTarget(bars).error, 'WRONG_KIND');
+  assert.strictEqual(studioApplyTarget(locked).error, 'LOCKED');
+});
+
+test('Studio rafı: uymayan seçimde MilkDrop ile aynı kilit bandı ve çevirme', () => {
+  assert.match(SHELL, /shelfTab !== 'vis' && shelfTab !== 'bg' && shelfTab !== 'milkdrop' && shelfTab !== 'studio'/);
+  assert.match(SHELL, /if \(want === 'studio'\) return 'Studio presetleri yalnız Studio katmanına uygulanır.'/);
+  assert.match(SHELL, /const toType = lock\.want === 'studio' \? 'custom' : 'milkdrop'/);
+  assert.match(SHELL, /lock\.want === 'studio' \? "Katmanı Studio'ya çevir" : "Katmanı MilkDrop'a çevir"/);
+  const i18n = read('src/shared/i18n.js');
+  for (const k of ["Katmanı Studio'ya çevir", 'Studio presetleri yalnız Studio katmanına uygulanır.']) {
+    assert.ok(i18n.includes("'" + k.replace(/'/g, "\\'") + "':") || i18n.includes('"' + k + '":') || new RegExp("'" + k.replace(/'/g, "\\'") + "':").test(i18n), 'EN çevirisi: ' + k);
+  }
+  assert.match(i18n, /'Katmanı Studio\\'ya çevir': 'Convert layer to Studio'/);
+  assert.match(i18n, /'Studio presetleri yalnız Studio katmanına uygulanır.': 'Studio presets only apply to a Studio layer.'/);
 });

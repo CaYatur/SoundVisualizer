@@ -5408,6 +5408,8 @@
     'Uygun rafa geç': 'Go to the matching shelf',
     'Seçimi kaldır': 'Clear selection',
     'Katmanı MilkDrop\'a çevir': 'Convert layer to MilkDrop',
+    'Katmanı Studio\'ya çevir': 'Convert layer to Studio',
+    'Studio presetleri yalnız Studio katmanına uygulanır.': 'Studio presets only apply to a Studio layer.',
     'Seçili katman kilitli; önce kilidini açın.': 'The selected layer is locked; unlock it first.',
     'Zemin modları yalnız arkaplan katmanına uygulanır.': 'Background modes only apply to a background layer.',
     'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.': 'MilkDrop presets only apply to a MilkDrop layer.',
