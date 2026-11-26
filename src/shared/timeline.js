@@ -281,6 +281,10 @@
       speed: s.speed == null || s.speed === '' ? 1 : clamp(s.speed, 0.05, 20),
       type: CLIP_TYPES.indexOf(s.type) >= 0 ? s.type : 'scene',
       ref: typeof s.ref === 'string' ? s.ref : '',
+      /* Video klibinin PC kitaplığındaki kimliği (docs/PHONE-LINK.md "Videos"): telefon kendi
+         adresini bu kimlikle yazar, PC kendi dosyasına çevirir; telefon PC'nin videosunu bu
+         kimlikle indirir. Model her çizimde yeniden kurulduğu için TAŞINMALI; eskiden siliniyordu. */
+      libraryId: s.type === 'video' && typeof s.libraryId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(s.libraryId) ? s.libraryId : undefined,
       /* Video, görsel ve shader klibinin hedefi (katman ya da ana yüzey):
          klip destesinin yuvalarıyla aynı biçim (#637 CD-3). Boşsa ya da
          hedef silinmişse ilk uygun hedef. */

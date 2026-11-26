@@ -23,14 +23,30 @@
     }
     size(c, w, h) { if (c.width !== w) c.width = w; if (c.height !== h) c.height = h; }
     prepare(plan) {
-      if (this.time != null && plan.time != null && plan.time < this.time - 1e-6) { this.dispose(); }
+      /* Geri sarma (döngü başı, geriye sürükleme) yığınları baştan kurar: parçacık, zarf ve
+         modülasyon durumu aynı zamanda aynı kareyi versin (dışa aktarımla aynı). Yalnız video
+         oynatıcıları korunur: konumlarını zaten her karede çizelgeden alıyorlar. Eskiden onlar
+         da kapatılıyordu; her döngüde video baştan yükleniyor, arada siyah kare görünüyordu. */
+      let kept = null;
+      if (this.time != null && plan.time != null && plan.time < this.time - 1e-6) {
+        kept = new Map();
+        for (const [id, c] of this.children) {
+          if (c.stack._mediaPool && c.stack._mediaPool.size) { kept.set(id, c.stack._mediaPool); c.stack._mediaPool = null; }
+        }
+        this.dispose();
+      }
       this.time = plan.time;
       const units = plan.units || [];
       const active = new Set(units.map((u) => u.id));
       for (const [id, c] of this.children) if (!active.has(id)) { c.stack.dispose(); this.children.delete(id); }
       for (const u of units) {
         let c = this.children.get(u.id);
-        if (!c) { c = { stack: this.env.stack(), sig: null, modulator: typeof window !== 'undefined' && window.SVModulation ? new window.SVModulation.Modulator() : null }; this.children.set(u.id, c); }
+        if (!c) {
+          c = { stack: this.env.stack(), sig: null, modulator: typeof window !== 'undefined' && window.SVModulation ? new window.SVModulation.Modulator() : null };
+          this.children.set(u.id, c);
+          // Korunan oynatıcılar aynı klibin yeni yığınına: aynı kaynak anahtarıyla syncMedia yeniden açmaz
+          if (kept && kept.has(u.id)) { c.stack._mediaPool = kept.get(u.id); kept.delete(u.id); }
+        }
         const s = c.stack; c.unit = u;
         // Ana ayar değil yalnız sahne alanları: aygıt/kitaplık değişimi motoru yeniden kurmaz
         const keys = (typeof window !== 'undefined' && window.SVSchema && window.SVSchema.SCENE_KEYS) || Object.keys(u.cfg);
@@ -41,6 +57,8 @@
           if (s.syncMedia) s.syncMedia(u.cfg);
         }
       }
+      // Artık etkin olmayan kliplerin korunan oynatıcıları kapanır
+      if (kept) for (const pool of kept.values()) for (const m of pool.values()) { try { m.dispose(); } catch { /* zaten kapalı */ } }
     }
     async readyAssets() {
       const waits = [];
@@ -94,7 +112,9 @@
            Geri oynatmada (J) tarayıcı videoyu geriye oynatamaz: kare kare sarılır. */
         const trRate = Number(plan.rate) || 1;
         const vidPlaying = plan.playing === true && trRate > 0;
-        if (s._mediaPool) for (const m of s._mediaPool.values()) if (!m.offline && m.seekTimeline) m.seekTimeline(u.localTime, vidPlaying, (Number(u.rate) || 1) * Math.abs(trRate));
+        // Geri oynatmada hız bilinsin: sarma, sarmanın bittiği ana göre önden hedeflenir
+        const vidRate = (Number(u.rate) || 1) * Math.abs(trRate) * (plan.playing === true && trRate < 0 ? -1 : 1);
+        if (s._mediaPool) for (const m of s._mediaPool.values()) if (!m.offline && m.seekTimeline) m.seekTimeline(u.localTime, vidPlaying, vidRate);
         if (s.width !== w || s.height !== h) s.resize(w, h);
         s._ensureComp(); this.size(s.compCanvas, w, h);
         if (c.modulator && c.modulator.touches('postfx')) s.setPostFX(childCfg.postfx);

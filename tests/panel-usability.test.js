@@ -331,7 +331,9 @@ test('modülasyon hedefleri: arkaplan ayarları moduna göre gruplanır, ham ana
 test('ses kaynağı seçmek önizlemeyi canlı sese geçirir', () => {
   const admin = read('src/admin/admin.js');
   assert.match(admin, /set: \(arr\) => \{ setPath\(cfg, def\.path, arr\); wantPreviewLive\(\); push\(true\); render\(\); \},/);
-  assert.match(admin, /function wantPreviewLive\(\) \{\s*if \(previewWantsLive\) return;\s*previewWantsLive = true;\s*localStorage\.setItem\('sv-preview-live', '1'\);\s*syncPreviewSubscription\(\);/);
+  // Seçim rozete tıklamakla aynı yoldan (uyarısız): rozet ve önizlemenin sesi birlikte Canlı'ya geçer
+  assert.match(admin, /function wantPreviewLive\(\) \{\s*if \(previewWantsLive\) return;\s*setPreviewLive\(true, false\);/);
+  assert.match(admin, /function setPreviewLive\(on, warn\) \{\s*previewWantsLive = !!on;\s*localStorage\.setItem\('sv-preview-live', previewWantsLive \? '1' : '0'\);/);
 });
 
 test('Katman Ekle menüsünde her türün kendi simgesi var ve simgeler tanımlı', () => {
