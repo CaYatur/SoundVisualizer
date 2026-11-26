@@ -1846,6 +1846,24 @@
   }
 
 
+  /* Dışa aktarılacak çizelgenin sesi (#1172): çizelge dahilse ve duyulur ses
+     klibi varsa seçici kilitlenir, karışım kullanılır; Geçersiz kıl ile dosya. */
+  let exportAudioOverride = false;
+  function exportTimelineAudio() {
+    const A = window.SVTimelineAudioCore;
+    const T = window.SVTimeline;
+    if (!A || !T || !cfg.export || cfg.export.includeTimeline !== true || !cfg.timeline) return null;
+    const id = cfg.export.timelineId || cfg.timeline.id;
+    const tl = T.listTimelineBank ? T.listTimelineBank(cfg.timeline).find((x) => x.id === id) : cfg.timeline;
+    const ats = tl && tl.audioTracks;
+    if (!A.hasAudio(ats)) return null;
+    const clips = A.audibleTracks(ats).reduce((n, t) => n + t.clips.filter((c) => !c.mute && c.src).length, 0);
+    return { clips, dur: A.audioLength(ats), name: (tl && tl.name) || '' };
+  }
+  function exportUsesTimelineAudio() {
+    return !!exportTimelineAudio() && !exportAudioOverride;
+  }
+
   // --- Video dışa aktarma: ses dosyası seçici ---
   function audioFileCtrl() {
     const name = el('div', {
@@ -1854,8 +1872,31 @@
       text: exportAudioName || 'Henüz dosya seçilmedi',
     });
     const btn = el('label', { class: 'filebtn', icon: 'music', text: 'Ses Dosyası Seç (MP3 / WAV / FLAC)' });
+    const lockNote = el('div', { class: 'ctrl-hint export-tl-audio' });
+    const ovr = el('input', { type: 'checkbox' });
+    ovr.checked = exportAudioOverride;
+    const ovrRow = el('label', { class: 'export-tl-override', title: 'Çizelge sesi yerine seçilen dosyayı kullan' }, [ovr, el('span', { text: 'Geçersiz kıl' })]);
+    const paintLock = () => {
+      const info = exportTimelineAudio();
+      ovrRow.style.display = info ? '' : 'none';
+      lockNote.style.display = info ? '' : 'none';
+      const locked = !!info && !exportAudioOverride;
+      btn.classList.toggle('disabled', locked);
+      btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      if (info) {
+        const m = Math.floor(info.dur / 60);
+        const s = String(Math.round(info.dur % 60)).padStart(2, '0');
+        lockNote.textContent = locked
+          ? tr('Çizelge sesi kullanılıyor:') + ' ' + tr('Klip') + ' ×' + info.clips + ', ' + m + ':' + s
+          : tr('Çizelge sesi yok sayılıyor; seçilen dosya kullanılacak.');
+      }
+    };
+    ovr.addEventListener('change', () => { exportAudioOverride = ovr.checked; paintLock(); });
+    paintLock();
+    // Çizelge seçimi ya da ses klipleri değişebilir: kart açıkken hafif yoklama
+    const poll = setInterval(() => { if (!btn.isConnected) clearInterval(poll); else paintLock(); }, 1000);
     btn.addEventListener('click', async () => {
-      if (exporting) return;
+      if (exporting || exportUsesTimelineAudio()) return;
       const p = await window.api.pickExportAudio();
       if (p) {
         exportAudioPath = p;
@@ -1863,7 +1904,7 @@
         name.textContent = exportAudioName;
       }
     });
-    return el('div', { class: 'ctrl' }, [btn, name]);
+    return el('div', { class: 'ctrl' }, [btn, name, lockNote, ovrRow]);
   }
 
   // --- Video dışa aktarma kuyruğu (#526) ---
@@ -7451,11 +7492,12 @@
 
   actions.runExport = async () => {
     if (exporting) return;
-    if (!exportAudioPath) {
+    const tlAudio = exportUsesTimelineAudio() ? exportTimelineAudio() : null;
+    if (!exportAudioPath && !tlAudio) {
       setExportStatus('Önce bir ses dosyası seçin.', 'err');
       return;
     }
-    const base = (exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
+    const base = ((tlAudio && tlAudio.name) || exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
     const fmt = exportFormat();
     const fmtId = fmt ? fmt.id : 'mp4-h264';
     const dur = exportDuration();
@@ -7471,7 +7513,8 @@
     push(true); // en güncel görsel ayarları ana sürece gönder
 
     const r = await window.api.startExport({
-      audioPath: exportAudioPath,
+      audioPath: tlAudio ? null : exportAudioPath,
+      audioFrom: tlAudio ? 'timeline' : 'file',
       outputPath,
       format: fmtId,
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },

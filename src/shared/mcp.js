@@ -1295,7 +1295,8 @@
     sv_set_window_mode: { props: { transparent: sp('boolean', 'Transparent background.'), coverTaskbar: sp('boolean', 'Cover the taskbar.'), transparentKey: sp('string', 'Key color for transparency.') } },
     sv_start_export: {
       props: {
-        audioPath: sp('string', 'Absolute path of the audio file.'),
+        audioPath: sp('string', 'Absolute path of the audio file. Optional when the exported timeline has audio clips.'),
+        audioFrom: sp('string', 'Audio source. file: use audioPath. timeline: mix down the exported timeline audio clips (fades, gain, automation, ducking). Default: file when audioPath is given, otherwise timeline.', { enum: ['file', 'timeline'] }),
         outputPath: sp('string', 'Absolute path ending with the extension of the format (.mp4, .mov, .webm, .gif, .png, .exr).'),
         profile: sp('string', 'One-click preset for format, resolution, fps and quality; explicit arguments override it.', { enum: EXPORT_PROFILE_IDS }),
         format: sp('string', 'Container and codec. Default mp4-h264. Alpha: mov-prores4444, webm-vp9-alpha, apng, png-seq, exr-seq.', { enum: EXPORT_FORMAT_IDS }),
@@ -1313,7 +1314,7 @@
         speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),
         overwrite: OVERWRITE,
       },
-      required: ['audioPath', 'outputPath'],
+      required: ['outputPath'],
     },
     sv_export_analysis: {
       props: {
@@ -2839,7 +2840,7 @@
       return { transparent: !!cfg.background.transparent, coverTaskbar: !!cfg.background.coverTaskbar };
     });
   });
-  tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
+  tool('sv_start_export', 'export', 'Start an offline video export. Requires outputPath, plus audioPath unless the exported timeline has audio clips (audioFrom). format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
     const FX = formatsApi();
     /* Profil (#522): biçim, çözünürlük, kare hızı ve kalite için varsayılan;
