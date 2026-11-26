@@ -15,6 +15,9 @@ const { Readable } = require('stream');
 const MEDIA_MIME = {
   '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
   '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo',
+  // Zaman çizelgesi ses klipleri (#1171): yönetim panelinde çalınır
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.flac': 'audio/flac', '.ogg': 'audio/ogg', '.oga': 'audio/ogg',
+  '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac',
 };
 
 /* Tuval crossOrigin=anonymous ile okur. Aralık başlığı JS'e kapalı kalırsa
@@ -132,6 +135,9 @@ function configuredMediaPaths(cfg, fromMediaUrl) {
       if (m) add(m.file);
     }
   }
+  // Çizelge ses klipleri (#1171)
+  const ats = cfg && cfg.timeline && Array.isArray(cfg.timeline.audioTracks) ? cfg.timeline.audioTracks : [];
+  for (const t of ats) for (const c of (t && Array.isArray(t.clips) ? t.clips : [])) if (c) add(c.src);
   return out;
 }
 

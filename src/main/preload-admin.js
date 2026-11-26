@@ -152,6 +152,9 @@ contextBridge.exposeInMainWorld('api', {
   // Video dışa aktarma
   gpuAvailable: () => ipcRenderer.invoke('export:gpu-available'),
   pickExportAudio: () => ipcRenderer.invoke('export:pick-audio'),
+  // Zaman çizelgesi sesi (#1171)
+  pickTimelineAudio: () => ipcRenderer.invoke('timeline-audio:pick'),
+  timelineAudioPeaks: (src) => ipcRenderer.invoke('timeline-audio:peaks', src),
   pickExportOutput: (name, format) => ipcRenderer.invoke('export:pick-output', name, format),
   exportCapabilities: () => ipcRenderer.invoke('export:capabilities'),
   // Dışa aktarma kuyruğu (#526)
