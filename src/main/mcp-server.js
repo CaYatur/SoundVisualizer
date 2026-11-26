@@ -68,6 +68,8 @@ function create(deps) {
       capturePreview: deps.capturePreview,
       recordStart: deps.recordStart,
       recordStop: deps.recordStop,
+      previewTake: deps.previewTake,
+      outputFreeze: deps.outputFreeze,
       timeline: deps.timeline,
       launchClip: deps.launchClip,
       locale: deps.locale,

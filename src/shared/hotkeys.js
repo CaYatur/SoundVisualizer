@@ -61,7 +61,7 @@
     { title: 'Panel', keys: [
       { keys: ['Ctrl', 'K'], text: 'Bütün ayarlarda ara', mac: true },
       { keys: ['Alt', '1…5'], text: 'Sayfa değiştir: Sahne, Canlı, Zaman, Stüdyo, Çıktı' },
-      { keys: ['Ctrl', 'Z'], text: 'Geri al', mac: true },
+      { keys: ['Ctrl', 'Z'], text: 'Geri al: son çalışılan alan (sahne, zaman çizelgesi ya da önizleme taslağı)', mac: true },
       { keys: ['Ctrl', 'Y'], text: 'Yinele', mac: true },
       { keys: ['Ctrl', '+ / −'], text: 'Arayüzü büyüt ya da küçült', mac: true },
       { keys: ['?'], text: 'Bu listeyi aç' },
@@ -69,6 +69,7 @@
     { title: 'Canlı Sayfası', keys: [
       { keys: ['F1…F12'], text: 'Sahneyi sıraya al' },
       { keys: ['Enter'], text: 'Sıradaki sahneyi canlıya al' },
+      { keys: ['Ctrl', 'Shift', 'Enter'], text: 'Önizleme kipinde taslağı sahneye gönder', mac: true },
     ] },
     { title: 'Çıkış Penceresi', keys: [
       { keys: ['Esc'], text: 'Bütün görselleştirme pencerelerini kapat' },

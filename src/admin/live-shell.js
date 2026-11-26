@@ -44,6 +44,7 @@
   const tb = { rest: 0, v: 0, p: 0, live: false, snap: null, id: '', drag: false, dirty: false, raf: 0, ext: false };
   const TB_END = 0.995;
   const TB_START = 0.005;
+  const previewOn = () => !!(P().draftOn && P().draftOn());
   function tbarSend(m) {
     if (window.api && window.api.sendTbar) window.api.sendTbar(m);
     if (window.SVPreview && window.SVPreview.tbar) window.SVPreview.tbar(m);
@@ -74,6 +75,21 @@
     const p = tb.rest === 0 ? tb.v : 1 - tb.v;
     if (!tb.live) {
       if (p <= TB_START) { tb.p = 0; return; }
+      /* Önizleme kipi (#1168): çubuk Program ile taslak arasında karıştırır; sıra kullanılmaz. */
+      const pv = previewOn();
+      if (pv && !P().isBlackedOut()) {
+        tbarSend({ phase: 'arm' });
+        const dsnap = P().tbarStart(P().draftCue);
+        if (!dsnap) { tbarSend({ phase: 'cancel' }); if (opts && opts.follow) { tb.p = 0; return; } tb.v = tb.rest; tb.p = 0; return; }
+        tb.live = true;
+        tb.snap = dsnap;
+        tb.id = P().draftCue;
+      } else if (pv) {
+        if (opts && opts.follow) { tb.p = 0; return; }
+        tb.v = tb.rest; tb.p = 0; return;
+      }
+    }
+    if (!tb.live) {
       ensureCue();
       /* Sıra ya da karartma yok: çıkış değişmez. Telefon parmağı yine de çubuğu
          oynatır; iki ekran aynı konumu gösterir, sahne geçmez. */
@@ -333,7 +349,7 @@
   }
 
   // Dikey fader: sürükleyince değer, bırakınca kayıt
-  function fader(get, set, label) {
+  function fader(get, set, label, commit) {
     const el = P().el;
     const fill = el('i');
     const cap = el('b');
@@ -344,13 +360,13 @@
       const r = f.getBoundingClientRect();
       set(Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / Math.max(1, r.height))));
       show();
-      P().push(false);
+      if (commit) commit(false); else P().push(false);
     };
     f.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return; // yalnız sol tuş (#957)
       e.preventDefault();
       f.setPointerCapture(e.pointerId);
-      const end = () => { f.removeEventListener('pointermove', at); f.removeEventListener('pointerup', end); P().push(true); };
+      const end = () => { f.removeEventListener('pointermove', at); f.removeEventListener('pointerup', end); if (commit) commit(true); else P().push(true); };
       f.addEventListener('pointermove', at);
       f.addEventListener('pointerup', end);
       at(e);
@@ -361,14 +377,21 @@
       e.preventDefault();
       set(Math.max(0, Math.min(1, get() + d)));
       show();
-      P().push(true);
+      if (commit) commit(true); else P().push(true);
     });
     return f;
   }
 
   function mixer() {
     const el = P().el;
-    const cfg = P().cfg();
+    /* Önizleme kipinde (#1170 / #1168 açığı) faderler, solo/sessiz ve efekt anahtarları
+       PROGRAM'ı değiştirir: Canlı sayfası seyircinin gördüğünü yönetir. Değerler Program
+       kopyasından okunur, her değişiklik kimlikle Program'a yazılır. Kip kapalıyken eski yol. */
+    const pv = previewOn();
+    const cfg = pv ? P().programView() : P().cfg();
+    const byId = (c, l) => (c.layers || []).find((x) => x && x.id === l.id);
+    const progSet = (fn) => (now) => P().programEdit(fn, now);
+    const layerSet = (l, key, val) => P().programEdit((c) => { const x = byId(c, l); if (x) x[key] = val; }, true);
     const list = (cfg.layers || []).filter((l) => l && l.kind !== 'logo');
     const SP = window.SVScenePanels;
     const nameOf = (l) => {
@@ -381,25 +404,33 @@
     const reach = (l) => (l.muted || l.enabled === false ? 0 : (l.opacity == null ? 1 : l.opacity));
     const strips = list.slice().reverse().map((l) => el('div', { class: 'sv-chan', style: '--chan:' + reach(l) }, [
       window.SVSceneShell && window.SVSceneShell.thumbOf ? window.SVSceneShell.thumbOf(l) : el('span', { class: 'sv-th' }),
-      fader(() => (l.opacity == null ? 1 : l.opacity), (v) => { l.opacity = v; }, nameOf(l)),
+      fader(() => (l.opacity == null ? 1 : l.opacity), (v) => { l.opacity = v; }, nameOf(l),
+        pv ? progSet((c) => { const x = byId(c, l); if (x) x.opacity = l.opacity; }) : null),
       el('span', { class: 'sv-lbl', text: SP && SP.layerSummary ? SP.layerSummary(l) : tr(l.name || l.kind), title: nameOf(l) }),
       el('span', { class: 'sv-sm' }, [
-        el('button', { class: 'sv-tgl solo' + (l.solo ? ' act' : ''), type: 'button', text: 'S', title: tr('Solo: yalnızca solo katmanlar çizilir'), onclick: () => { l.solo = !l.solo; P().apply(); } }),
-        el('button', { class: 'sv-tgl mute' + (l.muted ? ' act' : ''), type: 'button', text: 'M', title: tr('Sessiz: katmanı ayarlarını kaybetmeden gizler'), onclick: () => { l.muted = !l.muted; P().apply(); } }),
+        el('button', { class: 'sv-tgl solo' + (l.solo ? ' act' : ''), type: 'button', text: 'S', title: tr('Solo: yalnızca solo katmanlar çizilir'), onclick: () => { l.solo = !l.solo; if (pv) { layerSet(l, 'solo', l.solo); paint(); } else P().apply(); } }),
+        el('button', { class: 'sv-tgl mute' + (l.muted ? ' act' : ''), type: 'button', text: 'M', title: tr('Sessiz: katmanı ayarlarını kaybetmeden gizler'), onclick: () => { l.muted = !l.muted; if (pv) { layerSet(l, 'muted', l.muted); paint(); } else P().apply(); } }),
       ]),
     ]));
     const FX = window.SVPostFX;
     const chain = Array.isArray(cfg.postfx) ? cfg.postfx : [];
     const fx = el('div', { class: 'sv-mfx' }, [el('div', { class: 'sv-mh', text: tr('Ana Efektler') })].concat(chain.map((f) => {
       const def = FX && FX.EFFECTS && FX.EFFECTS[f.type];
-      const inp = el('input', { type: 'checkbox', onchange: (e) => { f.enabled = e.target.checked; P().apply(); } });
+      const at = chain.indexOf(f);
+      const inp = el('input', { type: 'checkbox', onchange: (e) => {
+        f.enabled = e.target.checked;
+        if (!pv) { P().apply(); return; }
+        const on = f.enabled;
+        P().programEdit((c) => { const x = Array.isArray(c.postfx) ? c.postfx[at] : null; if (x && x.type === f.type) x.enabled = on; }, true);
+      } });
       inp.checked = f.enabled !== false;
       return el('label', { class: 'sv-fxrow' }, [el('span', { class: 'switch small' }, [inp, el('span', { class: 'track' })]), el('span', { text: tr(def ? def.label : f.type) })]);
     })));
     if (!chain.length) fx.appendChild(el('div', { class: 'sv-hint', text: tr('Efekt zinciri boş.') }));
     const master = el('div', { class: 'sv-chan sv-master', style: '--chan:' + (cfg.master == null ? 1 : cfg.master) }, [
       el('span', { class: 'sv-th' }, [el('span', { icon: 'upload' })]),
-      fader(() => (cfg.master == null ? 1 : cfg.master), (v) => { cfg.master = v; }, tr('Çıkış')),
+      fader(() => (cfg.master == null ? 1 : cfg.master), (v) => { cfg.master = v; }, tr('Çıkış'),
+        pv ? progSet((c) => { c.master = cfg.master; }) : null),
       el('span', { class: 'sv-lbl', text: tr('Çıkış') }),
       el('span', { class: 'sv-sm' }, [el('button', {
         class: 'sv-tgl mute' + (P().isBlackedOut() ? ' act' : ''), type: 'button', text: 'K', title: tr('Karart'), onclick: () => { P().toggleBlackout(); paint(); },
@@ -523,7 +554,7 @@
     if (tb.drag) { tb.dirty = true; return; }
     /* Karışım tutulurken başka bir yol (Otomatik VJ, kumanda, MIDI) sahneyi değiştirdiyse çıkış
        o geçişe geçti; çubuğun geçişi bitmiş sayılıyor. */
-    if (tb.live && P().activeSceneId() !== tb.id) { tb.rest = tb.p >= 0.5 ? 1 - tb.rest : tb.rest; tbarReset(); }
+    if (tb.live && tb.id !== P().draftCue && P().activeSceneId() !== tb.id) { tb.rest = tb.p >= 0.5 ? 1 - tb.rest : tb.rest; tbarReset(); }
     const prevRail = host.querySelector('.sv-rail .sv-cbody');
     const prevLower = host.querySelector('.sv-scenes-card .sv-cbody');
     if (prevRail) railScroll = prevRail.scrollTop;
