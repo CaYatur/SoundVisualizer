@@ -279,7 +279,7 @@ test('raftaki ayar kartları her çizimde yeniden kurulur; Sahne sekmesinin imza
   assert.match(shell, /const sectionTab = LIB_TABS\.concat\(TOOL_TABS\)\.find\(\(t\) => t\.id === shelfTab && t\.section\);\s*if \(sectionTab\) return shelfTab \+ '#' \+ \(\+\+sectionPaints\);/);
   // Bölüm kartı gösteren sekmeler: Efekt Zinciri, Modülasyon, Gruplar, Şablon
   for (const id of ['effects', 'modulation', 'groups', 'templates']) {
-    assert.match(shell, new RegExp("\{ id: '" + id + "', label: '[^']+', section: '" + id + "' \}"), id);
+    assert.match(shell, new RegExp("\{ id: '" + id + "', label: '[^']+',(?: en: '[^']+',)? section: '" + id + "' \}"), id);
   }
   assert.match(shell, /\{ id: 'scenes', label: 'Sahne' \}/, 'Sahne sekmesi bölüm kartı değil: imzası sabit');
   // Modülasyon kartı yapısal değişiklikte yeniden çizim istiyor
