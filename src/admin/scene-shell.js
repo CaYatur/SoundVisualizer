@@ -871,6 +871,19 @@
     ];
     return groups.filter((g) => g[1].length);
   }
+  /* Studio katmanı: türü 'custom' olan görselleştirici veya arkaplan (liste
+     "Frekans Halkaları — Studio" / "Su Kostikleri — Studio" diye gösterir). */
+  function isStudioLayer(l) {
+    return !!(l && l.type === 'custom' && (l.kind === 'visualizer' || l.kind === 'background'));
+  }
+  /* Preset hedefi (saf, test ediliyor). Seçili kilitsiz Studio katmanı — zemin
+     ya da görsel fark etmez — yerinde alınır. Seçim yoksa yeni katman.
+     Uymayan seçimde uygulama yok (raf kilidi; MilkDrop ile aynı kural). */
+  function studioApplyTarget(cur) {
+    if (!cur) return { create: true };
+    if (isStudioLayer(cur) && !cur.locked) return { apply: true };
+    return { error: cur.locked ? 'LOCKED' : 'WRONG_KIND', layer: cur };
+  }
   function applyStudio(p) {
     const cfg = P().cfg();
     const ST = window.SVStudio;
@@ -881,11 +894,20 @@
     }
     const want = p.kind === 'background' ? 'background' : 'visualizer';
     const cur = selected();
-    let l = cur && cur.kind === want && !cur.locked ? cur : null;
-    if (!l) {
+    const t = studioApplyTarget(cur);
+    let l = null;
+    if (t.apply) {
+      l = cur;
+      // Preset diğer türe aitse katman yerinde o türe geçer; yeni katman açılmaz
+      if (l.kind !== want) l.kind = want;
+    } else if (t.create) {
       l = window.SVLayers.normalizeLayer({ kind: want, type: 'custom', name: studioName(p) });
       const list = layers();
       if (want === 'background') list.unshift(l); else list.push(l);
+    } else {
+      if (P().toast) P().toast(tr(lockText(t.error === 'LOCKED' ? 'locked' : 'kind', 'studio')), 'warn');
+      paint();
+      return false;
     }
     window.SVLayers.setLayerMode(cfg, l, { type: 'custom', presetId: p.id, reveal: true });
     sel = l.id;
@@ -1052,9 +1074,14 @@
      etkisiz (`inert`), üstünde neden ve çıkış yolu yazıyor. Eski davranış ayarı açıksa kilit yok. */
   const OVERLAY_VIS = { text: 1, nowplaying: 1 };
   function shelfLock() {
-    if (shelfTab !== 'vis' && shelfTab !== 'bg' && shelfTab !== 'milkdrop') return null;
+    if (shelfTab !== 'vis' && shelfTab !== 'bg' && shelfTab !== 'milkdrop' && shelfTab !== 'studio') return null;
     const l = selected();
     if (!l || autoTarget()) return null;
+    if (shelfTab === 'studio') {
+      if (isStudioLayer(l)) return l.locked ? { why: 'locked', want: 'studio', layer: l } : null;
+      const conv = ((l.kind === 'visualizer' && !OVERLAY_VIS[l.type]) || l.kind === 'background') && !l.locked;
+      return { why: conv ? 'convert' : 'kind', want: 'studio', layer: l };
+    }
     if (shelfTab === 'milkdrop') {
       if (l.kind === 'visualizer' && l.type === 'milkdrop') return l.locked ? { why: 'locked', want: 'milkdrop', layer: l } : null;
       return { why: l.kind === 'visualizer' && !OVERLAY_VIS[l.type] && !l.locked ? 'convert' : 'kind', want: 'milkdrop', layer: l };
@@ -1068,6 +1095,7 @@
     if (why === 'locked') return 'Seçili katman kilitli; önce kilidini açın.';
     if (want === 'background') return 'Zemin modları yalnız arkaplan katmanına uygulanır.';
     if (want === 'milkdrop') return 'MilkDrop presetleri yalnız MilkDrop katmanına uygulanır.';
+    if (want === 'studio') return 'Studio presetleri yalnız Studio katmanına uygulanır.';
     return 'Görsel modları yalnız görselleştirici katmanına uygulanır.';
   }
   // Seçili katmanın kendi rafı (kilitli rafta "Uygun rafa geç")
@@ -1084,13 +1112,15 @@
     const go = shelfFor(l);
     const btns = [];
     if (lock.why === 'convert') {
+      const toType = lock.want === 'studio' ? 'custom' : 'milkdrop';
+      const toLabel = lock.want === 'studio' ? "Katmanı Studio'ya çevir" : "Katmanı MilkDrop'a çevir";
       btns.push(el('button', {
-        class: 'btn primary small', type: 'button', text: tr("Katmanı MilkDrop'a çevir"),
+        class: 'btn primary small', type: 'button', text: tr(toLabel),
         onclick: () => {
           // Kart seçim değişince yeniden kurulmuyor: o anda seçili katman
           const x = selected();
           if (!x || x.locked) return;
-          window.SVLayers.setLayerMode(P().cfg(), x, { type: 'milkdrop' });
+          window.SVLayers.setLayerMode(P().cfg(), x, { type: toType });
           P().apply();
         },
       }));
@@ -1160,8 +1190,8 @@
       return own && window.SVMilkdropPanel.isOwnLayer(l) ? tr('Şuna uygulanır:') + ' ' + tr(l.name || 'MilkDrop') : tr('Ortak MilkDrop presetine uygulanır');
     }
     if (shelfTab === 'studio') {
-      return l && (l.kind === 'visualizer' || l.kind === 'background') && !l.locked
-        ? tr('Aynı türdeki presetler şuna uygulanır:') + ' ' + tr(l.name || l.kind)
+      return l && isStudioLayer(l) && !l.locked
+        ? tr('Şuna uygulanır:') + ' ' + tr(l.name || l.kind)
         : tr('Yeni katman olarak eklenir');
     }
     if (shelfTab === 'vis' || shelfTab === 'bg') {
