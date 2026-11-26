@@ -1,0 +1,44 @@
+{
+  "format": "svpreset",
+  "version": 2,
+  "name": "Pink Pulse Rings",
+  "layers": [
+    {
+      "type": "gradient",
+      "colors": [
+        "#12002b",
+        "#ff2d95"
+      ],
+      "angle": 90,
+      "speed": 0.2
+    },
+    {
+      "type": "waveform",
+      "style": "circle",
+      "color": "#ffffff",
+      "thickness": "2 + 4*kick"
+    },
+    {
+      "type": "feedback",
+      "zoom": "1.01 + 0.03*bass",
+      "rotate": 0.01,
+      "decay": 0.93,
+      "warp": 0.5
+    },
+    {
+      "type": "bloom",
+      "intensity": "0.8 + 0.6*beat",
+      "threshold": 0.5,
+      "radius": 4
+    }
+  ],
+  "mod": [
+    {
+      "src": "energy",
+      "dst": "layers.0.speed",
+      "min": 0.1,
+      "max": 1.5,
+      "smooth": 0.5
+    }
+  ]
+}
