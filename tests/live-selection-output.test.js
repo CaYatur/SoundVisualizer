@@ -46,7 +46,7 @@ function panel(cfg) {
       },
     },
   };
-  const names = ['outputSig', 'previewConfig', 'push', 'outputConfig', 'lightSig', 'fullPayload', 'sendFullConfig', 'sendConfigPatch'];
+  const names = ['draftOn', 'draftView', 'previewTarget', 'draftSig', 'outputSig', 'previewConfig', 'push', 'outputConfig', 'lightSig', 'fullPayload', 'sendFullConfig', 'sendConfigPatch'];
   const src = names.map((n) => sliceFn(ADMIN, n)).join('\n');
   // eslint-disable-next-line no-new-func
   return Object.assign(new Function('window', 'env', 'setTimeout', 'clearTimeout', `
@@ -57,6 +57,8 @@ function panel(cfg) {
     let lastOutSig = null; let pendingOutSig = null; let lastPreviewSig = null;
     let marksFresh = false; let activeSceneId = null; let sceneActionInFlight = false;
     const isBlackedOut = () => false;
+    // Önizleme modu kapalı (#1167): eski yol aynen
+    const draft = null; let draftProgramDirty = false; const draftAfterEdit = () => {};
     const refreshModifiedMarks = () => {};
     const clearActiveScene = () => {};
     let cfg = env.cfg;

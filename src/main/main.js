@@ -1238,6 +1238,8 @@ function createVisualizerWindow(display) {
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    // Önizleme modunda donmuş/sessiz çıkış (#1168): sonradan açılan ekran da aynı durumda
+    if (outputSafetyState.freeze || outputSafetyState.mute) win.webContents.send('output-safety', outputSafetyState);
     // Ortak oturum saati (#544): sonradan açılan ekran da aynı modülasyon evresinde
     if (red.sharedSent != null) win.webContents.send('shared-clock', { epoch: red.sharedSent });
     ensureLyricsClock();
@@ -3462,6 +3464,18 @@ ipcMain.on('momentary-fx', (e, list) => {
 /* T-bar (#905): elle sürülen sahne geçişi. Ayara ve kayda yazılmaz; sahnenin kendisi her
    zamanki yapılandırma yoluyla gidiyor, bu ileti yalnız geçişin ilerlemesini taşıyor. Sıra
    korunuyor: kurulum, sahneden önce her pencereye ulaşıyor. */
+/* ÇIKIŞ GÜVENLİĞİ (#1168): dondur (son kareyi tut) ve sessiz. Ayara yazılmaz; yeni açılan
+   pencere de aynı durumu alsın diye burada tutulur. */
+let outputSafetyState = { freeze: false, mute: false };
+ipcMain.on('output-safety', (e, m) => {
+  outputSafetyState = { freeze: !!(m && m.freeze), mute: !!(m && m.mute) };
+  sendToVisualizers('output-safety', outputSafetyState);
+});
+/* Program monitörü (#1167): ilk çıkış penceresinin gösterdiği kare, küçük JPEG. */
+ipcMain.handle('program:snapshot', async () => {
+  const win = openWindows()[0];
+  try { return win ? await captureShown(win) : null; } catch { return null; }
+});
 const TBAR_PHASES = new Set(['arm', 'move', 'end', 'cancel']);
 ipcMain.on('tbar', (e, m) => {
   if (!m || !TBAR_PHASES.has(m.phase)) return;
