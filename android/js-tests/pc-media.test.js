@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..', '..');
-const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n'); // Windows'ta satır sonu CRLF
 const R = require('../../src/mobile/pc-remote.js');
 
 const PC_FILE = 'sv-media://local/C%3A%5Cvids%5Cclip.mp4';
