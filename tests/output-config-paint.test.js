@@ -63,5 +63,7 @@ test('sahne ve şablon aynı push/apply yolundan çıkar (özel şablon yolu yok
   assert.match(pushBody, /previewConfig\(!immediate\)/);
   assert.match(pushBody, /sendFullConfig\(\)/);
   const prevAt = ADMIN.indexOf('function previewConfig(force)');
-  assert.match(ADMIN.slice(prevAt, prevAt + 600), /SVPreview\.setConfig\(outputConfig\(\)\)/);
+  // Önizleme modu kapalıyken previewTarget() çıkış yapılandırmasının kendisi (#1167)
+  assert.match(ADMIN.slice(prevAt, prevAt + 600), /SVPreview\.setConfig\(previewTarget\(\)\)/);
+  assert.match(ADMIN, /function previewTarget\(\) \{ return draftOn\(\) \? draftView\(\) : outputConfig\(\); \}/);
 });

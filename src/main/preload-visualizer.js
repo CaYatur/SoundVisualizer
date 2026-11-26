@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('api', {
   onMediaScrub: (cb) => ipcRenderer.on('media-scrub', (e, m) => cb(m)),
   // T-bar (#905): Canlı sayfasındaki çubuk sahne geçişini elle sürüyor
   onTbar: (cb) => ipcRenderer.on('tbar', (e, m) => cb(m)),
+  onOutputSafety: (cb) => ipcRenderer.on('output-safety', (e, m) => cb(m)),
   // Yedeklilik (#544): iki makinede ortak oturum saati (modülasyon evresi)
   onSharedClock: (cb) => ipcRenderer.on('shared-clock', (e, c) => cb(c)),
   // Dinleyici kurulmadan gelen ileti kaybolur: pencere açılışta ister (#543)

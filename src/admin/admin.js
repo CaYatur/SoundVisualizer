@@ -93,6 +93,18 @@
      başka bir yoldan tam gönderim bilinmeyen duruma döndürür (null). */
   let lastOutSig = null;
   let pendingOutSig = null;
+  // Önizleme/Program taslağı (#1167); mod kapalıyken hiç devreye girmez
+  const draft = window.SVProgramDraftCore ? window.SVProgramDraftCore.create() : null;
+  let draftProgramDirty = false;
+  let draftSaveTimer = 0;
+  let prevTakeCfg = null;
+  // Taslağın imzası (önizleme modu): önizleme taslak değişince yeniden kurulsun
+  function draftSig() {
+    const o = draftView();
+    let s = '';
+    for (const k of Object.keys(o).sort()) s += k + '\u0001' + JSON.stringify(o[k]) + '\u0002';
+    return s;
+  }
   function outputSig() {
     const o = outputConfig();
     let s = '';
@@ -109,19 +121,21 @@
     if (force) {
       lastPreviewSig = null;
     } else {
-      const sig = outputSig();
+      const sig = draftOn() ? draftSig() : outputSig();
       if (sig === lastPreviewSig) return;
       lastPreviewSig = sig;
     }
     sendStats.preview++;
-    window.SVPreview.setConfig(outputConfig());
+    window.SVPreview.setConfig(previewTarget());
   }
   function push(immediate) {
     /* Timeline klip düzenleme oturumu: panellerin değişikliği klibin yerel
        kopyasına yazılır (kaynak sahne ve elle ayar ayrı kalır). */
     if (window.SVTimelineTarget) window.SVTimelineTarget.sync(cfg);
     if (window.SVLayers && window.SVLayers.ensureStack) window.SVLayers.ensureStack(cfg);
-    if (isBlackedOut()) {
+    // Önizleme modu: karartma Program'a ait, taslağa uygulanmaz; kitaplık iki tarafta ortak
+    if (draftOn()) draftAfterEdit();
+    if (isBlackedOut() && !draftOn()) {
       cfg.isBlackout = true;
       cfg.background = Object.assign({}, cfg.background, { type: 'solid', solidColor: '#000000' });
       cfg.visualizer = Object.assign({}, cfg.visualizer, { type: 'none' });
@@ -191,7 +205,13 @@
   let sentSig = null;
   let fullTimer = null;
 
-  function outputConfig() { return window.SVTimelineTarget ? window.SVTimelineTarget.persistent(cfg) : cfg; }
+  /* Önizleme modu (#1167): taslak açıkken çıkışa, ana sürece ve ayar dosyasına Program
+     kopyası gider. Mod kapalıyken `draft.persistent(x)` x'in kendisi: davranış aynı. */
+  function draftOn() { return !!(draft && draft.active()); }
+  function draftView() { return window.SVTimelineTarget ? window.SVTimelineTarget.persistent(cfg) : cfg; }
+  function outputConfig() { const base = draftView(); return draft ? draft.persistent(base) : base; }
+  // Panel önizlemesinin göstereceği: mod açıkken taslak, değilse çıkışla aynı
+  function previewTarget() { return draftOn() ? draftView() : outputConfig(); }
   function lightSig() {
     const cfg = outputConfig();
     const m = new Map();
@@ -222,9 +242,10 @@
   const sendStats = { full: 0, patch: 0, preview: 0 };
   function sendFullConfig() {
     sendStats.full++;
+    draftProgramDirty = false;
     lastOutSig = pendingOutSig;
     pendingOutSig = null;
-    if (window.SVUndoHistory && !(window.SVTimelineTarget && window.SVTimelineTarget.manualWriting())) window.SVUndoHistory.note();
+    if (window.SVUndoHistory && !(window.SVTimelineTarget && window.SVTimelineTarget.manualWriting()) && !(draft && draft.armed() && !draft.active())) window.SVUndoHistory.note();
     if (fullTimer) { clearTimeout(fullTimer); fullTimer = null; }
     window.api.updateConfig(fullPayload());
     sentSig = window.api.patchConfig ? lightSig() : null;
@@ -245,6 +266,8 @@
     }
     sentSig = sig;
     if (n) { sendStats.patch++; window.api.patchConfig(patch); }
+    /* Önizleme modu: taslak düzenlemesi çıkışa hiçbir şey göndermemeli (tam gönderim dahil). */
+    if (draftOn() && !n && !draftProgramDirty) return;
     if (fullTimer) clearTimeout(fullTimer);
     fullTimer = setTimeout(() => { fullTimer = null; sendFullConfig(); }, FULL_AFTER_MS);
   }
@@ -720,7 +743,24 @@
        normalleştirme ve katman yığını eşitlemesi yalnızca buradaydı.
        Karartma açıkken kopyanın sahneyi doğrudan yazması, sahnedeki
        karartmayı kaldırırdı. */
-    applyScene: (id, opts) => actions.applyScene(id, opts),
+    /* Önizleme modunda Canlı sayfası Program'ı sürer; diğer sayfalar taslağı (#1169). */
+    applyScene: (id, opts) => (draftOn() && activeCategory === 'live' ? onProgram(() => actions.applyScene(id, opts)) : actions.applyScene(id, opts)),
+    // Önizleme / Program (#1167)
+    draftOn: () => draftOn(),
+    draftArmed: () => !!(draft && draft.armed()),
+    onProgram: (fn) => onProgram(fn),
+    draftBegin: () => draftBegin(),
+    draftEnd: () => draftEnd(),
+    draftTake: (mode, seconds) => draftTake(mode, seconds),
+    draftRevert: () => draftRevert(),
+    draftCanRevert: () => !!(draftOn() && prevTakeCfg),
+    draftClearScene: () => draftClearScene(),
+    draftFromProgram: () => draftFromProgram(),
+    draftRestore: () => draftRestore(),
+    draftHasSaved: () => draftHasSaved(),
+    draftDiscardSaved: () => draftDiscardSaved(),
+    outputSafety: (o) => outputSafety(o),
+    outputSafetyState: () => ({ freeze: !!(draft && draft.frozen()), mute: !!(draft && draft.muted()) }),
     tbarStart: (id) => actions.tbarStart(id),
     tbarRestore: (snap) => actions.tbarRestore(snap),
     /* Sahne uygulaması push sırasında vurguyu silmesin diye açılan bayrak. */
@@ -5640,7 +5680,14 @@
     return !!blackoutSaved;
   }
 
+  /* Karartma her zaman Program'a anında uygulanır (#1168); önizleme modu kapalıyken aynı yol. */
   function toggleBlackout(opts) {
+    if (!draftOn()) return toggleBlackoutRaw(opts);
+    onProgram(() => toggleBlackoutRaw(opts));
+    if (!(opts && opts.quiet)) render();
+    return undefined;
+  }
+  function toggleBlackoutRaw(opts) {
     const btn = $('blackoutBtn');
     if (blackoutSaved) {
       cfg.background = blackoutSaved.bg;
@@ -5684,6 +5731,148 @@
     push(true);
     render();
   }
+
+  // --------------------------------------------------------------------------
+  // Önizleme / Program (#1167, #1168, #1169)
+  //
+  // Mod açıkken paneller taslağı (cfg) düzenler; çıkışa Program kopyası gider.
+  // "Sahneye Gönder" taslağın tamamını Program yapar. Karartma, dondurma ve
+  // sessiz anında Program'a uygulanır. Mod kapalıyken bu bölümün hiçbir yolu çalışmaz.
+  // --------------------------------------------------------------------------
+  const DRAFT_STORE = 'sv-draft';
+  const SHARED = window.SVProgramDraftCore ? window.SVProgramDraftCore.SHARED_KEYS : [];
+  function replaceCfg(src) { window.SVProgramDraftCore.replaceInPlace(cfg, src); }
+
+  // Taslak düzenlemesinden sonra: kitaplık Program'a, taslak kurtarma kaydına
+  function draftAfterEdit() {
+    if (draft.syncShared(cfg)) { draftProgramDirty = true; lastOutSig = null; }
+    if (draftSaveTimer) clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(saveDraftNow, 800);
+  }
+  function saveDraftNow() {
+    draftSaveTimer = 0;
+    if (!draft || !draft.armed()) return;
+    try {
+      const view = Object.assign({}, draftView());
+      // Kitaplık iki tarafta ortak ve büyük: kurtarma kaydına girmez
+      for (const k of SHARED) delete view[k];
+      localStorage.setItem(DRAFT_STORE, JSON.stringify({ at: Date.now(), cfg: view }));
+    } catch { /* kota dolu: kurtarma kaydı olmadan sürer */ }
+  }
+
+  /* Program üzerinde çalış: cfg geçici olarak Program olur; gönderimler bu sırada biter. */
+  function onProgram(fn) {
+    if (!draftOn()) return fn();
+    let r;
+    draft.withProgram(cfg, () => {
+      r = fn();
+      flushConfig();
+    });
+    previewConfig(true);
+    return r;
+  }
+
+  function draftBegin() {
+    if (!draft || draft.armed()) return false;
+    flushConfig();
+    draft.begin(outputConfig());
+    prevTakeCfg = null;
+    lastPreviewSig = null;
+    saveDraftNow();
+    previewConfig(true);
+    render();
+    return true;
+  }
+  /* Çık: taslak atılır, panel Program'a döner. Dondurma/sessiz kalkar. */
+  function draftEnd() {
+    if (!draft || !draft.armed()) return false;
+    if (window.SVTimelineTarget && window.SVTimelineTarget.active()) window.SVTimelineTarget.clear();
+    if (draft.frozen() || draft.muted()) outputSafety({ freeze: false, mute: false });
+    const p = draft.end();
+    replaceCfg(p);
+    prevTakeCfg = null;
+    try { localStorage.removeItem(DRAFT_STORE); } catch { /* yok */ }
+    lastOutSig = null;
+    previewConfig(true);
+    render();
+    return true;
+  }
+  /* Boş taslak: sahne alanları varsayılana döner, aygıt/ağ ayarları yerinde kalır. */
+  function draftClearScene() {
+    if (!draftOn()) return;
+    const def = window.SV.DEFAULT_CONFIG;
+    SCENE_KEYS.forEach((k) => { if (def[k] !== undefined) cfg[k] = window.SV.clone(def[k]); });
+    applyAll();
+  }
+  function draftFromProgram() {
+    if (!draftOn()) return;
+    const shared = {};
+    for (const k of SHARED) shared[k] = cfg[k];
+    replaceCfg(draft.program());
+    for (const k of SHARED) if (shared[k] !== undefined) cfg[k] = shared[k];
+    applyAll();
+  }
+  /* SAHNEYE GÖNDER. mode: 'cut' | 'fade' | 'scene' (taslağın kendi geçişi). Karartılmışken
+     gönderilen taslak karartmanın arkasına yazılır; karartma kalkınca o görünür. */
+  function draftTake(mode, seconds) {
+    if (!draftOn()) return false;
+    const view = window.SV.clone(draftView());
+    const own = window.SV.clone(view.transition);
+    const blacked = isBlackedOut();
+    const over = window.SVProgramDraftCore.transitionFor(mode, own, seconds);
+    onProgram(() => {
+      prevTakeCfg = window.SV.clone(cfg);
+      replaceCfg(view);
+      cfg.transition = over;
+      if (blacked) { blackoutSaved = null; toggleBlackoutRaw({ quiet: true }); }
+      lastOutSig = null;
+      push(true);
+    });
+    // Seçilen geçiş yalnız bu gönderim içindi: bitince Program taslağın geçişine döner
+    if (mode !== 'scene' && own) {
+      const wait = (mode === 'fade' ? Math.max(0.05, Number(seconds) || 1) : 0) * 1000 + 400;
+      setTimeout(() => {
+        if (!draftOn()) return;
+        onProgram(() => {
+          if (JSON.stringify(cfg.transition) !== JSON.stringify(over)) return;
+          cfg.transition = window.SV.clone(own);
+          push(true);
+        });
+      }, wait);
+    }
+    render();
+    return true;
+  }
+  function draftRevert() {
+    if (!draftOn() || !prevTakeCfg) return false;
+    const back = prevTakeCfg;
+    prevTakeCfg = null;
+    onProgram(() => { replaceCfg(back); lastOutSig = null; push(true); });
+    render();
+    return true;
+  }
+  /* Çıkış güvenliği: yapılandırmaya yazılmaz, çıkış pencerelerine anında gider. */
+  function outputSafety(o) {
+    if (!draft) return;
+    if (o && typeof o.freeze === 'boolean') draft.setFrozen(o.freeze);
+    if (o && typeof o.mute === 'boolean') draft.setMuted(o.mute);
+    if (window.api.sendOutputSafety) window.api.sendOutputSafety({ freeze: draft.frozen(), mute: draft.muted() });
+  }
+  /* Çöküşten kalan taslak: mod yeniden açılınca geri yüklenir. */
+  function draftRestore() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(DRAFT_STORE) || 'null'); } catch { saved = null; }
+    if (!saved || !saved.cfg || typeof saved.cfg !== 'object') return false;
+    if (!draft.armed()) draftBegin();
+    const shared = {};
+    for (const k of SHARED) shared[k] = cfg[k];
+    replaceCfg(window.SV.deepMerge(window.SV.defaultConfig(), saved.cfg));
+    for (const k of SHARED) if (shared[k] !== undefined) cfg[k] = shared[k];
+    applyAll();
+    return true;
+  }
+  function draftDiscardSaved() { try { localStorage.removeItem(DRAFT_STORE); } catch { /* yok */ } }
+  function draftHasSaved() { try { return !!localStorage.getItem(DRAFT_STORE); } catch { return false; } }
 
   // --------------------------------------------------------------------------
   // Durum
@@ -6217,7 +6406,7 @@
     paintPreviewPill = () => setPill(window.SVPreview.isLive());
     if (window.SVPreview.setDemo) window.SVPreview.setDemo(!previewWantsLive);
     setPill(false);
-    window.SVPreview.setConfig(outputConfig());
+    window.SVPreview.setConfig(previewTarget());
 
     if (window.api.onNativeAudio) window.api.onNativeAudio((f) => window.SVPreview.ingest(f));
 
@@ -7336,7 +7525,7 @@
       if (S && S.applyDelta) S.applyDelta(d);
       scheduleRender(PRESET_CATS);
       if (studio && window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-      else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+      else if (window.SVPreview) window.SVPreview.setConfig(previewTarget());
     };
     async function catchPresets() {
       if (!window.api.presetsSince || presetCatchBusy) return;
@@ -7350,7 +7539,7 @@
           window.SVPresets.setUser(await window.api.listPresets());
           scheduleRender(PRESET_CATS);
           if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-          else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+          else if (window.SVPreview) window.SVPreview.setConfig(previewTarget());
           return;
         }
         presetGen = nextGen;
@@ -7407,12 +7596,23 @@
       window.SVPresets.setUser(list);
       scheduleRender(PRESET_CATS);
       if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
-      else if (window.SVPreview) window.SVPreview.setConfig(outputConfig());
+      else if (window.SVPreview) window.SVPreview.setConfig(previewTarget());
     });
 
     // Uzaktan kumandadan (telefon / OBS sayfası) gelen değişiklik: panelin
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
     function acceptExternalConfig(incoming) {
+      /* Önizleme modu: MCP, telefon ve uzak istemciler Program'ı değiştirir; taslak yerinde kalır. */
+      if (draftOn()) {
+        draft.adoptProgram(window.SV.deepMerge(window.SV.defaultConfig(), incoming));
+        // Kitaplık ortak: dışarıda kaydedilen sahne taslağa da gelsin, sonraki eşitleme silmesin
+        for (const k of SHARED) { const v = draft.program()[k]; if (v !== undefined) cfg[k] = window.SV.clone(v); }
+        sentSig = null;
+        lastOutSig = null;
+        heavySent = null;
+        renderScenes();
+        return;
+      }
       const nextCfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
       cfg = window.SVTimelineTarget ? window.SVTimelineTarget.adoptIncoming(nextCfg, cfg) : nextCfg;
       window.SVLayers.ensureStack(cfg);

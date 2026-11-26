@@ -36,7 +36,7 @@ function panel(cfg) {
     updateConfig: (c) => sent.push({ full: true, keys: Object.keys(c) }),
     patchConfig: (p) => sent.push({ full: false, keys: Object.keys(p), patch: JSON.parse(JSON.stringify(p)) }),
   };
-  const src = ['outputConfig', 'lightSig', 'fullPayload', 'sendFullConfig', 'sendConfigPatch'].map((n) => sliceFn(ADMIN, n)).join('\n');
+  const src = ['draftOn', 'draftView', 'outputConfig', 'lightSig', 'fullPayload', 'sendFullConfig', 'sendConfigPatch'].map((n) => sliceFn(ADMIN, n)).join('\n');
   const env = { cfg, blacked: false };
   const fns = new Function('window', 'env', 'setTimeout', 'clearTimeout', `
     const HEAVY_KEYS = { scenes: 1, milkdropLibrary: 1, userPresets: 1 };
@@ -44,6 +44,8 @@ function panel(cfg) {
     let sentSig = null; let fullTimer = null; let heavySent = null;
     const sendStats = { full: 0, patch: 0, preview: 0 }; let lastOutSig = null; let pendingOutSig = null;
     const isBlackedOut = () => env.blacked;
+    // Önizleme modu kapalı (#1167): eski yol aynen
+    const draft = null; let draftProgramDirty = false;
     let cfg = env.cfg;
     ${src}
     return { sendFullConfig, sendConfigPatch, setCfg: (c) => { cfg = c; }, pendingFull: () => !!fullTimer };
