@@ -235,6 +235,12 @@ body[data-page='scene'] .sv-scene { display: grid; grid-template-columns: var(--
    Raf kapalıyken (.tall) pay yok sayılıyor: aynı özgüllük, sonra yazılan kazanıyor. */
 .sv-center[data-split-shelf] { --below: clamp(150px, calc(var(--sv-shelf-frac) * 100cqh), calc(100cqh - 150px)); }
 .sv-center.tall { --below: 66px; }
+/* Raf kapalı (#1140 sonrası): raf yalnız sekme çubuğu kadar, önizleme boşalan yeri alıyor.
+   Eskiden raf `flex: 1` ile kalan yüksekliği tutuyordu; sahne 16:9 genişliğe dayanınca
+   büyüyemiyor, rafın içi boşalıyor ama alanı küçülmüyordu. Önizleme kutusu artık esniyor ve
+   çerçeve kutunun ortasında; geniş pencerede de yer kalırsa üstte/altta eşit boşluk. */
+.sv-center.tall > .sv-shelf { flex: none; }
+.sv-center.tall > .sv-stagebox { flex: 1 1 auto; height: auto; align-items: center; }
 /* Ayraçlar: panellerin arasındaki 10 px boşluğun üstünde, yerleşimi değiştirmiyorlar */
 .sv-split { position: absolute; z-index: 6; touch-action: none; }
 /* Klavye odağı: kutu çerçevesi yerine ayracın ortasında ince çizgi */
@@ -322,8 +328,8 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-add .add-row .btn .svi { width: 18px; height: 18px; color: var(--muted); }
 
 /* Raf */
-.sv-shelf { flex: 1 1 auto; }
-.sv-shelf .sv-chead { height: 50px; padding-left: 10px; gap: 8px; overflow: hidden; }
+.sv-shelf { flex: 1 1 auto; container: svshelf / inline-size; }
+.sv-shelf .sv-chead { height: 50px; padding-left: 10px; gap: 8px; overflow: hidden; position: relative; }
 .sv-shelf-mode { display: flex; gap: 2px; padding: 3px; border-radius: 11px; background: rgb(var(--fg-rgb) / .05); flex: none; }
 .sv-shelf-mode button { width: 34px; height: 28px; border: 0; border-radius: 8px; background: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; }
 .sv-shelf-mode button .svi { width: 16px; height: 16px; }
@@ -338,6 +344,23 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-shelf-search .svi { width: 14px; height: 14px; flex: none; }
 .sv-shelf-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: none; font-size: 12.5px; color: var(--text); }
 .sv-target { padding: 0 14px 8px; font-size: 12px; color: var(--muted2); }
+/* Preset sekmesi: MilkDrop | Studio düğmeleri hedef satırıyla aynı satırda */
+.sv-psrc { display: flex; align-items: center; gap: 10px; padding: 0 14px 8px; min-width: 0; }
+.sv-psrc .sv-target { padding: 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-seg { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: 9px; background: rgb(var(--fg-rgb) / .06); }
+.sv-seg button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.sv-seg button:hover { color: var(--text); }
+.sv-seg button.on { background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); }
+/* Studio rafı: kategori düğmeleri, içe aktar; kartlarda favori yıldızı */
+.sv-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 12px 8px; }
+.sv-chip { height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: rgb(var(--fg-rgb) / .06); color: var(--muted); font-size: 12px; font-weight: 550; cursor: pointer; }
+.sv-chip:hover { color: var(--text); background: rgb(var(--fg-rgb) / .1); }
+.sv-chip.on { background: rgb(var(--accent-rgb) / .22); color: var(--accent-text); }
+.sv-gw { position: relative; min-width: 0; display: grid; }
+.sv-fav { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--media-scrim); color: rgb(var(--on-media-rgb) / .75); cursor: pointer; opacity: 0; transition: opacity .12s; }
+.sv-fav .svi { width: 13px; height: 13px; }
+.sv-gw:hover .sv-fav, .sv-fav:focus-visible, .sv-fav.on { opacity: 1; }
+.sv-fav.on { color: var(--warn); }
 .sv-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; padding: 4px 12px 12px; }
 .sv-gi { text-align: left; display: grid; gap: 5px; min-width: 0; border: 0; border-radius: 10px; background: none; padding: 0; color: inherit; cursor: pointer; }
 .sv-gi .sv-th { aspect-ratio: 16 / 9; border-radius: 10px; width: 100%; box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / .08); transition: transform .12s, box-shadow .12s; position: relative; display: flex; align-items: center; justify-content: center; color: var(--muted); overflow: hidden; }
@@ -610,6 +633,29 @@ body.sv-simple-on .sv-tgl.solo, body.sv-simple-on .sv-tgl.mute { display: none; 
 #svShelf #dockScenes .scene-list.is-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--sv-card, 146px) * 1.9)), 1fr)); }
 #svShelf .md-grid .md-thumb-box, #svShelf .sv-gi .sv-th { aspect-ratio: 16 / 9; }
 #svShelf .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sv-card, 146px)), 1fr)); }
+
+/* DAR RAF (1024 px pencerede orta sütun ~520 px). Sekmeler hiç gizlenmiyor ya da alt satıra
+   inmiyor: önce aralıklar ve düğmeler sıkılaşıyor, kart boyu kaydırıcısı kısalıyor, arama kutusu
+   büyüteç simgesine iniyor. Simgeye tıklayınca (ya da raf içindeyken Ctrl+F) kutu sağda,
+   kaydırıcının üstüne binerek açılıyor; sekmelerin yerine dokunmuyor. Geniş rafta hiçbir şey
+   değişmiyor. */
+@container svshelf (max-width: 820px) {
+  .sv-shelf .sv-chead { gap: 4px; padding-left: 6px; padding-right: 6px; }
+  .sv-shelf-mode button { width: 28px; }
+  .sv-tabs button { padding: 0 6px; font-size: 12.5px; }
+  .sv-shelf .sv-chead > .sv-ib { width: 26px; }
+  .sv-card-size { gap: 0; }
+  .sv-card-size .svi { display: none; }
+  .sv-card-size input[type='range'] { width: 40px; }
+  .sv-shelf-search:not(:focus-within) { flex: none; width: 34px; min-width: 34px; padding: 0; justify-content: center; cursor: pointer; position: relative; }
+  .sv-shelf-search:not(:focus-within) input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .sv-shelf-search.has:not(:focus-within) { color: var(--accent-text); background: rgb(var(--accent-rgb) / .22); }
+  .sv-shelf-search:focus-within { position: absolute; z-index: 4; right: 6px; top: 8px; width: min(168px, calc(100% - 12px)); margin: 0; background: var(--card2); box-shadow: 0 0 0 2px var(--accent2); }
+}
+@container svshelf (max-width: 560px) {
+  .sv-tabs button { padding: 0 4px; font-size: 12px; }
+  .sv-seg button { padding: 0 9px; }
+}
 
 /* Önizleme modu (#1167): yayında olmayan taslak yeşil çerçeve, Program monitörü kırmızı */
 .sv-pvw-bar {

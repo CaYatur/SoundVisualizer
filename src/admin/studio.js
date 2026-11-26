@@ -545,8 +545,10 @@
   // ==========================================================================
   /* Her shader bir kez küçük çiziliyor, sonuç saklanıyor. Boştayken ve teker teker: derleme
      pahalı, listeyi açmak beklemesin. Kod değişince özet değişiyor, resim yenileniyor. */
-  const THUMB_W = 104;
-  const THUMB_H = 60;
+  /* Raf galerisi (Preset > Studio) aynı resmi kart boyunda gösteriyor: 16:9 ve listedekinin
+     iki katından büyük. Eski küçük resimler boy farkından yeniden çiziliyor. */
+  const THUMB_W = 192;
+  const THUMB_H = 108;
   const thumbQueue = [];
   let thumbHost = null;
   let thumbBusy = false;
@@ -560,7 +562,7 @@
   function storedThumb(p) {
     try {
       const v = JSON.parse(localStorage.getItem('sv-shader-thumb:' + p.id) || 'null');
-      return v && v.h === sourceHash(p.shader) ? v.url : '';
+      return v && v.h === sourceHash(p.shader) && v.w === THUMB_W ? v.url : '';
     } catch { return ''; }
   }
   function drawThumb(p) {
@@ -574,30 +576,38 @@
     c.width = THUMB_W;
     c.height = THUMB_H;
     c.getContext('2d').drawImage(thumbHost.canvas, 0, 0, THUMB_W, THUMB_H);
-    return c.toDataURL('image/webp', 0.6);
+    return c.toDataURL('image/webp', 0.7);
   }
   function runThumbs() {
     const job = thumbQueue.shift();
     if (!job) { thumbBusy = false; return; }
-    if (job.img.isConnected) {
+    if (job.alive()) {
       try {
         const url = drawThumb(job.p);
         if (url) {
-          job.img.src = url;
-          localStorage.setItem('sv-shader-thumb:' + job.p.id, JSON.stringify({ h: sourceHash(job.p.shader), url }));
+          job.done(url);
+          localStorage.setItem('sv-shader-thumb:' + job.p.id, JSON.stringify({ h: sourceHash(job.p.shader), w: THUMB_W, url }));
         }
       } catch { /* çizilemeyen shader listede simgesiz kalır */ }
     }
     requestIdleCallback(runThumbs, { timeout: 400 });
   }
-  function thumbFor(p) {
-    const img = P().el('img', { class: 'si-thumb', alt: '' });
-    const url = p.engine === 'shader' && p.shader ? storedThumb(p) : '';
-    if (url) img.src = url;
-    else if (p.engine === 'shader' && p.shader && typeof requestIdleCallback === 'function' && window.SVShaderHost) {
-      thumbQueue.push({ p, img });
+  /* Küçük resim: saklıysa hemen, değilse boşta çizilip `done(url)` ile. `alive()` false
+     dönen iş (liste/raf kapandı) atlanıyor. Shader olmayan presetin resmi yok. */
+  function thumbAsync(p, done, alive) {
+    if (!p || p.engine !== 'shader' || !p.shader) return '';
+    const url = storedThumb(p);
+    if (url) return url;
+    if (typeof requestIdleCallback === 'function' && window.SVShaderHost) {
+      thumbQueue.push({ p, done, alive: alive || (() => true) });
       if (!thumbBusy) { thumbBusy = true; requestIdleCallback(runThumbs, { timeout: 400 }); }
     }
+    return '';
+  }
+  function thumbFor(p) {
+    const img = P().el('img', { class: 'si-thumb', alt: '' });
+    const url = thumbAsync(p, (u) => { img.src = u; }, () => img.isConnected);
+    if (url) img.src = url;
     return img;
   }
 
@@ -978,5 +988,5 @@
     ]);
   }
 
-  window.SVStudio = { panel, presetParams, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage, highlight };
+  window.SVStudio = { panel, presetParams, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage, highlight, thumbAsync, importAny };
 })();

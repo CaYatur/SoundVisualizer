@@ -14,7 +14,7 @@
   const P = () => window.SVPanel;
   const SP = () => window.SVScenePanels;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open', card: 'sv-shelf-card' };
+  const STORE = { sel: 'sv-sel-layer', shelf: 'sv-shelf-tab', open: 'sv-shelf-open', card: 'sv-shelf-card', fav: 'sv-studio-favs', cat: 'sv-studio-cat' };
   const read = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const write = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* depo yok */ } };
 
@@ -47,13 +47,19 @@
   const scrollOf = { layers: 0, inspector: 0, shelf: 0 };
 
   /* Kitaplık sekmeleri ve araçlar. `section` varsa kartın kendisi rafa çiziliyor. */
+  /* PRESET SEKMESİ: MilkDrop ve Studio presetleri tek sekmede, içinde tek tıklık iki düğme
+     (MilkDrop | Studio). Üst çubukta sekme sayısı artmıyor; dar pencerede sekmeler sığıyor.
+     İç kimlikler ayrı kalıyor ('milkdrop' / 'studio'): kilit, vurgu ve imza kuralları
+     sekmeye göre çalışıyor. Sekmeye tıklamak son kullanılan alt rafı açıyor. */
+  const PRESET_SUBS = ['milkdrop', 'studio'];
   const LIB_TABS = [
-    { id: 'milkdrop', label: 'MilkDrop' },
+    { id: 'milkdrop', label: 'Preset', en: 'Presets', subs: PRESET_SUBS },
     /* `en`: sözlük sözcük sözcük çeviriyor; "Görsel" başka yerde resim ("Image"), "Zemin" yer
        ("Ground") demek. İngilizce arayüzde bu iki sekme "Image" ve "Ground" çıkıyordu. */
     { id: 'vis', label: 'Görsel', en: 'Visualizer' },
     { id: 'bg', label: 'Zemin', en: 'Background' },
-    { id: 'templates', label: 'Şablon', section: 'templates' },
+    /* İngilizcede 'Şablon' sözlükte "Preset"; Preset sekmesiyle karışmasın */
+    { id: 'templates', label: 'Şablon', en: 'Templates', section: 'templates' },
     { id: 'scenes', label: 'Sahne' },
   ];
   const tabText = (t) => (t.en && window.SVI18n && window.SVI18n.locale === 'en' ? t.en : tr(t.label));
@@ -62,7 +68,10 @@
     { id: 'modulation', label: 'Modülasyon', section: 'modulation' },
     { id: 'groups', label: 'Gruplar', section: 'groups' },
   ];
-  const isLib = (id) => LIB_TABS.some((t) => t.id === id);
+  const isLib = (id) => LIB_TABS.some((t) => t.id === id || (t.subs && t.subs.indexOf(id) >= 0));
+  const tabOn = (t) => t.id === shelfTab || !!(t.subs && t.subs.indexOf(shelfTab) >= 0);
+  // Preset sekmesinde en son açılan alt raf (MilkDrop ya da Studio)
+  let presetSub = PRESET_SUBS.indexOf(shelfTab) >= 0 ? shelfTab : 'milkdrop';
 
   const KIND_ICON = { background: 'image', visualizer: 'bars', media: 'film', sprites: 'sparkle', logo: 'star', nowplaying: 'music', input: 'broadcast', web: 'globe' };
   const ENGINE_SECTION = { milkdrop: 'milkdrop', geometry: 'geometry', feedback: 'feedbackengine' };
@@ -787,6 +796,177 @@
     return box;
   }
 
+  /* PRESET SATIRI: MilkDrop | Studio düğmeleri ve hedef satırı aynı satırda (rafa yükseklik
+     eklemiyor). Kilit kabının dışında: MilkDrop rafı kilitliyken de Studio'ya geçilebiliyor. */
+  function presetRow(line) {
+    const el = P().el;
+    return el('div', { class: 'sv-psrc' }, [
+      el('div', { class: 'sv-seg', role: 'group', 'aria-label': tr('Preset kaynağı') }, PRESET_SUBS.map((id) => el('button', {
+        class: shelfTab === id ? 'on' : '', type: 'button', 'data-sub': id, 'aria-pressed': shelfTab === id ? 'true' : 'false',
+        text: id === 'studio' ? 'Studio' : 'MilkDrop', onclick: () => { if (shelfTab !== id) setShelf(id); },
+      }))),
+      el('span', { class: 'sv-target', text: line || '' }),
+    ]);
+  }
+
+  /* STUDIO RAFI. MilkDrop rafının mantığı: küçük resimli ızgara, arama (üst çubuktaki kutu),
+     kategoriler, favoriler ve içe aktarma. Kart seçili katmana uygulanıyor (türü uyuyor ve
+     kilitli değilse), yoksa yeni katman ekleniyor. Favoriler ve kategori makinede kalıyor. */
+  let studioCat = read(STORE.cat, 'all');
+  /* Kısa adlar: 1024 px pencerede kategoriler ve iki simge düğmesi tek satıra sığsın. `en` sekme
+     adlarındaki gibi (sözlükte "Görsel" resim, "Zemin" yer demek). */
+  const STUDIO_CATS = [
+    { id: 'all', label: 'Tümü' },
+    { id: 'visualizer', label: 'Görsel', en: 'Visualizer' },
+    { id: 'background', label: 'Zemin', en: 'Background' },
+    { id: 'mine', label: 'Kendi', en: 'Mine', title: 'Kendi Presetlerim' },
+    { id: 'fav', label: 'Favori', en: 'Favourites', title: 'Favoriler' },
+  ];
+  function studioFavs() {
+    try {
+      const a = JSON.parse(read(STORE.fav, '[]'));
+      return Array.isArray(a) ? a.map(String) : [];
+    } catch (e) { return []; }
+  }
+  function toggleStudioFav(id) {
+    const favs = studioFavs();
+    const i = favs.indexOf(id);
+    if (i >= 0) favs.splice(i, 1); else favs.push(id);
+    write(STORE.fav, JSON.stringify(favs));
+    paint();
+  }
+  // Kayıt değişti mi (içe aktarma, kaydetme, silme): sayı ve en yeni güncelleme zamanı
+  function studioRev() {
+    const IS = window.SVPresets;
+    const list = IS && IS.all ? IS.all() : [];
+    let last = 0;
+    for (const x of list) last = Math.max(last, Number(x && x.updatedAt) || 0);
+    return list.length + ':' + last;
+  }
+  const studioName = (p) => (p.builtin ? tr(p.name) : String(p.name || ''));
+  /* Saf süzgeç (test ediliyor): kategori, favoriler ve arama. Gruplar sırayla: favoriler,
+     kendi presetlerin, yerleşik görselleştiriciler, yerleşik arkaplanlar; bir preset bir kez. */
+  function studioGroups(list, cat, favs, q, fold) {
+    const F = fold || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+    const fav = new Set(favs || []);
+    const want = F(q);
+    const isBg = (p) => p.kind === 'background';
+    const keep = {
+      all: () => true,
+      visualizer: (p) => !isBg(p),
+      background: isBg,
+      mine: (p) => !p.builtin,
+      fav: (p) => fav.has(String(p.id)),
+    }[cat] || (() => true);
+    const hit = (p) => !want || F([studioName(p), p.name, p.description ? tr(p.description) : '', tr(isBg(p) ? 'Arkaplan' : 'Görselleştirici')].join(' ')).indexOf(want) >= 0;
+    // Studio sayfasındaki liste gibi: yalnız görselleştirici ve arkaplan (MilkDrop presetleri kendi rafında)
+    const studioKind = (p) => p.kind === 'visualizer' || p.kind === 'background';
+    const items = (list || []).filter((p) => p && studioKind(p) && keep(p) && hit(p));
+    if (cat !== 'all') return items.length ? [['', items]] : [];
+    const groups = [
+      ['Favoriler', items.filter((p) => fav.has(String(p.id)))],
+      ['Kendi Presetlerim', items.filter((p) => !fav.has(String(p.id)) && !p.builtin)],
+      ['Görselleştirici', items.filter((p) => !fav.has(String(p.id)) && p.builtin && !isBg(p))],
+      ['Arkaplan', items.filter((p) => !fav.has(String(p.id)) && p.builtin && isBg(p))],
+    ];
+    return groups.filter((g) => g[1].length);
+  }
+  function applyStudio(p) {
+    const cfg = P().cfg();
+    const ST = window.SVStudio;
+    if (p.engine === 'variation') {
+      if (ST && ST.applyPresetToCfg) ST.applyPresetToCfg(cfg, p);
+      P().apply();
+      return true;
+    }
+    const want = p.kind === 'background' ? 'background' : 'visualizer';
+    const cur = selected();
+    let l = cur && cur.kind === want && !cur.locked ? cur : null;
+    if (!l) {
+      l = window.SVLayers.normalizeLayer({ kind: want, type: 'custom', name: studioName(p) });
+      const list = layers();
+      if (want === 'background') list.unshift(l); else list.push(l);
+    }
+    window.SVLayers.setLayerMode(cfg, l, { type: 'custom', presetId: p.id, reveal: true });
+    sel = l.id;
+    write(STORE.sel, sel);
+    P().apply();
+    return true;
+  }
+  function studioGallery() {
+    const el = P().el;
+    const IS = window.SVPresets;
+    const ST = window.SVStudio;
+    const F = (window.SVText && window.SVText.fold) || null;
+    const favs = studioFavs();
+    const wrap = el('div', { class: 'sv-studio' });
+    const bar = el('div', { class: 'sv-chips' }, STUDIO_CATS.map((c) => el('button', {
+      class: 'sv-chip' + (studioCat === c.id ? ' on' : ''), type: 'button', text: tabText(c), 'data-cat': c.id,
+      title: c.title ? tr(c.title) : undefined, 'aria-pressed': studioCat === c.id ? 'true' : 'false',
+      onclick: () => { studioCat = c.id; write(STORE.cat, c.id); scrollOf.shelf = 0; paint(); },
+    })));
+    bar.appendChild(el('span', { class: 'sv-grow' }));
+    if (ST && ST.importAny) {
+      bar.appendChild(el('button', { class: 'sv-ib sm', type: 'button', icon: 'import', 'aria-label': tr('İçe Aktar'), title: tr('İçe Aktar') + ': Shadertoy / ISF / MilkDrop / .svpreset / .svpack', onclick: () => ST.importAny() }));
+    }
+    bar.appendChild(el('button', {
+      class: 'sv-ib sm', type: 'button', icon: 'code', 'aria-label': tr('Studio editöründe aç'), title: tr('Studio editöründe aç') + ' (' + tr('çift tık') + ')',
+      onclick: () => {
+        const l = selected();
+        if (ST && l && l.type === 'custom' && l.presetId && IS && IS.get(l.presetId)) ST.selectPreset(l.presetId);
+        if (P().setCategory) P().setCategory('studio');
+      },
+    }));
+    wrap.appendChild(bar);
+    const groups = studioGroups(IS && IS.all ? IS.all() : [], studioCat, favs, query, F);
+    const box = el('div', { class: 'sv-gal' });
+    if (!groups.length) {
+      box.appendChild(el('div', { class: 'sv-gh', text: tr(studioCat === 'fav' ? 'Henüz favori yok. Kartın yıldızına tıklayın.' : studioCat === 'mine' ? 'Henüz kendi presetin yok. Studio editöründe yap ya da içe aktar.' : 'Sonuç yok.') }));
+    }
+    const fav = new Set(favs);
+    const l = selected();
+    for (const [g, items] of groups) {
+      if (g) box.appendChild(el('div', { class: 'sv-gh', text: tr(g) }));
+      for (const p of items) {
+        const name = studioName(p);
+        const th = el('span', { class: 'sv-th', icon: p.kind === 'background' ? 'image' : 'bars' });
+        const isFav = fav.has(String(p.id));
+        const btn = el('button', {
+          class: 'sv-gi nothumb' + (l && l.type === 'custom' && l.presetId === p.id ? ' cur' : ''), type: 'button', 'data-cur': p.id,
+          title: (p.description ? tr(p.description) + '\n' : '') + tr(p.kind === 'background' ? 'Arkaplan' : 'Görselleştirici'),
+          ...(p.builtin ? {} : { 'data-user-attr': '' }),
+          onclick: () => applyStudio(p),
+          ondblclick: () => { if (ST && ST.selectPreset) ST.selectPreset(p.id); if (P().setCategory) P().setCategory('studio'); },
+        }, [th, el('b', { text: name, ...(p.builtin ? {} : { 'data-user-text': '' }) }), el('small', { text: tr(p.builtin ? (p.kind === 'background' ? 'Arkaplan' : 'Görselleştirici') : p.engine === 'shader' ? 'shader' : 'varyasyon') })]);
+        const star = el('button', {
+          class: 'sv-fav' + (isFav ? ' on' : ''), type: 'button', icon: 'star',
+          title: tr(isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'), 'aria-label': tr(isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'), 'aria-pressed': isFav ? 'true' : 'false',
+          onclick: (e) => { e.stopPropagation(); toggleStudioFav(String(p.id)); },
+        });
+        box.appendChild(el('div', { class: 'sv-gw' }, [btn, star]));
+        const url = ST && ST.thumbAsync ? ST.thumbAsync(p, (u) => setModeThumb(btn, u), () => btn.isConnected) : '';
+        if (url) setModeThumb(btn, url);
+      }
+    }
+    wrap.appendChild(box);
+    return wrap;
+  }
+
+  /* Ctrl+F rafın içindeyken rafın aramasını açıyor (dar rafta simgeye inmiş kutu). Raf dışında
+     genel arama (admin.js) çalışmaya devam ediyor. Yakalama evresinde: genel kısayoldan önce. */
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || String(e.key || '').toLowerCase() !== 'f') return;
+      const shelf = document.getElementById('svShelf');
+      const inp = shelf && shelf.querySelector('.sv-shelf-search input');
+      if (!inp || !shelf.contains(document.activeElement) && !shelf.matches(':hover')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      inp.focus();
+      inp.select();
+    }, true);
+  }
+
   /* GÖRSEL / ZEMİN KÜÇÜK RESİMLERİ (#957). Ana süreç önce uygulamayla gelen
      resmi veriyor; yoksa gizli pencerede tek tek çiziyor (kuyruk ve seyreklik
      MilkDrop küçük resimleriyle ortak). İstek boşta (requestIdleCallback)
@@ -945,7 +1125,7 @@
       return;
     }
     if (!wrap) {
-      const line = body.querySelector(':scope > .sv-target');
+      const line = body.querySelector(':scope > .sv-target, :scope > .sv-psrc');
       const content = Array.from(body.children).filter((n) => n !== line);
       if (!content.length) return;
       wrap = P().el('div', { class: 'sv-shelf-locked', 'aria-disabled': 'true' }, content);
@@ -978,6 +1158,11 @@
     if (shelfTab === 'milkdrop') {
       const own = l && l.kind === 'visualizer' && l.type === 'milkdrop';
       return own && window.SVMilkdropPanel.isOwnLayer(l) ? tr('Şuna uygulanır:') + ' ' + tr(l.name || 'MilkDrop') : tr('Ortak MilkDrop presetine uygulanır');
+    }
+    if (shelfTab === 'studio') {
+      return l && (l.kind === 'visualizer' || l.kind === 'background') && !l.locked
+        ? tr('Aynı türdeki presetler şuna uygulanır:') + ' ' + tr(l.name || l.kind)
+        : tr('Yeni katman olarak eklenir');
     }
     if (shelfTab === 'vis' || shelfTab === 'bg') {
       if (l && autoTarget()) {
@@ -1022,6 +1207,9 @@
        Sabit imza yalnız Sahne sekmesi için gerekli (liste kaydırması başa sıçramasın). */
     const sectionTab = LIB_TABS.concat(TOOL_TABS).find((t) => t.id === shelfTab && t.section);
     if (sectionTab) return shelfTab + '#' + (++sectionPaints);
+    /* Studio: kayıttaki presetler (içe aktarma, Studio sayfasında kaydetme/silme), favoriler ve
+       kategori de imzada; vurgu syncShelf ile. */
+    if (shelfTab === 'studio') return 'studio|' + String(query || '') + '|' + studioCat + '|' + read(STORE.fav, '') + '|' + studioRev();
     if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
     /* MilkDrop: etkin preset ve seçili katman da imzada değil (vurgu syncShelf ile).
        Rafın düğmeleri yapılandırma nesnesini tutuyor; dışarıdan yeni yapılandırma
@@ -1055,6 +1243,13 @@
         const MP = window.SVMilkdropPanel;
         const id = MP && MP.currentPick ? MP.currentPick(P().cfg()) : '';
         return id ? [id] : [];
+      },
+    },
+    studio: {
+      sel: '.sv-gi[data-cur]', attr: 'data-cur', cls: 'cur',
+      now: () => {
+        const l = selected();
+        return l && l.type === 'custom' && l.presetId ? [l.presetId] : [];
       },
     },
     templates: {
@@ -1119,11 +1314,15 @@
         el('button', { class: lib ? '' : 'on', type: 'button', icon: 'sliders', title: tr('Araçlar'), 'aria-label': tr('Araçlar'), onclick: () => setShelf(TOOL_TABS[0].id) }),
       ]),
       el('div', { class: 'sv-tabs', role: 'tablist' }, tabs.map((t) => el('button', {
-        class: t.id === shelfTab ? 'on' : '', type: 'button', role: 'tab', text: tabText(t), onclick: () => setShelf(t.id),
+        class: tabOn(t) ? 'on' : '', type: 'button', role: 'tab', text: tabText(t), 'data-tab': t.id,
+        onclick: () => setShelf(t.subs ? presetSub : t.id),
       }))),
-      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' }, [
+      /* Dar rafta (shell.css, kap sorgusu) arama kutusu büyüteç simgesine iniyor; tıklayınca
+         ya da Ctrl+F ile açılıyor. Sekmeler hiç gizlenmiyor, açılan kutu boyut kaydırıcısının
+         üstüne biniyor. `has`: kapalı simgede etkin süzgeç olduğu görünsün. */
+      lib && shelfTab !== 'milkdrop' && shelfTab !== 'scenes' && shelfTab !== 'templates' ? el('label', { class: 'sv-shelf-search' + (query ? ' has' : ''), title: tr('Ara') + ' (Ctrl+F)' }, [
         el('span', { icon: 'search' }),
-        el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; paintShelfBody(host); } }),
+        el('input', { placeholder: tr('Ara'), value: query, 'aria-label': tr('Kitaplıkta ara'), oninput: (e) => { query = e.target.value; e.target.parentNode.classList.toggle('has', !!query); paintShelfBody(host); } }),
       ]) : el('span', { class: 'sv-grow' }),
       lib ? el('label', { class: 'sv-card-size', title: tr('Kart boyu (Ctrl + tekerlek)') }, [
         el('span', { icon: 'grid' }),
@@ -1160,8 +1359,9 @@
     const el = P().el;
     const kids = [];
     const line = targetLine();
-    if (line) kids.push(el('div', { class: 'sv-target', text: line }));
-    const tab = LIB_TABS.concat(TOOL_TABS).find((t) => t.id === shelfTab) || LIB_TABS[0];
+    if (PRESET_SUBS.indexOf(shelfTab) >= 0) kids.push(presetRow(line));
+    else if (line) kids.push(el('div', { class: 'sv-target', text: line }));
+    const tab = shelfTab === 'studio' ? { id: 'studio' } : (LIB_TABS.concat(TOOL_TABS).find((t) => t.id === shelfTab) || LIB_TABS[0]);
     if (tab.section) {
       const c = P().sectionCard(tab.section);
       if (c) kids.push(c);
@@ -1172,6 +1372,8 @@
       kids.push(modeGallery(tab.id));
     } else if (tab.id === 'scenes') {
       kids.push(sceneShelf());
+    } else if (tab.id === 'studio') {
+      kids.push(studioGallery());
     }
     body.replaceChildren(...kids);
     body._svLockKey = '';
@@ -1182,6 +1384,7 @@
 
   function setShelf(id, filter) {
     shelfTab = id;
+    if (PRESET_SUBS.indexOf(id) >= 0) presetSub = id;
     if (filter !== undefined) query = filter;
     write(STORE.shelf, id);
     if (!shelfOpen) { shelfOpen = true; write(STORE.open, '1'); }
