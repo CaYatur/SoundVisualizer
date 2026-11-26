@@ -187,6 +187,13 @@
   /* Dönüş true: eylem sahneyi kendisi uyguladı ve gönderdi; çağıran yeniden
      göndermez (göndermek etkin sahne işaretini silerdi). */
   function runAction(action, cfg) {
+    /* Önizleme modu (#1167): kısayol, MIDI, uzak eylem ve klip destesi Program'ı sürer. */
+    const panel = P();
+    if (panel && panel.draftOn && panel.draftOn() && panel.cfg() === cfg) {
+      panel.onProgram(() => { if (runAction(action, panel.cfg()) !== true) panel.push(true); });
+      panel.rerender();
+      return true;
+    }
     const editor = window.SVTimelineTarget;
     return editor && P() && P().cfg() === cfg ? editor.withManual(() => runActionManual(action, P().cfg())) : runActionManual(action, cfg);
   }

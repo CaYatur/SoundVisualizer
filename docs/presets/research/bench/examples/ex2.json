@@ -1,0 +1,53 @@
+{
+  "format": "svpreset",
+  "version": 2,
+  "name": "Spark Cube",
+  "layers": [
+    {
+      "type": "gradient",
+      "colors": [
+        "#001018",
+        "#003a52",
+        "#00a6c8"
+      ],
+      "angle": 180
+    },
+    {
+      "type": "camera",
+      "mode": "orbit",
+      "distance": 4,
+      "fov": 60,
+      "speed": 0.3
+    },
+    {
+      "type": "mesh3d",
+      "shape": "cube",
+      "scale": "1 + 0.3*bass",
+      "rotate": [
+        0.2,
+        0.5,
+        0
+      ],
+      "color": "#66ffee",
+      "material": "emissive"
+    },
+    {
+      "type": "particles",
+      "count": 3000,
+      "size": 2,
+      "speed": "1 + 2*treble",
+      "color": "#ffffff",
+      "emit": "spectrum"
+    },
+    {
+      "type": "bloom",
+      "intensity": 1.2,
+      "threshold": 0.4,
+      "radius": 5
+    },
+    {
+      "type": "vignette",
+      "strength": 0.4
+    }
+  ]
+}

@@ -119,6 +119,9 @@ contextBridge.exposeInMainWorld('api', {
   // Video sarma (#905): anlık, ayara yazılmıyor
   sendMediaScrub: (m) => ipcRenderer.send('media-scrub', m),
   sendTbar: (m) => ipcRenderer.send('tbar', m),
+  // Önizleme modu (#1168): çıkışı dondur / sessize al ve Program monitörü görüntüsü
+  sendOutputSafety: (m) => ipcRenderer.send('output-safety', m),
+  programSnapshot: () => ipcRenderer.invoke('program:snapshot'),
   /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
      yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
   sendMdLive: (p, layers) => ipcRenderer.send('md-live', p, layers),
