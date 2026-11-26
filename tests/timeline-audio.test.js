@@ -136,27 +136,6 @@ test('geriye uyum: audioTracks ayrı dizi, eski anlık görüntü aynı, sekme d
   assert.deepStrictEqual(live.audioTracks, [{ id: 'x', clips: [] }]);
 });
 
-test('dışa aktarma kuralı: kaynak denetimleri', () => {
-  const main = read('src/main/main.js');
-  // audioPath veren eski çağrı dosyayı kullanır; yalnız audioFrom 'timeline' ya da dosyasız + çizelge sesi karışımı seçer
-  assert.match(main, /opts\.audioFrom === 'timeline' \|\| \(opts\.audioFrom !== 'file' && !audioPath && TA\.hasAudio\(jobAudio\)\)/);
-  assert.match(main, /timelineAudio\.mixdown\(/);
-  assert.match(main, /if \(!exportState\) return; \/\/ tek sefer\n  cleanupExportMedia\(\);\n  timelineAudio\.cleanup\(\);/);
-  const M = require('../src/shared/mcp.js');
-  const tools = M.tools ? M.tools() : [];
-  const exp = tools.find((t) => t.name === 'sv_start_export');
-  if (exp && exp.inputSchema) {
-    assert.deepStrictEqual(exp.inputSchema.required, ['outputPath']);
-    assert.deepStrictEqual(exp.inputSchema.properties.audioFrom.enum, ['file', 'timeline']);
-  }
-  const admin = read('src/admin/admin.js');
-  assert.match(admin, /audioFrom: tlAudio \? 'timeline' : 'file'/);
-  // Seçilen çizelgenin sesi yoksa etkin sekmenin sesi işe karışmaz
-  const C = require('../src/shared/timeline-compose.js');
-  assert.match(read('src/shared/timeline-compose.js'), /if \(!Array\.isArray\(selected\.audioTracks\)\) delete out\.timeline\.audioTracks;/);
-  assert.ok(C.exportJobConfig);
-});
-
 test('ses dosyaları sv-media ile yalnız yapılandırmada/seçilmişse sunulur', () => {
   const MF = require('../src/main/media-file.js');
   assert.strictEqual(MF.MEDIA_MIME['.mp3'], 'audio/mpeg');

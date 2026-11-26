@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4719%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4718%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1006,10 +1006,6 @@ one playhead drives every screen together, and offline export plays the same sho
   (right-click removes it), and **ducking** lowers a track while another one plays. Editing never
   changes the source file and every edit is one undo step. Audio is stored in a separate
   `timeline.audioTracks` list, so older versions open the file with the visual timeline intact.
-- **Export uses the timeline audio** — when the exported timeline has audible clips, the export
-  panel locks the audio picker and mixes the timeline down (the same mix that plays live) for both
-  the video analysis and the soundtrack. **Override** picks a file instead. `sv_start_export` takes
-  `audioFrom: 'timeline' | 'file'`; calls that pass `audioPath` work as before.
 
 **Clip Deck.** Place scenes, templates, palettes and media on a grid and fire them on the beat.
 
@@ -2310,7 +2306,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4719 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4718 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

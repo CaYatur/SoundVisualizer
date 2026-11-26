@@ -10085,28 +10085,7 @@ async function startExportJob(opts, bench, extra) {
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
   exportMediaCfg = jobCfg;
   exportMediaPaths = new Set(exportMedia.jobMediaFiles(jobCfg).map((f) => path.resolve(mediaUrl.fromMediaUrl(f))));
-  /* Ses kuralı (#1172): çizelgede duyulur ses klibi varsa ve dosya açıkça
-     seçilmediyse (audioFrom 'file' ya da yalnız audioPath) karışım kullanılır:
-     hem görsel çözümleme hem videodaki ses. audioPath veren eski çağrılar aynı. */
-  let audioPath = opts.audioPath;
-  const TA = require('../shared/timeline-audio.js');
-  const jobAudio = jobCfg.export && jobCfg.export.includeTimeline === true && jobCfg.timeline ? jobCfg.timeline.audioTracks : null;
-  const audioFrom = opts.audioFrom === 'timeline' || (opts.audioFrom !== 'file' && !audioPath && TA.hasAudio(jobAudio)) ? 'timeline' : 'file';
-  timelineAudio.cleanup();
-  if (audioFrom === 'timeline') {
-    if (!TA.hasAudio(jobAudio)) {
-      return { ok: false, error: trUi('Çizelgede duyulur ses klibi yok; bir ses dosyası seçin.', 'The timeline has no audible audio clips; choose an audio file.') };
-    }
-    const T = require('../shared/timeline.js');
-    const vis = T.makeTimeline(jobCfg.timeline).tracks.reduce((m, t) => (t.clips || []).reduce((n, c) => Math.max(n, c.start + c.dur), m), 0);
-    const mix = await timelineAudio.mixdown(resolveFfmpeg(), jobAudio, { to: Math.max(vis, TA.audioLength(jobAudio)), srcPath: (s) => mediaUrl.fromMediaUrl(s) });
-    if (!mix.ok) {
-      return { ok: false, error: mix.error === 'missing'
-        ? trUi('Çizelge ses dosyası bulunamadı: ', 'Timeline audio file not found: ') + mix.missing.map((f) => path.basename(String(f))).join(', ')
-        : trUi('Çizelge sesi karıştırılamadı: ', 'Could not mix the timeline audio: ') + mix.error };
-    }
-    audioPath = mix.file;
-  }
+  const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
   /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve
      tcp:// ya da pipe: gibi adresleri de çıktı sayar: MCP'nin kuralı burada
@@ -10171,13 +10150,13 @@ async function startExportJob(opts, bench, extra) {
   }
 
   let track = {
-    title: audioFrom === 'timeline' ? String((jobCfg.timeline && jobCfg.timeline.name) || 'Timeline') : path.basename(audioPath, path.extname(audioPath)),
+    title: path.basename(audioPath, path.extname(audioPath)),
     artist: '',
     album: '',
     artwork: '',
   };
   try {
-    const read = audioFrom === 'timeline' ? null : await require('../shared/audio-tags.js').readAudioTags(ff, audioPath, track.title);
+    const read = await require('../shared/audio-tags.js').readAudioTags(ff, audioPath, track.title);
     if (read) track = read;
   } catch { /* etiket yoksa dosya adı yeter */ }
 
@@ -10695,7 +10674,6 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   cleanupExportMedia();
-  timelineAudio.cleanup();
   exportMediaPaths.clear();
   exportMediaCfg = null;
   const out = exportState.outputPath;
