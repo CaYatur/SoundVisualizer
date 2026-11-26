@@ -157,7 +157,10 @@ seeing it. While it is on:
 - **Take** (`Ctrl+Shift+Enter`) sends the draft out with a cut, a crossfade or the scene's own
   transition, optionally on the next beat;
 - the **T-bar** mixes from the program to the draft by hand;
-- the Live page faders, solo, mute and effect switches act on the program;
+- the Live page faders, solo, mute and effect switches act on the program, and with **Keep live**
+  on (the default) a Take keeps those changes instead of replacing them with the draft's values;
+- the **PGM** monitor shows the program at up to about 10 frames per second (slower when capturing
+  is expensive); hover it to enlarge it;
 - **Freeze** holds the last frame on every output, including the OBS overlay and video layers;
 - the phone remote and MCP (`sv_preview_take`, `sv_set_output_freeze`) can trigger Take and
   Freeze.

@@ -62,6 +62,11 @@
     ui.beat.checked = localStorage.getItem('sv-pvw-beat') === '1';
     ui.beat.addEventListener('change', () => localStorage.setItem('sv-pvw-beat', ui.beat.checked ? '1' : '0'));
     const beatLbl = el('label', { class: 'sv-pvw-beatlbl', title: tr('Bir sonraki vuruşta gönder') }, [ui.beat, el('span', { text: tr('Vuruşta') })]);
+    // Canlı sayfasında Program'a yapılan fader değişiklikleri gönderimde korunsun mu (varsayılan evet)
+    ui.keep = el('input', { type: 'checkbox', class: 'sv-pvw-keep' });
+    ui.keep.checked = localStorage.getItem('sv-pvw-keeplive') !== '0';
+    ui.keep.addEventListener('change', () => localStorage.setItem('sv-pvw-keeplive', ui.keep.checked ? '1' : '0'));
+    const keepLbl = el('label', { class: 'sv-pvw-beatlbl', title: tr('Canlı sayfasında yayına yapılan fader, solo, sessiz ve efekt değişiklikleri Sahneye Gönder\'de korunur') }, [ui.keep, el('span', { class: 'sv-pvw-lbl', text: tr('Canlıyı koru') })]);
     ui.take = iconBtn('broadcast', 'Sahneye Gönder', 'Taslağı yayına gönder (Ctrl+Shift+Enter)', () => take(), 'primary sv-pvw-take');
     ui.revert = iconBtn('undo', 'Geri Al', 'Son gönderimi geri al', () => { P().draftRevert(); sync(); });
     ui.freeze = iconBtn('pause', 'Dondur', 'Çıkışta son kareyi tut', () => toggleSafety('freeze'));
@@ -74,7 +79,7 @@
     bar = el('div', { id: 'svPreviewBar', class: 'sv-pvw-bar', role: 'region', 'aria-label': tr('Önizleme') }, [
       el('span', { class: 'sv-pvw-badge', text: tr('ÖNİZLEME — yayında değil') }),
       el('div', { class: 'sv-pvw-pgm', title: tr('Program: seyircinin gördüğü') }, [el('span', { class: 'sv-pvw-pgmlbl', text: 'PGM' }), ui.monitor, ui.monNote]),
-      ui.mode, ui.secs, beatLbl, ui.take, ui.revert,
+      ui.mode, ui.secs, beatLbl, keepLbl, ui.take, ui.revert,
       el('span', { class: 'sv-pvw-sep' }),
       ui.freeze, ui.mute, ui.black,
       el('span', { class: 'sv-pvw-sep' }),
@@ -88,6 +93,7 @@
 
   function sync() {
     const on = armed();
+    monitorSync(); // kip başka yoldan açılıp kapanırsa (MCP, geri yükleme) abonelik izler
     document.body.toggleAttribute('data-preview-mode', on);
     if (btn) {
       btn.classList.toggle('on', on);
@@ -147,17 +153,42 @@
     snapBusy = true;
     try {
       const r = await window.api.programSnapshot();
-      if (r && r.dataUrl) { ui.monitor.src = r.dataUrl; ui.monitor.hidden = false; ui.monNote.hidden = true; }
-      else { ui.monitor.hidden = true; ui.monNote.hidden = false; }
+      paintFrame(r);
     } catch { /* pencere kapanıyor */ }
     snapBusy = false;
+  }
+
+  /* Program monitörü: ana süreç canlıya yakın kare itiyorsa ona abone olunur (pencere
+     gizliyken abonelik kapanır); eski sürümde ya da itme yoksa anlık görüntü aralığı. */
+  let monOn = false;
+  function paintFrame(r) {
+    if (r && r.dataUrl) {
+      ui.monitor.src = r.dataUrl;
+      ui.monitor.hidden = false;
+      ui.monNote.hidden = true;
+      if (r.interval) ui.monitor.title = 'PGM · ~' + Math.max(1, Math.round(1000 / r.interval)) + ' fps';
+    } else { ui.monitor.hidden = true; ui.monNote.hidden = false; }
+  }
+  function monitorSync() {
+    const want = armed() && !document.hidden;
+    if (window.api && window.api.programMonitor) {
+      if (want !== monOn) { monOn = want; window.api.programMonitor(want); }
+      return;
+    }
+    if (want && !snapTimer) { snapTimer = setInterval(snap, SNAP_MS); snap(); }
+    if (!want && snapTimer) { clearInterval(snapTimer); snapTimer = 0; }
+  }
+  function startMonitor() { monitorSync(); }
+  function stopMonitor() {
+    if (monOn && window.api && window.api.programMonitor) window.api.programMonitor(false);
+    monOn = false;
+    if (snapTimer) { clearInterval(snapTimer); snapTimer = 0; }
   }
 
   function enter() {
     if (armed()) return;
     if (!P().draftBegin()) return;
-    if (!snapTimer) snapTimer = setInterval(snap, SNAP_MS);
-    snap();
+    startMonitor();
     sync();
   }
   async function leave() {
@@ -168,7 +199,7 @@
     if (!ok) return;
     cancelBeat();
     P().draftEnd();
-    if (snapTimer) { clearInterval(snapTimer); snapTimer = 0; }
+    stopMonitor();
     sync();
   }
 
@@ -179,7 +210,7 @@
     });
     if (!ok) { P().draftDiscardSaved(); return; }
     if (P().draftRestore()) {
-      if (!snapTimer) snapTimer = setInterval(snap, SNAP_MS);
+      startMonitor();
       sync();
     }
   }
@@ -193,6 +224,8 @@
     btn.addEventListener('click', () => (armed() ? leave() : enter()));
     if (tools) tools.insertBefore(btn, undo && undo.parentNode === tools ? undo : tools.firstChild);
     buildBar();
+    if (window.api && window.api.onProgramFrame) window.api.onProgramFrame((f) => { if (armed()) paintFrame(f); });
+    document.addEventListener('visibilitychange', monitorSync);
     document.addEventListener('keydown', (e) => {
       if (!armed()) return;
       if (e.key === 'Escape' && beatRaf) { cancelBeat(); sync(); return; }

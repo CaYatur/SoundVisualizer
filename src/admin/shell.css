@@ -634,6 +634,10 @@ body[data-preview-mode] #previewStage { box-shadow: 0 0 0 3px var(--ok); }
 /* Dar pencere: düğmeler yalnız ikon, Sahneye Gönder yazılı kalır (#1168) */
 @media (max-width: 1440px) {
   .sv-pvw-bar .btn:not(.sv-pvw-take) .sv-pvw-lbl { display: none; }
+  .sv-pvw-beatlbl .sv-pvw-lbl { display: none; }
   .sv-pvw-bar { gap: 4px; }
   .sv-pvw-monnote { display: none; }
 }
+/* Program monitörü: üzerine gelince büyür (çubuk tek satır kalır) */
+.sv-pvw-mon { transition: transform .12s ease; transform-origin: top left; }
+.sv-pvw-mon:hover { transform: scale(3.2); position: relative; z-index: 60; box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / .35); }
