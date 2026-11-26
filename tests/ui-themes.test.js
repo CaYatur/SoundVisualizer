@@ -118,6 +118,8 @@ test('karşıtlık kuralları: yazı, düğme, kod ve odak halkası kapsanıyor'
   assert.ok(rules.some((r) => r.on && r.on.mix), 'geçişin ortası ölçülüyor');
   ['--syn-kw', '--syn-type', '--syn-fn', '--syn-num', '--syn-com', '--syn-pre', '--code-fg'].forEach((fg) => assert.ok(has(fg, '--code-bg'), fg));
   assert.ok(rules.some((r) => r.fg === '--accent' && r.min === C.UI), 'odak halkası 3:1');
+  assert.ok(rules.some((r) => r.fg === '--muted' && r.on && r.on.tint === '--fg-rgb' && r.on.alpha === 0.045), 'telefon satırı notu ölçülüyor');
+  assert.match(read('src/admin/pages.css'), /\.pl-dev-txt \.note \{ color: var\(--muted\); \}/);
   assert.strictEqual(C.TEXT, 4.5);
   assert.strictEqual(C.AAA, 7);
 });

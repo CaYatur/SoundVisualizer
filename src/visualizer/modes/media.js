@@ -74,6 +74,13 @@
     return code === 4 || ((err && err.name) || '') === 'NotSupportedError';
   }
 
+  /* play() sözü pause() ya da yeni kaynak yüzünden yarıda kesilince AbortError ile
+     reddedilir ("The play() request was interrupted by a call to pause()"). Bu bir
+     hata değil, yarış: video yine oynatılabilir. Kullanıcıya hiç gösterilmez. */
+  function isPlayAbort(err) {
+    return !!err && (err.name === 'AbortError' || /play\(\) request was interrupted/i.test(String(err.message || '')));
+  }
+
   // Ayardaki adresten (sv-media://local/..., /media-file?v=..., düz yol) dosya adı
   function videoName(file) {
     let s = String(file || '');
@@ -374,13 +381,20 @@
         /* Oynatma sırasında çıkan hata (bozuk dosya, çözülemeyen biçim)
            play() sözünden sonra gelir; dinlenmezse panel "hazır" kalırdı. */
         this.video.onerror = () => { this._fail(key, this.video.error); };
-        this.video.src = this._sourceUrl(cfg.file);
-        this.video.play().then(() => {
+        /* Hazırlık ilk karenin çözülmesiyle (loadeddata) gelir, play() sözüyle değil:
+           zaman çizelgesi videoyu duraklatılmış tutarken de kare çizilebilir. Kendiliğinden
+           oynatma (autoplay) kapalı; oynatmayı tek yol (_play) yönetir, yoksa tarayıcının
+           kendi play() çağrısı çizelgenin pause() çağrısıyla yarışırdı. */
+        this.video.autoplay = false;
+        this.video.preload = 'auto';
+        this.video.onloadeddata = () => {
           if (this.key !== key) return;
           this.ready = true;
           this.error = null;
           this._publish();
-        }).catch((e) => { this._fail(key, e); });
+        };
+        this.video.src = this._sourceUrl(cfg.file);
+        if (!this._tlDriven) this._play();
       } else if (this._webPage()) {
         this._relay = true;
         this._armRelay(key);
@@ -593,6 +607,8 @@
 
     _fail(key, err) {
       if (this.key !== key) return;
+      // Yarıda kesilen play() sözü hata değil (bkz. isPlayAbort)
+      if (isPlayAbort(err) && (this._source === 'file' || /play\(\)/.test(String(err.message || '')))) return;
       this.ready = false;
       if (this._source === 'file' && isFormatFault(err)) {
         /* onerror ve play() reddi aynı hatayı iki kez getirir: anahtar
@@ -668,7 +684,10 @@
         this.stream.getTracks().forEach((t) => t.stop());
         this.stream = null;
       }
+      this._wantPlay = false;
+      this._playing = null;
       try {
+        this.video.onloadeddata = null;
         this.video.onerror = null;
         this.video.pause();
         this.video.srcObject = null;
@@ -682,18 +701,72 @@
        süresine göre sarar, değilse son karede durur) ve kare çözülene kadar
        bekler. Canlı oynatıcıda katman göründüğü anda başlıyor; dışa
        aktarımda o an t = 0. */
-    /* Timeline klibi: canlı video da klibin yerel saatine bağlıdır.
-       Sarma/duraklatma videoyu serbest duvar saatinde bırakmaz. */
-    seekTimeline(sec) {
+    /* TEK OYNATMA YOLU. play() bir söz döndürür; söz çözülmeden pause() çağrılırsa
+       tarayıcı sözü AbortError ile reddeder ve eskiden bu ret "Video açılamadı: The
+       play() request was interrupted by a call to pause()" diye tuvale yazılıyordu.
+       Burada bekleyen söz varken duraklatma istenirse yalnız istek not edilir; söz
+       çözülünce video duraklatılır. Ret AbortError ise sessizce yutulur. */
+    _play() {
+      const v = this.video;
+      this._wantPlay = true;
+      if (this._playing) return this._playing;
+      if (!v.paused) return Promise.resolve(true);
+      const key = this.key;
+      let p;
+      try { p = v.play(); } catch (e) { p = Promise.reject(e); }
+      if (!p || typeof p.then !== 'function') return Promise.resolve(true);
+      const pending = p.then(() => {
+        if (this._playing === pending) this._playing = null;
+        if (this.key !== key) return false;
+        if (!this._wantPlay && !v.paused) v.pause();
+        return true;
+      }, (e) => {
+        if (this._playing === pending) this._playing = null;
+        if (!isPlayAbort(e)) this._fail(key, e);
+        return false;
+      });
+      this._playing = pending;
+      return pending;
+    }
+
+    _pause() {
+      this._wantPlay = false;
+      if (this._playing) return; // söz çözülünce _play duraklatır
+      if (!this.video.paused) this.video.pause();
+    }
+
+    /* Timeline klibi: canlı video klibin yerel saatine bağlıdır.
+
+       Çizelge OYNARKEN video kendi çözücüsüyle oynar (hız = klip hızı × katman hızı);
+       konum yalnız kayma 0,25 sn'yi aşınca (sarma, döngü başı, takılma) düzeltilir.
+       Eskiden her karede pause() + currentTime yazılıyordu: video hiç oynamıyor, yalnız
+       sarmanın bittiği seyrek karelerde görüntü değişiyordu (anahtar karesi seyrek
+       videolarda donmuş tek kare). Çizelge DURAKKEN video duraklatılır ve oynatma
+       kafasının karesine sarılır. Geri oynatma (reverse) her zaman kare kare sarılır. */
+    seekTimeline(sec, playing, rate) {
       if (this.offline || this._source !== 'file') return;
       this._tlDriven = true;
       const v = this.video, d = v.duration;
-      if (!(d > 0) || !isFinite(d)) return;
-      v.pause();
+      if (!(d > 0) || !isFinite(d) || v.readyState < 1) { this._pause(); return; }
       const target = transportTime(sec, d, Object.assign({}, this._m, { loop: v.loop }), this._bpm || 0);
-      if (!v.seeking && Math.abs(v.currentTime - target) > 1 / 120) {
+      const m = this._m || {};
+      const seek = (tol) => {
+        if (v.seeking || !(Math.abs(v.currentTime - target) > tol)) return;
         try { v.currentTime = target; } catch { /* dosya henüz hazır değil */ }
+      };
+      if (!playing || m.reverse === true) {
+        this._pause();
+        seek(1 / 120);
+        return;
       }
+      const clipRate = Number(rate) > 0 ? Number(rate) : 1;
+      const layerRate = speedReactOn(m) && this._rate > 0 ? this._rate : clampRate(m.speed, 1);
+      const want = Math.max(0.0625, Math.min(16, clipRate * layerRate));
+      if (Math.abs(v.playbackRate - want) > 1e-3) v.playbackRate = want;
+      // Döngüsüz klipte son kare: video durur, sona sarılmaya çalışılmaz
+      if (m.loop === false && target >= d - 0.02) { this._pause(); seek(0.05); return; }
+      seek(0.25);
+      this._play();
     }
 
     /* Dışa aktarımda sese göre hız: konum kare kare toplanır, aynı ses aynı videoyu verir.
@@ -756,7 +829,7 @@
          Sese göre hız açıksa saat o hızla toplanıyor. Anahtar karesi seyrek videolarda bu
          akış ileri oynatmadan daha az akıcıdır. */
       if (m.reverse === true) {
-        if (!v.paused) v.pause();
+        this._pause();
         let want;
         if (react) {
           const dt = this._revT == null ? 0 : Math.max(0, Math.min(0.25, t - this._revT));
@@ -773,7 +846,7 @@
       }
       this._revT = null;
       // Geri oynatmadan ileriye dönüldü: duraklatılan video yeniden oynasın
-      if (this._wasRev) { this._wasRev = false; if (v.paused && !(m.loop === false && v.currentTime >= d - 0.02)) v.play().catch(() => {}); }
+      if (this._wasRev) { this._wasRev = false; if (v.paused && !(m.loop === false && v.currentTime >= d - 0.02)) this._play(); }
       // Sese göre hız her karede oynar: küçük farklar oynatıcıya yazılmaz
       const settled = react && Math.abs(v.playbackRate - speed) <= 0.02;
       if (!settled) {
@@ -782,7 +855,7 @@
       if (Number(m.loopBeats) > 0) {
         const want = transportTime(t, d, m, this._bpm || 120);
         if (!v.seeking && Math.abs(v.currentTime - want) > 0.15) { try { v.currentTime = want; } catch { /* hazır değil */ } }
-        if (v.paused) v.play().catch(() => {});
+        if (v.paused) this._play();
         return;
       }
       let a = Math.max(0, Math.min(d, Number(m.inPoint) || 0));
@@ -790,9 +863,9 @@
       if (b - a < 0.05) { a = 0; b = d; }
       if (v.seeking) return;
       if (v.currentTime < a - 0.05 || v.currentTime >= b - 0.02) {
-        if (m.loop === false && v.currentTime >= b - 0.02) { if (!v.paused) v.pause(); return; }
+        if (m.loop === false && v.currentTime >= b - 0.02) { this._pause(); return; }
         try { v.currentTime = a; } catch { /* hazır değil */ }
-        if (v.paused && m.loop !== false) v.play().catch(() => {});
+        if (v.paused && m.loop !== false) this._play();
       }
     }
 
@@ -822,10 +895,14 @@
         this._rateT = null;
       }
       if (this._source === 'file' && !this.offline && !this._relay && transportOn(m)) this._steer(m, t);
-      else if (this._source === 'file' && !this.offline) {
+      else if (this._source === 'file' && !this.offline && !this._tlDriven) {
+        // Çizelge klibinin hızına seekTimeline karar verir; burada yalnız serbest oynatıcı
         if (this.video.playbackRate !== 1) this.video.playbackRate = 1;
         // Geri oynatma kapatıldı ve başka taşıma ayarı yok: video kendi başına oynamaya döner
-        if (this._wasRev && !this._tlDriven) { this._wasRev = false; this._revT = null; if (this.video.paused) this.video.play().catch(() => {}); }
+        if (this._wasRev) { this._wasRev = false; this._revT = null; if (this.video.paused) this._play(); }
+        /* Serbest oynatıcı duraklamış kalmasın: yarıda kesilen ilk play() (kaynak değişimi,
+           sekme arka planda) ya da döngüsü açık videonun durması kendiliğinden toparlanır. */
+        else if (this.video.paused && this.video.loop && this.video.readyState >= 2 && !this._playing) this._play();
       }
       if (!this.hasFrame()) {
         /* Hata yazısı yalnız yönetici panelinin önizlemesinde. Çıkış,

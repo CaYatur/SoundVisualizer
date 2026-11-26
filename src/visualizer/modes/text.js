@@ -43,6 +43,32 @@
     return overPx * (1 - ease((local - half - pause) / travel));
   }
 
+  /* Tek yönlü gezinti (zamanlanmamış söz satırı): başta kısa bekleme, sonra
+     sabit hızla sona, sonda BEKLER. Başa dönmez; satır değişince yeniden başlar.
+     Ping-pong söz satırında sonu görünür olur olmaz başa dönüyordu, okunmuyordu. */
+  function overflowOnce(clock, overPx, fontPx, speed) {
+    if (!(overPx > 0)) return 0;
+    const rate = Math.max(0.15, speed || 1);
+    const cruise = Math.max(1, fontPx) * 3;
+    const travel = Math.max(0.85, overPx / cruise) / rate;
+    const pause = 0.6 / rate;
+    if (clock <= pause) return 0;
+    const u = Math.min(1, (clock - pause) / travel);
+    // Yalnız başta yumuşak kalkış; sonda ani durma yok (sona yavaşlayarak oturur)
+    return overPx * u * u * (3 - 2 * u);
+  }
+
+  /* Söz satırının zamana bağlı kayması. `sungPx`: satırın söylenen kısmının
+     genişliği (kelime zamanı varsa kelimeden, yoksa satır süresinin oranından).
+     Söylenen yer görünür alanın %40'ına tutulur: okunacak kelimeler sağda görünür.
+     Hız satırın süresinden ve genişliğinden çıkar; ses düzeyi hızı değiştirmez.
+     Satır biterken kaydırma sonda kalır (başa dönmez). Dönen: 0..overPx. */
+  function lyricScroll(overPx, viewPx, sungPx) {
+    if (!(overPx > 0)) return 0;
+    const lead = Math.max(0, viewPx) * 0.4;
+    return clamp((Number(sungPx) || 0) - lead, 0, overPx);
+  }
+
   /* Masaüstü süreçleri aynı Date.now() değerini görür. Tarayıcı ve OBS
      başka bir makinedeyse SVServerNow ofseti sunucu saatine çeker. */
   function wallNow() {
@@ -140,8 +166,12 @@
       let wordIndex = -1;
       let wordProgress = 0;
       let words = null;
+      let timed = false; // söz satırının zamanı biliniyor (LRC/SRT)
 
       const src = T.source || 'static';
+      /* Söz katmanında sürekli kayan bant (marquee) kullanılmaz: bant satırın
+         ortasında başa sarıyor, söz kaçıyordu. Taşan söz satırı zamana bağlı kayar. */
+      const marquee = !!T.marquee && src !== 'lyrics';
       if (src === 'lyrics') {
         /* Takip kapalıysa ya da Windows değilse use yoktur: söz, elle
            yüklenen dosyayla kalır. Saat, ekran açılınca başlar; panelden
@@ -177,6 +207,7 @@
             if (hit.index >= 0) {
               content = hit.line.text;
               progress = hit.progress;
+              timed = true;
               wordIndex = hit.wordIndex;
               wordProgress = hit.wordProgress || 0;
               words = hit.line.words && hit.line.words.length ? hit.line.words : null;
@@ -303,7 +334,7 @@
       const slotLeftPx = clamp(rawLeft, 0, W);
       const slotRightPx = clamp(rawLeft + limitPx, 0, W);
       const slotPx = Math.max(0, slotRightPx - slotLeftPx);
-      const scrollOn = T.scrollOverflow !== false && !T.marquee;
+      const scrollOn = (T.scrollOverflow !== false || (src === 'lyrics' && !!T.marquee)) && !marquee;
       const scrollSpeed = clamp(T.scrollSpeed == null ? 1 : T.scrollSpeed, 0.15, 4);
       if (content !== this.scrollKey) {
         this.scrollKey = content;
@@ -315,7 +346,11 @@
          hizasında kalır. Taşan yazı kutuya kırpılır; kaydırma açıksa x
          ileri geri gider. Karaoke ve satır silme aynı x'i kullanır, böylece
          vurgu rengi kaydırma açıkken de söylenen kelimenin üstünde kalır. */
-      const placeInSlot = (textWidth) => {
+      /* Kayma konumu nabızsız ölçekle hesaplanır, sonra o anki ölçeğe oranla
+         uygulanır: bas vuruşu yazıyı büyütse de kayma hızı ve konumu zıplamaz.
+         Eskiden taşma payı her karede nabızla değişiyor, hız sesle oynuyordu. */
+      const layoutScale = Math.max(0.05, scale);
+      const placeInSlot = (textWidth, sungX) => {
         const textPx = textWidth * fitScale;
         const naturalLeft = align === 'left' ? anchorX : align === 'right' ? anchorX - textPx : anchorX - textPx / 2;
         const hangs = naturalLeft < -0.5 || naturalLeft + textPx > W + 0.5;
@@ -326,9 +361,18 @@
         const userW = slotPx / fitScale;
         let x = userLeft;
         if (overUser > 1 && scrollOn) {
-          const overPx = overUser * fitScale;
-          const along = overflowAlong(this.scrollT, overPx, size * fitScale, scrollSpeed);
-          x = userLeft - along / fitScale;
+          const viewStable = slotPx / layoutScale;
+          const overStable = Math.max(1, textWidth - viewStable);
+          let frac;
+          if (src === 'lyrics' && timed) {
+            const sung = sungX != null ? sungX : progress * textWidth;
+            frac = lyricScroll(overStable, viewStable, sung) / overStable;
+          } else if (src === 'lyrics') {
+            frac = overflowOnce(this.scrollT, overStable * layoutScale, size * layoutScale, scrollSpeed) / (overStable * layoutScale);
+          } else {
+            frac = overflowAlong(this.scrollT, overStable * layoutScale, size * layoutScale, scrollSpeed) / (overStable * layoutScale);
+          }
+          x = userLeft - clamp(frac, 0, 1) * overUser;
         } else if (align === 'right') {
           x = userLeft + userW - textWidth;
         } else if (align === 'center') {
@@ -365,7 +409,7 @@
       const yBias = vAlign === 'top' ? blockH / 2 : vAlign === 'bottom' ? -blockH / 2 : 0;
       /* Yerleşim kutusu (#534): giriş canlandırması ve nabız OLMADAN, yani
          yazının durduğu yer. Taşan yazı görünür aralığa kırpılıyor, kutu da. */
-      if (!T.marquee) {
+      if (!marquee) {
         let tw = 0;
         lines.forEach((ln) => { tw = Math.max(tw, ctx.measureText(ln).width); });
         const lim = Math.min(W * clamp(T.maxWidth == null ? 0.9 : T.maxWidth, 0.15, 1), W);
@@ -393,7 +437,7 @@
       };
 
       // Yol üstünde yazı (#415): tek satır harf harf yolun üstüne; kayan yazı açıksa o önce gelir
-      const pathKind = !T.marquee && TEXT_PATHS.indexOf(T.textPath) >= 0 ? T.textPath : '';
+      const pathKind = !marquee && TEXT_PATHS.indexOf(T.textPath) >= 0 ? T.textPath : '';
       if (pathKind) {
         const flat = String(content).replace(/\s*\r?\n\s*/g, ' ');
         const chars = Array.from(flat);
@@ -419,15 +463,21 @@
           this.layoutBounds = W > 0 && H > 0 ? { x: (cx + x0 - pad) / W, y: (cy + yBias + y0 - pad) / H, w: (x1 - x0 + pad * 2) / W, h: (y1 - y0 + pad * 2) / H } : null;
         }
         ctx.textAlign = prevAlign;
-      } else if (T.marquee) {
-        // Kayan yazı: metin genişliğinden uzun bir döngüde sürekli akar
-        this.marquee += step * (T.marqueeSpeed == null ? 0.12 : T.marqueeSpeed) * W;
-        const wdt = ctx.measureText(content).width + size * 2;
-        const off = -((this.marquee % wdt));
+      } else if (marquee) {
+        /* Kayan bant: ekran pikseliyle zamana bağlı akar (kare hızından ve bas
+           nabzından bağımsız). Döngü = yazı + boşluk; kopyalar ekranı boşluksuz
+           doldurur, kısa yazıda da delik ve sıçrama olmaz. Sayaç döngüyle sarılır,
+           uzun gösteride kayan nokta birikmez. */
+        const pxPerSec = (T.marqueeSpeed == null ? 0.12 : Number(T.marqueeSpeed) || 0) * W;
+        const textW = ctx.measureText(content).width;
+        const gap = Math.max(size * 2, textW * 0.15);
+        const cycle = Math.max(1, (textW + gap) * layoutScale);
+        this.marquee = ((this.marquee + step * pxPerSec) % cycle + cycle) % cycle;
         const prevAlign = ctx.textAlign;
         ctx.textAlign = 'left';
-        drawOne(content, off - W / 2, 0, rgba(baseColor, 1));
-        drawOne(content, off - W / 2 + wdt, 0, rgba(baseColor, 1));
+        // Ekran x'i → yazının yerel birimi (çapa ve o anki ölçek)
+        const toUser = (X) => (X - anchorX) / fitScale;
+        for (let X = -this.marquee; X < W; X += cycle) drawOne(content, toUser(X), 0, rgba(baseColor, 1));
         ctx.textAlign = prevAlign;
       } else if (single && words && T.karaoke !== false) {
         /* Karaoke: satır tek parça çizilmez. Söylenen kelimeler vurgu
@@ -484,7 +534,11 @@
             x += widths[i];
           }
         };
-        const slot = placeInSlot(total);
+        // Söylenen yerin genişliği: bitmiş kelimeler + etkin kelimenin dolan kısmı
+        let sungX = 0;
+        for (let i = 0; i < parts.length && i < wordIndex; i++) sungX += widths[i];
+        if (wordIndex >= 0 && wordIndex < parts.length) sungX += widths[wordIndex] * clamp(wordProgress, 0, 1);
+        const slot = placeInSlot(total, sungX);
         if (slot) clipSlot(slot, paintWords);
         else {
           const origin = ctx.textAlign === 'center' ? -total / 2
@@ -579,6 +633,8 @@
     return out;
   }
   TextMode.pathLayout = pathLayout;
+  TextMode.lyricScroll = lyricScroll;
+  TextMode.overflowOnce = overflowOnce;
   TextMode.PATHS = TEXT_PATHS;
 
   window.SVModes = window.SVModes || {};

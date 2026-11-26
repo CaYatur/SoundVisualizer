@@ -67,6 +67,12 @@
   // --------------------------------------------------------------------------
   // Demo sinyali — 120 BPM civarı, bas vuruşu + hareketli orta/tiz içerik
   // --------------------------------------------------------------------------
+  function sourcesOff() {
+    const P = window.SVPanel;
+    const c = P && P.cfg ? P.cfg() : null;
+    const s = c && c.audio && c.audio.sources;
+    return Array.isArray(s) && s.length === 0;
+  }
   function buildSyntheticFrame(t) {
     const D = window.SVDemoAudio;
     /* Tayf da örnek sesten (src/shared/demo-audio.js `spectrum`): mod küçük resimleri aynı
@@ -197,6 +203,25 @@
   let frameTap = null;
   const nextTaps = [];
 
+  /* Ses uyarısı yalnız burada (operatörün önizlemesi). Çıkış pencereleri seyirciye
+     gittiği için orada gösterilmez (visualizer.js). Kaynak hiç seçilmemişse ve seçili
+     kaynaktan kare gelmiyorsa iki ayrı cümle; kare gelince gizlenir. */
+  let audioHintKey = '';
+  function audioHintText(live, now) {
+    if (live || now - lastRealFrame < 1500) return '';
+    return sourcesOff()
+      ? 'Ses kaynağı seçilmedi — Ses Kaynakları\'ndan bir kaynak seçin'
+      : 'Ses alınamıyor — Ses Kaynakları\'ndan bir aygıt seçin';
+  }
+  function showAudioHint(text) {
+    if (text === audioHintKey) return;
+    audioHintKey = text;
+    const el = typeof document !== 'undefined' ? document.getElementById('pvAudioHint') : null;
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = !text;
+  }
+
   function renderFrame(now, dt, t, skipScene) {
     if (!stack || !audio) return;
     const live = now - lastRealFrame < REAL_FRAME_TIMEOUT;
@@ -204,8 +229,15 @@
       liveSource = live;
       if (onSourceChange) onSourceChange(live);
     }
+    showAudioHint(audioHintText(live, now));
     if (!live) {
-      audio.ingestFrame(buildSyntheticFrame(t));
+      /* Ses kaynağı bilerek kapatıldıysa (Ses Kaynakları'nda hiçbiri) önizleme sessiz kalır,
+         demoya geçmez; demo isteyen "Demo ses"i seçer (ana süreç örnek sesi gerçek kare gibi
+         yollar). */
+      if (sourcesOff()) {
+        synthFreq.fill(0); synthTime.fill(128); synthLeft.fill(128); synthRight.fill(128);
+        audio.ingestFrame(synthFrame);
+      } else audio.ingestFrame(buildSyntheticFrame(t));
     }
 
     audio.update(dt);
@@ -226,6 +258,11 @@
       if (!a) a = window.SVShowClock.idle();
       const r = TC.live(cfg, TC.modeOn(cfg) ? window.SVShowClock.resolve(a, Date.now()) : 0, tlLive);
       base = r.cfg;
+      // Video klipleri çıkıştaki gibi: oynarken oynar, dururken kafanın karesinde bekler
+      if (base.timelineComposition) {
+        base.timelineComposition.playing = !!(a && a.playing);
+        base.timelineComposition.rate = a && Number(a.rate) ? Number(a.rate) : 1;
+      }
       if (r.rebuild) stack.setConfig(base);
       if (r.fx) stack.setPostFX(base.postfx);
     } else

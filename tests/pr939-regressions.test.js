@@ -99,6 +99,15 @@ test('canlı söz normal parça değişiminde de aranıyor; ayar değişince yen
   assert.match(read('src/mobile/android-host.js'), /source: 'pc', state: 'running'/);
   assert.match(read('src/mobile/android-host.js'), /state\.source = 'pc'/, 'PC sesi demo karenin üstüne binmesin');
   assert.match(read('src/mobile/android-host.js'), /needArt/, 'kapak küçülmeden gitti sayılmasın');
+  assert.match(m, /lossless: typeof args\.lossless === 'boolean' \? args\.lossless : cur\.lossless === true/, 'kayıpsız seçimi aç-kapa ile silinmesin');
+  assert.match(m, /function linkWatchChunks/, 'ses paketinin sonu atılmasın');
+  assert.match(m, /function linkRememberDisplays/, 'ekran açılınca PC seçimi de yazılsın');
+  assert.match(m, /linkRememberDisplays\(use\)/, 'kapanan ekranın seçimi ilk dokunuşta kalksın');
+  assert.match(m, /function linkLiveAnchor/, 'şarkı saati durup devam etmeden tazelensin');
+  assert.match(m, /s\.np\.artwork \? 1 : 0|hasArt \? 1 : 0/, 'kapak sonradan gelince parça değişmeden gitsin');
+  assert.match(m, /pcmHold: lastCaptureHold/, 'kayıpsızda yakalama örneği atmasın');
+  assert.match(m, /gain: args\.gain == null \? cur\.gain : linkPhone\.clampGain\(args\.gain\)/, 'köprü kazancı aç-kapa ile silinmesin');
+  assert.match(m, /'presets\.user': \(\) =>/, 'kullanıcının presetleri telefona gitsin');
   assert.match(m.slice(m.indexOf('function applyIncomingConfig'), m.indexOf('function applyIncomingConfig') + 4000), /syncLyricsLookup\(\)/);
   const sync = m.slice(m.indexOf('function syncLyricsLookup'), m.indexOf('function publishLyricsLib'));
   assert.match(sync, /lyricsAutoItem = null/, 'kapatılınca bulunan söz kalkmalı');

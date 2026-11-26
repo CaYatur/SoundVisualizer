@@ -52,7 +52,7 @@ test('vuruşa kilitli döngü: N vuruşta bir baştan, tempo yoksa bölge döng�
 
 test('canlı oynatıcı, çizelge ve dışa aktarım aynı formülü kullanıyor', () => {
   const m = read('src/visualizer/modes/media.js');
-  assert.match(m, /seekTimeline\(sec\) \{[\s\S]{0,200}const target = transportTime\(sec, d, Object\.assign\(\{\}, this\._m, \{ loop: v\.loop \}\), this\._bpm \|\| 0\);/);
+  assert.match(m, /seekTimeline\(sec, playing, rate\) \{[\s\S]{0,300}const target = transportTime\(sec, d, Object\.assign\(\{\}, this\._m, \{ loop: v\.loop \}\), this\._bpm \|\| 0\);/);
   assert.match(m, /async seekTo\(sec\) \{[\s\S]{0,500}const target = transportTime\(sec, d, Object\.assign\(\{\}, this\._m, \{ loop: v\.loop \}\), this\._bpm \|\| 0\);/);
   assert.match(m, /if \(this\._source === 'file' && !this\.offline && !this\._relay && transportOn\(m\)\) this\._steer\(m, t\);/);
   assert.match(m, /if \(Math\.abs\(v\.playbackRate - speed\) > 1e-3\) v\.playbackRate = speed;/);

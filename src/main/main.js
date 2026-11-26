@@ -23,6 +23,7 @@ const linkGuard = require('./link-guard');
 const JsonDelta = require('../shared/json-delta.js');
 const linkAudio = require('./link-audio');
 const linkUpload = require('./link-upload');
+const linkMediaLib = require('./link-media');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const sacn = require('./sacn');
@@ -45,8 +46,10 @@ const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
+const linkLogos = require('./link-logos');
 const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
+const linkPhone = require('../shared/link-phone.js');
 const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
 const uiScale = require('../shared/ui-scale');
@@ -1461,7 +1464,9 @@ function configuredSources() {
   if (bridge.input && !bridge.input.useBridge && bc && typeof bc.fallbackSource === 'string' && bc.fallbackSource) return [bc.fallbackSource];
   const audio = currentConfig && currentConfig.audio;
   let list = ['default'];
-  if (audio && Array.isArray(audio.sources) && audio.sources.length > 0) list = audio.sources;
+  /* Boş liste bilerek seçilmiş "kaynak yok" (sessiz): panel artık hiçbirini seçmemeye izin
+     veriyor. Eski tek "source" alanı yalnız "sources" hiç yokken okunur. */
+  if (audio && Array.isArray(audio.sources)) list = audio.sources;
   else if (audio && audio.source) list = [audio.source];
   /* Köprü kipi (#813): tek uygulama seçili ama bu sistemde uygulama başına
      yakalama yok -> aygıt. Durum penceresi nedeni gösterir. */
@@ -1523,14 +1528,83 @@ const nativeDrums = new DrumHits();
    an durur); dönüşüm ucuz, gönderim yalnız isteyen alıcıya. */
 // Ham ses: köprü yayını ya da PC'nin sesini dinleyen telefon (PC bağlantısı B5, linkWatch)
 function bridgePcmWanted() { return !!bridge.sender || linkWatch.size > 0; }
+/* Kayıpsız aktarımda yardımcı PCM'i boru dolunca atmasın. Hızlı yol eskisi gibi atar. */
+function bridgePcmHold() { return linkWatch.size > 0 && phoneLinkCfg().audioIn.lossless === true; }
 let lastCapturePcm = false;
+let lastCaptureHold = false;
+/* DEMO SES KARESİ: ekran görüntüleri ve "Demo ses" kaynağı (Ses Kaynakları) aynı sesi verir.
+   120 BPM vuruş, bas ağırlıklı taban, gezinen tepeler, stereo dalga (src/shared/demo-audio.js). */
+const DEMO_AUDIO = require('../shared/demo-audio.js');
+function demoAudioFrame(t) {
+  const DEMO = DEMO_AUDIO;
+  const freq = new Uint8Array(1024);
+  const beatPhase = (t * 2) % 1;               // 120 BPM
+  const beat = Math.pow(Math.max(0, 1 - beatPhase * 2.2), 2);
+  const bar = Math.floor(t * 2 / 4) % 4;
+  for (let k = 0; k < 1024; k++) {
+    const decay = Math.pow(1 - k / 1024, 2.6);
+    const kick = 1.15 * beat * Math.exp(-Math.pow((k - 8) / 12, 2));
+    const bass = 0.75 * Math.exp(-Math.pow((k - 26 - 10 * Math.sin(t * 1.1)) / 14, 2));
+    const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
+    const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
+    const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
+    const hat = 0.35 * (((t * 4) % 1) < 0.32 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
+    const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
+    let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
+    freq[k] = Math.max(0, Math.min(255, v * 148));
+  }
+  /* Sol ve sağ kanal (#566) da ortak sesten: orta + yan ve orta - yan,
+     gonyometre bir çizgi değil bir alan çiziyor. */
+  const time = new Uint8Array(2048);
+  const left = new Uint8Array(2048);
+  const right = new Uint8Array(2048);
+  DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
+  return { freq, time, left, right, sampleRate: DEMO.SR };
+}
+
+/* "Demo ses" kaynağı: yakalama yerine örnek ses, saniyede 60 kare. Gerçek kaynaklarla birlikte
+   seçilirse gerçek ses kazanır (demo yalnız tek başına). */
+let demoTimer = null;
+let demoT0 = 0;
+function setDemoAudio(on) {
+  if (on && !demoTimer) {
+    demoT0 = Date.now();
+    demoTimer = setInterval(() => {
+      if (bridge.input && bridge.input.useBridge) return;
+      if (phoneAudio.input && phoneAudio.input.useBridge) return;
+      deliverAudioFrame(demoAudioFrame((Date.now() - demoT0) / 1000));
+    }, 1000 / 60);
+  } else if (!on && demoTimer) {
+    clearInterval(demoTimer);
+    demoTimer = null;
+  }
+}
 function startVisualizerCapture() {
-  const sources = configuredSources();
+  const all = configuredSources();
+  const real = all.filter((x) => x !== 'demo');
+  /* Gerçek kaynak yok: yakalama durur. Demo seçiliyse örnek ses, değilse sessiz. Panel
+     önizlemesi sessizken kendiliğinden demoya geçmez (preview.js). */
+  if (!real.length) {
+    if (Array.isArray(lastCaptureSource) && lastCaptureSource.some((x) => x !== 'demo')) nativeAudio.stopCapture();
+    lastCaptureSource = all;
+    lastCapturePcm = bridgePcmWanted();
+    lastCaptureHold = bridgePcmHold();
+    const demo = all.indexOf('demo') >= 0;
+    setDemoAudio(demo);
+    const status = { type: demo ? 'demo' : 'none' };
+    notifyAdmin('audio-source-status', status);
+    lastCaptureStatus = { type: status.type, code: '', message: '', device: '' };
+    notifyBridge();
+    return;
+  }
+  setDemoAudio(false);
+  const sources = real;
   /* Köprü yayındayken kaynak değişti: alıcılara önceden haber, yardımcı
      yeniden kurulurken yedeğe dönüp geri gelmesinler (#813). */
-  if (bridge.sender && lastCaptureSource && JSON.stringify(sources) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
-  lastCaptureSource = sources;
+  if (bridge.sender && lastCaptureSource && JSON.stringify(all) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
+  lastCaptureSource = all;
   lastCapturePcm = bridgePcmWanted();
+  lastCaptureHold = bridgePcmHold();
   bridge.sourceStates = {};
   nativeAudio.startCapture(
     sources,
@@ -1553,6 +1627,9 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      /* Kaynaklar kapatıldı (sessiz ya da yalnız örnek ses): durdurulan yakalamanın geç gelen
+         bildirimi paneldeki "sessiz" yazısını ezmesin, yakalamayı yeniden başlatmasın. */
+      if (!Array.isArray(lastCaptureSource) || !lastCaptureSource.some((x) => x !== 'demo')) return;
       /* Kaynak başına durum (#813): biri eksik ya da açılamadıysa ötekiler
          karışımda sürer; durum penceresi o kaynağın satırında söyler. */
       if (status && status.type === 'source') {
@@ -1569,7 +1646,7 @@ function startVisualizerCapture() {
       lastCaptureStatus = status ? { type: status.type, code: status.code || '', message: String(status.message || '').slice(0, 300), device: status.device || '' } : null;
       notifyBridge();
     },
-    lastCapturePcm ? { pcm: true, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); linkWatchPcm(buf, sr, ch); } } : undefined
+    lastCapturePcm ? { pcm: true, pcmHold: lastCaptureHold, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); linkWatchPcm(buf, sr, ch); } } : undefined
   );
 }
 
@@ -2397,15 +2474,16 @@ function scheduleCaptureRestart() {
 function syncCapture() {
   const current = Array.isArray(lastCaptureSource) ? lastCaptureSource : null;
   if (!captureWanted()) {
+    setDemoAudio(false);
     // Zaten durmuşsa dokunma (yapılandırma her değiştiğinde çağrıldığı için)
     if (current) {
-      nativeAudio.stopCapture();
+      if (current.some((x) => x !== 'demo')) nativeAudio.stopCapture();
       lastCaptureSource = null;
     }
     return;
   }
   const wanted = configuredSources();
-  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted()) return;
+  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted() && lastCaptureHold === bridgePcmHold()) return;
   startVisualizerCapture();
 }
 
@@ -3407,7 +3485,7 @@ function broadcastShowClock() {
   if (streamServer.overlayCount() > 0) streamServer.broadcast({ type: 'show-clock', anchor: showClockAnchor }, 'overlay');
   /* Telefon PC'nin sahnesini çizerken zaman çizelgesi PC'nin saatiyle aksın: yoksa PC'de oynayan
      çizelge telefonda durur, telefondan dokunulunca ilerlerdi. */
-  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'clock', anchor: showClockAnchor }); } catch { /* açılışta bağlantı yok */ }
+  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'clock', anchor: showClockAnchor, at: Date.now() }); } catch { /* açılışta bağlantı yok */ }
 }
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
@@ -4403,6 +4481,7 @@ function broadcastPresetDelta(upsert, remove) {
   const delta = { upsert: lean, remove: rm, gen: presetGen };
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
+  try { if (linkSvc && linkSvc.sessionCount() > 0) linkSvc.broadcast({ ev: 'presets' }); } catch { /* bağlantı henüz yok */ }
   followActivePreset(up);
   scheduleCompare(); // yedekle gösteri karşılaştırması bayatladı (#541)
 }
@@ -4878,6 +4957,9 @@ function phoneLinkCfg() {
       enabled: a.enabled === true, device: typeof a.device === 'string' ? a.device.slice(0, 64) : '', fallback: a.fallback !== false,
       delayMs: Number.isFinite(Number(a.delayMs)) ? Math.max(0, Math.min(500, Math.round(Number(a.delayMs)))) : 0,
       play: a.play === true, // telefonun sesini PC hoparlöründen de çal (ses düzeyi ve aygıt: ses köprüsünün ayarı)
+      gain: linkPhone.clampGain(a.gain == null ? 1 : a.gain), // 1 = gelen düzey, 2 = iki kat
+      lossless: a.lossless === true, // kapalı: hızlı yol (paket dolunca atılır). açık: paket atılmaz, gecikme birikebilir
+      syncDelay: a.syncDelay !== false, // kayıpsızdayken görüntü, söz ve şarkı saati aynı gecikmeyle gelir
     },
   };
 }
@@ -4908,7 +4990,7 @@ function phoneLinkService() {
         audioIn: (() => {
           const a = phoneLinkCfg().audioIn;
           const me = String((ctx && ctx.device && ctx.device.id) || '');
-          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs };
+          return { enabled: !!a.enabled, mine: !!a.enabled && (!a.device || a.device === me), state: phoneAudio.input ? phoneAudio.input.state : 'off', play: a.play === true, fallback: a.fallback !== false, delayMs: a.delayMs, gain: a.gain, lossless: a.lossless === true, syncDelay: a.syncDelay !== false, audioDelayMs: linkPcmDelayMs };
         })(),
         app: app.getVersion(),
         platform: process.platform,
@@ -4922,6 +5004,21 @@ function phoneLinkService() {
       'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
       // Çalan parça, ona uyan sözler ve söz saati (telefon PC'nin sahnesini çizerken)
       'song.get': () => linkSongState(),
+      /* Gösterinin başvurduğu logo kitaplığı öğesi. Ayar aynası yalnız kimliği
+         taşır; telefon yerelde bulamazsa baytı buradan alır. Başvurulmayan
+         ya da 8 MB üstü dosya gitmez. */
+      'logo.get': (args) => {
+        const r = linkLogos.serveLogo(currentConfig || {}, args && args.id, (id) => {
+          const info = logoLibrary.fileInfo(logoLibDir(), id);
+          if (!info) return null;
+          if (info.size > linkLogos.MAX_LINK_BYTES) return { size: info.size };
+          const rec = logoLibrary.read(logoLibDir(), id);
+          if (!rec || !rec.b64) return null;
+          return { id: rec.id, mime: rec.mime, b64: rec.b64, size: info.size };
+        });
+        if (r.error) throw Object.assign(new Error(r.error), { code: r.error });
+        return { id: r.id, mime: r.mime, b64: r.b64 };
+      },
       /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
          ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
       /* Kare 250 ms paylaşılır: gösteri makinesinde ekran yakalama ve JPEG ana süreçte; birden çok
@@ -4956,9 +5053,12 @@ function phoneLinkService() {
           fallback: typeof args.fallback === 'boolean' ? args.fallback : cur.fallback !== false,
           play: typeof args.play === 'boolean' ? args.play : cur.play === true,
           delayMs: Number.isFinite(delay) ? Math.max(0, Math.min(500, Math.round(delay))) : cur.delayMs,
+          gain: args.gain == null ? cur.gain : linkPhone.clampGain(args.gain),
+          lossless: typeof args.lossless === 'boolean' ? args.lossless : cur.lossless === true,
+          syncDelay: typeof args.syncDelay === 'boolean' ? args.syncDelay : cur.syncDelay !== false,
         };
         const pl = Object.assign({}, (currentConfig && currentConfig.phoneLink) || {}, { audioIn: next });
-        return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => phoneAudioStatus());
+        return linkPanelRun('patch', { patch: { phoneLink: pl }, final: true }).then(() => { syncCapture(); return phoneAudioStatus(); });
       },
     }, linkControlOps(), linkEditOps(), linkManageOps()),
   });
@@ -4995,6 +5095,12 @@ function linkControlOps() {
    öğesi kendi kimliği. Telefonun dosyaları uygulamanın link-uploads klasörüne yazılır
    (src/main/link-upload.js), kitaplığa alınınca silinir; açılışta artakalan temizlenir. */
 let linkUp = null;
+/* Telefon ↔ PC video başvurusu (link-media.js): kitaplık kimliği ortak dil */
+let linkMedia = null;
+function linkMediaApi() {
+  if (!linkMedia) linkMedia = linkMediaLib.createLinkMedia({ library: mediaLibrary, libDir: () => mediaLibDir(), mediaUrl });
+  return linkMedia;
+}
 const linkUploadsDir = () => path.join(app.getPath('userData'), 'link-uploads');
 function linkUploads() {
   if (!linkUp) {
@@ -5048,6 +5154,32 @@ function linkUpdateNote() {
   linkUpdateLast = st.status;
   linkSvc.broadcast({ ev: 'updates', state: st });
 }
+function linkDisplayIds(raw) {
+  const known = new Set(getDisplayList().map((d) => d.id));
+  const ids = [];
+  const list = Array.isArray(raw) ? raw : (raw == null || raw === '' ? [] : [raw]);
+  for (const x of list) {
+    const n = Number(x);
+    if (!known.has(n) || ids.indexOf(n) >= 0) continue;
+    ids.push(n);
+  }
+  return ids;
+}
+function linkRememberDisplays(ids) {
+  if (!currentConfig) return;
+  const prev = currentConfig.display && typeof currentConfig.display === 'object' ? currentConfig.display : {};
+  let prints = prev.prints || {};
+  try {
+    const match = require('../shared/display-match');
+    if (match && match.prints) prints = match.prints(ids, getDisplayList());
+  } catch { /* iz yoksa kimlik yeter */ }
+  currentConfig.display = Object.assign({}, prev, {
+    ids: ids.slice(), id: ids.length ? ids[0] : null, chosen: true, prints,
+  });
+  saveSettings(currentConfig);
+  notifyAdmin('external-config', currentConfig);
+  linkConfigSync(['display']);
+}
 function linkManageOps() {
   const bad = (code) => Object.assign(new Error(code || 'bad-args'), { code: code || 'bad-args' });
   const ID = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -5068,17 +5200,30 @@ function linkManageOps() {
       selected: (currentConfig && currentConfig.display && currentConfig.display.ids) || [],
     }),
     'output.open': (args) => {
-      const known = new Set(getDisplayList().map((d) => d.id));
-      const ids = Array.isArray(args.ids) ? args.ids.filter((x) => known.has(x)) : null;
-      if (Array.isArray(args.ids) && !ids.length) throw bad();
+      const ids = linkDisplayIds(args && args.ids);
+      if (Array.isArray(args && args.ids) && !ids.length) throw bad();
       const d = (currentConfig && currentConfig.display) || {};
-      openVisualizer(ids && ids.length ? ids : (Array.isArray(d.ids) && d.ids.length ? d.ids : d.id));
-      return { open: Array.from(visualizerWins.keys()) };
+      const use = ids.length ? ids : linkDisplayIds(Array.isArray(d.ids) && d.ids.length ? d.ids : d.id);
+      openVisualizer(use);
+      /* Kapanış pencereyi listeden hemen düşürmez. Seçim istenen kimliktir;
+         yoksa ilk dokunuş yalnız pencereyi kapatır, seçim ikinciye kalır. */
+      linkRememberDisplays(use);
+      const selected = currentConfig && currentConfig.display && currentConfig.display.ids;
+      return { open: use.slice(), selected: selected || [], floating: floatingIsOpen() };
     },
     'output.close': (args) => {
-      if (args.id != null && !getDisplayList().some((x) => x.id === args.id)) throw bad();
-      closeVisualizer(args.id != null ? args.id : undefined);
-      return { open: Array.from(visualizerWins.keys()) };
+      if (args && args.id != null) {
+        const id = Number(args.id);
+        if (!getDisplayList().some((x) => x.id === id)) throw bad();
+        closeVisualizer(id);
+        const prev = linkDisplayIds((currentConfig && currentConfig.display && currentConfig.display.ids) || []);
+        const next = prev.filter((x) => x !== id);
+        linkRememberDisplays(next);
+        return { open: next, selected: next, floating: floatingIsOpen() };
+      }
+      closeVisualizer(undefined);
+      linkRememberDisplays([]);
+      return { open: [], selected: [], floating: floatingIsOpen() };
     },
     'output.set': async (args) => {
       if (typeof args.floating !== 'boolean') throw bad();
@@ -5133,6 +5278,13 @@ function linkManageOps() {
       if (q) items = items.filter((x) => String(x.name || '').toLocaleLowerCase('tr').indexOf(q) >= 0);
       return { total: items.length, items: items.slice(off, off + lim) };
     },
+    /* Kullanıcının yüklediği MilkDrop ve Studio presetleri, gövdeyle.
+       Yerleşik paket gitmez. Telefon bağlıyken kendi kitaplığında gösterir
+       ve PC'de açılan Studio preseti boş kalmaz. */
+    'presets.user': () => {
+      const items = linkPhone.packUserPresets(presetsStore.list(), (id) => presetsStore.get(id), linkPhone.activePresetIds(currentConfig));
+      return { items };
+    },
     'thumb.get': (args) => {
       // Telefon "visualizer"/"background" der; küçük resim deposunun türleri vis/bg (mode-thumbs.js)
       const kind = args.kind === 'background' ? 'bg' : args.kind === 'visualizer' ? 'vis' : '';
@@ -5147,6 +5299,9 @@ function linkManageOps() {
       if (typeof args.id !== 'string' || !ID.test(args.id)) throw bad();
       return adminRun('(() => { const M = window.SVMilkdropPanel; const id = ' + JSON.stringify(args.id) + '; const p = M && M.presetById ? M.presetById(id) : null; if (!p) return { ok:false, error:"bad-args" }; const c = window.SVPanel.cfg(); if (p.lazy && M.go) M.go(c, p); else if (M.load) M.load(c, p); return { ok:true, name: p.name || id }; })()');
     },
+    /* PC'nin videosu telefona (link-media.js): kitaplık kimliğiyle ya da ayarda video olarak
+       duran adresle, parça parça. Telefon kendi kitaplığına yazar ve kendi adresiyle çizer. */
+    'media.fetch': (args) => linkMediaApi().fetch(args, currentConfig || {}),
     // Dosya gönderme: parça parça, sırayla; bitince türüne göre kitaplığa
     'file.begin': (args, ctx) => linkUploads().begin(ctx.client, args),
     'file.chunk': (args, ctx) => linkUploads().chunk(ctx.client, args),
@@ -5214,22 +5369,93 @@ function linkWatchDrop(client) {
   if (!linkWatch.delete(client)) return;
   if (!linkWatch.size) syncCapture();
 }
-function linkWatchPcm(buf, sr, ch) {
-  if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
+let linkPcmDelayMs = 0;
+function linkWatchSend(client, w, sr, ch, body) {
+  if (!client.link || client.link.stage !== 'session' || client.link.closed) return false;
   const head = Buffer.alloc(linkAudio.HEAD);
   head[0] = linkAudio.KIND_PCM;
   head[1] = linkAudio.VERSION;
   head.writeUInt32BE(sr >>> 0, 6);
   head[10] = ch === 1 ? 1 : 2;
-  const frames = Math.floor(buf.length / (2 * head[10]));
-  const body = buf.subarray(0, Math.min(frames, linkAudio.MAX_SAMPLES) * 2 * head[10]);
+  head.writeUInt32BE(w.seq++ >>> 0, 2);
+  const sealed = client.link.encryptBinary(Buffer.concat([head, body]));
+  if (!sealed) return false;
+  streamServer.linkSendBinary(client, sealed);
+  return true;
+}
+function linkWatchChunks(buf, channels) {
+  const frameBytes = 2 * channels;
+  const frames = Math.floor(buf.length / frameBytes);
+  const out = [];
+  let off = 0;
+  while (off < frames) {
+    const n = Math.min(linkAudio.MAX_SAMPLES, frames - off);
+    out.push(Buffer.from(buf.subarray(off * frameBytes, (off + n) * frameBytes)));
+    off += n;
+  }
+  return out;
+}
+function linkWatchQueuedMs(w) {
+  if (!w.q || !w.q.length) return 0;
+  const ch = w.ch === 1 ? 1 : 2;
+  let queued = 0;
+  for (const b of w.q) queued += b.length / (2 * ch);
+  return Math.round(queued * 1000 / (w.sr || 48000));
+}
+function linkWatchNoteDelay() {
+  if (phoneLinkCfg().audioIn.lossless !== true) { linkPcmDelayMs = 0; return; }
+  let delay = 0;
+  for (const [, w] of linkWatch) delay = Math.max(delay, linkWatchQueuedMs(w));
+  linkPcmDelayMs = delay;
+}
+function linkWatchDrain(client, w) {
+  if (w.draining) return;
+  const step = () => {
+    if (!w.q || !w.q.length || !linkWatch.has(client) || phoneLinkCfg().audioIn.lossless !== true) {
+      w.draining = false;
+      linkWatchNoteDelay();
+      return;
+    }
+    const blocked = client.backpressure || (client.socket && client.socket.writableLength > 512 * 1024);
+    if (blocked) { w.draining = true; setTimeout(step, 20); return; }
+    linkWatchSend(client, w, w.sr || 48000, w.ch === 1 ? 1 : 2, w.q.shift());
+    linkWatchNoteDelay();
+    if (w.q.length) { w.draining = true; setTimeout(step, 0); } else w.draining = false;
+  };
+  w.draining = true;
+  step();
+}
+function linkWatchPcm(buf, sr, ch) {
+  if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
+  const channels = ch === 1 ? 1 : 2;
+  const chunks = linkWatchChunks(buf, channels);
+  if (!chunks.length) return;
+  const lossless = phoneLinkCfg().audioIn.lossless === true;
   for (const [client, w] of linkWatch) {
     if (!client.link || client.link.stage !== 'session' || client.link.closed) continue;
-    if (client.backpressure || (client.socket && client.socket.writableLength > 256 * 1024)) { w.dropped++; continue; }
-    head.writeUInt32BE(w.seq++ >>> 0, 2);
-    const sealed = client.link.encryptBinary(Buffer.concat([head, body]));
-    if (sealed) streamServer.linkSendBinary(client, sealed);
+    if (!lossless) {
+      /* Hızlı yol: kuyruk yok. Soket dolunca paket atılır (eşik aynı, 256 KB).
+         Tampon bir paketten uzunsa sığan parçalar gider, kalanı atılır. */
+      if (w.q && w.q.length) { w.dropped += w.q.length; w.q.length = 0; }
+      for (const body of chunks) {
+        const blocked = client.backpressure || (client.socket && client.socket.writableLength > 256 * 1024);
+        if (blocked) { w.dropped++; continue; }
+        linkWatchSend(client, w, sr, channels, body);
+      }
+      continue;
+    }
+    if (!w.q) w.q = [];
+    w.sr = sr || 48000;
+    w.ch = channels;
+    for (const body of chunks) w.q.push(body);
+    const frameBytes = 2 * channels;
+    let queued = 0;
+    for (const b of w.q) queued += b.length / frameBytes;
+    const cap = Math.round((sr || 48000) * 2);
+    while (queued > cap && w.q.length > 1) { queued -= w.q.shift().length / frameBytes; w.dropped++; }
+    linkWatchDrain(client, w);
   }
+  linkWatchNoteDelay();
 }
 
 /* TELEFONUN SESİ (B4, src/main/link-audio.js). Telefonun PCM'i bu makinede kareye çevrilir;
@@ -5273,6 +5499,8 @@ function phoneAudioPacket(client, buf, device) {
   if (phoneAudio.from && phoneAudio.from !== client && inp.useBridge) return;
   const p = linkAudio.decode(buf);
   if (!p) return;
+  /* Köprü sesi kısık gelebilir. 1 şimdiki düzey, 2 iki kat. Görüntü ve hoparlör aynı örnekleri kullanır. */
+  linkPhone.scalePcm16(p.samples, phoneLinkCfg().audioIn.gain);
   let fr = phoneAudio.framers.get(client);
   if (!fr) {
     fr = linkAudio.createFramer({
@@ -5326,20 +5554,64 @@ function linkSongState() {
       items = lyricsSnapshot().filter((it) => it && it.text && (String(it.id || '').startsWith('auto:') || String(it.title || it.name || '').toLowerCase().indexOf(title) >= 0 || title.indexOf(String(it.title || '').toLowerCase() || '\u0000') >= 0)).slice(0, 4);
     } catch { items = []; }
   }
-  let art = np && np.artwork;
+  const nowMs = Date.now();
+  const live = linkLiveAnchor(np, nowMs);
+  let art = live && live.artwork;
+  if (typeof art === 'string' && art.length > 300000) art = bridgeArtwork(art) || '';
   if (typeof art === 'string' && art.length > 300000) art = '';
-  return { np: np ? Object.assign({}, np, { artwork: art || '' }) : null, items, clock: lyricsClockAnchor || null, show: showClockAnchor || null, at: Date.now() };
+  // at: PC'nin saati. Telefon aradaki farkı ölçüp damgaları kendi saatine çevirir (sözler önde gitmesin)
+  const ain = phoneLinkCfg().audioIn;
+  const audioDelayMs = ain.lossless === true && ain.syncDelay !== false ? linkPcmDelayMs : 0;
+  return { np: live ? Object.assign({}, live, { artwork: art || '' }) : null, items, clock: linkLiveClock(lyricsClockAnchor, nowMs), show: linkLiveClock(showClockAnchor, nowMs), at: nowMs, audioDelayMs };
+}
+/* Çıpa bir kez gidince iki taraf kendi saatiyle sayıyor ve kayıyordu.
+   Durdurup sürdürmek yeni çıpa kurduğu için düzeliyordu. Gönderilen kopya
+   o anki konumu taşır; PC'deki asıl çıpa değiştirilmez. */
+function linkLiveAnchor(np, now) {
+  if (!np || !np.has) return np;
+  const o = Object.assign({}, np);
+  if (!o.playing) return o;
+  const up = Number(o.updated) || 0;
+  const age = up > 0 ? Math.max(0, (now - up) / 1000) : 0;
+  let pos = Math.max(0, (Number(o.position) || 0) + age);
+  const dur = Number(o.duration) || 0;
+  if (dur > 0) pos = Math.min(pos, dur);
+  o.position = pos;
+  o.updated = now;
+  return o;
+}
+function linkLiveClock(clock, now) {
+  if (!clock || typeof clock !== 'object') return clock || null;
+  const playing = clock.run === 'play' || clock.playing === true;
+  if (!playing) return clock;
+  const epoch = Number(clock.epoch) || 0;
+  const time = Math.max(0, Number(clock.time) || 0);
+  const elapsed = epoch > 0 ? Math.max(0, (now - epoch) / 1000) : 0;
+  return Object.assign({}, clock, { time: time + elapsed, epoch: now });
 }
 function linkSongPush() {
   try { if (!linkSvc || !linkNowPlaying) return; } catch { return; } // açılışta bağlantı henüz kurulmadıysa
   if (!linkSvc || linkSvc.sessionCount() === 0) return;
+  if (!linkNowPlaying.beat && typeof setInterval === 'function') {
+    linkNowPlaying.beat = setInterval(() => {
+      try {
+        if (!linkSvc || linkSvc.sessionCount() < 1) return;
+        const np = typeof shownNowPlaying === 'function' ? shownNowPlaying() : null;
+        if ((np && np.playing) || (lyricsClockAnchor && lyricsClockAnchor.run === 'play')) linkSongPush();
+      } catch { /* parça yok */ }
+    }, 2000);
+  }
   clearTimeout(linkNowPlaying.timer);
   // Aynı anda gelen değişiklikler (parça + söz + saat) tek iletide
   linkNowPlaying.timer = setTimeout(() => {
     const s = linkSongState();
-    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round((s.np.position || 0) / 5), s.items.map((i) => i.id + ':' + i.text.length), s.clock]);
+    const hasArt = !!(s.np && s.np.artwork);
+    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round(s.np.position || 0), hasArt ? 1 : 0, s.items.map((i) => i.id + ':' + i.text.length), s.clock && Math.round((s.clock.time || 0))]);
     if (key === linkNowPlaying.key) return;
     linkNowPlaying.key = key;
+    const artId = hasArt ? (s.np.title + '|' + s.np.artist + '|' + s.np.artwork.length) : '';
+    if (hasArt && artId === linkNowPlaying.sentArt) s.np = Object.assign({}, s.np, { artwork: '' });
+    else if (hasArt) linkNowPlaying.sentArt = artId;
     linkSvc.broadcast(Object.assign({ ev: 'song' }, s));
   }, 120);
 }
@@ -5347,7 +5619,7 @@ function phoneAudioStatus() {
   const a = phoneLinkCfg().audioIn;
   const inp = phoneAudio.input;
   const fr = phoneAudio.from ? phoneAudio.framers.get(phoneAudio.from) : null;
-  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
+  return Object.assign({ enabled: a.enabled, device: a.device, fallback: a.fallback, play: a.play === true, delayMs: a.delayMs, gain: a.gain, lossless: a.lossless === true, syncDelay: a.syncDelay !== false, audioDelayMs: linkPcmDelayMs, state: inp ? inp.state : 'off', name: phoneAudio.name }, fr ? { stats: fr.stats() } : {});
 }
 
 /* ANLIK EFEKT KİRASI ana süreçte. Telefon basılı tuttuğu listeyi ~0,5 sn'de bir yeniler; yenileme
@@ -5426,7 +5698,9 @@ function linkEditOps() {
   return {
     'config.patch': (args, ctx) => {
       const level = (ctx && ctx.device && ctx.device.level) || 'view';
-      const g = linkGuard.check(args.patch, currentConfig || {}, level);
+      // Telefonun kendi video adresi PC'ye yazılmaz: kitaplık kimliği PC'nin dosyasına çevrilir
+      const patch = linkMediaApi().rewritePatch(args.patch).patch;
+      const g = linkGuard.check(patch, currentConfig || {}, level);
       if (!g.ok) throw bad(g.error, g.key);
       return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
     },
@@ -5439,7 +5713,7 @@ function linkEditOps() {
       const cur = currentConfig && currentConfig.timeline !== undefined ? currentConfig.timeline : null;
       const next = JsonDelta.apply(cur, args.ops);
       if (next == null || typeof next !== 'object' || Array.isArray(next)) throw bad('stale');
-      const g = linkGuard.check({ timeline: next }, currentConfig || {}, level);
+      const g = linkGuard.check(linkMediaApi().rewritePatch({ timeline: next }).patch, currentConfig || {}, level);
       if (!g.ok) throw bad(g.error, g.key);
       return linkPanelRun('patch', { patch: g.patch, final: args.final !== false }).then(() => ({ rev: linkMirror.rev }));
     },
@@ -10889,6 +11163,10 @@ async function runSmoke() {
   if (BRIDGE_ONLY) return runBridgeSmoke();
   const errors = [];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* Yalnız tema karşıtlığı: görselleştirici turu dakikalar sürüyor.
+     `--smoke-themes` o turu atlar. Profil kapanışta açılıştaki kopyaya döner. */
+  const themeOnly = process.argv.includes('--smoke-themes');
+  if (themeOnly) console.log('[SMOKE] yalnız tema karşıtlığı');
 
   /* Kamera gerçekten kapalı mı?
 
@@ -10905,6 +11183,7 @@ async function runSmoke() {
     return r;
   };
 
+  if (!themeOnly) {
   console.log('[SMOKE] opening visualizer on primary display');
   openVisualizer(screen.getPrimaryDisplay().id);
   await wait(2200);
@@ -12514,6 +12793,7 @@ async function runSmoke() {
     })()`);
     await wait(400);
   }
+  }
 
   /* --- İngilizce arayüz denetimi ---
      Panel İngilizceye alınır ve tüm kategorilerde ÇEVRİLMEMİŞ Türkçe metin
@@ -12522,6 +12802,7 @@ async function runSmoke() {
      Kullanıcı içeriği (aygıt adları, sahne adları) taramanın dışında. */
   if (adminWin && !adminWin.isDestroyed()) {
     const awc3 = adminWin.webContents;
+    if (!themeOnly) {
     await awc3.executeJavaScript("localStorage.setItem('sv-language','en')");
     awc3.reload();
     await new Promise((r) => awc3.once('did-finish-load', r));
@@ -12554,6 +12835,27 @@ async function runSmoke() {
     console.log('[SMOKE] i18n taraması için çizelge/deste: ' + opened);
     if (opened !== 'açıldı') errors.push('i18n scan could not open timeline/clipdeck: ' + opened);
     await wait(900);
+    } else {
+      for (let i = 0; i < 25; i++) {
+        const ok = await awc3.executeJavaScript('!!(window.SVPanel && window.SVPanel.cfg && window.SVPanel.cfg().clipdeck)').catch(() => false);
+        if (ok) break;
+        await wait(200);
+      }
+      const openedTheme = await awc3.executeJavaScript(`(function(){
+        if (!window.SVPanel) return 'panel yok';
+        var c = window.SVPanel.cfg();
+        if (!c.timeline || !c.clipdeck || !c.openrgb) return 'bölüm yok';
+        c.timeline.enabled = true;
+        c.clipdeck.enabled = true;
+        c.openrgb.enabled = true;
+        if (c.textureShare) c.textureShare.enabled = true;
+        window.SVPanel.rerender();
+        return 'açıldı';
+      })()`);
+      console.log('[SMOKE] tema taraması için çizelge/deste: ' + openedTheme);
+      if (openedTheme !== 'açıldı') errors.push('theme scan could not open timeline/clipdeck: ' + openedTheme);
+      await wait(500);
+    }
 
     /* DOLU PANEL (#777). Öz testin ayarlarında kayıtlı sahne, önizlemeli
        klip hücresi ya da kaynağı seçilmemiş yuva yok; çeviri ve karşıtlık
@@ -12602,6 +12904,7 @@ async function runSmoke() {
     console.log('[SMOKE] dolu panel: ' + JSON.stringify(populated));
     if (!populated || populated.error) errors.push('populated panel: ' + ((populated && populated.error) || 'no result'));
     await wait(700);
+    if (!themeOnly) {
     const openFolds = "(function(){var h=document.querySelectorAll('.sv-content .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
 
     const cats = await awc3.executeJavaScript(
@@ -12680,6 +12983,7 @@ async function runSmoke() {
     }
 
     await awc3.executeJavaScript("localStorage.removeItem('sv-language')");
+    }
   }
 
   /* --- Arayüz temaları: ekrandaki yazıların karşıtlığı (#770) ---
@@ -12773,8 +13077,9 @@ async function runSmoke() {
        Ad Chromium'un kendi erişilebilirlik ağacından okunur (ekran okuyucunun
        duyduğu ad). Odak gerçek Tab tuşlarıyla dolaşılır; odaklanan öğenin
        görünüşü odaksız anlık görüntüsüyle aynıysa odak görünmüyordur.
-       İlk ölçümde 139 adsız denetim ve 68 görünmeyen odak vardı. */
-    try {
+       İlk ölçümde 139 adsız denetim ve 68 görünmeyen odak vardı.
+       Tema taramasında atlanır: o tur dakikalar sürer ve karşıtlığı ölçmez. */
+    if (!themeOnly) try {
       const dbg = awc4.debugger;
       let attached = false;
       try { dbg.attach('1.3'); attached = true; } catch (e) { console.log('[SMOKE] erişilebilirlik: hata ayıklayıcı bağlanamadı, atlandı'); }
@@ -13715,32 +14020,7 @@ async function runShots() {
      tiz banda yalnız nicemleme gürültüsü düşüyordu. Seviye (RMS) de bu
      diziden, yani her mod aynı sesi görüyor. Tayf eğrisi burada kalıyor;
      vuruşu ve hi-hat'i o sesle aynı ızgarada (120 BPM, sekizlik hi-hat). */
-  const DEMO = require('../shared/demo-audio.js');
-  const makeFrame = (t) => {
-    const freq = new Uint8Array(1024);
-    const beatPhase = (t * 2) % 1;               // 120 BPM
-    const beat = Math.pow(Math.max(0, 1 - beatPhase * 2.2), 2);
-    const bar = Math.floor(t * 2 / 4) % 4;
-    for (let k = 0; k < 1024; k++) {
-      const decay = Math.pow(1 - k / 1024, 2.6);
-      const kick = 1.15 * beat * Math.exp(-Math.pow((k - 8) / 12, 2));
-      const bass = 0.75 * Math.exp(-Math.pow((k - 26 - 10 * Math.sin(t * 1.1)) / 14, 2));
-      const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
-      const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
-      const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
-      const hat = 0.35 * (((t * 4) % 1) < 0.32 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
-      const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
-      let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
-      freq[k] = Math.max(0, Math.min(255, v * 148));
-    }
-    /* Sol ve sağ kanal (#566) da ortak sesten: orta + yan ve orta - yan,
-       gonyometre bir çizgi değil bir alan çiziyor. */
-    const time = new Uint8Array(2048);
-    const left = new Uint8Array(2048);
-    const right = new Uint8Array(2048);
-    DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
-    return { freq, time, left, right, sampleRate: DEMO.SR };
-  };
+  const makeFrame = demoAudioFrame;
 
   // ==========================================================================
   // 1) Yönetici paneli — İNGİLİZCE arayüzle

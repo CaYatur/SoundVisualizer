@@ -37,7 +37,7 @@ function load() {
 }
 const walk = (n, f) => { if (!n) return; f(n); (n.children || []).forEach((c) => walk(c, f)); };
 
-test('ortak seçici: aygıtlar ve uygulamalar birlikte seçilir; en az bir kaynak kalır', () => {
+test('ortak seçici: aygıtlar, örnek ses ve uygulamalar birlikte seçilir; hiçbiri seçilmeyebilir (sessiz)', () => {
   const S = load();
   const { el } = fakeDom();
   let list = ['default'];
@@ -50,18 +50,21 @@ test('ortak seçici: aygıtlar ve uygulamalar birlikte seçilir; en az bir kayna
   const draw = () => S.control(def, { el, tr: (t) => t, get: () => list, set: (a) => { list = a; } });
   const boxes = () => { const out = []; walk(draw(), (n) => { if (n.tag === 'input' && n.attrs.type === 'checkbox') out.push(n); }); return out; };
   let b = boxes();
-  assert.strictEqual(b.length, 4, 'varsayılan + 2 aygıt + 1 uygulama');
-  b[1].listeners.change(); // G733 eklendi
-  b = boxes(); b[2].listeners.change(); // mikrofon
-  b = boxes(); b[3].listeners.change(); // Spotify
+  assert.strictEqual(b.length, 5, 'varsayılan + örnek ses + 2 aygıt + 1 uygulama');
+  b[2].listeners.change(); // G733 eklendi
+  b = boxes(); b[3].listeners.change(); // mikrofon
+  b = boxes(); b[4].listeners.change(); // Spotify
   assert.strictEqual(list.length, 4);
   assert.deepStrictEqual(list.slice(0, 3), ['default', 'G733 Headset', 'USB Mic']);
   assert.strictEqual(list[3].kind, 'app');
   assert.strictEqual(list[3].mode, 'include');
-  // Hepsi kaldırılırsa varsayılan çıkış kalır (tek kaynak, eskisi gibi)
+  // Hepsi kaldırılırsa liste boş kalır: ses girişi kapalı, görüntü sessiz (demoya geçmez)
   list = ['USB Mic'];
-  b = boxes(); b[2].listeners.change();
-  assert.deepStrictEqual(list, ['default']);
+  b = boxes(); b[3].listeners.change();
+  assert.deepStrictEqual(list, []);
+  // Örnek ses ayrı bir kaynak
+  b = boxes(); b[1].listeners.change();
+  assert.deepStrictEqual(list, ['demo']);
   delete global.window;
 });
 
@@ -167,7 +170,7 @@ test('desteklenmeyen sistem: uygulama satırı yerine neden; aygıtlar seçilebi
     const texts = []; let boxes = 0;
     walk(n, (x) => { if (x.attrs.text) texts.push(x.attrs.text); if (x.tag === 'input') boxes++; });
     assert.ok(texts.includes(sup.message), code);
-    assert.strictEqual(boxes, 2, code + ': varsayılan + aygıt; uygulama satırı yok');
+    assert.strictEqual(boxes, 3, code + ': varsayılan + örnek ses + aygıt; uygulama satırı yok');
     delete global.window;
   }
   // Ana süreç: uygulama seçili ama yakalama yoksa aygıtlarla sürer (çökmez)

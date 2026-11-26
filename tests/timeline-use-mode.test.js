@@ -316,6 +316,50 @@ test('canonical persistence never contains editor roots or session fields, even 
   assert.strictEqual(canonical.timeline.tracks[1].clips[0].local.data.layers.length, 2);
   const reopened = JSON.parse(JSON.stringify(canonical)); window.SVTimelineTarget.recover(reopened);
   assert.strictEqual(manualOf(reopened), manual); TP.useTimeline(false);
+  // Telefon aynası oturum alanlarını taşımaz. Açmak/kapatmak (ve aynı yamadaki
+  // sahne anahtarları) elle ayarı ezmemeli; PC anahtarıyla aynı koruma.
+  require('../src/admin/link-live.js');
+  TP.useTimeline(true);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' });
+  TP._followTarget();
+  assert.ok(cfg.timeline.manualBaseline);
+  const during = manualOf(window.SVTimelineTarget.persistent(cfg));
+  const mirror = JSON.parse(JSON.stringify(window.SVTimelineTarget.persistent(cfg).timeline));
+  mirror.useTimeline = false;
+  mirror.enabled = false;
+  await window.SVLinkLive.run('patch', {
+    patch: { timeline: mirror, layers: [{ id: 'composed', kind: 'visualizer', type: 'wave', enabled: true, opacity: 1 }] },
+    final: true,
+  });
+  assert.strictEqual(cfg.timeline.useTimeline, false);
+  assert.ok(!cfg.timeline.editTarget && !cfg.timeline.manualBaseline);
+  assert.strictEqual(manualOf(cfg), manual);
+  assert.strictEqual(cfg.layers[0].id, 'man_vis');
+  const openMirror = JSON.parse(JSON.stringify(cfg.timeline));
+  openMirror.useTimeline = true;
+  openMirror.enabled = true;
+  await window.SVLinkLive.run('patch', {
+    patch: {
+      timeline: openMirror,
+      layers: [{ id: 'composed', kind: 'visualizer', type: 'wave', enabled: true, opacity: 1 }],
+      visualizer: { type: 'none' },
+    },
+    final: true,
+  });
+  assert.strictEqual(cfg.timeline.useTimeline, true);
+  assert.strictEqual(cfg.layers[0].id, 'man_vis');
+  assert.strictEqual(manualOf(window.SVTimelineTarget.persistent(cfg)), during);
+  TP._select({ kind: 'clip', trackId: 'trS', clipId: 'cS1' });
+  TP._followTarget();
+  const base = cfg.timeline.manualBaseline;
+  const content = JSON.parse(JSON.stringify(window.SVTimelineTarget.persistent(cfg).timeline));
+  content.tracks[0].name = 'from-phone';
+  await window.SVLinkLive.run('patch', { patch: { timeline: content }, final: true });
+  assert.strictEqual(cfg.timeline.manualBaseline, base);
+  assert.strictEqual(cfg.timeline.tracks[0].name, 'from-phone');
+  assert.strictEqual(manualOf(window.SVTimelineTarget.persistent(cfg)), during);
+  TP.useTimeline(false);
+  assert.strictEqual(manualOf(cfg), manual);
 });
 
 test('AutoVJ/actions explicitly target manual model, not selected clip; OFF reveals deliberate changes', async () => {

@@ -70,6 +70,11 @@
       out.push({ fg: '--tempo', on: { tint: '--fg-rgb', alpha: 0.04, base }, min: 'text', why: 'tempo etiketi / ' + base });
       out.push({ fg: '--cue-armed', on: { tint: '--fg-rgb', alpha: 0.04, base }, min: 'text', why: 'işaret etiketi / ' + base });
     });
+    /* Telefon satırı (pl-dev) aynı örtüyü %4.5 kullanır. --muted2 CaYaDev'de
+       bu zeminde 4.35:1 kalıyordu; satır notu --muted ile çizilir. */
+    SURFACES.forEach((base) => {
+      out.push({ fg: '--muted', on: { tint: '--fg-rgb', alpha: 0.045, base }, min: 'text', why: 'telefon satırı notu / ' + base });
+    });
     // Medya önizlemesinin üstündeki rozet ve düğmeler (görüntünün koyu perdesinde)
     out.push({ fg: '--on-media-rgb', on: { scrim: '--media-scrim', base: '--media-bg' }, min: 'text', why: 'önizleme rozeti' });
     // Marka yazısı

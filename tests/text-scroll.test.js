@@ -224,7 +224,9 @@ test('kayan yazı açıkken kutu kaydırması kullanılmaz', () => {
     enabled: true, source: 'static', content: LONG, marquee: true, scrollOverflow: true, maxWidth: 0.9,
   }, 1, 0.016);
   assert.strictEqual(calls.clip, 0);
-  assert.strictEqual(calls.texts.length, 2);
+  // Ekrandan uzun yazı: ekranı tek kopya doldurur, sonraki kopya döngü boşluğundan sonra
+  assert.ok(calls.texts.length >= 1);
+  assert.ok(calls.texts.every((t) => t.txt === LONG));
 });
 
 function drawNow(widthOf, nowplaying, frames) {
