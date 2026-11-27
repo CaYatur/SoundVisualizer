@@ -26,6 +26,9 @@
          açıldığında kimlik değişir, ada göre yeniden bulunur.
          (bkz. src/shared/app-audio.js) */
       sources: ['default'],
+      /* Sistem sesi kendi sürecimiz hariç yakalansın (#1213, Windows; zaman
+         çizelgesi sesi zaten içeriden çözümleniyor, iki kez sayılmasın) */
+      excludeSelf: true,
       sensitivity: 0.25, // genel kazanç
       smoothing: 0.5, // zaman yumuşatma (0..0.95)
       bassBoost: 2.05, // düşük frekans vurgusu
