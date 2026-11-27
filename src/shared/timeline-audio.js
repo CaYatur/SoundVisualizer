@@ -396,6 +396,35 @@
     };
   }
 
+  /* Dışa aktarma ses kaynağı kuralı (#1172). Panel, kuyruk ve MCP aynı kuralı
+     kullanır. o: { audioFrom, audioPath, timeline (işin çizelgesinde duyulur ses
+     var mı) }. audioFrom verilmezse eski çağrılar aynen çalışır: dosya yolu
+     varsa dosya, yoksa çizelge sesi. Dönen: { source: 'file'|'timeline' } ya da
+     { error: 'BAD_AUDIO_FROM'|'NO_FILE'|'NO_TIMELINE_AUDIO' } */
+  const AUDIO_FROM = ['timeline', 'file'];
+  function exportAudioSource(o) {
+    const x = o || {};
+    const from = x.audioFrom == null || x.audioFrom === '' || x.audioFrom === 'auto' ? 'auto' : x.audioFrom;
+    if (from !== 'auto' && AUDIO_FROM.indexOf(from) < 0) return { error: 'BAD_AUDIO_FROM' };
+    const hasFile = typeof x.audioPath === 'string' && x.audioPath.length > 0;
+    if (from === 'file') return hasFile ? { source: 'file' } : { error: 'NO_FILE' };
+    if (from === 'timeline') return x.timeline ? { source: 'timeline' } : { error: 'NO_TIMELINE_AUDIO' };
+    if (hasFile) return { source: 'file' };
+    return x.timeline ? { source: 'timeline' } : { error: 'NO_FILE' };
+  }
+  /* Kilitli seçicinin etiketi için özet: duyulur klip sayısı ve karışımın
+     uzunluğu (sessiz parça ve klipler sayılmaz). */
+  function exportAudioSummary(tracks) {
+    let clips = 0;
+    let end = 0;
+    for (const t of audibleTracks(tracks)) for (const c of t.clips) {
+      if (c.mute || !c.src) continue;
+      clips++;
+      end = Math.max(end, c.start + c.dur);
+    }
+    return { clips, duration: end };
+  }
+
   function isAudioFile(name) {
     const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
     return !!m && EXTS.indexOf(m[1].toLowerCase()) >= 0;
@@ -407,6 +436,7 @@
     shape, clipGainAt, automationDbAt, duckCurve, trackEnvelope, mixDescription, gainAtPoints,
     panGains, ffmpegFilter, volumeExpr, splitClip, canJoin, joinClips, trimStart, trimEnd,
     audioLength, isAudioFile, newId, clipAt, nowPlayingAt,
+    AUDIO_FROM, exportAudioSource, exportAudioSummary,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SVTimelineAudioCore = api;

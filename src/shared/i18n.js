@@ -594,6 +594,9 @@
     'Renk Şablonlarını İçe Aktar': 'Import Color Presets', 'İçe aktarılamadı:': 'Import failed:', 'Dosyada şablon bulunamadı.': 'No presets were found in the file.',
     'İçe Aktarılan': 'Imported', 'Arkaplan Ayarlarını İçe Aktar': 'Import Background Settings', 'Geçerli bir arkaplan dosyası değil.': 'This is not a valid background file.',
     'Önce bir ses dosyası seçin.': 'Choose an audio file first.', 'Başlatılamadı': 'Could not start', 'Hazırlanıyor…': 'Preparing…',
+    'Zaman çizelgesi sesi kullanılıyor: {n} klip, {d}': 'Using timeline audio: {n} clips, {d}', 'Zaman çizelgesi sesi': 'Timeline audio',
+    'Başka ses dosyası kullan': 'Use another audio file', 'Zaman çizelgesi sesi karıştırılıyor…': 'Mixing the timeline audio…',
+    'Çizelgenin sesi kullanılıyor. Başka bir dosya için "Başka ses dosyası kullan"ı açın.': 'The timeline audio is used. Turn on "Use another audio file" to pick a file.',
     'Tüm ayarlar varsayılana dönecek. Emin misiniz?': 'All settings will be reset to defaults. Are you sure?',
     'Kodlanıyor': 'Encoding', 'kareler bitti, video yazılıyor.': 'frames complete, writing video.',
     'bilinmeyen hata': 'unknown error', 'Ses alınamıyor — yönetici panelinden çıkış aygıtı seçin': 'No audio — select an output device in the admin panel',
@@ -6376,8 +6379,8 @@
     "en": "Set transparent background and taskbar cover."
   },
   "mcp.tool.sv_start_export": {
-    "tr": "Çevrimdışı video dışa aktarmayı başlatır. audioPath ve outputPath gerekir. format kabı ve kodeki seçer; outputPath o biçimin uzantısıyla bitmeli. Kare dizisi, outputPath adıyla açılan yeni bir klasöre yazılır.",
-    "en": "Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath."
+    "tr": "Çevrimdışı video dışa aktarmayı başlatır. outputPath gerekir; audioFrom timeline (çizelgedeki ses kliplerinin karışımı) değilse audioPath da gerekir. format kabı ve kodeki seçer; outputPath o biçimin uzantısıyla bitmeli. Kare dizisi, outputPath adıyla açılan yeni bir klasöre yazılır.",
+    "en": "Start an offline video export. Requires outputPath, plus audioPath unless audioFrom is timeline (a mixdown of the timeline audio clips). format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath."
   },
   "mcp.tool.sv_export_analysis": {
     "tr": "Bir ses dosyasının analizini video çizmeden yazar: <ad>.json ve .csv (kare başına bir satır: bantlar, serbest bantlar, gürlük, tını, nota sınıfları, akor, tonalite, BPM, vuruşlar) ve <ad>.mid (vuruşlar, kick/snare/hi-hat, akorlar). Bir dışa aktarma işi olarak çalışır; sv_cancel_export durdurur.",
