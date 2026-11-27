@@ -679,3 +679,24 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-toolbar { -webkit-mask-image: linear-gradient(to right, var(--text) calc(100% - 28px), transparent); mask-image: linear-gradient(to right, var(--text) calc(100% - 28px), transparent); padding-right: 28px; }
 #sv-shell .scene-card .sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 #sv-shell .hud.compact .bpm-chip { min-width: 52px; padding: 0 10px; }
+
+/* Çizelge ses şeritleri (#1172, src/mobile/shell-timeline-audio.js): çizelgenin altında, aynı zaman ekseninde */
+#sv-shell .tl-audio { flex: none; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); max-height: 45%; overflow-y: auto; }
+#sv-shell .tl-arows { display: flex; flex: none; }
+#sv-shell .tl-aheads { flex: none; width: 64px; border-right: 1px solid var(--line); background: var(--card2); }
+#sv-shell .tl-dock.wide .tl-aheads { width: 236px; }
+#sv-shell .tl-dock.wide .tl-audio { margin-right: 340px; }
+#sv-shell .tl-ahead { height: 44px; display: flex; align-items: center; gap: 2px; padding: 0 4px; border-bottom: 1px solid var(--line); box-sizing: border-box; }
+#sv-shell .tl-ahead.sel { box-shadow: inset 3px 0 0 var(--accent); }
+#sv-shell .tl-aname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: 0; color: var(--text); font: inherit; font-size: 12px; text-align: left; padding: 0; display: none; }
+#sv-shell .tl-dock.wide .tl-aname { display: block; }
+#sv-shell .tl-amini { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 11px; font-weight: 600; padding: 0; }
+#sv-shell .tl-amini.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+#sv-shell .tl-acanvas-host { flex: 1; min-width: 0; position: relative; }
+#sv-shell .tl-acanvas { display: block; width: 100%; touch-action: pan-y; }
+#sv-shell .tl-abar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; flex-wrap: wrap; }
+#sv-shell .tl-amissing:empty { display: none; }
+#sv-shell .tl-amissing { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px 0; }
+#sv-shell .tl-apanel { display: flex; flex-direction: column; gap: 6px; padding: 6px 12px 10px; border-top: 1px solid var(--line); }
+#sv-shell .tl-apanel[hidden] { display: none; }
+#sv-shell .tl-apanel-head { display: flex; align-items: center; gap: 8px; }

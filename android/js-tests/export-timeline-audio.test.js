@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* Telefonda dışa aktarma ses kuralı (#1172): çizelgeyle dışa aktarılırken şarkı istenmez
-   (sessiz, çizelge uzunluğunda); seçilen şarkı geçersiz kılar; telefonda karıştırılamayan
-   çizelge sesi için not. */
+/* Telefonda dışa aktarma ses kuralı (#1172): çizelgenin ses şeritleri varsa ses onların
+   karışımı (şarkı seçici kilitli, açık geçersiz kılma); ses yoksa ve şarkı seçilmediyse sessiz,
+   çizelge uzunluğunda. Telefondaki ses şeritlerinin sınamaları timeline-audio-phone.test.js'te. */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -16,18 +16,24 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..', '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
 
-test('sayfa: kaynak kuralı, düğme şarkısız da açık, sessizde süre çizelgenin uzunluğu', () => {
+test('sayfa: kaynak kuralı (çizelge karışımı, açık geçersiz kılma, sessiz), kilit, dinle, yeniden bağla', () => {
   const s = read('src/mobile/shell-export.js');
-  assert.match(s, /function audioFrom\(\) \{ return song \? 'file' : timelineOn\(\) \? 'none' : ''; \}/);
+  assert.match(s, /if \(tlAudio\(\) && !override\) return 'timeline';\n    if \(song\) return 'file';\n    if \(timelineOn\(\) && !tlAudio\(\)\) return 'none';\n    return '';/);
   assert.match(s, /if \(!audioFrom\(\) \|\| busy\) return;/);
-  assert.match(s, /disabled: !audioFrom\(\) \|\| busy \? true : null,/);
-  assert.match(s, /const len = prefs\.length === 'all' \? \(silent \? Math\.ceil\(\(TLi && TLi\.length\) \|\| 0\) : 0\) : \+prefs\.length;/);
-  assert.match(s, /durationSec: len, audioFrom: silent \? 'none' : 'file',\n      audioUri: silent \? '' : song\.uri,/);
-  assert.match(s, /\['all', audioFrom\(\) === 'none' \? 'Çizelgenin tamamı' : 'Tamamı'\]/);
-  assert.match(s, /if \(timelineOn\(\) && TLn\.audioClips > 0 && !song\) \{/);
+  // Çizelge sesi varken şarkı seçici kilitli; "Başka şarkı kullan" açıkça açar
+  assert.match(s, /class: 'btn', disabled: audioFrom\(\) === 'timeline' \? true : null,/);
+  assert.match(s, /tlAudio\(\) \? U\.toggle\(\{ label: 'Başka şarkı kullan', value: override,/);
+  assert.match(s, /durationSec: len, audioFrom: from,\n      audioUri: from === 'file' \? song\.uri : '',/);
+  assert.match(s, /ready = AUD\(\)\.renderMix\(tlTracks\(\), \{ from: 0, to: len \}\)/);
+  assert.match(s, /job\.audioFile = name; job\.timelineAudioTags = clipTags\(\);/);
+  assert.match(s, /AUD\(\)\.preview\(tlTracks\(\), \{ from: 0, to: mixLength\(\) \}\)/);
+  assert.match(s, /AUD\(\)\.relink\(k\.src\)/);
+  // Bulunamayan ses varken dışa aktarma beklemede (düşmez)
+  assert.match(s, /disabled: !audioFrom\(\) \|\| busy \|\| lost\.length \? true : null,/);
+  assert.match(s, /\['all', audioFrom\(\) === 'none' \|\| audioFrom\(\) === 'timeline' \? 'Çizelgenin tamamı' : 'Tamamı'\]/);
   const i = read('src/shared/i18n.js');
-  for (const k of ['Çizelgenin tamamı', 'Şarkı seçilmedi: video çizelgenin uzunluğunda ve sessiz çıkar.',
-    'Bu çizelgenin ses klipleri bilgisayardaki dosyalara bağlı; telefonda karıştırılamaz. Bir şarkı seçin ya da video sessiz çıksın.']) {
+  for (const k of ['Çizelgenin tamamı', 'Şarkı seçilmedi: video çizelgenin uzunluğunda ve sessiz çıkar.', 'Başka şarkı kullan', 'Karışımı dinle', 'Yeniden bağla',
+    'Ses dosyası bu telefonda bulunamadı', 'Bazı ses dosyaları bulunamadı; önce yeniden bağlayın.']) {
     assert.ok(i.includes("'" + k + "': '"), k);
   }
 });

@@ -40,6 +40,8 @@
   const SC = () => window.SVShowClock;
   const LANE = () => window.SVTimelineLane;
   const FORMS = () => window.SVTimelineForms;
+  const AUD = () => window.SVShellTimelineAudio;
+  const TAC = () => window.SVTimelineAudioCore;
   const cfg = () => (A() && A().config.get()) || {};
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
   const en = () => !!(window.SVI18n && window.SVI18n.locale === 'en');
@@ -106,6 +108,27 @@
     ui.changed();
   }
   function invalidate() { modelDirty = true; }
+  /* Ses şeritleri (#1172, src/mobile/shell-timeline-audio.js): parçalar ortak modelle düzeltilip
+     yazılır; her düzenleme bir geri al adımı (anlık görüntü audioTracks'i de taşır). */
+  function writeAudio(mut) {
+    if (pcOn()) return; // PC hedefinde çizelge bilgisayarın: telefondaki dosya yolu oraya yazılmaz
+    writeTl((c) => {
+      const list = TAC().normalize(c.audioTracks);
+      mut(list);
+      c.audioTracks = TAC().normalize(list);
+    });
+    history().push(TE().snapshot(tlCfg()));
+    if (ui.audio) ui.audio.refresh();
+    if (ui.refs) ui.transport();
+  }
+  /* Ses çalma için: kafa, çalıyor mu, parçalar; `ref` çizelge nesnesi (değişince yeniden kurulur) */
+  function audioState() {
+    const c = tlCfg();
+    const tracks = Array.isArray(c.audioTracks) ? c.audioTracks : [];
+    if (!tracks.length) return { time: 0, playing: false, pc: pcOn(), tracks, ref: c };
+    const t = syncTransportFromAnchor();
+    return { time: t.time, playing: !!t.playing, pc: pcOn(), tracks, ref: c };
+  }
   function undo() { step(-1); }
   function redo() { step(1); }
   function step(dir) {
@@ -114,6 +137,7 @@
     writeTl((c) => TE().restore(c, s));
     invalidate();
     reanchor();
+    if (ui.audio) ui.audio.refresh();
     ui.changed(true);
   }
 
@@ -1037,7 +1061,7 @@
       onConfig(ctx) {
         if (selfWrite) return;
         // Çizelge dışarıdan değiştiyse model yeniden kurulur (ensureTransport); sahne adları için yeniden çiz
-        if (cfg().timeline !== knownTl && ui.lane) { ui.heads(); ui.lane.draw(); ui.transport(); }
+        if (cfg().timeline !== knownTl && ui.lane) { ui.heads(); ui.lane.draw(); ui.transport(); if (ui.audio) ui.audio.refresh(); }
         else if (ui.lane) ui.lane.draw();
       },
     };
@@ -1045,6 +1069,7 @@
 
   function renderDock(body, ctx) {
     if (ui.lane) ui.lane.destroy();
+    if (ui.audio) { ui.audio.destroy(); ui.audio = null; }
     if (ui.refs && ui.refs.ro) ui.refs.ro.disconnect();
     ui.ctx = ctx;
     if (!hist) history().sync(TE().snapshot(tlCfg()));
@@ -1071,9 +1096,15 @@
     refs.side = h('div', { class: 'tl-side' });
     refs.editor = h('div', { class: 'tl-editor' }, [refs.heads, refs.laneHost, refs.side]);
     refs.toolbar = h('div', { class: 'tl-toolbar', role: 'toolbar', 'aria-label': tr('Zaman çizelgesi araçları') });
-    body.append(transportRow, refs.editor, refs.toolbar);
+    // Ses şeritleri: çizelgenin altında, aynı zaman ekseninde (#1172)
+    refs.audio = h('div', { class: 'tl-audio' });
+    body.append(transportRow, refs.editor, refs.audio, refs.toolbar);
 
     ui.lane = LANE().create(refs.laneHost, laneApi);
+    ui.audio = AUD() && TAC() ? AUD().strip(refs.audio, {
+      tracks: () => tlCfg().audioTracks, write: writeAudio, head: headTime, seek, lane: () => ui.lane, wide: () => !!refs.wide, pc: pcOn,
+    }) : null;
+    if (!ui.audio) refs.audio.hidden = true;
     // Genişlik: tablette başlıklar geniş, denetçi yanda
     const measure = () => {
       // Üstüne başka sayfa açıldı: gövde artık onun
@@ -1099,7 +1130,7 @@
     // Oynatırken kafayı takip eden çizim döngüsü (sayfa açıkken)
     const loop = () => {
       // Sayfa yeniden çizildiyse bu döngü biter; yeni çizimin referanslarına dokunmaz
-      if (!refs.laneHost.isConnected) { if (ui.refs === refs) { ui.refs = null; ui.lane = null; } return; }
+      if (!refs.laneHost.isConnected) { if (ui.refs === refs) { ui.refs = null; ui.lane = null; if (ui.audio) { ui.audio.destroy(); ui.audio = null; } } return; }
       const t = syncTransportFromAnchor();
       if (t.playing) {
         if (tlCfg().followPlayhead !== false) ui.lane.follow(t.time);
@@ -1296,7 +1327,7 @@
     scrub: (t, done) => { if (done) seek(t); else { syncTransportFromAnchor(); ensureTransport().seek(t); reanchor(); paintClock(); } },
     changed: () => commit(),
     zoomed: () => {},
-    painted: syncHeads,
+    painted: () => { syncHeads(); if (ui.audio) ui.audio.draw(); },
   };
 
   // Formların (src/mobile/shell-timeline-forms.js) kullandığı çekirdek
@@ -1403,6 +1434,8 @@
     info,
     modeOn,
     unlinkOutput,
+    writeAudio,
+    audioState,
     /** Probe ve sınama */
     _state: () => { const t = syncTransportFromAnchor(); return { head: t.time, playing: isPlaying(t), waiting: !!songWait, wait: songWait && { at: songWait.at, after: isFinite(songWait.after) ? songWait.after : null, ms: Math.round(performance.now() - songWait.since) }, refreshing, gen: seekGen, sel: selection, multi: multi.slice(), pick: pickMode, mode: modeOn(), anchor, wide: !!(ui.refs && ui.refs.wide) }; },
     _seek: (t) => seek(t),

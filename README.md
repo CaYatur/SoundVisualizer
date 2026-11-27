@@ -1038,6 +1038,17 @@ one playhead drives every screen together, and offline export plays the same sho
   has no audio and no file is picked, no file is asked for: the video is silent and as long as the
   timeline. Without the timeline nothing changes. Queued jobs keep their own choice, a missing audio file stops the job with its name
   before rendering, and the temporary mix is deleted when the job ends, is cancelled or fails.
+- **Timeline audio on the phone (Android)** — the phone's timeline has audio lanes under the visual
+  lanes, on the same time axis: **Add audio** picks a file from the phone (copied into the app),
+  clips show their waveform, a tap selects, a drag moves and a drag on a selected clip's edge trims.
+  Each lane has mute (M) and solo (S); the clip panel has gain, fades, mute, split at playhead and
+  delete, the lane panel volume, pan, mute, solo and delete. Audio plays with the timeline's
+  playhead. Export follows the desktop rule: the song picker is locked while the included timeline
+  has audio, **Use another song** overrides it, **Preview mix** plays the mix, and the export mixes
+  the lanes on the phone. Projects from the computer keep their audio paths; a file that is not on
+  the phone is listed with **Relink**, which binds the picked file to every clip using that path,
+  and the export waits for it instead of failing. With the computer as the target, the lanes are
+  shown but edited and played on the computer.
 
 **Clip Deck.** Place scenes, templates, palettes and media on a grid and fire them on the beat.
 

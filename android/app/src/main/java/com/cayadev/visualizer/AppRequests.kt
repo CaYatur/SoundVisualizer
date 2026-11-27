@@ -270,6 +270,19 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 reply.fail("export-open", e.message ?: e.javaClass.simpleName)
             }
             "exportJob" -> reply.ok(ExportFlow.job() ?: JSONObject.NULL)
+            /* Çizelge ses şeritleri (#1172, export/TimelineAudioFiles.kt): ses medya klasörüne
+               kopyalanır; dışa aktarma karışımı oraya parça parça yazılır. Dosya işi ana iş parçacığında değil. */
+            "timelineAudioImport" -> {
+                val uri = Uri.parse(args.optString("uri"))
+                Thread {
+                    try { reply.ok(com.cayadev.visualizer.export.TimelineAudioFiles.copyIn(app, uri)) } catch (e: Exception) { reply.fail("audio-import", e.message ?: e.javaClass.simpleName) }
+                }.start()
+            }
+            "mediaAppend" -> try {
+                reply.ok(com.cayadev.visualizer.export.TimelineAudioFiles.append(app, args.optString("name"), args.optString("data"), args.optBoolean("first")))
+            } catch (e: Exception) {
+                reply.fail("media-append", e.message ?: e.javaClass.simpleName)
+            }
             "audioTags" -> LyricsHub.audioTags(android.net.Uri.parse(args.optString("uri"))) { r, e -> if (r != null) reply.ok(r) else reply.fail("audio-tags", e ?: "") }
             "exportSave" -> try {
                 reply.ok(ExportFlow.save(app, args.optString("path")))

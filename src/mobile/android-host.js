@@ -1603,6 +1603,12 @@
     /* Dışa aktarma (Faz 5): iş uygulamaya, motor dışa aktarım sayfasına geçer.
        iş: { cfg, width, height, fps, durationSec (0 = şarkının tamamı), audioUri, outputName } */
     exportOpen: (job) => request('exportOpen', job),
+    /* Çizelge ses şeritleri (#1172): seçilen ses medya klasörüne kopyalanır → { url: '/files/<ad>', name };
+       dışa aktarma karışımı (WAV) aynı klasöre base64 parçalarla yazılır (first: dosya baştan). */
+    timelineAudio: Object.freeze({
+      import: (uri) => request('timelineAudioImport', { uri }),
+      write: (name, data, first) => request('mediaAppend', { name, data, first: !!first }),
+    }),
     /** Seçilen şarkının adı, sanatçısı, albümü, süresi ve kapağı. */
     audioTags: (uri) => request('audioTags', { uri }),
     /* Dışa aktarma kodekleri: { avc: true, hevc } (cihazın kodlayıcıları) */
@@ -1818,6 +1824,8 @@
          katmanları videoda bunları çizer, ilerleme kare saatinden gelir (exporter.js). */
       const track = j.track && typeof j.track === 'object' ? j.track : { title: String(j.songName || '').replace(/\.[^.]+$/, '') };
       job.track = { title: track.title || '', artist: track.artist || '', album: track.album || '', artwork: track.artwork || '' };
+      // Çizelge sesi (#1172): karede çalan klibin adı Çalan Parça'ya (masaüstündeki timelineAudioTags)
+      if (j.timelineAudioTags && typeof j.timelineAudioTags === 'object') job.timelineAudioTags = j.timelineAudioTags;
       /* Otomatik söz (masaüstündeki sıra, #937): şarkıya gömülü söz (src/shared/id3-lyrics.js), yoksa
          önbellek ve sağlayıcılar. Bulunamaması dışa aktarmayı durdurmaz. */
       const L = job.cfg.lyricsLookup;

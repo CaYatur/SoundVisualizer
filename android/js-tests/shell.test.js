@@ -96,7 +96,7 @@ test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {
   const strings = new Set();
   for (const f of ['src/mobile/shell.js', 'src/mobile/shell-controls.js', 'src/mobile/shell-layers.js', 'src/mobile/shell-scene.js', 'src/mobile/shell-lyrics.js', 'src/shared/layer-factory.js',
     'src/mobile/shell-audio.js', 'src/mobile/shell-library.js', 'src/mobile/shell-display.js', 'src/mobile/shell-settings.js', 'src/mobile/autovj.js',
-    'src/mobile/shell-export.js', 'src/mobile/shell-timeline.js', 'src/mobile/shell-timeline-lane.js', 'src/mobile/shell-timeline-forms.js', 'src/mobile/export-ui.js',
+    'src/mobile/shell-export.js', 'src/mobile/shell-timeline.js', 'src/mobile/shell-timeline-lane.js', 'src/mobile/shell-timeline-audio.js', 'src/mobile/shell-timeline-forms.js', 'src/mobile/export-ui.js',
     'src/mobile/shell-backup.js', 'src/mobile/shell-text.js', 'src/mobile/shell-nowplaying.js', 'src/mobile/dynamic-theme.js', 'src/mobile/shell-pclink.js', 'src/mobile/shell-live.js', 'src/mobile/shell-pcmanage.js', 'src/mobile/shell-updates.js']) {
     for (const s of uiStrings(read(f))) if (!NOT_UI.has(s)) strings.add(s);
   }

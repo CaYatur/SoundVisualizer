@@ -212,6 +212,9 @@ object WebShell {
         "web/src/mobile/shell-live.js",
         // PC Ayarları sayfası (çıkışlar, ses girişi, kayıt, dışa aktarma, dosyalar; PC bağlantısı B6)
         "web/src/mobile/shell-pcmanage.js",
+        // Ses şeritleri (#1172): ortak model + telefondaki şerit ve çalma
+        "web/src/shared/timeline-audio.js",
+        "web/src/mobile/shell-timeline-audio.js",
         "web/src/mobile/shell-timeline-lane.js",
         "web/src/mobile/shell-timeline.js",
         "web/src/mobile/shell-timeline-forms.js",

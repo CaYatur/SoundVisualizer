@@ -1047,6 +1047,16 @@ gösteriyi oynatıyor.
   Çizelge dahil ama sesi yoksa ve dosya seçilmediyse dosya istenmez: video sessiz ve çizelge
   uzunluğunda çıkar. Çizelge dahil değilse hiçbir şey değişmez. Kuyruktaki her iş kendi seçimini saklar, eksik ses dosyası işi render
   başlamadan adıyla durdurur ve geçici karışım iş bitince, iptal edilince ya da hata verince silinir.
+- **Telefonda çizelge sesi (Android)** — telefondaki çizelgede görsel şeritlerin altında aynı zaman
+  ekseninde ses şeritleri var: **Ses ekle** telefondan dosya seçer (uygulamaya kopyalanır), klipler
+  dalga biçimiyle görünür; dokunmak seçer, sürüklemek taşır, seçili klibin kenarından sürüklemek
+  kırpar. Her şeritte sessiz (M) ve solo (S); klip panelinde kazanç, geçişler, sustur, kafada böl ve
+  sil, şerit panelinde ses düzeyi, denge, sessiz, solo ve sil var. Ses çizelgenin kafasıyla çalar.
+  Dışa aktarma masaüstündeki kurala uyar: dahil edilen çizelgede ses varken şarkı seçici kilitli,
+  **Başka şarkı kullan** geçersiz kılar, **Karışımı dinle** karışımı çalar ve dışa aktarma şeritleri
+  telefonda karıştırır. Bilgisayardan gelen projeler ses yollarını korur; telefonda olmayan dosya
+  **Yeniden bağla** ile listelenir, seçilen dosya o yolu kullanan bütün kliplere bağlanır ve dışa
+  aktarma düşmek yerine bunu bekler. Hedef bilgisayarken şeritler görünür, düzenleme ve çalma bilgisayarda.
 - **MIDI Zaman Kodu takibi** — çizelge gelen MTC'yi 24, 25, 29,97 drop-frame ve 30 fps'te izliyor;
   01:00:00:00'da başlayan bir gösteri için kaydırma verilebiliyor.
 
