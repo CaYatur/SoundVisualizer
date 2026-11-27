@@ -12,6 +12,8 @@ const fs = require('fs');
 const path = require('path');
 
 const SHELL = fs.readFileSync(path.join(__dirname, '..', 'src/admin/scene-shell.js'), 'utf8').replace(/\r\n/g, '\n');
+const ADMIN = fs.readFileSync(path.join(__dirname, '..', 'src/admin/admin.js'), 'utf8').replace(/\r\n/g, '\n');
+const TEMPLATE_PANEL = fs.readFileSync(path.join(__dirname, '..', 'src/admin/template-panel.js'), 'utf8').replace(/\r\n/g, '\n');
 
 // SHELF_CURRENT + modeNow + syncShelf kaynağı, sahte bir ortamda
 function load(state) {
@@ -108,6 +110,19 @@ test('Şablon rafı: son uygulanan şablon; ayar değişince (clearLastApplied) 
   assert.deepStrictEqual(onKeys(items), []);
 });
 
+test('Renk paleti elle değişince şablon vurgusu anında temizleniyor', () => {
+  assert.match(ADMIN, /oninput: \(e\) => \{\n\s+if \(window\.SVTemplatePanel && window\.SVTemplatePanel\.clearLastApplied\) \{\n\s+window\.SVTemplatePanel\.clearLastApplied\(\);\n\s+\}\n\s+arr\[i\] = e\.target\.value;/);
+  assert.match(SHELL, /function applyThemeColors\(colors\) \{\n\s+const cfg = P\(\)\.cfg\(\);\n\s+if \(window\.SVTemplatePanel && window\.SVTemplatePanel\.clearLastApplied\) \{\n\s+window\.SVTemplatePanel\.clearLastApplied\(\);/);
+
+  let synced = 0;
+  const win = { SVSceneShell: { syncShelf: () => { synced++; } } };
+  // eslint-disable-next-line no-new-func
+  new Function('window', TEMPLATE_PANEL)(win);
+  win.SVTemplatePanel.clearLastApplied();
+  assert.strictEqual(win.SVTemplatePanel.current(), '');
+  assert.strictEqual(synced, 1);
+});
+
 test('Sahne rafı: etkin sahne (MCP ya da kısayolla uygulanan da)', () => {
   let active = 's1';
   const items = ['s1', 's2'].map((k) => item('data-scene-id', k, k === 's1', 'active'));
@@ -121,7 +136,7 @@ test('her çizim sonunda eşitleniyor; Görsel/Zemin imzası seçime ve türe ba
   assert.match(SHELL, /shelfPainted = sig;\n      shelfStale = false;\n    \}\n    syncShelf\(c\);/);
   const sig = SHELL.match(/if \(shelfTab === 'vis' \|\| shelfTab === 'bg'\) \{\n      return [^\n]*\n/)[0];
   assert.doesNotMatch(sig, /selected\(\)|\.type/);
-  for (const s of ['vis', 'bg', 'milkdrop', 'templates', 'scenes']) assert.ok(new RegExp('\\n    ' + s + ': \\{').test(SHELL), s);
+  for (const s of ['vis', 'bg', 'milkdrop', 'themes', 'templates', 'scenes']) assert.ok(new RegExp('\\n    ' + s + ': \\{').test(SHELL), s);
   // Kartlar anahtarını taşıyor
   assert.match(SHELL, /'data-cur': it\.id/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'src/admin/template-panel.js'), 'utf8'), /'data-cur': t\.id/);
