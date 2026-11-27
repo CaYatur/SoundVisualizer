@@ -284,7 +284,7 @@ CSS_FILES.forEach((file) => {
     // Dosyaların kendi tanımladığı düzen değişkenleri (ör. mobil kabuğun --inset-*)
     const local = new Set(CSS_FILES.flatMap((f) => [...S.cssLocalVars(read(f))]));
     // Betiğin satır içi yazdığı düzen değişkenleri (renk değil)
-    const fromJs = ['--cols'];
+    const fromJs = ['--cols', '--p']; // --p: kaydırıcı dolgusu (admin.js paintRange, timeline-audio volFill)
     const known = new Set([...T.TOKEN_NAMES, ...Object.keys(S.rootVars(read('src/admin/admin.css'))), ...local, ...fromJs]);
     const missing = S.cssVarUses(read(file)).filter((u) => !known.has(u.name));
     assert.deepStrictEqual(missing.map((u) => file + ':' + u.line + ' ' + u.name), []);
