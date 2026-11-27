@@ -54,8 +54,19 @@
     return prefs.orient === 'portrait' ? { width: short, height: long } : { width: long, height: short };
   }
 
+  /* Ses kaynağı (masaüstündeki kural, #1172): çizelgeyle dışa aktarılırken şarkı seçilmediyse
+     dosya istenmez; video çizelgenin uzunluğunda ve sessiz çıkar ('none'). Çizelgenin ses
+     klipleri bilgisayardaki dosyalara bağlı (telefonda ses şeridi yok): telefonda karıştırılamaz,
+     bunu söyleyen not çıkar; şarkı seçilirse o kullanılır (geçersiz kılma). */
+  function tlInfo() { return window.SVShellTimeline ? window.SVShellTimeline.info() : null; }
+  function timelineOn() {
+    const TLi = tlInfo();
+    return !!(prefs.timeline && TLi && TLi.clips > 0 && TLi.enabled);
+  }
+  function audioFrom() { return song ? 'file' : timelineOn() ? 'none' : ''; }
+
   function start(ctx) {
-    if (!song || busy) return;
+    if (!audioFrom() || busy) return;
     busy = true;
     error = '';
     ctx.refresh();
@@ -67,11 +78,16 @@
     // Düğme kapalıysa masaüstü yedeğinden gelen includeTimeline da yok sayılır
     const useTl = !!(prefs.timeline && TLi && TLi.clips > 0 && TLi.enabled);
     cfg.export = Object.assign({}, cfg.export, { includeTimeline: useTl, timelineId: useTl ? TLi.id : '' });
+    const silent = audioFrom() === 'none';
+    // Sessizde "Tamamı" çizelgenin uzunluğu (şarkı yok)
+    const len = prefs.length === 'all' ? (silent ? Math.ceil((TLi && TLi.length) || 0) : 0) : +prefs.length;
     const job = {
       cfg, width: sz.width, height: sz.height, fps: +prefs.fps, codec: codec(), bitrate: bitrate(sz),
-      durationSec: prefs.length === 'all' ? 0 : +prefs.length,
-      audioUri: song.uri, outputName: (song.name || 'video').replace(/\.[^.]+$/, ''),
+      durationSec: len, audioFrom: silent ? 'none' : 'file',
+      audioUri: silent ? '' : song.uri,
+      outputName: silent ? ((TLi && TLi.name) || 'timeline') : (song.name || 'video').replace(/\.[^.]+$/, ''),
     };
+    if (silent && !(len > 0)) { busy = false; error = tr('Zaman çizelgesi boş; süre ondan alınamaz.'); ctx.refresh(); return; }
     // Bekleyen kayıt önce diske; sonra motor dışa aktarım sayfasına geçer (bu sayfa kapanır)
     Promise.resolve(A().config.flush()).then(() => A().exportOpen(job))
       .catch((e) => { busy = false; error = String((e && e.message) || e); ctx.refresh(); });
@@ -103,8 +119,8 @@
           }, [icon('music'), h('span', { text: song ? 'Değiştir' : 'Seç' })]),
         ]),
         (window.SVShellTimeline && window.SVShellTimeline.info().clips > 0 && window.SVShellTimeline.info().enabled)
-          ? U.toggle({ label: 'Zaman çizelgesiyle', value: !!prefs.timeline, onChange: (v) => { prefs.timeline = !!v; save(prefs); } }) : null,
-        U.seg({ label: 'Süre', options: [['30', '30 sn'], ['60', '60 sn'], ['all', 'Tamamı']], value: prefs.length, onChange: (v) => { prefs.length = v; save(prefs); } }),
+          ? U.toggle({ label: 'Zaman çizelgesiyle', value: !!prefs.timeline, onChange: (v) => { prefs.timeline = !!v; save(prefs); ctx.refresh(); } }) : null,
+        U.seg({ label: 'Süre', options: [['30', '30 sn'], ['60', '60 sn'], ['all', audioFrom() === 'none' ? 'Çizelgenin tamamı' : 'Tamamı']], value: prefs.length, onChange: (v) => { prefs.length = v; save(prefs); } }),
         U.seg({ label: 'Yön', options: [['landscape', 'Yatay 16:9'], ['portrait', 'Dikey 9:16']], value: prefs.orient, onChange: (v) => { prefs.orient = v; save(prefs); } }),
         U.seg({ label: 'Çözünürlük', options: [['720', '720p'], ['1080', '1080p']], value: prefs.res, onChange: (v) => { prefs.res = v; save(prefs); } }),
         U.seg({ label: 'Kare hızı', options: [['30', '30 fps'], ['60', '60 fps']], value: prefs.fps, onChange: (v) => { prefs.fps = v; save(prefs); } }),
@@ -113,11 +129,18 @@
           ? U.seg({ label: 'Kodek', options: [['avc', 'H.264'], ['hevc', 'H.265']], value: codec(), onChange: (v) => { prefs.codec = v; save(prefs); } })
           : U.row('Kodek', [h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: 'H.264' }), h('div', { class: 'row-sub', text: caps ? 'Bu cihazda H.265 kodlayıcısı yok.' : '' })])]),
       ]));
+      // Ses kaynağı notu: sessiz çizelge ya da telefonda karıştırılamayan çizelge sesi
+      const TLn = tlInfo();
+      if (timelineOn() && TLn.audioClips > 0 && !song) {
+        body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: tr('Bu çizelgenin ses klipleri bilgisayardaki dosyalara bağlı; telefonda karıştırılamaz. Bir şarkı seçin ya da video sessiz çıksın.') })]));
+      } else if (audioFrom() === 'none') {
+        body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: tr('Şarkı seçilmedi: video çizelgenin uzunluğunda ve sessiz çıkar.') })]));
+      }
       if (!showsTrack()) body.appendChild(h('div', { class: 'banner info' }, [icon('info'), h('div', { class: 'grow-text', text: 'Şarkı adı, sanatçı, kapak, ilerleme ve sözlerin videoda görünmesi için sahneye Çalan Parça ya da Şarkı Sözü katmanı ekleyin.' })]));
       // Cihazın kodlayıcıları bir kez sorulur
       if (!caps && A().exportCaps) A().exportCaps().then((c) => { caps = c || { avc: true, hevc: false }; if (body.isConnected) ctx.refresh(); }, () => { caps = { avc: true, hevc: false }; });
       if (error) body.appendChild(h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr('Dışa aktarma başlatılamadı.') + ' (' + error + ')' })]));
-      const go = h('button', { class: 'btn primary block', disabled: !song || busy ? true : null, onclick: () => start(ctx) }, [icon('export'), h('span', { text: busy ? 'Hazırlanıyor…' : 'Dışa Aktar' })]);
+      const go = h('button', { class: 'btn primary block', disabled: !audioFrom() || busy ? true : null, onclick: () => start(ctx) }, [icon('export'), h('span', { text: busy ? 'Hazırlanıyor…' : 'Dışa Aktar' })]);
       ctx.foot.appendChild(go);
     },
   };
