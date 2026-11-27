@@ -30,6 +30,12 @@ test('Preset sekmesi: MilkDrop ve Studio aynı sekmede, sekme sayısı artmıyor
   assert.match(SHELL, /A\.saveCurrentPreset/);
   assert.match(SHELL, /A\.updateUserPreset/);
   assert.match(SHELL, /A\.deleteUserPreset/);
+  assert.ok(SHELL.indexOf("actBtn('trash'") < SHELL.indexOf("actBtn('refresh'"), 'sil solda, güncelle sağda');
+  assert.match(CSS, /\.sv-gw\.sv-mine > \.sv-fav\.danger \{ left: 6px; right: auto; \}/);
+  const admin = read('src/admin/admin.js');
+  const upd = admin.slice(admin.indexOf('actions.updateUserPreset ='), admin.indexOf('actions.deleteUserPreset ='));
+  assert.match(upd, /await svConfirm\('Bu renk şablonu mevcut renklerle güncellenecek\.', \{ danger: true, okText: 'Güncelle' \}\)/);
+  assert.match(read('src/shared/i18n.js'), /'Bu renk şablonu mevcut renklerle güncellenecek\.': 'This color preset will be updated with the current colors\.'/);
   assert.match(SHELL, /themes: \{\s*sel: '\.sv-gi\[data-cur\]'/);
   assert.match(read('src/shared/i18n.js'), /'Temalar': 'Themes'/);
   assert.match(lib, /id: 'milkdrop', label: 'Preset', en: 'Presets', subs: PRESET_SUBS/);

@@ -437,6 +437,7 @@
     'Tüm ayarlar varsayılana dönecek. Renk şablonlarınız ve sahneleriniz korunur.': 'All settings will return to their defaults. Your color presets and scenes are preserved.',
     'Bu sahne silinecek.': 'This scene will be deleted.',
     'Bu renk şablonu silinecek.': 'This color preset will be deleted.',
+    'Bu renk şablonu mevcut renklerle güncellenecek.': 'This color preset will be updated with the current colors.',
     'Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak.': 'Current settings will be replaced with the values in the backup. Your color presets and scenes will be preserved.',
     'Bu ayarı varsayılana döndür': 'Reset this setting to its default',
 

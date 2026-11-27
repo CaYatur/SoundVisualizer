@@ -1489,10 +1489,9 @@
           class: 'sv-fav' + (danger ? ' danger' : ''), type: 'button', icon, title: label, 'aria-label': label,
           onclick: (e) => { e.stopPropagation(); fn(); },
         });
-        kids.push(el('div', { class: 'sv-theme-acts' }, [
-          actBtn('refresh', tr('Mevcut renklerle güncelle'), () => { if (A.updateUserPreset) A.updateUserPreset(id); }),
-          actBtn('trash', tr('Sil'), () => { if (A.deleteUserPreset) A.deleteUserPreset(id); }, true),
-        ]));
+        /* Sil solda, güncelle sağda: ikisi de önizlemenin köşesinde, yanlış tıklama ayrılır. */
+        kids.push(actBtn('trash', tr('Sil'), () => { if (A.deleteUserPreset) A.deleteUserPreset(id); }, true));
+        kids.push(actBtn('refresh', tr('Mevcut renklerle güncelle'), () => { if (A.updateUserPreset) A.updateUserPreset(id); }));
       }
       box.appendChild(el('div', { class: 'sv-gw' + (user ? ' sv-mine' : '') }, kids));
       shown++;
