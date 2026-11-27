@@ -1228,6 +1228,9 @@
         type: 'color',
         value: arr[i] || '#000000',
         oninput: (e) => {
+          if (window.SVTemplatePanel && window.SVTemplatePanel.clearLastApplied) {
+            window.SVTemplatePanel.clearLastApplied();
+          }
           arr[i] = e.target.value;
           push(false);
         },
@@ -1248,6 +1251,9 @@
         onchange: (e) => {
           const p = window.SV.GRADIENT_PRESETS[Number(e.target.value)];
           if (!p) return;
+          if (window.SVTemplatePanel && window.SVTemplatePanel.clearLastApplied) {
+            window.SVTemplatePanel.clearLastApplied();
+          }
           cfg.background.gradient.colors = p.colors.slice();
           push(true);
           render();
@@ -1271,6 +1277,9 @@
       swatch.style.background = `linear-gradient(90deg, ${p.colors.join(',')})`;
       const active = p.colors.map((c) => String(c).toLowerCase()).join(',') === current;
       const card = el('div', { class: 'preset' + (active ? ' active' : ''), onclick: () => {
+        if (window.SVTemplatePanel && window.SVTemplatePanel.clearLastApplied) {
+          window.SVTemplatePanel.clearLastApplied();
+        }
         cfg.background.gradient.colors = p.colors.slice();
         push(true);
         render();
@@ -6424,6 +6433,9 @@
   actions.applyUserPreset = (id) => {
     const p = ensurePresets().find((x) => x.id === id);
     if (!p) return;
+    if (window.SVTemplatePanel && window.SVTemplatePanel.clearLastApplied) {
+      window.SVTemplatePanel.clearLastApplied();
+    }
     cfg.background.gradient.colors = (p.colors || []).slice();
     push(true);
     render();
