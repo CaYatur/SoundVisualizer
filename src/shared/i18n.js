@@ -3518,6 +3518,10 @@
     'Anlık Gürlük': 'Momentary Loudness',
     'Entegreyi Sıfırla': 'Reset Integrated',
     'Akıllı Sessizlik Filtresi': 'Smart Silence Filter',
+    // Kendi sesi (#1213)
+    'Kendi Sesini Sistem Sesinden Hariç Tut': 'Exclude the App\'s Own Audio from System Audio',
+    'Zaman çizelgesi sesi görselleştiriciye doğrudan uygulamanın içinden gider ve seçili kaynakla karışır. Açıkken Windows\'ta sistem sesi bu uygulama hariç yakalanır, böylece aynı ses iki kez sayılmaz. Diğer platformlarda sistem sesi zaten bu sesi taşıyorsa ikinci kez eklenmez. Yayın ve kayıt yazılımları uygulamanın sesini her durumda duyar.':
+      'Timeline audio goes to the visualizer directly from inside the app and is mixed with the selected source. When on, Windows captures system audio without this app, so the same sound is not counted twice. On other platforms it is not added again when system audio already carries it. Streaming and recording software always hears the app\'s audio.',
     '50/60 Hz donanım uğultusu ve boşta dip gürültüsünü filtreler': 'Filters 50/60 Hz hardware hum and idle noise floor',
     'Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.':
       'Hardware noise floor / mains hum detected (50/60 Hz). You can enable the Smart Silence Filter to switch to corrected mode.',

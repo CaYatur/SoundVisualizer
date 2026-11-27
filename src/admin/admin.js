@@ -2796,6 +2796,15 @@
           },
           audioSourcesDef(),
           AUDIO_REFRESH_DEF,
+          {
+            /* Kendi sesi (#1213): zaman çizelgesi sesi her zaman grafikten
+               çözümlenir; bu anahtar yalnız sistem sesinin kendi sürecimiz
+               hariç yakalanmasını açar/kapatır (Windows). */
+            type: 'toggle',
+            path: 'audio.excludeSelf',
+            label: 'Kendi Sesini Sistem Sesinden Hariç Tut',
+            hint: 'Zaman çizelgesi sesi görselleştiriciye doğrudan uygulamanın içinden gider ve seçili kaynakla karışır. Açıkken Windows\'ta sistem sesi bu uygulama hariç yakalanır, böylece aynı ses iki kez sayılmaz. Diğer platformlarda sistem sesi zaten bu sesi taşıyorsa ikinci kez eklenmez. Yayın ve kayıt yazılımları uygulamanın sesini her durumda duyar.',
+          },
         ],
       },
       {

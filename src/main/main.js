@@ -43,6 +43,7 @@ const screenCapture = require('../shared/screen-capture.js');
 const { serveMediaFile, isConfiguredMedia } = require('./media-file');
 const { MediaSession } = require('./media-session');
 const appCapture = require('./app-capture');
+const internalAudio = require('../shared/internal-audio.js');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
@@ -1536,6 +1537,43 @@ function bridgePcmWanted() { return !!bridge.sender || linkWatch.size > 0; }
 function bridgePcmHold() { return linkWatch.size > 0 && phoneLinkCfg().audioIn.lossless === true; }
 let lastCapturePcm = false;
 let lastCaptureHold = false;
+/* Uygulamanın kendi sesi (#1213). internalFeed: panelin zaman çizelgesi
+   sesinden ürettiği kareler. lastCaptureSelf: varsayılan sistem çıkışı
+   kendi sürecimiz HARİÇ yakalanıyor (Windows süreç loopback'i). */
+const internalFeed = internalAudio.createInternalFeed();
+let lastCaptureSelf = false;
+
+/* Varsayılan sistem çıkışını kendi sesimiz olmadan yakalama planı. Yalnız
+   Windows'ta, uygulama başına yakalama varken ve gösteride zaman çizelgesi
+   sesi varken; ayar audio.excludeSelf (varsayılan açık). */
+function selfExclusionPlan(real) {
+  if (process.platform !== 'win32') return { sources: real, applied: false };
+  let helper = false;
+  try { helper = !!appCapture.helperPath(); } catch { helper = false; }
+  return internalAudio.planSelfExclusion(real, {
+    platform: process.platform,
+    enabled: internalAudio.selfExclusionEnabled(currentConfig),
+    hasTimelineAudio: internalAudio.hasTimelineAudio(currentConfig),
+    available: helper && appAvailability().available,
+    helper,
+    selfPid: process.pid,
+    selfMatch: path.basename(process.execPath),
+    label: trUi('Sistem sesi (bu uygulama hariç)', 'System audio (without this app)'),
+  });
+}
+
+/* Seçili yerel yakalama kendi çıkışımızı zaten taşıyor mu? Taşıyorsa panel
+   karesi karışmaz (aynı ses iki kez sayılmasın). Köprü/telefon girişi
+   yereli değiştirdiyse taşımaz. */
+function captureCarriesSelf() {
+  if (bridge.input && bridge.input.useBridge) return false;
+  if (phoneAudio.input && phoneAudio.input.useBridge) return false;
+  return internalAudio.captureCarriesSelf({
+    sources: Array.isArray(lastCaptureSource) ? lastCaptureSource : [],
+    selfExcluded: lastCaptureSelf,
+    sinkDefault: internalFeed.sinkDefault(),
+  });
+}
 /* DEMO SES KARESİ: ekran görüntüleri ve "Demo ses" kaynağı (Ses Kaynakları) aynı sesi verir.
    120 BPM vuruş, bas ağırlıklı taban, gezinen tepeler, stereo dalga (src/shared/demo-audio.js). */
 const DEMO_AUDIO = require('../shared/demo-audio.js');
@@ -1591,6 +1629,7 @@ function startVisualizerCapture() {
   if (!real.length) {
     if (Array.isArray(lastCaptureSource) && lastCaptureSource.some((x) => x !== 'demo')) nativeAudio.stopCapture();
     lastCaptureSource = all;
+    lastCaptureSelf = false;
     lastCapturePcm = bridgePcmWanted();
     lastCaptureHold = bridgePcmHold();
     const demo = all.indexOf('demo') >= 0;
@@ -1602,7 +1641,9 @@ function startVisualizerCapture() {
     return;
   }
   setDemoAudio(false);
-  const sources = real;
+  const plan = selfExclusionPlan(real);
+  const sources = plan.sources;
+  lastCaptureSelf = plan.applied;
   /* Köprü yayındayken kaynak değişti: alıcılara önceden haber, yardımcı
      yeniden kurulurken yedeğe dönüp geri gelmesinler (#813). */
   if (bridge.sender && lastCaptureSource && JSON.stringify(all) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
@@ -1655,8 +1696,33 @@ function startVisualizerCapture() {
 }
 
 /* Ses karesinin görüntüye, ışığa ve web katmanına dağıtımı. Kare yerel
-   yakalamadan ya da ses köprüsünden (#813) gelir; iki yol da buradan. */
+   yakalamadan ya da ses köprüsünden (#813) gelir; iki yol da buradan.
+   Zaman çizelgesi çalıyorsa panelin iç karesi buna karışır (#1213). */
 function deliverAudioFrame(frame) {
+  const now = Date.now();
+  internalFeed.noteExternal(now);
+  sendAudioFrame(internalFeed.combine(frame, now, captureCarriesSelf()));
+}
+
+/* Zaman çizelgesi sesinin iç karesi (#1213), yalnız yönetim panelinden.
+   Dış kaynak akıyorsa onun bir sonraki karesine karışır; akmıyorsa (kaynak
+   seçili değil, yakalama durdu) tek başına gider. */
+ipcMain.on('timeline-audio:frame', (e, f) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  const ok = (a, n) => a instanceof Uint8Array && a.length === n;
+  if (!f || !ok(f.freq, internalAudio.BINS) || !ok(f.time, internalAudio.FFT_SIZE)) return;
+  const frame = {
+    freq: f.freq, time: f.time,
+    left: ok(f.left, internalAudio.FFT_SIZE) ? f.left : f.time,
+    right: ok(f.right, internalAudio.FFT_SIZE) ? f.right : f.time,
+    sampleRate: Number(f.sampleRate) > 0 ? Number(f.sampleRate) : 48000,
+  };
+  const now = Date.now();
+  internalFeed.push(frame, now, typeof f.sink === 'string' ? f.sink : '');
+  if (internalFeed.deliverAlone(now)) sendAudioFrame(frame);
+});
+
+function sendAudioFrame(frame) {
   {
     {
       if (!HW_OFF && frame && frame.freq && currentConfig && currentConfig.oscOut
@@ -2490,7 +2556,9 @@ function syncCapture() {
     return;
   }
   const wanted = configuredSources();
-  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted() && lastCaptureHold === bridgePcmHold()) return;
+  // Kendi sesini hariç tutma planı değiştiyse de (zaman çizelgesine ilk ses eklendi) yeniden kur
+  const selfNow = selfExclusionPlan(wanted.filter((x) => x !== 'demo')).applied;
+  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted() && lastCaptureHold === bridgePcmHold() && lastCaptureSelf === selfNow) return;
   startVisualizerCapture();
 }
 
@@ -9217,7 +9285,59 @@ function lyricsSnapshot(extra) {
   let items;
   try { items = lyricsLibrary.snapshot(lyricsLibDir()); } catch { items = []; }
   for (const it of [lyricsAutoItem, extra]) if (it && it.text) items.push(it);
-  return items;
+  // Zaman çizelgesi klibinin sözü başta (#1213): o dosyaya özel
+  return timelineLyrics.mergeLibrary(Array.from(lyricsTimelineItems.values()), items);
+}
+
+/* Zaman çizelgesi klibinin sözü (#1213). Çalan Parça gibi en üstteki duyulur
+   klibi izler: yan dosya ve gömülü söz her zaman, önbellek/sağlayıcı yalnız
+   Otomatik Söz Bul açıksa. Dosya başına bir kez aranır; sonuç (söz yoksa da)
+   saklanır, klip yeniden çalınca tekrar aranmaz. */
+const timelineLyrics = require('../shared/timeline-lyrics.js');
+const lyricsTimelineItems = new Map(); // src -> öğe
+const lyricsTimelineTried = new Map(); // src -> imza (başlık/sanatçı + ayar)
+async function timelineClipLyrics(raw, np, tag, cfg) {
+  const meta = { title: np.title || '', artist: np.artist || '', album: np.album || '', duration: np.duration > 0 ? np.duration : 0 };
+  let res = null;
+  try {
+    res = await lyricsLookup.lookup({ audioPath: raw, meta, tags: tag || null, config: timelineLyrics.lookupConfig(cfg && cfg.lyricsLookup), cacheDir: lyricsCacheDir() });
+  } catch { res = null; }
+  return timelineLyrics.itemFor(np, res);
+}
+function lookupTimelineLyrics(raw, np, tag) {
+  if (!np || !np.src) return;
+  const sig = (np.artist || '') + '\u0001' + (np.title || '') + '\u0001' + JSON.stringify((currentConfig && currentConfig.lyricsLookup) || null);
+  if (lyricsTimelineTried.get(np.src) === sig) return;
+  lyricsTimelineTried.set(np.src, sig);
+  if (lyricsTimelineTried.size > 64) lyricsTimelineTried.delete(lyricsTimelineTried.keys().next().value);
+  timelineClipLyrics(raw, np, tag, currentConfig).then((item) => {
+    if (lyricsTimelineTried.get(np.src) !== sig) return;
+    const had = lyricsTimelineItems.has(np.src);
+    if (item) lyricsTimelineItems.set(np.src, item);
+    else lyricsTimelineItems.delete(np.src);
+    if (lyricsTimelineItems.size > 32) lyricsTimelineItems.delete(lyricsTimelineItems.keys().next().value);
+    if (item || had) publishLyricsLib();
+  }).catch(() => { /* söz yoksa oynatma sürer */ });
+}
+/* Dışa aktarma (#1213): işin çizelgesindeki her duyulur klip dosyası için
+   aynı arama; kare kare Çalan Parça (nowPlayingAt) bu öğelerle eşleşir. */
+async function exportTimelineLyrics(cfg, tags) {
+  if (!tags) return [];
+  const A = require('../shared/timeline-audio.js');
+  const ats = cfg && cfg.timeline ? cfg.timeline.audioTracks : null;
+  const out = [];
+  const seen = new Set();
+  for (const t of A.audibleTracks(ats)) for (const c of t.clips) {
+    if (!c.src || seen.has(c.src) || !tags[c.src]) continue;
+    seen.add(c.src);
+    const raw = mediaUrl.fromMediaUrl(c.src);
+    if (!raw || !fs.existsSync(raw)) continue;
+    const np = A.nowPlayingAt([{ clips: [c] }], c.start, () => tags[c.src]);
+    if (!np) continue;
+    const item = await timelineClipLyrics(raw, np, tags[c.src], cfg);
+    if (item) out.push(item);
+  }
+  return out;
 }
 function autoLyricsItem(meta, res) {
   if (!res || !res.text) return null;
@@ -10023,6 +10143,8 @@ ipcMain.on('timeline-audio:now', async (e, info) => {
     { has: true, app: 'Timeline' });
   if (!timelineNow.title) timelineNow = null;
   publishNowPlaying(shownNowPlaying());
+  // Söz katmanı da bu klibi izler (#1213)
+  if (timelineNow) lookupTimelineLyrics(raw, timelineNow, tag);
 });
 
 ipcMain.handle('timeline-audio:peaks', async (e, src) => {
@@ -10479,6 +10601,9 @@ async function startExportJobInner(opts, bench, extra) {
   /* Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi. MilkDrop metinleri
      de: dışa aktarımda otomatik geçiş metni beklemeden, kare kare aynı yerde olmalı. */
   const jobPresets = await presetsStore.listFull();
+  // Çizelge klipleri: etiketler (Çalan Parça) ve sözleri (#1213), pencereye gitmeden önce
+  const tlTagsForJob = await exportTimelineTags(jobCfg);
+  const tlLyricsForJob = configUsesLyrics(jobCfg) ? await exportTimelineLyrics(jobCfg, tlTagsForJob) : [];
   // Cancelled or failed while the window was loading: do not send the job
   if (!isMine() || win.isDestroyed()) return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
 
@@ -10494,7 +10619,7 @@ async function startExportJobInner(opts, bench, extra) {
        Normal söz dosyası kütüphaneyle değiştirilmez. */
     track,
     // Çizelge ses klipleri (#1171): Çalan Parça karedeki en üst klibi gösterir
-    timelineAudioTags: await exportTimelineTags(jobCfg),
+    timelineAudioTags: tlTagsForJob,
     profile: !!bench,
     /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
@@ -10508,7 +10633,9 @@ async function startExportJobInner(opts, bench, extra) {
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
     durationSec: renderSec,
     platform: process.platform,
-    lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot(lyricsAuto) : [],
+    /* Çizelge klibinin sözü (#1213) takip kapalıyken de gelir: klip
+       canlıda olduğu gibi kendi sözünü klibin yerel zamanında çalar. */
+    lyricsLibrary: timelineLyrics.mergeLibrary(tlLyricsForJob, configFollowsLyrics(jobCfg) ? lyricsSnapshot(lyricsAuto) : []),
     // Elle söz dosyası yüklenmemiş söz katmanının yedeği (#937)
     lyricsAuto: lyricsAuto ? { text: lyricsAuto.text, source: lyricsAuto.auto } : null,
     // Video katmanı: cfg'deki dosya → her karesi anahtar kare ara kopya (#539)
