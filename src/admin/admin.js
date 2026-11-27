@@ -902,6 +902,8 @@
         return multisourceCtrl(def);
       case 'audiofile':
         return audioFileCtrl(def);
+      case 'durationinput':
+        return durationInputCtrl(def);
       case 'exportpanel':
         return exportPanelCtrl(def);
       case 'exportqueue':
@@ -1905,6 +1907,58 @@
   let exportAudioPaint = null;
   function refreshExportAudio() {
     if (exportAudioPaint) exportAudioPaint();
+  }
+
+  /* Sabit süre: kaydırıcı (küp ölçek, 1 sn .. 4 sa) ve elle yazılan alan
+     (ss, dd:ss, sa:dd:ss) iki yönlü eş. Geçersiz ya da sınır dışı yazım
+     kaydedilmez; alan kırmızı olur ve sınır ipucu gösterilir. */
+  function durationInputCtrl(def) {
+    const FX = window.SVExportFormats;
+    const MAX = FX ? FX.MAX_SECONDS : 14400;
+    const cur = () => Math.max(1, Math.min(MAX, Math.round(Number(getPath(cfg, def.path)) || 30)));
+    const valSpan = el('span', { class: 'val', text: fmtClock(cur()) });
+    const field = el('input', {
+      type: 'text', class: 'export-duration-input', inputmode: 'numeric', spellcheck: 'false',
+      value: fmtClock(cur()), 'aria-label': tr('Süre (dd:ss ya da sa:dd:ss)'),
+      title: tr('Saniye, dd:ss ya da sa:dd:ss yazın (1 sn – 4 sa).'),
+    });
+    const slider = el('input', {
+      type: 'range', min: 0, max: FX ? FX.SLIDER_STEPS : 1000, step: 1,
+      value: FX ? FX.secondsToSlider(cur()) : 0,
+    });
+    const hint = el('div', { class: 'studio-note dim-hint export-duration-hint', text: '' });
+    const set = (sec, from) => {
+      setPath(cfg, def.path, sec);
+      valSpan.textContent = fmtClock(sec);
+      if (from !== 'field') field.value = fmtClock(sec);
+      if (from !== 'slider' && FX) slider.value = FX.secondsToSlider(sec);
+      field.classList.remove('bad');
+      hint.textContent = '';
+    };
+    slider.addEventListener('input', () => {
+      if (!FX) return;
+      set(FX.sliderToSeconds(Number(slider.value)), 'slider');
+      push(false);
+    });
+    const commit = (final) => {
+      const sec = FX ? FX.parseClock(field.value) : Number(field.value);
+      if (sec == null || !(sec >= 1) || sec > MAX) {
+        field.classList.add('bad');
+        hint.textContent = tr('Geçerli bir süre yazın: 1 sn ile 4:00:00 arası (ör. 90, 1:30, 1:02:05).');
+        if (final) { field.value = fmtClock(cur()); field.classList.remove('bad'); hint.textContent = ''; }
+        return;
+      }
+      set(sec, final ? 'commit' : 'field');
+      push(!!final);
+    };
+    field.addEventListener('input', () => commit(false));
+    field.addEventListener('change', () => commit(true));
+    field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); field.blur(); } });
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [el('label', { class: 'lbl', text: def.label }), valSpan]),
+      el('div', { class: 'export-duration-row' }, [slider, field]),
+      hint,
+    ]);
   }
 
   function audioFileCtrl() {
@@ -3686,8 +3740,8 @@
             ],
           },
           {
-            type: 'slider', path: 'export.duration.seconds', label: 'Süre (saniye)',
-            min: 1, max: 1800, step: 1, fmt: (v) => fmtClock(v),
+            // Kaydırıcı + elle süre alanı (dd:ss, sa:dd:ss), 1 sn .. 4 sa
+            type: 'durationinput', path: 'export.duration.seconds', label: 'Süre',
             show: () => exportDuration().mode === 'seconds',
           },
           {
