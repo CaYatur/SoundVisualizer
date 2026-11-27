@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4737%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4743%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1013,8 +1013,11 @@ one playhead drives every screen together, and offline export plays the same sho
   N clips, length". The export mixes those clips into a temporary lossless WAV with the same mix
   description as playback (mute, solo, fades, volume points, ducking), so the beat analysis and the
   video's sound match what you heard. **Use another audio file** unlocks the picker and that file is
-  used instead; turning it off goes back to the timeline audio. Without timeline audio nothing
-  changes. Queued jobs keep their own choice, a missing audio file stops the job with its name
+  used instead; turning it off goes back to the timeline audio. **Timeline to export** defaults
+  to the active timeline, and the lock follows that choice, the Include switch and audio clip edits
+  at once. **Length** reads "Length of the timeline audio" then. If the timeline is included but
+  has no audio and no file is picked, no file is asked for: the video is silent and as long as the
+  timeline. Without the timeline nothing changes. Queued jobs keep their own choice, a missing audio file stops the job with its name
   before rendering, and the temporary mix is deleted when the job ends, is cancelled or fails.
 
 **Clip Deck.** Place scenes, templates, palettes and media on a grid and fire them on the beat.
@@ -1513,7 +1516,8 @@ Creates and edits.
   and per-layer visualizer targets.
 - Export and recording: `sv_start_export` renders an audio file that exists on disk to a video path
   you name. `audioFrom: "timeline"` (with `includeTimeline: true`) uses a mix of the timeline's
-  audio clips instead, with no `audioPath`; calls that pass `audioPath` work as before. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
+  audio clips instead, with no `audioPath`; `audioFrom: "none"` makes a silent video as long as
+  the timeline. Calls that pass `audioPath` work as before. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
   same options as the export panel. `sv_export_analysis` writes only the audio analysis (JSON,
   CSV and MIDI). `sv_cancel_export` stops a running export. `sv_export_json`
   writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
@@ -2313,7 +2317,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4737 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4743 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4737%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4743%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1023,8 +1023,11 @@ gösteriyi oynatıyor.
   "Zaman çizelgesi sesi kullanılıyor: N klip, süre" yazar. Dışa aktarma bu klipleri çalmayla aynı
   karışım tanımıyla (sessiz, solo, geçişler, ses noktaları, kısma) geçici, kayıpsız bir WAV'a
   karıştırır; böylece vuruş analizi ve videonun sesi duyduğunuzla aynı olur. **Başka ses dosyası
-  kullan** seçiciyi açar ve o dosya kullanılır; kapatınca çizelge sesine dönülür. Çizelgede ses
-  yoksa hiçbir şey değişmez. Kuyruktaki her iş kendi seçimini saklar, eksik ses dosyası işi render
+  kullan** seçiciyi açar ve o dosya kullanılır; kapatınca çizelge sesine dönülür. **Dışa
+  aktarılacak çizelge** varsayılan olarak etkin çizelgedir; kilit bu seçimi, Dahil anahtarını ve
+  ses klibi düzenlemelerini beklemeden izler. **Süre** o zaman "Çizelge sesinin süresi" olur.
+  Çizelge dahil ama sesi yoksa ve dosya seçilmediyse dosya istenmez: video sessiz ve çizelge
+  uzunluğunda çıkar. Çizelge dahil değilse hiçbir şey değişmez. Kuyruktaki her iş kendi seçimini saklar, eksik ses dosyası işi render
   başlamadan adıyla durdurur ve geçici karışım iş bitince, iptal edilince ya da hata verince silinir.
 - **MIDI Zaman Kodu takibi** — çizelge gelen MTC'yi 24, 25, 29,97 drop-frame ve 30 fps'te izliyor;
   01:00:00:00'da başlayan bir gösteri için kaydırma verilebiliyor.
@@ -1528,7 +1531,7 @@ Oluşturur ve düzenler.
   katman başına görselleştirici hedeflerini ayarlar.
 - Dışa aktarma ve kayıt: `sv_start_export` diskte duran bir ses dosyasını sizin verdiğiniz video
   yoluna çizer. `audioFrom: "timeline"` (`includeTimeline: true` ile) `audioPath` olmadan çizelgenin
-  ses kliplerinin karışımını kullanır; `audioPath` veren çağrılar eskisi gibi çalışır. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
+  ses kliplerinin karışımını kullanır; `audioFrom: "none"` çizelge uzunluğunda sessiz video verir. `audioPath` veren çağrılar eskisi gibi çalışır. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
   dışa aktarma panelindeki seçeneklerdir. `sv_export_analysis` yalnız ses analizini yazar (JSON,
   CSV ve MIDI). `sv_cancel_export` süren aktarmayı durdurur.
   `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
@@ -2331,7 +2334,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4737 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4743 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
