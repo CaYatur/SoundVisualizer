@@ -81,6 +81,9 @@
       pan: clamp(num(s.pan, 0), -1, 1),
       mute: s.mute === true,
       solo: s.solo === true,
+      // Kilit (Premiere A1/A2 gibi): şeritteki klipler seçilmez, taşınmaz, kırpılmaz, silinmez.
+      // Eski kayıtlarda alan yok: kilitsiz sayılır (geçiş gerekmez).
+      locked: s.locked === true,
       clips,
       volume,
       duck: makeDuck(s.duck),
@@ -117,6 +120,25 @@
     const outAt = c.dur - c.fadeOut;
     if (c.fadeOut > 0 && localT > outAt) g *= shape(c.curve, (c.dur - localT) / c.fadeOut);
     return g;
+  }
+
+  /* Solma eğrisinin ÇİZİM noktaları: yalnız solma aralığında, n+1 eşit adım.
+     Döner: [[çizelge zamanı (sn), kazanç 0..1], …] soldan sağa. Panel eskiden
+     eğriyi klibin TAMAMINA 24 noktayla yayıyordu: 180 sn'lik klipte adım 7,5 sn,
+     2 sn'lik giriş solması 7,5 sn'de tamamlanıyor gibi, olduğundan çok ileride
+     görünüyordu (duyulan ise doğruydu). which: 'in' | 'out'. */
+  function fadeCurve(clip, which, n) {
+    const c = clip;
+    const k = Math.max(1, Math.round(num(n, FADE_STEPS)));
+    const d = which === 'out' ? c.fadeOut : c.fadeIn;
+    const out = [];
+    if (!(d > 0)) return out;
+    for (let i = 0; i <= k; i++) {
+      const lt = (d * i) / k;
+      if (which === 'out') out.push([c.start + c.dur - d + lt, shape(c.curve, (d - lt) / d)]);
+      else out.push([c.start + lt, shape(c.curve, lt / d)]);
+    }
+    return out;
   }
 
   // Parça ses otomasyonu (dB noktaları, doğrusal); nokta yoksa 0 dB
@@ -350,6 +372,114 @@
     if (c.srcDur > 0) e = Math.min(e, c.start + (c.srcDur - c.in));
     return makeClip(Object.assign({}, c, { dur: e - c.start }));
   }
+  /* ---- Seçim işlemleri (kısayollar; görsel kliplerle aynı anlam) ----
+     Hepsi SAF: normalleştirilmiş kopya üzerinde çalışır, kaynağa dokunmaz.
+     Kilitli şeritteki klip hiçbir işleme girmez. Döner: { tracks, ids } —
+     ids: işlemden sonra seçili kalacak klipler. */
+  function where(list, ids) {
+    const want = new Set(ids || []);
+    const out = [];
+    list.forEach((t, ti) => t.clips.forEach((c) => { if (want.has(c.id) && !t.locked) out.push({ t, ti, c }); }));
+    return out;
+  }
+  // Sil (Delete); ripple: Shift+Delete — her şeritte silinenin sağı boşluk kadar sola kayar
+  function removeClips(tracks, ids, ripple) {
+    const list = normalize(tracks);
+    const hit = where(list, ids);
+    for (const h of hit) {
+      h.t.clips = h.t.clips.filter((c) => c.id !== h.c.id);
+      if (ripple) for (const o of h.t.clips) if (o.start >= h.c.start + h.c.dur - 1e-6) o.start = Math.max(0, o.start - h.c.dur);
+    }
+    return { tracks: list, ids: [], removed: hit.length };
+  }
+  // Grup kayması: hiçbir klip sıfırın soluna geçmez, biçim korunur
+  function nudgeClips(tracks, ids, delta) {
+    const list = normalize(tracks);
+    const hit = where(list, ids);
+    if (!hit.length) return { tracks: list, ids: [], moved: 0 };
+    const min = Math.min.apply(null, hit.map((h) => h.c.start));
+    const d = Math.max(-min, Number(delta) || 0);
+    for (const h of hit) h.c.start += d;
+    for (const t of list) t.clips.sort((a, b) => a.start - b.start);
+    return { tracks: list, ids: hit.map((h) => h.c.id), moved: d ? hit.length : 0 };
+  }
+  /* Panoya: şerit sırası ve başlangıç gruba göreli (en üstteki şerit 0, en erken klip 0). */
+  function copyClips(tracks, ids) {
+    const list = normalize(tracks);
+    const hit = where(list, ids);
+    if (!hit.length) return null;
+    const t0 = Math.min.apply(null, hit.map((h) => h.c.start));
+    const l0 = Math.min.apply(null, hit.map((h) => h.ti));
+    const end = Math.max.apply(null, hit.map((h) => h.c.start + h.c.dur));
+    return { kind: 'audio', span: end - t0, items: hit.map((h) => ({ dLane: h.ti - l0, dt: h.c.start - t0, clip: JSON.parse(JSON.stringify(h.c)) })) };
+  }
+  /* Yapıştır: `at` saniyesine, `lane` şeridinden başlayarak; eksik şerit sona
+     eklenir. Hedef şeritlerden biri kilitliyse hiçbir şey yapıştırılmaz (yarım grup yok). */
+  function pasteClips(tracks, board, at, lane, name) {
+    const list = normalize(tracks);
+    if (!board || !Array.isArray(board.items) || !board.items.length) return { tracks: list, ids: [], pasted: 0 };
+    const base = Math.max(0, Math.min(list.length, Number.isFinite(lane) ? lane : 0));
+    const need = Math.max.apply(null, board.items.map((it) => it.dLane)) + base + 1;
+    for (let i = base; i < Math.min(need, list.length); i++) {
+      if (board.items.some((it) => it.dLane + base === i) && list[i].locked) return { tracks: normalize(tracks), ids: [], pasted: 0, locked: true };
+    }
+    while (list.length < need) list.push(makeTrack({ name: (name || 'Ses') + ' ' + (list.length + 1) }));
+    const ids = [];
+    const t0 = Math.max(0, num(at, 0));
+    for (const it of board.items) {
+      const c = makeClip(Object.assign({}, it.clip, { id: newId('ac'), start: t0 + it.dt }));
+      list[base + it.dLane].clips.push(c);
+      ids.push(c.id);
+    }
+    for (const t of list) t.clips.sort((a, b) => a.start - b.start);
+    return { tracks: list, ids, pasted: ids.length };
+  }
+  // Çoğalt (Ctrl+D): kopyalar grubun hemen ardına, aynı şeritlere
+  function duplicateClips(tracks, ids) {
+    const list = normalize(tracks);
+    const hit = where(list, ids);
+    if (!hit.length) return { tracks: list, ids: [], duplicated: 0 };
+    const board = copyClips(list, ids);
+    const t0 = Math.min.apply(null, hit.map((h) => h.c.start));
+    const l0 = Math.min.apply(null, hit.map((h) => h.ti));
+    const r = pasteClips(list, board, t0 + board.span, l0);
+    return { tracks: r.tracks, ids: r.ids, duplicated: r.pasted };
+  }
+  /* Kafada böl (S / Ctrl+K): seçili klipler; seçim yoksa kafanın altındaki
+     (kilitsiz) bütün klipler. Seçili kalan: kafanın sağındaki parçalar. */
+  function splitClips(tracks, ids, at) {
+    const list = normalize(tracks);
+    const pick = ids && ids.length ? new Set(ids) : null;
+    const out = [];
+    for (const t of list) {
+      if (t.locked) continue;
+      for (let i = 0; i < t.clips.length; i++) {
+        const c = t.clips[i];
+        if (pick && !pick.has(c.id)) continue;
+        const parts = splitClip(c, at);
+        if (parts) { t.clips.splice(i, 1, parts[0], parts[1]); i++; out.push(parts[1].id); }
+      }
+    }
+    return { tracks: list, ids: out, split: out.length };
+  }
+  // Hepsini seç (Ctrl+A): kilitsiz şeritlerdeki bütün klipler
+  function allClipIds(tracks) {
+    const out = [];
+    for (const t of normalize(tracks)) if (!t.locked) for (const c of t.clips) out.push(c.id);
+    return out;
+  }
+  // Şerit değiştir (↑/↓): seçili klipler bir şerit yukarı/aşağı (kilitli ya da olmayan şeride gidilmez)
+  function moveClipsLane(tracks, ids, dir) {
+    const list = normalize(tracks);
+    const hit = where(list, ids);
+    if (!hit.length) return { tracks: list, ids: [], moved: 0 };
+    for (const h of hit) { const to = list[h.ti + dir]; if (!to || to.locked) return { tracks: normalize(tracks), ids: hit.map((x) => x.c.id), moved: 0 }; }
+    for (const h of hit) { h.t.clips = h.t.clips.filter((c) => c.id !== h.c.id); }
+    for (const h of hit) list[h.ti + dir].clips.push(h.c);
+    for (const t of list) t.clips.sort((a, b) => a.start - b.start);
+    return { tracks: list, ids: hit.map((h) => h.c.id), moved: hit.length };
+  }
+
   function audioLength(tracks) {
     let end = 0;
     for (const t of normalize(tracks)) for (const c of t.clips) end = Math.max(end, c.start + c.dur);
@@ -398,19 +528,24 @@
 
   /* Dışa aktarma ses kaynağı kuralı (#1172). Panel, kuyruk ve MCP aynı kuralı
      kullanır. o: { audioFrom, audioPath, timeline (işin çizelgesinde duyulur ses
-     var mı) }. audioFrom verilmezse eski çağrılar aynen çalışır: dosya yolu
-     varsa dosya, yoksa çizelge sesi. Dönen: { source: 'file'|'timeline' } ya da
-     { error: 'BAD_AUDIO_FROM'|'NO_FILE'|'NO_TIMELINE_AUDIO' } */
-  const AUDIO_FROM = ['timeline', 'file'];
+     var mı), included (çizelge dışa aktarıma dahil mi) }. audioFrom verilmezse
+     eski çağrılar aynen çalışır: dosya yolu varsa dosya, yoksa çizelge sesi;
+     çizelge dahil ama sesi yoksa sessiz video (çizelge uzunluğunda).
+     Dönen: { source: 'file'|'timeline'|'none' } ya da
+     { error: 'BAD_AUDIO_FROM'|'NO_FILE'|'NO_TIMELINE_AUDIO'|'NO_TIMELINE' } */
+  const AUDIO_FROM = ['timeline', 'file', 'none'];
   function exportAudioSource(o) {
     const x = o || {};
     const from = x.audioFrom == null || x.audioFrom === '' || x.audioFrom === 'auto' ? 'auto' : x.audioFrom;
     if (from !== 'auto' && AUDIO_FROM.indexOf(from) < 0) return { error: 'BAD_AUDIO_FROM' };
     const hasFile = typeof x.audioPath === 'string' && x.audioPath.length > 0;
+    const included = !!(x.included || x.timeline);
     if (from === 'file') return hasFile ? { source: 'file' } : { error: 'NO_FILE' };
     if (from === 'timeline') return x.timeline ? { source: 'timeline' } : { error: 'NO_TIMELINE_AUDIO' };
+    if (from === 'none') return included ? { source: 'none' } : { error: 'NO_TIMELINE' };
     if (hasFile) return { source: 'file' };
-    return x.timeline ? { source: 'timeline' } : { error: 'NO_FILE' };
+    if (x.timeline) return { source: 'timeline' };
+    return included ? { source: 'none' } : { error: 'NO_FILE' };
   }
   /* Kilitli seçicinin etiketi için özet: duyulur klip sayısı ve karışımın
      uzunluğu (sessiz parça ve klipler sayılmaz). */
@@ -433,8 +568,9 @@
   const api = {
     MIN_DB, MAX_DB, CURVES, EXTS, FADE_STEPS,
     dbToGain, makeClip, makeTrack, makeDuck, normalize, audibleTracks, hasAudio,
-    shape, clipGainAt, automationDbAt, duckCurve, trackEnvelope, mixDescription, gainAtPoints,
-    panGains, ffmpegFilter, volumeExpr, splitClip, canJoin, joinClips, trimStart, trimEnd,
+    shape, clipGainAt, fadeCurve, automationDbAt, duckCurve, trackEnvelope, mixDescription, gainAtPoints,
+    panGains, ffmpegFilter, volumeExpr, splitClip,
+    removeClips, nudgeClips, copyClips, pasteClips, duplicateClips, splitClips, allClipIds, moveClipsLane, canJoin, joinClips, trimStart, trimEnd,
     audioLength, isAudioFile, newId, clipAt, nowPlayingAt,
     AUDIO_FROM, exportAudioSource, exportAudioSummary,
   };
