@@ -473,7 +473,34 @@
     selection = last ? { kind: 'clip', trackId: last.trackId, clipId: last.clipId } : { kind: 'track', trackId: trk.id };
     if (multi.length <= 1) multi = [];
   }
+  /* Kilitli parçanın klipleri seçilemez (tıklama, kutu, Ctrl+A); seçiliyken
+     parça kilitlenirse seçimden düşer, parçanın kendisi seçili kalır. */
+  function lockedTrackIds() {
+    const tl = ensureTransport().tl;
+    return new Set((tl.tracks || []).filter((t) => t.locked).map((t) => t.id));
+  }
+  function dropLockedSelection() {
+    const lk = lockedTrackIds();
+    if (!lk.size) return false;
+    let changed = false;
+    if (multi.length) {
+      const keep = multi.filter((m) => !lk.has(m.trackId));
+      if (keep.length !== multi.length) {
+        changed = true;
+        multi = keep.length > 1 ? keep : [];
+        const last = keep[keep.length - 1];
+        if (last && selection && selection.kind === 'clip' && lk.has(selection.trackId)) selection = { kind: 'clip', trackId: last.trackId, clipId: last.clipId };
+      }
+    }
+    if (selection && selection.kind === 'clip' && lk.has(selection.trackId)) {
+      selection = { kind: 'track', trackId: selection.trackId };
+      changed = true;
+    }
+    return changed;
+  }
   function setMulti(refs) {
+    const lk = lockedTrackIds();
+    refs = refs.filter((r) => !lk.has(r.trackId));
     multi = refs.length > 1 ? refs.slice() : [];
     const last = refs[refs.length - 1];
     if (last) selection = { kind: 'clip', trackId: last.trackId, clipId: last.clipId };
@@ -1363,6 +1390,8 @@
      adım ekliyor (aynıysa eklemiyor). */
   function commit() {
     const tl = ensureTransport().tl;
+    // Kilitlenen parçanın seçili klipleri seçimden düşer (başlıktaki kilit, menü, denetçi)
+    if (dropLockedSelection()) setTimeout(() => { refreshInspector(); refreshHeads(); });
     const cfg = tlCfg();
     cfg.tracks = tl.tracks;
     cfg.markers = tl.markers;
@@ -1526,7 +1555,7 @@
       add('Döngü sonu burası', 'O', () => setLoopEdge('out', at));
       add(tl.loop.enabled ? 'Döngüyü kapat' : 'Döngüyü aç', 'Shift+L', () => { tl.loop.enabled = !tl.loop.enabled; commit(); reanchor(); refreshMore(); draw(); });
       add('Kafayı buraya al', '', () => { seek(at); applyClipsAt(ensureTransport().time); draw(); });
-    } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && trk) {
+    } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && trk && !trk.locked) {
       const c = trk.clips[h.ci];
       if (!isPicked(c, trk)) multi = [];
       selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
@@ -1570,7 +1599,9 @@
       add('Hedefi Kaldır', '', () => clearTarget(trk), !trk.target);
       add(recording.has(trk.id) ? 'Kaydı durdur' : isLearning(trk) ? 'Öğrenmeyi bırak' : trk.target ? 'Kaydet' : 'Öğren', 'R', () => { toggleRecord(trk); rr(); });
       add('Noktaları temizle', '', () => { trk.keys = []; commit(); draw(); }, trk.locked || !trk.keys.length);
-    } else if (h.kind === 'track' && trk) {
+    } else if ((h.kind === 'track' || h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && trk) {
+      // Boş şerit ya da kilitli parçadaki klip (seçilemez): parça menüsü
+      if (h.kind !== 'track') { multi = []; selection = { kind: 'track', trackId: trk.id }; }
       add('Buraya klip ekle', 'Çift tık', () => { addClipAt(trk, snap(at, false)); P().rerender(); }, trk.locked);
       add('Yapıştır', 'Ctrl+V', () => { seek(at); pasteAtPlayhead(); }, trk.locked);
       add('Buraya işaret', 'M', () => { addMarkerAtPlayhead(at); rr(); refreshMore(); });
@@ -1959,7 +1990,7 @@
   function selectAllClips() {
     const refs = [];
     for (const trk of ensureTransport().tl.tracks) {
-      if (trk.kind === 'clip') for (const c of trk.clips) refs.push({ trackId: trk.id, clipId: c.id });
+      if (trk.kind === 'clip' && !trk.locked) for (const c of trk.clips) refs.push({ trackId: trk.id, clipId: c.id });
     }
     if (!refs.length) return false;
     setMulti(refs);
@@ -2192,7 +2223,12 @@
          aynı yere yığılıyordu — ölçüldü: 2 sn'deki A, 5 sn'deki B'nin
          ötesine çekilince ikisi de 8 sn'de kaldı. */
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
-      if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && additive) {
+      const onClip = h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut';
+      if (onClip && trk.locked) {
+        // Kilitli parçada klip seçilmez: tıklama parçayı seçer (kilidi denetçiden/başlıktan açılır)
+        if (!additive) { multi = []; selection = { kind: 'track', trackId: trk.id }; }
+        drag = { kind: 'select' };
+      } else if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade' || h.kind === 'fadeOut') && additive) {
         // Ctrl/Shift+tık: seçime ekle ya da çıkar, taşıma yok
         toggleMulti(trk, trk.clips[h.ci]);
         drag = { kind: 'select' };
@@ -2798,6 +2834,21 @@
     headsRect: () => (headsBox && headsBox.isConnected ? headsBox.getBoundingClientRect() : null),
     laneH: () => TRACK_H,
     // Ses tuvali dokunma kaydırması / sıkıştırma: aynı zaman görünümü
+    // Ses bölümünün ölçü ızgarası: şeritlerdeki çizgilerle aynı x (piksel ortası)
+    barLines: (w) => {
+      const tl = ensureTransport().tl;
+      const v = view();
+      const b0 = TL().secondsToBars(tl.tempo, v.scroll);
+      const barSec = TL().barsToSeconds(tl.tempo, b0.bar + 1, 1) - TL().barsToSeconds(tl.tempo, b0.bar, 1);
+      const out = [];
+      if (!(barSec * v.zoom >= 14)) return out;
+      for (let bar = b0.bar; out.length < 4000; bar++) {
+        const x = Math.round(xOf(TL().barsToSeconds(tl.tempo, bar, 1))) + 0.5;
+        if (x > w + 1) break;
+        if (x >= 0) out.push(x);
+      }
+      return out;
+    },
     // Ses kliplerini ←/→ ile kaydırma adımı görsel kliplerle aynı (ızgara; Alt kare; Shift ölçü)
     stepAt: (at, dir, fine, bar) => {
       const cfg = tlCfg();

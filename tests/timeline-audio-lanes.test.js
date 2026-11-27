@@ -95,6 +95,8 @@ test('saf işlemler kilitli şeride dokunmuyor; yapıştırma kilitliye hiç yap
 let active = null;
 function mkEl(tag) {
   const n = { tagName: String(tag).toUpperCase(), tag, kids: [], on: {}, attrs: {}, style: {}, parentNode: null, dataset: {} };
+  n.style.setProperty = (k, v) => { n.style[k] = String(v); };
+  n.style.getPropertyValue = (k) => n.style[k] || '';
   const cls = new Set();
   Object.defineProperty(n, 'className', { get: () => Array.from(cls).join(' '), set: (v) => { cls.clear(); String(v || '').split(/\s+/).filter(Boolean).forEach((c) => cls.add(c)); } });
   n.classList = { add: (...c) => c.forEach((x) => cls.add(x)), remove: (...c) => c.forEach((x) => cls.delete(x)), contains: (c) => cls.has(c), toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; if (v) cls.add(c); else cls.delete(c); return v; } };
@@ -167,7 +169,8 @@ test.after(() => intervals.forEach((id) => clearInterval(id)));
 global.getComputedStyle = () => ({ getPropertyValue: () => '' });
 global.requestAnimationFrame = () => 0;
 global.cancelAnimationFrame = () => {};
-global.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const store = {};
+global.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
 const body = mkEl('body');
 global.document = {
   documentElement: mkEl('html'), body,
@@ -367,4 +370,112 @@ test('ses bölümü kendi keydown dinleyicisini kurmuyor (tek kapı: panel)', ()
   const ui = read('src/admin/timeline-audio.js');
   assert.ok(!/addEventListener\('keydown'/.test(ui));
   assert.match(read('src/admin/timeline-panel.js'), /AU\.key\(e\)/);
+});
+
+// ------------------------------------------------------------------ kilit: seçilemez (görsel ve ses)
+
+const RULER = 38;
+const TRACK = 40;
+const vx = (t) => t * 60;
+const vy = (i) => RULER + i * TRACK + TRACK / 2;
+function cfg2() {
+  const cfg = cfgOf();
+  cfg.timeline.tracks = [
+    { id: 'tr1', kind: 'clip', name: 'P1', clips: [{ id: 'v1', type: 'scene', ref: 'sA', start: 1, dur: 2 }] },
+    { id: 'tr2', kind: 'clip', name: 'P2', locked: true, clips: [{ id: 'v2', type: 'scene', ref: 'sA', start: 1, dur: 2 }] },
+  ];
+  return cfg;
+}
+const canvasOf = (host) => findAll(host, (n) => n.tag === 'canvas' && n.className.indexOf('tl-canvas') >= 0)[0];
+
+test('kilit (görsel): kilitli parçadaki klip tıklamayla seçilmez, parça seçilir; silme ona dokunmaz', async () => {
+  const cfg = cfg2();
+  const host = await mount(cfg);
+  const cv = canvasOf(host);
+  assert.ok(cv, 'görsel tuval');
+  await wait(5);
+  fire(cv, 'mousedown', { clientX: vx(2), clientY: vy(1), detail: 1, button: 0 });
+  winFire('mouseup', {});
+  const sel = TP._selection();
+  assert.deepStrictEqual(sel && [sel.kind, sel.trackId], ['track', 'tr2'], 'klip değil parça seçili');
+  fire(cv, 'mousedown', { clientX: vx(2), clientY: vy(1), detail: 1, button: 0, ctrlKey: true });
+  winFire('mouseup', {});
+  assert.deepStrictEqual(TP._multi(), [], 'Ctrl+tık da eklemiyor');
+  key('Delete');
+  assert.strictEqual(cfg.timeline.tracks[1].clips.length, 1, 'kilitli klip silinmedi');
+});
+
+test('kilit (görsel): Ctrl+A ve kutu seçimi kilitli parçanın kliplerini almıyor', async () => {
+  const cfg = cfg2();
+  cfg.timeline.tracks[0].clips.push({ id: 'v3', type: 'scene', ref: 'sA', start: 4, dur: 1 });
+  await mount(cfg);
+  key('a', { ctrlKey: true });
+  assert.deepStrictEqual(TP._multi().map((m) => m.clipId).sort(), ['v1', 'v3']);
+  const tl = TL.makeTimeline(cfg.timeline);
+  assert.deepStrictEqual(TE.clipsInRect(tl, 0, 10, 0, 1).map((r) => r.clipId).sort(), ['v1', 'v3'], 'kutu: kilitli parça atlanıyor');
+  key('x', { ctrlKey: true });
+  assert.deepStrictEqual(cfg.timeline.tracks.map((t) => t.clips.map((c) => c.id)), [[], ['v2']], 'kes kilitliye dokunmadı');
+});
+
+test('kilit (görsel): seçili klibin parçası kilitlenince klip seçimden düşüyor', async () => {
+  const cfg = cfg2();
+  cfg.timeline.tracks[1].locked = false;
+  const host = await mount(cfg);
+  TP._select({ kind: 'clip', trackId: 'tr2', clipId: 'v2' });
+  // Başlıktaki kilit düğmesi (ikinci parça)
+  const locks = findAll(host, (n) => n.tag === 'button' && /\btl-tog\b/.test(n.className) && /\bl\b/.test(n.className) && !/tla/.test(n.parentNode && n.parentNode.className));
+  assert.ok(locks.length >= 2, 'kilit düğmeleri');
+  fire(locks[1], 'click', {});
+  assert.strictEqual(cfg.timeline.tracks[1].locked, true);
+  const sel = TP._selection();
+  assert.deepStrictEqual(sel && [sel.kind, sel.trackId], ['track', 'tr2']);
+  key('Delete');
+  assert.strictEqual(cfg.timeline.tracks[1].clips.length, 1);
+});
+
+test('kilit (ses): kilitlenen şeridin klibi seçimden düşüyor, diğer seçim kalıyor', async () => {
+  const cfg = cfgOf();
+  await mount(cfg);
+  AU._select('l1', ['a', 'c']);
+  AU.toggleLock('l2');
+  assert.deepStrictEqual(AU._sel(), ['a'], 'c (kilitli) düştü, a kaldı');
+  AU._select('l2', 'c');
+  assert.strictEqual(AU._hit(150, 40 + 20).locked, true, 'fare isabeti yok');
+  key('a', { ctrlKey: true });
+  assert.deepStrictEqual(AU._sel().sort(), ['a', 'b']);
+});
+
+// ------------------------------------------------------------------ kaydırıcı dolgusu ve bölücü
+
+test('ses düzeyi kaydırıcısı: dolgu ilk çizimde yazılıyor (yalnız etkileşimde değil)', async () => {
+  const cfg = cfgOf();
+  cfg.timeline.audioTracks[0].gain = 0;
+  const host = await mount(cfg);
+  AU._select('l1', '');
+  await wait(5);
+  const vols = findAll(host, (n) => n.tag === 'input' && n.className === 'tla-vol');
+  assert.ok(vols.length >= 2, 'her şeridin kaydırıcısı');
+  for (const v of vols) assert.match(v.style['--p'] || '', /^\d+(\.\d+)?%$/, 'dolgu yüzdesi var');
+  const r = mkEl('input');
+  r.min = '-60'; r.max = '12'; r.value = '0';
+  assert.strictEqual(AU._volFill(r), (60 / 72) * 100);
+  assert.strictEqual(r.style['--p'], '83.33%');
+  const css = read('src/admin/admin.css');
+  assert.match(css, /\.tla input\.tla-vol\[type='range'\]::-webkit-slider-runnable-track \{[^}]*var\(--p, 0%\)/);
+});
+
+test('bölücü: iki alanın en küçük boyu korunuyor; çift tık oranı ve saklananı siliyor', () => {
+  const c = AU._clampSplit;
+  assert.strictEqual(c(300, 600, 66, 96), 300);
+  assert.strictEqual(c(10, 600, 66, 96), 66, 'ses en az bir şerit');
+  assert.strictEqual(c(590, 600, 66, 96), 504, 'görsel en az cetvel + bir parça');
+  assert.strictEqual(c(300, 100, 66, 96), 66, 'yer yetmezse ses en küçüğünde');
+  store['sv-tl-audio-split'] = '0.4';
+  AU.resetSplit();
+  assert.strictEqual(AU._split(), null);
+  assert.ok(!('sv-tl-audio-split' in store));
+  const css = read('src/admin/admin.css');
+  assert.match(css, /\.tla-split \{[^}]*cursor: row-resize; touch-action: none;/);
+  assert.match(css, /> \.tla > \.tla-body[^{]*\{[^}]*overflow-y: auto/, 'ses alanı kendi içinde kayar');
+  assert.match(read('src/admin/timeline-audio.js'), /splitEl\.addEventListener\('pointerdown'/);
 });

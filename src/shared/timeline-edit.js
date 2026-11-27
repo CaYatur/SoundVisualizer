@@ -257,7 +257,8 @@
     const hi = Math.max(i0, i1);
     const out = [];
     ((tl && tl.tracks) || []).forEach((trk, i) => {
-      if (i < lo || i > hi || trk.kind !== 'clip') return;
+      // Kilitli parçanın klipleri seçilemez (kutu seçimi de almaz)
+      if (i < lo || i > hi || trk.kind !== 'clip' || trk.locked) return;
       for (const c of trk.clips || []) {
         if (c.start < b && c.start + c.dur > a) out.push({ trackId: trk.id, clipId: c.id });
       }
