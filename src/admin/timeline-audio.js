@@ -53,6 +53,8 @@
     const c = tlc();
     if (!c) return;
     c.audioTracks = A().normalize(list);
+    // Kilitlenen şeridin klipleri seçimden düşer (başlık, menü, denetçi aynı yol)
+    dropLocked(c.audioTracks);
     if (P() && P().commitAudio) P().commitAudio();
     sigCache = '';
     paint();
@@ -277,6 +279,16 @@
   const laneLabel = (i) => 'A' + (i + 1);
   const fmtDb = (db) => (db <= A().MIN_DB ? '-∞' : (db > 0 ? '+' : '') + (Math.round(db * 10) / 10)) + ' dB';
 
+  /* Kaydırıcı dolgusu (--p): ilk çizimde ve her değer değişiminde; panelin genel
+     dinleyicisi yalnız kullanıcı sürükleyince boyuyordu, ilk görünüşte dolgu yoktu. */
+  function volFill(r) {
+    const min = Number(r.min);
+    const max = Number(r.max);
+    const v = Number(r.value);
+    const p = max > min && isFinite(v) ? Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100)) : 0;
+    if (r.style && r.style.setProperty) r.style.setProperty('--p', (Math.round(p * 100) / 100) + '%');
+    return p;
+  }
   function icon(name) {
     const I = window.SVIcons;
     return I && I.el ? I.el(name, '') : null;
@@ -308,10 +320,111 @@
     headsEl = el('div', { class: 'tl-heads tla-heads' });
     canvas = el('canvas', { class: 'tla-canvas' });
     const body = el('div', { class: 'tla-body' }, [headsEl, el('div', { class: 'tla-canvas-wrap' }, [canvas])]);
-    root = el('div', { class: 'tla', tabindex: '0', 'aria-label': tr('Zaman çizelgesi ses parçaları') }, [bar, body]);
+    splitEl = el('div', { class: 'tla-split', role: 'separator', 'aria-orientation': 'horizontal', title: tr('Sürükleyin: görsel ve ses alanının boyu; çift tık sıfırlar') });
+    root = el('div', { class: 'tla', tabindex: '0', 'aria-label': tr('Zaman çizelgesi ses parçaları') }, [splitEl, bar, body]);
+    bindSplit();
     bindCanvas();
     setTimeout(paintAll);
     return root;
+  }
+
+  /* ---- Görsel / ses bölücüsü ----
+     Zaman sayfasında ve tam pencerede düzenleyici kalan boyu alır, ses bölümü
+     altta. Bölücü sürüklenince ses bölümünün payı (ikisinin toplamına oran)
+     değişir ve bu makinede saklanır; çift tık (dokunmatikte çift dokunma)
+     varsayılana döner. İki alan da en az bir şerit gösterir; taşan alan kendi
+     içinde kayar. Diğer yerleşimlerde düzenleyicinin kendi boy tutamağı var. */
+  const SPLIT_KEY = 'sv-tl-audio-split';
+  const SPLIT_MIN_V = 96; // cetvel + bir görsel parça
+  let splitEl = null;
+  let splitRatio = readSplit();
+  let splitSig = '';
+  function readSplit() {
+    try { const v = Number(localStorage.getItem(SPLIT_KEY)); return v > 0 && v < 1 ? v : null; } catch { return null; }
+  }
+  function splitMode() {
+    const host = root && root.parentNode;
+    if (!host || !host.classList) return false;
+    if (host.classList.contains('tl-full')) return true;
+    const b = typeof document !== 'undefined' ? document.body : null;
+    return !!(b && b.getAttribute && b.getAttribute('data-page') === 'time');
+  }
+  function editorOf() {
+    const host = root && root.parentNode;
+    if (!host || !host.children) return null;
+    return Array.prototype.find.call(host.children, (n) => n.classList && n.classList.contains('tl-editor')) || null;
+  }
+  const splitMinA = () => (splitEl ? splitEl.offsetHeight || 8 : 8) + 26 + laneH();
+  // Saf sınır: ses bölümünün boyu, iki alanın en küçük boyları korunarak
+  function clampSplit(h, avail, minA, minV) {
+    const hi = Math.max(minA, avail - minV);
+    return Math.round(Math.max(minA, Math.min(hi, h)));
+  }
+  function applySplit(force) {
+    if (!root) return;
+    const ed = editorOf();
+    if (!splitMode() || !ed) {
+      if (root.style.height) { root.style.height = ''; root.style.maxHeight = ''; }
+      splitSig = '';
+      return;
+    }
+    const avail = ed.offsetHeight + root.offsetHeight;
+    const nv = (() => { const c = tlc(); return c && Array.isArray(c.tracks) ? c.tracks.length : 0; })();
+    const sig = avail + ':' + splitRatio + ':' + laneH() + ':' + nv;
+    if (!force && sig === splitSig) return;
+    splitSig = sig;
+    /* Varsayılan (oran yok): görsel alan parçalarına yetecek kadar, kalan ses
+       alanına — iki parçalı bir çizelgenin altında boş bir kutu kalmasın. */
+    const want = splitRatio == null ? avail - (38 + Math.max(1, nv) * laneH() + 14) : splitRatio * avail;
+    const h = clampSplit(want, avail, splitMinA(), SPLIT_MIN_V);
+    root.style.height = h + 'px';
+    root.style.maxHeight = 'none';
+    splitEl.setAttribute('aria-valuenow', String(Math.round((h / Math.max(1, avail)) * 100)));
+  }
+  function resetSplit() {
+    splitRatio = null;
+    try { localStorage.removeItem(SPLIT_KEY); } catch { /* depolama yok */ }
+    applySplit(true);
+    paintAll();
+  }
+  function bindSplit() {
+    let drag = null;
+    let lastTap = 0;
+    splitEl.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      const ed = editorOf();
+      if (!ed || !splitMode()) return;
+      e.preventDefault();
+      try { splitEl.setPointerCapture(e.pointerId); } catch { /* yakalanamadı */ }
+      drag = { y: e.clientY, h: root.offsetHeight, avail: ed.offsetHeight + root.offsetHeight, moved: false, id: e.pointerId };
+      splitEl.classList.add('on');
+    });
+    splitEl.addEventListener('pointermove', (e) => {
+      if (!drag || (drag.id != null && e.pointerId !== drag.id)) return;
+      const dy = e.clientY - drag.y;
+      if (Math.abs(dy) > 2) drag.moved = true;
+      if (!drag.moved) return;
+      const h = clampSplit(drag.h - dy, drag.avail, splitMinA(), SPLIT_MIN_V);
+      splitRatio = h / drag.avail;
+      applySplit(true);
+      paintAll();
+    });
+    const end = (e) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      splitEl.classList.remove('on');
+      try { splitEl.releasePointerCapture(e.pointerId); } catch { /* bırakıldı */ }
+      if (d.moved) { try { localStorage.setItem(SPLIT_KEY, String(Math.round(splitRatio * 1000) / 1000)); } catch { /* depolama yok */ } return; }
+      // Dokunmatikte çift dokunma da sıfırlar (dblclick fareden gelir)
+      if (e.pointerType === 'touch') {
+        const now = Date.now();
+        if (now - lastTap < 350) { lastTap = 0; resetSplit(); } else lastTap = now;
+      }
+    };
+    splitEl.addEventListener('pointerup', end);
+    splitEl.addEventListener('pointercancel', end);
+    splitEl.addEventListener('dblclick', (e) => { e.preventDefault(); resetSplit(); });
   }
 
   async function fillSinks(sel) {
@@ -377,7 +490,6 @@
     if (!t) return;
     t.locked = !t.locked;
     // Kilitlenen şeritte seçili klip kalmaz (seçilemez)
-    if (t.locked && t.clips.some((c) => c.id === selClip || selIds.indexOf(c.id) >= 0)) { setSel([]); selTrack = t.id; }
     write(list);
     if (sideShown) showSide();
   }
@@ -394,6 +506,19 @@
      görsel seçim kalkar (Seçim paneli tek bir şeyi gösterir). Düzenlemeler AYNI geri
      al geçmişine tek adım olarak yazılır (commitAudio). */
   let selIds = [];
+  /* Kilitlenen şeridin seçili klipleri seçimden düşer; diğerleri kalır. Seçim
+     tümüyle kalkarsa o şerit seçili kalır (kilidi açmak için). */
+  function dropLocked(list) {
+    if (!selIds.length && !selClip) return false;
+    const lockedIds = new Set();
+    let lane = '';
+    for (const t of list) if (t.locked) for (const c of t.clips) if (c.id === selClip || selIds.indexOf(c.id) >= 0) { lockedIds.add(c.id); lane = lane || t.id; }
+    if (!lockedIds.size) return false;
+    const keep = selIds.filter((id) => !lockedIds.has(id));
+    setSel(keep, lockedIds.has(selClip) ? '' : selClip);
+    if (!selClip) { selTrack = lane; showSide(); } else showSide();
+    return true;
+  }
   function setSel(ids, primary) {
     selIds = Array.from(new Set(ids || []));
     selClip = primary && selIds.indexOf(primary) >= 0 ? primary : (selIds[selIds.length - 1] || '');
@@ -602,8 +727,10 @@
       /* Şerit ses düzeyi: küçük kaydırıcı (dB ipucu). Sürüklerken yalnız çalma
          güncellenir, bırakınca geçmişe tek adım; çift tık 0 dB. */
       const vol = el('input', { class: 'tla-vol', type: 'range', min: String(A().MIN_DB), max: String(A().MAX_DB), step: '0.5', value: String(t.gain), title: tr('Şerit ses düzeyi') + ': ' + fmtDb(t.gain), 'aria-label': tr('Şerit ses düzeyi') });
+      volFill(vol);
       const live = () => {
         const v = Number(vol.value);
+        volFill(vol);
         vol.title = tr('Şerit ses düzeyi') + ': ' + fmtDb(v);
         const c = tlc();
         const x = c && Array.isArray(c.audioTracks) ? c.audioTracks.find((q) => q.id === t.id) : null;
@@ -611,7 +738,7 @@
       };
       vol.addEventListener('input', live);
       vol.addEventListener('change', () => upd((x) => { x.gain = Number(vol.value); }));
-      vol.addEventListener('dblclick', () => { vol.value = '0'; upd((x) => { x.gain = 0; }); });
+      vol.addEventListener('dblclick', () => { vol.value = '0'; volFill(vol); upd((x) => { x.gain = 0; }); });
       const meter = el('span', { class: 'tla-meter', 'data-track': t.id, title: tr('Parça seviyesi') }, [el('i'), el('b')]);
       meter.addEventListener('click', (e) => { e.stopPropagation(); meter.classList.remove('clip'); });
       const head = el('div', { class: 'tl-head tla-head' + (t.id === selTrack && !selClip ? ' sel' : '') + (t.locked ? ' locked' : ''), style: 'height:' + lh + 'px' },
@@ -875,6 +1002,15 @@
     const p = P();
     if (!p || !p.xOf) return;
     let ghost = null;
+    // Görsel parçalarla aynı ölçü ızgarası (aynı x; cetvel ve kafa hizalı)
+    const gx = p.barLines ? p.barLines(w) : [];
+    if (gx.length) {
+      c2.strokeStyle = fg(0.05);
+      c2.lineWidth = 1;
+      c2.beginPath();
+      for (const x of gx) { c2.moveTo(x, 0); c2.lineTo(x, h); }
+      c2.stroke();
+    }
     list.forEach((t, ti) => {
       const y0 = ti * LANE_H;
       // Görsel parçalarla aynı: yalnız seçili şerit hafifçe belirgin
@@ -1185,6 +1321,8 @@
       if (vis && (selClip || selIds.length || sideShown)) { setSel([]); selTrack = ''; sideShown = ''; }
     } catch { /* panel yok */ }
     // Seçili klip geri alma ile kalktı: panel kendi denetçisine döner
+    // Kilitli şeridin klipleri seçimde kalmaz (geri al, denetçi ya da başlık kilidi)
+    dropLocked(list);
     if (selIds.length || selClip) {
       const live = new Set(list.flatMap((t) => t.clips.map((c) => c.id)));
       const keep = selIds.filter((id) => live.has(id));
@@ -1197,7 +1335,7 @@
     paintHeads();
   }
   function frame() {
-    if (root && root.isConnected) { try { headsChanged(); paint(); meters(); } catch {} }
+    if (root && root.isConnected) { try { headsChanged(); paint(); meters(); applySplit(); } catch {} }
     requestAnimationFrame(frame);
   }
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(frame);
@@ -1218,6 +1356,10 @@
     selectedTrack: () => selTrack,
     _hit: (x, y) => { const h = hit(x, y); return { kind: h.kind || '', locked: !!h.locked, clip: h.c ? h.c.id : '', track: h.t ? h.t.id : '' }; },
     _fadePoints: fadePoints,
+    _volFill: volFill,
+    _clampSplit: clampSplit,
+    _split: () => splitRatio,
+    resetSplit,
     _key: key,
     _sel: () => selIds.slice(),
     key,
