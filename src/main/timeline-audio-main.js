@@ -66,15 +66,34 @@ function peaks(ff, file) {
   return job;
 }
 
+const TEMP_PREFIX = 'sv-tl-mix-';
 let tempDir = null;
 function cleanup() {
   const d = tempDir;
   tempDir = null;
   if (d) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* kilitli: sistem temizler */ } }
 }
+/* Çöken ya da zorla kapatılan oturumun karışım klasörleri: yeni karışımdan
+   önce silinir (o anki iş dışında). base: sınama için geçici klasör kökü. */
+function sweepStale(base) {
+  const dir = base || os.tmpdir();
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return 0; }
+  let n = 0;
+  for (const name of names) {
+    if (!name.startsWith(TEMP_PREFIX)) continue;
+    const full = path.join(dir, name);
+    if (tempDir && path.resolve(full) === path.resolve(tempDir)) continue;
+    try { fs.rmSync(full, { recursive: true, force: true }); n++; } catch { /* kilitli: sonra */ }
+  }
+  return n;
+}
+// ffmpeg'in disk dolu iletisi (Windows, Linux, macOS)
+const isDiskFull = (err) => /no space left|not enough space|disk full|ENOSPC/i.test(String(err || ''));
 
 /* Karışımı geçici, kayıpsız bir WAV'a yazar. srcPath: sv-media adresinden yol.
-   Dönen: { ok, file, sources, duration } ya da { ok:false, error } */
+   Dönen: { ok, file, sources, duration } ya da { ok:false, error }; error
+   'missing' (eksik dosyalar `missing` içinde), 'empty', 'disk' ya da ffmpeg iletisi. */
 async function mixdown(ff, tracks, opts) {
   const o = opts || {};
   const srcPath = o.srcPath || ((s) => s);
@@ -94,7 +113,8 @@ async function mixdown(ff, tracks, opts) {
   const inputs = Array.from(new Set(desc.sources.map((s) => s.src)));
   const filter = A.ffmpegFilter(desc, (s) => inputs.indexOf(s));
   cleanup();
-  try { tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-tl-mix-')); } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  sweepStale();
+  try { tempDir = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX)); } catch (e) { return { ok: false, error: isDiskFull(e.code + ' ' + e.message) ? 'disk' : String(e.message || e) }; }
   const out = path.join(tempDir, 'timeline-mix.wav');
   // Uzun süzgeç komut satırına sığmayabilir: dosyadan okunur
   const script = path.join(tempDir, 'mix.txt');
@@ -110,8 +130,11 @@ async function mixdown(ff, tracks, opts) {
     p.on('error', () => resolve({ code: -1, err }));
     p.on('close', (code) => resolve({ code, err }));
   });
-  if (res.code !== 0 || !fs.existsSync(out)) { cleanup(); return { ok: false, error: (res.err || 'ffmpeg').slice(-400) }; }
+  if (res.code !== 0 || !fs.existsSync(out)) {
+    cleanup();
+    return { ok: false, error: isDiskFull(res.err) ? 'disk' : (res.err || 'ffmpeg').slice(-400) };
+  }
   return { ok: true, file: out, sources: desc.sources.length, duration: desc.duration };
 }
 
-module.exports = { peaks, mixdown, cleanup, PEAK_RATE, isTemp: (f) => !!(tempDir && f && path.resolve(f).startsWith(path.resolve(tempDir))) };
+module.exports = { peaks, mixdown, cleanup, sweepStale, isDiskFull, TEMP_PREFIX, PEAK_RATE, isTemp: (f) => !!(tempDir && f && path.resolve(f).startsWith(path.resolve(tempDir))) };

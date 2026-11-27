@@ -241,6 +241,8 @@ app.on('will-quit', () => {
   stopInstanceRegistry();
   /* Kapanırken yarıda kesilen dışa aktarımın dosyası da gitmeli. */
   flushPartialsSync(1500);
+  // Çizelge sesinin geçici karışımı (#1172)
+  try { require('./timeline-audio-main').cleanup(); } catch { /* kapanıyor */ }
   if (pendingExitCode) app.exit(pendingExitCode);
 });
 
@@ -9581,7 +9583,9 @@ function queueState() {
   return {
     running: exportQueue.running,
     items: exportQueue.items.map((it) => ({
-      id: it.id, name: path.basename(it.outputPath), outputPath: it.outputPath, audioName: path.basename(it.audioPath),
+      id: it.id, name: path.basename(it.outputPath), outputPath: it.outputPath,
+      audioName: it.audioPath ? path.basename(it.audioPath) : trUi('Zaman çizelgesi sesi', 'Timeline audio'),
+      audioFrom: it.opts.audioFrom === 'timeline' ? 'timeline' : 'file',
       format: it.opts.format, resolution: it.opts.resolution, fps: it.opts.fps,
       status: it.status, message: it.message || '', output: it.output || '',
     })),
@@ -9610,11 +9614,15 @@ function queueAdd(list) {
     const r = raw || {};
     const opts = Object.assign({}, r.opts || {});
     const fmt = exportFormats.format(opts.format || exportFormats.DEFAULT_FORMAT);
-    if (!fmt || typeof r.audioPath !== 'string' || !path.isAbsolute(r.audioPath)) continue;
+    /* Ses kararı işle birlikte saklanır (#1172): 'timeline' işi dosya yolu
+       taşımaz, kendi dondurulmuş çizelgesinin sesini karıştırır. */
+    const fromTimeline = (r.audioFrom || opts.audioFrom) === 'timeline';
+    opts.audioFrom = fromTimeline ? 'timeline' : 'file';
+    if (!fmt || (!fromTimeline && (typeof r.audioPath !== 'string' || !path.isAbsolute(r.audioPath)))) continue;
     if (typeof r.outputPath !== 'string' || require('../shared/mcp').badOutPath(r.outputPath, [fmt.ext])) continue;
     const item = {
       id: 'q' + (++exportQueue.seq),
-      audioPath: r.audioPath,
+      audioPath: fromTimeline ? null : r.audioPath,
       outputPath: queueUniquePath(r.outputPath),
       opts,
       // Sahne o anki hâliyle donduruluyor
@@ -10117,7 +10125,27 @@ async function exportTimelineTags(cfg) {
   return out;
 }
 
+/* Zaman çizelgesi sesiyle dışa aktarma (#1172): karışım geçici bir WAV'a
+   yazılır. İş başlamadan dönerse (hata, iptal) karışım burada silinir;
+   başladıysa finalizeExport siler. Başka bir iş sürerken o işin karışımına
+   dokunulmaz. */
 async function startExportJob(opts, bench, extra) {
+  let r;
+  try { r = await startExportJobInner(opts, bench, extra); }
+  catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  if ((!r || !r.ok) && !exportState) timelineAudio.cleanup();
+  return r;
+}
+
+/* Dışa aktarılacak işin duyulur çizelge sesi (yoksa null). exportJobConfig
+   seçilen çizelgenin sesini zaten işe taşıyor. */
+function exportJobTimelineAudio(jobCfg) {
+  const A = require('../shared/timeline-audio.js');
+  const ats = jobCfg && jobCfg.export && jobCfg.export.includeTimeline === true && jobCfg.timeline ? jobCfg.timeline.audioTracks : null;
+  return A.hasAudio(ats) ? ats : null;
+}
+
+async function startExportJobInner(opts, bench, extra) {
   bench = bench || null;
   opts = opts || {};
   if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
@@ -10139,12 +10167,24 @@ async function startExportJob(opts, bench, extra) {
      sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
   exportMediaCfg = jobCfg;
   exportMediaPaths = new Set(exportMedia.jobMediaFiles(jobCfg).map((f) => path.resolve(mediaUrl.fromMediaUrl(f))));
-  const audioPath = opts.audioPath;
+  /* Ses kaynağı (#1172): audioFrom 'file' | 'timeline'; verilmezse eski
+     kural (audioPath varsa dosya), yoksa seçilen çizelgenin sesi. */
+  const tlAudio = exportJobTimelineAudio(jobCfg);
+  const audioSrc = require('../shared/timeline-audio.js').exportAudioSource({ audioFrom: opts.audioFrom, audioPath: opts.audioPath, timeline: !!tlAudio });
+  if (audioSrc.error === 'BAD_AUDIO_FROM') {
+    return { ok: false, error: trUi('Geçersiz ses kaynağı: ', 'Invalid audio source: ') + String(opts.audioFrom) + ' (timeline, file)' };
+  }
+  if (audioSrc.error === 'NO_TIMELINE_AUDIO') {
+    return { ok: false, error: trUi('Dışa aktarılacak çizelgede ses klibi yok; bir ses dosyası seçin ya da çizelgeyi dahil edin.',
+      'The export timeline has no audio clips; choose an audio file or include the timeline.') };
+  }
+  const useTimelineAudio = audioSrc.source === 'timeline';
+  let audioPath = useTimelineAudio ? null : opts.audioPath;
   const outputPath = opts.outputPath;
   /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve
      tcp:// ya da pipe: gibi adresleri de çıktı sayar: MCP'nin kuralı burada
      da geçerli, yerel, mutlak bir .mp4. */
-  if (typeof audioPath !== 'string' || !path.isAbsolute(audioPath) || !fs.existsSync(audioPath)) {
+  if (!useTimelineAudio && (typeof audioPath !== 'string' || !path.isAbsolute(audioPath) || !fs.existsSync(audioPath))) {
     return { ok: false, error: trUi('Ses dosyası bulunamadı.', 'Audio file not found.') };
   }
   if (!outputPath) return { ok: false, error: trUi('Çıktı yolu seçilmedi.', 'No output path was chosen.') };
@@ -10196,6 +10236,22 @@ async function startExportJob(opts, bench, extra) {
   }
 
   const ff = resolveFfmpeg();
+  /* Çizelge sesi: karışım, canlı çalmayla aynı karışım tanımından (sessiz/solo
+     parçalar, geçişler, otomasyon, kısma dahil) geçici, kayıpsız bir WAV'a
+     yazılır. Hem görüntü analizi hem videonun ses izi bu dosyadan. */
+  if (useTimelineAudio) {
+    const mix = await timelineAudio.mixdown(ff, tlAudio, { srcPath: (s) => mediaUrl.fromMediaUrl(String(s || '')) });
+    if (!mix.ok) {
+      if (mix.error === 'missing') {
+        const names = (mix.missing || []).map((f) => path.basename(String(f || '?'))).slice(0, 5).join(', ');
+        return { ok: false, error: trUi('Çizelgedeki ses dosyası bulunamadı: ', 'A timeline audio file is missing: ') + names };
+      }
+      if (mix.error === 'disk') return { ok: false, error: trUi('Diskte yer yok; çizelge sesi karıştırılamadı.', 'Not enough disk space to mix the timeline audio.') };
+      if (mix.error === 'empty') return { ok: false, error: trUi('Çizelgede duyulur ses klibi yok.', 'The timeline has no audible audio clips.') };
+      return { ok: false, error: trUi('Çizelge sesi karıştırılamadı: ', 'Could not mix the timeline audio: ') + mix.error };
+    }
+    audioPath = mix.file;
+  }
   let audioBuf;
   try {
     audioBuf = fs.readFileSync(audioPath);
@@ -10209,10 +10265,16 @@ async function startExportJob(opts, bench, extra) {
     album: '',
     artwork: '',
   };
-  try {
-    const read = await require('../shared/audio-tags.js').readAudioTags(ff, audioPath, track.title);
-    if (read) track = read;
-  } catch { /* etiket yoksa dosya adı yeter */ }
+  if (useTimelineAudio) {
+    // Karışımın etiketi yok: başlık çizelgenin adı (Çalan Parça kare kare klipten)
+    const tlName = jobCfg && jobCfg.timeline && typeof jobCfg.timeline.name === 'string' ? jobCfg.timeline.name.trim() : '';
+    track.title = tlName || trUi('Zaman çizelgesi sesi', 'Timeline audio');
+  } else {
+    try {
+      const read = await require('../shared/audio-tags.js').readAudioTags(ff, audioPath, track.title);
+      if (read) track = read;
+    } catch { /* etiket yoksa dosya adı yeter */ }
+  }
 
   /* Süre (#523): sesin kendisi, sabit saniye, zaman çizelgesinin
      uzunluğu ya da N ölçü. Ses süresi ffmpeg'den ölçülüyor; video ve ses
@@ -10222,7 +10284,8 @@ async function startExportJob(opts, bench, extra) {
      katmanı yoksa ya da özellik kapalıysa hiç bakılmaz; bulunamaması dışa
      aktarmayı durdurmaz. */
   let lyricsAuto = null;
-  if (jobCfg && jobCfg.lyricsLookup && jobCfg.lyricsLookup.enabled === true && configUsesLyrics(jobCfg)) {
+  // Karışımın yan dosyası ve gömülü sözü olmaz: otomatik söz yalnız dosyada
+  if (!useTimelineAudio && jobCfg && jobCfg.lyricsLookup && jobCfg.lyricsLookup.enabled === true && configUsesLyrics(jobCfg)) {
     try {
       const meta = { title: track.title, artist: track.artist, album: track.album, duration: audioSec || 0 };
       const res = await lyricsLookup.lookup({ audioPath, meta, tags: track, config: jobCfg.lyricsLookup, cacheDir: lyricsCacheDir() });
@@ -10348,7 +10411,7 @@ async function startExportJob(opts, bench, extra) {
     outputPath: seqDir || outputPath, seqDir, workDir, partial: workDir || target,
     format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false,
     chapterNames: chapters ? chapters.names : null, ext: fmt.ext, chapterListText,
-    analysisData: null, startedAt: 0, total: 0,
+    analysisData: null, startedAt: 0, total: 0, timelineMix: useTimelineAudio,
   };
   if (jobCfg !== currentConfig) {
     exportSourceCfg = jobCfg;
@@ -10455,7 +10518,7 @@ async function startExportJob(opts, bench, extra) {
     generator: 'CAYADEV Visualizer ' + app.getVersion(),
   });
 
-  return { ok: true };
+  return { ok: true, audioFrom: useTimelineAudio ? 'timeline' : 'file' };
 }
 
 /* Gizli render penceresi (offscreen kanvas; ekrana çizilmez). Video ve
@@ -10730,6 +10793,8 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   cleanupExportMedia();
+  // Çizelge sesinin geçici karışımı (#1172): bitince, iptalde ve hatada
+  if (exportState.timelineMix) timelineAudio.cleanup();
   exportMediaPaths.clear();
   exportMediaCfg = null;
   const out = exportState.outputPath;
