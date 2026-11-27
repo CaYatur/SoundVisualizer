@@ -4998,6 +4998,7 @@
     'Yeni ses şeridi': 'New audio lane',
     'Şerit kilitli; önce kilidi açın.': 'The lane is locked; unlock it first.',
     'Şerit ses düzeyi': 'Lane volume',
+    'Sürükleyin: görsel ve ses alanının boyu; çift tık sıfırlar': 'Drag to size the video and audio areas; double-click resets',
     'Çıkış geçişi': 'Fade out',
     'Kaynak girişi': 'Source in',
     'Canlı sayfasında yayına yapılan fader, solo, sessiz ve efekt değişiklikleri Sahneye Gönder\'de korunur': 'Fader, solo, mute and effect changes made to program on the Live page are kept on Take',

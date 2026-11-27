@@ -283,7 +283,7 @@ CSS_FILES.forEach((file) => {
   test(file + ': kullanılan her değişken tanımlı', () => {
     const local = new Set([...S.cssLocalVars(read('src/admin/admin.css')), ...S.cssLocalVars(read('src/admin/studio.css'))]);
     // Betiğin satır içi yazdığı düzen değişkenleri (renk değil)
-    const fromJs = ['--cols'];
+    const fromJs = ['--cols', '--p']; // --p: kaydırıcı dolgusu (admin.js paintRange, timeline-audio volFill)
     const known = new Set([...T.TOKEN_NAMES, ...Object.keys(S.rootVars(read('src/admin/admin.css'))), ...local, ...fromJs]);
     const missing = S.cssVarUses(read(file)).filter((u) => !known.has(u.name));
     assert.deepStrictEqual(missing.map((u) => file + ':' + u.line + ' ' + u.name), []);
