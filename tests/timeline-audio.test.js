@@ -205,7 +205,8 @@ test('Çalan Parça: canlıda ana süreç çizelge klibini öne alır, dışa ak
   assert.match(main, /function shownNowPlaying\(\) \{\n  if \(timelineNow\) return timelineNow;/);
   assert.match(main, /if \(timelineNow\) return; \/\/ çizelge sesi çalıyor/);
   assert.match(main, /ipcMain\.on\('timeline-audio:now'/);
-  assert.match(main, /timelineAudioTags: await exportTimelineTags\(jobCfg\)/);
+  assert.match(main, /const tlTagsForJob = await exportTimelineTags\(jobCfg\)/);
+  assert.match(main, /timelineAudioTags: tlTagsForJob/);
   const ex = read('src/exporter/exporter.js');
   assert.match(ex, /TA\.nowPlayingAt\(tl\.tracks, Math\.max\(0, t\), \(src\) => tl\.tags\[src\]\)/);
   assert.match(read('src/exporter/index.html'), /<script src="\.\.\/shared\/timeline-audio\.js"><\/script>/);

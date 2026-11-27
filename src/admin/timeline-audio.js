@@ -99,6 +99,8 @@
     master.connect(masterMeter);
     masterMeter.connect(ctx.destination);
     applySink(localStorage.getItem(SINK_KEY) || '');
+    // İç çözümleme (#1213): görselleştirici bu sesi yakalamadan değil grafikten alır
+    if (window.SVTimelineAudioTap) window.SVTimelineAudioTap.attach(ctx, master, () => { try { return localStorage.getItem(SINK_KEY) || ''; } catch { return ''; } });
     return ctx;
   }
   function applySink(id) {
