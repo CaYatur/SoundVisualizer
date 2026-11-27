@@ -34,7 +34,14 @@ test('kaynak kuralı: eski çağrılar aynı, çizelge sesi yalnız varsa, geçe
   assert.deepStrictEqual(S({ audioFrom: 'file', timeline: true }), { error: 'NO_FILE' });
   assert.deepStrictEqual(S({ audioFrom: 'file', audioPath: 'C:/a.wav', timeline: true }), { source: 'file' });
   assert.deepStrictEqual(S({ audioFrom: 'mic', timeline: true }), { error: 'BAD_AUDIO_FROM' });
-  assert.deepStrictEqual(A.AUDIO_FROM, ['timeline', 'file']);
+  assert.deepStrictEqual(A.AUDIO_FROM, ['timeline', 'file', 'none']);
+  // Çizelge dahil, sesi yok, dosya yok: dosya istenmez, sessiz video
+  assert.deepStrictEqual(S({ included: true, timeline: false }), { source: 'none' });
+  assert.deepStrictEqual(S({ audioFrom: 'none', included: true }), { source: 'none' });
+  assert.deepStrictEqual(S({ audioFrom: 'none', included: false }), { error: 'NO_TIMELINE' });
+  // Dosya seçildiyse o kullanılır; çizelge sesi varsa sessizlik değil karışım
+  assert.deepStrictEqual(S({ audioPath: 'C:/a.wav', included: true }), { source: 'file' });
+  assert.deepStrictEqual(S({ included: true, timeline: true }), { source: 'timeline' });
 });
 
 test('özet: duyulur klip sayısı ve uzunluk; susturulan, solo dışı ve kaynaksız sayılmaz', () => {
@@ -53,7 +60,7 @@ test('MCP: audioFrom belgeli, audioPath artık zorunlu değil, eski çağrı de�
   const mcp = require('../src/shared/mcp.js');
   const tool = mcp.tools('en').find((t) => t.name === 'sv_start_export');
   const p = tool.inputSchema.properties;
-  assert.deepStrictEqual(p.audioFrom.enum, ['timeline', 'file']);
+  assert.deepStrictEqual(p.audioFrom.enum, ['timeline', 'file', 'none']);
   assert.match(p.audioFrom.description, /mixdown/);
   assert.strictEqual(p.includeTimeline.type, 'boolean');
   assert.strictEqual(p.timelineId.type, 'string');
@@ -86,7 +93,8 @@ test('ana süreç: kural, karışım, okunur hatalar ve geçici dosyanın temizl
   const start = main.indexOf('async function startExportJobInner(opts');
   const body = main.slice(start, main.indexOf('\n}\n', start));
   assert.match(body, /const tlAudio = exportJobTimelineAudio\(jobCfg\);/);
-  assert.match(body, /exportAudioSource\(\{ audioFrom: opts\.audioFrom, audioPath: opts\.audioPath, timeline: !!tlAudio \}\)/);
+  assert.match(body, /exportAudioSource\(\{ audioFrom: opts\.audioFrom, audioPath: opts\.audioPath, timeline: !!tlAudio, included: tlIncluded \}\)/);
+  assert.match(body, /\? await timelineAudio\.silence\(ff, tlLen\)/);
   assert.match(body, /await timelineAudio\.mixdown\(ff, tlAudio, \{ srcPath: /);
   assert.match(body, /mix\.error === 'missing'/);
   assert.match(body, /mix\.error === 'disk'/);
@@ -107,24 +115,25 @@ test('ana süreç: kural, karışım, okunur hatalar ve geçici dosyanın temizl
 
 test('kuyruk: her iş kendi ses kararını saklar; çizelge işi dosya yolu taşımaz', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /const fromTimeline = \(r\.audioFrom \|\| opts\.audioFrom\) === 'timeline';/);
-  assert.match(main, /opts\.audioFrom = fromTimeline \? 'timeline' : 'file';/);
+  assert.match(main, /const fromTimeline = want === 'timeline' \|\| want === 'none';/);
+  assert.match(main, /opts\.audioFrom = fromTimeline \? want : 'file';/);
   assert.match(main, /audioPath: fromTimeline \? null : r\.audioPath,/);
   assert.match(main, /audioName: it\.audioPath \? path\.basename\(it\.audioPath\) : trUi\('Zaman çizelgesi sesi', 'Timeline audio'\),/);
   const admin = read('src/admin/admin.js');
-  assert.match(admin, /if \(exportAudioFrom\(\) === 'timeline'\) \{ await queueAddFiles\(\[TIMELINE_AUDIO\]\); return; \}/);
-  assert.match(admin, /opts: Object\.assign\(queueItemOpts\(\), \{ audioFrom: fromTl \? 'timeline' : 'file' \}\),/);
+  assert.match(admin, /if \(exportAudioFrom\(\) !== 'file'\) \{ await queueAddFiles\(\[TIMELINE_AUDIO\]\); return; \}/);
+  assert.match(admin, /opts: Object\.assign\(queueItemOpts\(\), \{ audioFrom: from \}\),/);
   assert.match(admin, /includeTimeline: e\.includeTimeline === true,\n      timelineId: /);
 });
 
 test('panel: çizelge sesi varken seçici kilitli, geçersiz kılma dosyayı açar, iş kaynağı açıkça gönderilir', () => {
   const admin = read('src/admin/admin.js');
   assert.match(admin, /function exportTimelineAudio\(\) \{/);
-  assert.match(admin, /return exportTimelineAudio\(\) && !exportAudioOverride \? 'timeline' : 'file';/);
+  assert.match(admin, /if \(exportTimelineAudio\(\) && !exportAudioOverride\) return 'timeline';/);
+  assert.match(admin, /if \(inc && !exportAudioOverride && !exportAudioPath\) return 'none';/);
   assert.match(admin, /const locked = !!tla && !exportAudioOverride;/);
   assert.match(admin, /if \(exporting \|\| exportAudioFrom\(\) === 'timeline'\) return;/);
-  assert.match(admin, /box\.addEventListener\('change', \(\) => \{ exportAudioOverride = box\.checked; paint\(\); \}\);/);
-  assert.match(admin, /audioFrom,\n      audioPath: audioFrom === 'timeline' \? undefined : exportAudioPath,/);
+  assert.match(admin, /box\.addEventListener\('change', \(\) => \{ exportAudioOverride = box\.checked; paint\(true\); \}\);/);
+  assert.match(admin, /audioFrom,\n      audioPath: audioFrom === 'file' \? exportAudioPath : undefined,/);
   // Çizelgede ses yoksa eski davranış: dosya yoksa uyarı
   assert.match(admin, /if \(audioFrom === 'file' && !exportAudioPath\) \{\n      setExportStatus\('Önce bir ses dosyası seçin\.', 'err'\);/);
   const i18n = read('src/shared/i18n.js');
@@ -188,4 +197,65 @@ test('karışım susturma ve solo kuralına uyar (ffmpeg varsa)', async (t) => {
     near(await level([ta, Object.assign({}, tb, { mute: true })]), 0.25 * l, 3e-3, 'b susturuldu');
     near(await level([ta, Object.assign({}, tb, { solo: true })]), 0.5 * l, 3e-3, 'b solo');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('panel: çizelge seçimi, dahil anahtarı ve ses düzenlemesi kilidi beklemeden günceller; varsayılan etkin çizelge', () => {
+  const admin = read('src/admin/admin.js');
+  // Her push (ses klibi düzenlemesi dahil) kilidi eşzamanlı yeniden değerlendirir
+  assert.match(admin, /function push\(immediate\) \{\n    \/\/ Dışa aktarma ses kilidi \(#1172\): ses klibi düzenlemesi de etiketi hemen günceller\n    if \(typeof refreshExportAudio === 'function'\) refreshExportAudio\(\);/);
+  assert.match(admin, /exportAudioPaint = paint;/);
+  // Seçim değişince kart yeniden çizilir; '' = etkin çizelge (varsayılan)
+  assert.match(admin, /label: 'Dışa aktarılacak çizelge', rebuild: true,/);
+  assert.match(admin, /value: \(\) => \(cfg\.export && cfg\.export\.timelineId\) \|\| '',/);
+  assert.match(admin, /items\.unshift\(\{ value: '', label: tr\('Etkin çizelge'\)/);
+  assert.match(admin, /label: 'Zaman çizelgesini dahil et', rebuild: true,/);
+  // Süre adı kaynağa göre
+  assert.match(admin, /exportAudioFrom\(\) === 'timeline' \? 'Çizelge sesinin süresi' : exportAudioFrom\(\) === 'none' \? 'Zaman çizelgesinin uzunluğu \(sessiz\)' : 'Ses dosyasının süresi'/);
+  // Sessiz durumda dosya istenmez, not gösterilir
+  assert.match(admin, /if \(from === 'none'\) \{\n        name\.textContent = tr\('Ses dosyası gerekmiyor: video çizelgenin uzunluğunda, sessiz çıkar\.'\);/);
+  const i18n = read('src/shared/i18n.js');
+  for (const k of ['Ses dosyası gerekmiyor: video çizelgenin uzunluğunda, sessiz çıkar.', 'Çizelge sesinin süresi', 'Zaman çizelgesinin uzunluğu (sessiz)', 'Etkin çizelge']) {
+    assert.ok(i18n.includes("'" + k + "': '"), k);
+  }
+});
+
+test('çizelge sekmeleri: ses parçaları kendi çizelgesinde; seçilen çizelgenin sesi işe gider', () => {
+  const TC = require('../src/shared/timeline-compose.js');
+  const project = (timelineId) => ({
+    layerStack: { enabled: true },
+    layers: [{ id: 'manual', kind: 'background', type: 'solid', enabled: false }],
+    scenes: [{ id: 's1', name: 'Red', data: { layerStack: { enabled: true }, layers: [{ id: 'red', kind: 'background', type: 'solid' }] } }],
+    export: { includeTimeline: true, timelineId },
+    timeline: {
+      id: 'H', name: 'H', itemEnabled: true, markers: [], loop: { enabled: false, start: 0, end: 0 },
+      tracks: [{ id: 't', kind: 'clip', clips: [{ id: 'c1', type: 'scene', ref: 's1', start: 0, dur: 4, transType: 'cut' }] }],
+      audioTracks: [{ id: 'au', clips: [{ id: 'ac', src: 'sv-media://x/a.mp3', start: 0, dur: 3 }] }],
+      bank: [{ id: 'D', name: 'D', itemEnabled: true, markers: [], loop: { enabled: false, start: 0, end: 0 },
+        tracks: [{ id: 't', kind: 'clip', clips: [{ id: 'c2', type: 'scene', ref: 's1', start: 0, dur: 2, transType: 'cut' }] }] }],
+    },
+  });
+  // Etkin çizelge (boş kimlik): H'nin sesi işe gider
+  const h = TC.exportJobConfig(project(''), {});
+  assert.strictEqual(h.timeline.id, 'H');
+  assert.ok(A.hasAudio(h.timeline.audioTracks));
+  // D seçiliyse D'nin sesi yok: H'nin sesi sızmaz, kural sessiz videoya düşer (dosya istenmez)
+  const d = TC.exportJobConfig(project('D'), {});
+  assert.strictEqual(d.timeline.id, 'D');
+  assert.ok(!A.hasAudio(d.timeline.audioTracks));
+  assert.deepStrictEqual(A.exportAudioSource({ timeline: false, included: true }), { source: 'none' });
+});
+
+test('sessiz WAV: çizelgenin uzunluğunda (ffmpeg varsa)', async (t) => {
+  let ff = null;
+  try { ff = require('ffmpeg-static'); } catch {}
+  if (!ff || !fs.existsSync(ff)) { t.skip('ffmpeg yok'); return; }
+  const r = await M.silence(ff, 2.5);
+  assert.ok(r.ok, r.error);
+  const buf = fs.readFileSync(r.file);
+  const data = buf.indexOf('data') + 8;
+  near((buf.length - data) / 4 / 48000, 2.5, 0.01, 'süre');
+  assert.strictEqual(buf.readInt16LE(data + 48000 * 4), 0);
+  M.cleanup();
+  assert.ok(!fs.existsSync(r.file));
+  assert.strictEqual((await M.silence(ff, 0)).ok, false);
 });

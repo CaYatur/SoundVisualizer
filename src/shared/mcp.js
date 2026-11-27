@@ -1296,7 +1296,7 @@
     sv_start_export: {
       props: {
         audioPath: sp('string', 'Absolute path of the audio file. Required unless the audio comes from the timeline.'),
-        audioFrom: sp('string', 'Audio source. file: audioPath (the default when audioPath is given). timeline: a mixdown of the audio clips of the exported timeline (needs includeTimeline true and audio clips; muted and solo tracks, fades, volume automation and ducking are applied). When omitted without audioPath, the timeline audio is used if there is any.', { enum: ['timeline', 'file'] }),
+        audioFrom: sp('string', 'Audio source. file: audioPath (the default when audioPath is given). timeline: a mixdown of the audio clips of the exported timeline (needs includeTimeline true and audio clips; muted and solo tracks, fades, volume automation and ducking are applied). none: no audio file; the video is silent and as long as the timeline (needs includeTimeline true). When omitted without audioPath, the timeline audio is used if there is any, else a silent export when the timeline is included.', { enum: ['timeline', 'file', 'none'] }),
         includeTimeline: sp('boolean', 'Render the timeline (scene clips and automation) instead of the live scene. Default: the export setting.'),
         timelineId: sp('string', 'Timeline to export when includeTimeline is true. Default: the export setting, then the active timeline.'),
         outputPath: sp('string', 'Absolute path ending with the extension of the format (.mp4, .mov, .webm, .gif, .png, .exr).'),
@@ -2861,7 +2861,7 @@
     if (badOpt) return fail('Invalid ' + badOpt.field + ': ' + JSON.stringify(badOpt.value) + '. Allowed: ' + badOpt.allowed.join(', ') + '.');
     /* Ses kaynağı (#1172): audioPath veren eski çağrılar aynen çalışır. */
     const from = args && args.audioFrom;
-    if (from != null && from !== 'timeline' && from !== 'file') return fail('Invalid audioFrom: ' + JSON.stringify(from) + '. Allowed: timeline, file.');
+    if (from != null && from !== 'timeline' && from !== 'file' && from !== 'none') return fail('Invalid audioFrom: ' + JSON.stringify(from) + '. Allowed: timeline, file, none.');
     if (from === 'file' && !(args && typeof args.audioPath === 'string' && args.audioPath)) return fail('audioPath is required when audioFrom is file.');
     const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);

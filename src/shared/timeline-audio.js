@@ -398,19 +398,24 @@
 
   /* Dışa aktarma ses kaynağı kuralı (#1172). Panel, kuyruk ve MCP aynı kuralı
      kullanır. o: { audioFrom, audioPath, timeline (işin çizelgesinde duyulur ses
-     var mı) }. audioFrom verilmezse eski çağrılar aynen çalışır: dosya yolu
-     varsa dosya, yoksa çizelge sesi. Dönen: { source: 'file'|'timeline' } ya da
-     { error: 'BAD_AUDIO_FROM'|'NO_FILE'|'NO_TIMELINE_AUDIO' } */
-  const AUDIO_FROM = ['timeline', 'file'];
+     var mı), included (çizelge dışa aktarıma dahil mi) }. audioFrom verilmezse
+     eski çağrılar aynen çalışır: dosya yolu varsa dosya, yoksa çizelge sesi;
+     çizelge dahil ama sesi yoksa sessiz video (çizelge uzunluğunda).
+     Dönen: { source: 'file'|'timeline'|'none' } ya da
+     { error: 'BAD_AUDIO_FROM'|'NO_FILE'|'NO_TIMELINE_AUDIO'|'NO_TIMELINE' } */
+  const AUDIO_FROM = ['timeline', 'file', 'none'];
   function exportAudioSource(o) {
     const x = o || {};
     const from = x.audioFrom == null || x.audioFrom === '' || x.audioFrom === 'auto' ? 'auto' : x.audioFrom;
     if (from !== 'auto' && AUDIO_FROM.indexOf(from) < 0) return { error: 'BAD_AUDIO_FROM' };
     const hasFile = typeof x.audioPath === 'string' && x.audioPath.length > 0;
+    const included = !!(x.included || x.timeline);
     if (from === 'file') return hasFile ? { source: 'file' } : { error: 'NO_FILE' };
     if (from === 'timeline') return x.timeline ? { source: 'timeline' } : { error: 'NO_TIMELINE_AUDIO' };
+    if (from === 'none') return included ? { source: 'none' } : { error: 'NO_TIMELINE' };
     if (hasFile) return { source: 'file' };
-    return x.timeline ? { source: 'timeline' } : { error: 'NO_FILE' };
+    if (x.timeline) return { source: 'timeline' };
+    return included ? { source: 'none' } : { error: 'NO_FILE' };
   }
   /* Kilitli seçicinin etiketi için özet: duyulur klip sayısı ve karışımın
      uzunluğu (sessiz parça ve klipler sayılmaz). */
