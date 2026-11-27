@@ -344,6 +344,7 @@ const JS_CONTENT = {
   'studio.js': { '#3aa6ff': [2, 'Studio renk parametresinin varsayılanı'], '#ffffff': [1, 'Studio renk parametresi'] },
   'template-panel.js': { '#333': [1, 'paleti olmayan şablonun şeridi'], '#777': [1, 'paleti olmayan şablonun şeridi'] },
   'timeline-panel.js': { '#4f8cff': [1, 'yeni klip parçasının rengi'], '#e11d2a': [1, 'yeni otomasyon parçasının rengi'] },
+  'timeline-audio.js': { '#2f9e74': [1, 'yeni ses klibinin varsayılan rengi'] },
 };
 
 test('panel betiklerinde tema dışı renk yok (yalnız kullanıcı içeriği)', () => {

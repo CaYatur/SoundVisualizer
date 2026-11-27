@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4757%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4785%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -418,6 +418,17 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
   Seçicideki her uygulamanın yanında canlı bir seviye göstergesi var; seçmeden önce
   hangisinin ses çıkardığını görürsünüz.
 - **Aynı anda birkaç kaynak**, çözümlemeden önce karıştırılır — "Spotify + mikrofon" tek bir seçimdir.
+- **Zaman çizelgesi sesi uygulamanın içinde çözümlenir.** Çizelgedeki ses klipleri görsellere
+  doğrudan uygulamanın ses grafiğinden gider; yakalama kaynağı seçili olsun olmasın çalışır ve seçili
+  kaynağın yerine geçmez, onunla karışır. Duyulan çıkış değişmez; yayın ve kayıt yazılımları sesi
+  yine yakalar. Uygulama kendi sesini iki kez duymaz: Windows'ta (yapı 20348+) gösteride çizelge
+  sesi varken varsayılan sistem çıkışı *bu uygulama hariç* yakalanır (süreç loopback'i, hariç tutma
+  kipi); macOS ve Linux'ta sistem çıkışı (sanal aygıt ya da monitör kaynağı) uygulamanın sesini zaten
+  taşıyorsa iç ses üstüne eklenmez. Windows'taki hariç tutma Ayarlar → Ses Kaynakları →
+  *Kendi Sesini Sistem Sesinden Hariç Tut* ile kapatılır.
+- **Kaynak yoksa donma yok.** Kaynak seçili değilse ya da akış durursa tayf ve dalga son karede
+  kalmaz, yarım saniye kadar içinde yumuşakça sessizliğe iner; vuruş ve boşta hareketleri ile
+  MilkDrop sürer, ilk karede her şey kaldığı yerden devam eder.
 - **İki kanal da görsellere ulaşıyor**. Her kare tek kanallı karışımın yanında sol ve
   sağ kanalı da taşıyor; stereo genişlik, korelasyon ve Gonyometre gerçek stereo görüntüyü ölçüyor.
   v3.1.5'e kadar yakalama yardımcısı iki kanalın ortalamasını alıyordu: genişlik 0'da, korelasyon
@@ -857,6 +868,13 @@ sanatçı, albüm, geçen ve kalan süre, ilerleme çubuğu ve albüm kapağı. 
 yalnız parça değişince beliriyor; yedi canlandırma ve *Modern* ile *OG* biçimleriyle. macOS ve
 Linux'ta ad, sanatçı ve kapak elle giriliyor. Çalan Parça panel önizlemesinde ve dışa aktarılan
 videolarda da görünüyor.
+
+**Çalan Parça ve söz zaman çizelgesi klibini izler.** Çizelgede bir ses klibi çalarken Çalan Parça
+ve söz katmanı her platformda en üstteki duyulur klibi izler. Söz, dosyanın yanındaki aynı adlı
+`.lrc`/`.srt` dosyasından ya da gömülü etiketten gelir; *Otomatik Söz Bulma* açıksa söz aramasından da.
+Söz klibin kendi saatinde çalar (çizelge zamanı eksi klip başı, artı kırpma giriş noktası); canlıda
+da dışa aktarmada da. Elle yüklenmiş söz dosyası, *Çalan Parçayı İzle* açılmadıkça korunur. Çizelge
+durunca ikisi de sistemin parçasına döner.
 
 **Metin.** Karakter başına tepkili (ölçek, titreme, yükselme) sese duyarlı tipografi · yazı tipi,
 kalınlık, boyut, hizalama, konum, opaklık, dış çizgi ve gölge · canlandırma kalıpları · kayan yazı ve
@@ -2334,7 +2352,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4757 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4785 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

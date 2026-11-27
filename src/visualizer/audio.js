@@ -95,6 +95,7 @@
       }
       this.ready = true;
       this.lastFrameTs = performance.now();
+      this._silent = false;
     }
 
     // Her karede çağrılır. dt saniye cinsinden; çözümlemenin zaman
@@ -105,6 +106,13 @@
       this._clock += dt > 0 ? dt : 1 / 60;
       if (!this.ready) return;
       this._dt = dt > 0 ? dt : 1 / 60;
+      /* Kare kesildi (kaynak yok ya da akış durdu, #1213): son kare ekranda
+         donmasın, sessizliğe süzülsün. Vuruş/boşta animasyonları ve MilkDrop
+         update() ile sürmeye devam eder; yeni kare gelince kaldığı yerden. */
+      const SI = typeof window !== 'undefined' ? window.SVInternalAudio : null;
+      if (SI && !this._silent && this.lastFrameTs && performance.now() - this.lastFrameTs > SI.STALE_MS) {
+        this._silent = SI.decaySilence({ freq: this.freqRaw, time: this.timeBytes, left: this.timeL, right: this.timeR }, this._dt);
+      }
       const sens = this.cfg.sensitivity || 1;
       const boost = this.cfg.bassBoost || 1;
       const sm = Math.max(0, Math.min(0.95, this.cfg.smoothing));
