@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4737%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4752%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -413,6 +413,18 @@ The sections above are the short version. Everything below is the full list, by 
   Each application in the picker shows a live level meter, so you can see which
   one is making sound before you choose it.
 - **Several sources at once**, mixed before analysis — "Spotify + microphone" is one selection.
+- **Timeline audio is analysed inside the app.** Audio clips on the timeline feed the visuals
+  straight from the app's audio graph, with or without a capture source, and are mixed with the
+  selected source instead of replacing it. The audible output is unchanged, so streaming and
+  recording software still capture it. The app avoids hearing itself twice: on Windows (build
+  20348+) the default system output is captured *without this app* (process loopback, exclude
+  mode) while the show has timeline audio; on macOS and Linux, when the system output (virtual
+  device or monitor source) already carries the app's sound, the internal feed is not added on top.
+  Settings → Audio Sources → *Exclude the App's Own Audio from System Audio* turns the Windows
+  exclusion off.
+- **No source, no freeze.** When no source is selected or a stream stalls, the spectrum and
+  waveform fall smoothly to silence (about half a second) instead of holding the last frame; beat
+  and idle motion and MilkDrop keep running, and everything resumes on the next frame.
 - **Both channels reach the visuals**. Each frame carries the left and right
   channels next to the mono mix, so stereo width, correlation and the Goniometer measure the real
   stereo image. Until v3.1.5 the capture helper averaged the two channels away: width sat at 0,
@@ -850,6 +862,13 @@ album, elapsed and remaining time, a progress bar and the album cover. It can st
 appear only when the track changes, with seven animations and *Modern* and *OG* styles. On macOS
 and Linux the title, artist and cover are entered by hand. Now Playing also shows in the panel
 preview and in exported videos.
+
+**Timeline clips drive Now Playing and lyrics.** While a timeline audio clip plays, Now Playing and
+the lyrics layer follow the topmost audible clip on every platform. Lyrics come from a sidecar
+`.lrc`/`.srt` next to the file or from embedded tags, and from the lyrics lookup when *Automatic Lyrics Lookup* is
+on. They run on the clip's own clock (timeline time minus the clip start, plus
+its trim in-point), live and in exports. A manually loaded lyrics file is kept unless *Follow the
+Playing Track* is on. When the timeline stops, both fall back to the system track.
 
 **Text.** Audio-reactive typography with per-character response (scale, jitter, lift) · font,
 weight, size, alignment, position, opacity, outline and shadow · animation presets · marquee and
@@ -2313,7 +2332,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4737 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4752 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
