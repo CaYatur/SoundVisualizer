@@ -642,6 +642,37 @@
   const DURATION_MODES = ['audio', 'seconds', 'timeline', 'bars'];
   const MAX_SECONDS = 4 * 3600;
 
+  /* Sabit süre alanı: "90", "1:30", "01:02:05" (ss, dd:ss, sa:dd:ss). Son iki
+     alan 0-59; ondalık saniye kabul edilir, sonuç tam saniyeye yuvarlanır.
+     Geçersizse null; sınır denetimi çağıranın (1 sn .. MAX_SECONDS). */
+  function parseClock(text) {
+    const s = String(text == null ? '' : text).trim().replace(',', '.');
+    if (!s) return null;
+    const parts = s.split(':');
+    if (parts.length > 3) return null;
+    let sec = 0;
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i].trim();
+      const last = i === parts.length - 1;
+      if (!(last ? /^\d+(\.\d+)?$/ : /^\d+$/).test(p)) return null;
+      const v = Number(p);
+      if (i > 0 && v >= 60) return null;
+      sec = sec * 60 + v;
+    }
+    return Math.round(sec);
+  }
+  /* Süre kaydırıcısı doğrusal değil (küp): kısa süreler ince, 4 saate kadar
+     ulaşılır. Konum 0..SLIDER_STEPS. */
+  const SLIDER_STEPS = 1000;
+  function sliderToSeconds(pos) {
+    const x = Math.max(0, Math.min(1, Number(pos) / SLIDER_STEPS || 0));
+    return Math.max(1, Math.round(1 + (MAX_SECONDS - 1) * x * x * x));
+  }
+  function secondsToSlider(sec) {
+    const v = Math.max(1, Math.min(MAX_SECONDS, Number(sec) || 1));
+    return Math.round(Math.cbrt((v - 1) / (MAX_SECONDS - 1)) * SLIDER_STEPS);
+  }
+
   /* Dışa aktarımın süresi, saniye. spec: { mode, seconds, bars, bpm }.
      ctx: { audioSec, timelineSec, barsToSeconds(n) } — çağıran ölçer.
      Dönen: { ok, mode, seconds } ya da { ok: false, code }. */
@@ -735,7 +766,7 @@
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, probeKey, probeKeys, sequencePattern, takesYuv420, encoderVariants,
     PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters, loopPlan,
-    DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
+    DURATION_MODES, MAX_SECONDS, parseClock, sliderToSeconds, secondsToSlider, SLIDER_STEPS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
     validateOptions,
   };
 

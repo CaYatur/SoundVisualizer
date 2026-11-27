@@ -20,7 +20,7 @@ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-4751%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-4757%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -573,8 +573,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **MilkDrop Uyumu anahtarı** MilkDrop 2'nin kendi kurallarını izliyor — derleyicisini, ses zincirini,
   ağ dönüşümünü, varsayılan değerlerini ve sabit işlevli boru hattını. Ayrıntılar bu sayfanın sonundaki
   [MilkDrop motoru notları](#milkdrop-motoru-notları) bölümünde.
-- **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
-  *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
+- **Uygulama kendi 60 CaYaDev MilkDrop presetiyle geliyor**, böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
 - **CaYaDev MilkDrop Presetleri: 60 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
@@ -1019,6 +1018,17 @@ gösteriyi oynatıyor.
   parçayı kısar. Düzenleme kaynak dosyayı hiç değiştirmez ve her düzenleme tek geri al adımıdır.
   Ses ayrı bir `timeline.audioTracks` listesinde durur; eski sürümler dosyayı görsel çizelgesi
   bozulmadan açar.
+- **Dışa aktarma çizelge sesini kullanır** — **Zaman çizelgesini dahil et** açıkken dışa aktarılan
+  çizelgede duyulur ses klibi varsa dışa aktarma panelindeki ses dosyası seçici kilitlenir ve
+  "Zaman çizelgesi sesi kullanılıyor: N klip, süre" yazar. Dışa aktarma bu klipleri çalmayla aynı
+  karışım tanımıyla (sessiz, solo, geçişler, ses noktaları, kısma) geçici, kayıpsız bir WAV'a
+  karıştırır; böylece vuruş analizi ve videonun sesi duyduğunuzla aynı olur. **Başka ses dosyası
+  kullan** seçiciyi açar ve o dosya kullanılır; kapatınca çizelge sesine dönülür. **Dışa
+  aktarılacak çizelge** varsayılan olarak etkin çizelgedir; kilit bu seçimi, Dahil anahtarını ve
+  ses klibi düzenlemelerini beklemeden izler. **Süre** o zaman "Çizelge sesinin süresi" olur.
+  Çizelge dahil ama sesi yoksa ve dosya seçilmediyse dosya istenmez: video sessiz ve çizelge
+  uzunluğunda çıkar. Çizelge dahil değilse hiçbir şey değişmez. Kuyruktaki her iş kendi seçimini saklar, eksik ses dosyası işi render
+  başlamadan adıyla durdurur ve geçici karışım iş bitince, iptal edilince ya da hata verince silinir.
 - **MIDI Zaman Kodu takibi** — çizelge gelen MTC'yi 24, 25, 29,97 drop-frame ve 30 fps'te izliyor;
   01:00:00:00'da başlayan bir gösteri için kaydırma verilebiliyor.
 
@@ -1520,7 +1530,8 @@ Oluşturur ve düzenler.
 - Otomatik VJ: `sv_set_autovj` açık, kaynak, aralık, birim, sıra, BPM kilidi, palet kaynağı ve
   katman başına görselleştirici hedeflerini ayarlar.
 - Dışa aktarma ve kayıt: `sv_start_export` diskte duran bir ses dosyasını sizin verdiğiniz video
-  yoluna çizer. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
+  yoluna çizer. `audioFrom: "timeline"` (`includeTimeline: true` ile) `audioPath` olmadan çizelgenin
+  ses kliplerinin karışımını kullanır; `audioFrom: "none"` çizelge uzunluğunda sessiz video verir. `audioPath` veren çağrılar eskisi gibi çalışır. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
   dışa aktarma panelindeki seçeneklerdir. `sv_export_analysis` yalnız ses analizini yazar (JSON,
   CSV ve MIDI). `sv_cancel_export` süren aktarmayı durdurur.
   `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
@@ -1808,7 +1819,7 @@ aynı ağdaki başka bir bilgisayarda olabilir. GPU paylaşımı için Spout (Wi
 **MilkDrop presetlerimi yükleyebilir mi?**
 Evet: tek `.milk` dosyaları, MilkDrop 3 `.milk2` çift presetleri, ZIP paketleri,
 klasörler ya da bilgisayarınızda bir arama. Görsel kullanan presetler için uygulamayı bir MilkDrop
-`textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; beş özgün preset geliyor.
+`textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; 60 özgün CaYaDev preseti geliyor.
 
 **Bir Winamp ya da projectM eklentisi mi?**
 Hayır. WebGL2'de kendi MilkDrop uyumlu motoru olan bağımsız bir uygulama. projectM'i ya da MilkDrop'u
@@ -1861,13 +1872,11 @@ kapatmak motorun önceki görünümünü geri getiriyor.
 - **10.347 gerçek preset üzerinde ölçüldü**, projectM'in özgün ve cream-of-the-crop paketlerinden:
   hepsi yükleniyor ve çalışıyor, 10.344'ünde tek bir deyim bile atlanmıyor.
 - **`.milk` içe aktarma**, çok dosyalı paketler dahil; derleme hataları dosya dosya bildiriliyor.
-- **Uygulama kendi beş presetiyle geliyor.** *Kutup Işığı* (akışkan bir bulutsu), *Erimiş Altın*
-  (abartılı olan), *Dingin Halkalar* (yavaş ve neredeyse siyah), *Sonsuz Tünel* (klasik tünel) ve
-  *Nabız Örgüsü* (hareket vektörlerinin dokuduğu örgünün üstünde vuruşla zıplayan kareler) — hepsi
+- **Uygulama kendi 60 CaYaDev MilkDrop presetiyle geliyor.** Hepsi
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
-  de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
-- **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) onların yanında gömülü
-  geliyor: sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
+  de öteki presetler gibi giriyorlar. Bu sayfadaki görseller onlardan alındı.
+- **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) bu gömülü dosyalardır:
+  sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
   MilkDrop 3 asılları [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
   Eski oynatıcılar için indirgenmiş kopyalar [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır ve pakete girmez.
   Her birinin geçtiği denetimler klasörün README'sinde; her sürümdeki zip aynı asıl dosyaları taşır.
@@ -2325,7 +2334,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4751 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**4757 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

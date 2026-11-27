@@ -19,7 +19,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-4751%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-4757%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -569,8 +569,7 @@ shaders are translated to GLSL and run on the GPU.
 - **A MilkDrop Fidelity switch** follows MilkDrop 2's own rules — its compiler, its audio chain, its
   mesh transform, its default values and its fixed-function pipeline. The details are in
   [MilkDrop engine notes](#milkdrop-engine-notes) at the end of this page.
-- **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
-  Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
+- **60 CaYaDev MilkDrop presets of our own ship with the app**, so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
 - **CaYaDev MilkDrop Presets: 60 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
@@ -1009,6 +1008,17 @@ one playhead drives every screen together, and offline export plays the same sho
   (right-click removes it), and **ducking** lowers a track while another one plays. Editing never
   changes the source file and every edit is one undo step. Audio is stored in a separate
   `timeline.audioTracks` list, so older versions open the file with the visual timeline intact.
+- **Export uses the timeline audio** — when **Include timeline** is on and the exported timeline has
+  audible audio clips, the export panel locks the audio file picker and shows "Using timeline audio:
+  N clips, length". The export mixes those clips into a temporary lossless WAV with the same mix
+  description as playback (mute, solo, fades, volume points, ducking), so the beat analysis and the
+  video's sound match what you heard. **Use another audio file** unlocks the picker and that file is
+  used instead; turning it off goes back to the timeline audio. **Timeline to export** defaults
+  to the active timeline, and the lock follows that choice, the Include switch and audio clip edits
+  at once. **Length** reads "Length of the timeline audio" then. If the timeline is included but
+  has no audio and no file is picked, no file is asked for: the video is silent and as long as the
+  timeline. Without the timeline nothing changes. Queued jobs keep their own choice, a missing audio file stops the job with its name
+  before rendering, and the temporary mix is deleted when the job ends, is cancelled or fails.
 
 **Clip Deck.** Place scenes, templates, palettes and media on a grid and fire them on the beat.
 
@@ -1505,7 +1515,9 @@ Creates and edits.
 - Auto VJ: `sv_set_autovj` sets enabled, source, interval, unit, order, BPM lock, palette source
   and per-layer visualizer targets.
 - Export and recording: `sv_start_export` renders an audio file that exists on disk to a video path
-  you name. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
+  you name. `audioFrom: "timeline"` (with `includeTimeline: true`) uses a mix of the timeline's
+  audio clips instead, with no `audioPath`; `audioFrom: "none"` makes a silent video as long as
+  the timeline. Calls that pass `audioPath` work as before. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
   same options as the export panel. `sv_export_analysis` writes only the audio analysis (JSON,
   CSV and MIDI). `sv_cancel_export` stops a running export. `sv_export_json`
   writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
@@ -1791,7 +1803,7 @@ GPU sharing as well.
 **Can it load my MilkDrop presets?**
 Yes: single `.milk` files, MilkDrop 3 `.milk2` double presets, ZIP packs, folders, or
 a search of your computer. Point the app at a MilkDrop `textures` folder for presets that use images.
-No third-party preset pack is bundled; five original presets are.
+No third-party preset pack is bundled; 60 original CaYaDev presets are.
 
 **Is it a Winamp or projectM plugin?**
 No. It is a standalone application with its own MilkDrop-compatible engine in WebGL2. It does not
@@ -1844,13 +1856,9 @@ it off restores the engine's earlier look.
 - **Measured against 10,347 real presets** from the projectM original and cream-of-the-crop packs:
   every one loads and runs, 10,344 of them with no skipped statement at all.
 - **`.milk` import**, including multi-file packs with per-file compile errors reported.
-- **Five presets of our own ship with the application.** *Kutup Işığı* (a flowing nebula),
-  *Erimiş Altın* (the loud one), *Dingin Halkalar* (slow and nearly black), *Sonsuz Tünel* (the
-  classic tunnel) and *Nabız Örgüsü* (squares on the beat over a motion-vector weave) — written
-  here, so the engine shows what it does before you import a pack of your own. They join auto
-  advance like any other preset. The two pictures on this page are rendered from them.
-- **The CaYaDev MilkDrop Presets** ([`presets/original`](presets/original), CC BY 4.0) are built in next to
-  them: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
+- **60 CaYaDev MilkDrop presets of our own ship with the application.** They were written here, so the engine shows what it does before you import a pack of your own. They join auto
+  advance like any other preset. The pictures on this page are rendered from them.
+- **The CaYaDev MilkDrop Presets** ([`presets/original`](presets/original), CC BY 4.0) are those built-in files: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
   one passed; the zip on each release holds the same files.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
@@ -2309,7 +2317,7 @@ npm test
 npm start -- --smoke
 ```
 
-**4751 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**4757 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
