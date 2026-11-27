@@ -6428,9 +6428,10 @@
     push(true);
     render();
   };
-  actions.updateUserPreset = (id) => {
+  actions.updateUserPreset = async (id) => {
     const p = ensurePresets().find((x) => x.id === id);
     if (!p) return;
+    if (!(await svConfirm('Bu renk şablonu mevcut renklerle güncellenecek.', { danger: true, okText: 'Güncelle' }))) return;
     p.colors = (cfg.background.gradient.colors || []).slice(0, 5);
     push(true);
     render();

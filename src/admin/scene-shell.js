@@ -58,6 +58,8 @@
        ("Ground") demek. İngilizce arayüzde bu iki sekme "Image" ve "Ground" çıkıyordu. */
     { id: 'vis', label: 'Görsel', en: 'Visualizer' },
     { id: 'bg', label: 'Zemin', en: 'Background' },
+    /* Renk temaları: yerleşik paletler ve kullanıcının kaydettikleri aynı ızgarada. */
+    { id: 'themes', label: 'Temalar', en: 'Themes' },
     /* İngilizcede 'Şablon' sözlükte "Preset"; Preset sekmesiyle karışmasın */
     { id: 'templates', label: 'Şablon', en: 'Templates', section: 'templates' },
     { id: 'scenes', label: 'Sahne' },
@@ -693,7 +695,7 @@
         el('span', { class: 'sv-names' }, [el('input', { value: activeSceneName(), readonly: 'readonly', 'aria-label': tr('Sahne') }), el('small', { text: tr('Sahne ayarları') })]),
         el('button', { class: 'sv-ib sm', type: 'button', icon: 'save', title: tr('Mevcut görünümü yeni sahne olarak kaydet'), 'aria-label': tr('Kaydet'), onclick: () => { P().saveScene(); paint(); } }),
       ])]));
-      /* Sıra: renk, geçiş, efektler, gruplar. Palet ızgarası Kitaplık'ta; burada seçim kutusu. */
+      /* Sıra: renk, geçiş, efektler, gruplar. Palet ızgarası Temalar rafında; burada seçim kutusu. */
       for (const id of ['colorPresets', 'dynamicTheme', 'transition']) {
         const c = P().sectionCard(id, { compact: true });
         if (c) body.appendChild(c);
@@ -1002,24 +1004,35 @@
     const head = shelf && shelf.querySelector('.sv-chead');
     const search = head && head.querySelector('.sv-shelf-search');
     const tabs = head && head.querySelector('.sv-tabs');
-    if (!search || !tabs) return;
-    if (search.matches(':focus-within')) return;
-    if (search.classList.contains('sv-icon')) {
+    if (!tabs || !head) return;
+    if (search && search.matches(':focus-within')) return;
+    /* En sıkı kademe yazıları sığdırır. Ölçmeden önce çıkar: sığdırma kaydırmayı
+       bitirdiği için takılı kalırsa genişleyince de kalkmazdı. Hâlâ taşıyorsa geri gelir. */
+    if (head.classList.contains('sv-tighter')) {
+      head.classList.remove('sv-tighter');
+      if (tabsClip(tabs)) { head.classList.add('sv-tighter'); return; }
+    }
+    if (search && search.classList.contains('sv-icon')) {
       const need = SHELF_SEARCH_FULL - search.offsetWidth;
       if (shelfRowFree(head) >= need - 1) {
         search.classList.remove('sv-icon');
         head.classList.remove('sv-tight');
       }
     }
-    if (!search.classList.contains('sv-icon')) {
+    if (search && !search.classList.contains('sv-icon')) {
       if (tabsClip(tabs)) search.classList.add('sv-icon');
       else { head.classList.remove('sv-tight'); return; }
     }
-    /* Simge de sekmelere değiyorsa çubuktaki düğmeler bir kademe küçülür. */
-    if (tabsClip(tabs)) { head.classList.add('sv-tight'); return; }
-    if (!head.classList.contains('sv-tight')) return;
-    head.classList.remove('sv-tight');
+    /* Simge de sekmelere değiyorsa, ya da arama yokken sekmeler taşıyorsa,
+       çubuktaki düğmeler bir kademe küçülür. */
     if (tabsClip(tabs)) head.classList.add('sv-tight');
+    else if (head.classList.contains('sv-tight')) {
+      head.classList.remove('sv-tight');
+      if (tabsClip(tabs)) head.classList.add('sv-tight');
+    }
+    if (!head.classList.contains('sv-tight')) return;
+    /* Sıkı kademe yetmezse sekmeler sığacak kadar kısalır; kart boyu ince kalır. */
+    if (tabsClip(tabs)) head.classList.add('sv-tighter');
   }
   function watchShelfFit() {
     const shelf = document.getElementById('svShelf');
@@ -1295,6 +1308,13 @@
     /* Studio: kayıttaki presetler (içe aktarma, Studio sayfasında kaydetme/silme), favoriler ve
        kategori de imzada; vurgu syncShelf ile. */
     if (shelfTab === 'studio') return 'studio|' + String(query || '') + '|' + studioCat + '|' + read(STORE.fav, '') + '|' + studioRev();
+    /* Tema rafı: arama ve kayıtlı temalar değişince yeniden kurulur. Etkin renk
+       imzada değil; halka syncShelf ile kayar, liste yeri bozulmaz. */
+    if (shelfTab === 'themes') {
+      const c = P().cfg();
+      const users = (c.userPresets || []).map((p) => p && [p.id, p.name, themeKey(p.colors)].join(':'));
+      return 'themes|' + String(query || '') + '|' + users.join('|');
+    }
     if (shelfTab !== 'milkdrop') return shelfTab + '|' + String(query || '');
     /* MilkDrop: etkin preset ve seçili katman da imzada değil (vurgu syncShelf ile).
        Rafın düğmeleri yapılandırma nesnesini tutuyor; dışarıdan yeni yapılandırma
@@ -1335,6 +1355,15 @@
       now: () => {
         const l = selected();
         return l && l.type === 'custom' && l.presetId ? [l.presetId] : [];
+      },
+    },
+    themes: {
+      sel: '.sv-gi[data-cur]', attr: 'data-cur', cls: 'cur',
+      now: () => {
+        const c = P().cfg();
+        const colors = c.background && c.background.gradient && c.background.gradient.colors;
+        const key = themeKey(colors);
+        return key ? [key] : [];
       },
     },
     templates: {
@@ -1389,6 +1418,113 @@
     return shelfTab === 'scenes' && !!scenesNode && !body.contains(scenesNode);
   }
 
+  /* Tema anahtarı: aynı beş renk, yerleşik kartta da kayıtlı temada da aynı vurgu. */
+  function themeKey(colors) {
+    return (colors || []).map((c) => String(c).toLowerCase()).join(',');
+  }
+  function applyThemeColors(colors) {
+    const cfg = P().cfg();
+    if (!cfg.background) cfg.background = {};
+    if (!cfg.background.gradient) cfg.background.gradient = { colors: [] };
+    cfg.background.gradient.colors = (colors || []).slice();
+    P().push(true);
+    /* rerender rafı bayatlatıp listeyi baştan kuruyordu; kaydırma başa dönüyordu.
+       paint denetçiyi yeniler, imza aynıysa raf yerinde kalır, halka syncShelf'de. */
+    paint();
+  }
+  /* Temalar rafı. Yerleşik paletler grup başlığıyla, kullanıcının temaları aynı kart
+     ölçüsünde altta. Önizleme gradyanın kendisi. Kayıt, içe ve dışa aktarma üstte. */
+  function themeGallery() {
+    const el = P().el;
+    const F = (window.SVText && window.SVText.fold) || ((v) => String(v == null ? '' : v).trim().toLowerCase());
+    const q = F(query);
+    const cfg = P().cfg();
+    const cur = themeKey(cfg.background && cfg.background.gradient && cfg.background.gradient.colors);
+    const presets = (window.SV && window.SV.GRADIENT_PRESETS) || [];
+    const users = Array.isArray(cfg.userPresets) ? cfg.userPresets : [];
+    const A = P().actions ? P().actions() : {};
+    const wrap = el('div', { class: 'sv-themes' });
+    wrap.appendChild(el('div', { class: 'sv-chips' }, [
+      el('span', { class: 'sv-grow' }),
+      el('button', {
+        class: 'sv-chip', type: 'button', icon: 'save', text: tr('Mevcut Renkleri Kaydet'),
+        onclick: () => { if (A.saveCurrentPreset) A.saveCurrentPreset(); },
+      }),
+      el('button', {
+        class: 'sv-ib sm', type: 'button', icon: 'import', title: tr('Renk Şablonlarını İçe Aktar'), 'aria-label': tr('İçe Aktar'),
+        onclick: () => { if (A.importPresets) A.importPresets(); },
+      }),
+      el('button', {
+        class: 'sv-ib sm', type: 'button', icon: 'export', title: tr('Dışa Aktar'), 'aria-label': tr('Dışa Aktar'),
+        onclick: () => { if (A.exportPresets) A.exportPresets(); },
+      }),
+    ]));
+    const box = el('div', { class: 'sv-gal' });
+    let group = '';
+    let open = '';
+    let shown = 0;
+    const addCard = (name, colors, user, id) => {
+      const key = themeKey(colors);
+      const th = el('span', { class: 'sv-th' });
+      if (colors && colors.length) th.style.background = 'linear-gradient(90deg,' + colors.join(',') + ')';
+      const btn = el('button', {
+        class: 'sv-gi' + (key && key === cur ? ' cur' : ''), type: 'button', 'data-cur': key,
+        title: name, ...(user ? { 'data-user-attr': '' } : {}),
+        onclick: () => applyThemeColors(colors),
+      }, [th].concat(user ? [] : [el('b', { text: name })]));
+      const kids = [btn];
+      if (user) {
+        kids.push(el('input', {
+          class: 'sv-theme-name', type: 'text', value: name, 'aria-label': tr('Yeniden adlandır'), 'data-user-text': '',
+          onclick: (e) => e.stopPropagation(),
+          onchange: (e) => {
+            const p = (P().cfg().userPresets || []).find((x) => x && x.id === id);
+            if (!p) return;
+            p.name = e.target.value.trim() || name;
+            e.target.value = p.name;
+            P().push(true);
+          },
+        }));
+        const actBtn = (icon, label, fn, danger) => el('button', {
+          class: 'sv-fav' + (danger ? ' danger' : ''), type: 'button', icon, title: label, 'aria-label': label,
+          onclick: (e) => { e.stopPropagation(); fn(); },
+        });
+        /* Sil solda, güncelle sağda: ikisi de önizlemenin köşesinde, yanlış tıklama ayrılır. */
+        kids.push(actBtn('trash', tr('Sil'), () => { if (A.deleteUserPreset) A.deleteUserPreset(id); }, true));
+        kids.push(actBtn('refresh', tr('Mevcut renklerle güncelle'), () => { if (A.updateUserPreset) A.updateUserPreset(id); }));
+      }
+      box.appendChild(el('div', { class: 'sv-gw' + (user ? ' sv-mine' : '') }, kids));
+      shown++;
+    };
+    for (const p of presets) {
+      if (!p) continue;
+      if (p.group) group = p.group;
+      const name = tr(p.name);
+      const gname = group ? tr(group) : '';
+      if (q && F(name + ' ' + (p.name || '') + ' ' + gname + ' ' + group).indexOf(q) < 0) continue;
+      if (group !== open) {
+        open = group;
+        if (group) box.appendChild(el('div', { class: 'sv-gh', text: gname }));
+      }
+      addCard(name, p.colors, false);
+    }
+    const mine = [];
+    for (const p of users) {
+      if (!p) continue;
+      const name = String(p.name || '');
+      if (q && F(name).indexOf(q) < 0) continue;
+      mine.push(p);
+    }
+    if (mine.length || !q) {
+      box.appendChild(el('div', { class: 'sv-gh', text: tr('Renk Şablonlarım') }));
+      if (!mine.length) box.appendChild(el('div', { class: 'sv-theme-empty', text: tr('Henüz renk şablonu yok.') }));
+      for (const p of mine) addCard(String(p.name || ''), p.colors || [], true, p.id);
+    }
+    if (!shown && q) box.appendChild(el('div', { class: 'sv-gh', text: tr('Sonuç yok.') }));
+    wrap.appendChild(box);
+    return wrap;
+  }
+
   function paintShelf(host) {
     const el = P().el;
     const lib = isLib(shelfTab);
@@ -1421,7 +1557,7 @@
         onclick: () => { shelfOpen = !shelfOpen; write(STORE.open, shelfOpen ? '1' : '0'); paint(); },
       }),
     ]);
-    const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' || shelfTab === 'studio' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
+    const body = el('div', { class: 'sv-cbody' + (shelfTab === 'milkdrop' || shelfTab === 'studio' || shelfTab === 'themes' ? ' sv-fill' : ''), 'data-shelf-body': '1' });
     host.replaceChildren(head, body);
     applyCardSize(host);
     if (!host.dataset.svCardWheel) {
@@ -1460,12 +1596,23 @@
       kids.push(sceneShelf());
     } else if (tab.id === 'studio') {
       kids.push(studioGallery());
+    } else if (tab.id === 'themes') {
+      kids.push(themeGallery());
     }
+    const keepScroll = scrollOf.shelf;
     body.replaceChildren(...kids);
     body._svLockKey = '';
     applyLock(body, shelfLock());
-    body.scrollTop = scrollOf.shelf;
-    body.onscroll = () => { scrollOf.shelf = body.scrollTop; };
+    /* Studio ve Temalar gövdesi kaymaz; kaydırma ızgaradadır. Gövdeye yazmak
+       tema seçiminde listeyi başa alıyordu. */
+    const scroller = body.querySelector(':scope > .sv-themes > .sv-gal, :scope > .sv-studio > .sv-gal') || body;
+    const applyScroll = () => {
+      if (!scroller.isConnected) return;
+      if (Math.abs(scroller.scrollTop - keepScroll) > 1) scroller.scrollTop = keepScroll;
+    };
+    applyScroll();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(applyScroll);
+    scroller.addEventListener('scroll', () => { scrollOf.shelf = scroller.scrollTop; });
   }
 
   function setShelf(id, filter) {
@@ -1488,7 +1635,16 @@
       if (l) { sel = l.id; write(STORE.sel, sel); }
       return;
     }
-    if (sectionId === 'colorPresets' || sectionId === 'dynamicTheme' || sectionId === 'transition') { sel = ''; write(STORE.sel, ''); }
+    if (sectionId === 'colorPresets') {
+      shelfTab = 'themes';
+      shelfOpen = true;
+      write(STORE.shelf, 'themes');
+      write(STORE.open, '1');
+      sel = '';
+      write(STORE.sel, '');
+      return;
+    }
+    if (sectionId === 'dynamicTheme' || sectionId === 'transition') { sel = ''; write(STORE.sel, ''); }
   }
 
   // Önizleme bu sayfada ortada; öteki sayfalarda yan rafta. Aynı düğüm taşınıyor, motor yeniden kurulmuyor.

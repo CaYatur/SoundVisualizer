@@ -437,6 +437,7 @@
     'Tüm ayarlar varsayılana dönecek. Renk şablonlarınız ve sahneleriniz korunur.': 'All settings will return to their defaults. Your color presets and scenes are preserved.',
     'Bu sahne silinecek.': 'This scene will be deleted.',
     'Bu renk şablonu silinecek.': 'This color preset will be deleted.',
+    'Bu renk şablonu mevcut renklerle güncellenecek.': 'This color preset will be updated with the current colors.',
     'Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak.': 'Current settings will be replaced with the values in the backup. Your color presets and scenes will be preserved.',
     'Bu ayarı varsayılana döndür': 'Reset this setting to its default',
 
@@ -1202,6 +1203,7 @@
     // ---- Bölüm başlıkları / açıklamaları ----
     'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.': 'How hard or soft the captured audio hits the visuals.',
     'Sese tepki veren sisli/akışkan fon veya düz renk.': 'A misty, fluid backdrop that reacts to audio, or a solid color.',
+    'Temalar': 'Themes',
     'Renk Şablonlarım': 'My Color Presets',
     'Beğendiğiniz arkaplan renklerini kaydedin; tek tıkla geri yükleyin.': 'Save background colors you like and restore them with one click.',
     'Sese duyarlı ön efekt: frekans barları, dalga veya çember.': 'Audio-reactive foreground effect: frequency bars, wave, or circle.',
