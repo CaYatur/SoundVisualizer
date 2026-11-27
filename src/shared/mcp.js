@@ -1295,7 +1295,10 @@
     sv_set_window_mode: { props: { transparent: sp('boolean', 'Transparent background.'), coverTaskbar: sp('boolean', 'Cover the taskbar.'), transparentKey: sp('string', 'Key color for transparency.') } },
     sv_start_export: {
       props: {
-        audioPath: sp('string', 'Absolute path of the audio file.'),
+        audioPath: sp('string', 'Absolute path of the audio file. Required unless the audio comes from the timeline.'),
+        audioFrom: sp('string', 'Audio source. file: audioPath (the default when audioPath is given). timeline: a mixdown of the audio clips of the exported timeline (needs includeTimeline true and audio clips; muted and solo tracks, fades, volume automation and ducking are applied). When omitted without audioPath, the timeline audio is used if there is any.', { enum: ['timeline', 'file'] }),
+        includeTimeline: sp('boolean', 'Render the timeline (scene clips and automation) instead of the live scene. Default: the export setting.'),
+        timelineId: sp('string', 'Timeline to export when includeTimeline is true. Default: the export setting, then the active timeline.'),
         outputPath: sp('string', 'Absolute path ending with the extension of the format (.mp4, .mov, .webm, .gif, .png, .exr).'),
         profile: sp('string', 'One-click preset for format, resolution, fps and quality; explicit arguments override it.', { enum: EXPORT_PROFILE_IDS }),
         format: sp('string', 'Container and codec. Default mp4-h264. Alpha: mov-prores4444, webm-vp9-alpha, apng, png-seq, exr-seq.', { enum: EXPORT_FORMAT_IDS }),
@@ -1313,7 +1316,7 @@
         speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),
         overwrite: OVERWRITE,
       },
-      required: ['audioPath', 'outputPath'],
+      required: ['outputPath'],
     },
     sv_export_analysis: {
       props: {
@@ -2839,7 +2842,7 @@
       return { transparent: !!cfg.background.transparent, coverTaskbar: !!cfg.background.coverTaskbar };
     });
   });
-  tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
+  tool('sv_start_export', 'export', 'Start an offline video export. Requires outputPath, plus audioPath unless audioFrom is timeline (a mixdown of the timeline audio clips). format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
     const FX = formatsApi();
     /* Profil (#522): biçim, çözünürlük, kare hızı ve kalite için varsayılan;
@@ -2856,6 +2859,10 @@
        as 1080p60). Reject them with the allowed values instead. */
     const badOpt = FX && FX.validateOptions ? FX.validateOptions(args) : null;
     if (badOpt) return fail('Invalid ' + badOpt.field + ': ' + JSON.stringify(badOpt.value) + '. Allowed: ' + badOpt.allowed.join(', ') + '.');
+    /* Ses kaynağı (#1172): audioPath veren eski çağrılar aynen çalışır. */
+    const from = args && args.audioFrom;
+    if (from != null && from !== 'timeline' && from !== 'file') return fail('Invalid audioFrom: ' + JSON.stringify(from) + '. Allowed: timeline, file.');
+    if (from === 'file' && !(args && typeof args.audioPath === 'string' && args.audioPath)) return fail('audioPath is required when audioFrom is file.');
     const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });

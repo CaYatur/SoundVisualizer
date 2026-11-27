@@ -750,6 +750,11 @@ video.logo-lib-thumb { pointer-events: none; }
   word-break: break-all; padding: 6px 10px; background: var(--card2);
   border: 1px solid var(--line); border-radius: 8px;
 }
+
+/* Dışa aktarma ses kaynağı (#1172): çizelge sesi varken seçici kilitli */
+.filebtn.disabled, .filebtn.disabled:hover { opacity: .5; cursor: not-allowed; border-color: var(--line); background: var(--card2); }
+.export-filename.locked { color: var(--accent); }
+.export-audio-override { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; cursor: pointer; }
 .export-progress {
   margin-top: 12px; height: 9px; background: var(--card);
   border-radius: 6px; overflow: hidden; border: 1px solid var(--line);
