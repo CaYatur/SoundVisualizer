@@ -569,8 +569,7 @@ shaders are translated to GLSL and run on the GPU.
 - **A MilkDrop Fidelity switch** follows MilkDrop 2's own rules — its compiler, its audio chain, its
   mesh transform, its default values and its fixed-function pipeline. The details are in
   [MilkDrop engine notes](#milkdrop-engine-notes) at the end of this page.
-- **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
-  Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
+- **60 CaYaDev MilkDrop presets of our own ship with the app**, so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
 - **CaYaDev MilkDrop Presets: 60 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
@@ -1800,7 +1799,7 @@ GPU sharing as well.
 **Can it load my MilkDrop presets?**
 Yes: single `.milk` files, MilkDrop 3 `.milk2` double presets, ZIP packs, folders, or
 a search of your computer. Point the app at a MilkDrop `textures` folder for presets that use images.
-No third-party preset pack is bundled; five original presets are.
+No third-party preset pack is bundled; 60 original CaYaDev presets are.
 
 **Is it a Winamp or projectM plugin?**
 No. It is a standalone application with its own MilkDrop-compatible engine in WebGL2. It does not
@@ -1853,13 +1852,9 @@ it off restores the engine's earlier look.
 - **Measured against 10,347 real presets** from the projectM original and cream-of-the-crop packs:
   every one loads and runs, 10,344 of them with no skipped statement at all.
 - **`.milk` import**, including multi-file packs with per-file compile errors reported.
-- **Five presets of our own ship with the application.** *Kutup Işığı* (a flowing nebula),
-  *Erimiş Altın* (the loud one), *Dingin Halkalar* (slow and nearly black), *Sonsuz Tünel* (the
-  classic tunnel) and *Nabız Örgüsü* (squares on the beat over a motion-vector weave) — written
-  here, so the engine shows what it does before you import a pack of your own. They join auto
-  advance like any other preset. The two pictures on this page are rendered from them.
-- **The CaYaDev MilkDrop Presets** ([`presets/original`](presets/original), CC BY 4.0) are built in next to
-  them: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
+- **60 CaYaDev MilkDrop presets of our own ship with the application.** They were written here, so the engine shows what it does before you import a pack of your own. They join auto
+  advance like any other preset. The pictures on this page are rendered from them.
+- **The CaYaDev MilkDrop Presets** ([`presets/original`](presets/original), CC BY 4.0) are those built-in files: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
   one passed; the zip on each release holds the same files.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
