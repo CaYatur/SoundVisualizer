@@ -12,6 +12,8 @@ const fs = require('fs');
 const path = require('path');
 
 const SHELL = fs.readFileSync(path.join(__dirname, '..', 'src/admin/scene-shell.js'), 'utf8').replace(/\r\n/g, '\n');
+const ADMIN = fs.readFileSync(path.join(__dirname, '..', 'src/admin/admin.js'), 'utf8').replace(/\r\n/g, '\n');
+const TEMPLATE_PANEL = fs.readFileSync(path.join(__dirname, '..', 'src/admin/template-panel.js'), 'utf8').replace(/\r\n/g, '\n');
 
 // SHELF_CURRENT + modeNow + syncShelf kaynağı, sahte bir ortamda
 function load(state) {
@@ -106,6 +108,19 @@ test('Şablon rafı: son uygulanan şablon; ayar değişince (clearLastApplied) 
   cur = '';
   S.syncShelf(host(items));
   assert.deepStrictEqual(onKeys(items), []);
+});
+
+test('Renk paleti elle değişince şablon vurgusu anında temizleniyor', () => {
+  assert.match(ADMIN, /oninput: \(e\) => \{\n\s+if \(window\.SVTemplatePanel && window\.SVTemplatePanel\.clearLastApplied\) \{\n\s+window\.SVTemplatePanel\.clearLastApplied\(\);\n\s+\}\n\s+arr\[i\] = e\.target\.value;/);
+  assert.match(SHELL, /function applyThemeColors\(colors\) \{\n\s+const cfg = P\(\)\.cfg\(\);\n\s+if \(window\.SVTemplatePanel && window\.SVTemplatePanel\.clearLastApplied\) \{\n\s+window\.SVTemplatePanel\.clearLastApplied\(\);/);
+
+  let synced = 0;
+  const win = { SVSceneShell: { syncShelf: () => { synced++; } } };
+  // eslint-disable-next-line no-new-func
+  new Function('window', TEMPLATE_PANEL)(win);
+  win.SVTemplatePanel.clearLastApplied();
+  assert.strictEqual(win.SVTemplatePanel.current(), '');
+  assert.strictEqual(synced, 1);
 });
 
 test('Sahne rafı: etkin sahne (MCP ya da kısayolla uygulanan da)', () => {

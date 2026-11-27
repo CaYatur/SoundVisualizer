@@ -169,7 +169,10 @@
 
   window.SVTemplatePanel = {
     panel,
-    clearLastApplied() { lastApplied = ''; },
+    clearLastApplied() {
+      lastApplied = '';
+      if (window.SVSceneShell && window.SVSceneShell.syncShelf) window.SVSceneShell.syncShelf();
+    },
     // Raf vurgusu (scene-shell syncShelf): son uygulanan şablon
     current() { return lastApplied; },
   };

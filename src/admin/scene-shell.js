@@ -1424,6 +1424,9 @@
   }
   function applyThemeColors(colors) {
     const cfg = P().cfg();
+    if (window.SVTemplatePanel && window.SVTemplatePanel.clearLastApplied) {
+      window.SVTemplatePanel.clearLastApplied();
+    }
     if (!cfg.background) cfg.background = {};
     if (!cfg.background.gradient) cfg.background.gradient = { colors: [] };
     cfg.background.gradient.colors = (colors || []).slice();
