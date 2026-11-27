@@ -65,6 +65,24 @@ object ExportFlow {
             EngineHost.loadPage(EXPORT_PAGE)
             return JSONObject().put("bytes", 0)
         }
+        /* Çizelge sesi (#1172, audioFrom "timeline"): sayfa ses şeritlerini karıştırıp medya
+           klasörüne yazdı (TimelineAudioFiles); o dosya videonun sesi, iş bitince silinir. */
+        if (args.optString("audioFrom") == "timeline") {
+            val mix = TimelineAudioFiles.mixFile(app, args.optString("audioFile"))
+            cleanup()
+            tempAudio = mix
+            val title = args.optString("outputName").ifEmpty { "timeline" }
+            val j = JSONObject(args.toString())
+                .put("audioName", mix.name)
+                .put("audioUrl", "/files/" + mix.name)
+                .put("songName", title)
+                .put("track", JSONObject().put("title", title).put("artist", "").put("album", "").put("artwork", "").put("duration", 0.0))
+            j.remove("audioUri")
+            j.remove("audioFile")
+            job = j
+            EngineHost.loadPage(EXPORT_PAGE)
+            return JSONObject().put("bytes", mix.length())
+        }
         val uri = Uri.parse(args.optString("audioUri"))
         val name = MediaPick.displayName(app, uri).ifEmpty { "song.m4a" }
         val ext = name.substringAfterLast('.', "m4a").lowercase().take(5).filter { it.isLetterOrDigit() }.ifEmpty { "m4a" }
