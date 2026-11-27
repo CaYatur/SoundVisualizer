@@ -21,7 +21,17 @@ test('kapalı raf yalnız sekme çubuğu kadar, önizleme boşalan yeri alıyor'
 test('Preset sekmesi: MilkDrop ve Studio aynı sekmede, sekme sayısı artmıyor', () => {
   const lib = SHELL.match(/const LIB_TABS = \[([\s\S]*?)\n  \];/)[1];
   const ids = [...lib.matchAll(/\{ id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepStrictEqual(ids, ['milkdrop', 'vis', 'bg', 'templates', 'scenes']);
+  assert.deepStrictEqual(ids, ['milkdrop', 'vis', 'bg', 'themes', 'templates', 'scenes']);
+  assert.match(lib, /id: 'themes', label: 'Temalar', en: 'Themes'/);
+  assert.match(SHELL, /function themeGallery\(\)/);
+  assert.match(SHELL, /class: 'sv-themes'/);
+  assert.match(SHELL, /linear-gradient\(90deg,/);
+  assert.match(SHELL, /'data-user-text': ''/);
+  assert.match(SHELL, /A\.saveCurrentPreset/);
+  assert.match(SHELL, /A\.updateUserPreset/);
+  assert.match(SHELL, /A\.deleteUserPreset/);
+  assert.match(SHELL, /themes: \{\s*sel: '\.sv-gi\[data-cur\]'/);
+  assert.match(read('src/shared/i18n.js'), /'Temalar': 'Themes'/);
   assert.match(lib, /id: 'milkdrop', label: 'Preset', en: 'Presets', subs: PRESET_SUBS/);
   assert.match(SHELL, /const PRESET_SUBS = \['milkdrop', 'studio'\];/);
   // Sekme son alt rafı açıyor; alt raf düğmeleri kilit kabının dışında
@@ -43,7 +53,18 @@ test('dar raf: sekmeler sarılmıyor ya da gizlenmiyor, arama sekmelere değince
   assert.match(SHELL, /SHELF_SEARCH_FULL - search\.offsetWidth/);
   assert.match(SHELL, /shelfRowFree\(head\) >= need - 1/);
   assert.match(SHELL, /head\.classList\.add\('sv-tight'\)/);
+  assert.match(SHELL, /head\.classList\.add\('sv-tighter'\)/);
+  assert.match(SHELL, /head\.classList\.remove\('sv-tighter'\)/);
   assert.match(CSS, /\.sv-chead\.sv-tight \.sv-tabs button \{ height: 30px; padding: 0 6px; font-size: 12px; \}/);
+  assert.match(CSS, /\.sv-chead\.sv-tight\.sv-tighter \.sv-tabs button \{ height: 28px; padding: 0 4px; font-size: 11px;/);
+  assert.match(CSS, /\.sv-chead\.sv-tight\.sv-tighter \.sv-card-size \{ display: inline-flex; flex: none; gap: 0; \}/);
+  assert.match(CSS, /\.sv-chead\.sv-tight\.sv-tighter \.sv-card-size input\[type='range'\] \{ width: 48px; \}/);
+  assert.ok(!/\.sv-chead\.sv-tight\.sv-tighter \.sv-card-size \{ display: none/.test(CSS), 'kart boyu en dar rafta da durmalı');
+  assert.match(SHELL, /:scope > \.sv-themes > \.sv-gal/);
+  const applyTheme = SHELL.slice(SHELL.indexOf('function applyThemeColors'), SHELL.indexOf('function themeGallery'));
+  assert.match(applyTheme, /P\(\)\.push\(true\)/);
+  assert.match(applyTheme, /paint\(\)/);
+  assert.ok(!/rerender\(/.test(applyTheme), 'tema seçimi rafı bayatlatmamalı');
   assert.match(CSS, /\.sv-chead\.sv-tight \.sv-shelf-mode button \{ width: 28px; height: 24px; \}/);
   assert.match(CSS, /\.sv-chead\.sv-tight > \.sv-ib\.sm \{ width: 28px; height: 28px; \}/);
   assert.ok(!/sv-card-size input/.test(q[1]), 'kart boyu kaydırıcısı 640 px\'te kısalmamalı');
@@ -57,10 +78,10 @@ test('dar raf: sekmeler sarılmıyor ya da gizlenmiyor, arama sekmelere değince
 });
 
 test('Studio rafı: üst satırlar yerinde kalır, yalnız kartlar kayar', () => {
-  assert.match(SHELL, /shelfTab === 'milkdrop' \|\| shelfTab === 'studio' \? ' sv-fill'/);
+  assert.match(SHELL, /shelfTab === 'milkdrop' \|\| shelfTab === 'studio' \|\| shelfTab === 'themes' \? ' sv-fill'/);
   assert.match(CSS, /\.sv-fill > \.sv-target, \.sv-fill > \.sv-psrc \{ flex: none; \}/);
-  assert.match(CSS, /\.sv-fill > \.sv-studio \{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; \}/);
-  assert.match(CSS, /\.sv-studio \.sv-gal \{ flex: 1 1 auto; min-height: 0; overflow: auto; \}/);
+  assert.match(CSS, /\.sv-fill > \.sv-studio, \.sv-fill > \.sv-themes \{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; \}/);
+  assert.match(CSS, /\.sv-studio \.sv-gal, \.sv-themes \.sv-gal \{ flex: 1 1 auto; min-height: 0; overflow: auto; \}/);
 });
 
 test('MilkDrop İçe Aktar paneli rafın içinde kalır, sonuç listesi kendi kayar', () => {

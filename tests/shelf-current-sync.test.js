@@ -121,7 +121,7 @@ test('her çizim sonunda eşitleniyor; Görsel/Zemin imzası seçime ve türe ba
   assert.match(SHELL, /shelfPainted = sig;\n      shelfStale = false;\n    \}\n    syncShelf\(c\);/);
   const sig = SHELL.match(/if \(shelfTab === 'vis' \|\| shelfTab === 'bg'\) \{\n      return [^\n]*\n/)[0];
   assert.doesNotMatch(sig, /selected\(\)|\.type/);
-  for (const s of ['vis', 'bg', 'milkdrop', 'templates', 'scenes']) assert.ok(new RegExp('\\n    ' + s + ': \\{').test(SHELL), s);
+  for (const s of ['vis', 'bg', 'milkdrop', 'themes', 'templates', 'scenes']) assert.ok(new RegExp('\\n    ' + s + ': \\{').test(SHELL), s);
   // Kartlar anahtarını taşıyor
   assert.match(SHELL, /'data-cur': it\.id/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'src/admin/template-panel.js'), 'utf8'), /'data-cur': t\.id/);

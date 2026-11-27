@@ -373,6 +373,18 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-shelf .sv-chead.sv-tight > .sv-ib.sm { width: 28px; height: 28px; }
 .sv-shelf .sv-chead.sv-tight .sv-shelf-search.sv-icon:not(:focus-within) { flex-basis: 28px; width: 28px; min-width: 28px; height: 28px; }
 .sv-shelf .sv-chead.sv-tight .sv-card-size input[type='range'] { width: 64px; }
+/* Sıkı kademe yetmezse sekmeler sığacak kadar kısalır. Kart boyu kalır, yalnız incelir. */
+.sv-shelf .sv-chead.sv-tight.sv-tighter { gap: 2px; padding-left: 4px; padding-right: 4px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-tabs { gap: 0; flex: 1 1 auto; min-width: 0; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-tabs button { height: 28px; padding: 0 4px; font-size: 11px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-shelf-mode { height: 26px; padding: 1px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-shelf-mode button { width: 24px; height: 22px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-shelf-mode button .svi { width: 13px; height: 13px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter > .sv-ib.sm { width: 24px; height: 24px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-shelf-search.sv-icon:not(:focus-within) { flex-basis: 24px; width: 24px; min-width: 24px; height: 24px; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-card-size { display: inline-flex; flex: none; gap: 0; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-card-size .svi { display: none; }
+.sv-shelf .sv-chead.sv-tight.sv-tighter .sv-card-size input[type='range'] { width: 48px; }
 .sv-shelf-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: none; font-size: 12.5px; color: var(--text); }
 .sv-target { padding: 0 14px 8px; font-size: 12px; color: var(--muted2); }
 /* Preset sekmesi: MilkDrop | Studio düğmeleri hedef satırıyla aynı satırda */
@@ -463,9 +475,17 @@ body.sv-splitting-x, body.sv-splitting-x * { cursor: col-resize !important; }
 .sv-insp .layer-panel > .ctrl { margin: 0 10px; padding-left: 12px; }
 .sv-fill { overflow: hidden; display: flex; flex-direction: column; }
 .sv-fill > .sv-target, .sv-fill > .sv-psrc { flex: none; }
-.sv-fill > .sv-studio { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.sv-studio .sv-chips { flex: none; }
-.sv-studio .sv-gal { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.sv-fill > .sv-studio, .sv-fill > .sv-themes { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.sv-studio .sv-chips, .sv-themes .sv-chips { flex: none; }
+.sv-studio .sv-gal, .sv-themes .sv-gal { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.sv-themes .sv-chip { display: inline-flex; align-items: center; gap: 6px; }
+.sv-theme-name { height: 22px; width: 100%; min-width: 0; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--text); padding: 0 2px; }
+.sv-theme-name:hover { background: rgb(var(--fg-rgb) / .06); }
+.sv-theme-name:focus { outline: 0; background: rgb(var(--fg-rgb) / .1); }
+.sv-theme-acts { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
+.sv-theme-acts .sv-fav { position: static; }
+.sv-theme-acts .sv-fav.danger:hover { color: var(--danger); }
+.sv-theme-empty { grid-column: 1 / -1; padding: 0 2px 8px; font-size: 12px; color: var(--muted2); }
 .sv-fill > .sv-shelf-locked { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .sv-fill > .sv-shelf-locked > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0 2px; padding: 0; }
 .sv-fill > .sv-shelf-locked > .card > .group { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border: 0; padding: 0; margin: 0; }

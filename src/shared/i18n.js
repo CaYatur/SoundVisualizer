@@ -1202,6 +1202,7 @@
     // ---- Bölüm başlıkları / açıklamaları ----
     'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.': 'How hard or soft the captured audio hits the visuals.',
     'Sese tepki veren sisli/akışkan fon veya düz renk.': 'A misty, fluid backdrop that reacts to audio, or a solid color.',
+    'Temalar': 'Themes',
     'Renk Şablonlarım': 'My Color Presets',
     'Beğendiğiniz arkaplan renklerini kaydedin; tek tıkla geri yükleyin.': 'Save background colors you like and restore them with one click.',
     'Sese duyarlı ön efekt: frekans barları, dalga veya çember.': 'Audio-reactive foreground effect: frequency bars, wave, or circle.',
