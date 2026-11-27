@@ -158,6 +158,8 @@
       mode,
       label: String(src.label || '').trim() || match,
       pid: Number(src.pid) > 0 ? Number(src.pid) : 0,
+      // Kendi sürecimizi hariç tutan sistem sesi (#1213): hedef ada göre aranmaz
+      ...(src.self === true ? { self: true } : {}),
     };
   }
 

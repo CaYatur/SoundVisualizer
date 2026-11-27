@@ -156,6 +156,8 @@ contextBridge.exposeInMainWorld('api', {
   pickTimelineAudio: () => ipcRenderer.invoke('timeline-audio:pick'),
   timelineAudioPeaks: (src) => ipcRenderer.invoke('timeline-audio:peaks', src),
   timelineAudioNow: (info) => ipcRenderer.send('timeline-audio:now', info),
+  // İç çözümleme karesi (#1213): zaman çizelgesi sesi görselleştiriciye yakalamasız
+  timelineAudioFrame: (frame) => ipcRenderer.send('timeline-audio:frame', frame),
   pickExportOutput: (name, format) => ipcRenderer.invoke('export:pick-output', name, format),
   exportCapabilities: () => ipcRenderer.invoke('export:capabilities'),
   // Dışa aktarma kuyruğu (#526)

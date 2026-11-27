@@ -192,8 +192,15 @@
      source none: çalan parçanın sözü yok, elle yüklenen dosya çalmaz. */
   function playback(opts) {
     const o = opts || {};
-    if (!o.windows || !o.follow) return null;
     const live = o.live;
+    /* Zaman çizelgesi klibi (#1213): dosya uygulamanın içinde çalıyor,
+       oturum izlemeye (yalnız Windows) gerek yok; her platformda izlenir.
+       Takip kapalıyken de elle yüklenmiş söz yoksa klibin sözü çalar;
+       elle yüklenmiş söz varsa o korunur (takip açılmadıkça). */
+    const timelineClip = !!(live && live.has && live.clipId);
+    if (timelineClip) {
+      if (!o.follow && o.manualText) return null;
+    } else if (!o.windows || !o.follow) return null;
     const hasLive = !!(live && live.has && (live.title || live.artist));
     if (!hasLive) {
       return { source: 'manual', text: o.manualText || '', time: null, line: false };
@@ -214,6 +221,8 @@
         item: { id: hit.item.id, title: hit.item.title, artist: hit.item.artist },
       };
     }
+    // Takipsiz çizelge klibinin sözü yok: eski yol (elle/otomatik söz) sürer
+    if (timelineClip && !o.follow) return null;
     const sys = systemLyrics(live.subtitle, live);
     if (sys && sys.kind === 'timed') {
       return { source: 'system', text: sys.text, time: mediaTime(live, nowMs, o.positionAt), line: false };

@@ -339,7 +339,10 @@ const appSources = wantedApps.map(() => {
 function attachApp(app, index) {
   if (appProcs[index]) return true;
   let target;
-  try {
+  /* Kendi sürecimiz (#1213, hariç tutma): süreç listesi kendimizi
+     göstermiyor (withoutSelf), kimlik doğrudan ana sürecinki. */
+  if (app.self && app.pid > 0) target = { pid: app.pid, name: app.match, matched: 'self' };
+  else try {
     target = appCapture.resolve(app);
   } catch (e) {
     process.stderr.write('APP-FAIL ' + app.match + ' ' + e.message + '\n');
@@ -436,7 +439,8 @@ const watchTimer = wantedApps.length && (process.platform !== 'linux' || process
   for (let i = 0; i < wantedApps.length; i++) {
     const w = appWatch[i];
     const child = appProcs[i];
-    if (!w || !child) continue;
+    // Kendi sürecimiz yaşadıkça hedef değişmez; sessizlik "kapandı" sayılmasın
+    if (!w || !child || wantedApps[i].self) continue;
     const verdict = appCapture.staleVerdict(w, now, appAudio.pidAlive(w.pid), () => {
       w.lastCheck = now;
       let t = null;
