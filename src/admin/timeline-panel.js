@@ -676,6 +676,8 @@
     const cfg = tlCfg();
     return { zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cfg.zoom || 60)), scroll: Math.max(0, cfg.scroll || 0) };
   }
+  // Parmakla isabet payı (SVTimelineTouch yoksa fare payı)
+  function touchTol(px) { return window.SVTimelineTouch ? window.SVTimelineTouch.tol(px) : px; }
   function xOf(t) {
     const v = view();
     return HEAD_W + (t - v.scroll) * v.zoom;
@@ -709,6 +711,8 @@
   function syncLaneH() {
     const v = Math.round(Number(tlCfg().laneHeight));
     TRACK_H = v >= LANE_MIN && v <= LANE_MAX ? v : 40;
+    // Parmakla kullanımda şerit en az 44 px: düğmeler ve tutamaçlar isabet edilebilir kalsın
+    if (window.SVTimelineTouch && window.SVTimelineTouch.coarse()) TRACK_H = Math.max(44, TRACK_H);
   }
 
   // Şerit yüksekliğini adım adım değiştir; paneli yeniden kuruyor (başlıklar da boy alıyor)
@@ -1269,12 +1273,13 @@
       const fadeHit = (c, ci) => {
         const top = RULER_H + index * TRACK_H + 4;
         const width = c.dur * view().zoom;
-        if (!visualClip(c) || width <= 14 || y < top - 3 || y > top + 8) return null;
+        const pad = touchTol(6) - 6; // parmakta tutamaç alanı büyür
+        if (!visualClip(c) || width <= 14 || y < top - 3 - pad || y > top + 8 + pad) return null;
         const left = xOf(c.start);
         const a = left + Math.min(width, (c.fadeIn > 0 ? c.fadeIn : c.fade || 0) * view().zoom);
         const b = left + width - Math.min(width, (c.fadeOut || 0) * view().zoom);
         const da = Math.abs(x - a), db = Math.abs(x - b);
-        if (Math.min(da, db) > 6) return null;
+        if (Math.min(da, db) > touchTol(6)) return null;
         return { kind: db < da || (db === da && x > left + width / 2) ? 'fadeOut' : 'fade', index, ci };
       };
       // Bitişik klipte seçili sağ tutamaç, komşunun girişinden önce yakalanır.
@@ -1290,7 +1295,7 @@
            yapmak kırpmayı isabet edilemez hale getiriyordu. */
         // Geçiş tutamacı sol üst köşede, rampanın ucunda; kırpmadan önce bakılıyor
         const fh = fadeHit(c, ci); if (fh) return fh;
-        const edge = Math.min(6, cw / 3);
+        const edge = Math.min(touchTol(6), cw / 3);
         if (x <= cx + edge) return { kind: 'trimL', index, ci };
         if (x >= cx + cw - edge) return { kind: 'trimR', index, ci };
         return { kind: 'move', index, ci };
@@ -1303,7 +1308,7 @@
       const k = trk.keys[ki];
       const kx = xOf(k.t);
       const ky = bot - (bot - top) * Math.max(0, Math.min(1, k.v));
-      if (Math.abs(x - kx) <= 6 && Math.abs(y - ky) <= 6) return { kind: 'key', index, ki };
+      if (Math.abs(x - kx) <= touchTol(6) && Math.abs(y - ky) <= touchTol(6)) return { kind: 'key', index, ki };
     }
     return { kind: 'autotrack', index, top, bot };
   }
@@ -1312,11 +1317,19 @@
      içinde), sonra ızgara. Yakalama kapalıyken (ızgara 'off') mıknatıs da
      kapalı; Alt her ikisini askıya alıyor. */
   const MAGNET_PX = 8;
+  /* Mıknatıs adayları: görsel klip kenarları, işaretler, kafa ve ses klibi
+     kenarları (Premiere gibi görsel klip sesin başına/sonuna oturur). */
+  function snapCands(skip) {
+    const out = TE().snapCandidates(ensureTransport().tl, ensureTransport().time, skip);
+    const ats = tlCfg().audioTracks;
+    if (Array.isArray(ats)) for (const t of ats) for (const c of (t && t.clips) || []) if (c && isFinite(c.start) && isFinite(c.dur)) out.push(c.start, c.start + c.dur);
+    return out;
+  }
   function snap(t, suspend, skip) {
     const cfg = tlCfg();
     if (suspend) return Math.max(0, t);
     if (cfg.snap && cfg.snap !== 'off') {
-      const m = TE().magnetSnap(t, TE().snapCandidates(ensureTransport().tl, ensureTransport().time, skip), MAGNET_PX / view().zoom);
+      const m = TE().magnetSnap(t, snapCands(skip), MAGNET_PX / view().zoom);
       if (m != null) return Math.max(0, m);
     }
     return Math.max(0, TL().snapSeconds(ensureTransport().tl.tempo, t, cfg.snap, cfg.fps));
@@ -1326,7 +1339,7 @@
     const cfg = tlCfg();
     if (suspend) return Math.max(0, start);
     if (cfg.snap && cfg.snap !== 'off') {
-      const cand = TE().snapCandidates(ensureTransport().tl, ensureTransport().time, skip);
+      const cand = snapCands(skip);
       const tol = MAGNET_PX / view().zoom;
       const a = TE().magnetSnap(start, cand, tol);
       const b = TE().magnetSnap(start + dur, cand, tol);
@@ -1750,14 +1763,18 @@
     return true;
   }
 
+  // Son kopyalama anı: Ctrl+V ses panosu ile görsel panodan yenisini seçer
+  let clipStamp = 0;
   function copySelection() {
     if (multi.length > 1) {
       clipboard = { group: TE().copyGroup(pickedClips(), ensureTransport().tl) };
+      if (clipboard.group) clipStamp = Date.now();
       return !!clipboard.group;
     }
     const c = selClip();
     if (!c) return false;
     clipboard = JSON.parse(JSON.stringify(c));
+    clipStamp = Date.now();
     return true;
   }
 
@@ -2256,6 +2273,19 @@
       draw();
     }, { passive: false });
 
+    /* Dokunma (Android WebView, dokunmatik ekran): parmakla sürükleme, kırpma,
+       taşıma; boş şeritte kaydırma, iki parmakla yakınlaştırma, uzun basışla menü. */
+    if (window.SVTimelineTouch) {
+      window.SVTimelineTouch.bind(cv, {
+        grab: (x, y) => { const k = hit(x, y).kind; return !!k && k !== 'none' && k !== 'track' && k !== 'autotrack'; },
+        pan: (dx, dy) => {
+          if (dx) { const cfg = tlCfg(); cfg.scroll = Math.max(0, view().scroll + dx / view().zoom); draw(); }
+          if (dy) window.SVTimelineTouch.scrollY(cv, dy);
+        },
+        zoom: (f, x) => zoomBy(f, x),
+      });
+    }
+
     bindWindowOnce();
   }
 
@@ -2558,6 +2588,22 @@
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
     const low = typeof k === 'string' && k.length === 1 ? k.toLowerCase() : k;
+    /* Ses klipleri AYNI kapıdan: ses seçimi etkinken düzenleme kısayolları
+       (Sil, kopyala/kes/yapıştır, çoğalt, böl, ←/→, ↑/↓, Ctrl+A, Esc) ses kliplerine
+       gider. Geri al/yinele ve oynatma burada kalır; ses düzenlemeleri aynı geçmişte.
+       Ctrl+V en son kopyalanan panoyu (ses ya da görsel) yapıştırır. */
+    const AU = window.SVTimelineAudio;
+    if (AU && mod && low === 'v' && AU.clipStamp && AU.clipStamp() > clipStamp) {
+      AU.paste();
+      e.preventDefault();
+      e.stopPropagation();
+      return true;
+    }
+    if (AU && AU.key && !(k === 'Escape' && fullWin) && AU.key(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return true;
+    }
     let done = true;
     if (k === ' ' || k === 'Spacebar') togglePlay();
     else if (k === 'Enter' && !mod && (ensureTransport().tl.markers || []).some((m) => m.hold === true)) go();
@@ -2751,6 +2797,15 @@
     canvasRect: () => (canvas && canvas.isConnected ? canvas.getBoundingClientRect() : null),
     headsRect: () => (headsBox && headsBox.isConnected ? headsBox.getBoundingClientRect() : null),
     laneH: () => TRACK_H,
+    // Ses tuvali dokunma kaydırması / sıkıştırma: aynı zaman görünümü
+    // Ses kliplerini ←/→ ile kaydırma adımı görsel kliplerle aynı (ızgara; Alt kare; Shift ölçü)
+    stepAt: (at, dir, fine, bar) => {
+      const cfg = tlCfg();
+      if (fine) return 1 / Math.max(1, cfg.fps || 60);
+      return TE().gridStep(ensureTransport().tl.tempo, bar ? 'bar' : cfg.snap, cfg.fps, dir < 0 ? Math.max(0, at - 1e-6) : at);
+    },
+    scrollBy: (dx) => { const cfg = tlCfg(); cfg.scroll = Math.max(0, view().scroll + dx / view().zoom); draw(); },
+    zoomAt: (f, x) => zoomBy(f, x),
     /* Ses klibi/parçası seçilince sağdaki Seçim panelinde onun ayarları.
        Görsel seçim kalkar; görsel bir şey seçilince panel kendi denetçisini kurar. */
     showSide: (node) => {
@@ -2950,6 +3005,12 @@
       // Ses şeridi (#1171): görsel parçaların altında, aynı zaman ekseninde
       ['music', 'Ses Şeridi', 'Ses klipleri için bir şerit', () => { if (window.SVTimelineAudio) window.SVTimelineAudio.addTrack(); }],
       ['music', 'Ses Dosyası Ekle', 'Oynatma kafasına ses dosyası (MP3, WAV, FLAC, OGG, M4A, Opus)', () => { if (window.SVTimelineAudio) window.SVTimelineAudio.addAudio(); }],
+      ['trash', 'Ses Şeridini Sil', 'Seçili (yoksa son) ses şeridini ve kliplerini sil; kilitli şerit silinmez', () => {
+        const A = window.SVTimelineAudio;
+        const ats = tlCfg().audioTracks;
+        if (!A || !Array.isArray(ats) || !ats.length) { p.toast('Ses şeridi yok.', 'warn'); return; }
+        A.removeTrack(A.selectedTrack() || ats[ats.length - 1].id);
+      }],
       ['plus', 'Kafada İşaret', 'Oynatma kafasına adlandırılmış bir işaret (M)', () => {
         addMarkerAtPlayhead();
         p.rerender();

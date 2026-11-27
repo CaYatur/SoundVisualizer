@@ -245,20 +245,35 @@
   }
 
   // ---------------- Arayüz ----------------
-  /* Görsel parçalarla AYNI düzen (#1171 tasarım düzeltmesi): başlık sütunu
-     çizelgeninkiyle aynı genişlik ve biçimde (ad, M, S), şerit yüksekliği aynı,
-     zaman ekseni aynı. Ayarlar sağdaki Seçim panelinde; satır içinde kutu yok. */
+  /* PREMIERE TARZI SES ŞERİTLERİ (A1, A2 …). Görsel parçalarla AYNI düzen:
+     başlık sütunu çizelgeninkiyle aynı genişlik ve yazı biçiminde, şerit
+     yüksekliği ve ayraç aynı, zaman ekseni aynı. Başlıkta ad, kilit, M, S ve
+     küçük ses düzeyi (dB); klip ayarları sağdaki Seçim panelinde.
+
+     Kilit: şeritteki klipler seçilmez, taşınmaz, kırpılmaz, silinmez (görsel
+     parçalardaki kilit gibi). Klipler görsel klipler gibi yuvarlak, çerçeveli
+     bloklar: üstte dosya adı şeridi, içinde dalga biçimi. Giriş/çıkış solması
+     yalnız solma aralığında, gerçek eğrisiyle çizilir (eski çizim eğriyi
+     klibin tamamına 24 noktayla yayıyordu: uzun klipte solma olduğundan çok
+     daha uzun, "ileride" görünüyordu; tam klip solmasında da çapraz çizgi). */
   let root = null;
   let headsEl = null;
   let headCell = null;
   let canvas = null;
   let masterBar = null;
+  let sinkEl = null;
   let selTrack = '';
   let selClip = '';
   let drag = null;
   let sideShown = '';
+  let hover = { clip: '', kind: '' };
+  const AUDIO_COL = '#2f9e74'; // ses klibinin varsayılan rengi (içerik rengi, temadan bağımsız)
 
   const laneH = () => { try { return Math.max(24, Number(P().laneH()) || 40); } catch { return 40; } };
+  const touch = () => window.SVTimelineTouch || null;
+  const tolPx = (px) => (touch() ? touch().tol(px) : px);
+  const laneLabel = (i) => 'A' + (i + 1);
+  const fmtDb = (db) => (db <= A().MIN_DB ? '-∞' : (db > 0 ? '+' : '') + (Math.round(db * 10) / 10)) + ' dB';
 
   function icon(name) {
     const I = window.SVIcons;
@@ -278,19 +293,20 @@
     masterBar.addEventListener('click', () => { masterBar.classList.remove('clip'); });
     headCell = el('div', { class: 'tla-headcell' }, [
       el('span', { class: 'tla-title', text: tr('Ses') }),
-      iconBtn('plus', 'Ses Ekle', addAudio, 'tla-add'),
-      masterBar,
+      iconBtn('plus', 'Ses Şeridi Ekle', () => addTrack(), 'tla-add'),
+      iconBtn('music', 'Ses Dosyası Ekle', () => addAudio(), 'tla-add'),
     ]);
+    // Çıkış aygıtı ve ana ölçer şerit denetçisinde (çubukta yüzen öğe yok)
     const sink = el('select', { class: 'tla-sink', title: tr('Ses çıkış aygıtı'), 'aria-label': tr('Ses çıkış aygıtı') });
+    sinkEl = sink;
     sink.addEventListener('focus', () => fillSinks(sink));
     sink.addEventListener('change', () => { try { localStorage.setItem(SINK_KEY, sink.value); } catch {} ensureCtx(); applySink(sink.value); });
     fillSinks(sink);
-    const bar = el('div', { class: 'tla-bar' }, [headCell, el('div', { class: 'tla-barfill' }), sink]);
+    const bar = el('div', { class: 'tla-bar' }, [headCell, el('div', { class: 'tla-barfill' })]);
     headsEl = el('div', { class: 'tl-heads tla-heads' });
     canvas = el('canvas', { class: 'tla-canvas' });
     const body = el('div', { class: 'tla-body' }, [headsEl, el('div', { class: 'tla-canvas-wrap' }, [canvas])]);
     root = el('div', { class: 'tla', tabindex: '0', 'aria-label': tr('Zaman çizelgesi ses parçaları') }, [bar, body]);
-    root.addEventListener('keydown', onKey);
     bindCanvas();
     setTimeout(paintAll);
     return root;
@@ -306,7 +322,11 @@
     sel.value = list.some((d) => d.deviceId === cur) ? cur : '';
   }
 
-  async function addAudio() {
+  const isLocked = (list, id) => { const t = list.find((q) => q.id === id); return !!(t && t.locked); };
+  function lockedNote() { note(tr('Şerit kilitli; önce kilidi açın.')); }
+
+  /* Ses dosyası ekle: seçili (kilitsiz) şeride, yoksa yeni şeride; `at` verilmezse kafaya. */
+  async function addAudio(at, trackId) {
     if (!window.api || !window.api.pickTimelineAudio) return;
     const files = await window.api.pickTimelineAudio();
     if (!files || !files.length) return;
@@ -315,12 +335,12 @@
     if (bad.length) note(tr('Desteklenmeyen ya da okunamayan dosya:') + ' ' + bad.map((f) => f.name).join(', '));
     if (!ok.length) return;
     const list = clone();
-    let trk = list.find((x) => x.id === selTrack);
+    let trk = list.find((x) => x.id === (trackId || selTrack) && !x.locked);
     if (!trk) { trk = A().makeTrack({ name: tr('Ses') + ' ' + (list.length + 1) }); list.push(trk); }
-    let at = headTime();
+    let t0 = Number.isFinite(at) ? Math.max(0, at) : headTime();
     for (const f of ok) {
-      trk.clips.push(A().makeClip({ src: f.url, name: f.name, start: at, dur: f.dur, srcDur: f.dur }));
-      at += f.dur;
+      trk.clips.push(A().makeClip({ src: f.url, name: f.name, start: t0, dur: f.dur, srcDur: f.dur }));
+      t0 += f.dur;
     }
     selTrack = trk.id;
     write(list);
@@ -330,9 +350,34 @@
     const t = A().makeTrack({ name: tr('Ses') + ' ' + (list.length + 1) });
     list.push(t);
     selTrack = t.id;
-    selClip = '';
+    setSel([]);
     write(list);
     showSide();
+    return t.id;
+  }
+  /* Ses şeridini sil (kilitliyse silinmez). id yoksa seçili şerit. */
+  function removeTrack(id) {
+    const list = clone();
+    const ti = list.findIndex((t) => t.id === (id || selTrack));
+    if (ti < 0) return false;
+    if (list[ti].locked) { lockedNote(); return false; }
+    const gone = list[ti];
+    list.splice(ti, 1);
+    if (selTrack === gone.id) selTrack = '';
+    if (gone.clips.some((c) => c.id === selClip || selIds.indexOf(c.id) >= 0)) setSel([]);
+    write(list);
+    clearSide();
+    return true;
+  }
+  function toggleLock(id) {
+    const list = clone();
+    const t = list.find((q) => q.id === (id || selTrack));
+    if (!t) return;
+    t.locked = !t.locked;
+    // Kilitlenen şeritte seçili klip kalmaz (seçilemez)
+    if (t.locked && t.clips.some((c) => c.id === selClip || selIds.indexOf(c.id) >= 0)) { setSel([]); selTrack = t.id; }
+    write(list);
+    if (sideShown) showSide();
   }
   function headTime() {
     try { return Math.max(0, P().transport().time || 0); } catch { return 0; }
@@ -341,67 +386,167 @@
     for (const t of list) { const i = t.clips.findIndex((c) => c.id === selClip); if (i >= 0) return { t, i }; }
     return null;
   }
+  /* ---- Seçim modeli: görsel kliplerle aynı kurallar ----
+     selIds: seçili ses klipleri (Ctrl/Shift+tık ekler/çıkarır), selClip: birincil
+     (denetçide gösterilen). Görsel bir öğe seçilince ses seçimi kalkar, ses seçilince
+     görsel seçim kalkar (Seçim paneli tek bir şeyi gösterir). Düzenlemeler AYNI geri
+     al geçmişine tek adım olarak yazılır (commitAudio). */
+  let selIds = [];
+  function setSel(ids, primary) {
+    selIds = Array.from(new Set(ids || []));
+    selClip = primary && selIds.indexOf(primary) >= 0 ? primary : (selIds[selIds.length - 1] || '');
+  }
+  const picked = () => (selIds.length ? selIds.slice() : (selClip ? [selClip] : []));
+  // Saf işlemin sonucunu yaz; değişmediyse geçmişe adım eklenmez
+  function applyOp(r, changed) {
+    if (!r || !changed) return false;
+    write(r.tracks);
+    if (r.ids) setSel(r.ids, r.ids[0]);
+    if (selClip) showSide(); else if (!selTrack) clearSide(); else showSide();
+    return true;
+  }
+  function lockedHit() {
+    const list = A().normalize(tracks());
+    const want = new Set(picked());
+    return list.some((t) => t.locked && t.clips.some((c) => want.has(c.id)));
+  }
   function splitAtHead() {
-    const list = A().normalize(clone());
     const at = headTime();
-    let done = false;
-    for (const t of list) {
-      if (selTrack && t.id !== selTrack) continue;
-      for (let i = 0; i < t.clips.length; i++) {
-        const c = t.clips[i];
-        if (selClip && c.id !== selClip) continue;
-        const parts = A().splitClip(c, at);
-        if (parts) { t.clips.splice(i, 1, parts[0], parts[1]); i++; done = true; }
-      }
-    }
-    if (done) write(list);
+    // Seçim yoksa seçili şeridin (ya da bütün şeritlerin) kafadaki klipleri
+    let ids = picked();
+    if (!ids.length && selTrack) ids = (A().normalize(tracks()).find((t) => t.id === selTrack) || { clips: [] }).clips.map((c) => c.id);
+    const r = A().splitClips(tracks(), ids, at);
+    if (!r.split && lockedHit()) lockedNote();
+    return applyOp(r, r.split > 0);
   }
   function joinSel() {
     const list = A().normalize(clone());
     const s = findSel(list);
-    if (!s) return;
+    if (!s) return false;
+    if (s.t.locked) { lockedNote(); return false; }
     const a = s.t.clips[s.i];
     const b = s.t.clips.find((c) => A().canJoin(a, c));
     const j = b && A().joinClips(a, b);
-    if (!j) { note(tr('Birleştirilecek bitişik parça yok (aynı kaynak, aynı kesim noktası).')); return; }
+    if (!j) { note(tr('Birleştirilecek bitişik parça yok (aynı kaynak, aynı kesim noktası).')); return false; }
     s.t.clips = s.t.clips.filter((c) => c.id !== a.id && c.id !== b.id).concat([j]);
-    selClip = j.id;
-    write(list);
+    return applyOp({ tracks: list, ids: [j.id] }, true);
   }
   function removeSel(ripple) {
-    const list = A().normalize(clone());
-    const s = findSel(list);
-    if (!s) {
+    const ids = picked();
+    if (!ids.length) {
       // Seçili klip yoksa seçili şerit silinir
-      const ti = list.findIndex((t) => t.id === selTrack);
-      if (ti >= 0) { list.splice(ti, 1); selTrack = ''; write(list); clearSide(); }
-      return;
+      if (selTrack) return removeTrack(selTrack);
+      return false;
     }
-    const c = s.t.clips[s.i];
-    s.t.clips.splice(s.i, 1);
-    if (ripple) for (const o of s.t.clips) if (o.start >= c.start + c.dur - 1e-6) o.start = Math.max(0, o.start - c.dur);
-    selClip = '';
-    write(list);
+    if (lockedHit()) { lockedNote(); return false; }
+    const r = A().removeClips(tracks(), ids, ripple);
+    if (!r.removed) return false;
+    write(r.tracks);
+    setSel([]);
     clearSide();
+    return true;
   }
-  function nudge(dt) {
+  function resetFades() {
     const list = A().normalize(clone());
     const s = findSel(list);
-    if (!s) return;
-    s.t.clips[s.i].start = Math.max(0, s.t.clips[s.i].start + dt);
+    if (!s) return false;
+    if (s.t.locked) { lockedNote(); return false; }
+    s.t.clips[s.i] = A().makeClip(Object.assign({}, s.t.clips[s.i], { fadeIn: 0, fadeOut: 0 }));
     write(list);
+    showSide();
+    return true;
   }
-  function onKey(e) {
-    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  /* ←/→ kaydırma görsel kliplerle aynı adımla: ızgara adımı; Alt bir kare; Shift bir ölçü. */
+  function nudge(dir, fine, bar) {
+    const ids = picked();
+    if (!ids.length) return false;
+    if (lockedHit()) { lockedNote(); return false; }
+    const list = A().normalize(tracks());
+    const first = list.flatMap((t) => t.clips).filter((c) => ids.indexOf(c.id) >= 0).sort((a, b) => a.start - b.start)[0];
+    const p = P();
+    const step = p && p.stepAt ? p.stepAt(first ? first.start : 0, dir, !!fine, !!bar) : (fine ? 1 / 30 : 0.5);
+    const r = A().nudgeClips(tracks(), ids, dir * step);
+    return applyOp(r, r.moved > 0);
+  }
+  // Pano: görsel kliplerinkinden ayrı; Ctrl+V en son kopyalananı yapıştırır (panel karar verir)
+  let board = null;
+  let boardStamp = 0;
+  function copySel() {
+    const b = A().copyClips(tracks(), picked());
+    if (!b) return false;
+    board = b;
+    boardStamp = Date.now() + (performance.now() % 1) * 1e-3;
+    return true;
+  }
+  function cutSel() { return copySel() && removeSel(false); }
+  function pasteAt() {
+    if (!board) return false;
+    const list = A().normalize(tracks());
+    let lane = list.findIndex((t) => t.id === selTrack);
+    if (lane < 0) lane = 0;
+    const r = A().pasteClips(tracks(), board, headTime(), lane, tr('Ses'));
+    if (r.locked) { lockedNote(); return false; }
+    if (!r.pasted) return false;
+    selTrack = A().normalize(r.tracks)[lane].id;
+    return applyOp(r, true);
+  }
+  function duplicateSel() {
+    if (lockedHit()) { lockedNote(); return false; }
+    const r = A().duplicateClips(tracks(), picked());
+    return applyOp(r, r.duplicated > 0);
+  }
+  function selectAll() {
+    const ids = A().allClipIds(tracks());
+    if (!ids.length) return false;
+    setSel(ids, ids[0]);
+    showSide();
+    paintAll();
+    return true;
+  }
+  function moveLane(dir) {
+    const ids = picked();
+    if (!ids.length) return false;
+    if (lockedHit()) { lockedNote(); return false; }
+    const r = A().moveClipsLane(tracks(), ids, dir);
+    if (!r.moved) return false;
+    const list = A().normalize(r.tracks);
+    const t = list.find((q) => q.clips.some((c) => c.id === r.ids[0]));
+    if (t) selTrack = t.id;
+    return applyOp(r, true);
+  }
+  function clearSel() {
+    const had = !!(selIds.length || selClip || selTrack);
+    setSel([]);
+    selTrack = '';
+    clearSide();
+    paintAll();
+    return had;
+  }
+  // Ses tarafı seçim taşıyor mu (kısayollar buraya gider)
+  function active() {
+    // Görsel bir öğe seçiliyse (tıklama ile aynı karede bile) kısayollar görsele gider
+    try { if (P() && P()._selection && P()._selection()) return false; } catch { /* panel yok */ }
+    return !!(selIds.length || selClip || (selTrack && sideShown));
+  }
+  /* Kısayollar: zaman çizelgesinin TEK klavye kapısından (timeline-panel onEditorKey)
+     çağrılır; ses seçimi etkinken düzenleme kısayolları ses kliplerine uygulanır.
+     Geri al / yinele, oynat, yakınlaştırma … panelde kalır (aynı geçmiş). Döner: işlendi mi. */
+  function key(e) {
+    if (!active()) return false;
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName || '')) return false;
+    const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
-    let used = true;
-    if (k === 's' || k === 'S') splitAtHead();
-    else if (k === 'j' || k === 'J') joinSel();
-    else if (k === 'Delete' || k === 'Backspace') removeSel(e.shiftKey);
-    else if (k === 'ArrowLeft') nudge(e.shiftKey ? -1 : -1 / 30);
-    else if (k === 'ArrowRight') nudge(e.shiftKey ? 1 : 1 / 30);
-    else used = false;
-    if (used) { e.preventDefault(); e.stopPropagation(); }
+    const low = typeof k === 'string' && k.length === 1 ? k.toLowerCase() : k;
+    if (k === 'Delete' || k === 'Backspace') { removeSel(e.shiftKey); return true; }
+    if (mod && low === 'c') { copySel(); return true; }
+    if (mod && low === 'x') { cutSel(); return true; }
+    if (mod && low === 'd') { duplicateSel(); return true; }
+    if (mod && low === 'a') { selectAll(); return true; }
+    if ((!mod && low === 's') || (mod && low === 'k')) { splitAtHead(); return true; }
+    if ((k === 'ArrowLeft' || k === 'ArrowRight') && !mod && picked().length) { nudge(k === 'ArrowLeft' ? -1 : 1, e.altKey && !e.shiftKey, e.shiftKey && !e.altKey); return true; }
+    if ((k === 'ArrowUp' || k === 'ArrowDown') && !mod && picked().length) { moveLane(k === 'ArrowUp' ? -1 : 1); return true; }
+    if (k === 'Escape') return clearSel();
+    return false;
   }
   let noteTimer = 0;
   function note(msg) {
@@ -414,11 +559,21 @@
     noteTimer = setTimeout(() => n.remove(), 5000);
   }
   function menuAt(items, x, y) {
-    const m = el('div', { class: 'sv-menu' }, items.map(([text, fn, off]) => el('button', { type: 'button', text: tr(text), disabled: off ? true : null, onclick: () => { m.remove(); fn(); } })));
+    const m = el('div', { class: 'sv-menu tla-menu' }, items.filter(Boolean).map(([text, fn, off]) => el('button', { type: 'button', text: tr(text), disabled: off ? true : null, onclick: () => { m.remove(); fn(); } })));
     if (window.SVSceneShell && window.SVSceneShell.placeMenu) window.SVSceneShell.placeMenu(m, x, y);
     else { m.style.position = 'fixed'; m.style.left = x + 'px'; m.style.top = y + 'px'; document.body.appendChild(m); }
-    const close = (ev) => { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('mousedown', close, true); } };
-    setTimeout(() => document.addEventListener('mousedown', close, true));
+    const close = (ev) => { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('pointerdown', close, true); document.removeEventListener('mousedown', close, true); } };
+    setTimeout(() => { document.addEventListener('pointerdown', close, true); document.addEventListener('mousedown', close, true); });
+  }
+  // Şerit menüsü: başlıkta ve şeridin boş yerinde aynı
+  function laneMenu(t, at, x, y) {
+    if (t) { selTrack = t.id; setSel([]); showSide(); }
+    menuAt([
+      ['Ses Dosyası Ekle', () => addAudio(at, t ? t.id : ''), t && t.locked],
+      ['Ses Şeridi Ekle', () => addTrack()],
+      t ? [t.locked ? 'Kilidi Aç' : 'Kilitle', () => toggleLock(t.id)] : null,
+      t ? ['Şeridi Sil', () => removeTrack(t.id), t.locked] : null,
+    ], x, y);
   }
 
   // ---- Şerit başlıkları: görsel parçalarınkiyle aynı biçim ----
@@ -431,30 +586,45 @@
       headsEl.appendChild(el('div', { class: 'tla-empty', text: tr('Ses şeridi yok. Yeni Şerit → Ses Şeridi ya da + ile dosya ekleyin.') }));
       return;
     }
-    list.forEach((t) => {
+    list.forEach((t, i) => {
       const upd = (fn) => { const l = clone(); const x = l.find((q) => q.id === t.id); if (x) { fn(x); write(l); } };
       const name = el('input', { class: 'txt tl-trackname', type: 'text', value: t.name, title: t.name, 'aria-label': tr('Parça adı') });
       name.addEventListener('change', () => upd((x) => { x.name = name.value.trim() || x.name; }));
-      const tog = (txt, title, key, cls) => {
-        const b = el('button', { class: 'tl-tog ' + cls + (t[key] ? ' on' : ''), type: 'button', text: txt, title: tr(title), 'aria-pressed': t[key] ? 'true' : 'false' });
-        b.addEventListener('click', (e) => { e.stopPropagation(); upd((x) => { x[key] = !x[key]; }); });
+      const tog = (txt, title, key, cls, ico) => {
+        const b = el('button', { class: 'tl-tog ' + cls + (t[key] ? ' on' : ''), type: 'button', title: tr(title), 'aria-label': tr(title), 'aria-pressed': t[key] ? 'true' : 'false' });
+        const ic = ico ? icon(ico) : null;
+        if (ic && ic.nodeType) b.appendChild(ic); else b.textContent = txt;
+        b.addEventListener('click', (e) => { e.stopPropagation(); if (key === 'locked') toggleLock(t.id); else upd((x) => { x[key] = !x[key]; }); });
         return b;
       };
+      /* Şerit ses düzeyi: küçük kaydırıcı (dB ipucu). Sürüklerken yalnız çalma
+         güncellenir, bırakınca geçmişe tek adım; çift tık 0 dB. */
+      const vol = el('input', { class: 'tla-vol', type: 'range', min: String(A().MIN_DB), max: String(A().MAX_DB), step: '0.5', value: String(t.gain), title: tr('Şerit ses düzeyi') + ': ' + fmtDb(t.gain), 'aria-label': tr('Şerit ses düzeyi') });
+      const live = () => {
+        const v = Number(vol.value);
+        vol.title = tr('Şerit ses düzeyi') + ': ' + fmtDb(v);
+        const c = tlc();
+        const x = c && Array.isArray(c.audioTracks) ? c.audioTracks.find((q) => q.id === t.id) : null;
+        if (x) { x.gain = v; sigCache = ''; }
+      };
+      vol.addEventListener('input', live);
+      vol.addEventListener('change', () => upd((x) => { x.gain = Number(vol.value); }));
+      vol.addEventListener('dblclick', () => { vol.value = '0'; upd((x) => { x.gain = 0; }); });
       const meter = el('span', { class: 'tla-meter', 'data-track': t.id, title: tr('Parça seviyesi') }, [el('i'), el('b')]);
       meter.addEventListener('click', (e) => { e.stopPropagation(); meter.classList.remove('clip'); });
-      const head = el('div', { class: 'tl-head tla-head' + (t.id === selTrack && !selClip ? ' sel' : ''), style: 'height:' + lh + 'px' },
-        [el('span', { class: 'tla-swatch', 'aria-hidden': 'true' }), name, meter, tog('M', 'Sustur', 'mute', 'm'), tog('S', 'Solo: yalnız solo parçalar çalar', 'solo', 's')]);
+      const head = el('div', { class: 'tl-head tla-head' + (t.id === selTrack && !selClip ? ' sel' : '') + (t.locked ? ' locked' : ''), style: 'height:' + lh + 'px' },
+        [el('span', { class: 'tla-badge', text: laneLabel(i), 'aria-hidden': 'true' }), name, el('span', { class: 'tla-mix' }, [vol, meter]),
+          tog('M', 'Sustur', 'mute', 'm'), tog('S', 'Solo: yalnız solo parçalar çalar', 'solo', 's'), tog('L', 'Kilitle: klipler seçilmez, taşınmaz, kırpılmaz, silinmez', 'locked', 'l', 'lock')]);
       head.addEventListener('mousedown', (e) => {
         if (e.target && e.target.closest && e.target.closest('input, button, select')) return;
         selTrack = t.id;
-        selClip = '';
+        setSel([]);
         showSide();
+        paintAll();
       });
       head.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        selTrack = t.id;
-        selClip = '';
-        menuAt([['Ses Dosyası Ekle', addAudio], ['Şeridi Sil', () => removeSel(false)]], e.clientX, e.clientY);
+        laneMenu(t, headTime(), e.clientX, e.clientY);
       });
       headsEl.appendChild(head);
     });
@@ -483,7 +653,7 @@
     const btn = (text, title, fn, cls) => el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text: tr(text), title: tr(title), onclick: fn });
     if (s) {
       const c = s.t.clips[s.i];
-      const edit = (fn) => { const l = A().normalize(clone()); const q = findSel(l); if (!q) return; q.t.clips[q.i] = A().makeClip(fn(q.t.clips[q.i]) || q.t.clips[q.i]); write(l); showSide(); };
+      const edit = (fn) => { const l = A().normalize(clone()); const q = findSel(l); if (!q) return; if (q.t.locked) { lockedNote(); showSide(); return; } q.t.clips[q.i] = A().makeClip(fn(q.t.clips[q.i]) || q.t.clips[q.i]); write(l); showSide(); };
       box.appendChild(el('div', { class: 'tl-insp-head', text: tr('Ses klibi') + ' · ' + (c.name || A().nowPlayingAt([{ clips: [c] }], c.start).title) }));
       const g = el('div', { class: 'tl-insp-grid' });
       g.appendChild(row('Başlangıç (sn)', num(c.start, 0, 1e6, 0.01, (v) => edit((x) => { x.start = v; }))));
@@ -503,16 +673,21 @@
       box.appendChild(g);
       box.appendChild(el('div', { class: 'tl-actions' }, [
         btn('Böl', 'Oynatma kafasında böl (S)', splitAtHead),
-        btn('Birleştir', 'Seçili klibi aynı kaynaktan bitişik sonraki klibe ekle (J)', joinSel),
+        btn('Birleştir', 'Seçili klibi aynı kaynaktan bitişik sonraki klibe ekle', joinSel),
+        btn('Solmaları Sıfırla', 'Giriş ve çıkış solmasını kaldır', resetFades),
         btn('Sil', 'Seçili klibi sil (Delete; Shift+Delete boşluğu kapatır)', () => removeSel(false), 'danger'),
       ]));
       sideShown = 'clip:' + c.id;
     } else {
       const upd = (fn) => { const l = clone(); const x = l.find((q) => q.id === trk.id); if (x) { fn(x); write(l); showSide(); } };
-      box.appendChild(el('div', { class: 'tl-insp-head', text: tr('Ses şeridi') + ' · ' + trk.name }));
+      box.appendChild(el('div', { class: 'tl-insp-head', text: tr('Ses şeridi') + ' · ' + laneLabel(list.indexOf(trk)) + ' · ' + trk.name }));
       const g = el('div', { class: 'tl-insp-grid' });
       g.appendChild(row('Kazanç (dB)', num(trk.gain, -60, 12, 0.5, (v) => upd((x) => { x.gain = v; }))));
       g.appendChild(row('Denge (sol/sağ)', num(trk.pan, -1, 1, 0.05, (v) => upd((x) => { x.pan = v; }))));
+      const lock = el('input', { type: 'checkbox' });
+      lock.checked = trk.locked;
+      lock.addEventListener('change', () => toggleLock(trk.id));
+      g.appendChild(row('Kilitli', lock));
       const duck = el('select', {});
       duck.appendChild(el('option', { value: '', text: tr('Kısma yok') }));
       for (const o of A().normalize(tracks())) if (o.id !== trk.id) duck.appendChild(el('option', { value: o.id, text: o.name }));
@@ -520,10 +695,13 @@
       duck.addEventListener('change', () => upd((x) => { x.duck = duck.value ? Object.assign({}, x.duck || {}, { key: duck.value }) : null; }));
       g.appendChild(row('Kısma: anahtar şerit', duck));
       if (trk.duck) g.appendChild(row('Kısma miktarı (dB)', num(trk.duck.amount, -60, 0, 1, (v) => upd((x) => { x.duck.amount = v; }))));
+      // Bütün ses bölümü için: çıkış aygıtı ve ana çıkış ölçeri
+      if (sinkEl) g.appendChild(row('Ses çıkış aygıtı', sinkEl));
+      if (masterBar) g.appendChild(row('Ana çıkış', masterBar));
       box.appendChild(g);
       box.appendChild(el('div', { class: 'tl-actions' }, [
-        btn('Ses Dosyası Ekle', 'Oynatma kafasına ses dosyası (MP3, WAV, FLAC, OGG, M4A, Opus)', addAudio),
-        btn('Şeridi Sil', 'Ses şeridini ve kliplerini sil', () => removeSel(false), 'danger'),
+        btn('Ses Dosyası Ekle', 'Oynatma kafasına ses dosyası (MP3, WAV, FLAC, OGG, M4A, Opus)', () => addAudio()),
+        btn('Şeridi Sil', 'Ses şeridini ve kliplerini sil', () => removeTrack(trk.id), 'danger'),
       ]));
       sideShown = 'track:' + trk.id;
     }
@@ -541,13 +719,138 @@
   }
   function xOf(t) { return P().xOf(t); }
   function tOf(x) { return P().tOf(x); }
+  function rgbOf(hex) {
+    const n = parseInt(String(hex || AUDIO_COL).replace('#', '').slice(0, 6), 16);
+    return Number.isFinite(n) ? [(n >> 16) & 255, (n >> 8) & 255, n & 255] : [47, 158, 116];
+  }
+  const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+  function rrect(c2, x, y, w, h, r) {
+    c2.beginPath();
+    if (c2.roundRect) c2.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2)));
+    else c2.rect(x, y, w, h);
+  }
+  // Klip kutusu ölçüleri: üst şerit (ad) ve dalga alanı
+  function box(y0) {
+    const top = y0 + 3;
+    const hh = LANE_H - 6;
+    const strip = hh >= 30 ? Math.min(16, Math.round(hh * 0.34)) : 0;
+    return { top, hh, strip, wTop: top + strip, wBot: top + hh - 1 };
+  }
+  // Solma eğrisi yalnız solma aralığında, gerçek eğrisiyle (çekirdekteki fadeCurve)
+  const fadePoints = (c, which, n) => A().fadeCurve(c, which, n);
+
+  function drawClip(c2, c, t, y0, w, ghost) {
+    const x0 = xOf(c.start);
+    const x1 = xOf(c.start + c.dur);
+    if (x1 < 0 || x0 > w) return;
+    const cw = Math.max(3, x1 - x0);
+    const b = box(y0);
+    const sel = c.id === selClip || selIds.indexOf(c.id) >= 0;
+    const gone = missing.has(c.src) || peaks.get(c.src) === 'missing';
+    const col = gone ? [220, 70, 70] : rgbOf(c.color || AUDIO_COL);
+    const dim = c.mute || t.mute;
+    c2.save();
+    c2.globalAlpha = ghost ? 0.55 : dim ? 0.5 : t.locked ? 0.75 : 1;
+    // Gövde ve üst ad şeridi
+    rrect(c2, x0, b.top, cw, b.hh, 6);
+    c2.fillStyle = rgba(col, 0.55);
+    c2.fill();
+    c2.save();
+    rrect(c2, x0, b.top, cw, b.hh, 6);
+    c2.clip();
+    if (b.strip) { c2.fillStyle = rgba(col, 0.9); c2.fillRect(x0, b.top, cw, b.strip); }
+    // Dalga biçimi (tepe değerleri; klip kazancıyla ölçekli, solma ayrıca çizilir)
+    const pk = peaksOf(c.src);
+    const mid = (b.wTop + b.wBot) / 2;
+    const amp = Math.max(2, (b.wBot - b.wTop) / 2 - 1);
+    const onMedia = alpha('--on-media-rgb', 0.88); // dalga: orta tonlu klip renginde her temada okunur (içerik rengi)
+    if (pk && pk.data) {
+      c2.fillStyle = gone ? rgba(col, 0.8) : onMedia;
+      const from = Math.max(0, Math.floor(x0));
+      const to = Math.min(w, Math.ceil(x1));
+      const g = Math.min(1.5, A().dbToGain(c.gain));
+      for (let x = from; x < to; x++) {
+        const ta = tOf(x) - c.start;
+        const tb = tOf(x + 1) - c.start;
+        const ia = Math.floor((c.in + ta) * pk.rate);
+        const ib = Math.max(ia + 1, Math.floor((c.in + tb) * pk.rate));
+        let m = 0;
+        for (let i = Math.max(0, ia); i < Math.min(pk.data.length, ib); i++) if (pk.data[i] > m) m = pk.data[i];
+        const hh = Math.min(1, m * g) * amp;
+        c2.fillRect(x, mid - hh, 1, Math.max(1, hh * 2));
+      }
+    } else {
+      c2.fillStyle = fg(0.55);
+      c2.font = '11px system-ui, sans-serif';
+      c2.fillText(gone ? tr('Dosya bulunamadı') : tr('Yükleniyor…'), x0 + 6, mid + 4);
+    }
+    // Solmalar: yalnız aralığında, eğrinin üstü karartılır
+    for (const which of ['in', 'out']) {
+      const pts = fadePoints(c, which);
+      if (!pts.length) continue;
+      const yOfG = (g) => b.wBot - g * (b.wBot - b.wTop);
+      c2.beginPath();
+      c2.moveTo(xOf(pts[0][0]), b.wTop);
+      for (const [tt, g] of pts) c2.lineTo(xOf(tt), yOfG(g));
+      c2.lineTo(xOf(pts[pts.length - 1][0]), b.wTop);
+      c2.closePath();
+      c2.fillStyle = alpha('--shadow-rgb', 0.32);
+      c2.fill();
+      c2.beginPath();
+      pts.forEach(([tt, g], i) => { if (i) c2.lineTo(xOf(tt), yOfG(g)); else c2.moveTo(xOf(tt), yOfG(g)); });
+      c2.strokeStyle = onMedia;
+      c2.lineWidth = 1.25;
+      c2.stroke();
+    }
+    // Ad (ve 0 dışı kazanç) üst şeritte; şerit yoksa dalganın üstünde
+    if (cw > 24) {
+      c2.fillStyle = alpha('--on-media-rgb', 1);
+      c2.font = '600 11px system-ui, sans-serif';
+      c2.textBaseline = 'middle';
+      const label = (c.name || '').slice(0, 80) + (c.gain ? '  ' + fmtDb(c.gain) : '') + (c.mute ? '  · ' + tr('Sessiz') : '');
+      c2.fillText(label, x0 + 7, b.strip ? b.top + b.strip / 2 + 0.5 : b.top + 8);
+      c2.textBaseline = 'alphabetic';
+    }
+    c2.restore();
+    // Çerçeve; seçili: kalın açık çerçeve; sürüklenen: kesikli
+    rrect(c2, x0 + 0.5, b.top + 0.5, cw - 1, b.hh - 1, 6);
+    c2.strokeStyle = sel ? ((color('--text-strong') || alpha('--on-media-rgb', 1))) : rgba(col, 0.95);
+    c2.lineWidth = sel ? 2 : 1;
+    if (ghost) c2.setLineDash([4, 3]);
+    c2.stroke();
+    c2.setLineDash([]);
+    // Kırpma kenarı vurgusu (üstüne gelince)
+    if (hover.clip === c.id && (hover.kind === 'trimL' || hover.kind === 'trimR')) {
+      c2.fillStyle = (color('--text-strong') || alpha('--on-media-rgb', 1));
+      const ex = hover.kind === 'trimL' ? x0 + 1 : x1 - 4;
+      c2.fillRect(ex, b.top + 2, 3, b.hh - 4);
+    }
+    // Solma tutamaçları: seçili, üstünde ya da solma varken (sıfırdayken köşede)
+    const showH = !t.locked && cw > 18 && (sel || hover.clip === c.id || c.fadeIn > 0 || c.fadeOut > 0);
+    if (showH) {
+      const hs = touch() && touch().coarse() ? 10 : 7;
+      const hy = b.wTop;
+      for (const [hx, on] of [[xOf(c.start + c.fadeIn), sel || hover.clip === c.id || c.fadeIn > 0], [xOf(c.start + c.dur - c.fadeOut), sel || hover.clip === c.id || c.fadeOut > 0]]) {
+        if (!on) continue;
+        const cx = Math.max(x0 + hs / 2, Math.min(x1 - hs / 2, hx));
+        c2.fillStyle = (color('--text-strong') || alpha('--on-media-rgb', 1));
+        c2.strokeStyle = alpha('--shadow-rgb', 0.6);
+        c2.lineWidth = 1;
+        c2.fillRect(cx - hs / 2, hy - hs / 2, hs, hs);
+        c2.strokeRect(cx - hs / 2 + 0.5, hy - hs / 2 + 0.5, hs - 1, hs - 1);
+      }
+    }
+    c2.restore();
+  }
+  function fg(a) { return alpha('--fg-rgb', a); }
 
   function paint() {
     if (!canvas || !root || !root.isConnected) return;
     const g = geom();
     LANE_H = laneH();
     const list = A().normalize(tracks());
-    const h = Math.max(LANE_H, list.length * LANE_H);
+    const extra = drag && drag.newLane ? 1 : 0; // aşağı sürüklenince yeni şerit önizlemesi
+    const h = Math.max(LANE_H, (list.length + extra) * LANE_H);
     const wrap = canvas.parentElement;
     /* Başlık sütunu çizelgeninkiyle AYNI: tuvalin sol kenarı çizelge tuvalinin
        sol kenarına oturur (cetvel, ızgara ve oynatma kafası hizalı). */
@@ -567,64 +870,27 @@
     const c2 = canvas.getContext('2d');
     c2.setTransform(dpr, 0, 0, dpr, 0, 0);
     c2.clearRect(0, 0, w, h);
-    const fg = (a) => alpha('--fg-rgb', a);
     const p = P();
     if (!p || !p.xOf) return;
+    let ghost = null;
     list.forEach((t, ti) => {
       const y0 = ti * LANE_H;
-      c2.fillStyle = t.id === selTrack ? fg(0.06) : fg(ti % 2 ? 0.02 : 0.035);
-      c2.fillRect(0, y0, w, LANE_H);
-      c2.fillStyle = fg(0.12);
+      // Görsel parçalarla aynı: yalnız seçili şerit hafifçe belirgin
+      if (t.id === selTrack && !selClip) { c2.fillStyle = fg(0.045); c2.fillRect(0, y0, w, LANE_H); }
+      // Kilitli şerit: ince çapraz tarama
+      if (t.locked) {
+        c2.save();
+        c2.beginPath(); c2.rect(0, y0, w, LANE_H); c2.clip();
+        c2.strokeStyle = fg(0.06);
+        c2.lineWidth = 1;
+        for (let k = -LANE_H; k < w; k += 10) { c2.beginPath(); c2.moveTo(k, y0 + LANE_H); c2.lineTo(k + LANE_H, y0); c2.stroke(); }
+        c2.restore();
+      }
+      c2.fillStyle = fg(0.06);
       c2.fillRect(0, y0 + LANE_H - 1, w, 1);
       for (const c of t.clips) {
-        const x0 = xOf(c.start);
-        const x1 = xOf(c.start + c.dur);
-        if (x1 < 0 || x0 > w) continue;
-        const sel = c.id === selClip;
-        const gone = missing.has(c.src) || peaks.get(c.src) === 'missing';
-        c2.fillStyle = gone ? alpha('--danger-rgb', 0.25) : alpha('--info-rgb', c.mute || t.mute ? 0.12 : 0.28);
-        c2.fillRect(x0, y0 + 2, x1 - x0, LANE_H - 5);
-        // Dalga biçimi (tepe değerleri; klip kazancı ve geçişlerle ölçekli)
-        const pk = peaksOf(c.src);
-        const mid = y0 + LANE_H / 2;
-        if (pk && pk.data) {
-          c2.fillStyle = fg(c.mute || t.mute ? 0.25 : 0.6);
-          const from = Math.max(0, Math.floor(x0));
-          const to = Math.min(w, Math.ceil(x1));
-          for (let x = from; x < to; x++) {
-            const ta = tOf(x) - c.start;
-            const tb = tOf(x + 1) - c.start;
-            const ia = Math.floor((c.in + ta) * pk.rate);
-            const ib = Math.max(ia + 1, Math.floor((c.in + tb) * pk.rate));
-            let m = 0;
-            for (let i = Math.max(0, ia); i < Math.min(pk.data.length, ib); i++) if (pk.data[i] > m) m = pk.data[i];
-            const gv = Math.min(1.5, m * A().clipGainAt(c, ta));
-            const hh = gv * (LANE_H / 2 - 4);
-            c2.fillRect(x, mid - hh, 1, Math.max(1, hh * 2));
-          }
-        } else {
-          c2.fillStyle = fg(0.3);
-          c2.font = '11px system-ui, sans-serif';
-          c2.fillText(gone ? tr('Dosya bulunamadı') : tr('Yükleniyor…'), x0 + 6, mid + 4);
-        }
-        // Geçiş eğrileri ve tutamaçları
-        c2.strokeStyle = color('--accent') || fg(0.8);
-        c2.lineWidth = 1.5;
-        c2.beginPath();
-        for (let k = 0; k <= 24; k++) {
-          const lt = (c.dur * k) / 24;
-          const gg = A().clipGainAt(Object.assign({}, c, { gain: 0 }), lt);
-          const yy = y0 + LANE_H - 4 - gg * (LANE_H - 8);
-          if (k) c2.lineTo(xOf(c.start + lt), yy); else c2.moveTo(xOf(c.start + lt), yy);
-        }
-        c2.stroke();
-        c2.fillStyle = color('--accent') || fg(0.8);
-        c2.fillRect(xOf(c.start + c.fadeIn) - 4, y0 + 2, 8, 8);
-        c2.fillRect(xOf(c.start + c.dur - c.fadeOut) - 4, y0 + 2, 8, 8);
-        c2.fillStyle = fg(0.85);
-        c2.font = '11px system-ui, sans-serif';
-        c2.fillText((c.name || '').slice(0, 60), x0 + 12, y0 + 13);
-        if (sel) { c2.strokeStyle = color('--text-strong') || fg(1); c2.lineWidth = 2; c2.strokeRect(x0 + 1, y0 + 3, x1 - x0 - 2, LANE_H - 7); }
+        if (drag && drag.moved && drag.h.kind === 'move' && drag.h.c && c.id === drag.h.c.id) { ghost = { c, t, ti }; continue; }
+        drawClip(c2, c, t, y0, w, false);
       }
       // Ses otomasyonu: noktalar ve çizgi (+12 üstte, -60 altta)
       if (t.volume.length) {
@@ -640,6 +906,23 @@
         for (const pt of t.volume) c2.fillRect(xOf(pt.t) - 3, yOf(pt.db) - 3, 6, 6);
       }
     });
+    if (extra) {
+      const y0 = list.length * LANE_H;
+      c2.strokeStyle = alpha('--accent-rgb', 0.6) || fg(0.5);
+      c2.setLineDash([5, 4]);
+      c2.strokeRect(0.5, y0 + 0.5, w - 1, LANE_H - 1);
+      c2.setLineDash([]);
+      c2.fillStyle = fg(0.5);
+      c2.font = '11px system-ui, sans-serif';
+      c2.fillText(tr('Yeni ses şeridi'), 8, y0 + LANE_H / 2 + 4);
+    }
+    // Sürüklenen klip en üstte, hedef şeritte
+    if (ghost) drawClip(c2, ghost.c, ghost.t, (drag.newLane ? list.length : ghost.ti) * LANE_H, w, true);
+    // Yakalama çizgisi
+    if (drag && drag.snapAt != null) {
+      c2.fillStyle = color('--accent') || fg(1);
+      c2.fillRect(Math.round(xOf(drag.snapAt)), 0, 1, h);
+    }
     // Oynatma kafası
     const hx = xOf(headTime());
     c2.fillStyle = color('--accent') || fg(1);
@@ -655,6 +938,7 @@
       b.hold = lvl > b.hold ? lvl : Math.max(0, b.hold - 0.01);
       i.style.width = Math.min(100, lvl * 100) + '%';
       hold.style.left = Math.min(100, b.hold * 100) + '%';
+      hold.style.opacity = b.hold > 0.005 ? '1' : '0'; // sessizken uçta çizgi kalmasın
       if (lvl >= 0.999) node.classList.add('clip'); // kırpılma: tıklanana dek kalır
     };
     if (masterMeter) set(masterBar, levelOf(masterMeter), masterHold);
@@ -664,49 +948,70 @@
 
   function paintAll() { paintHeads(); paintInspector(); paint(); }
 
-  // ---- Fare: taşı, kenardan kırp, geçiş tutamacı, ses noktası (Alt+tık) ----
+  // ---- Fare / dokunma: taşı, kenardan kırp, solma tutamacı, ses noktası (Alt+tık) ----
+  /* İsabet sırası: ses noktası → solma tutamacı (yalnız tutamacın kutusunda;
+     önce sol üst köşedeki tutamaç kırpma ve taşımayı yutuyordu, tıklayıp
+     sürüklemek kazara tüm klibe solma veriyordu) → kenar (kırp) → gövde (taşı).
+     Kilitli şeritte klip isabeti yok: yalnız şerit seçilir. */
   function hit(x, y) {
     LANE_H = laneH();
     const list = A().normalize(tracks());
     const ti = Math.floor(y / LANE_H);
     const t = list[ti];
-    if (!t) return { ti };
+    if (!t) return { ti, below: ti >= list.length };
+    if (t.locked) return { ti, t, locked: true };
     const ly = y - ti * LANE_H;
     const yOf = (db) => 4 + ((12 - db) / 72) * (LANE_H - 8);
-    const vi = t.volume.findIndex((p) => Math.abs(xOf(p.t) - x) < 6 && Math.abs(yOf(p.db) - ly) < 6);
+    const vt = tolPx(6);
+    const vi = t.volume.findIndex((p) => Math.abs(xOf(p.t) - x) < vt && Math.abs(yOf(p.db) - ly) < vt);
     if (vi >= 0) return { ti, t, kind: 'vol', vi };
+    const b = box(0);
+    const ht = tolPx(6);
+    const edgeTol = tolPx(7);
     for (let i = t.clips.length - 1; i >= 0; i--) {
       const c = t.clips[i];
       const x0 = xOf(c.start);
       const x1 = xOf(c.start + c.dur);
-      if (x < x0 - 4 || x > x1 + 4) continue;
-      if (ly < 12 && Math.abs(x - xOf(c.start + c.fadeIn)) < 6) return { ti, t, c, kind: 'fadeIn' };
-      if (ly < 12 && Math.abs(x - xOf(c.start + c.dur - c.fadeOut)) < 6) return { ti, t, c, kind: 'fadeOut' };
-      if (Math.abs(x - x0) < 6) return { ti, t, c, kind: 'trimL' };
-      if (Math.abs(x - x1) < 6) return { ti, t, c, kind: 'trimR' };
-      if (x >= x0 && x <= x1) return { ti, t, c, kind: 'move' };
+      if (x < x0 - 2 || x > x1 + 2 || ly < b.top - 2 || ly > b.top + b.hh + 2) continue;
+      const handles = c.id === selClip || hover.clip === c.id || c.fadeIn > 0 || c.fadeOut > 0;
+      if (handles && x1 - x0 > 18 && Math.abs(ly - b.wTop) <= ht) {
+        const hi = Math.max(x0, Math.min(x1, xOf(c.start + c.fadeIn)));
+        const ho = Math.max(x0, Math.min(x1, xOf(c.start + c.dur - c.fadeOut)));
+        const di = Math.abs(x - hi);
+        const dout = Math.abs(x - ho);
+        if (Math.min(di, dout) <= ht) return { ti, t, c, kind: dout < di || (dout === di && x > (x0 + x1) / 2) ? 'fadeOut' : 'fadeIn' };
+      }
+      const edge = Math.min(edgeTol, (x1 - x0) / 3);
+      if (x <= x0 + edge) return { ti, t, c, kind: 'trimL' };
+      if (x >= x1 - edge) return { ti, t, c, kind: 'trimR' };
+      return { ti, t, c, kind: 'move' };
     }
     return { ti, t };
   }
-  // Yakalama: diğer klip kenarları, oynatma kafası, işaretler (8 piksel)
-  function snapT(tm, skipId) {
+  /* Yakalama: diğer ses klibi kenarları, görsel klip kenarları, oynatma kafası,
+     işaretler (8 piksel; parmakta 12). Döner: { t, at } — at: oturduğu nokta ya da null. */
+  function snapInfo(tm, skipId) {
     const pts = [headTime()];
     for (const t of A().normalize(tracks())) for (const c of t.clips) if (c.id !== skipId) pts.push(c.start, c.start + c.dur);
     const c = tlc();
     for (const m of (c && c.markers) || []) if (m && Number.isFinite(m.t)) pts.push(m.t);
-    let best = tm;
-    let bd = 8;
+    for (const trk of (c && c.tracks) || []) for (const v of (trk && trk.clips) || []) if (v && Number.isFinite(v.start) && Number.isFinite(v.dur)) pts.push(v.start, v.start + v.dur);
+    let best = null;
+    let bd = touch() && touch().coarse() ? 12 : 8;
     for (const p of pts) { const d = Math.abs(xOf(p) - xOf(tm)); if (d < bd) { bd = d; best = p; } }
-    return best;
+    return { t: best == null ? tm : best, at: best };
   }
+  function snapT(tm, skipId) { return snapInfo(tm, skipId).t; }
   function bindCanvas() {
     canvas.addEventListener('mousedown', (e) => {
+      if (e.button != null && e.button !== 0) return;
       const r = canvas.getBoundingClientRect();
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
       const h = hit(x, y);
       root.focus({ preventScroll: true });
       if (h.t) selTrack = h.t.id;
+      if (h.locked) { setSel([]); showSide(); paintHeads(); return; }
       if (e.altKey && h.t && h.kind !== 'vol') {
         // Alt+tık: ses noktası ekle
         const list = clone();
@@ -716,48 +1021,72 @@
         write(list);
         return;
       }
-      selClip = h.c ? h.c.id : (h.kind === 'vol' ? selClip : '');
+      // Boş şeride çift tık: o noktaya ses dosyası
+      if (!h.kind && h.t && e.detail === 2) { addAudio(snapT(Math.max(0, tOf(x))), h.t.id); return; }
+      // Ctrl/Shift+tık: seçime ekle ya da çıkar, taşıma yok (görsel kliplerdeki gibi)
+      if (h.c && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+        const has = selIds.indexOf(h.c.id) >= 0;
+        setSel(has ? selIds.filter((id) => id !== h.c.id) : selIds.concat([h.c.id]), has ? '' : h.c.id);
+        if (selClip || selTrack) showSide(); else clearSide();
+        paintAll();
+        return;
+      }
+      // Seçili gruba tıklamak grubu korur (grup taşıma); başka klip tek seçim
+      const group = h.c && h.kind === 'move' && selIds.length > 1 && selIds.indexOf(h.c.id) >= 0;
+      if (h.c) { if (!group) setSel([h.c.id], h.c.id); else selClip = h.c.id; } else if (h.kind !== 'vol') setSel([]);
       if (h.c || h.t) showSide(); else clearSide();
-      if (!h.kind) return;
-      drag = { h, x0: x, y0: y, orig: JSON.parse(JSON.stringify(tracks())), moved: false };
+      if (!h.kind) { paintHeads(); return; }
+      drag = { h, x0: x, y0: y, orig: JSON.parse(JSON.stringify(tracks())), moved: false, snapAt: null, newLane: false, group };
       e.preventDefault();
     });
     canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
       const r = canvas.getBoundingClientRect();
       const h = hit(e.clientX - r.left, e.clientY - r.top);
+      const at = Math.max(0, tOf(e.clientX - r.left));
       if (h.c) {
-        e.preventDefault();
         selTrack = h.t.id;
-        selClip = h.c.id;
+        if (selIds.indexOf(h.c.id) < 0) setSel([h.c.id], h.c.id); else selClip = h.c.id;
         showSide();
-        menuAt([['Böl', splitAtHead], ['Birleştir', joinSel], ['Sil', () => removeSel(false)], ['Sil ve boşluğu kapat', () => removeSel(true)]], e.clientX, e.clientY);
+        menuAt([['Böl', splitAtHead], ['Birleştir', joinSel], ['Solmaları Sıfırla', resetFades, !(h.c.fadeIn > 0 || h.c.fadeOut > 0)], ['Sil', () => removeSel(false)], ['Sil ve boşluğu kapat', () => removeSel(true)]], e.clientX, e.clientY);
         return;
       }
-      if (h.kind !== 'vol') return;
-      e.preventDefault();
-      const list = clone();
-      const tt = list.find((q) => q.id === h.t.id);
-      tt.volume.splice(h.vi, 1);
-      write(list);
+      if (h.kind === 'vol') {
+        const list = clone();
+        const tt = list.find((q) => q.id === h.t.id);
+        tt.volume.splice(h.vi, 1);
+        write(list);
+        return;
+      }
+      laneMenu(h.t || null, at, e.clientX, e.clientY);
     });
     window.addEventListener('mousemove', (e) => {
       if (!drag) {
         if (!canvas.isConnected) return;
         const r = canvas.getBoundingClientRect();
-        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+          if (hover.clip) { hover = { clip: '', kind: '' }; paint(); }
+          return;
+        }
         const h = hit(e.clientX - r.left, e.clientY - r.top);
-        canvas.style.cursor = h.kind === 'trimL' || h.kind === 'trimR' ? 'ew-resize' : h.kind === 'move' ? 'grab' : h.kind ? 'pointer' : 'default';
+        canvas.style.cursor = h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fadeIn' || h.kind === 'fadeOut' ? 'ew-resize' : h.kind === 'move' ? 'grab' : h.kind ? 'pointer' : h.locked ? 'not-allowed' : 'default';
+        canvas.title = h.locked ? tr('Şerit kilitli; önce kilidi açın.') : h.kind === 'fadeIn' ? tr('Giriş geçişi') : h.kind === 'fadeOut' ? tr('Çıkış geçişi') : '';
+        const nh = { clip: h.c ? h.c.id : '', kind: h.kind || '' };
+        if (nh.clip !== hover.clip || nh.kind !== hover.kind) { hover = nh; paint(); }
         return;
       }
       const r = canvas.getBoundingClientRect();
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
-      if (Math.abs(x - drag.x0) < 2 && Math.abs(y - drag.y0) < 2 && !drag.moved) return;
+      if (Math.abs(x - drag.x0) < 3 && Math.abs(y - drag.y0) < 3 && !drag.moved) return;
       drag.moved = true;
       const dt = tOf(x) - tOf(drag.x0);
       const list = A().normalize(JSON.parse(JSON.stringify(drag.orig)));
       const ti = list.findIndex((q) => q.id === drag.h.t.id);
       const t = list[ti];
+      if (!t) return;
+      drag.snapAt = null;
+      drag.newLane = false;
       if (drag.h.kind === 'vol') {
         const p = t.volume[drag.h.vi];
         const ly = y - ti * LANE_H;
@@ -768,16 +1097,37 @@
         const ci = t.clips.findIndex((q) => q.id === drag.h.c.id);
         let c = t.clips[ci];
         const k = drag.h.kind;
-        if (k === 'move') {
-          const s = snapT(Math.max(0, c.start + dt), c.id);
-          const s2 = snapT(Math.max(0, c.start + c.dur + dt), c.id) - c.dur;
-          c.start = Math.max(0, Math.abs(s - (c.start + dt)) <= Math.abs(s2 - (c.start + dt)) ? s : s2);
-          // Dikey: başka ses parçasına taşı
-          const nti = Math.max(0, Math.min(list.length - 1, Math.floor(y / LANE_H)));
-          if (nti !== ti) { t.clips.splice(ci, 1); list[nti].clips.push(c); }
-        } else if (k === 'trimL') c = A().trimStart(c, snapT(c.start + dt, c.id));
-        else if (k === 'trimR') c = A().trimEnd(c, snapT(c.start + c.dur + dt, c.id));
-        else if (k === 'fadeIn') c.fadeIn = Math.max(0, Math.min(c.dur - c.fadeOut, c.fadeIn + dt));
+        const free = e.altKey; // Alt: yakalama yok
+        if (k === 'move' && drag.group) {
+          // Grup: birincil yakalamaya göre, hepsi aynı kayma; hiçbiri sıfırın soluna geçmez
+          const raw = Math.max(0, c.start + dt);
+          const a = free ? { t: raw, at: null } : snapInfo(raw, c.id);
+          drag.snapAt = a.at;
+          const r = A().nudgeClips(drag.orig, selIds, a.t - c.start);
+          const cfgTl = tlc();
+          if (cfgTl) cfgTl.audioTracks = r.tracks;
+          paint();
+          return;
+        } else if (k === 'move') {
+          const raw = Math.max(0, c.start + dt);
+          const a = free ? { t: raw, at: null } : snapInfo(raw, c.id);
+          const b2 = free ? { t: raw + c.dur, at: null } : snapInfo(raw + c.dur, c.id);
+          const useA = a.at != null && (b2.at == null || Math.abs(a.t - raw) <= Math.abs(b2.t - c.dur - raw));
+          c.start = Math.max(0, useA ? a.t : b2.at != null ? b2.t - c.dur : raw);
+          drag.snapAt = useA ? a.at : b2.at;
+          // Dikey: başka (kilitsiz) ses şeridine; son şeridin altı yeni şerit
+          const row = Math.floor(y / LANE_H);
+          if (row >= list.length) drag.newLane = true;
+          else if (row >= 0 && row !== ti && !list[row].locked) { t.clips.splice(ci, 1); list[row].clips.push(c); }
+        } else if (k === 'trimL') {
+          const s = free ? { t: c.start + dt, at: null } : snapInfo(c.start + dt, c.id);
+          c = A().trimStart(c, s.t);
+          drag.snapAt = s.at;
+        } else if (k === 'trimR') {
+          const s = free ? { t: c.start + c.dur + dt, at: null } : snapInfo(c.start + c.dur + dt, c.id);
+          c = A().trimEnd(c, s.t);
+          drag.snapAt = s.at;
+        } else if (k === 'fadeIn') c.fadeIn = Math.max(0, Math.min(c.dur - c.fadeOut, c.fadeIn + dt));
         else if (k === 'fadeOut') c.fadeOut = Math.max(0, Math.min(c.dur - c.fadeIn, c.fadeOut - dt));
         if (k !== 'move') t.clips[ci] = A().makeClip(c);
       }
@@ -790,26 +1140,54 @@
       if (!drag) return;
       const d = drag;
       drag = null;
-      if (d.moved) { write(tracks()); if (selClip) showSide(); }
+      if (!d.moved) { paint(); return; }
+      let list = tracks();
+      if (d.newLane && d.h.kind === 'move' && d.h.c) {
+        // Son şeridin altına bırakıldı: yeni şerit, klip oraya
+        list = A().normalize(JSON.parse(JSON.stringify(list)));
+        let c = null;
+        for (const t of list) { const i = t.clips.findIndex((q) => q.id === d.h.c.id); if (i >= 0) { c = t.clips.splice(i, 1)[0]; break; } }
+        if (c) { const nt = A().makeTrack({ name: tr('Ses') + ' ' + (list.length + 1), clips: [c] }); list.push(nt); selTrack = nt.id; }
+      }
+      write(list);
+      if (selClip) showSide();
     });
+    // Dokunma: parmakla sürükle/kırp/taşı, boş şeritte kaydır, iki parmakla yakınlaştır, uzun basış menü
+    if (touch()) {
+      touch().bind(canvas, {
+        grab: (x, y) => !!hit(x, y).kind,
+        pan: (dx, dy) => {
+          const p = P();
+          if (dx && p && p.scrollBy) p.scrollBy(dx);
+          if (dy) touch().scrollY(canvas, dy);
+        },
+        zoom: (f, x) => { const p = P(); if (p && p.zoomAt) p.zoomAt(f, x); },
+      });
+    }
   }
 
   // ---- Döngüler ----
-  setInterval(() => { try { tick(); } catch (e) { /* çalma hatası çizelgeyi durdurmaz */ } }, TICK_MS);
+  const tickTimer = setInterval(() => { try { tick(); } catch (e) { /* çalma hatası çizelgeyi durdurmaz */ } }, TICK_MS);
+  // Node testlerinde süreç bu zamanlayıcı yüzünden açık kalmasın (tarayıcıda sayı döner)
+  if (tickTimer && typeof tickTimer.unref === 'function') tickTimer.unref();
   /* Başlık ve denetçi yalnız yapı değişince yeniden kurulur (geri al, sekme,
      MCP); kullanıcı bir alana yazarken kurulmaz, odak kaybolmasın. */
   let headSig = '';
   function headsChanged() {
     const list = A().normalize(tracks());
-    const sig = JSON.stringify([selTrack, selClip, sinkNote, list.map((t) => [t.id, t.name, t.mute, t.solo, t.gain, t.pan, t.duck, t.clips.length])])
+    const sig = JSON.stringify([selTrack, selClip, selIds.length, sinkNote, list.map((t) => [t.id, t.name, t.mute, t.solo, t.locked, t.gain, t.pan, t.duck, t.clips.length])])
       + JSON.stringify(list.map((t) => t.clips.find((c) => c.id === selClip) || 0));
     // Görsel bir öğe seçildi: ses seçimi kalkar (Seçim paneli tek bir şeyi gösterir)
     try {
       const vis = P() && P()._selection ? P()._selection() : null;
-      if (vis && (selClip || sideShown)) { selClip = ''; selTrack = ''; sideShown = ''; }
+      if (vis && (selClip || selIds.length || sideShown)) { setSel([]); selTrack = ''; sideShown = ''; }
     } catch { /* panel yok */ }
     // Seçili klip geri alma ile kalktı: panel kendi denetçisine döner
-    if (selClip && !list.some((t) => t.clips.some((c) => c.id === selClip))) { selClip = ''; clearSide(); }
+    if (selIds.length || selClip) {
+      const live = new Set(list.flatMap((t) => t.clips.map((c) => c.id)));
+      const keep = selIds.filter((id) => live.has(id));
+      if (keep.length !== selIds.length || (selClip && !live.has(selClip))) { setSel(keep, live.has(selClip) ? selClip : ''); if (!selClip) clearSide(); }
+    }
     if (sig === headSig) return;
     const a = document.activeElement;
     if (a && headsEl && headsEl.contains(a) && /INPUT|SELECT/.test(a.tagName)) return;
@@ -828,11 +1206,22 @@
     _voices: () => Array.from(voices.entries()).map(([id, v]) => ({ id, paused: v.audio.paused, t: v.audio.currentTime, gain: v.gain.gain.value })),
     _tick: tick,
     _write: write,
-    _select: (t, c) => { selTrack = t || ''; selClip = c || ''; if (selTrack || selClip) showSide(); else clearSide(); paintAll(); },
+    _select: (t, c) => { selTrack = t || ''; setSel(c ? [].concat(c) : [], Array.isArray(c) ? c[0] : c); if (selTrack || selClip) showSide(); else clearSide(); paintAll(); },
     _side: () => sideShown,
     _nowSent: () => lastNow,
     addTrack,
     addAudio,
-    _key: onKey,
+    removeTrack,
+    toggleLock,
+    selectedTrack: () => selTrack,
+    _hit: (x, y) => { const h = hit(x, y); return { kind: h.kind || '', locked: !!h.locked, clip: h.c ? h.c.id : '', track: h.t ? h.t.id : '' }; },
+    _fadePoints: fadePoints,
+    _key: key,
+    _sel: () => selIds.slice(),
+    key,
+    active,
+    clipStamp: () => (board ? boardStamp : 0),
+    paste: pasteAt,
+    clearSelection: clearSel,
   };
 })();
