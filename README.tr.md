@@ -573,8 +573,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **MilkDrop Uyumu anahtarı** MilkDrop 2'nin kendi kurallarını izliyor — derleyicisini, ses zincirini,
   ağ dönüşümünü, varsayılan değerlerini ve sabit işlevli boru hattını. Ayrıntılar bu sayfanın sonundaki
   [MilkDrop motoru notları](#milkdrop-motoru-notları) bölümünde.
-- **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
-  *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
+- **Uygulama kendi 60 CaYaDev MilkDrop presetiyle geliyor**, böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
 - **CaYaDev MilkDrop Presetleri: 60 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
@@ -1817,7 +1816,7 @@ aynı ağdaki başka bir bilgisayarda olabilir. GPU paylaşımı için Spout (Wi
 **MilkDrop presetlerimi yükleyebilir mi?**
 Evet: tek `.milk` dosyaları, MilkDrop 3 `.milk2` çift presetleri, ZIP paketleri,
 klasörler ya da bilgisayarınızda bir arama. Görsel kullanan presetler için uygulamayı bir MilkDrop
-`textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; beş özgün preset geliyor.
+`textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; 60 özgün CaYaDev preseti geliyor.
 
 **Bir Winamp ya da projectM eklentisi mi?**
 Hayır. WebGL2'de kendi MilkDrop uyumlu motoru olan bağımsız bir uygulama. projectM'i ya da MilkDrop'u
@@ -1870,13 +1869,11 @@ kapatmak motorun önceki görünümünü geri getiriyor.
 - **10.347 gerçek preset üzerinde ölçüldü**, projectM'in özgün ve cream-of-the-crop paketlerinden:
   hepsi yükleniyor ve çalışıyor, 10.344'ünde tek bir deyim bile atlanmıyor.
 - **`.milk` içe aktarma**, çok dosyalı paketler dahil; derleme hataları dosya dosya bildiriliyor.
-- **Uygulama kendi beş presetiyle geliyor.** *Kutup Işığı* (akışkan bir bulutsu), *Erimiş Altın*
-  (abartılı olan), *Dingin Halkalar* (yavaş ve neredeyse siyah), *Sonsuz Tünel* (klasik tünel) ve
-  *Nabız Örgüsü* (hareket vektörlerinin dokuduğu örgünün üstünde vuruşla zıplayan kareler) — hepsi
+- **Uygulama kendi 60 CaYaDev MilkDrop presetiyle geliyor.** Hepsi
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
-  de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
-- **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) onların yanında gömülü
-  geliyor: sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
+  de öteki presetler gibi giriyorlar. Bu sayfadaki görseller onlardan alındı.
+- **CaYaDev MilkDrop Presetleri** ([`presets/original`](presets/original), CC BY 4.0) bu gömülü dosyalardır:
+  sıfırdan yazılmış shader presetleri. MilkDrop 2 asılları [`presets/original/md2/cayadev`](presets/original/md2/cayadev),
   MilkDrop 3 asılları [`presets/original/md3/cayadev`](presets/original/md3/cayadev) içindedir; uygulama bu asılları gömer.
   Eski oynatıcılar için indirgenmiş kopyalar [`presets/compat/md/cayadev`](presets/compat/md/cayadev) altındadır ve pakete girmez.
   Her birinin geçtiği denetimler klasörün README'sinde; her sürümdeki zip aynı asıl dosyaları taşır.
