@@ -55,6 +55,16 @@ object ExportFlow {
      */
     fun open(context: Context, args: JSONObject): JSONObject {
         val app = context.applicationContext
+        /* Sessiz çizelge işi (#1172, audioFrom "none"): şarkı yok, kopyalanacak dosya yok.
+           Sayfa sessizliği kendisi üretir; videoya ses izi girmez. */
+        if (args.optString("audioFrom") == "none" && args.optString("audioUri").isEmpty()) {
+            cleanup()
+            val j = JSONObject(args.toString()).put("audioName", "").put("songName", "")
+            j.remove("audioUri")
+            job = j
+            EngineHost.loadPage(EXPORT_PAGE)
+            return JSONObject().put("bytes", 0)
+        }
         val uri = Uri.parse(args.optString("audioUri"))
         val name = MediaPick.displayName(app, uri).ifEmpty { "song.m4a" }
         val ext = name.substringAfterLast('.', "m4a").lowercase().take(5).filter { it.isLetterOrDigit() }.ifEmpty { "m4a" }

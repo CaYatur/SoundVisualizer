@@ -1768,15 +1768,35 @@
       cancelRequested: () => resolved(exportState.cancel),
     };
 
+    /* Sessiz WAV (8 kHz, mono, 16 bit): 4 saat ~230 MB olurdu, süre işin süresiyle sınırlı. */
+    const silentWav = (sec) => {
+      const rate = 8000;
+      const n = Math.max(1, Math.round(Math.max(0, Math.min(4 * 3600, sec)) * rate));
+      const buf = new ArrayBuffer(44 + n * 2);
+      const v = new DataView(buf);
+      const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+      str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      str(36, 'data'); v.setUint32(40, n * 2, true);
+      return buf;
+    };
+
     /* ÜRÜN AKIŞI (Faz 5, android/.../export/ExportFlow.kt): sahne sayfası işi uygulamaya
        bıraktı, motor bu sayfaya geçti. İş alınır, şarkı medya klasöründen okunur ve
        dışa aktarım başlar. Ölçüm araçları (geliştirme) işi __svHost.runExport ile verir;
        uygulamada iş yoksa burada bir şey olmaz. */
     const startFromApp = async () => {
       const j = await request('exportJob').catch(() => null);
-      if (!j || !j.audioUrl) return;
+      const silent = !!(j && j.audioFrom === 'none' && !j.audioUrl);
+      if (!j || (!j.audioUrl && !silent)) return;
       let ab;
-      try { ab = await (await fetch(j.audioUrl)).arrayBuffer(); } catch (e) { exportState.error = 'audio'; return; }
+      /* Sessiz çizelge işi (#1172): şarkı yok; analiz sessizliği görür, videoya ses izi girmez.
+         Süre işin süresi (şarkının tamamı yerine çizelgenin uzunluğu, sayfa hesapladı). */
+      if (silent) ab = silentWav(Number(j.durationSec) || 0);
+      else {
+        try { ab = await (await fetch(j.audioUrl)).arrayBuffer(); } catch (e) { exportState.error = 'audio'; return; }
+      }
       /* "30 sn" seçilip şarkı daha kısaysa video şarkıyla biter (yoksa sonu sessiz kalıyordu,
          ölçüldü: 20 sn şarkıdan 30 sn video). */
       let want = Number(j.durationSec) > 0 ? Number(j.durationSec) : 0;

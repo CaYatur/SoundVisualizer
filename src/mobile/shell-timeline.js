@@ -1387,7 +1387,15 @@
     const tl = TL().makeTimeline(c);
     let clips = 0;
     for (const t of tl.tracks) if (t.kind === 'clip') clips += t.clips.length;
-    return { id: c.id || '', clips, enabled: c.itemEnabled !== false, name: c.name || '' };
+    /* Dışa aktarma (#1172): çizelgenin uzunluğu ve duyulur ses klibi sayısı (masaüstündeki
+       hasAudio kuralı: sessiz ve solo dışı parça, sessiz ve kaynaksız klip sayılmaz). */
+    const ats = Array.isArray(c.audioTracks) ? c.audioTracks.filter((t) => t && Array.isArray(t.clips)) : [];
+    const solo = ats.some((t) => t.solo && !t.mute);
+    let audioClips = 0;
+    for (const t of ats) if (!t.mute && (!solo || t.solo)) audioClips += t.clips.filter((k) => k && !k.mute && k.src).length;
+    let length = 0;
+    try { length = TL().timelineLength(tl); } catch (e) { length = 0; }
+    return { id: c.id || '', clips, enabled: c.itemEnabled !== false, name: c.name || '', length, audioClips };
   }
 
   window.SVShellTimeline = Object.freeze({
