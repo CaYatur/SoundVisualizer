@@ -135,6 +135,8 @@
     window.SVPreview.setConfig(previewTarget());
   }
   function push(immediate) {
+    // Dışa aktarma ses kilidi (#1172): ses klibi düzenlemesi de etiketi hemen günceller
+    if (typeof refreshExportAudio === 'function') refreshExportAudio();
     /* Timeline klip düzenleme oturumu: panellerin değişikliği klibin yerel
        kopyasına yazılır (kaynak sahne ve elle ayar ayrı kalır). */
     if (window.SVTimelineTarget) window.SVTimelineTarget.sync(cfg);
@@ -1871,23 +1873,52 @@
     const e = cfg.export || {};
     const A = window.SVTimelineAudioCore;
     if (e.includeTimeline !== true || !A || !window.SVTimeline || !window.SVTimeline.listTimelineBank) return null;
-    const id = e.timelineId || (cfg.timeline && cfg.timeline.id);
+    const id = exportTimelineId();
     let sel = null;
     try { sel = window.SVTimeline.listTimelineBank(cfg.timeline || {}).find((x) => x && x.id === id) || null; } catch { sel = null; }
     if (!sel || sel.itemEnabled === false || !A.hasAudio(sel.audioTracks)) return null;
     return Object.assign(A.exportAudioSummary(sel.audioTracks), { name: sel.name || '' });
   }
-  // Bu işin ses kaynağı: 'timeline' (kilitli seçici) ya da 'file'
+  // Dışa aktarılacak çizelge: seçilmediyse ('') etkin çizelge
+  function exportTimelineId() {
+    const e = cfg.export || {};
+    return e.timelineId || (cfg.timeline && cfg.timeline.id) || '';
+  }
+  /* Bu işin ses kaynağı: 'timeline' (kilitli seçici), 'file' ya da 'none'
+     (çizelge dahil, çizelgede ses yok, dosya da seçilmedi: sessiz video,
+     çizelgenin uzunluğunda). Geçersiz kılma açıkken dosya istenir. */
   function exportAudioFrom() {
-    return exportTimelineAudio() && !exportAudioOverride ? 'timeline' : 'file';
+    if (exportTimelineAudio() && !exportAudioOverride) return 'timeline';
+    const inc = !!(cfg.export && cfg.export.includeTimeline === true);
+    if (inc && !exportAudioOverride && !exportAudioPath) return 'none';
+    return 'file';
+  }
+  function exportTimelineName() {
+    const id = exportTimelineId();
+    try {
+      const hit = window.SVTimeline.listTimelineBank(cfg.timeline || {}).find((x) => x && x.id === id);
+      return (hit && hit.name) || '';
+    } catch { return ''; }
+  }
+  /* Kilit ve not, seçim/anahtar değişince ve ses klibi düzenlenince
+     beklemeden yeniden çizilir (panel açıksa). */
+  let exportAudioPaint = null;
+  function refreshExportAudio() {
+    if (exportAudioPaint) exportAudioPaint();
   }
 
   function audioFileCtrl() {
     const wrap = el('div', { class: 'ctrl export-audio-src' });
-    const paint = () => {
-      wrap.innerHTML = '';
+    let lastSig = null;
+    const paint = (force) => {
+      if (!wrap.isConnected && lastSig !== null) { if (exportAudioPaint === paint) exportAudioPaint = null; return; }
       const tla = exportTimelineAudio();
       const locked = !!tla && !exportAudioOverride;
+      const from = exportAudioFrom();
+      const sig = JSON.stringify([tla, from, exportAudioOverride, exportAudioName]);
+      if (!force && sig === lastSig) return;
+      lastSig = sig;
+      wrap.innerHTML = '';
       const name = el('div', {
         class: 'export-filename' + (locked ? ' locked' : ''),
         id: 'exportAudioName',
@@ -1907,19 +1938,25 @@
           exportAudioPath = p;
           exportAudioName = p.split(/[\\/]/).pop();
           name.textContent = exportAudioName;
+          paint(true);
         }
       });
       const kids = [btn, name];
+      // Çizelge dahil, sesi yok, dosya yok: dosya istenmez, video sessiz çıkar
+      if (from === 'none') {
+        name.textContent = tr('Ses dosyası gerekmiyor: video çizelgenin uzunluğunda, sessiz çıkar.');
+      }
       if (tla) {
         // Geçersiz kılma: dosya seçilir ve çizelge sesi videoya girmez; kapatınca çizelge sesi geri gelir
         const box = el('input', { type: 'checkbox', id: 'exportAudioOverride' });
         box.checked = exportAudioOverride;
-        box.addEventListener('change', () => { exportAudioOverride = box.checked; paint(); });
+        box.addEventListener('change', () => { exportAudioOverride = box.checked; paint(true); });
         kids.push(el('label', { class: 'export-audio-override' }, [box, el('span', { text: 'Başka ses dosyası kullan' })]));
       }
       for (const k of kids) wrap.appendChild(k);
     };
-    paint();
+    paint(true);
+    exportAudioPaint = paint;
     return wrap;
   }
 
@@ -1976,12 +2013,14 @@
        seçiciyle eklenen tek iş 'timeline' (adı çizelgeden). */
     const items = files.map((a) => {
       const fromTl = a === TIMELINE_AUDIO;
+      // Çizelge işi: sesi varsa 'timeline', yoksa sessiz 'none'
+      const from = fromTl ? exportAudioFrom() : 'file';
       const tla = fromTl ? exportTimelineAudio() : null;
-      const title = fromTl ? ((tla && tla.name) || tr('Zaman çizelgesi sesi')) : a;
+      const title = fromTl ? ((tla && tla.name) || exportTimelineName() || tr('Zaman çizelgesi sesi')) : a;
       return {
-        audioPath: fromTl ? null : a, audioFrom: fromTl ? 'timeline' : 'file',
+        audioPath: fromTl ? null : a, audioFrom: from,
         outputPath: dir.replace(/[\\/]+$/, '') + sep + queueItemName(title, fmt),
-        opts: Object.assign(queueItemOpts(), { audioFrom: fromTl ? 'timeline' : 'file' }),
+        opts: Object.assign(queueItemOpts(), { audioFrom: from }),
       };
     });
     const r = await window.api.exportQueueAdd(items);
@@ -2033,7 +2072,7 @@
     const add = el('button', {
       class: 'btn ghost small', type: 'button', icon: 'plus', text: 'Kuyruğa Ekle',
       onclick: async () => {
-        if (exportAudioFrom() === 'timeline') { await queueAddFiles([TIMELINE_AUDIO]); return; }
+        if (exportAudioFrom() !== 'file') { await queueAddFiles([TIMELINE_AUDIO]); return; }
         if (!exportAudioPath) { setExportStatus('Önce bir ses dosyası seçin.', 'err'); return; }
         await queueAddFiles([exportAudioPath]);
       },
@@ -3638,8 +3677,9 @@
           },
           {
             type: 'select', path: 'export.duration.mode', label: 'Süre', rebuild: true,
-            options: [
-              { value: 'audio', label: 'Ses dosyasının süresi' },
+            // "Ses" kaynağa göre adlanır (#1172): çizelge sesi ya da sessiz çizelge
+            options: () => [
+              { value: 'audio', label: exportAudioFrom() === 'timeline' ? 'Çizelge sesinin süresi' : exportAudioFrom() === 'none' ? 'Zaman çizelgesinin uzunluğu (sessiz)' : 'Ses dosyasının süresi' },
               { value: 'seconds', label: 'Sabit süre' },
               { value: 'timeline', label: 'Zaman çizelgesinin uzunluğu' },
               { value: 'bars', label: 'Ölçü sayısı (BPM\'den)' },
@@ -3667,11 +3707,14 @@
             hint: 'Dışa aktarım seçilen çizelgenin 0. saniyesinden başlar; boşluklar siyahtır.',
           },
           {
-            type: 'select', path: 'export.timelineId', label: 'Dışa aktarılacak çizelge',
+            /* Varsayılan etkin çizelge ('' = hangi sekme etkinse); seçim değişince
+               ses kilidi ve Süre adı hemen yeniden çizilir (rebuild). */
+            type: 'select', path: 'export.timelineId', label: 'Dışa aktarılacak çizelge', rebuild: true,
             show: () => cfg.export && cfg.export.includeTimeline === true,
-            value: () => (cfg.export && cfg.export.timelineId) || (cfg.timeline && cfg.timeline.id),
+            value: () => (cfg.export && cfg.export.timelineId) || '',
             options: () => {
               const items = window.SVTimeline.listTimelineBank(cfg.timeline || {}).map((x) => ({ value: x.id, label: x.name || x.id }));
+              items.unshift({ value: '', label: tr('Etkin çizelge') + ' (' + ((cfg.timeline && cfg.timeline.name) || '-') + ')' });
               const id = cfg.export && cfg.export.timelineId;
               if (id && !items.some((x) => x.value === id)) items.push({ value: id, label: tr('Kaynak bulunamadı') + ': ' + id });
               return items;
@@ -7532,8 +7575,8 @@
       setExportStatus('Önce bir ses dosyası seçin.', 'err');
       return;
     }
-    const base = audioFrom === 'timeline'
-      ? ((tla && tla.name) || tr('Zaman çizelgesi sesi'))
+    const base = audioFrom !== 'file'
+      ? ((tla && tla.name) || exportTimelineName() || tr('Zaman çizelgesi sesi'))
       : (exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
     const fmt = exportFormat();
     const fmtId = fmt ? fmt.id : 'mp4-h264';
@@ -7553,7 +7596,7 @@
     if (audioFrom === 'timeline') setExportStatus('Zaman çizelgesi sesi karıştırılıyor…');
     const r = await window.api.startExport({
       audioFrom,
-      audioPath: audioFrom === 'timeline' ? undefined : exportAudioPath,
+      audioPath: audioFrom === 'file' ? exportAudioPath : undefined,
       outputPath,
       format: fmtId,
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },

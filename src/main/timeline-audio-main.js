@@ -137,4 +137,31 @@ async function mixdown(ff, tracks, opts) {
   return { ok: true, file: out, sources: desc.sources.length, duration: desc.duration };
 }
 
-module.exports = { peaks, mixdown, cleanup, sweepStale, isDiskFull, TEMP_PREFIX, PEAK_RATE, isTemp: (f) => !!(tempDir && f && path.resolve(f).startsWith(path.resolve(tempDir))) };
+/* Çizelge dahil ama sesi yok (#1172): çizelgenin uzunluğunda sessiz, kayıpsız
+   WAV. Analiz sessizliği görür; videonun ses izi sessiz olur. */
+async function silence(ff, seconds) {
+  const sec = Number(seconds);
+  if (!(sec > 0)) return { ok: false, error: 'empty' };
+  cleanup();
+  sweepStale();
+  try { tempDir = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX)); } catch (e) { return { ok: false, error: isDiskFull(e.code + ' ' + e.message) ? 'disk' : String(e.message || e) }; }
+  const out = path.join(tempDir, 'timeline-silence.wav');
+  const res = await new Promise((resolve) => {
+    let err = '';
+    let p;
+    try {
+      p = spawn(ff, ['-hide_banner', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', sec.toFixed(3), '-c:a', 'pcm_s16le', out],
+        { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+    } catch { return resolve({ code: -1, err: 'spawn failed' }); }
+    p.stderr.on('data', (d) => { if (err.length < 8000) err += d.toString(); });
+    p.on('error', () => resolve({ code: -1, err }));
+    p.on('close', (code) => resolve({ code, err }));
+  });
+  if (res.code !== 0 || !fs.existsSync(out)) {
+    cleanup();
+    return { ok: false, error: isDiskFull(res.err) ? 'disk' : (res.err || 'ffmpeg').slice(-400) };
+  }
+  return { ok: true, file: out, duration: sec };
+}
+
+module.exports = { peaks, mixdown, silence, cleanup, sweepStale, isDiskFull, TEMP_PREFIX, PEAK_RATE, isTemp: (f) => !!(tempDir && f && path.resolve(f).startsWith(path.resolve(tempDir))) };
