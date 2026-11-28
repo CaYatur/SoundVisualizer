@@ -14,6 +14,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 **AI control over MCP**.
 
 **Windows** · **macOS** · **Linux** — no account, no telemetry, MIT licensed.
+**Android** app in final testing — [see it on a phone](#on-your-phone-android).
 
 [![Latest release](https://img.shields.io/github/v/release/CaYatur/SoundVisualizer?label=release&color=e11d2a)](https://github.com/CaYatur/SoundVisualizer/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
@@ -167,6 +168,157 @@ fluid gradient backgrounds that move with the music.
 | [![Layout Editor: the preview framed as 16:9 with safe areas and the element list](docs/screenshots/panel-layout.png)](#broadcast-layout-editor) | [![Recording and export with YouTube, Shorts and Spotify Canvas profiles](docs/screenshots/panel-record.png)](#recording-and-video-export) |
 
 </div>
+
+---
+
+## On your phone (Android)
+
+**CAYADEV Visualizer for Android is a free, open-source music visualizer app for Android phones and
+tablets.** It turns the music playing on your device — from Spotify, YouTube Music or any other
+app, the built-in player or the microphone — into audio-reactive visuals in real time. It runs the
+same visual engine as the desktop app (MilkDrop presets, shaders, layers and effects), makes
+music videos on the phone, floats over other apps, and doubles as a Wi-Fi remote for CAYADEV
+Visualizer on your computer.
+
+**Free** · **Open source (MIT)** · **No ads** · **No account** · **No analytics** · **No watermark** ·
+**Android 10 and later, phones and tablets**
+
+<div align="center">
+
+<img src="docs/screenshots/android-demo.webp" alt="CAYADEV Visualizer on an Android phone: picking Club templates from the Library while the visuals keep reacting to the music" width="230" />
+<img src="docs/screenshots/android-scene.webp" alt="The Mandala Drop template reacting to music on an Android phone, with the audio source, BPM, Auto VJ and the bottom tabs" width="230" />
+<img src="docs/screenshots/android-floating.webp" alt="The floating window: the visualizer stays on top of the Android home screen while you use other apps" width="230" />
+
+**Pick a look in one tap** · **Visuals that follow the beat** · **A floating window over any app**
+
+<img src="docs/screenshots/android-library.webp" alt="Library on Android: Club, Ambient, Streaming and Music Video templates such as Strobe Wall, Hyper Tunnel, Laser Grid and Mandala Drop, plus MilkDrop, Shader and Scenes tabs" width="180" />
+<img src="docs/screenshots/android-layers.webp" alt="Layers on Android: a visualizer layer over a background layer, with visibility toggles and drag to reorder" width="180" />
+<img src="docs/screenshots/android-audio.webp" alt="Audio on Android: level meter and four sources (in-app player, system audio, output mix, microphone), Now Playing and tempo" width="180" />
+
+**Library** · **Layers** · **Audio sources**
+
+<img src="docs/screenshots/android-tablet-scene.webp" alt="CAYADEV Visualizer on an Android tablet in landscape: the Hyper Tunnel template full width with a side navigation rail" width="720" />
+
+<img src="docs/screenshots/android-tablet-library.webp" alt="The Library on an Android tablet: templates open in a side panel while the visuals keep playing" width="355" />
+<img src="docs/screenshots/android-tablet-layers.webp" alt="Layers on an Android tablet: a visualizer over a Retro Grid background, edited in a side panel" width="355" />
+
+**On a tablet** the visuals use the whole screen and the editors open in a side panel.
+
+</div>
+
+### Why install it
+
+- **It works with the music you already play.** No need to move your songs into another player:
+  system audio capture hears Spotify, YouTube Music, a game or a video, and the visuals react
+  instantly.
+- **It looks good in one tap.** Ready-made templates for club, ambient, streaming and music-video
+  looks, plus Auto VJ that changes scenes with the music, so you get a show without learning
+  anything.
+- **It goes as deep as you want.** The same layers, MilkDrop presets, GLSL shaders and GPU effects
+  as the desktop app; scenes made on the computer look the same on the phone.
+- **It makes videos, not just visuals.** Export a song as an MP4 for Reels, Shorts, TikTok or
+  YouTube, portrait or landscape, encoded on the phone.
+- **It stays out of your way.** Full screen, picture-in-picture, or a floating window you can
+  resize, make see-through and let touches pass through, while you use other apps.
+- **It runs smoothly on an ordinary phone.** Measured on a mid-range Redmi Note 9 Pro (Adreno 618,
+  Android 12): **60 fps with no dropped frames**, and memory stays flat over a long session.
+- **It is honest software.** Free and open source under the MIT licence, with no ads, no account,
+  no analytics and no in-app purchases.
+
+### Everything it can do
+
+**Audio**
+- Four sources: **system audio** (what other apps play, Android 10+; Android asks for consent each
+  session), **output mix** (for apps that block capture), **microphone** and an **in-app player**
+  for the cleanest sound from your own files.
+- One audio analysis for every layer, the same as on the desktop: bands, beats and automatic
+  **BPM**, with **tap tempo**.
+
+**Visuals, layers and effects**
+- Stack **layers**: visualizers (bars with count, style, height, spacing and mirroring, and many
+  more modes), **backgrounds**, **MilkDrop** presets, **Studio shader** presets, **camera**,
+  **video**, **logo** and **text** layers.
+- **GPU effects** on every layer, blend modes, opacity, position, size, rotation, glow and a key
+  color (chroma key).
+- **Text along a path** (arc, circle, wave), **reverse video playback** and **frame delay** for
+  live camera sources.
+- Add your own **.milk** MilkDrop presets, images, logos and videos to the **Library**. Import
+  copies the file into the app. Delete one item, or long-press to select several and delete them
+  together. Built-in presets, and presets that live on the computer, stay. Adding a logo, video or image layer offers the library or a new
+  import. A timeline logo clip can use an image from that library, and logos that arrived in a
+  computer backup show up here too.
+
+**Scenes, templates and Auto VJ**
+- **Templates** in four groups: Club, Ambient, Streaming and Music Video. Save your own scenes as
+  templates.
+- **Transitions** between scenes, **color themes** with a five-point palette, a blackout
+  animation, and **Auto VJ** that picks the next scene with the music.
+
+**Now Playing and lyrics**
+- The **track name, cover and position** of the song playing in your music app, shown in the
+  scene (notification access; the app only looks at the playing track). The same cover can travel
+  to the computer over Phone link.
+- **Synced lyrics**: found automatically from lyric providers when you turn it on, read from the
+  song file when it has them, and cached on the phone. You can also keep your own lyric files in
+  the library.
+
+**Display**
+- **Full screen**, **picture-in-picture** and a **floating window** with visibility, touch
+  pass-through, position lock, aspect lock and three sizes. Double-tap the window to go back to the
+  app.
+- **Tablet layout** with a side navigation rail and side-panel editors.
+- Resolution limit (720p, 1080p or display), render scale, 30 or 60 fps, **low-power mode on
+  battery** and keep-screen-on.
+
+**Video export and timeline**
+- Export **MP4 (H.264)** with your choice of resolution, frame rate, quality, length and
+  orientation; encoded on the phone with the song as the audio track. While the included timeline
+  has audio, the song picker stays locked; **Use another song** overrides it, and **Preview mix**
+  plays the mix before export.
+- A **timeline** with scene changes on the song clock, undo and redo, exported exactly as it plays.
+- **Audio lanes** under the visual lanes, on the same clock. **Add audio** copies a file from the
+  phone into the app; clips show a waveform, a tap selects, a drag moves and a drag on a selected
+  edge trims. Each lane has mute and solo. The clip panel has gain, fades, mute, split at the
+  playhead and delete; the lane panel has volume, pan, mute, solo and delete. Projects from the
+  computer keep their audio paths. A file that is not on the phone is listed with **Relink**, which
+  binds the picked file to every clip using that path, and export waits for it. With the computer
+  as the target, the lanes are shown and edited on the computer.
+
+**Remote for your computer (Phone link)**
+- Pair with CAYADEV Visualizer on Windows, macOS or Linux by **QR code** over Wi-Fi; every new
+  phone is approved on the computer.
+- **Live tab**: blackout, scenes, T-bar and Take, held momentary effects, clip deck, macros, Auto VJ
+  and tap tempo, all acting on the computer's output.
+- **Edit the computer's scenes** from the phone, see the computer's **real output**, send the
+  **phone's audio**, track and cover to the computer, and manage outputs, audio devices, recording
+  and lighting. Videos, logos, lyrics, presets and timeline audio can go across the link too.
+- Local network only, encrypted (ECDH P-256, AES-256-GCM). See [Phone link](#phone-link-android).
+
+**Everything else**
+- **Backup and restore** of your scenes and settings, eight themes, English and Turkish,
+  an update notice when a new version is out.
+
+### Why you can trust it
+
+| | |
+|---|---|
+| **Price** | Free. No ads, no in-app purchases, no subscription, no watermark on exports. |
+| **Source code** | Open source under the MIT licence, in this repository. |
+| **Account and tracking** | No account, no analytics, no tracking. |
+| **Internet** | Used only to check GitHub for a new version (can be turned off), to look up lyrics if you turn that on, and to talk to your own computer on the local network. |
+| **Microphone** | Needed for the microphone source and, on Android, for system audio capture. Sound is analysed live and never recorded or uploaded. |
+| **Screen capture consent** | Android's way of allowing system audio capture. Only audio is used; nothing on screen is recorded. |
+| **Display over other apps** | Only for the floating window. |
+| **Notification access** | Only to read the playing track (name, cover, position). Your notifications are not read. |
+| **Camera** | Only for a camera layer, if you add one. |
+| **Quality** | 4,791 automated tests on every change; tested on real phones and the Android emulator. |
+| **Downloads** | APKs on GitHub Releases with their SHA-256 checksum. The app never installs anything by itself. |
+
+### Status
+
+The Android app is in final testing on real phones. The first release (`android-v1.0.0`) will be an
+APK on the [Releases](https://github.com/CaYatur/SoundVisualizer/releases) page; the app tells you
+when a new version is out.
 
 ---
 
@@ -1731,7 +1883,8 @@ local network. Turn it on in
 screens show the same six digits, and every new phone is approved on the computer. Then pick the
 computer as the target on the phone:
 
-- **Every editor works on the computer**: scenes, layers, effects, colors, text, the timeline.
+- **Every editor works on the computer**: scenes, layers, effects, colors, text, and the timeline,
+  including its audio lanes.
   Only the changed parts are sent, and the panel stays the only writer, so the phone and the panel
   never overwrite each other. The phone keeps its own theme.
 - **Live tab**: preview and program, T-bar and Take, blackout, tap tempo, held momentary effects,
@@ -1741,7 +1894,7 @@ computer as the target on the phone:
   The phone can also draw the computer's look with the computer's audio, show the computer's real
   output, or act as an extra display.
 - **PC settings from the phone**: outputs, audio device, recording, export (the song sent from the
-  phone), the MilkDrop library, sending videos, logos, lyrics and presets, lighting and power, scene
+  phone), the MilkDrop library, sending videos, logos, lyrics, presets, timeline audio and covers, lighting and power, scene
   transfer in both directions.
 
 Local only, with no cloud and no outside service. Everything after the handshake is encrypted
@@ -1793,6 +1946,15 @@ Protocol and security model: [docs/PHONE-LINK.md](docs/PHONE-LINK.md).
 ---
 
 ## FAQ
+
+**Is there a music visualizer for Android that works with Spotify or YouTube Music?**
+Yes — the CAYADEV Visualizer Android app captures the audio other apps play (Android 10 and later),
+so it reacts to Spotify, YouTube Music or any player, and shows the track and synced lyrics. It is
+free and open source. See [On your phone](#on-your-phone-android).
+
+**Can my phone control the visuals on my computer?**
+Yes. Pair the Android app with the desktop app by QR code over Wi-Fi; the phone becomes a live
+remote and editor for the computer's show. See [Phone link](#phone-link-android).
 
 **Is it free?**
 Yes. CAYADEV Visualizer is open source under the MIT licence. There is no paid tier, no account and
