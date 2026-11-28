@@ -180,11 +180,19 @@ test('canlı çalma çizelge saatini izler: oynarken kurulur, kayınca yeniden k
 
 test('çizelge: ses düzenlemesi tek geri al adımı, PC hedefinde yazılmaz; çalma için saat ve parçalar', () => {
   const s = read('src/mobile/shell-timeline.js');
-  assert.match(s, /function writeAudio\(mut\) \{\n    if \(pcOn\(\)\) return;/);
+  assert.match(s, /function localPhoneSrc\(src\)/);
+  assert.match(s, /function writeAudio\(mut\)/);
+  assert.match(s, /if \(pcOn\(\)\) \{\n        for \(const t of list\)/);
+  assert.match(s, /body\.append\(transportRow, refs\.scroll, refs\.toolbar\)/);
+  assert.match(s, /class: 'tl-scroll'/);
+  assert.match(s, /const fromAudio = dropAudio\(\)/);
+  assert.doesNotMatch(s, /fromAudio && !quiet\) openInspector/);
   assert.match(s, /c\.audioTracks = TAC\(\)\.normalize\(list\);\n    \}\);\n    history\(\)\.push\(TE\(\)\.snapshot\(tlCfg\(\)\)\);/);
   assert.match(s, /return \{ time: t\.time, playing: !!t\.playing, pc: pcOn\(\), tracks, ref: c \};/);
   assert.match(s, /painted: \(\) => \{ syncHeads\(\); if \(ui\.audio\) ui\.audio\.draw\(\); \},/);
   assert.match(s, /ui\.audio = AUD\(\) && TAC\(\) \? AUD\(\)\.strip\(refs\.audio, \{/);
+  assert.match(s, /ctx: \(\) => ui\.ctx/);
+  assert.match(s, /dockOpen: \(\) => dockOn/);
   assert.match(s, /    writeAudio,\n    audioState,\n/);
   // Anlık görüntü ses parçalarını taşır (geri al ses düzenlemesini de geri alır)
   assert.match(read('src/shared/timeline-edit.js'), /if \(Array\.isArray\(c\.audioTracks\)\) s\.audioTracks = c\.audioTracks;/);
@@ -202,6 +210,27 @@ test('uygulama: içe aktarma medya klasörüne, karışım yalnız sabit adla ve
   assert.ok(!re.test('../tla-mix-export.wav') && !re.test('tla-mix-a/b.wav') && !re.test('song.mp3'));
   const r = read('android/app/src/main/java/com/cayadev/visualizer/AppRequests.kt');
   assert.match(r, /"timelineAudioImport" -> \{/);
+  assert.match(r, /"timelineAudioTags" -> \{/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /function editorPage\(sel\)/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /size: 'dock'/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /class: 'tl-insp-head'/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /function tapSel\(s\)/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /btn\('plus', 'Ekle'/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /HOLD_MS = 480/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /class: 'tl-ahead add'/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /sendTimelineAudio/);
+  assert.match(read('src/mobile/android-host.js'), /use: 'timeline'/);
+  assert.match(read('src/main/main.js'), /f\.use === 'timeline'/);
+  assert.match(read('src/main/link-upload.js'), /use: u\.use \|\| ''/);
+  assert.match(read('src/mobile/shell-timeline.js'), /function deleteAudioSel\(\)/);
+  assert.match(read('src/mobile/shell-timeline.js'), /lastWritten = ''/);
+  assert.match(read('src/mobile/shell-timeline.js'), /logo: 'Logo'/);
+  assert.match(read('src/mobile/shell-timeline-forms.js'), /type === 'logo'/);
+  assert.match(read('src/shared/timeline.js'), /'logo'/);
+  assert.match(read('src/mobile/shell-audio.js'), /id: 'timeline'/);
+  assert.match(read('src/mobile/android-host.js'), /if \(m && m\.source === 'pc' && \(timelineHold \|\| !followPcAudio\(\)\)\) return/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /function offer\(\) \{ return ready\(\); \}/);
+  assert.match(read('src/mobile/shell-timeline-audio.js'), /userChoice === 'timeline'/);
   assert.match(r, /"mediaAppend" -> try \{/);
   const kt = read('android/app/src/main/java/com/cayadev/visualizer/export/ExportFlow.kt');
   assert.match(kt, /if \(args\.optString\("audioFrom"\) == "timeline"\) \{\n            val mix = TimelineAudioFiles\.mixFile\(app, args\.optString\("audioFile"\)\)\n            cleanup\(\)\n            tempAudio = mix/);

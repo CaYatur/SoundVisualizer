@@ -7,6 +7,7 @@
 package com.cayadev.visualizer.store
 
 import java.io.File
+import java.io.InputStream
 import java.net.URLEncoder
 import org.json.JSONArray
 import org.json.JSONObject
@@ -146,9 +147,152 @@ object LibraryRestore {
         return null
     }
 
-    /** Kitaplık listesi (yalnız kayıtlar): logos | media. */
+    /** Kitaplık listesi (yalnız kayıtlar): logos | media | images. */
     fun list(filesDir: File, key: String): JSONArray {
-        val dir = when (key) { "logos" -> File(filesDir, "logo-library"); "media" -> File(File(filesDir, "media"), "lib-media"); else -> return JSONArray() }
+        val dir = dirOf(filesDir, key) ?: return JSONArray()
         return try { JSONObject(File(dir, "manifest.json").readText()).optJSONArray("items") ?: JSONArray() } catch (_: Exception) { JSONArray() }
+    }
+
+    private fun dirOf(filesDir: File, key: String): File? = when (key) {
+        "logos" -> File(filesDir, "logo-library")
+        "media" -> File(File(filesDir, "media"), "lib-media")
+        "images" -> File(File(filesDir, "media"), "lib-images")
+        else -> null
+    }
+
+    /**
+     * Galeriden küçültülmüş resim (MediaPick.image data URL). Videolar gibi
+     * `media/lib-images/` altında durur ve `/files/lib-images/` adresinden açılır.
+     */
+    fun importImage(filesDir: File, name: String, dataUrl: String): JSONObject {
+        val comma = dataUrl.indexOf(',')
+        if (!dataUrl.startsWith("data:image/") || comma < 1) throw IllegalArgumentException("bad-image")
+        val bytes = try { java.util.Base64.getDecoder().decode(dataUrl.substring(comma + 1)) } catch (_: Exception) { throw IllegalArgumentException("bad-image") }
+        return importImageBytes(filesDir, name, bytes)
+    }
+
+    /** Dosyadan gelen resim. Tür bayttan okunur; resim değilse ya da 8 MB üstündeyse alınmaz. */
+    fun importImageBytes(filesDir: File, name: String, bytes: ByteArray): JSONObject {
+        if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) throw IllegalArgumentException("bad-image")
+        val mime = when {
+            bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() && bytes[2] == 0xFF.toByte() -> "image/jpeg"
+            bytes.size >= 4 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() && bytes[2] == 0x4E.toByte() && bytes[3] == 0x47.toByte() -> "image/png"
+            bytes.size >= 3 && bytes[0] == 0x47.toByte() && bytes[1] == 0x49.toByte() && bytes[2] == 0x46.toByte() -> "image/gif"
+            bytes.size >= 12 && bytes[0] == 0x52.toByte() && bytes[1] == 0x49.toByte() && bytes[8] == 0x57.toByte() && bytes[9] == 0x45.toByte() -> "image/webp"
+            bytes.size >= 2 && bytes[0] == 0x42.toByte() && bytes[1] == 0x4D.toByte() -> "image/bmp"
+            else -> throw IllegalArgumentException("bad-image")
+        }
+        val ext = when (mime) { "image/png" -> ".png"; "image/gif" -> ".gif"; "image/webp" -> ".webp"; "image/bmp" -> ".bmp"; else -> ".jpg" }
+        val id = "img_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val file = id + ext
+        if (!SAFE_ID.matches(id) || !plainName(file)) throw IllegalArgumentException("bad-image")
+        val dir = dirOf(filesDir, "images") ?: throw IllegalArgumentException("bad-image")
+        dir.mkdirs()
+        val dst = File(dir, file)
+        dst.writeBytes(bytes)
+        val shown = name.trim().take(120).ifBlank { file }
+        val item = JSONObject().put("id", id).put("name", shown).put("file", file).put("mime", mime)
+        upsertManifest(dir, listOf(item))
+        return item.put("url", "https://appassets.androidplatform.net/files/lib-images/" + enc(file))
+    }
+
+    /** Masaüstündeki video kitaplığıyla aynı tavan (512 MB) ve aynı kap imzası. */
+    const val VIDEO_MAX = 512L * 1024 * 1024
+
+    fun isVideoName(name: String): Boolean = videoExt(name) != null
+
+    /**
+     * Seçilen videoyu `media/lib-media/` altına akıtır. Başlık bir video kabı değilse
+     * ya da dosya tavandan büyükse alınmaz; bütün dosya belleğe çekilmez.
+     */
+    fun importVideo(filesDir: File, name: String, input: InputStream): JSONObject {
+        val ext = videoExt(name) ?: throw IllegalArgumentException("bad-video")
+        val id = "vid_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val file = id + ext
+        if (!SAFE_ID.matches(id) || !plainName(file)) throw IllegalArgumentException("bad-video")
+        val dir = dirOf(filesDir, "media") ?: throw IllegalArgumentException("bad-video")
+        dir.mkdirs()
+        val part = File(dir, "$file.part")
+        val head = ByteArray(12)
+        var headN = 0
+        var total = 0L
+        try {
+            part.outputStream().use { out ->
+                val buf = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    if (headN < 12) {
+                        val take = minOf(12 - headN, n)
+                        System.arraycopy(buf, 0, head, headN, take)
+                        headN += take
+                    }
+                    total += n
+                    if (total > VIDEO_MAX) throw IllegalArgumentException("too-big")
+                    out.write(buf, 0, n)
+                }
+            }
+            if (total <= 0L || !looksLikeVideo(head, headN, total)) throw IllegalArgumentException("bad-video")
+            val dst = File(dir, file)
+            if (dst.isFile) dst.delete()
+            if (!part.renameTo(dst)) { part.copyTo(dst, overwrite = true); part.delete() }
+        } catch (e: Exception) {
+            part.delete()
+            throw e
+        }
+        val mime = when (ext) {
+            ".webm" -> "video/webm"
+            ".mkv" -> "video/x-matroska"
+            ".mov" -> "video/quicktime"
+            ".avi" -> "video/x-msvideo"
+            else -> "video/mp4"
+        }
+        val shown = name.substringAfterLast('/').substringAfterLast('\\').trim().take(120).ifBlank { file }
+        val item = JSONObject().put("id", id).put("name", shown).put("file", file).put("mime", mime).put("kind", "video")
+        upsertManifest(dir, listOf(item))
+        return item.put("url", "https://appassets.androidplatform.net/files/lib-media/" + enc(file))
+    }
+
+    /** src/main/media-library.js isVideoHead ile aynı: ftyp/moov, WebM, AVI. */
+    fun looksLikeVideo(head: ByteArray, n: Int, total: Long): Boolean {
+        if (n < 8) return false
+        val box = String(head, 4, 4, Charsets.ISO_8859_1)
+        if (box == "ftyp" || box == "moov" || box == "mdat" || box == "wide" || box == "free" || box == "skip" || box == "pnot") {
+            val size = ((head[0].toInt() and 0xff) shl 24) or ((head[1].toInt() and 0xff) shl 16) or
+                ((head[2].toInt() and 0xff) shl 8) or (head[3].toInt() and 0xff)
+            if (size == 0 || size == 1) return true
+            return size >= 8 && size.toLong() <= total
+        }
+        if (n >= 4 && head[0] == 0x1A.toByte() && head[1] == 0x45.toByte() && head[2] == 0xDF.toByte() && head[3] == 0xA3.toByte()) return true
+        if (n >= 12 && String(head, 0, 4, Charsets.ISO_8859_1) == "RIFF" && String(head, 8, 4, Charsets.ISO_8859_1) == "AVI ") return true
+        return false
+    }
+
+    private fun videoExt(name: String): String? {
+        val n = name.lowercase()
+        return listOf(".m4v", ".mp4", ".webm", ".mkv", ".mov", ".avi").firstOrNull { n.endsWith(it) }
+    }
+
+    /** Telefondaki kitaplık öğesini siler: logos, media (video) ya da images. Dosya klasörün dışına çıkamaz. */
+    fun remove(filesDir: File, key: String, id: String): JSONObject {
+        if (key != "logos" && key != "media" && key != "images") throw IllegalArgumentException("bad-library")
+        if (!SAFE_ID.matches(id)) throw IllegalArgumentException("bad-id")
+        val dir = dirOf(filesDir, key) ?: throw IllegalArgumentException("bad-library")
+        val file = File(dir, "manifest.json")
+        val items = try {
+            val a = JSONObject(file.readText()).optJSONArray("items") ?: JSONArray()
+            (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+        } catch (_: Exception) { emptyList() }
+        val hit = items.find { it.optString("id") == id } ?: throw IllegalArgumentException("missing")
+        val name = hit.optString("file")
+        if (!plainName(name)) throw IllegalArgumentException("bad-file")
+        val dst = File(dir, name)
+        if (dst.isFile && dst.canonicalFile.parentFile == dir.canonicalFile) dst.delete()
+        val next = items.filter { it.optString("id") != id }
+        dir.mkdirs()
+        val tmp = File(dir, "manifest.json.tmp")
+        tmp.writeText(JSONObject().put("items", JSONArray(next)).toString(2))
+        if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+        return JSONObject().put("id", id)
     }
 }

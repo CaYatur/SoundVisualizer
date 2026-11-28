@@ -103,6 +103,12 @@ class BackupReaderTest {
         val logo = LibraryRestore.readLogo(files, "img_1")
         assertEquals("image/png", logo!!.getString("mime"))
         assertTrue(LibraryRestore.readLogo(files, "../x") == null)
+        assertEquals("img_1", LibraryRestore.remove(files, "logos", "img_1").getString("id"))
+        assertTrue(LibraryRestore.readLogo(files, "img_1") == null)
+        assertEquals(0, LibraryRestore.list(files, "logos").length())
+        var bad = false
+        try { LibraryRestore.remove(files, "logos", "../x") } catch (_: IllegalArgumentException) { bad = true }
+        assertTrue(bad)
         staging.deleteRecursively()
         files.deleteRecursively()
     }
@@ -147,5 +153,21 @@ class BackupReaderTest {
         assertEquals(5.0, PresetRating.of("fRating=9"), 0.0)
         assertEquals(0.0, PresetRating.of("fRating=-1"), 0.0)
         assertEquals(3.0, PresetRating.of("x fRating=1"), 0.0)
+    }
+
+    @Test
+    fun aRealVideoIsStoredAndATextFileNamedMp4IsNot() {
+        val root = Files.createTempDirectory("sv-vid").toFile()
+        val mp4 = byteArrayOf(0, 0, 0, 16, 'f'.code.toByte(), 't'.code.toByte(), 'y'.code.toByte(), 'p'.code.toByte(), 'i'.code.toByte(), 's'.code.toByte(), 'o'.code.toByte(), 'm'.code.toByte(), 0, 0, 0, 0)
+        val saved = LibraryRestore.importVideo(root, "klip.mp4", java.io.ByteArrayInputStream(mp4))
+        assertEquals("video", saved.getString("kind"))
+        assertTrue(java.io.File(java.io.File(java.io.File(root, "media"), "lib-media"), saved.getString("file")).isFile)
+        try {
+            LibraryRestore.importVideo(root, "yalan.mp4", java.io.ByteArrayInputStream("bu video değil".toByteArray()))
+            throw AssertionError("metin video sayıldı")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("bad-video", e.message)
+        }
+        root.deleteRecursively()
     }
 }

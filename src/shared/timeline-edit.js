@@ -383,6 +383,7 @@
     video: '#28c76f',
     image: '#20c9d6',
     shader: '#ff5ca8',
+    logo: '#e0a24a',
     action: '#9aa0aa',
   };
   function clipColor(clip, track) {

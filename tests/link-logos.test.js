@@ -15,10 +15,14 @@ test('canlı sahne, katman, değişim listesi, kayıtlı sahne ve çizelge klibi
     logo: { libraryId: 'img_live' },
     layers: [{ settings: { logo: { libraryId: 'img_layer', swap: { items: ['img_swap', '', 'not an id'] } } } }],
     scenes: [{ id: 's1', data: { logo: { libraryId: 'img_scene' } } }],
-    timeline: { tracks: [{ clips: [{ id: 'c', local: { data: { layers: [{ settings: { logo: { libraryId: 'img_clip' } } }] } } }] }] },
+    timeline: { tracks: [{ clips: [
+      { id: 'c', local: { data: { layers: [{ settings: { logo: { libraryId: 'img_clip' } } }] } } },
+      { id: 'l', type: 'logo', ref: 'img_tl' },
+      { id: 'd', type: 'logo', ref: 'data:image/png;base64,QQ' },
+    ] }] },
   };
   const ids = L.collectLogoIds(cfg);
-  assert.deepStrictEqual([...ids].sort(), ['img_clip', 'img_layer', 'img_live', 'img_scene', 'img_swap']);
+  assert.deepStrictEqual([...ids].sort(), ['img_clip', 'img_layer', 'img_live', 'img_scene', 'img_swap', 'img_tl']);
 });
 
 test('veri adresi ve bozuk kimlik toplanmaz', () => {
@@ -43,8 +47,12 @@ test('başvurulmayan kimlik ve büyük dosya gitmez', () => {
 
 test('logo.get izleme düzeyinde ve ana süreç onu bağlıyor', () => {
   assert.strictEqual(link.OPS['logo.get'], 'view');
+  assert.strictEqual(link.OPS['library.logo'], 'view');
   assert.strictEqual(link.allowed('view', 'logo.get'), true);
+  assert.strictEqual(link.allowed('view', 'library.logo'), true);
   const main = fs.readFileSync(path.join(__dirname, '../src/main/main.js'), 'utf8');
   assert.match(main, /const linkLogos = require\('\.\/link-logos'\)/);
   assert.match(main, /'logo\.get': \(args\) => \{[\s\S]*linkLogos\.serveLogo/);
+  assert.match(main, /'library\.logo': \(args\) => \{[\s\S]*logoLibrary\.read/);
+  assert.doesNotMatch(main.slice(main.indexOf("'library.logo'"), main.indexOf("'library.logo'") + 500), /serveLogo/);
 });

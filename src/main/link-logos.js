@@ -51,6 +51,7 @@ function collectLogoIds(cfg) {
     const clips = tracks[t] && Array.isArray(tracks[t].clips) ? tracks[t].clips : [];
     for (let c = 0; c < clips.length; c++) {
       const clip = clips[c];
+      if (clip && clip.type === 'logo') addId(set, clip.ref);
       if (clip && clip.local && clip.local.data) walkScene(set, clip.local.data);
     }
   }

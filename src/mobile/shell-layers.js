@@ -448,12 +448,22 @@
               grid.appendChild(h('button', {
                 class: 'tile' + (it.id === o.value ? ' sel' : ''), 'aria-pressed': it.id === o.value ? 'true' : 'false', 'data-id': it.id,
                 onclick: () => { finish(it); ctx.pop(); },
-              }, [it.art ? it.art() : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.icon || 'image')]), h('div', { class: 'cap' }, [h('span', { text: it.label })].concat(it.sub ? [h('span', { class: 'kind', text: it.sub })] : []))]));
+              }, [it.art ? it.art() : h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon(it.icon || 'image')]), h('div', { class: 'cap' }, [h('span', Object.assign({ text: it.label }, it.user ? { 'data-user-text': '' } : {}) )].concat(it.sub ? [h('span', { class: 'kind', text: it.sub })] : []))]));
             }
           };
           const search = h('input', { type: 'search', placeholder: 'Kitaplıkta ara', 'aria-label': 'Kitaplıkta ara' });
           search.addEventListener('input', () => paint(search.value));
           body.appendChild(h('label', { class: 'search' }, [icon('search'), search]));
+          if (typeof o.onAdd === 'function') {
+            body.appendChild(h('button', { class: 'btn block', onclick: () => {
+              Promise.resolve(o.onAdd()).then((it) => {
+                if (!it || !grid.isConnected) return;
+                if (it.select) { finish(it); ctx.pop(); return; }
+                o.items.unshift(it);
+                paint(search.value);
+              }, () => {});
+            } }, [icon('upload'), h('span', { text: o.addLabel || 'Telefondan aktar' })]));
+          }
           body.appendChild(grid);
           paint('');
         },
@@ -560,6 +570,111 @@
     if (mode === 'solid') out.push(U.color({ label: 'Düz Renk', value: bgS.solidColor || scene.solidColor || '#08080f', def: fact.solidColor || '#08080f', onChange: (v) => put('solidColor', v) }));
     if (mode === 'theme') out.push(themeRow(ctx));
     return out;
+  }
+
+  /* Katman eklerken: kitaplıktaki öğe ya da telefondan aktarılan dosya. */
+  function mediaFromChoice(kind, it) {
+    const def = window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {};
+    const item = it || {};
+    if (kind === 'video') {
+      const url = item.url || ('https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(item.file || ''));
+      const made = LF().makeMedia('video', { url, name: item.label || item.name || '' }, def);
+      if (made.settings && made.settings.media) made.settings.media.libraryId = item.libraryId || '';
+      return made;
+    }
+    if (kind === 'logo' && item.libraryId && !item.url) {
+      const made = LF().makeMedia('logo', {}, def);
+      made.settings.logo = Object.assign({}, made.settings.logo, { enabled: true, source: 'manual', src: null, libraryId: item.libraryId, kind: item.kind || 'image' });
+      if (item.label) made.name = item.label;
+      return made;
+    }
+    const src = item.url || item.dataUrl || '';
+    const made = LF().makeMedia(kind === 'logo' ? 'logo' : 'image', { dataUrl: src, name: item.label || '' }, def);
+    if (kind === 'logo' && /^data:image\/gif/i.test(src) && made.settings && made.settings.logo) made.settings.logo.kind = 'gif';
+    return made;
+  }
+  async function bringPicked(kind) {
+    const onPc = A().target && A().target.get && A().target.get().target === 'pc';
+    let f = null;
+    try { f = await A().media.pick(kind === 'video' ? 'video' : 'image'); } catch (e) {
+      const code = String((e && e.message) || e);
+      if (code !== 'cancelled') S.confirm(tr('Dosya açılamadı.') + ' (' + code + ')', 'Tamam');
+      return null;
+    }
+    if (!f) return null;
+    if (kind === 'video') {
+      if (!f.url) return null;
+      if (onPc && A().pc && A().pc.sendVideo) {
+        S.toast(tr('PC\'ye gönderiliyor') + ': ' + (f.name || ''));
+        try {
+          const id = await A().pc.sendVideo(f);
+          return { select: true, url: f.url, label: f.name || '', libraryId: id || '' };
+        } catch (e) {
+          S.toast(tr('Gönderilemedi') + ': ' + (f.name || '') + ' (' + String((e && e.message) || e) + ')');
+          return null;
+        }
+      }
+      let saved = null;
+      if (f.uri && A().libraries && A().libraries.importVideo) {
+        try { saved = await A().libraries.importVideo({ uri: f.uri, name: f.name || '' }); } catch (e) { saved = null; }
+      }
+      if (saved && saved.file) return { select: true, url: saved.url, file: saved.file, label: saved.name || f.name || '', libraryId: saved.id || '' };
+      return { select: true, url: f.url, label: f.name || '', libraryId: '' };
+    }
+    if (!f.dataUrl) return null;
+    if (onPc && kind === 'logo' && f.uri && A().pc && A().pc.sendLogo) {
+      S.toast(tr('PC\'ye gönderiliyor') + ': ' + (f.name || ''));
+      try {
+        const id = await A().pc.sendLogo({ uri: f.uri, name: f.name || '' });
+        if (!id) return null;
+        return { select: true, libraryId: String(id), label: f.name || '', kind: /^data:image\/gif/i.test(f.dataUrl) ? 'gif' : 'image' };
+      } catch (e) {
+        S.toast(tr('Gönderilemedi') + ': ' + (f.name || '') + ' (' + String((e && e.message) || e) + ')');
+        return null;
+      }
+    }
+    let saved = null;
+    if (!onPc && A().libraries && A().libraries.importImage) {
+      try { saved = await A().libraries.importImage({ name: f.name || '', dataUrl: f.dataUrl }); } catch (e) { saved = null; }
+    }
+    const url = (saved && saved.url) || f.dataUrl;
+    return { select: true, url, dataUrl: url, label: (saved && saved.name) || f.name || '' };
+  }
+  function chooseAddedMedia(ctx, kind) {
+    const onPc = A().target && A().target.get && A().target.get().target === 'pc';
+    if (kind === 'video') {
+      return libraryList('media').then((list) => pickTile(ctx, {
+        title: 'Video',
+        empty: 'Kitaplıkta video yok. Telefondan aktar ile ekleyebilirsiniz.',
+        addLabel: 'Telefondan aktar',
+        items: (list || []).filter((x) => x && x.file).map((x) => ({ id: x.id, label: x.name || x.file, user: true, icon: 'video', file: x.file, libraryId: x.id })),
+        onAdd: () => bringPicked('video'),
+      }));
+    }
+    const images = onPc ? Promise.resolve([]) : libraryList('images');
+    const logos = kind !== 'logo' ? Promise.resolve([])
+      : (onPc && A().pc && A().pc.request
+        ? A().pc.request('library.list', { kind: 'logo', limit: 200 }).then((r) => (r && r.ok && r.result && r.result.items) || [], () => [])
+        : libraryList('logos'));
+    return Promise.all([images, logos]).then(([imgs, marks]) => {
+      const tiles = [];
+      for (const it of imgs || []) {
+        if (!it || !it.file) continue;
+        const url = 'https://appassets.androidplatform.net/files/lib-images/' + encodeURIComponent(it.file);
+        tiles.push({ id: url, label: it.name || it.file, user: true, url, art: () => h('img', { src: url, alt: '', decoding: 'async' }) });
+      }
+      for (const it of marks || []) {
+        if (!it || !it.id) continue;
+        tiles.push({ id: it.id, label: it.name || it.id, user: true, libraryId: it.id, kind: it.kind || '', art: () => (onPc ? h('div', { class: 'ph', 'aria-hidden': 'true' }, [icon('image')]) : logoArt(it.id)) });
+      }
+      return pickTile(ctx, {
+        title: kind === 'logo' ? 'Logo' : 'Görsel',
+        empty: kind === 'logo' ? 'Kitaplıkta logo yok. Telefondan aktar ile ekleyebilirsiniz.' : 'Kitaplıkta görsel yok. Telefondan aktar ile ekleyebilirsiniz.',
+        addLabel: 'Telefondan aktar',
+        items: tiles,
+        onAdd: () => bringPicked(kind),
+      });
+    });
   }
 
   /* Galeriden gelen katmanlar: dosya ve en çok kullanılan ayarlar (masaüstündeki adlarla). */
@@ -1099,7 +1214,7 @@
               .concat([{ what: { kind: 'nowplaying' }, label: 'Çalan Parça', l: { kind: 'nowplaying', type: 'nowplaying' } }]);
           }
           if (addCat === 'media') {
-            // Galeriden seçilir; ekle düğmesi önce Android'in seçicisini açar
+            // Kitaplık ya da telefondan aktar; ekle düğmesi seçim sayfasını açar
             return [
               { what: { media: 'video' }, label: 'Video', l: { kind: 'media' }, icon: 'video' },
               { what: { media: 'image' }, label: 'Görsel Nesneler', l: { kind: 'sprites' }, icon: 'sparkles' },
@@ -1171,14 +1286,10 @@
             return;
           }
           if (pick.what.media) {
-            // Galeriden dosya; vazgeçilirse sayfa yerinde kalır
-            let file;
-            try { file = await A().media.pick(pick.what.media === 'video' ? 'video' : 'image'); } catch (e) {
-              const code = String((e && e.message) || e);
-              if (code !== 'cancelled') S.confirm(tr('Dosya açılamadı.') + ' (' + code + ')', 'Tamam');
-              return;
-            }
-            const made = LF().makeMedia(pick.what.media, file);
+            const it = await chooseAddedMedia(ctx, pick.what.media);
+            if (!it) return;
+            const made = mediaFromChoice(pick.what.media, it);
+            if (!made) return;
             own(() => A().config.patch({ layers: layers().concat([made]) }));
             ctx.pop();
             ctx.push(editPage(made.id));
@@ -1229,5 +1340,5 @@
   }
 
   S.tab('layers', listPage);
-  window.SVShellLayers = Object.freeze({ pickStudio, pickRef, clipEditor, thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
+  window.SVShellLayers = Object.freeze({ pickStudio, pickRef, pickTile, clipEditor, thumbKey, thumbsReady: () => thumbsReady, typeLabel, cameraWarning: (id) => camWarning(id), fxControls });
 })();

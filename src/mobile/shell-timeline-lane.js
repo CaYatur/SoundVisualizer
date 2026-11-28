@@ -535,6 +535,7 @@
 
     // ---- Dokunma ----
     function local(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    const scroller = () => host.closest('.tl-scroll');
     function stopFling() { if (fling) { cancelAnimationFrame(fling); fling = 0; } }
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -551,7 +552,8 @@
       }
       if (pointers.size > 2) return;
       const h = hit(p.x, p.y);
-      drag = { id: e.pointerId, x0: p.x, y0: p.y, x1: p.x, y1: p.y, sx0: view.sx, sy0: view.sy, h, moved: false, kind: 'pending', at: performance.now(), samples: [{ x: p.x, y: p.y, t: performance.now() }] };
+      const sc0 = scroller();
+      drag = { id: e.pointerId, x0: p.x, y0: p.y, x1: p.x, y1: p.y, sx0: view.sx, sy0: view.sy, cy0: e.clientY, cy: e.clientY, top0: sc0 ? sc0.scrollTop : 0, h, moved: false, kind: 'pending', at: performance.now(), samples: [{ x: p.x, y: p.y, cy: e.clientY, t: performance.now() }] };
       const tl = api.model();
       // Hemen başlayan sürüklemeler: cetvel, seçili klibin tutamaçları/gövdesi, seçili nokta
       if (h.zone === 'ruler') { drag.kind = 'scrub'; api.scrub(api.snapFree(tOf(p.x)), false); }
@@ -634,7 +636,8 @@
       if (!drag || drag.id !== e.pointerId) return;
       drag.x1 = p.x;
       drag.y1 = p.y;
-      drag.samples.push({ x: p.x, y: p.y, t: performance.now() });
+      drag.cy = e.clientY;
+      drag.samples.push({ x: p.x, y: p.y, cy: e.clientY, t: performance.now() });
       if (drag.samples.length > 6) drag.samples.shift();
       const dist = Math.hypot(p.x - drag.x0, p.y - drag.y0);
       if (!drag.moved && dist < SLOP) return;
@@ -656,7 +659,10 @@
       const k = drag.kind;
       if (k === 'pan') {
         view.sx = drag.sx0 - (p.x - drag.x0);
-        view.sy = drag.sy0 - (p.y - drag.y0);
+        // Dikey kaydırma sahne ile sesi birlikte taşır (tuvalin kendi sy'si değil).
+        const sc = scroller();
+        if (sc) sc.scrollTop = drag.top0 - (drag.cy - drag.cy0);
+        else view.sy = drag.sy0 - (p.y - drag.y0);
         clampScroll(tl);
         return;
       }
@@ -768,12 +774,15 @@
       const a = s[0], b = s[s.length - 1];
       const dt = Math.max(1, b.t - a.t);
       let vx = (b.x - a.x) / dt * 16;
-      let vy = (b.y - a.y) / dt * 16;
+      let vy = ((b.cy != null ? b.cy : b.y) - (a.cy != null ? a.cy : a.y)) / dt * 16;
       if (performance.now() - b.t > 80 || (Math.abs(vx) < 2 && Math.abs(vy) < 2)) return;
       const tl = api.model();
+      const sc = scroller();
       const stepF = () => {
         vx *= 0.94; vy *= 0.94;
-        view.sx -= vx; view.sy -= vy;
+        view.sx -= vx;
+        if (sc) sc.scrollTop -= vy;
+        else view.sy -= vy;
         clampScroll(tl);
         paint();
         fling = Math.abs(vx) > 0.4 || Math.abs(vy) > 0.4 ? requestAnimationFrame(stepF) : 0;

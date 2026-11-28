@@ -166,6 +166,48 @@ class MainActivity : ComponentActivity() {
         askMilk.launch(arrayOf("*/*"))
     }
 
+    /* Kitaplık → İçe aktar: resim ve .milk birlikte, birden fazla dosya.
+       Tür süzgeci resimleri gizlemesin diye tüm dosyalar açılır; ayıklama sonra. */
+    private var pendingLibrary: Bridge.Reply? = null
+    private val askLibrary = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val reply = pendingLibrary ?: return@registerForActivityResult
+        pendingLibrary = null
+        if (uris.isNullOrEmpty()) { reply.fail("cancelled"); return@registerForActivityResult }
+        EngineHost.profile.importLibrary(libraryDocs(uris)) { r, err -> if (r != null) reply.ok(r) else reply.fail("library-import", err ?: "") }
+    }
+
+    fun pickLibrary(reply: Bridge.Reply) {
+        pendingLibrary?.fail("superseded")
+        pendingLibrary = reply
+        askLibrary.launch(arrayOf("*/*"))
+    }
+
+    private fun libraryDocs(uris: List<android.net.Uri>): List<Pair<() -> String, () -> java.io.InputStream?>> =
+        uris.map { u ->
+            Pair({
+                var name = com.cayadev.visualizer.media.MediaPick.displayName(this, u)
+                val mime = contentResolver.getType(u) ?: ""
+                if (!com.cayadev.visualizer.store.MilkImport.isPresetFile(name)) {
+                    val ext = when (mime) {
+                        "image/png" -> ".png"
+                        "image/gif" -> ".gif"
+                        "image/webp" -> ".webp"
+                        "image/bmp" -> ".bmp"
+                        "video/webm" -> ".webm"
+                        "video/x-matroska" -> ".mkv"
+                        "video/quicktime" -> ".mov"
+                        "video/x-msvideo", "video/avi" -> ".avi"
+                        "video/mp4", "video/m4v" -> ".mp4"
+                        else -> if (mime.startsWith("image/")) ".jpg" else if (mime.startsWith("video/")) ".mp4" else ""
+                    }
+                    val low = name.lowercase()
+                    val known = listOf(".png", ".gif", ".webp", ".bmp", ".jpeg", ".jpg", ".mp4", ".m4v", ".webm", ".mkv", ".mov", ".avi", ".milk", ".milk2")
+                    if (ext.isNotEmpty() && known.none { low.endsWith(it) }) name += ext
+                }
+                name
+            }, EngineHost.profile.opener(u))
+        }
+
     /* Galeriden video ya da görsel (Faz 4 medya katmanları, media/MediaPick.kt). Video için
        kalıcı okuma izni alınır: sayfa dosyayı her açılışta ContentPathHandler'dan okur. */
     private var pendingMedia: Pair<String, Bridge.Reply>? = null

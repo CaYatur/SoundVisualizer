@@ -298,6 +298,86 @@ class ProfileStore(context: Context) {
      * preset olmayan, atlanan sayıları ve motorun listesine gidecek hafif öğeler (`upsert`).
      */
     fun importMilk(files: List<Pair<() -> String, () -> InputStream?>>, done: (JSONObject?, String?) -> Unit) = run(done) {
+        importMilkNow(files)
+    }
+
+    /**
+     * Kitaplık → İçe aktar: birden fazla resim, video ve .milk / .milk2. Resim ve video
+     * Medya'ya, presetler MilkDrop kitaplığına gider. Yedek dosyası bu yoldan açılmaz.
+     * Motorun yerleşik presetleri bu klasörde değildir; silme yalnız buradaki .milk dosyasına bakar.
+     */
+    fun importLibrary(files: List<Pair<() -> String, () -> InputStream?>>, done: (JSONObject?, String?) -> Unit) = run(done) {
+        val milk = ArrayList<Pair<() -> String, () -> InputStream?>>()
+        var images = 0
+        var videos = 0
+        var skipped = 0
+        for (f in files) {
+            val name = try { f.first() } catch (e: Exception) { "" }
+            if (MilkImport.isPresetFile(name)) { milk.add(f); continue }
+            if (LibraryRestore.isVideoName(name)) {
+                val saved = try { f.second()?.use { LibraryRestore.importVideo(app.filesDir, name, it) } } catch (e: Exception) { null }
+                if (saved != null) videos++ else skipped++
+                continue
+            }
+            if (!isImageName(name)) { skipped++; continue }
+            val bytes = try { f.second()?.use { MilkImport.readCapped(it, 8 * 1024 * 1024 + 1) } } catch (e: Exception) { null }
+            if (bytes == null || bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) { skipped++; continue }
+            try {
+                LibraryRestore.importImageBytes(app.filesDir, name, bytes)
+                images++
+            } catch (e: Exception) { skipped++ }
+        }
+        val out = importMilkNow(milk)
+        out.put("images", images).put("videos", videos).put("skipped", out.optInt("skipped") + skipped)
+    }
+
+    /** Galeriden seçilen tek videoyu kitaplığa alır. Adresin uzantısı yoksa türünden eklenir. */
+    fun takeVideo(uri: Uri, name: String, done: (JSONObject?, String?) -> Unit) = run(done) {
+        var n = name.trim().ifBlank { com.cayadev.visualizer.media.MediaPick.displayName(app, uri) }
+        if (!LibraryRestore.isVideoName(n)) {
+            val mime = app.contentResolver.getType(uri) ?: ""
+            val ext = when (mime) {
+                "video/webm" -> ".webm"
+                "video/x-matroska" -> ".mkv"
+                "video/quicktime" -> ".mov"
+                "video/x-msvideo", "video/avi" -> ".avi"
+                else -> if (mime.startsWith("video/")) ".mp4" else ""
+            }
+            if (ext.isNotEmpty()) n += ext
+        }
+        val stream = app.contentResolver.openInputStream(uri) ?: throw IllegalArgumentException("bad-video")
+        stream.use { LibraryRestore.importVideo(app.filesDir, n, it) }
+    }
+
+    /** Eklenen MilkDrop dosyalarını siler. Yerleşik paket dosyada durmaz; shader dosyasına dokunulmaz. */
+    fun removePresets(ids: List<String>, done: (JSONObject?, String?) -> Unit) = run(done) {
+        val existing = presetCache ?: loadPresetList()
+        val byId = LinkedHashMap<String, JSONObject>()
+        for (i in 0 until existing.length()) existing.optJSONObject(i)?.let { byId[it.optString("id")] = it }
+        val gone = JSONArray()
+        for (raw in ids) {
+            val id = raw.trim()
+            if (!ID.matches(id)) continue
+            val f = File(presetsDir, "$id.json")
+            if (!f.isFile) continue
+            val parent = f.canonicalFile.parentFile
+            if (parent == null || parent != presetsDir.canonicalFile) continue
+            val kind = try { JSONObject(String(AtomicFile(f).readFully(), Charsets.UTF_8)).optString("kind") } catch (e: Exception) { "" }
+            if (kind != "milkdrop") continue
+            if (!f.delete()) continue
+            byId.remove(id)
+            gone.put(id)
+        }
+        if (gone.length() > 0) commitIndex(byId)
+        JSONObject().put("removed", gone.length()).put("ids", gone).put("gen", presetGen)
+    }
+
+    private fun isImageName(name: String): Boolean {
+        val n = name.lowercase()
+        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".gif") || n.endsWith(".webp") || n.endsWith(".bmp")
+    }
+
+    private fun importMilkNow(files: List<Pair<() -> String, () -> InputStream?>>): JSONObject {
         val t0 = android.os.SystemClock.elapsedRealtime()
         presetsDir.mkdirs()
         val existing = presetCache ?: loadPresetList()
@@ -351,7 +431,7 @@ class ProfileStore(context: Context) {
             added++
         }
         if (added > 0) commitIndex(byId)
-        JSONObject().put("added", added).put("duplicates", duplicates).put("invalid", invalid).put("skipped", skipped)
+        return JSONObject().put("added", added).put("duplicates", duplicates).put("invalid", invalid).put("skipped", skipped)
             .put("gen", presetGen).put("upsert", upsert).put("ms", android.os.SystemClock.elapsedRealtime() - t0)
     }
 
@@ -371,7 +451,7 @@ class ProfileStore(context: Context) {
         for (ref in refs.distinct()) {
             val path = ref.removePrefix(origin)
             if (path.startsWith("/files/")) {
-                if (path.startsWith("/files/lib-media/")) continue
+                if (path.startsWith("/files/lib-media/") || path.startsWith("/files/lib-images/")) continue
                 val f = File(media, Uri.decode(path.removePrefix("/files/").substringBefore('?'))).canonicalFile
                 if (f.isFile && f.path.startsWith(media.path + File.separator)) out.add(BackupWriter.Video(ref, f.name, f.length(), { f.inputStream() }))
             } else if (path.startsWith(com.cayadev.visualizer.web.ContentPathHandler.PREFIX)) {

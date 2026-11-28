@@ -1720,7 +1720,42 @@ ipcMain.on('timeline-audio:frame', (e, f) => {
   const now = Date.now();
   internalFeed.push(frame, now, typeof f.sink === 'string' ? f.sink : '');
   if (internalFeed.deliverAlone(now)) sendAudioFrame(frame);
+  noteTimelineHeard();
 });
+/* Çizelge sesinin ham örnekleri. Telefon PC'yi izlerken yakalama bu uygulamayı
+   duymuyorsa görüntü susuyordu; bu paket aynı izleme kanalından gider. */
+ipcMain.on('timeline-audio:pcm', (e, buf, sr) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || []);
+  if (b.length < 4) return;
+  linkWatchPcm(b, Number(sr) || 48000, 2, true);
+  noteTimelineHeard();
+});
+let timelineChip = false;
+let timelineChipTimer = null;
+/* Kaynak yokken lastCaptureSource [] oluyor; dizi kendisi dolu sayılırdı ve
+   çizelge sesi "Ses kaynağı yok" yazısını hiç değiştiremiyordu. Demo ya da
+   gerçek yakalama seçiliyse etiket onlarda kalır. */
+function captureLabelOwned() {
+  return Array.isArray(lastCaptureSource) && lastCaptureSource.length > 0;
+}
+function noteTimelineHeard() {
+  if (captureLabelOwned()) {
+    timelineChip = false;
+    clearTimeout(timelineChipTimer);
+    timelineChipTimer = null;
+    return;
+  }
+  if (!timelineChip) {
+    timelineChip = true;
+    notifyAdmin('audio-source-status', { type: 'timeline' });
+  }
+  clearTimeout(timelineChipTimer);
+  timelineChipTimer = setTimeout(() => {
+    timelineChip = false;
+    if (!captureLabelOwned()) notifyAdmin('audio-source-status', { type: 'none' });
+  }, 400);
+}
 
 function sendAudioFrame(frame) {
   {
@@ -2066,20 +2101,39 @@ function shownNowPlaying() {
    yollar (audio-bridge.js artworkId). Kapak yoksa, okunamazsa ya da sınırı
    aşarsa yalnız kapaksız gider; öteki alanlar etkilenmez. */
 let bridgeArtCache = { src: '', out: '' };
+/* Windows küçük resmi bazen PNG olduğu halde jpeg yazar. Yanlış tür
+   Electron'da boş görüntü döner; telefon da o baytı basamaz. */
+function retagArt(art) {
+  const i = art.indexOf(',');
+  if (i < 0) return art;
+  let head;
+  try { head = Buffer.from(art.slice(i + 1, i + 33), 'base64'); } catch { return art; }
+  if (!head || head.length < 3) return art;
+  let mime = '';
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) mime = 'jpeg';
+  else if (head.length >= 4 && head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) mime = 'png';
+  else if (head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46) mime = 'gif';
+  else if (head.length >= 12 && head.toString('ascii', 0, 4) === 'RIFF' && head.toString('ascii', 8, 12) === 'WEBP') mime = 'webp';
+  if (!mime) return art;
+  const want = 'data:image/' + mime + ';base64';
+  return art.slice(0, i).toLowerCase().startsWith(want) ? art : want + art.slice(i);
+}
+function jpegArt(art, maxEdge, quality) {
+  try {
+    let img = require('electron').nativeImage.createFromDataURL(art);
+    if (!img || img.isEmpty()) return '';
+    const { width, height } = img.getSize();
+    const edge = Math.max(width || 1, height || 1);
+    const k = Math.min(1, maxEdge / edge);
+    if (k < 1) img = img.resize({ width: Math.max(1, Math.round(width * k)), height: Math.max(1, Math.round(height * k)), quality: 'good' });
+    const out = 'data:image/jpeg;base64,' + img.toJPEG(quality).toString('base64');
+    return audioBridge.artworkOk(out) ? out : '';
+  } catch { return ''; }
+}
 function bridgeArtwork(a) {
   if (typeof a !== 'string' || !a.startsWith('data:image/')) return '';
   if (bridgeArtCache.src === a) return bridgeArtCache.out;
-  let out = '';
-  try {
-    let img = require('electron').nativeImage.createFromDataURL(a);
-    if (!img.isEmpty()) {
-      const { width, height } = img.getSize();
-      const k = Math.min(1, 512 / Math.max(width || 1, height || 1));
-      if (k < 1) img = img.resize({ width: Math.max(1, Math.round(width * k)), height: Math.max(1, Math.round(height * k)), quality: 'good' });
-      out = 'data:image/jpeg;base64,' + img.toJPEG(85).toString('base64');
-      if (!audioBridge.artworkOk(out)) out = '';
-    }
-  } catch { out = ''; }
+  const out = jpegArt(retagArt(a), 512, 85);
   bridgeArtCache = { src: a, out };
   return out;
 }
@@ -5141,6 +5195,13 @@ function phoneLinkService() {
       'live.get': () => ({ meter: linkMeter(), show: linkLiveShow.last }),
       // Çalan parça, ona uyan sözler ve söz saati (telefon PC'nin sahnesini çizerken)
       'song.get': () => linkSongState(),
+      /* Kapak ayrı ve küçük: sözlerle birlikte giden parça iletisi düşünce
+         telefon bunu şarkı boyunca sorar. Bayt her çağrıda durur. */
+      'song.art': () => {
+        const s = linkSongState();
+        const np = s && s.np;
+        return { title: (np && np.title) || '', artist: (np && np.artist) || '', artwork: (np && np.artwork) || '' };
+      },
       /* Gösterinin başvurduğu logo kitaplığı öğesi. Ayar aynası yalnız kimliği
          taşır; telefon yerelde bulamazsa baytı buradan alır. Başvurulmayan
          ya da 8 MB üstü dosya gitmez. */
@@ -5155,6 +5216,16 @@ function phoneLinkService() {
         });
         if (r.error) throw Object.assign(new Error(r.error), { code: r.error });
         return { id: r.id, mime: r.mime, b64: r.b64 };
+      },
+      /* Seçici önizlemesi. logo.get yalnız gösterinin başvurduğu kimliği verir;
+         listelenen ama henüz kullanılmayan logo o yüzden boş kalıyordu. */
+      'library.logo': (args) => {
+        const info = logoLibrary.fileInfo(logoLibDir(), args && args.id);
+        if (!info) throw Object.assign(new Error('missing'), { code: 'missing' });
+        if (info.size > linkLogos.MAX_LINK_BYTES) throw Object.assign(new Error('too-big'), { code: 'too-big' });
+        const rec = logoLibrary.read(logoLibDir(), args.id);
+        if (!rec || !rec.b64) throw Object.assign(new Error('missing'), { code: 'missing' });
+        return { id: rec.id, mime: rec.mime, b64: rec.b64 };
       },
       /* Önizleme (B5). "Gerçek görüntü": çıkışın gösterdiği kare, 480 px JPEG (MCP sv_get_preview
          ile aynı yol). "Akıcı": telefon PC'nin ayarını kendisi çizer, sesi audio.watch ile alır. */
@@ -5448,6 +5519,20 @@ function linkManageOps() {
       const cleanup = () => { try { fs.unlinkSync(f.file); } catch { /* */ } };
       let out = { kind: f.kind, name: f.name };
       try {
+        if (f.kind === 'audio' && f.use === 'timeline') {
+          // Çizelge sesi: kalıcı klasör, sv-media adresi. Geçici şarkı kovasına girmez.
+          const keep = path.join(app.getPath('userData'), 'timeline-audio');
+          fs.mkdirSync(keep, { recursive: true });
+          const dest = path.join(keep, f.id + '-' + f.name);
+          fs.renameSync(f.file, dest);
+          const dur = await audioDurationSec(resolveFfmpeg(), dest);
+          if (!(dur > 0)) {
+            try { fs.unlinkSync(dest); } catch { /* */ }
+            throw Object.assign(new Error('bad-audio'), { code: 'bad-audio' });
+          }
+          timelineAudioPicked.add(path.resolve(dest));
+          return Object.assign(out, { url: mediaUrl.toMediaUrl(dest), dur, use: 'timeline' });
+        }
         if (f.kind === 'audio') {
           // Dışa aktarmanın şarkısı: en çok üç tane tutulur, en eskisi silinir
           linkSongs.set(f.id, f);
@@ -5562,7 +5647,12 @@ function linkWatchDrain(client, w) {
   w.draining = true;
   step();
 }
-function linkWatchPcm(buf, sr, ch) {
+let timelinePcmAt = 0;
+function linkWatchPcm(buf, sr, ch, fromTimeline) {
+  /* Çizelge sesi duyulurken yakalama paketi karışmaz: telefon bir kaynağı duyar.
+     Çizelge susunca (yaklaşık 250 ms) yakalama kaldığı yerden sürer. */
+  if (fromTimeline) timelinePcmAt = Date.now();
+  else if (timelinePcmAt && Date.now() - timelinePcmAt < 250) return;
   if (!linkWatch.size || !linkSvc || !buf || !buf.length) return;
   const channels = ch === 1 ? 1 : 2;
   const chunks = linkWatchChunks(buf, channels);
@@ -5694,8 +5784,10 @@ function linkSongState() {
   const nowMs = Date.now();
   const live = linkLiveAnchor(np, nowMs);
   let art = live && live.artwork;
-  if (typeof art === 'string' && art.length > 300000) art = bridgeArtwork(art) || '';
-  if (typeof art === 'string' && art.length > 300000) art = '';
+  /* Kapak telefona küçülerek gider. Büyük veri adresi iletinin tamamını
+     düşürüyor; düşen kapak şarkı değişene kadar bir daha gelmiyordu. */
+  if (typeof art === 'string' && art.startsWith('data:image/')) art = shrinkDataArt(art) || '';
+  if (typeof art === 'string' && art.length > 96 * 1024) art = '';
   // at: PC'nin saati. Telefon aradaki farkı ölçüp damgaları kendi saatine çevirir (sözler önde gitmesin)
   const ain = phoneLinkCfg().audioIn;
   const audioDelayMs = ain.lossless === true && ain.syncDelay !== false ? linkPcmDelayMs : 0;
@@ -5743,12 +5835,25 @@ function linkSongPush() {
   linkNowPlaying.timer = setTimeout(() => {
     const s = linkSongState();
     const hasArt = !!(s.np && s.np.artwork);
-    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round(s.np.position || 0), hasArt ? 1 : 0, s.items.map((i) => i.id + ':' + i.text.length), s.clock && Math.round((s.clock.time || 0))]);
+    /* Aynı uzunluktaki iki kapak birbirinin yerine geçmesin. İlk iki iletide
+       bayt gider: biri düşerse ikincisi kapakısız parçayı kalıcı bırakmasın. */
+    const artHash = hasArt ? require('crypto').createHash('sha1').update(s.np.artwork).digest('hex').slice(0, 16) : '';
+    const artId = hasArt ? (s.np.title + '\0' + s.np.artist + '\0' + artHash) : '';
+    if (artId !== linkNowPlaying.sentArt) { linkNowPlaying.artSends = 0; linkNowPlaying.artAt = 0; }
+    /* İlk iki ileti ve sonra yaklaşık 6 sn'de bir. Telefon geç bağlansa
+       ya da büyük çerçeve düşse de kapak şarkı açıkken yeniden gider. */
+    const includeArt = hasArt && ((linkNowPlaying.artSends || 0) < 2 || Date.now() - (linkNowPlaying.artAt || 0) >= 6000);
+    const key = JSON.stringify([s.np && s.np.title, s.np && s.np.artist, s.np && s.np.playing, s.np && Math.round(s.np.position || 0), includeArt ? artHash : (hasArt ? 1 : 0), s.items.map((i) => i.id + ':' + i.text.length), s.clock && Math.round((s.clock.time || 0))]);
     if (key === linkNowPlaying.key) return;
     linkNowPlaying.key = key;
-    const artId = hasArt ? (s.np.title + '|' + s.np.artist + '|' + s.np.artwork.length) : '';
-    if (hasArt && artId === linkNowPlaying.sentArt) s.np = Object.assign({}, s.np, { artwork: '' });
-    else if (hasArt) linkNowPlaying.sentArt = artId;
+    if (includeArt) {
+      linkNowPlaying.sentArt = artId;
+      linkNowPlaying.artSends = (linkNowPlaying.artSends || 0) + 1;
+      linkNowPlaying.artAt = Date.now();
+    } else if (hasArt) {
+      s.np = Object.assign({}, s.np, { artwork: '' });
+      linkNowPlaying.sentArt = artId;
+    }
     linkSvc.broadcast(Object.assign({ ev: 'song' }, s));
   }, 120);
 }
@@ -10109,13 +10214,67 @@ ipcMain.handle('timeline-audio:pick', async () => {
   }
   return out;
 });
-/* Ses klibi etiketleri (başlık, sanatçı, kapak); dosya başına bir kez. */
+/* Ses klibi etiketleri (başlık, sanatçı, kapak); dosya başına bir kez.
+   Kapak telefona sığsın diye JPEG ve en çok ~180 KB. Büyük PNG ilk iletide
+   düşüyor, telefonda kapak bir daha gelmiyordu. */
 const timelineTagCache = new Map();
+let artShrinkCache = { src: '', out: '' };
+function shrinkDataArt(art) {
+  if (typeof art !== 'string' || !art.startsWith('data:image/')) return '';
+  if (artShrinkCache.src === art) return artShrinkCache.out;
+  const fixed = retagArt(art);
+  const cap = 96 * 1024;
+  let out = '';
+  if (fixed.length <= cap && /^data:image\/(jpeg|png|webp|gif);base64,/i.test(fixed)) out = fixed;
+  else {
+    for (const edge of [512, 384, 256, 160]) {
+      for (const q of [82, 60, 42]) {
+        const small = jpegArt(fixed, edge, q);
+        if (small && small.length <= cap) { out = small; break; }
+      }
+      if (out) break;
+    }
+  }
+  artShrinkCache = { src: art, out };
+  return out;
+}
+function timelineCoverJpeg(raw) {
+  return new Promise((resolve) => {
+    const ff = resolveFfmpeg();
+    if (!ff) { resolve(''); return; }
+    const chunks = [];
+    let size = 0;
+    let proc;
+    const done = (art) => { clearTimeout(timer); resolve(art || ''); };
+    const timer = setTimeout(() => { try { if (proc) proc.kill(); } catch { /* yok */ } done(''); }, 8000);
+    try {
+      proc = spawn(ff, [
+        '-hide_banner', '-loglevel', 'error', '-i', raw,
+        '-map', '0:v:0', '-vf', 'scale=512:512:force_original_aspect_ratio=decrease',
+        '-frames:v', '1', '-f', 'image2pipe', '-c:v', 'mjpeg', '-q:v', '6', 'pipe:1',
+      ], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch { done(''); return; }
+    proc.on('error', () => done(''));
+    if (proc.stdout) proc.stdout.on('data', (d) => { size += d.length; if (size <= 180000) chunks.push(Buffer.from(d)); });
+    proc.on('close', () => {
+      if (!chunks.length || size > 180000) { done(''); return; }
+      const buf = Buffer.concat(chunks);
+      done(buf.length > 32 ? 'data:image/jpeg;base64,' + buf.toString('base64') : '');
+    });
+  });
+}
 function timelineAudioTags(raw) {
   const key = path.resolve(raw);
   if (!timelineTagCache.has(key)) {
     const p = require('../shared/audio-tags.js').readAudioTags(resolveFfmpeg(), raw, path.basename(raw, path.extname(raw)))
-      .catch(() => ({ title: path.basename(raw, path.extname(raw)), artist: '', album: '', artwork: '' }));
+      .catch(() => ({ title: path.basename(raw, path.extname(raw)), artist: '', album: '', artwork: '' }))
+      .then(async (tag) => {
+        const t = tag || { title: path.basename(raw, path.extname(raw)), artist: '', album: '', artwork: '' };
+        let art = shrinkDataArt(t.artwork);
+        if (!art) art = await timelineCoverJpeg(raw);
+        t.artwork = art || '';
+        return t;
+      });
     if (timelineTagCache.size > 64) timelineTagCache.delete(timelineTagCache.keys().next().value);
     timelineTagCache.set(key, p);
   }
@@ -10133,7 +10292,7 @@ ipcMain.on('timeline-audio:now', async (e, info) => {
   const seq = ++timelineNowSeq;
   const raw = info && info.src ? mediaUrl.fromMediaUrl(String(info.src)) : '';
   if (!raw || !(timelineAudioPicked.has(path.resolve(raw)) || isConfiguredMedia(currentConfig, raw, mediaUrl))) {
-    if (timelineNow) { timelineNow = null; publishNowPlaying(shownNowPlaying()); }
+    if (timelineNow) { timelineNow = null; publishNowPlaying(shownNowPlaying()); linkSongPush(); }
     return;
   }
   const tag = await timelineAudioTags(raw);
@@ -10144,6 +10303,8 @@ ipcMain.on('timeline-audio:now', async (e, info) => {
     { has: true, app: 'Timeline' });
   if (!timelineNow.title) timelineNow = null;
   publishNowPlaying(shownNowPlaying());
+  /* Sözden önce de gitsin: kapak ilk parça iletisinde olsun. */
+  linkSongPush();
   // Söz katmanı da bu klibi izler (#1213)
   if (timelineNow) lookupTimelineLyrics(raw, timelineNow, tag);
 });

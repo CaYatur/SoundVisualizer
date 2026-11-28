@@ -33,9 +33,14 @@ test('gönderim: parça parça, sırayla; boyut ve özet tutunca dosya hazır, a
   const done = up.end('ph1', { id: b.id, sha256: crypto.createHash('sha256').update(data).digest('hex') });
   assert.strictEqual(done.kind, 'video');
   assert.strictEqual(done.name, 'Windows gece klip.mp4', 'yol ayırıcısı ve üst klasör adda kalmadı');
+  assert.strictEqual(done.use, '');
   assert.strictEqual(path.dirname(done.file), dir, 'yalnız kendi klasörüne');
   assert.ok(fs.readFileSync(done.file).equals(data));
   assert.deepStrictEqual(files(), [b.id + '.mp4']);
+  const au = up.begin('ph1', { kind: 'audio', name: 'Moment.mp3', size: 3, use: 'timeline' });
+  up.chunk('ph1', { id: au.id, at: 0, data: Buffer.from('abc').toString('base64') });
+  const ad = up.end('ph1', { id: au.id, sha256: crypto.createHash('sha256').update('abc').digest('hex') });
+  assert.strictEqual(ad.use, 'timeline');
 });
 
 test('red: tür, uzantı, boyut, sıra dışı parça, fazla bayt, yanlış özet, başka telefon', () => {

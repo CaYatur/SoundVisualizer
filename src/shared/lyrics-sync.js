@@ -91,6 +91,70 @@
     return short.length >= 4 && long.indexOf(short) >= 0;
   }
 
+  /* "ile", virgül, feat ve benzeri bağlaçlar ad değil. Sıra ve yazım
+     farkı ad ad bakılır; bütün dizenin tek parça olması gerekmez. */
+  const ARTIST_JOIN = new Set(['ile', 've', 'and', 'feat', 'ft', 'featuring', 'vs', 'versus', 'with', 'und', 'et', 'plus']);
+
+  function artistTokens(s) {
+    return String(s || '').split(' ').filter((t) => t.length >= 2 && !ARTIST_JOIN.has(t));
+  }
+
+  function editDistance(a, b) {
+    const m = a.length;
+    const n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    if (Math.abs(m - n) > 2) return 3;
+    const row = new Array(n + 1);
+    for (let j = 0; j <= n; j++) row[j] = j;
+    for (let i = 1; i <= m; i++) {
+      let prev = row[0];
+      row[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cur = row[j];
+        const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+        prev = cur;
+      }
+    }
+    return row[n];
+  }
+
+  function nameClose(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const d = dice(a, b);
+    if (d >= 0.72 || contains(a, b)) return Math.max(d, 0.72);
+    const lim = Math.max(a.length, b.length) >= 8 ? 2 : 1;
+    if (Math.min(a.length, b.length) >= 4 && editDistance(a, b) <= lim) return Math.max(d, 0.72);
+    return 0;
+  }
+
+  /* Kısa taraftaki her ad, uzun tarafta bir ada oturur. Sıra önemsiz.
+     Boş sanatçı çağıranda zaten serbest. */
+  function artistClose(a, b) {
+    if (!a || !b) return true;
+    if (a === b || dice(a, b) >= 0.55 || contains(a, b)) return true;
+    const A = artistTokens(a);
+    const B = artistTokens(b);
+    if (!A.length || !B.length) return false;
+    const short = A.length <= B.length ? A : B;
+    const long = A.length <= B.length ? B : A;
+    const used = new Set();
+    for (let s = 0; s < short.length; s++) {
+      let best = 0;
+      let bi = -1;
+      for (let i = 0; i < long.length; i++) {
+        if (used.has(i)) continue;
+        const sc = nameClose(short[s], long[i]);
+        if (sc > best) { best = sc; bi = i; }
+      }
+      if (bi < 0) return false;
+      used.add(bi);
+    }
+    return true;
+  }
+
   function exactOk(qTitle, qArtist, title, artist) {
     if (!qTitle || qTitle !== title) return false;
     if (!qArtist || !artist) return true;
@@ -138,7 +202,7 @@
         const soft = scrub(it.title, TITLE_NOISE);
         const titleHit = (qSoft && soft && (dice(qSoft, soft) >= 0.72 || contains(qSoft, soft)));
         let artistHit = true;
-        if (qArtist && artist) artistHit = dice(qArtist, artist) >= 0.55 || contains(qArtist, artist);
+        if (qArtist && artist) artistHit = artistClose(qArtist, artist);
         if (titleHit && artistHit) {
           score = dice(qSoft, soft);
           how = 'partial';
@@ -290,8 +354,74 @@
     }
   }
 
+  /* Sağlayıcı araması: başlık oturmalı. Sanatçıdaki bağlaç, yıl ve tekrarlanan
+     başlık adı sayılmaz. Daha çok sanatçı adı örtüşen satır kazanır
+     ("Athena ve smle Moment 2022" → "Athena, smie"). */
+  const YEAR_TOK = /^(19|20)\d{2}$/;
+  function queryArtistTokens(artist, title) {
+    const titleSet = new Set(artistTokens(normalize(title)));
+    return artistTokens(normalize(artist)).filter((t) => !titleSet.has(t) && !YEAR_TOK.test(t));
+  }
+  function tokenCover(need, artist) {
+    const B = artistTokens(normalize(artist));
+    if (!need.length || !B.length) return 0;
+    const used = new Set();
+    let n = 0;
+    for (let s = 0; s < need.length; s++) {
+      let best = 0;
+      let bi = -1;
+      for (let i = 0; i < B.length; i++) {
+        if (used.has(i)) continue;
+        const sc = nameClose(need[s], B[i]);
+        if (sc > best) { best = sc; bi = i; }
+      }
+      if (bi < 0) continue;
+      used.add(bi);
+      n++;
+    }
+    return n / need.length;
+  }
+  function pickProviderHit(query, rows) {
+    const qTitle = normalize(query && query.title);
+    if (!qTitle || !Array.isArray(rows)) return '';
+    const qSoft = scrub(query.title, TITLE_NOISE);
+    const need = queryArtistTokens(query && query.artist, query && query.title);
+    const qDur = Number(query && query.duration) || 0;
+    let best = null;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const rawTitle = row.trackName || row.title || '';
+      const title = normalize(rawTitle);
+      const soft = scrub(rawTitle, TITLE_NOISE);
+      if (!title) continue;
+      const titleHit = title === qTitle || (qSoft && soft && (dice(qSoft, soft) >= 0.72 || contains(qSoft, soft)));
+      if (!titleHit) continue;
+      let cover = 1;
+      if (need.length) {
+        cover = tokenCover(need, row.artistName || row.artist || '');
+        if (!(cover > 0)) continue;
+      }
+      const synced = String(row.syncedLyrics || '').trim();
+      const plain = String(row.plainLyrics || row.lyrics || '').trim();
+      const text = synced || plain;
+      if (!text) continue;
+      const dur = Number(row.duration) || 0;
+      let score = cover * 10 + dice(qSoft || qTitle, soft || title);
+      if (synced) score += 0.4;
+      if (qDur > 0 && dur > 0) {
+        const d = Math.abs(qDur - dur);
+        if (d <= 3) score += 0.6;
+        else if (d <= 8) score += 0.2;
+        else score -= 0.4;
+      }
+      if (!best || score > best.score) best = { score, text };
+    }
+    return best ? best.text : '';
+  }
+
   const api = {
-    normalize, dice, matchTrack, systemLyrics, playback, guessMeta, installLibrary, librarySig,
+    normalize, dice, matchTrack, systemLyrics, playback, guessMeta, installLibrary, librarySig, pickProviderHit,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLyricsSync = api;
