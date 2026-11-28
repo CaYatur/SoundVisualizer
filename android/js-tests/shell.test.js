@@ -103,6 +103,10 @@ test('kabuğun her metninin İngilizcesi i18n.js\'te', () => {
   for (const s of ['Otomatik VJ', 'Demo ses', 'Sistem sesi', 'Katmanlar', 'Sahne sınıra yakın:']) assert.ok(strings.has(s), 'okunamadı: ' + s);
   const missing = [...strings].filter((s) => !i18n.includes("'" + s + "':"));
   assert.deepStrictEqual(missing, []);
+  const layers = read('src/mobile/shell-layers.js');
+  assert.match(layers, /text: 'Sese Bağla'/);
+  assert.match(layers, /x\.audioBand = v/);
+  assert.match(layers, /label: p\.label \+ ' ← ses'/);
 });
 
 test('kabuk uygulamada sunucudan ve temalardan sonra yükleniyor, yalnız görselleştirici sayfasında kuruluyor', () => {
