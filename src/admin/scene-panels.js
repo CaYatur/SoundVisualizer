@@ -2961,6 +2961,21 @@
                   }));
                 }
                 if (def.lutFile) out.push(lutFileRow(f, rerender));
+                /* Efekt zinciriyle aynı bağ: motor zaten fx.audio ve audioBand okuyor. */
+                if (def.audio && def.audio.length) {
+                  f.audio = f.audio || {};
+                  out.push(foldable('Sese Bağla', () => {
+                    const audioKids = [miniSelect('Bant', BAND_LABELS, () => f.audioBand || 'bass', (v) => { f.audioBand = v; })];
+                    for (const name of def.audio) {
+                      const p = (def.params || []).find((x) => x.name === name);
+                      if (!p) continue;
+                      audioKids.push(miniSlider(p.label + ' ← ses', () => f.audio[name] || 0, (v) => { f.audio[name] = v; }, {
+                        min: 0, max: 1, step: 0.02, percent: true, def: 0,
+                      }));
+                    }
+                    return audioKids;
+                  }, 'fxaudio:' + (l.id || i) + ':' + fi));
+                }
               }
             });
             const sel = el('select', { class: 'p-in', 'aria-label': tr('Ekle') });

@@ -1158,6 +1158,22 @@
         const v = f.params && f.params[p.name] != null ? f.params[p.name] : p.default;
         kids.push(U.slider({ label: p.label, min: p.min, max: p.max, step: p.step, value: v, def: p.default, onInput: (nv) => setF((x) => { x.params = Object.assign({}, x.params, { [p.name]: nv }); }) }));
       }
+      if (d && d.audio && d.audio.length) {
+        kids.push(h('div', { class: 'row-sub', text: 'Sese Bağla' }));
+        kids.push(U.select({
+          label: 'Bant', options: LF().BAND_LABELS, value: f.audioBand || 'bass', def: 'bass',
+          onChange: (v) => setF((x) => { x.audioBand = v; }),
+        }));
+        for (const name of d.audio) {
+          const p = (d.params || []).find((x) => x.name === name);
+          if (!p) continue;
+          const cur = f.audio && f.audio[name] != null ? f.audio[name] : 0;
+          kids.push(U.slider({
+            label: p.label + ' ← ses', min: 0, max: 1, step: 0.02, percent: true, value: cur, def: 0,
+            onInput: (nv) => setF((x) => { x.audio = Object.assign({}, x.audio, { [name]: nv }); }),
+          }));
+        }
+      }
       if (d && d.lutFile) kids.push(h('div', { class: 'hint', text: 'LUT dosyası seçimi kitaplıkla birlikte gelecek (Faz 4).' }));
       out.push(U.card(kids));
     });
