@@ -166,7 +166,12 @@ test('bağlantılar: panel dokunusu, ana süreç karışımı, görselleştirici
   // Çıkış aygıtına giden yol değişmez (yayın yazılımları sesi duymaya devam eder)
   assert.doesNotMatch(tap, /disconnect\(/);
   assert.match(read('src/main/preload-admin.js'), /timelineAudioFrame: \(frame\) => ipcRenderer\.send\('timeline-audio:frame'/);
+  assert.match(tap, /timelineAudioPcm/);
   const main = read('src/main/main.js');
+  assert.match(main, /fromTimeline\) timelinePcmAt = Date\.now\(\)/);
+  assert.match(main, /function captureLabelOwned\(\)/);
+  assert.match(main, /lastCaptureSource\.length > 0/);
+  assert.match(main, /timelinePcmAt && Date\.now\(\) - timelinePcmAt < 250\) return/);
   assert.match(main, /ipcMain\.on\('timeline-audio:frame'/);
   assert.match(main, /internalFeed\.combine\(frame, now, captureCarriesSelf\(\)\)/);
   assert.match(main, /selfExclusionPlan\(real\)/);

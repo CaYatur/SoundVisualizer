@@ -313,6 +313,8 @@
     'İçe Aktarılan': 'Imported', 'Arkaplan Ayarlarını İçe Aktar': 'Import Background Settings', 'Geçerli bir arkaplan dosyası değil.': 'This is not a valid background file.',
     'Önce bir ses dosyası seçin.': 'Choose an audio file first.', 'Başlatılamadı': 'Could not start', 'Hazırlanıyor…': 'Preparing…',
     'Zaman çizelgesi sesi kullanılıyor: {n} klip, {d}': 'Using timeline audio: {n} clips, {d}', 'Zaman çizelgesi sesi': 'Timeline audio',
+    'Bu klip logo kitaplığındaki resme başvurur.': 'This clip uses an image from the logo library.',
+    'Kitaplıkta logo yok. Bilgisayar yedeğinden gelen logolar burada görünür.': 'No logos in the library. Logos from a computer backup appear here.',
     'Başka ses dosyası kullan': 'Use another audio file',
     'Ses dosyası gerekmiyor: video çizelgenin uzunluğunda, sessiz çıkar.': 'No audio file needed: the video is the length of the timeline, without sound.',
     'Çizelge sesinin süresi': 'Length of the timeline audio', 'Zaman çizelgesinin uzunluğu (sessiz)': 'Length of the timeline (silent)',

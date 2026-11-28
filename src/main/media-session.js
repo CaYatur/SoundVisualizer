@@ -202,6 +202,24 @@ const EMPTY = {
   position: 0, duration: 0, updated: 0, received: 0,
 };
 
+/* Chromium, panelde ses varken belge başlığını medya oturumu yapıyor.
+   Parça durunca gerçek şarkının yerini "Ses Görselleştirici — Yönetici Paneli" alıyor.
+   Bu bir parça değil; kart anında boşalır. */
+const OWN_WINDOW_TITLES = [
+  'Ses Görselleştirici — Yönetici Paneli',
+  'Ses Görselleştirici · Yönetici Paneli',
+  'Sound Visualizer — Admin Panel',
+  'Sound Visualizer · Admin Panel',
+];
+function normMediaTitle(s) {
+  return String(s || '').toLowerCase().replace(/[\u2010-\u2015\u2212·•|]/g, '-').replace(/\s+/g, ' ').trim();
+}
+function isOwnWindowMedia(title) {
+  const n = normMediaTitle(title);
+  if (!n) return false;
+  return OWN_WINDOW_TITLES.some((t) => normMediaTitle(t) === n);
+}
+
 /* İki durum arasında BİLDİRMEYE değer bir fark var mı?
    Konum her yoklamada değişmiyor; değiştiğinde `updated` damgası da
    değişiyor. Onu izlemek, hem sıçramaları hem duraklamaları yakalıyor. */
@@ -397,7 +415,9 @@ class MediaSession {
     this.lastError = '';
 
     const now = Date.now();
-    const next = o.has
+    /* Uygulamanın kendi pencere adı parça bilgisi değildir. */
+    const ownWindow = o.has && isOwnWindowMedia(o.title);
+    const next = o.has && !ownWindow
       ? {
         has: true,
         playing: o.status === 'Playing',
@@ -438,4 +458,4 @@ class MediaSession {
   }
 }
 
-module.exports = { MediaSession, EMPTY, differs, SCRIPT, getNativeHelperPath };
+module.exports = { MediaSession, EMPTY, differs, SCRIPT, getNativeHelperPath, isOwnWindowMedia };

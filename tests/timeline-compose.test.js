@@ -288,6 +288,16 @@ test('palette local colors are timed, deep isolated, serialization safe; image i
   assert.notDeepStrictEqual(TC.composeAt(cfg, saved, 2).cfg.background.gradient.colors, ['#ff0000', '#00ff00']);
   const im = tlWith([{ id: 'im', clips: [{ id: 'i', type: 'image', ref: 'data:image/png;base64,AA', start: 0, dur: 1 }] }]);
   assert.strictEqual(TC.composeAt(cfg, im, 0.5).cfg.layers[0].kind, 'sprites');
+  const lg = tlWith([{ id: 'lg', clips: [{ id: 'l1', type: 'logo', ref: 'img_mark', start: 0, dur: 1 }] }]);
+  const layer = TC.composeAt(cfg, lg, 0.5).cfg.layers[0];
+  assert.strictEqual(layer.kind, 'logo');
+  assert.strictEqual(layer.settings.logo.libraryId, 'img_mark');
+  assert.strictEqual(layer.settings.logo.enabled, true);
+  assert.strictEqual(layer.settings.logo.source, 'manual');
+  const fileLogo = tlWith([{ id: 'lg2', clips: [{ id: 'l2', type: 'logo', ref: 'data:image/png;base64,AA', start: 0, dur: 1 }] }]);
+  const drawn = TC.composeAt(cfg, fileLogo, 0.5).cfg.layers[0];
+  assert.strictEqual(drawn.settings.logo.src, 'data:image/png;base64,AA');
+  assert.strictEqual(drawn.settings.logo.libraryId, '');
 });
 
 test('global blackout overrides timeline without mutating clips, then restores current composition', () => {

@@ -8398,6 +8398,13 @@
         audioUiKind = 'idle';
         audioErrShown = null;
         setAudioState(tr('Ses kaynağı yok (sessiz)'), 'warn', 'speaker');
+      } else if (s.type === 'timeline') {
+        /* Yakalama yokken çizelge sesi görüntüyü sürüyor. "Kaynak yok" o sırada yanlış. */
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'capture';
+        audioErrShown = null;
+        setAudioState(tr('Zaman çizelgesi sesi'), 'ok', 'wave');
       } else if (s.type === 'demo') {
         audioCaptureDevice = null;
         audioCaptureFromStatus = true;

@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { MediaSession, EMPTY, differs, getNativeHelperPath } = require('../src/main/media-session.js');
+const { MediaSession, EMPTY, differs, getNativeHelperPath, isOwnWindowMedia } = require('../src/main/media-session.js');
 
 test('EMPTY oturum varsayılanları doğru tanımlıdır', () => {
   assert.strictEqual(EMPTY.has, false);
@@ -139,6 +139,21 @@ test('MediaSession._onLine: has=false durumunda boş duruma geçer', () => {
 
   s._onLine(JSON.stringify({ ok: true, has: false }));
   assert.strictEqual(s.current().has, false);
+
+  s._onLine(JSON.stringify({
+    ok: true, has: true, app: 'spotify.exe', title: 'Gece', artist: 'Ada',
+    album: '', position: 3, duration: 120, updated: 1, status: 'Playing',
+  }));
+  assert.strictEqual(s.current().title, 'Gece');
+  for (const title of ['Ses Görselleştirici — Yönetici Paneli', 'Ses Görselleştirici - Yönetici Paneli', 'Sound Visualizer — Admin Panel']) {
+    assert.strictEqual(isOwnWindowMedia(title), true);
+    s._onLine(JSON.stringify({
+      ok: true, has: true, app: 'SoundVisualizer.exe', title, artist: '',
+      album: '', position: 0, duration: 0, updated: 2, status: 'Paused',
+    }));
+    assert.strictEqual(s.current().has, false, title);
+    assert.strictEqual(s.current().title, '');
+  }
 });
 
 test('MediaSession._onLine: bozuk JSON satırlarında çökmez', () => {
