@@ -84,7 +84,8 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 if (kind !in setOf("video", "logo", "lyrics", "milk", "audio")) { reply.fail("bad-kind"); return }
                 val uri = try { android.net.Uri.parse(args.optString("uri")) } catch (e: Exception) { null }
                 if (uri == null || uri.scheme != "content") { reply.fail("bad-uri"); return }
-                reply.ok(JSONObject().put("key", com.cayadev.visualizer.link.LinkUpload.start(app, uri, kind, args.optString("name").take(120))))
+                val use = if (args.optString("use") == "timeline") "timeline" else ""
+                reply.ok(JSONObject().put("key", com.cayadev.visualizer.link.LinkUpload.start(app, uri, kind, args.optString("name").take(120), use)))
             }
             "linkUploadCancel" -> { com.cayadev.visualizer.link.LinkUpload.cancel(args.optString("key")); reply.ok() }
             // PC'nin ayarındaki video telefona (hedef PC'yken motor kendi kopyasıyla çizer)
@@ -240,6 +241,32 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
             "libraryList" -> LyricsHub.run({ r, e -> if (r != null) reply.ok(r) else reply.fail("library", e ?: "") }) {
                 com.cayadev.visualizer.store.LibraryRestore.list(app.filesDir, args.optString("key"))
             }
+            "imageLibImport" -> {
+                val name = args.optString("name")
+                val dataUrl = args.optString("dataUrl")
+                Thread {
+                    try { reply.ok(com.cayadev.visualizer.store.LibraryRestore.importImage(app.filesDir, name, dataUrl)) } catch (e: Exception) { reply.fail("image-import", e.message ?: "bad-image") }
+                }.start()
+            }
+            "libraryImport" -> {
+                if (live == null) { reply.fail("no-activity"); return }
+                live.pickLibrary(reply)
+            }
+            "libraryRemove" -> {
+                val key = args.optString("key")
+                val id = args.optString("id")
+                Thread {
+                    try { reply.ok(com.cayadev.visualizer.store.LibraryRestore.remove(app.filesDir, key, id)) } catch (e: Exception) { reply.fail("library-remove", e.message ?: "missing") }
+                }.start()
+            }
+            "libraryTake" -> {
+                val uri = Uri.parse(args.optString("uri"))
+                EngineHost.profile.takeVideo(uri, args.optString("name")) { r, err -> if (r != null) reply.ok(r) else reply.fail("library-take", err ?: "bad-video") }
+            }
+            "presetRemove" -> {
+                val a = args.optJSONArray("ids") ?: JSONArray()
+                EngineHost.profile.removePresets((0 until a.length()).map { a.optString(it) }) { r, err -> if (r != null) reply.ok(r) else reply.fail("preset-remove", err ?: "") }
+            }
             "lyricsLibImport" -> {
                 if (live == null) { reply.fail("no-activity"); return }
                 live.pickLyrics(reply)
@@ -276,6 +303,12 @@ class AppRequests(private val app: Context) : Bridge.RequestHandler {
                 val uri = Uri.parse(args.optString("uri"))
                 Thread {
                     try { reply.ok(com.cayadev.visualizer.export.TimelineAudioFiles.copyIn(app, uri)) } catch (e: Exception) { reply.fail("audio-import", e.message ?: e.javaClass.simpleName) }
+                }.start()
+            }
+            "timelineAudioTags" -> {
+                val url = args.optString("url")
+                Thread {
+                    try { reply.ok(com.cayadev.visualizer.export.TimelineAudioFiles.tags(app, url)) } catch (e: Exception) { reply.fail("audio-tags", e.message ?: e.javaClass.simpleName) }
                 }.start()
             }
             "mediaAppend" -> try {

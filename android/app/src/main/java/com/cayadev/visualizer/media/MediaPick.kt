@@ -50,7 +50,7 @@ object MediaPick {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
         return JSONObject().put("dataUrl", "data:image/gif;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
-            .put("name", displayName(context, uri)).put("width", o.outWidth).put("height", o.outHeight)
+            .put("uri", uri.toString()).put("name", displayName(context, uri)).put("width", o.outWidth).put("height", o.outHeight)
     }
 
     fun image(context: Context, uri: Uri, maxSide: Int = MAX_SIDE): JSONObject {
@@ -67,7 +67,7 @@ object MediaPick {
         bmp.compress(if (alpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 88, out)
         val mime = if (alpha) "image/png" else "image/jpeg"
         val url = "data:$mime;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
-        return JSONObject().put("dataUrl", url).put("name", displayName(context, uri))
+        return JSONObject().put("dataUrl", url).put("uri", uri.toString()).put("name", displayName(context, uri))
             .put("width", bmp.width).put("height", bmp.height)
     }
 

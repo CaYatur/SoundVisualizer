@@ -62,7 +62,7 @@
     return ly && ly.normalizeLayer ? ly.normalizeLayer(l) : Object.assign({ enabled: true, opacity: 1, settings: {} }, l);
   }
 
-  const VISUAL_TYPES = { scene: 1, preset: 1, visualizer: 1, background: 1, video: 1, image: 1, shader: 1 };
+  const VISUAL_TYPES = { scene: 1, preset: 1, visualizer: 1, background: 1, video: 1, image: 1, shader: 1, logo: 1 };
   function isVisual(c) { return !!c && !!VISUAL_TYPES[c.type]; }
 
   /* Sahne anahtarlarının siyah tabanı: varsayılanlar, yığın açık, katman yok. */
@@ -162,6 +162,20 @@
     if (clip.type === 'shader') return Object.assign(base, { kind: 'visualizer', type: 'custom', presetId: clip.ref });
     if (clip.type === 'video') return Object.assign(base, { kind: 'media', settings: { media: { enabled: true, source: 'file', file: clip.ref, fit: 'cover', loop: true } } });
     if (clip.type === 'image') return Object.assign(base, { kind: 'sprites', type: 'front', settings: { images: { enabled: true, items: [SV().normalizeImageItem({ id: 'img_' + clip.id, seed: 1, src: clip.ref, layer: 'front' })] } } });
+    if (clip.type === 'logo') {
+      const def = defaults().logo || {};
+      const ref = String(clip.ref || '');
+      // Galeriden gelen resim adresindir. Kitaplık kimliği ayrıca istenir.
+      const direct = /^(?:data:|https?:|blob:|content:)/i.test(ref) || ref.indexOf('/files/') >= 0;
+      return Object.assign(base, {
+        kind: 'logo', name: clip.name || 'Logo',
+        settings: { logo: Object.assign({}, def, {
+          enabled: true, source: 'manual',
+          src: direct ? ref : null,
+          libraryId: direct ? '' : (clip.ref || ''),
+        }) },
+      });
+    }
     return null;
   }
 

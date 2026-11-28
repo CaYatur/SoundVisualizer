@@ -102,15 +102,110 @@
     return Promise.all(Array.from(srcs).map(load)).then(() => missing(tracks));
   }
   function baseName(p) { return String(p || '').split(/[\\/]/).pop() || String(p || ''); }
+  function failAudio(e) {
+    const S = window.SVShell;
+    const c = String((e && e.message) || e);
+    if (c !== 'cancelled' && S && S.toast) S.toast(tr('Ses eklenemedi.') + ' (' + c + ')');
+  }
+  function clipOf(list, s) {
+    if (!s) return null;
+    const t = (list || []).find((k) => k.id === s.trackId);
+    const c = t && s.clipId ? t.clips.find((k) => k.id === s.clipId) : null;
+    return { t, c };
+  }
+  /* Çift dokunuş: sahne kliplerinin denetçisiyle aynı sayfa (altta dock, başlık,
+     kart, simgeli düğme satırı). Şerit içine açılan kutu alt çubuğun dışına taşıyordu. */
+  function editorPage(sel) {
+    const S = window.SVShell;
+    const U = window.SVShellUI;
+    if (!S || !U) return { title: 'Seçim', render() {} };
+    const { h, icon } = S;
+    const head = (text, ic) => h('div', { class: 'tl-insp-head' }, [icon(ic), h('span', { 'data-user-text': '', text })]);
+    const btn = (ic, label, fn, cls) => h('button', { class: 'btn' + (cls ? ' ' + cls : ''), onclick: fn }, [icon(ic), h('span', { text: label })]);
+    return {
+      size: 'dock',
+      title: () => tr('Seçim'),
+      render(body, ctx) {
+        const tl = T();
+        const st = tl && tl.audioState ? tl.audioState() : null;
+        const f = clipOf(st && st.tracks, sel);
+        if (!f || !f.t || (sel.kind === 'clip' && !f.c)) { ctx.pop(); return; }
+        const up = (fn) => {
+          tl.writeAudio((l) => { const g2 = clipOf(l, sel); if (g2 && g2.t) fn(g2.t, g2.c); });
+          ctx.refresh();
+        };
+        if (sel.kind === 'clip') {
+          const c = f.c;
+          const stt = status(c.src);
+          body.append(
+            head(c.name || baseName(c.src), 'music'),
+            U.card([
+              U.slider({ label: 'Kazanç (dB)', min: -24, max: 12, step: 0.5, value: c.gain, def: 0, onChange: (v) => up((t, k) => { k.gain = v; }) }),
+              U.slider({ label: 'Giriş geçişi (sn)', min: 0, max: Math.max(0.1, Math.min(10, c.dur)), step: 0.1, value: c.fadeIn, def: 0, onChange: (v) => up((t, k) => { k.fadeIn = Math.min(v, k.dur - k.fadeOut); }) }),
+              U.slider({ label: 'Çıkış geçişi (sn)', min: 0, max: Math.max(0.1, Math.min(10, c.dur)), step: 0.1, value: c.fadeOut, def: 0, onChange: (v) => up((t, k) => { k.fadeOut = Math.min(v, k.dur - k.fadeIn); }) }),
+              U.toggle({ label: 'Klibi sustur', value: c.mute, onChange: (v) => up((t, k) => { k.mute = !!v; }) }),
+              !st.pc && stt === 'missing' ? h('div', { class: 'hint', text: 'Ses dosyası bu telefonda bulunamadı' }) : null,
+            ]),
+            h('div', { class: 'btn-row' }, [
+              btn('plus', 'Ekle', () => { const at = tl.head ? tl.head() : 0; placeAudio(f.t.id, at).then(() => ctx.pop()).catch(failAudio); }),
+              btn('cut', 'Kafada böl', () => { const at = tl.head ? tl.head() : 0; tl.writeAudio((l) => { const g2 = clipOf(l, sel); if (!g2 || !g2.c || g2.t.locked) return; const parts = TA().splitClip(g2.c, at); if (!parts) return; const i = g2.t.clips.findIndex((k) => k.id === g2.c.id); g2.t.clips.splice(i, 1, parts[0], parts[1]); }); ctx.pop(); }),
+              !st.pc && stt === 'missing' ? btn('folder-open', 'Yeniden bağla', () => relink(c.src).catch(() => {})) : null,
+              btn('trash', 'Sil', () => { tl.writeAudio((l) => { const g2 = clipOf(l, sel); if (g2 && g2.t && g2.c) g2.t.clips = g2.t.clips.filter((x2) => x2.id !== g2.c.id); }); ctx.pop(); }, 'danger'),
+            ]),
+          );
+        } else {
+          const t = f.t;
+          body.append(
+            head(t.name, 'wave'),
+            U.card([
+              U.slider({ label: 'Ses düzeyi (dB)', min: -24, max: 12, step: 0.5, value: t.gain, def: 0, onChange: (v) => up((k) => { k.gain = v; }) }),
+              U.slider({ label: 'Denge', min: -1, max: 1, step: 0.05, value: t.pan, def: 0, onChange: (v) => up((k) => { k.pan = v; }) }),
+              U.toggle({ label: 'Sessiz', value: t.mute, onChange: (v) => up((k) => { k.mute = !!v; }) }),
+              U.toggle({ label: 'Solo', value: t.solo, onChange: (v) => up((k) => { k.solo = !!v; }) }),
+            ]),
+            h('div', { class: 'btn-row' }, [
+              btn('plus', 'Ekle', () => { const at = tl.head ? tl.head() : 0; placeAudio(t.id, at).then(() => ctx.pop()).catch(failAudio); }),
+              btn('trash', 'Şeridi sil', () => { tl.writeAudio((l) => { const i = l.findIndex((k) => k.id === t.id); if (i >= 0) l.splice(i, 1); }); ctx.pop(); }, 'danger'),
+            ]),
+          );
+        }
+      },
+    };
+  }
 
-  /* Telefondan ses dosyası: seçilir, medya klasörüne kopyalanır, çözülür. Döner: { src, name, srcDur } */
+  /* Telefondan ses dosyası. Hedef PC ise dosya bilgisayara gider; klibin kaynağı onun adresi olur. */
   function importAudio() {
+    const tl = T();
+    if (tl && tl.pcOn && tl.pcOn() && A().pc && A().pc.sendTimelineAudio) {
+      return A().media.pick('audio').then((r) => A().pc.sendTimelineAudio({ uri: r.uri, name: r.name || '' })).then((f) => {
+        if (!f || !f.url || !(Number(f.dur) > 0)) throw new Error('failed');
+        return { src: f.url, name: String(f.name || baseName(f.url)), srcDur: Number(f.dur) };
+      });
+    }
     return A().media.pick('audio').then((r) => A().timelineAudio.import(r.uri)).then((f) => {
       bufs.delete(f.url);
       return load(f.url).then((buf) => {
         if (!buf) throw new Error(tr('Ses dosyası çözülemedi.'));
         return { src: f.url, name: String(f.name || baseName(f.url)), srcDur: buf.duration };
       });
+    });
+  }
+  /* Boş şeride ya da yeni şeride dosya koy. trackId yoksa boş şerit, o da yoksa yeni şerit. */
+  function placeAudio(trackId, at) {
+    const tl = T();
+    if (!tl || !tl.writeAudio) return Promise.resolve(null);
+    return importAudio().then((f) => {
+      let pick = null;
+      tl.writeAudio((l) => {
+        let t = trackId ? l.find((k) => k.id === trackId && !k.locked) : null;
+        if (!t) t = l.find((k) => !k.locked && !k.clips.length);
+        if (!t) { t = TA().makeTrack({ name: tr('Ses') + ' ' + (l.length + 1) }); l.push(t); }
+        const c = TA().makeClip({ src: f.src, name: f.name, start: Math.max(0, at || 0), dur: f.srcDur, srcDur: f.srcDur });
+        t.clips.push(c);
+        t.clips.sort((a, b) => a.start - b.start);
+        pick = { kind: 'clip', trackId: t.id, clipId: c.id };
+      });
+      return pick;
     });
   }
   /* Yeniden bağla: seçilen dosya `src`'yi kullanan bütün kliplere */
@@ -161,9 +256,55 @@
       gr.connect(mg, 0, 1);
       out = mg;
     }
-    out.connect(c.destination);
+    out.connect(mixBus(c));
     src.start(Math.max(when, c.currentTime || 0), s.offset, s.dur);
     return src;
+  }
+
+  /* Bütün klipler tek kazanca iner. Görüntü kaynağı "çizelge" iken bu karışımın
+     örnekleri motora gider. Çıkışa giden ses aynı kalır. */
+  let mix = null;
+  let feedOn = false;
+  function mixBus(c) {
+    if (mix && mix.ctx === c) return mix.gain;
+    const g = c.createGain();
+    g.gain.value = 1;
+    g.connect(c.destination);
+    mix = { ctx: c, gain: g };
+    if (typeof c.createScriptProcessor === 'function') {
+      const proc = c.createScriptProcessor(2048, 2, 2);
+      const mute = c.createGain();
+      mute.gain.value = 0;
+      g.connect(proc);
+      proc.connect(mute);
+      mute.connect(c.destination);
+      proc.onaudioprocess = onMix;
+    }
+    return g;
+  }
+  function onMix(e) {
+    if (!feedOn) return;
+    const api = A();
+    if (!api || !api.audio || !api.audio.timelinePcm) return;
+    const ib = e.inputBuffer;
+    if (!ib) return;
+    const L = ib.getChannelData(0);
+    const R = ib.numberOfChannels > 1 ? ib.getChannelData(1) : L;
+    let m = 0;
+    for (let i = 0; i < L.length; i += 32) {
+      const a = L[i] < 0 ? -L[i] : L[i];
+      if (a > m) m = a;
+    }
+    if (m < 1e-4) return;
+    const n = L.length;
+    const s = new Int16Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const l = L[i] < -1 ? -1 : L[i] > 1 ? 1 : L[i];
+      const r = R[i] < -1 ? -1 : R[i] > 1 ? 1 : R[i];
+      s[i * 2] = (l < 0 ? l * 0x8000 : l * 0x7fff) | 0;
+      s[i * 2 + 1] = (r < 0 ? r * 0x8000 : r * 0x7fff) | 0;
+    }
+    api.audio.timelinePcm(s, ib.sampleRate || 48000);
   }
 
   const live = { nodes: [], key: null, t: 0, at: 0, loaded: -1 };
@@ -190,9 +331,75 @@
   }
   let loaded = 0; // yüklenen kaynak sayısı değişince canlı çalma yeniden kurulur
   subs.add(() => { loaded++; });
+  const tagCache = new Map();
+  function tagsOf(src) {
+    if (!src) return {};
+    if (tagCache.has(src)) return tagCache.get(src) || {};
+    tagCache.set(src, null);
+    const api = A();
+    if (api && api.timelineAudio && api.timelineAudio.tags && reachable(src)) {
+      api.timelineAudio.tags(src).then((t) => { tagCache.set(src, t && typeof t === 'object' ? t : {}); }, () => { tagCache.set(src, {}); });
+    } else tagCache.set(src, {});
+    return {};
+  }
+  let userChoice = null;
+  let offered = false;
+  function clipsReady(st) {
+    return !!(st && !st.pc && Array.isArray(st.tracks) && st.tracks.some((t) => t && !t.mute && Array.isArray(t.clips) && t.clips.some((c) => c && c.src && !c.mute)));
+  }
+  function ready() {
+    const tl = T();
+    return clipsReady(tl && tl.audioState ? tl.audioState() : null);
+  }
+  /* Çizelgede duyulur ses varsa seçenek listede kalır. Pencere kapalı olsa da,
+     başka kaynak seçilse de kaybolmaz. Kendiliğinden seçilmez. */
+  function offer() { return ready(); }
+  function arm(on) {
+    feedOn = !!on && ready() && userChoice === 'timeline';
+    const api = A();
+    if (api && api.audio && api.audio.timeline) api.audio.timeline(feedOn);
+  }
+  function syncSource() {
+    const on = offer();
+    const api = A();
+    if (on !== offered && api && api.audio && api.audio.poke) api.audio.poke();
+    if (!on) {
+      if (offered || feedOn) {
+        offered = false;
+        feedOn = false;
+        if (api && api.audio && api.audio.timeline) api.audio.timeline(false);
+      }
+      if (userChoice === 'timeline') userChoice = null;
+      return;
+    }
+    offered = true;
+    /* Yalnız kullanıcı "Zaman çizelgesi sesi"ni seçtiyse dinlenir. */
+    if (userChoice === 'timeline') { if (!feedOn) arm(true); return; }
+    if (feedOn) {
+      feedOn = false;
+      if (api && api.audio && api.audio.timeline) api.audio.timeline(false);
+    }
+  }
+  function userPicked(id) {
+    userChoice = id || 'demo';
+    if (id === 'timeline' && ready()) arm(true);
+    else { feedOn = false; const api = A(); if (api && api.audio && api.audio.timeline) api.audio.timeline(false); }
+  }
+  let metaAt = 0;
+  function publishTimelineNow(st) {
+    const api = A();
+    if (!api || !api.audio || !api.audio.timelineMeta) return;
+    if (!feedOn || !st || st.pc || !TA()) { api.audio.timelineMeta(null); return; }
+    const now = Date.now();
+    if (now - metaAt < 400) return;
+    metaAt = now;
+    api.audio.timelineMeta(TA().nowPlayingAt(st.tracks, st.time, tagsOf, { playing: !!st.playing, now }));
+  }
   function liveTick() {
+    syncSource();
     const tl = T();
     const st = tl && tl.audioState ? tl.audioState() : null;
+    publishTimelineNow(st);
     if (!st || !st.playing || st.pc || !st.tracks || !st.tracks.length || preview.on) { if (live.key !== null) liveStop(); return; }
     const key = st.ref;
     const c = actx();
@@ -305,8 +512,7 @@
     const rows = h('div', { class: 'tl-arows' }, [heads, canHost]);
     const bar = h('div', { class: 'tl-abar' });
     const lost = h('div', { class: 'tl-amissing' });
-    const panel = h('div', { class: 'tl-apanel' });
-    host.replaceChildren(rows, lost, bar, panel);
+    host.replaceChildren(rows, lost, bar);
     const g = canvas.getContext('2d');
     let sel = null; // { kind: 'clip'|'track', trackId, clipId }
     let drag = null;
@@ -323,9 +529,11 @@
       const v = (n, d) => (cs.getPropertyValue(n) || '').trim() || d;
       colors = { bg: v('--card', '#1b1b1f'), line: v('--line', '#333'), clip: v('--accent', '#6c8cff'), text: v('--text', '#fff'), dim: v('--muted', '#999'), danger: v('--danger', '#e5484d') };
     }
+    const addH = () => { const n = api.laneH ? api.laneH() : ROW_H; return n > 0 ? n : ROW_H; };
+    const rowsH = (list) => list.length * ROW_H + addH();
     function size() {
       const list = tracks();
-      const hgt = Math.max(1, list.length) * ROW_H;
+      const hgt = Math.max(1, rowsH(list));
       const dpr = window.devicePixelRatio || 1;
       w = canHost.clientWidth || 300;
       canvas.width = Math.round(w * dpr);
@@ -343,10 +551,11 @@
       if (!canvas.isConnected) return;
       if (!colors) readColors();
       const list = tracks();
-      const s = JSON.stringify(list.map((t) => [t.id, t.name, t.mute, t.solo, t.locked])) + '|' + (api.wide() ? 1 : 0);
+      const s = JSON.stringify(list.map((t) => [t.id, t.name, t.mute, t.solo, t.locked])) + '|' + (api.wide() ? 1 : 0) + '|' + addH();
       if (s !== sig) { sig = s; paintHeads(list); }
-      if (canvas.width !== Math.round((canHost.clientWidth || 300) * (window.devicePixelRatio || 1)) || canvas.style.height !== Math.max(1, list.length) * ROW_H + 'px') size();
-      g.clearRect(0, 0, w, Math.max(1, list.length) * ROW_H);
+      const bodyH = Math.max(1, rowsH(list));
+      if (canvas.width !== Math.round((canHost.clientWidth || 300) * (window.devicePixelRatio || 1)) || canvas.style.height !== bodyH + 'px') size();
+      g.clearRect(0, 0, w, bodyH);
       const audible = new Set(TA().audibleTracks(list).map((t) => t.id));
       list.forEach((t, ti) => {
         const y = ti * ROW_H;
@@ -400,9 +609,13 @@
         if (sel && sel.kind === 'track' && sel.trackId === t.id) { g.strokeStyle = colors.clip; g.lineWidth = 2; g.strokeRect(1, y + 1, w - 2, ROW_H - 2); g.lineWidth = 1; }
       });
       // Oynatma kafası (çizelgeyle aynı x)
+      if (addH() > 0) {
+        g.fillStyle = colors.bg;
+        g.fillRect(0, list.length * ROW_H, w, addH());
+      }
       const hx = x(api.head());
       g.fillStyle = colors.danger;
-      g.fillRect(Math.round(hx) - 1, 0, 2, Math.max(1, list.length) * ROW_H);
+      g.fillRect(Math.round(hx) - 1, 0, 2, bodyH);
       paintMissing(list);
     }
     let raf = 0;
@@ -416,20 +629,20 @@
           onclick: () => api.write((l) => { const x2 = l.find((k2) => k2.id === t.id); if (x2) x2[k] = !x2[k]; }),
         }, [h('span', { text: label })]);
         heads.appendChild(h('div', { class: 'tl-ahead' + (sel && sel.trackId === t.id && sel.kind === 'track' ? ' sel' : '') }, [
-          h('button', { class: 'tl-aname', 'data-user-text': '', text: t.name, onclick: () => select({ kind: 'track', trackId: t.id }) }),
+          h('button', { class: 'tl-aname', 'data-user-text': '', text: t.name, onclick: () => tapSel({ kind: 'track', trackId: t.id }) }),
           mk('mute', 'M'), mk('solo', 'S'),
         ]));
       }
-      if (!list.length) heads.appendChild(h('div', { class: 'tl-ahead empty' }));
+      heads.appendChild(h('button', {
+        class: 'tl-ahead add', style: 'height:' + addH() + 'px', 'aria-label': tr('Ses şeridi'),
+        onclick: () => api.write((l) => { l.push(TA().makeTrack({ name: tr('Ses') + ' ' + (l.length + 1) })); }),
+      }, [icon('plus'), h('span', { class: 'tl-aname', text: 'Ses şeridi' })]));
       paintBar(list);
     }
-    function paintBar(list) {
+    function paintBar() {
       bar.textContent = '';
       // PC hedefi: çizelge bilgisayarın; ses dosyaları orada (yalnız görüntülenir)
-      if (api.pc()) { bar.appendChild(h('span', { class: 'row-sub', text: 'Ses şeritleri bilgisayarda düzenlenir ve çalar.' })); return; }
-      bar.appendChild(h('button', { class: 'btn small', onclick: addAudio }, [icon('music'), h('span', { text: 'Ses ekle' })]));
-      bar.appendChild(h('button', { class: 'btn small plain', onclick: () => api.write((l) => { l.push(TA().makeTrack({ name: tr('Ses') + ' ' + (l.length + 1) })); }) }, [icon('plus'), h('span', { text: 'Ses şeridi' })]));
-      if (!list.length) bar.appendChild(h('span', { class: 'row-sub', text: 'Çizelgeye müzik ya da efekt ekleyin; dışa aktarmada karıştırılır.' }));
+      bar.hidden = !bar.childNodes.length;
     }
     let lostSig = '';
     function paintMissing(list) {
@@ -450,78 +663,31 @@
       const c = String((e && e.message) || e);
       if (c !== 'cancelled' && S.toast) S.toast(tr('Ses eklenemedi.') + ' (' + c + ')');
     }
-    function addAudio() {
-      importAudio().then((f) => {
-        const at = Math.max(0, api.head());
-        let pick = null;
-        api.write((l) => {
-          let t = sel && l.find((k) => k.id === sel.trackId && !k.locked);
-          // Seçili şerit yoksa kafada boş olan ilk şerit, o da yoksa yeni şerit
-          if (!t) t = l.find((k) => !k.locked && !k.clips.some((c) => c.start < at + f.srcDur && c.start + c.dur > at));
-          if (!t) { t = TA().makeTrack({ name: tr('Ses') + ' ' + (l.length + 1) }); l.push(t); }
-          const c = TA().makeClip({ src: f.src, name: f.name, start: at, dur: f.srcDur, srcDur: f.srcDur });
-          t.clips.push(c);
-          t.clips.sort((a, b) => a.start - b.start);
-          pick = { kind: 'clip', trackId: t.id, clipId: c.id };
-        });
-        if (pick) select(pick);
-      }).catch(fail);
+    let lastTap = null;
+    function select(s) { sel = s; sig = ''; draw(); if (api.onSelect) api.onSelect(s); }
+    function clearSel(silent) {
+      if (!sel) return;
+      sel = null; sig = ''; draw();
+      if (!silent && api.onSelect) api.onSelect(null);
     }
-
-    function select(s) { sel = s; sig = ''; paintPanel(); draw(); }
-    function paintPanel() {
-      panel.textContent = '';
-      const list = tracks();
-      const f = findClip(list, sel);
-      if (!f || !f.t || (sel.kind === 'clip' && !f.c) || api.pc()) { panel.hidden = true; return; }
-      panel.hidden = false;
-      const up = (fn) => api.write((l) => { const g2 = findClip(l, sel); if (g2 && g2.t) fn(g2.t, g2.c); });
-      const close = h('button', { class: 'iconbtn plain', 'aria-label': tr('Kapat'), title: tr('Kapat'), onclick: () => select(null) }, [icon('x')]);
-      if (sel.kind === 'clip') {
-        const c = f.c;
-        const st = status(c.src);
-        panel.append(
-          h('div', { class: 'tl-apanel-head' }, [h('div', { class: 'row-title small grow-text', 'data-user-text': '', text: c.name || baseName(c.src) }), close]),
-          U.slider({ label: 'Kazanç (dB)', min: -24, max: 12, step: 0.5, value: c.gain, def: 0, onChange: (v) => up((t, k) => { k.gain = v; }) }),
-          U.slider({ label: 'Giriş geçişi (sn)', min: 0, max: Math.max(0.1, Math.min(10, c.dur)), step: 0.1, value: c.fadeIn, def: 0, onChange: (v) => up((t, k) => { k.fadeIn = Math.min(v, k.dur - k.fadeOut); }) }),
-          U.slider({ label: 'Çıkış geçişi (sn)', min: 0, max: Math.max(0.1, Math.min(10, c.dur)), step: 0.1, value: c.fadeOut, def: 0, onChange: (v) => up((t, k) => { k.fadeOut = Math.min(v, k.dur - k.fadeIn); }) }),
-          U.toggle({ label: 'Klibi sustur', value: c.mute, onChange: (v) => up((t, k) => { k.mute = !!v; }) }),
-          h('div', { class: 'btn-row' }, [
-            h('button', { class: 'btn small', onclick: () => splitAtHead() }, [h('span', { text: 'Kafada böl' })]),
-            st === 'missing' ? h('button', { class: 'btn small', onclick: () => relink(c.src).catch(fail) }, [h('span', { text: 'Yeniden bağla' })]) : null,
-            h('button', { class: 'btn small danger', onclick: () => { up((t, k) => { t.clips = t.clips.filter((x2) => x2.id !== k.id); }); select(null); } }, [h('span', { text: 'Sil' })]),
-          ]),
-        );
-      } else {
-        const t = f.t;
-        panel.append(
-          h('div', { class: 'tl-apanel-head' }, [h('div', { class: 'row-title small grow-text', 'data-user-text': '', text: t.name }), close]),
-          U.slider({ label: 'Ses düzeyi (dB)', min: -24, max: 12, step: 0.5, value: t.gain, def: 0, onChange: (v) => up((k) => { k.gain = v; }) }),
-          U.slider({ label: 'Denge', min: -1, max: 1, step: 0.05, value: t.pan, def: 0, onChange: (v) => up((k) => { k.pan = v; }) }),
-          U.toggle({ label: 'Sessiz', value: t.mute, onChange: (v) => up((k) => { k.mute = !!v; }) }),
-          U.toggle({ label: 'Solo', value: t.solo, onChange: (v) => up((k) => { k.solo = !!v; }) }),
-          h('div', { class: 'btn-row' }, [
-            h('button', { class: 'btn small danger', onclick: () => { api.write((l) => { const i = l.findIndex((k) => k.id === t.id); if (i >= 0) l.splice(i, 1); }); select(null); } }, [h('span', { text: 'Şeridi sil' })]),
-          ]),
-        );
-      }
+    function openEditor(s) {
+      const ctx = api.ctx && api.ctx();
+      if (!ctx || !s) return;
+      ctx.push(editorPage(s));
     }
-    function splitAtHead() {
-      const at = api.head();
-      api.write((l) => {
-        const f = findClip(l, sel);
-        if (!f || !f.c || f.t.locked) return;
-        const parts = TA().splitClip(f.c, at);
-        if (!parts) return;
-        const i = f.t.clips.findIndex((k) => k.id === f.c.id);
-        f.t.clips.splice(i, 1, parts[0], parts[1]);
-      });
+    function tapSel(s) {
+      const now = Date.now();
+      const id = s.clipId || s.trackId;
+      if (lastTap && lastTap.id === id && now - lastTap.at < 400) openEditor(s);
+      lastTap = { id, at: now };
+      select(s);
     }
-
     // Dokunma: dokun seç, sürükle taşı, seçili klibin kenarından kırp; boş yere dokunmak kafayı taşır
     function pos(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     function hit(p) {
       const list = tracks();
+      const tracksH = list.length * ROW_H;
+      if (p.y >= tracksH && p.y < tracksH + addH()) return { t: null, c: null, edge: '', add: true };
       const ti = Math.floor(p.y / ROW_H);
       const t = list[ti];
       if (!t) return null;
@@ -540,21 +706,35 @@
       }
       return { t, c: null, edge: '' };
     }
+    const HOLD_MS = 480;
+    function clearHold(d) { if (d && d.hold) { clearTimeout(d.hold); d.hold = 0; } }
     canvas.addEventListener('pointerdown', (e) => {
       const p = pos(e);
       const ht = hit(p);
-      drag = { id: e.pointerId, p0: p, ht, moved: false, clipId: ht && ht.c ? ht.c.id : null, preview: null };
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* eski WebView */ }
+      drag = { id: e.pointerId, p0: p, ht, moved: false, held: false, hold: 0, clipId: ht && ht.c ? ht.c.id : null, preview: null };
+      // Boş şerit ya da alttaki boş satır: basılı tutunca dosya eklenir. Çift dokunuş ayarı açar.
+      if (ht && !ht.c && !(ht.t && ht.t.locked)) {
+        drag.hold = setTimeout(() => {
+          if (!drag || drag.id !== e.pointerId) return;
+          drag.held = true;
+          drag.hold = 0;
+          const at = Math.max(0, lane() ? lane().tOf(drag.p0.x) : drag.p0.x / zoom());
+          placeAudio(ht.t ? ht.t.id : null, at).then((pick) => { if (pick) select(pick); }).catch(fail);
+        }, HOLD_MS);
+      }
+      // Parmak yakalanmaz: dikey kaydırma sahneyle ortak sütuna kalır. Yatay sürüklemede yakalanır.
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const p = pos(e);
       const dx = p.x - drag.p0.x;
       if (!drag.moved) {
-        if (Math.abs(dx) < SLOP) return;
-        if (!drag.ht || !drag.ht.c || drag.ht.t.locked || api.pc() || Math.abs(p.y - drag.p0.y) > Math.abs(dx)) { drag = null; return; }
+        if (Math.abs(dx) < SLOP && Math.abs(p.y - drag.p0.y) < SLOP) return;
+        clearHold(drag);
+        if (!drag.ht || !drag.ht.c || drag.ht.t.locked || Math.abs(p.y - drag.p0.y) > Math.abs(dx)) { drag = null; return; }
         drag.moved = true;
-        if (!(sel && sel.clipId === drag.ht.c.id)) { sel = { kind: 'clip', trackId: drag.ht.t.id, clipId: drag.ht.c.id }; paintPanel(); }
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* eski WebView */ }
+        if (!(sel && sel.clipId === drag.ht.c.id)) { sel = { kind: 'clip', trackId: drag.ht.t.id, clipId: drag.ht.c.id }; }
       }
       const c = drag.ht.c;
       const dt = dx / zoom();
@@ -574,6 +754,8 @@
       if (!drag || drag.id !== e.pointerId) return;
       const d = drag;
       drag = null;
+      clearHold(d);
+      if (d.held) { draw(); return; }
       if (d.moved && d.preview) {
         api.write((l) => {
           const t = l.find((k) => k.id === d.ht.t.id);
@@ -585,26 +767,28 @@
         return;
       }
       if (e.type === 'pointercancel') { draw(); return; }
-      if (d.ht && d.ht.c) select({ kind: 'clip', trackId: d.ht.t.id, clipId: d.ht.c.id });
-      else if (d.ht) { select({ kind: 'track', trackId: d.ht.t.id }); api.seek(Math.max(0, lane() ? lane().tOf(d.p0.x) : d.p0.x / zoom())); }
+      if (d.ht && d.ht.c) tapSel({ kind: 'clip', trackId: d.ht.t.id, clipId: d.ht.c.id });
+      else if (d.ht && d.ht.t) { tapSel({ kind: 'track', trackId: d.ht.t.id }); api.seek(Math.max(0, lane() ? lane().tOf(d.p0.x) : d.p0.x / zoom())); }
+      else api.seek(Math.max(0, lane() ? lane().tOf(d.p0.x) : d.p0.x / zoom()));
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
 
-    const onAny = () => { sig = ''; draw(); if (sel) paintPanel(); };
+    const onAny = () => { sig = ''; draw(); };
     subs.add(onAny);
     let ro = null;
     if (typeof ResizeObserver === 'function') { ro = new ResizeObserver(() => { size(); draw(); }); ro.observe(canHost); }
     size();
     paintHeads(tracks());
-    paintPanel();
     draw();
     return {
       draw,
       /* Model dışarıdan değişti (geri al, içe aktarma): seçim geçersizse kalkar */
-      refresh() { const f = findClip(tracks(), sel); if (sel && (!f || !f.t || (sel.kind === 'clip' && !f.c))) sel = null; sig = ''; paintPanel(); draw(); },
+      refresh() { const f = findClip(tracks(), sel); if (sel && (!f || !f.t || (sel.kind === 'clip' && !f.c))) { sel = null; if (api.onSelect) api.onSelect(null); } sig = ''; draw(); },
       themeChanged() { colors = null; draw(); },
       selection: () => sel,
+      clearSel,
+      open() { if (sel) openEditor(sel); },
       destroy() { subs.delete(onAny); if (ro) ro.disconnect(); host.textContent = ''; },
       _hit: hit,
     };
@@ -616,6 +800,7 @@
     renderMix, encodeWav, writeMix,
     preview: previewToggle, previewStop, previewing: () => ({ on: preview.on, busy: preview.busy }),
     onChange: (f) => { subs.add(f); return () => subs.delete(f); },
+    offered: offer, syncSource, userPicked,
     strip,
     _live: () => ({ nodes: live.nodes.length, key: live.key !== null, t: live.t }),
     _tick: liveTick,

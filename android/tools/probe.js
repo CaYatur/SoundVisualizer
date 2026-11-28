@@ -1317,7 +1317,7 @@ async function mediaCmd() {
 
 /* TELEFONDAN .milk (Faz 4). Dosyalar bu komut yazar ve İndirilenler'e koyar: iki preset
    (.milk ve .milk2, içerikleri her koşuda damgalı ki önceki koşunun tekrarı sayılmasın),
-   preset olmayan bir .milk ve bir .txt. Kitaplık → MilkDrop → ".milk dosyası ekle" → belge
+   preset olmayan bir .milk ve bir .txt. Kitaplık başlığındaki "İçe aktar" → belge
    seçicide uzun basışla çoklu seçim → "Seç". Beklenen: 2 eklendi, 1 preset değil, 1 atlandı;
    "Yeni eklenen" süzgecinde iki kutu; motorun listesinde ikisi; kaynak dosyayla aynı (latin1
    "é" dahil). Aynı dosya yeniden seçilince eklenmez, tekrar sayılır. */
@@ -1375,7 +1375,7 @@ async function milkCmd() {
     const before = await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop').length");
     await ev('window.SVShellLibrary.pickFor(null); 1');
     await D.sleep(900);
-    out.button = await ev("(() => { const b = Array.from(document.querySelectorAll('#sv-shell .md-import .btn')); if (!b.length) return false; b[0].click(); return true; })()");
+    out.button = await ev("(() => { const b = document.querySelector('#sv-shell .sheet-actions .btn'); if (!b) return false; b.click(); return true; })()");
     out.picked = await pick(['sv-probe-a.milk', 'sv-probe-b.milk2', 'sv-probe-bad.milk', 'sv-probe-note.txt']);
     for (let i = 0; i < 30 && (i === 0 || /okunuyor|Reading/i.test(await status())); i++) await D.sleep(500);
     out.status = await status();
@@ -1390,7 +1390,7 @@ async function milkCmd() {
     }
     shot('milk-added');
     // Aynı dosya yeniden: eklenmez, tekrar sayılır
-    await ev("document.querySelector('#sv-shell .md-import .btn').click(); 1");
+    await ev("document.querySelector('#sv-shell .sheet-actions .btn').click(); 1");
     out.repicked = await pick(['sv-probe-a.milk']);
     for (let i = 0; i < 30 && (i === 0 || /okunuyor|Reading/i.test(await status())); i++) await D.sleep(500);
     out.again = { status: await status(), count: await ev("window.SVPresets.all().filter((p) => p.kind === 'milkdrop').length") };

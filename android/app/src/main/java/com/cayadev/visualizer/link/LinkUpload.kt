@@ -41,7 +41,7 @@ object LinkUpload {
     } catch (e: Exception) { -1L }
 
     /** Başlatır; anahtar döner. Hata ve ilerleme olayla gelir. */
-    fun start(ctx: Context, uri: Uri, kind: String, name: String): String {
+    fun start(ctx: Context, uri: Uri, kind: String, name: String, use: String = ""): String {
         val size = sizeOf(ctx, uri)
         val key = "up" + (++seq)
         if (size <= 0) { emit(key, kind, name, 0, 0, "error", "no-size"); return key }
@@ -50,7 +50,9 @@ object LinkUpload {
         val j = Job(key, kind, name, size, input)
         jobs[key] = j
         emit(j, "begin", null, true)
-        PcLink.request("file.begin", JSONObject().put("kind", kind).put("name", name).put("size", size)) { r ->
+        val begin = JSONObject().put("kind", kind).put("name", name).put("size", size)
+        if (use == "timeline") begin.put("use", "timeline")
+        PcLink.request("file.begin", begin) { r ->
             if (!r.optBoolean("ok")) { finish(j, "error", r.optString("error", "failed")); return@request }
             val res = r.optJSONObject("result") ?: JSONObject()
             j.id = res.optString("id")

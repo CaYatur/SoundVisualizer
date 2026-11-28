@@ -44,9 +44,10 @@
   let query = '';
   let shown = PAGE_SIZE;
   let target = null; // { layerId } katman ayarlarından gelindiyse
-  let mdImporting = false;
-  let mdImport = null; // { ok, r } ya da { ok: false, code }
   let imported = []; // son içe aktarmada eklenenlerin kimlikleri ("Yeni eklenen" süzgeci)
+  let pickSet = null; // "milk\tid" | "images\tid" | "logos\tid" | "media\tid"
+  let armClick = 0;
+  let addedMark = null; // { key, id, at } medyaya dokununca kısa onay
 
   function recent() {
     try { const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -159,52 +160,132 @@
     if (ctx) ctx.refresh();
   }
 
+  /* Uzun basış seçime alır. Bırakınca gelen tıklama seçimi geri almasın. */
+  function bindHold(node, fn) {
+    let timer = 0;
+    let x = 0;
+    let y = 0;
+    const clear = () => { if (timer) { clearTimeout(timer); timer = 0; } };
+    node.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      x = e.clientX;
+      y = e.clientY;
+      clear();
+      timer = setTimeout(() => { timer = 0; armClick = Date.now(); fn(); }, 480);
+    });
+    node.addEventListener('pointermove', (e) => {
+      if (timer && (Math.abs(e.clientX - x) > 16 || Math.abs(e.clientY - y) > 16)) clear();
+    });
+    node.addEventListener('pointerup', clear);
+    node.addEventListener('pointercancel', clear);
+  }
+  function heldClick() {
+    if (Date.now() - armClick > 700) return false;
+    armClick = 0;
+    return true;
+  }
+  function ownMilk(p) { return !!(p && p.kind === 'milkdrop' && !p.builtin && !p.fromPc); }
+  function pickKey(kind, id) { return kind + '\t' + id; }
+  function isPicked(kind, id) { return !!(pickSet && pickSet.has(pickKey(kind, id))); }
+  function togglePick(kind, id, ctx) {
+    if (!pickSet) pickSet = new Set();
+    const k = pickKey(kind, id);
+    if (pickSet.has(k)) pickSet.delete(k);
+    else pickSet.add(k);
+    if (!pickSet.size) pickSet = null;
+    if (ctx) ctx.refresh();
+  }
+  function beginPick(kind, id, ctx) {
+    if (!pickSet) pickSet = new Set();
+    pickSet.add(pickKey(kind, id));
+    if (ctx) ctx.refresh();
+  }
+  function idList(r, fallback) {
+    const a = r && r.ids;
+    if (Array.isArray(a) && a.length) return a.map(String);
+    if (a && typeof a.length === 'number' && a.length) return Array.from(a).map(String);
+    return fallback;
+  }
+  function dropMilk(ids) {
+    const list = (ids || []).map(String).filter(Boolean);
+    if (!list.length || !A().presets || !A().presets.remove) return Promise.resolve();
+    return A().presets.remove(list).then((r) => {
+      const gone = idList(r, list);
+      const Pset = window.SVPresets;
+      if (Pset && Pset.applyDelta) Pset.applyDelta({ remove: gone, upsert: [] });
+      const L = ML();
+      if (L && L.forget) {
+        let next = lib();
+        for (const id of gone) next = L.forget(next, id);
+        A().config.patch({ milkdropLibrary: next });
+      }
+      imported = imported.filter((id) => gone.indexOf(id) < 0);
+    }, () => {});
+  }
+  function bulkDrop(ctx) {
+    if (!pickSet || !pickSet.size) return;
+    S.confirm(tr('Seçilen öğeler silinsin mi?'), 'Sil', true).then((ok) => {
+      if (!ok) return;
+      const milk = [];
+      const libs = [];
+      for (const k of pickSet) {
+        const i = k.indexOf('\t');
+        if (i < 0) continue;
+        const kind = k.slice(0, i);
+        const id = k.slice(i + 1);
+        if (kind === 'milk') milk.push(id);
+        else libs.push([kind, id]);
+      }
+      const jobs = [];
+      if (milk.length) jobs.push(dropMilk(milk));
+      for (const pair of libs) {
+        if (A().libraries && A().libraries.remove) jobs.push(A().libraries.remove(pair[0], pair[1]).catch(() => {}));
+      }
+      Promise.all(jobs).then(() => {
+        if (libs.length) mediaLibs = null;
+        pickSet = null;
+        if (ctx) ctx.refresh();
+      });
+    });
+  }
+  function askDropMilk(p, ctx) {
+    if (!ownMilk(p)) return;
+    S.confirm(tr('Bu öğe kitaplıktan silinsin mi?'), 'Sil', true).then((ok) => {
+      if (!ok) return;
+      dropMilk([p.id]).then(() => { if (ctx) ctx.refresh(); });
+    });
+  }
+
   function mdTile(p, cur, ctx) {
     const fav = isFav(p.id);
     const sel = p.id === cur;
-    return h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
-      h('button', { class: 'tile-main', 'aria-pressed': sel ? 'true' : 'false', 'aria-label': p.name, onclick: () => applyMd(p, ctx) }, [
-        mdArt(p),
-        h('div', { class: 'cap' }, [h('span', { text: p.name || p.id })]),
-      ]),
+    const mine = ownMilk(p);
+    const main = h('button', {
+      class: 'tile-main', 'aria-pressed': sel ? 'true' : 'false', 'aria-label': p.name,
+      onclick: () => {
+        if (heldClick()) return;
+        if (pickSet) { if (mine) togglePick('milk', p.id, ctx); return; }
+        applyMd(p, ctx);
+      },
+    }, [
+      mdArt(p),
+      h('div', { class: 'cap' }, [h('span', { text: p.name || p.id })]),
+    ]);
+    if (mine) bindHold(main, () => beginPick('milk', p.id, ctx));
+    return h('div', { class: 'tile' + (sel ? ' sel' : '') + (isPicked('milk', p.id) ? ' pick' : '') }, [
+      main,
       h('button', {
         class: 'star' + (fav ? ' on' : ''), 'aria-label': fav ? 'Favorilerden çıkar' : 'Favorilere ekle', 'aria-pressed': fav ? 'true' : 'false',
         onclick: () => toggleFav(p.id, ctx),
       }, [icon(fav ? 'star-fill' : 'star')]),
+      mine ? h('button', {
+        class: 'star drop', 'aria-label': 'Sil', title: 'Sil',
+        onclick: (e) => { if (e && e.stopPropagation) e.stopPropagation(); askDropMilk(p, ctx); },
+      }, [icon('trash')]) : null,
     ]);
   }
 
-  /* Telefondaki .milk / .milk2 dosyaları (android-host presets.importMilk). Eklenenler
-     "Yeni eklenen" süzgeciyle gösterilir: binlerce presetin arasında kaybolmasınlar. */
-  function importMilk(ctx) {
-    if (mdImporting || !A().presets) return;
-    mdImporting = true;
-    mdImport = null;
-    ctx.refresh();
-    A().presets.importMilk().then((r) => {
-      mdImport = { ok: true, r };
-      if (r.added) { imported = r.ids || []; filter = 'added'; query = ''; shown = PAGE_SIZE; }
-    }, (e) => {
-      const c = String((e && e.message) || e);
-      mdImport = c === 'cancelled' ? null : { ok: false, code: c };
-    }).then(() => { mdImporting = false; ctx.refresh(); });
-  }
-  function milkStatus() {
-    if (mdImporting) return h('div', { class: 'banner info', role: 'status' }, [icon('download'), h('div', { class: 'grow-text', text: 'Presetler okunuyor…' })]);
-    if (!mdImport) return null;
-    if (!mdImport.ok) return h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: tr('Presetler eklenemedi.') + ' (' + mdImport.code + ')' })]);
-    const r = mdImport.r;
-    const parts = en()
-      ? [r.added + (r.added === 1 ? ' preset added' : ' presets added')]
-        .concat(r.duplicates ? [r.duplicates + ' already in the library'] : [], r.invalid ? [r.invalid + ' not a preset'] : [], r.skipped ? [r.skipped + ' skipped'] : [])
-      : [r.added + ' preset eklendi']
-        .concat(r.duplicates ? [r.duplicates + ' zaten kitaplıkta'] : [], r.invalid ? [r.invalid + ' preset değil'] : [], r.skipped ? [r.skipped + ' atlandı'] : []);
-    return h('div', { class: 'banner info' + (r.added ? ' ok' : ''), role: 'status' }, [icon(r.added ? 'check-circle' : 'info'), h('div', { class: 'grow-text', text: parts.join(' · ') })]);
-  }
-
   function renderMilkdrop(body, ctx) {
-    const st = milkStatus();
-    if (st) body.appendChild(st);
     const all = mdList();
     const favs = all.filter((p) => isFav(p.id));
     const rec = recent();
@@ -248,12 +329,7 @@
     }
     body.appendChild(grid);
     body.appendChild(more);
-    if (A().presets) {
-      body.appendChild(h('div', { class: 'md-import' }, [
-        h('div', { class: 'hint', text: 'Telefondaki .milk ve .milk2 dosyaları kitaplığa eklenir. Dokular bilgisayardan yedekle gelir.' }),
-        h('button', { class: 'btn block', disabled: mdImporting ? true : null, onclick: () => importMilk(ctx) }, [icon('plus'), h('span', { text: '.milk dosyası ekle' })]),
-      ]));
-    }
+    body.appendChild(h('div', { class: 'hint', text: 'Dokular bilgisayardan yedekle gelir. Eklenen bir preseti uzun basarak seçebilirsiniz.' }));
     pick();
   }
 
@@ -266,8 +342,12 @@
     const grid = h('div', { class: 'grid2' });
     for (const p of list) {
       const sel = bgIds.has(p.id);
-      grid.appendChild(h('div', { class: 'tile' + (sel ? ' sel' : '') }, [
-        h('button', { class: 'tile-main', 'aria-label': p.name, onclick: () => { applyShader(p); ctx.refresh(); } }, [
+      grid.appendChild(h('div', { class: 'tile' + (sel ? ' sel' : '') + addedClass('shader', p.id) }, [
+        h('button', { class: 'tile-main', 'aria-label': p.name, onclick: () => {
+          applyShader(p);
+          noteAdded('shader', p.id, p.kind === 'visualizer' ? 'Katmana eklendi' : 'Uygulandı');
+          ctx.refresh();
+        } }, [
           presetArt('sh', p),
           h('div', { class: 'cap' }, [h('span', { text: p.name }), h('span', { class: 'kind', text: p.kind === 'background' ? 'Arkaplan' : 'Görselleştirici' })]),
         ]),
@@ -336,15 +416,35 @@
   }
 
   // ---- Medya: masaüstü yedeğinden gelen logo ve video kitaplıkları ----
-  /* Dokununca sahneye katman olarak eklenir (logo: kitaplık kimliğiyle, masaüstündeki gibi;
-     video: telefondaki dosyanın adresiyle). Telefondan yeni video ya da görsel eklemek
-     Katmanlar → Ekle → Medya'dan (galeriden seçilir, kopyalanmaz). */
+  /* Dokununca sahneye katman olarak eklenir. Resimler videolar gibi
+     media/lib-images altında durur; zaman çizelgesinin resim seçicisi de oradan okur. */
   let mediaLibs = null;
+  let mediaPc = '';
+  let mediaOpen = false;
   function loadMedia(ctx) {
     const Lb = A().libraries;
-    if (!Lb) { mediaLibs = { logos: [], media: [] }; return; }
-    Promise.all([Lb.list('logos').catch(() => []), Lb.list('media').catch(() => [])]).then(([logos, media]) => {
-      mediaLibs = { logos: Array.isArray(logos) ? logos : [], media: Array.isArray(media) ? media : [] };
+    const connected = !!(A() && A().target && A().target.get && A().target.get().state === 'connected' && A().pc && A().pc.request);
+    mediaPc = connected ? '1' : '0';
+    const local = Lb
+      ? Promise.all([Lb.list('logos').catch(() => []), Lb.list('media').catch(() => []), Lb.list('images').catch(() => [])])
+      : Promise.resolve([[], [], []]);
+    const remote = connected
+      ? A().pc.request('library.list', { kind: 'logo', limit: 200 }).then((r) => (r && r.ok && r.result && Array.isArray(r.result.items) ? r.result.items : []), () => [])
+      : Promise.resolve([]);
+    Promise.all([local, remote]).then(([[logos, media, images], pcLogos]) => {
+      const seen = new Set();
+      const merged = [];
+      for (const it of pcLogos || []) {
+        if (!it || !it.id || seen.has(it.id)) continue;
+        seen.add(it.id);
+        merged.push({ id: it.id, name: it.name || '', fromPc: true });
+      }
+      for (const it of (Array.isArray(logos) ? logos : [])) {
+        if (!it || !it.id || seen.has(it.id)) continue;
+        seen.add(it.id);
+        merged.push({ id: it.id, name: it.name || '', fromPc: false });
+      }
+      mediaLibs = { logos: merged, media: Array.isArray(media) ? media : [], images: Array.isArray(images) ? images : [] };
       ctx.refresh();
     });
   }
@@ -353,33 +453,112 @@
     A().config.patch({ layers: (Array.isArray(c.layers) ? c.layers : []).concat([made]) });
     if (ctx) ctx.refresh();
   }
+  /* Sayfa yenilenince kutu yeniden kurulur; onay sınıfı o kurulumda durur. */
+  function noteAdded(key, id, msg) {
+    addedMark = { key, id, at: Date.now() };
+    if (S.toast) S.toast(msg || 'Katmana eklendi');
+  }
+  function addedClass(key, id) {
+    return addedMark && addedMark.key === key && String(addedMark.id) === String(id) && Date.now() - addedMark.at < 900 ? ' added' : '';
+  }
+  /* Yalnız telefondaki dosya. Bilgisayarın logo kitaplığı buradan silinmez. */
+  function askDrop(it, key, ctx) {
+    if (!it || !it.id) return;
+    S.confirm(tr('Bu öğe kitaplıktan silinsin mi?'), 'Sil', true).then((ok) => {
+      if (!ok || !A().libraries || !A().libraries.remove) return;
+      A().libraries.remove(key, it.id).then(() => { mediaLibs = null; if (ctx) ctx.refresh(); }, () => {});
+    });
+  }
+  function dropBtn(it, key, ctx, cls) {
+    return h('button', {
+      class: cls || 'star', 'aria-label': 'Sil', title: 'Sil',
+      onclick: (e) => { if (e && e.stopPropagation) e.stopPropagation(); askDrop(it, key, ctx); },
+    }, [icon('trash')]);
+  }
   function renderMedia(body, ctx) {
-    if (mediaLibs === null) { loadMedia(ctx); body.appendChild(h('div', { class: 'hint', text: 'Kitaplık okunuyor…' })); return; }
+    const connected = !!(A() && A().target && A().target.get && A().target.get().state === 'connected') ? '1' : '0';
+    if (mediaLibs === null || mediaPc !== connected) {
+      loadMedia(ctx);
+      if (mediaLibs === null) { body.appendChild(h('div', { class: 'hint', text: 'Kitaplık okunuyor…' })); return; }
+    }
     const LF = window.SVLayerFactory;
-    if (!mediaLibs.logos.length && !mediaLibs.media.length) {
-      body.appendChild(h('div', { class: 'empty', text: 'Masaüstü yedeğinden gelen logo ve videolar burada görünür. Telefondan video ya da görsel eklemek için: Katmanlar → Ekle → Medya.' }));
+    const images = mediaLibs.images || [];
+    if (!mediaLibs.logos.length && !mediaLibs.media.length && !images.length) {
+      body.appendChild(h('div', { class: 'empty', text: 'Telefonda eklenen resimler, masaüstü yedeğinden gelen logolar ve videolar burada görünür.' }));
       return;
     }
     body.appendChild(h('div', { class: 'hint', text: 'Dokununca sahneye katman olarak eklenir.' }));
     if (mediaLibs.logos.length) {
-      body.appendChild(h('div', { class: 'section-label', text: 'Logolar' }));
+      body.appendChild(h('div', { class: 'section-label', text: 'Logo kitaplığı' }));
       const grid = h('div', { class: 'grid2' });
+      const onPc = connected === '1' && A().target.get().target === 'pc';
       for (const it of mediaLibs.logos) {
         const ph = h('div', { class: 'ph' }, [icon('image')]);
-        A().libraries.logo(it.id).then((r) => {
-          if (!r || !r.b64) return;
-          ph.replaceWith(h('img', { src: 'data:' + (r.mime || 'image/png') + ';base64,' + r.b64, alt: '', decoding: 'async', style: 'object-fit:contain;background:var(--card3)' }));
-        }, () => {});
-        grid.appendChild(h('div', { class: 'tile' }, [h('button', {
+        const show = (mime, b64) => {
+          if (!b64) return;
+          ph.replaceWith(h('img', { src: 'data:' + (mime || 'image/png') + ';base64,' + b64, alt: '', decoding: 'async', style: 'object-fit:contain;background:var(--card3)' }));
+        };
+        if (it.fromPc && A().pc && A().pc.request) A().pc.request('library.logo', { id: it.id }).then((r) => { const rec = r && r.ok ? r.result : null; if (rec) show(rec.mime, rec.b64); }, () => {});
+        else if (A().libraries && A().libraries.logo) A().libraries.logo(it.id).then((r) => { if (r) show(r.mime, r.b64); }, () => {});
+        const logoMain = h('button', {
           class: 'tile-main', 'aria-label': it.name || '',
           onclick: () => {
+            if (heldClick()) return;
+            if (pickSet) { if (!it.fromPc) togglePick('logos', it.id, ctx); return; }
             if (!LF) return;
-            const made = LF.makeMedia('logo', {}, window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {});
-            made.name = it.name || made.name;
+            const def = window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {};
+            const place = (made) => { made.name = it.name || made.name; noteAdded('logos', it.id); addLayer(made, ctx); };
+            if (it.fromPc && !onPc) {
+              A().pc.request('library.logo', { id: it.id }).then((r) => {
+                const rec = r && r.ok ? r.result : null;
+                if (!rec || !rec.b64) return;
+                const dataUrl = 'data:' + (rec.mime || 'image/png') + ';base64,' + rec.b64;
+                const finish = (url) => {
+                  const made = LF.makeMedia('logo', { dataUrl: url, name: it.name || '' }, def);
+                  if (rec.mime === 'image/gif' && made.settings && made.settings.logo) made.settings.logo.kind = 'gif';
+                  place(made);
+                };
+                if (A().libraries && A().libraries.importImage) {
+                  A().libraries.importImage({ name: it.name || '', dataUrl }).then((saved) => finish((saved && saved.url) || dataUrl), () => finish(dataUrl));
+                } else finish(dataUrl);
+              }, () => {});
+              return;
+            }
+            const made = LF.makeMedia('logo', {}, def);
             made.settings.logo = Object.assign({}, made.settings.logo, { src: null, libraryId: it.id });
+            place(made);
+          },
+        }, [ph, h('div', { class: 'cap' }, [h('span', { text: it.name || '', 'data-user-text': '' })])]);
+        if (!it.fromPc) bindHold(logoMain, () => beginPick('logos', it.id, ctx));
+        grid.appendChild(h('div', { class: 'tile' + (isPicked('logos', it.id) ? ' pick' : '') + addedClass('logos', it.id) }, [
+          logoMain,
+          it.fromPc ? null : dropBtn(it, 'logos', ctx),
+        ]));
+      }
+      body.appendChild(grid);
+    }
+    if (images.length) {
+      body.appendChild(h('div', { class: 'section-label', text: 'Resimler' }));
+      const grid = h('div', { class: 'grid2' });
+      for (const it of images) {
+        const url = 'https://appassets.androidplatform.net/files/lib-images/' + encodeURIComponent(it.file || '');
+        const imageMain = h('button', {
+          class: 'tile-main', 'aria-label': it.name || '',
+          onclick: () => {
+            if (heldClick()) return;
+            if (pickSet) { togglePick('images', it.id, ctx); return; }
+            if (!LF) return;
+            const made = LF.makeMedia('logo', { dataUrl: url, name: it.name || '' }, window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {});
+            made.name = it.name || made.name;
+            noteAdded('images', it.id);
             addLayer(made, ctx);
           },
-        }, [ph, h('div', { class: 'cap' }, [h('span', { text: it.name || '' })])])]));
+        }, [h('img', { src: url, alt: '', decoding: 'async', style: 'object-fit:contain;background:var(--card3)' }), h('div', { class: 'cap' }, [h('span', { text: it.name || '', 'data-user-text': '' })])]);
+        bindHold(imageMain, () => beginPick('images', it.id, ctx));
+        grid.appendChild(h('div', { class: 'tile' + (isPicked('images', it.id) ? ' pick' : '') + addedClass('images', it.id) }, [
+          imageMain,
+          dropBtn(it, 'images', ctx),
+        ]));
       }
       body.appendChild(grid);
     }
@@ -388,16 +567,24 @@
       const list = h('div', { class: 'card nav-card' });
       mediaLibs.media.forEach((it, i) => {
         if (i) list.appendChild(h('div', { class: 'divider flush' }));
-        list.appendChild(h('button', {
+        const videoMain = h('button', {
           class: 'ctl-row nav-row',
           onclick: () => {
+            if (heldClick()) return;
+            if (pickSet) { togglePick('media', it.id, ctx); return; }
             if (!LF) return;
             const url = 'https://appassets.androidplatform.net/files/lib-media/' + encodeURIComponent(it.file || '');
             const made = LF.makeMedia('video', { url, name: it.name || it.file || '' }, window.SV && window.SV.defaultConfig ? window.SV.defaultConfig() : {});
             made.settings.media.libraryId = it.id || '';
+            noteAdded('media', it.id);
             addLayer(made, ctx);
           },
-        }, [icon('video'), h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: it.name || it.file || '' })]), icon('plus')]));
+        }, [icon('video'), h('div', { class: 'row-text' }, [h('div', { class: 'row-title small', text: it.name || it.file || '', 'data-user-text': '' })]), icon('plus')]);
+        bindHold(videoMain, () => beginPick('media', it.id, ctx));
+        list.appendChild(h('div', { class: 'vrow' + (isPicked('media', it.id) ? ' pick' : '') + addedClass('media', it.id) }, [
+          videoMain,
+          dropBtn(it, 'media', ctx, 'iconbtn'),
+        ]));
       });
       body.appendChild(list);
     }
@@ -465,6 +652,61 @@
   /* Taslakta tam ekran sayfaydı; preset ve şablon seçerken sonucu görmek için sahnenin
      üstü açık kalan uzun sayfa (dokununca değişen görüntü hemen izlenir). */
   let libCtx = null;
+  /* Kitaplık düğmesi: resim ve .milk birlikte, birden fazla. Yedek Ayarlar'da kalır. */
+  let fileImporting = false;
+  let fileImport = null;
+  function importFiles(ctx) {
+    if (fileImporting || !A().libraries || !A().libraries.importFiles) return;
+    fileImporting = true;
+    fileImport = null;
+    ctx.refresh();
+    A().libraries.importFiles().then((r) => {
+      const got = r || {};
+      fileImport = { ok: true, r: got };
+      const added = Number(got.added) || 0;
+      const images = Number(got.images) || 0;
+      const videos = Number(got.videos) || 0;
+      if (added) {
+        imported = (Array.isArray(got.upsert) ? got.upsert : []).map((p) => p && p.id).filter(Boolean);
+        filter = 'added';
+      }
+      if (images || videos) { mediaLibs = null; mediaOpen = false; }
+      if ((images || videos) && !added) section = 'media';
+      else if (added && !images && !videos) section = 'milkdrop';
+    }, (e) => {
+      const c = String((e && e.message) || e);
+      fileImport = c === 'cancelled' ? null : { ok: false, code: c };
+    }).then(() => { fileImporting = false; if (ctx) ctx.refresh(); });
+  }
+  function fileStatus() {
+    if (fileImporting) return h('div', { class: 'banner info', role: 'status' }, [icon('download'), h('div', { class: 'grow-text', text: 'Dosyalar okunuyor…' })]);
+    if (!fileImport) return null;
+    if (!fileImport.ok) return h('div', { class: 'banner', role: 'alert' }, [icon('warning'), h('div', { class: 'grow-text', text: 'Seçilen dosyalar alınamadı.' })]);
+    const r = fileImport.r || {};
+    const images = Number(r.images) || 0;
+    const videos = Number(r.videos) || 0;
+    const added = Number(r.added) || 0;
+    const parts = [];
+    const english = en();
+    if (images) parts.push(english ? images + (images === 1 ? ' image' : ' images') : images + ' resim');
+    if (videos) parts.push(english ? videos + (videos === 1 ? ' video' : ' videos') : videos + ' video');
+    const milk = added || r.duplicates || r.invalid || (r.skipped && !images && !videos);
+    if (milk) {
+      if (english) {
+        parts.push(added + (added === 1 ? ' preset added' : ' presets added'));
+        if (r.duplicates) parts.push(r.duplicates + ' already in the library');
+        if (r.invalid) parts.push(r.invalid + ' not a preset');
+        if (r.skipped) parts.push(r.skipped + ' skipped');
+      } else {
+        parts.push(added + ' preset eklendi');
+        if (r.duplicates) parts.push(r.duplicates + ' zaten kitaplıkta');
+        if (r.invalid) parts.push(r.invalid + ' preset değil');
+        if (r.skipped) parts.push(r.skipped + ' atlandı');
+      }
+    } else if (r.skipped) parts.push(english ? r.skipped + ' skipped' : r.skipped + ' atlandı');
+    const ok = !!(images || videos || added);
+    return h('div', { class: 'banner info' + (ok ? ' ok' : ''), role: 'status' }, [icon(ok ? 'check-circle' : 'info'), h('div', { class: 'grow-text', text: parts.length ? parts.join(' · ') : 'Seçilen dosyalar alınamadı.' })]);
+  }
   function watchPcPresets() {
     if (watchPcPresets.done || !window.api || typeof window.api.onPresetsDelta !== 'function') return;
     watchPcPresets.done = true;
@@ -476,20 +718,32 @@
     size: 'tall',
     title: 'Kitaplık',
     actions(slot, ctx) {
-      slot.appendChild(h('button', { class: 'btn', onclick: () => { if (window.SVShellSettings) window.SVShellSettings.startImport(ctx); } }, [icon('upload'), 'İçe aktar']));
+      if (pickSet && pickSet.size) {
+        slot.appendChild(h('button', { class: 'btn', onclick: () => { pickSet = null; ctx.refresh(); } }, [h('span', { text: 'Vazgeç' })]));
+        slot.appendChild(h('button', { class: 'btn', onclick: () => bulkDrop(ctx) }, [icon('trash'), h('span', { text: 'Sil' })]));
+        return;
+      }
+      slot.appendChild(h('button', { class: 'btn', disabled: fileImporting ? true : null, onclick: () => importFiles(ctx) }, [icon('upload'), 'İçe aktar']));
     },
     render(body, ctx) {
       libCtx = ctx;
       watchPcPresets();
       // Beş bölüm dar ekrana parçalı seçimle sığmıyordu ("Templa…"): kayan sekmeler
-      body.appendChild(window.SVShellUI.tabs(SECTIONS, section, (id) => { section = id; query = ''; shown = PAGE_SIZE; ctx.refresh(); }));
+      body.appendChild(window.SVShellUI.tabs(SECTIONS, section, (id) => { section = id; pickSet = null; query = ''; shown = PAGE_SIZE; ctx.refresh(); }));
+      const fst = fileStatus();
+      if (fst) body.appendChild(fst);
       if (window.SVShellSettings) { const st = window.SVShellSettings.importStatus(); if (st) body.appendChild(st); }
+      if (section !== 'media') mediaOpen = false;
       if (section === 'templates') renderTemplates(body, ctx);
       else if (section === 'milkdrop') renderMilkdrop(body, ctx);
       else if (section === 'shader') renderShaders(body, ctx);
       else if (section === 'scenes') renderScenes(body, ctx);
       else if (section === 'lyrics' && window.SVShellLyrics) window.SVShellLyrics.render(body, ctx);
-      else renderMedia(body, ctx);
+      else {
+        /* Zaman çizelgesinden yeni eklenen resim, sekme açık kaldıysa listede yoktu. */
+        if (!mediaOpen) { mediaOpen = true; mediaLibs = null; }
+        renderMedia(body, ctx);
+      }
     },
   };
 

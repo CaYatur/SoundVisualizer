@@ -126,17 +126,128 @@ object LyricsLookup {
         return n
     }
 
+    /** Tam /api/get boşsa aynı kökte arama (masaüstü lyrics-lookup.js). */
+    private fun catalogGet(url: String) =
+        url.contains("/api/get?", ignoreCase = true) && url.contains("artist_name=") && url.contains("track_name=")
+
+    /** "ve" aramayı boşaltır (Athena ve smle → 0 satır). Bağlaç ve yıl düşer. */
+    private fun catalogSearch(url: String, m: Meta): String {
+        val base = url.substringBefore("/api/get?")
+        val year = Regex("^(19|20)\\d{2}$")
+        val seen = LinkedHashSet<String>()
+        for (t in tokens(m.artist) + tokens(m.title)) if (!year.matches(t)) seen.add(t)
+        val cleaned = seen.joinToString(" ").take(180)
+        val q = cleaned.ifBlank { listOf(m.artist, m.title).filter { it.isNotBlank() }.joinToString(" ").take(180) }
+        return base + "/api/search?q=" + URLEncoder.encode(q, "UTF-8").replace("+", "%20")
+    }
+
+    private val fold = mapOf(
+        'ı' to 'i', 'İ' to 'i', 'ş' to 's', 'Ş' to 's', 'ğ' to 'g', 'Ğ' to 'g',
+        'ü' to 'u', 'Ü' to 'u', 'ö' to 'o', 'Ö' to 'o', 'ç' to 'c', 'Ç' to 'c',
+    )
+    private val joins = setOf("ile", "ve", "and", "feat", "ft", "featuring", "vs", "versus", "with", "und", "et", "plus")
+
+    private fun norm(raw: String): String {
+        val b = StringBuilder()
+        for (ch in raw) {
+            val f = fold[ch] ?: ch
+            val c = when (f) {
+                in 'A'..'Z' -> f.lowercaseChar()
+                else -> f
+            }
+            if (c in 'a'..'z' || c in '0'..'9') b.append(c)
+            else if (b.isNotEmpty() && b.last() != ' ') b.append(' ')
+        }
+        return b.toString().trim().removePrefix("the ")
+    }
+
+    private fun tokens(s: String) = norm(s).split(' ').filter { it.length >= 2 && it !in joins }
+
+    private fun edit(a: String, b: String): Int {
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        if (kotlin.math.abs(a.length - b.length) > 2) return 3
+        val row = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            var prev = row[0]
+            row[0] = i
+            for (j in 1..b.length) {
+                val cur = row[j]
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                row[j] = minOf(row[j] + 1, row[j - 1] + 1, prev + cost)
+                prev = cur
+            }
+        }
+        return row[b.length]
+    }
+
+    private fun nameClose(a: String, b: String): Boolean {
+        if (a.isEmpty() || b.isEmpty()) return false
+        if (a == b) return true
+        val short = if (a.length <= b.length) a else b
+        val long = if (a.length <= b.length) b else a
+        if (short.length >= 4 && long.contains(short)) return true
+        val lim = if (maxOf(a.length, b.length) >= 8) 2 else 1
+        return minOf(a.length, b.length) >= 4 && edit(a, b) <= lim
+    }
+
+    /** Başlık oturur; yıl, bağlaç ve tekrarlanan başlık sanatçıdan düşer. Çok ad örtüşen kazanır. */
+    fun pickHit(title: String, artist: String, duration: Double, rows: JSONArray): String {
+        val qTitle = norm(title)
+        if (qTitle.isEmpty()) return ""
+        val titleSet = tokens(title).toSet()
+        val need = tokens(artist).filter { it !in titleSet && !Regex("^(19|20)\\d{2}$").matches(it) }
+        var bestScore = Double.NEGATIVE_INFINITY
+        var best = ""
+        for (i in 0 until rows.length()) {
+            val row = rows.optJSONObject(i) ?: continue
+            val rawTitle = row.optString("trackName").ifEmpty { row.optString("title") }
+            val nt = norm(rawTitle)
+            if (nt.isEmpty() || nt != qTitle) continue
+            var cover = 1.0
+            if (need.isNotEmpty()) {
+                val have = tokens(row.optString("artistName").ifEmpty { row.optString("artist") }).toMutableList()
+                var n = 0
+                for (q in need) {
+                    val idx = have.indexOfFirst { nameClose(q, it) }
+                    if (idx >= 0) { have.removeAt(idx); n++ }
+                }
+                cover = n.toDouble() / need.size
+                if (cover <= 0) continue
+            }
+            val synced = row.optString("syncedLyrics").trim()
+            val plain = row.optString("plainLyrics").ifEmpty { row.optString("lyrics") }.trim()
+            val text = synced.ifEmpty { plain }
+            if (!plausible(text)) continue
+            var score = cover * 10
+            if (synced.isNotEmpty()) score += 0.4
+            val dur = row.optDouble("duration", 0.0)
+            if (duration > 0 && dur > 0) {
+                val d = kotlin.math.abs(duration - dur)
+                score += if (d <= 3) 0.6 else if (d <= 8) 0.2 else -0.4
+            }
+            if (score > bestScore) { bestScore = score; best = text }
+        }
+        return best
+    }
+
     /** Ağ isteği (ayrı iş parçacığında çağrılmalı). */
     fun fetch(p: Provider, m: Meta, timeoutMs: Int, get: (String, String, Int) -> String? = ::httpGet): String? {
         val url = fillTemplate(p.url, m)
         if (!Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(url)) return null
-        val body = try { get(url, if (p.format == "json") "application/json" else "text/plain", timeoutMs) } catch (_: Exception) { null } ?: return null
-        if (body.isEmpty() || body.length > MAX_BYTES) return null
-        if (p.format == "json") {
-            val v = try { pickPath(JSONTokener(body).nextValue(), p.path) } catch (_: Exception) { null }
-            return (v as? String)?.takeIf { plausible(it) }
+        val body = try { get(url, if (p.format == "json") "application/json" else "text/plain", timeoutMs) } catch (_: Exception) { null }
+        if (!body.isNullOrEmpty() && body.length <= MAX_BYTES) {
+            if (p.format == "json") {
+                val v = try { pickPath(JSONTokener(body).nextValue(), p.path) } catch (_: Exception) { null }
+                val hit = (v as? String)?.takeIf { plausible(it) }
+                if (hit != null) return hit
+            } else if (plausible(body)) return body
         }
-        return body.takeIf { plausible(it) }
+        if (!catalogGet(p.url)) return null
+        val raw = try { get(catalogSearch(p.url, m), "application/json", timeoutMs) } catch (_: Exception) { null } ?: return null
+        if (raw.isEmpty() || raw.length > MAX_BYTES) return null
+        val rows = try { JSONTokener(raw).nextValue() as? JSONArray } catch (_: Exception) { null } ?: return null
+        return pickHit(m.title, m.artist, m.duration, rows).takeIf { plausible(it) }
     }
 
     fun httpGet(url: String, accept: String, timeoutMs: Int): String? {

@@ -48,6 +48,15 @@ object TimelineAudioFiles {
         return JSONObject().put("bytes", f.length())
     }
 
+    /** `/files/<ad>` → başlık, sanatçı, albüm, kapak. Klasör dışına çıkılmaz. */
+    fun tags(context: Context, url: String): JSONObject {
+        val name = url.removePrefix("/files/").substringBefore('?')
+        require(name.isNotEmpty() && !name.contains("/") && !name.contains("\\") && !name.contains("..")) { "geçersiz ad" }
+        val f = File(ExportHub.mediaDir(context.applicationContext), name)
+        require(f.isFile) { "yok" }
+        return ExportFlow.trackOfPath(name, f.absolutePath)
+    }
+
     fun mixFile(context: Context, name: String): File {
         require(isMixName(name)) { "geçersiz ad" }
         val f = File(ExportHub.mediaDir(context.applicationContext), name)

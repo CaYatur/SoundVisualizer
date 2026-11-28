@@ -109,11 +109,18 @@ object ExportFlow {
 
     /* Şarkının etiketleri (masaüstündeki src/shared/audio-tags.js): ad, sanatçı, albüm, süre ve
        kapak. Çalan Parça, söz ve logo katmanları videoda bunları çizer. Etiket yoksa dosya adı. */
-    fun trackOf(context: Context, uri: Uri, fileName: String): JSONObject {
+    fun trackOf(context: Context, uri: Uri, fileName: String): JSONObject =
+        readTags(fileName) { it.setDataSource(context.applicationContext, uri) }
+
+    /** Uygulama klasöründeki çizelge dosyası (`/files/<ad>`). */
+    fun trackOfPath(fileName: String, path: String): JSONObject =
+        readTags(fileName) { it.setDataSource(path) }
+
+    private fun readTags(fileName: String, open: (MediaMetadataRetriever) -> Unit): JSONObject {
         val out = JSONObject().put("title", fileName.substringBeforeLast('.')).put("artist", "").put("album", "").put("artwork", "").put("duration", 0.0)
         val r = MediaMetadataRetriever()
         try {
-            r.setDataSource(context.applicationContext, uri)
+            open(r)
             r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }?.let { out.put("title", it) }
             val artist = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?: r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)

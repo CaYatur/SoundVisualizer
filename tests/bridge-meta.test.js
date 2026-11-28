@@ -89,8 +89,9 @@ test('TCP: sonradan bağlanan alıcı kapağı parçadan önce alıyor', async (
 
 test('ana süreç: kapak küçültülüyor; parça bilgisi okunamayan sistemde açık not', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /const k = Math\.min\(1, 512 \/ Math\.max\(width \|\| 1, height \|\| 1\)\);/);
-  assert.match(M, /out = 'data:image\/jpeg;base64,' \+ img\.toJPEG\(85\)\.toString\('base64'\);\n\s+if \(!audioBridge\.artworkOk\(out\)\) out = '';/);
+  assert.match(M, /const k = Math\.min\(1, maxEdge \/ edge\);/);
+  assert.match(M, /const out = 'data:image\/jpeg;base64,' \+ img\.toJPEG\(quality\)\.toString\('base64'\);\n\s+return audioBridge\.artworkOk\(out\) \? out : '';/);
+  assert.match(M, /jpegArt\(retagArt\(a\), 512, 85\)/);
   assert.match(M, /if \(bridge\.sender\) bridge\.sender\.meta\(bridgeMetaOut\(st\)\);/);
   // Alıcı köprü girişindeyken çıkışlara (katmanlar, şarkı sözü) köprünün parçası gider
   assert.match(M, /if \(m && bridge\.input && bridge\.input\.useBridge\) forwardBridgeMeta\(m\);/);

@@ -97,6 +97,25 @@ test('sağlayıcı: şablon, JSON yolu, önbellek ve sıralı yedek', async () =
   assert.ok(urls[1].includes('artist=' + encodeURIComponent('Ä B')) && urls[1].includes('title=C%26D') && urls[1].includes('d=201'), urls[1]);
   const again = await LL.lookup({ meta, config: cfg, cacheDir: dir, fetch: () => { throw new Error('ağ yok'); } });
   assert.strictEqual(again.source, 'cache');
+  const messy = { title: 'Moment', artist: 'Athena ve smle Moment 2022' };
+  const seen = [];
+  const fetch2 = async (url) => {
+    seen.push(url);
+    if (url.includes('/api/get?')) return { ok: false, text: async () => '' };
+    return { ok: true, text: async () => JSON.stringify([
+      { trackName: 'Moment', artistName: 'Athena', syncedLyrics: '[00:01.00]zayif' },
+      { trackName: 'Moment', artistName: 'Athena, smie', syncedLyrics: '[00:01.00]katalog' },
+      { trackName: 'Baska', artistName: 'Athena, smie', syncedLyrics: '[00:01.00]yanlis' },
+    ]) };
+  };
+  const found = await LL.lookup({
+    meta: messy,
+    config: ON({ cache: false, providers: [{ name: 'LRCLIB', url: 'https://lrclib.net/api/get?artist_name={artist}&track_name={title}&album_name={album}&duration={duration}', format: 'json', path: 'syncedLyrics' }] }),
+    fetch: fetch2,
+  });
+  assert.ok(found && /katalog/.test(found.text));
+  assert.ok(seen.some((u) => u.includes('/api/search?q=athena%20smle%20moment')), seen.join(' '));
+  assert.ok(!seen.some((u) => /\/api\/search\?q=[^&]*\bve\b/.test(decodeURIComponent(u))));
 });
 
 test('yavaş sağlayıcı zaman aşımında bırakılır, hata fırlatılmaz', async () => {

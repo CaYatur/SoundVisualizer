@@ -346,7 +346,17 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 #sv-shell .tile .cap { padding: 8px 10px 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 #sv-shell .tile .cap span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sv-shell .tile.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+#sv-shell .tile.pick, #sv-shell .vrow.pick > .nav-row { outline: 2px solid var(--warn); outline-offset: -2px; }
+#sv-shell .tile-main, #sv-shell .vrow > .nav-row { -webkit-tap-highlight-color: rgb(var(--accent-rgb) / .35); touch-action: manipulation; }
+#sv-shell .tile-main:active { transform: scale(0.97); filter: brightness(1.15); }
+#sv-shell .vrow > .nav-row:active { background: rgb(var(--accent-rgb) / .22); }
+#sv-shell .tile.added, #sv-shell .vrow.added > .nav-row { animation: sv-added 700ms ease; }
+@keyframes sv-added {
+  0% { box-shadow: inset 0 0 0 3px var(--ok); transform: scale(0.96); }
+  100% { box-shadow: inset 0 0 0 0 transparent; transform: none; }
+}
 #sv-shell .tile .star { position: absolute; top: 4px; right: 4px; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgb(var(--shade-rgb) / .45); color: rgb(var(--on-media-rgb)); }
+#sv-shell .tile .star.drop { left: 4px; right: auto; }
 #sv-shell .pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; flex: none; }
 #sv-shell .pills::-webkit-scrollbar { display: none; }
 #sv-shell .pills .pill { flex: none; padding: 0 12px; }
@@ -364,9 +374,6 @@ html[data-ui-scheme="light"] #sv-shell .opbar b { background: var(--accent); }
 #sv-shell .banner.info .svi { color: var(--muted); }
 #sv-shell .banner .link { color: var(--accent-text); font-weight: 600; text-decoration: none; min-height: 48px; display: inline-flex; align-items: center; }
 #sv-shell .empty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
-/* Kitaplık → MilkDrop: telefondan .milk ekleme (açıklama ve düğme) */
-#sv-shell .md-import { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-
 /* Ses kaynakları ve tempo */
 #sv-shell .source { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); min-height: 72px; width: 100%; text-align: left; }
 #sv-shell .source.on { border-color: rgb(var(--accent-rgb) / .7); background: rgb(var(--accent-rgb) / .1); }
@@ -408,6 +415,9 @@ html[data-ui-scheme="light"] #sv-shell .bigmeter i { background: var(--accent); 
 /* Söz metni (Kitaplık → Sözler → Düzenle) */
 #sv-shell textarea.lyrics-text { width: 100%; min-height: 240px; resize: vertical; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); color: var(--text); font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 1.5; padding: 10px 12px; }
 #sv-shell .nav-row { width: 100%; text-align: left; }
+#sv-shell .vrow { display: flex; align-items: center; }
+#sv-shell .vrow > .nav-row { flex: 1; min-width: 0; width: auto; }
+#sv-shell .vrow > .iconbtn { flex: none; color: var(--muted); }
 #sv-shell .nav-row .svi:last-child { color: var(--muted); }
 #sv-shell .logo { width: 32px; height: 32px; border-radius: 9px; display: block; }
 #sv-shell .logo.lg { width: 64px; height: 64px; border-radius: 16px; }
@@ -522,6 +532,11 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-wideonly { display: none; }
 #sv-shell .tl-dock.mid .tl-wideonly { display: inline-flex; }
 #sv-shell .tl-editor { flex: 1; min-height: 120px; display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
+/* Sahne ve ses aynı sütunda, aralarında boşluk yok. İkisi birden kayar; araçlar sütunun altında kalır. */
+#sv-shell .sheet-body.tl-dock > .tl-scroll { flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; overscroll-behavior: contain; }
+#sv-shell .tl-scroll > .tl-editor { flex: 0 0 auto; min-height: 0; border-bottom: 0; }
+#sv-shell .tl-scroll > .tl-audio { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; border-top: 1px solid var(--line2); }
+#sv-shell .sheet-body.tl-dock > .tl-toolbar { flex: 0 0 auto; }
 #sv-shell .tl-heads { flex: none; width: 64px; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--card2); overflow: hidden; }
 #sv-shell .tl-heads-ruler { flex: none; height: 36px; border-bottom: 1px solid var(--line); }
 #sv-shell .tl-heads-clip { flex: 1; overflow: hidden; position: relative; }
@@ -529,7 +544,7 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-headrow { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; padding: 0 6px 0 10px; border-bottom: 1px solid var(--line); color: var(--text); text-align: left; overflow: hidden; }
 #sv-shell .tl-headrow.on { background: rgb(var(--accent-rgb) / .16); }
 #sv-shell .tl-headrow.muted { color: var(--muted2); }
-#sv-shell .tl-headrow.add { color: var(--muted); border-bottom: 0; }
+#sv-shell .tl-headrow.add { color: var(--muted); border-bottom: 0; box-sizing: border-box; }
 #sv-shell .tl-headcol { position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 0 3px 3px 0; background: var(--line2); }
 #sv-shell .tl-headrow > .svi { flex: none; width: 18px; height: 18px; color: var(--muted); }
 #sv-shell .tl-headname { display: none; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -688,6 +703,9 @@ html.sv-export-page #comp { left: 50% !important; top: 42% !important; width: au
 #sv-shell .tl-dock.wide .tl-audio { margin-right: 340px; }
 #sv-shell .tl-ahead { height: 44px; display: flex; align-items: center; gap: 2px; padding: 0 4px; border-bottom: 1px solid var(--line); box-sizing: border-box; }
 #sv-shell .tl-ahead.sel { box-shadow: inset 3px 0 0 var(--accent); }
+/* İki artı aynı kutu: sahne başlığıyla aynı iç boşluk ve simge boyu. */
+#sv-shell .tl-ahead.add { width: 100%; border: 0; background: none; color: var(--muted); justify-content: flex-start; box-sizing: border-box; padding: 0 6px 0 10px; gap: 6px; }
+#sv-shell .tl-ahead.add > .svi { width: 18px; height: 18px; flex: none; color: var(--muted); }
 #sv-shell .tl-aname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: 0; color: var(--text); font: inherit; font-size: 12px; text-align: left; padding: 0; display: none; }
 #sv-shell .tl-dock.wide .tl-aname { display: block; }
 #sv-shell .tl-amini { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 11px; font-weight: 600; padding: 0; }

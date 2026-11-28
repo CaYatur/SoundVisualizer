@@ -30,6 +30,11 @@
     { id: 'visualizer', icon: 'wave', title: 'Çıkış karışımı', sub: 'Sesini paylaşmayan uygulamalar için, düşük kalite' },
     { id: 'mic', icon: 'mic', title: 'Mikrofon', sub: 'Ortamdaki ses' },
   ];
+  const TIMELINE_SOURCE = { id: 'timeline', icon: 'timeline', title: 'Zaman çizelgesi sesi', sub: 'Çizelgede ses varken bu kaynak listede kalır. Seçilince görüntüyü ve çalan parçayı o şarkı sürer.' };
+  function sources() {
+    const M = window.SVShellTimelineAudio;
+    return M && M.offered && M.offered() ? [TIMELINE_SOURCE].concat(SOURCES) : SOURCES.slice();
+  }
   const ERRORS = {
     'permission-denied': 'Mikrofon izni verilmedi.',
     'consent-denied': 'Ekran kaydı onayı verilmedi; sistem sesi alınamıyor.',
@@ -46,6 +51,7 @@
   function activeSource() {
     const st = status();
     if (!st) return null;
+    if (st.source === 'timeline') return 'timeline';
     if (st.state === 'running') return st.source;
     if (st.source === 'player' && (st.state === 'paused' || st.state === 'ended')) return 'player';
     return null;
@@ -63,11 +69,18 @@
     error = '';
     const S0 = A();
     try {
-      if (id === 'player') {
+      const M = window.SVShellTimelineAudio;
+      if (id === 'timeline') {
+        if (activeSource() === 'player') await S0.player.pause().catch(() => {});
+        await S0.audio.stop().catch(() => {});
+        if (M && M.userPicked) M.userPicked('timeline');
+      } else if (id === 'player') {
+        if (M && M.userPicked) M.userPicked('player');
         const p = S0.player.state && S0.player.state();
         if (p && p.has) await S0.player.play();
         else await S0.player.pick();
       } else {
+        if (M && M.userPicked) M.userPicked(id);
         if (activeSource() === 'player') await S0.player.pause().catch(() => {});
         await S0.audio.start(id);
       }
@@ -80,6 +93,8 @@
   async function stopAll() {
     error = '';
     const S0 = A();
+    const M = window.SVShellTimelineAudio;
+    if (M && M.userPicked) M.userPicked('demo');
     if (activeSource() === 'player') await S0.player.stop().catch(() => {});
     await S0.audio.stop().catch(() => {});
     paint();
@@ -290,7 +305,7 @@
         sendKids.push(U.slider({ label: 'PC\'ye giden ses', min: 0, max: 2, step: 0.05, percent: true, value: ai.gain == null ? 1 : ai.gain, def: 1, onChange: (v) => A().pc.audioIn({ gain: v }) }));
         sendKids.push(h('div', { class: 'hint', text: 'Bu ayarlar PC\'deki Telefon Bağlantısı kartıyla aynıdır. Hoparlör, PC susunca yerel sese dönüş ve görüntünün sesi beklemesi. Ses düzeyi %100 normaldir, %200e kadar yükselir.' }));
       }
-      if (T.state === 'connected' && A().pc.audioIn) {
+      if (T.audioSend && T.state === 'connected' && A().pc.audioIn) {
         const ai = T.audioIn || {};
         sendKids.push(U.toggle({ label: 'Kayıpsız aktarım', value: !!ai.lossless, onChange: (on) => A().pc.audioIn({ lossless: on }).then(() => ctx.refresh()) }));
         sendKids.push(h('div', { class: 'hint', text: 'Kayıpsız aktarım paket atmaz; gecikme biraz artar. Kapalıyken hızlı yol durur.' }));
@@ -302,12 +317,14 @@
       if (!T.audioSend && T.state === 'connected' && A().pc.playPcAudio) {
         sendKids.push(U.toggle({ label: 'PC sesini telefonda çal', value: !!T.playPc, onChange: (on) => { A().pc.playPcAudio(on); ctx.refresh(); } }));
         sendKids.push(U.slider({ label: 'Telefona gelen PC sesi', min: 0, max: 2, step: 0.05, percent: true, value: T.pcGain == null ? 1 : T.pcGain, def: 1, onChange: (v) => { A().pc.playPcGain(v); } }));
-        sendKids.push(h('div', { class: 'hint', text: 'PC\'de çalan ses telefonun hoparlöründen de duyulur. Kapalıyken görüntü yine bu sese göre çizilir; demo ses kullanılmaz. Ses düzeyi görüntüyü ve hoparlörü birlikte yükseltir.' }));
+        sendKids.push(h('div', { class: 'hint', text: T.target === 'pc'
+          ? 'PC\'de çalan ses telefonun hoparlöründen de duyulur. Kapalıyken görüntü yine bu sese göre çizilir; demo ses kullanılmaz. Ses düzeyi görüntüyü ve hoparlörü birlikte yükseltir.'
+          : 'PC\'de çalan ses telefonun hoparlöründen de duyulur. Hedef bu telefonken görüntü PC\'yi yalnız "PC\'nin sesini kullan" veya bu anahtar açıkken izler.' }));
       }
       body.appendChild(h('div', { class: 'card' }, [h('div', { class: 'ctl' }, sendKids)]));
     }
     body.appendChild(h('div', { class: 'section-label', text: 'Kaynak' }));
-    const group = h('div', { class: 'source-list', role: 'radiogroup', 'aria-label': 'Kaynak' }, SOURCES.map(sourceCard));
+    const group = h('div', { class: 'source-list', role: 'radiogroup', 'aria-label': 'Kaynak' }, sources().map(sourceCard));
     body.appendChild(group);
     const pc = playerCard();
     if (pc) body.appendChild(pc);

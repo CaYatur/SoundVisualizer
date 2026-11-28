@@ -49,8 +49,8 @@
   const shellRoot = () => document.getElementById('sv-shell') || document.body;
 
   const MAGNET_PX = 10;
-  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Studio Shader', action: 'Eylem' };
-  const TYPE_ICONS = { scene: 'image', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
+  const TYPE_LABELS = { scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Studio Shader', logo: 'Logo', action: 'Eylem' };
+  const TYPE_ICONS = { scene: 'image', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', logo: 'image', action: 'bolt' };
   const PREF_KEY = 'sv-tl-dock';
   const prefs = (() => { try { return Object.assign({ tall: false }, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { return { tall: false }; } })();
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* özel pencere */ } };
@@ -68,7 +68,29 @@
   let knownTl;
   function tlCfg() { return cfg().timeline || {}; }
   let lastWritten = '';
+  /* Hedef değişince (bu telefon ↔ PC) lastWritten öteki çizelgenin metnidir.
+     "Aynı JSON" diye modeli kurmamak, dönünce PC parçalarını telefonun çizelgesine yazıyordu. */
+  let boundTarget = '';
+  function targetKey() {
+    const a = A();
+    if (!a || !a.target || !a.target.get) return 'phone';
+    const t = a.target.get();
+    return t && t.target === 'pc' ? 'pc' : 'phone';
+  }
   function ensureTransport() {
+    const tgt = targetKey();
+    let rebound = false;
+    if (transport && tgt !== boundTarget) {
+      boundTarget = tgt;
+      rebound = true;
+      modelDirty = true;
+      lastWritten = '';
+      knownTl = null;
+      selection = null;
+      multi = [];
+      audioSel = null;
+      hist = null;
+    }
     if (transport && cfg().timeline !== knownTl) {
       /* PC hedefinde yazdığımız çizelge PC'den geri yankılanır (yeni nesne, aynı içerik):
          içerik aynıysa model yeniden kurulmaz (sürükleme ve seçim bozulmasın). */
@@ -77,8 +99,15 @@
       if (same) knownTl = cfg().timeline;
       else modelDirty = true;
     }
-    if (!transport) { transport = new (TL().Transport)(TL().makeTimeline(tlCfg())); modelDirty = false; knownTl = cfg().timeline; }
+    const seedHist = hist === null;
+    if (!transport) { transport = new (TL().Transport)(TL().makeTimeline(tlCfg())); modelDirty = false; knownTl = cfg().timeline; boundTarget = tgt; }
     else if (modelDirty) { transport.tl = TL().makeTimeline(tlCfg()); modelDirty = false; knownTl = cfg().timeline; }
+    if (seedHist && TE()) history().reset(TE().snapshot(tlCfg()));
+    if (rebound && ui.lane && ui.refs && ui.refs.laneHost && ui.refs.laneHost.isConnected) {
+      if (ui.audio && ui.audio.clearSel) ui.audio.clearSel(true);
+      ui.heads(); ui.toolbar(); ui.lane.draw(); ui.transport();
+      if (ui.audio) ui.audio.refresh();
+    }
     return transport;
   }
   const model = () => ensureTransport().tl;
@@ -110,16 +139,31 @@
   function invalidate() { modelDirty = true; }
   /* Ses şeritleri (#1172, src/mobile/shell-timeline-audio.js): parçalar ortak modelle düzeltilip
      yazılır; her düzenleme bir geri al adımı (anlık görüntü audioTracks'i de taşır). */
+  /* Telefonun kendi dosya adresi PC çizelgesine yazılmaz. Yeni ses önce PC'ye gider. */
+  function localPhoneSrc(src) {
+    const s = String(src || '');
+    return s.indexOf('/files/') === 0 || s.indexOf('appassets.androidplatform.net/files/') >= 0;
+  }
   function writeAudio(mut) {
-    if (pcOn()) return; // PC hedefinde çizelge bilgisayarın: telefondaki dosya yolu oraya yazılmaz
     writeTl((c) => {
       const list = TAC().normalize(c.audioTracks);
       mut(list);
+      if (pcOn()) {
+        for (const t of list) for (const clip of t.clips || []) {
+          if (clip && localPhoneSrc(clip.src)) clip.src = '';
+        }
+      }
       c.audioTracks = TAC().normalize(list);
     });
     history().push(TE().snapshot(tlCfg()));
     if (ui.audio) ui.audio.refresh();
     if (ui.refs) ui.transport();
+    if (AUD() && AUD().syncSource) AUD().syncSource();
+  }
+  let dockOn = false;
+  function setDock(on) {
+    dockOn = !!on;
+    if (AUD() && AUD().syncSource) AUD().syncSource();
   }
   /* Ses çalma için: kafa, çalıyor mu, parçalar; `ref` çizelge nesnesi (değişince yeniden kurulur) */
   function audioState() {
@@ -152,20 +196,43 @@
      kendisi çalıştırır). */
   const pcOn = () => !!(A() && A().target && A().target.get().target === 'pc');
   let pcHead = { t: 0, at: 0, playing: false };
+  let pcGen = 0;
+  /* Yerel basıştan hemen sonra gelen canlı özet hâlâ eski oynatma bayrağını
+     taşır. O pencere kapanana kadar ters bayrak düğmeyi geri çevirmesin. */
+  let pcPrefer = 0;
+  function pcShown() {
+    return pcHead.playing ? pcHead.t + (performance.now() - pcHead.at) / 1000 : pcHead.t;
+  }
+  function takePcLive(tl) {
+    if (!tl || typeof tl !== 'object' || typeof tl.playing !== 'boolean') return;
+    const playing = !!tl.playing;
+    const time = Number(tl.time) || 0;
+    if (playing !== pcHead.playing && performance.now() < pcPrefer) return;
+    if (time !== pcHead.t || playing !== pcHead.playing) pcHead = { t: time, at: performance.now(), playing };
+  }
   function pcTime() {
     const l = A() && A().pc ? A().pc.live() : null;
-    const tl = l && l.timeline;
-    if (tl && (tl.time !== pcHead.t || tl.playing !== pcHead.playing)) pcHead = { t: Number(tl.time) || 0, at: performance.now(), playing: !!tl.playing };
-    return { time: pcHead.playing ? pcHead.t + (performance.now() - pcHead.at) / 1000 : pcHead.t, playing: pcHead.playing };
+    takePcLive(l && l.timeline);
+    return { time: pcShown(), playing: pcHead.playing };
   }
   function pcTransport(action, t) {
+    const now = performance.now();
+    const gen = ++pcGen;
+    if (action === 'play') pcHead = { t: pcShown(), at: now, playing: true };
+    else if (action === 'pause') pcHead = { t: pcShown(), at: now, playing: false };
+    else if (action === 'stop') pcHead = { t: 0, at: now, playing: false };
+    else if (action === 'seek') pcHead = { t: Math.max(0, Number(t) || 0), at: now, playing: pcHead.playing };
+    pcPrefer = now + 1500;
+    ui.transport();
     const args = action === 'seek' ? { action, t: Math.max(0, t) } : { action };
     A().pc.request('timeline.transport', args).then((r) => {
-      if (r && r.ok && r.result) pcHead = { t: Number(r.result.time) || 0, at: performance.now(), playing: !!r.result.playing };
+      if (gen !== pcGen) return;
+      if (r && r.ok && r.result) {
+        pcHead = { t: Number(r.result.time) || 0, at: performance.now(), playing: !!r.result.playing };
+        pcPrefer = performance.now() + 600;
+      }
       ui.transport();
     });
-    if (action === 'seek') pcHead = { t: Math.max(0, t), at: performance.now(), playing: pcHead.playing };
-    ui.transport();
   }
   function syncTransportFromAnchor() {
     const t = ensureTransport();
@@ -198,6 +265,7 @@
      çizelge kendi saatiyle sürer; 6 sn içinde hiç başlamazsa (dışarıdan durduruldu) duraklar. */
   let songWait = null; // { since, at, after }: beklemenin başladığı an, beklenen konum (sn), kabul sınırı
   let seekGen = 0; // her atlamada artar (atlamadan önce sorulan taze durum yok sayılır)
+  let intentAt = 0; // son oynat/duraklat. Ondan önce okunmuş "çalmıyor" düğmeyi çevirmesin.
   const isPlaying = (t) => !!(t.playing || songWait);
   /* `seekP`: çalara giden atlama isteği. Yanıtındaki `at` (atlamanın yapıldığı an) kabul sınırı
      olur: ondan önce okunmuş durum eski konumu taşır, sayılmaz. Yanıt gelene dek hiçbiri sayılmaz;
@@ -231,6 +299,7 @@
   }
   function resume(at) {
     if (hasSong() && keepSongInLoop(at)) return;
+    intentAt = Date.now();
     const t = ensureTransport();
     songWait = null;
     refreshAt = performance.now() + 250; // "çalıyor" olayındaki konum geride kalabiliyor: ilk taze konum erken
@@ -242,6 +311,7 @@
     ui.transport();
   }
   function play() {
+    intentAt = Date.now();
     if (pcOn()) { pcTransport('play'); return; }
     const t = syncTransportFromAnchor();
     if (hasSong()) {
@@ -256,6 +326,7 @@
     ui.transport();
   }
   function pause() {
+    intentAt = Date.now();
     if (pcOn()) { pcTransport('pause'); return; }
     const waited = !!songWait;
     songWait = null;
@@ -269,6 +340,7 @@
     ui.transport();
   }
   function stop() {
+    intentAt = Date.now();
     if (pcOn()) { pcTransport('stop'); return; }
     const waited = !!songWait;
     songWait = null;
@@ -394,6 +466,7 @@
     }
     const t = syncTransportFromAnchor();
     if (!t.playing || v.playing) return;
+    if ((Number(v.at) || 0) < intentAt) return;
     if (v.state === 'buffering') { waitSong(pos); ui.transport(); return; }
     t.time = pos;
     t.pause();
@@ -425,6 +498,7 @@
   // Seçim (masaüstü: selection, multi, pickedClips, toggleMulti)
   // ==========================================================================
   let selection = null;
+  let audioSel = null;
   let multi = [];
   let pickMode = false;
   let clipboard = null;
@@ -446,14 +520,49 @@
     }
     return out;
   }
-  function setSelection(s) { selection = s; if (!s || s.kind !== 'clip') multi = []; ui.selection(); }
+  function dropAudio() {
+    if (!audioSel) return false;
+    audioSel = null;
+    if (ui.audio && ui.audio.clearSel) ui.audio.clearSel(true);
+    return true;
+  }
+  function setSelection(s) {
+    selection = s;
+    if (!s || s.kind !== 'clip') multi = [];
+    dropAudio();
+    ui.selection();
+  }
+  function onAudioSelect(s) {
+    audioSel = s || null;
+    if (s) { selection = null; multi = []; }
+    ui.selection();
+  }
+  /* Ses şeridi seçiliyken Sil sahne klibini değil o sesi kaldırır. */
+  function deleteAudioSel() {
+    if (!audioSel) return false;
+    const s = audioSel;
+    const tracks = Array.isArray(tlCfg().audioTracks) ? tlCfg().audioTracks : [];
+    const t = tracks.find((k) => k && k.id === s.trackId);
+    if (!t || t.locked) return false;
+    audioSel = null;
+    if (ui.audio && ui.audio.clearSel) ui.audio.clearSel(true);
+    writeAudio((l) => {
+      const i = l.findIndex((k) => k.id === s.trackId);
+      if (i < 0 || l[i].locked) return;
+      if (s.kind === 'track') l.splice(i, 1);
+      else if (s.clipId) l[i].clips = l[i].clips.filter((c) => c.id !== s.clipId);
+    });
+    return true;
+  }
   function setMulti(refs) {
+    dropAudio();
     multi = refs.length > 1 ? refs.slice() : [];
     const last = refs[refs.length - 1];
     selection = last ? { kind: 'clip', trackId: last.trackId, clipId: last.clipId } : null;
     ui.selection();
   }
   function toggleMulti(trk, c) {
+    dropAudio();
     if (multi.length <= 1) multi = selection && selection.kind === 'clip' ? [{ trackId: selection.trackId, clipId: selection.clipId }] : [];
     const i = multi.findIndex((m) => m.clipId === c.id && m.trackId === trk.id);
     if (i >= 0) multi.splice(i, 1);
@@ -532,6 +641,7 @@
     return t;
   }
   function deleteSelection() {
+    if (deleteAudioSel()) return true;
     const tl = model();
     if (selection && selection.kind === 'marker') {
       const i = tl.markers.findIndex((m) => m.id === selection.markerId);
@@ -866,6 +976,7 @@
     if (c.type === 'video') return c.name || decodeURIComponent(String(c.ref).split('/').pop() || '');
     if (c.type === 'image') return c.name || tr('Görsel');
     if (c.type === 'shader') { const P = window.SVPresets; const p = P && P.get ? P.get(c.ref) : null; return (p && p.name) || c.ref; }
+    if (c.type === 'logo') return c.name || c.ref;
     if (c.type === 'action') { const hit = actionOptions().find((o) => o[0] === c.ref); return hit ? hit[1] : c.ref; }
     return c.ref;
   }
@@ -906,6 +1017,14 @@
     inspector() {},
   };
   const laneH = () => { const v = Number(tlCfg().laneHeight); return Math.max(40, Math.min(120, v > 0 ? v : (ui.refs && ui.refs.wide ? 64 : 52))); };
+  /* Şerit tuvali kutunun boyu kadar. Yükseklik parçalara göre: fazlalık ızgara sesle sahnenin arasına boşluk koyuyordu. */
+  function fitEditor() {
+    const refs = ui.refs;
+    if (!refs || !refs.editor) return;
+    const ruler = (LANE() && LANE().RULER_H) || 36;
+    const n = model().tracks.length + 1;
+    refs.editor.style.height = (ruler + n * laneH()) + 'px';
+  }
   function length(tl) {
     const end = TL().timelineLength(tl);
     return Math.max(30, end + 8, songSec() + 2);
@@ -971,7 +1090,7 @@
   function addClipFlow(trk0, at) {
     const trk = trk0 || targetClipTrack();
     if (trk.locked) { S.confirm(tr('Parça kilitli.'), tr('Tamam')); return; }
-    const types = ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'];
+    const types = ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'logo', 'action'];
     S.choose(tr('Klip türü'), types.map((t) => [t, typeLabel(t)]), '').then((type) => {
       if (!type) return;
       FORMS().pickSource(core, type, null).then((src) => {
@@ -1058,6 +1177,7 @@
         if (!TL() || !TE() || !LANE() || !FORMS()) { body.appendChild(h('div', { class: 'empty', text: 'Zaman çizelgesi bu sürümde yok.' })); return; }
         renderDock(body, ctx);
       },
+      onLeave() { setDock(false); },
       onConfig(ctx) {
         if (selfWrite) return;
         // Çizelge dışarıdan değiştiyse model yeniden kurulur (ensureTransport); sahne adları için yeniden çiz
@@ -1072,6 +1192,7 @@
     if (ui.audio) { ui.audio.destroy(); ui.audio = null; }
     if (ui.refs && ui.refs.ro) ui.refs.ro.disconnect();
     ui.ctx = ctx;
+    setDock(true);
     if (!hist) history().sync(TE().snapshot(tlCfg()));
     body.classList.add('tl-dock');
     const refs = ui.refs = { wide: false };
@@ -1096,13 +1217,15 @@
     refs.side = h('div', { class: 'tl-side' });
     refs.editor = h('div', { class: 'tl-editor' }, [refs.heads, refs.laneHost, refs.side]);
     refs.toolbar = h('div', { class: 'tl-toolbar', role: 'toolbar', 'aria-label': tr('Zaman çizelgesi araçları') });
-    // Ses şeritleri: çizelgenin altında, aynı zaman ekseninde (#1172)
+    // Ses şeritleri sahnenin hemen altında, aynı kaydırmada (#1172)
     refs.audio = h('div', { class: 'tl-audio' });
-    body.append(transportRow, refs.editor, refs.audio, refs.toolbar);
+    refs.scroll = h('div', { class: 'tl-scroll' }, [refs.editor, refs.audio]);
+    body.append(transportRow, refs.scroll, refs.toolbar);
+    fitEditor();
 
     ui.lane = LANE().create(refs.laneHost, laneApi);
     ui.audio = AUD() && TAC() ? AUD().strip(refs.audio, {
-      tracks: () => tlCfg().audioTracks, write: writeAudio, head: headTime, seek, lane: () => ui.lane, wide: () => !!refs.wide, pc: pcOn,
+      tracks: () => tlCfg().audioTracks, write: writeAudio, head: headTime, seek, lane: () => ui.lane, laneH, wide: () => !!refs.wide, pc: pcOn, ctx: () => ui.ctx, onSelect: onAudioSelect,
     }) : null;
     if (!ui.audio) refs.audio.hidden = true;
     // Genişlik: tablette başlıklar geniş, denetçi yanda
@@ -1178,6 +1301,7 @@
   function paintHeads() {
     const refs = ui.refs;
     if (!refs) return;
+    fitEditor();
     const tl = model();
     const lh = laneH();
     refs.headsList.textContent = '';
@@ -1215,6 +1339,11 @@
     const tl = model();
     const add = (...xs) => xs.forEach((x) => x && bar.appendChild(x));
     const snapLabel = tr((SNAP_PAIRS.find((p) => p[0] === (tlCfg().snap || 'bar')) || SNAP_PAIRS[1])[1]);
+    if (audioSel && ui.audio) {
+      add(chip('sliders', 'Düzenle', () => ui.audio.open(), { primary: true }),
+        chip('trash', 'Sil', () => deleteSelection(), { danger: true }));
+      return;
+    }
     const picked = pickedClips();
     if (multi.length > 1) {
       add(h('span', { class: 'tl-count', text: multi.length + ' ' + tr('klip seçili') }),
@@ -1308,7 +1437,14 @@
     isSelectedKey: (trk, ki) => !!(selection && selection.kind === 'key' && selection.trackId === trk.id && selection.keyIndex === ki),
     isPicked: (c) => multi.some((m) => m.clipId === c.id),
     pickedClips,
-    selectClip: (trk, c, quiet) => { selection = { kind: 'clip', trackId: trk.id, clipId: c.id }; if (!multi.some((m) => m.clipId === c.id)) multi = []; if (!quiet) ui.selection(); },
+    selectClip: (trk, c, quiet) => {
+      const fromAudio = dropAudio();
+      selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
+      if (!multi.some((m) => m.clipId === c.id)) multi = [];
+      // Tek dokunuş yalnız araçları değiştirir. Denetçi çift dokunuşta açılır.
+      if (!quiet) ui.selection();
+      if (fromAudio && ui.audio) ui.audio.draw();
+    },
     selectKey: (trk, ki) => setSelection({ kind: 'key', trackId: trk.id, keyIndex: ki }),
     selectMarker: (m) => setSelection({ kind: 'marker', markerId: m.id }),
     selectTempo: (i) => setSelection({ kind: 'tempo', index: i }),
@@ -1319,7 +1455,9 @@
     inspect: openInspector,
     menu: contextMenu,
     addKey,
-    addClipAt: (trk, t) => addClipFlow(trk, t),
+    /* Çift dokunuş boş şeride: masaüstündeki gibi boş klip, sonra onun denetçisi.
+       Tür sihirbazı uzun basıştaki menüde kalır. */
+    addClipAt: (trk, t) => { const c = addClipAt(trk, t); dropAudio(); ui.selection(); openInspector(); return c; },
     snap,
     snapMove,
     snapFree,
@@ -1407,6 +1545,9 @@
   }, 50);
 
   if (A() && A().player && A().player.onState) A().player.onState(onPlayer);
+  /* PC'de oynatma değişince düğme, çizelge sayfası kapalı döngüde bile yenilensin.
+     Canlı özet gecikince ikon eski basışta kalıyordu. */
+  if (A() && A().pc && A().pc.onLive) A().pc.onLive(() => { if (pcOn() && ui.transport) { pcTime(); ui.transport(); } });
   // Otomasyon öğrenme: uygulamadaki ayar değişimleri
   if (window.api && window.api.onConfigPatch) window.api.onConfigPatch(onConfigPatch);
   // Tema değişince tuval yeni renklerle
@@ -1436,6 +1577,9 @@
     unlinkOutput,
     writeAudio,
     audioState,
+    pcOn,
+    dockOpen: () => dockOn,
+    head: () => headTime(),
     /** Probe ve sınama */
     _state: () => { const t = syncTransportFromAnchor(); return { head: t.time, playing: isPlaying(t), waiting: !!songWait, wait: songWait && { at: songWait.at, after: isFinite(songWait.after) ? songWait.after : null, ms: Math.round(performance.now() - songWait.since) }, refreshing, gen: seekGen, sel: selection, multi: multi.slice(), pick: pickMode, mode: modeOn(), anchor, wide: !!(ui.refs && ui.refs.wide) }; },
     _seek: (t) => seek(t),

@@ -29,7 +29,7 @@
   const P = () => window.SVPanel;
   const TL = () => window.SVTimeline;
   const TE = () => window.SVTimelineEdit;
-  const visualClip = (c) => window.SVTimelineCompose ? window.SVTimelineCompose.isVisual(c) : !!c && ['scene', 'preset', 'visualizer', 'background', 'video', 'image', 'shader'].includes(c.type);
+  const visualClip = (c) => window.SVTimelineCompose ? window.SVTimelineCompose.isVisual(c) : !!c && ['scene', 'preset', 'visualizer', 'background', 'video', 'image', 'shader', 'logo'].includes(c.type);
   const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   // Ölçüler
@@ -1019,9 +1019,18 @@
   }
 
   const TYPE_LABELS = {
-    scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Shader', action: 'Eylem',
+    scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', visualizer: 'Görselleştirici', background: 'Arkaplan', video: 'Video', image: 'Görsel', shader: 'Shader', logo: 'Logo', action: 'Eylem',
   };
-  const TYPE_ICONS = { scene: 'clapper', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
+  const TYPE_ICONS = { scene: 'clapper', preset: 'sparkles', palette: 'palette', visualizer: 'bars', background: 'background', video: 'film', image: 'image', shader: 'code', logo: 'image', action: 'bolt' };
+  let logoLibItems = null;
+  function ensureLogoLib() {
+    if (logoLibItems || !window.api || !window.api.logoLibList) return;
+    logoLibItems = [];
+    window.api.logoLibList().then((items) => {
+      logoLibItems = Array.isArray(items) ? items : [];
+      try { refreshInspector(); } catch (e) { /* denetçi henüz yok */ }
+    }).catch(() => { logoLibItems = []; });
+  }
 
   /* Klibin tuvaldeki etiketi: klibin kendi adı, yoksa kaynağın okunur adı.
      Raf ile AYNI çözümleyici: kalıcı "Sahne 1" / "Orman" sözlükten Scene 1 /
@@ -1045,6 +1054,10 @@
         const list = c.type === 'background' ? (MC && MC.BACKGROUNDS) : (MC && MC.VISUALIZERS);
         const hit = list && list.find((m) => m.id === c.ref);
         return hit ? tt(hit.label || hit.id) : c.ref;
+      }
+      if (c.type === 'logo') {
+        const hit = (logoLibItems || []).find((it) => it && it.id === c.ref);
+        return (hit && hit.name) || c.ref;
       }
       /* Medya ve eylem kliplerinin adı destedeki gibi: görselin kaynağı bir
          veri adresi, tuvale yazılacak bir ad değil. */
@@ -3844,7 +3857,7 @@
       grid.appendChild(p.row('Klip Adı', nameInput));
       grid.appendChild(
         p.row('Tür', select(
-          [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
+          [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['visualizer', 'Görselleştirici'], ['background', 'Arkaplan'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['logo', 'Logo'], ['action', 'Eylem']],
           c.type,
           /* Tür değişince kaynak listesi de değişir; yeniden çiz. Eski
              kaynağı temizle, yoksa sahne kimliği şablon alanında kalır. */
@@ -3889,6 +3902,8 @@
         box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip görselleştirici kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.') }));
       } else if (c.type === 'background' && c.ref) {
         box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.') }));
+      } else if (c.type === 'logo' && c.ref) {
+        box.appendChild(el('div', { class: 'ctrl settings-io-note', text: tt('Bu klip logo kitaplığındaki resme başvurur.') }));
       }
       grid.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; TE().sortClips(trk); commit(); draw(); })));
       grid.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); draw(); })));
@@ -4067,6 +4082,10 @@
       const dp = window.SVClipDeckPanel;
       return dp && dp.refOptions ? dp.refOptions('action') : [];
     }
+    if (type === 'logo') {
+      ensureLogoLib();
+      return (logoLibItems || []).filter((it) => it && it.id).map((it) => [it.id, it.name || it.id]);
+    }
     return null; // bu tür için seçilebilir bir liste yok
   }
 
@@ -4075,6 +4094,7 @@
     if (type === 'palette') return 'Henüz renk şablonu yok.';
     if (type === 'visualizer') return 'Görselleştirici listesi yüklenemedi.';
     if (type === 'background') return 'Arkaplan listesi yüklenemedi.';
+    if (type === 'logo') return 'Kitaplıkta logo yok. Bilgisayar yedeğinden gelen logolar burada görünür.';
     return 'Bu tür için seçilebilir bir kaynak yok.';
   }
 

@@ -93,7 +93,53 @@
     }
     return out;
   }
-  const EMPTY = { scene: 'Henüz kayıtlı sahne yok. Sahne ayarlarından bir sahne kaydedin.', palette: 'Henüz renk şablonu yok.', visualizer: 'Görselleştirici listesi yüklenemedi.', background: 'Arkaplan listesi yüklenemedi.', shader: 'Henüz shader preseti yok.', action: 'Bu tür için seçilebilir bir kaynak yok.' };
+  const EMPTY = { scene: 'Henüz kayıtlı sahne yok. Sahne ayarlarından bir sahne kaydedin.', palette: 'Henüz renk şablonu yok.', visualizer: 'Görselleştirici listesi yüklenemedi.', background: 'Arkaplan listesi yüklenemedi.', shader: 'Henüz shader preseti yok.', logo: 'Kitaplıkta logo yok. Bilgisayar yedeğinden gelen logolar burada görünür.', action: 'Bu tür için seçilebilir bir kaynak yok.' };
+  const IMG_ORIGIN = 'https://appassets.androidplatform.net/files/lib-images/';
+  function imageUrl(it) {
+    return it && it.url ? it.url : (it && it.file ? IMG_ORIGIN + encodeURIComponent(it.file) : '');
+  }
+  function logoThumb(id) {
+    const img = h('img', { alt: '', decoding: 'async' });
+    const s = String(id || '');
+    if (s.startsWith('data:') || s.startsWith('http:') || s.startsWith('https:') || s.startsWith('/files/')) { img.src = s; return img; }
+    const onPc = A().target && A().target.get && A().target.get().target === 'pc';
+    const read = onPc && A().pc && A().pc.request
+      ? (i) => A().pc.request('library.logo', { id: i }).then((r) => (r && r.ok && r.result) || null)
+      : (A().logoLibRead || (A().libraries && A().libraries.logo));
+    if (read) Promise.resolve(read(id)).then((r) => { if (r && r.b64 && img.isConnected) img.src = 'data:' + (r.mime || 'image/png') + ';base64,' + r.b64; }, () => {});
+    return img;
+  }
+  /* Telefondaki resim. Hedef PC ise PC logo kitaplığına girer. Bu telefonda
+     videolar gibi media/lib-images altına yazılır; seçici o adresi kullanır. */
+  async function storePhoneImage(f) {
+    if (!f || !f.dataUrl || !A().libraries || !A().libraries.importImage) return null;
+    try {
+      const saved = await A().libraries.importImage({ name: f.name || '', dataUrl: f.dataUrl });
+      if (saved && saved.url) return saved;
+    } catch (e) { /* galeri adresi kalır */ }
+    return null;
+  }
+  async function importPhoneLogo(core, onPc) {
+    let f = null;
+    try { f = await A().media.pick('image'); } catch (e) { return null; }
+    if (!f) return null;
+    if (onPc && f.uri && A().pc && A().pc.sendLogo) {
+      S.toast(core.tr('PC\'ye gönderiliyor') + ': ' + (f.name || ''));
+      try {
+        const id = await A().pc.sendLogo({ uri: f.uri, name: f.name || '' });
+        if (!id) return null;
+        const sid = String(id);
+        return { id: sid, label: f.name || sid, user: true, art: () => logoThumb(sid) };
+      } catch (e) {
+        S.toast(core.tr('Gönderilemedi') + ': ' + (f.name || '') + ' (' + String((e && e.message) || e) + ')');
+        return null;
+      }
+    }
+    const saved = await storePhoneImage(f);
+    if (saved) return { id: saved.url, label: saved.name || f.name || '', user: true, art: () => logoThumb(saved.url) };
+    if (!f.dataUrl) return null;
+    return { id: f.dataUrl, label: f.name || '', user: true, select: true, art: () => h('img', { src: f.dataUrl, alt: '' }) };
+  }
   /* Kaynak seçimi: listeli türler seçiciden; video kitaplıktan ya da galeriden; görsel
      galeriden. Döner: { ref, name?, target? } ya da null. */
   async function pickSource(core, type, current) {
@@ -121,7 +167,60 @@
       return { ref: f.url, name: f.name || '', target: firstTarget(core, 'video'), libraryId };
     }
     if (type === 'image') {
-      try { const f = await A().media.pick('image'); return f && f.dataUrl ? { ref: f.dataUrl, name: f.name || '', target: firstTarget(core, 'image') } : null; } catch (e) { return null; }
+      const onPc = A().target && A().target.get && A().target.get().target === 'pc';
+      let libs = [];
+      if (!onPc) { try { libs = (await A().libraries.list('images')) || []; } catch (e) { libs = []; } }
+      const opts = [['__pick', '＋ ' + core.tr('Galeriden seç')]].concat(libs.filter((it) => it && it.file).map((it) => [imageUrl(it), it.name || it.file]));
+      const v = await S.choose(core.tr('Görsel'), opts, current || '');
+      if (!v) return null;
+      if (v !== '__pick') {
+        const it = libs.find((x) => imageUrl(x) === v) || {};
+        return { ref: v, name: it.name || '', target: firstTarget(core, 'image') };
+      }
+      let f = null;
+      try { f = await A().media.pick('image'); } catch (e) { return null; }
+      if (!f || !f.dataUrl) return null;
+      if (!onPc) {
+        const saved = await storePhoneImage(f);
+        if (saved && saved.url) return { ref: saved.url, name: saved.name || f.name || '', target: firstTarget(core, 'image') };
+      }
+      return { ref: f.dataUrl, name: f.name || '', target: firstTarget(core, 'image') };
+    }
+    if (type === 'logo') {
+      let items = [];
+      const onPc = A().target && A().target.get && A().target.get().target === 'pc';
+      let images = [];
+      if (onPc && A().pc && A().pc.request) {
+        try {
+          const r = await A().pc.request('library.list', { kind: 'logo', limit: 200 });
+          items = (r && r.ok && r.result && Array.isArray(r.result.items)) ? r.result.items : [];
+        } catch (e) { items = []; }
+      } else {
+        try { images = (await A().libraries.list('images')) || []; } catch (e) { images = []; }
+        try { items = (await A().libraries.list('logos')) || []; } catch (e) { items = []; }
+      }
+      const tiles = images.filter((it) => it && it.file).map((it) => ({ id: imageUrl(it), label: it.name || it.file, user: true, art: () => logoThumb(imageUrl(it)) }))
+        .concat((items || []).filter((it) => it && it.id).map((it) => ({ id: it.id, label: it.name || it.id, user: true, art: () => logoThumb(it.id) })));
+      const bring = () => importPhoneLogo(core, onPc);
+      const L = window.SVShellLayers;
+      const ctx = core.pageCtx && core.pageCtx();
+      if (ctx && L && L.pickTile) {
+        const it = await L.pickTile(ctx, {
+          title: core.typeLabel('logo'), value: current || '',
+          empty: 'Kitaplıkta logo yok. Bilgisayar yedeğinden gelen logolar burada görünür.',
+          items: tiles, addLabel: 'Telefondan aktar', onAdd: bring,
+        });
+        return it ? { ref: it.id, name: it.label || '' } : null;
+      }
+      const opts = [['__pick', '＋ ' + core.tr('Telefondan aktar')]].concat(tiles.map((it) => [it.id, it.label]));
+      const v = await S.choose(core.typeLabel('logo'), opts, current || '');
+      if (!v) return null;
+      if (v === '__pick') {
+        const it = await bring();
+        return it ? { ref: it.id, name: it.label || '' } : null;
+      }
+      const hit = opts.find((o) => o[0] === v);
+      return { ref: v, name: hit ? hit[1] : '' };
     }
     // Studio presetleri resimleriyle; arkaplan ve görselleştirici birlikte
     const L = window.SVShellLayers;
@@ -223,14 +322,14 @@
     box.appendChild(head(core.clipLabel(c), core.TYPE_ICONS[c.type] || 'clapper'));
     const kids = [];
     kids.push(U().text({ label: 'Klip Adı', value: c.name || '', placeholder: core.clipSourceLabel(c), onChange: (v) => { c.name = String(v || '').trim(); save(); } }));
-    kids.push(U().select({ label: 'Tür', options: ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'action'].map((x) => [x, core.typeLabel(x)]), value: c.type, onChange: (v) => { if (v === c.type) return; c.type = v; c.ref = ''; c.target = ''; save(); rerender(); } }));
+    kids.push(U().select({ label: 'Tür', options: ['scene', 'preset', 'palette', 'visualizer', 'background', 'video', 'image', 'shader', 'logo', 'action'].map((x) => [x, core.typeLabel(x)]), value: c.type, onChange: (v) => { if (v === c.type) return; c.type = v; c.ref = ''; c.target = ''; save(); rerender(); } }));
     kids.push(U().row('Kaynak', [h('button', { class: 'btn tl-src', onclick: () => pickSource(core, c.type, c.ref).then((r) => {
       if (!r) return;
       if (r.type) c.type = r.type;
       c.ref = r.ref;
       // Video klibinin PC kitaplığı kimliği: yeni kaynakla birlikte yazılır, eskisi kalmaz
       if (c.type === 'video' && r.libraryId) c.libraryId = r.libraryId; else delete c.libraryId;
-      if (r.name && !c.name && (c.type === 'video' || c.type === 'image')) c.name = r.name;
+      if (r.name && !c.name && (c.type === 'video' || c.type === 'image' || c.type === 'logo')) c.name = r.name;
       if (r.target && !c.target) c.target = r.target;
       save();
       rerender();
@@ -251,6 +350,7 @@
       })]));
     } else if (c.type === 'preset') kids.push(note(t('Bu klip şablona başvurur; şablonlar Kitaplık bölümünde.')));
     else if (c.type === 'background' && c.ref) kids.push(note(t('Bu klip zemin kipine başvurur; kip ayarları Sahne katmanlarında düzenlenir.')));
+    else if (c.type === 'logo' && c.ref) kids.push(note(t('Bu klip logo kitaplığındaki resme başvurur.')));
     else if (c.type === 'action') kids.push(note(t('Eylem, oynatma kafası klibe girince bir kez çalışır (Timeline kullan açıkken).')));
     box.appendChild(U().card(kids));
     if (!locked && c.ref && (c.type === 'visualizer' || c.type === 'background' || c.type === 'shader') && window.SVShellLayers && window.SVTimelineCompose) box.appendChild(clipSettings(core, c, ctx, rerender));

@@ -73,6 +73,34 @@
     master.connect(split);
     split.connect(anL, 0);
     split.connect(anR, 1);
+    /* Ham ses, telefon PC'yi izlerken (#çizelge). Çıkışa giden yola dokunulmaz:
+       işlemci sessiz bir düğümle kapanır, yoksa tarayıcı onu çalıştırmaz. */
+    if (typeof ctx.createScriptProcessor === 'function' && window.api && window.api.timelineAudioPcm) {
+      const proc = ctx.createScriptProcessor(2048, 2, 2);
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      master.connect(proc);
+      proc.connect(mute);
+      mute.connect(ctx.destination);
+      proc.onaudioprocess = (ev) => {
+        const ib = ev.inputBuffer;
+        if (!ib || !window.api || !window.api.timelineAudioPcm) return;
+        const L = ib.getChannelData(0);
+        const R = ib.numberOfChannels > 1 ? ib.getChannelData(1) : L;
+        const now = performance.now();
+        if (peak(L) > QUIET || peak(R) > QUIET) lastLoud = now;
+        if (!lastLoud || now - lastLoud > TAIL_MS) return;
+        const n = L.length;
+        const out = new Int16Array(n * 2);
+        for (let i = 0; i < n; i++) {
+          const l = L[i] < -1 ? -1 : L[i] > 1 ? 1 : L[i];
+          const r = R[i] < -1 ? -1 : R[i] > 1 ? 1 : R[i];
+          out[i * 2] = (l < 0 ? l * 0x8000 : l * 0x7fff) | 0;
+          out[i * 2 + 1] = (r < 0 ? r * 0x8000 : r * 0x7fff) | 0;
+        }
+        window.api.timelineAudioPcm(new Uint8Array(out.buffer), ib.sampleRate || ctx.sampleRate || 48000);
+      };
+    }
     if (!timer) timer = setInterval(pump, SEND_MS);
     return true;
   }

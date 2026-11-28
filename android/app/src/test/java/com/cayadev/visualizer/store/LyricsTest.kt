@@ -149,6 +149,21 @@ class LyricsTest {
         assertEquals("cache", again!!.getString("source"))
         assertTrue(calls.isEmpty())
         assertEquals(1, LyricsLookup.clearCache(cache))
+        val messy = LyricsLookup.Meta("Moment", "Athena ve smle Moment 2022", "", 0.0)
+        val calls2 = mutableListOf<String>()
+        val get2: (String, String, Int) -> String? = { u, _, _ ->
+            calls2.add(u)
+            when {
+                u.contains("/api/get?") -> null
+                u.contains("/api/search?") -> """[{"trackName":"Moment","artistName":"Athena","syncedLyrics":"[00:01.00]zayif"},{"trackName":"Moment","artistName":"Athena, smie","syncedLyrics":"[00:01.00]katalog"},{"trackName":"Baska","artistName":"Athena, smie","syncedLyrics":"[00:01.00]yanlis"}]"""
+                else -> null
+            }
+        }
+        val url = "https://lrclib.net/api/get?artist_name={artist}&track_name={title}&album_name={album}&duration={duration}"
+        val c2 = cfg(JSONObject().put("name", "LRCLIB").put("url", url).put("format", "json").put("path", "syncedLyrics"))
+        val hit = LyricsLookup.lookup(c2, messy, tmp(), get2)
+        assertEquals("[00:01.00]katalog", hit!!.getString("text"))
+        assertTrue(calls2.any { it.contains("/api/search?q=athena%20smle%20moment") })
     }
 
     @Test

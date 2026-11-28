@@ -108,6 +108,9 @@
     if (!h || !input) { state.badBinary++; return; }
     if (h.type === M.TYPE_PCM) {
       const m = M.readPcm(buf);
+      /* Çizelge sesi seçiliyken, ya da hedef bu telefonken PC paketi görüntünün üstüne binmez.
+         PC sesi yalnız hedef PC iken (akıcı önizleme) ya da kullanıcı açınca gelir. */
+      if (m && m.source === 'pc' && (timelineHold || !followPcAudio())) return;
       if (m) { input.pushPcm(m); if (m.source === 'pc') notePcPcm(); } else state.badBinary++;
     } else if (h.type === M.TYPE_WAVE) {
       const m = M.readWave(buf);
@@ -185,7 +188,8 @@
       // Kaynak değişti ya da durdu: sessizlik sayacı baştan
       if (silence) silence.reset();
       if (state.silent) { state.silent = false; ev.silence.emit({ silent: false, source: v && v.source }); }
-      ev.audioStatus.emit(v);
+      /* Çizelge kaynağı durdurulan yakalamanın "durdu" olayına yenilmesin. */
+      if (!timelineHold) ev.audioStatus.emit(v);
     } else if (name === 'playerState') {
       onPlayerState(v);
     } else if (name === 'mediaSession') {
@@ -258,7 +262,16 @@
     systemNow = Object.assign({}, v, { received: Date.now() });
     publishNow();
   }
+  let timelineHold = false;
+  let timelineNp = null;
+  let timelineSeq = 1;
+  function emitTimelineNp() {
+    if (!(timelineHold && timelineNp && timelineNp.has)) return;
+    ev.nowPlaying.emit(timelineNp);
+    lookupLyrics(timelineNp);
+  }
   function publishNow() {
+    if (timelineHold && timelineNp && timelineNp.has) { emitTimelineNp(); return; }
     const p = playerNow;
     const sys = systemNow && systemNow.has ? systemNow : null;
     const next = p && p.has && (p.playing || !(sys && sys.playing)) ? p : (sys || p || nowPlaying);
@@ -311,6 +324,31 @@
      o sırada saklanır; "Bu telefon"a dönünce geri gelir. */
   let pcSong = null;
   let pcSongNp = null;
+  let artPull = { id: '', n: 0, timer: 0 };
+  /* Parça iletisindeki kapak düşerse song.art küçük yanıtı şarkı boyunca
+     sorulur. Üç denemede bırakınca kapak bir sonraki parçaya kadar yoktu. */
+  function pullArt(id) {
+    if (artPull.id !== id) { if (artPull.timer) clearTimeout(artPull.timer); artPull = { id, n: 0, timer: 0 }; }
+    if (artPull.n >= 24 || artPull.timer) return;
+    const wait = artPull.n === 0 ? 500 : 3000;
+    artPull.n += 1;
+    artPull.timer = setTimeout(() => {
+      artPull.timer = 0;
+      if (!wantsPcSong() || !pcSongNp || pcSongNp.artwork) return;
+      if ((pcSongNp.title || '') + '|' + (pcSongNp.artist || '') !== id) return;
+      pcAsk('song.art').then((r) => {
+        if (!wantsPcSong() || !pcSongNp || pcSongNp.artwork) return;
+        if ((pcSongNp.title || '') + '|' + (pcSongNp.artist || '') !== id) return;
+        const a = r && r.ok ? r.result : null;
+        if (a && a.artwork && (a.title || '') + '|' + (a.artist || '') === id) {
+          pcSongNp = Object.assign({}, pcSongNp, { artwork: a.artwork });
+          ev.nowPlaying.emit(pcSongNp);
+          return;
+        }
+        pullArt(id);
+      }, () => pullArt(id));
+    }, wait);
+  }
   /* PC'nin parçası: hedef PC iken, ya da telefon PC'nin sesini kullanırken.
      "PC'ye gönder" açıkken telefonun kendi parçası kalır. wantsPcSong aşağıda kurulur. */
   let wantsPcSong = () => false;
@@ -359,6 +397,10 @@
     /* Konum tazelenirken kapak yeniden gelmez. Boş kapak, aynı parçanın
        elimizdeki kapağını silmesin. */
     if (pcSongNp && pcSongNp.has && !pcSongNp.artwork && prevNp && prevNp.artwork && prevNp.title === pcSongNp.title && prevNp.artist === pcSongNp.artist) pcSongNp.artwork = prevNp.artwork;
+    /* Kapaklı ileti düşerse parça kapaksız kalıyordu. Aynı parça için birkaç
+       kez song.get: o yanıt baytı her zaman taşır. */
+    if (pcSongNp && pcSongNp.has && pcSongNp.title && !pcSongNp.artwork) pullArt(pcSongNp.title + '|' + (pcSongNp.artist || ''));
+    else if (artPull.timer) { clearTimeout(artPull.timer); artPull.timer = 0; }
     const lag = syncLagMs(true);
     if (lag && pcSongNp && pcSongNp.playing) {
       /* updated yerinde kalır: o anda duyulan konum, PC'nin konumundan `lag` kadar geridedir. */
@@ -873,6 +915,13 @@
   }
   /* Telefonda seçilen video PC'ye: kitaplığa girer, kimliği döner. Katman telefonun adresi ve
      bu kimlikle yazılır; PC adresi kendi dosyasına çevirir (src/main/link-media.js). */
+  function sendLogo(f) {
+    if (!f || !f.uri) return Promise.reject(new Error('no-uri'));
+    return request('linkUpload', { uri: f.uri, name: f.name || '', kind: 'logo' }).then((r) => new Promise((resolve, reject) => {
+      if (!r || !r.key) { reject(new Error('failed')); return; }
+      uploadWait.set(r.key, { resolve, reject });
+    }));
+  }
   function sendVideo(f) {
     if (!f || !f.uri) return Promise.reject(new Error('no-uri'));
     return request('linkUpload', { uri: f.uri, name: f.name || '', kind: 'video' }).then((r) => new Promise((resolve, reject) => {
@@ -880,10 +929,23 @@
       uploadWait.set(r.key, { resolve, reject, url: f.url || '' });
     }));
   }
+  /* Çizelge sesi: aynı parça parça aktarım. Bitince PC'nin sv-media adresi ve süresi. */
+  function sendTimelineAudio(f) {
+    if (!f || !f.uri) return Promise.reject(new Error('no-uri'));
+    return request('linkUpload', { uri: f.uri, name: f.name || '', kind: 'audio', use: 'timeline' }).then((r) => new Promise((resolve, reject) => {
+      if (!r || !r.key) { reject(new Error('failed')); return; }
+      uploadWait.set(r.key, { resolve, reject, full: true });
+    }));
+  }
   function onUploadDone(u) {
     const w = u && uploadWait.get(u.key);
     if (!w || (u.state !== 'done' && u.state !== 'error' && u.state !== 'cancelled')) return;
     uploadWait.delete(u.key);
+    if (w.full) {
+      if (u.state === 'done' && u.result && u.result.url) w.resolve(u.result);
+      else w.reject(new Error(u.error || u.state || 'failed'));
+      return;
+    }
     const id = u.state === 'done' && u.result && u.result.id;
     if (!id) { w.reject(new Error(u.error || u.state)); return; }
     if (w.url) pcMedia.byId[id] = w.url;
@@ -1086,6 +1148,21 @@
   let pcIn = { known: false, enabled: false, play: false, fallback: true, delayMs: 0, gain: 1, lossless: false, syncDelay: true, state: '', name: '' };
   let songArmed = false;
   wantsPcSong = () => pc.state === 'connected' && !audioSend && (pc.on || usePcAudio || playPc);
+  /* Görüntü PC sesini ne zaman izler. Hedef bu telefonken bağlantı tek başına yetmez. */
+  function followPcAudio() {
+    if (audioSend || pc.state !== 'connected') return false;
+    return !(pc.on && previewMode !== 'smooth') && (pc.on || usePcAudio || playPc);
+  }
+  function releasePcListen() {
+    pcAudioUntil = 0;
+    clearTimeout(pcAudioTimer);
+    pcAudioTimer = 0;
+    if (timelineHold || state.source !== 'pc') return;
+    state.source = 'demo';
+    ev.audioStatus.emit(state.audioStatus || { source: '', state: 'stopped' });
+    const live = window.SVShellTimelineAudio;
+    if (live && live.syncSource) live.syncSource();
+  }
   let pcGain = 1;
   try { const g = Number(localStorage.getItem('sv-link-pc-gain')); if (Number.isFinite(g)) pcGain = Math.max(0, Math.min(2, Math.round(g * 100) / 100)); } catch (e) { /* */ }
   let pcPresetSig = '';
@@ -1168,13 +1245,15 @@
       if (pcIn.known) { args.play = pcIn.play; args.fallback = pcIn.fallback; args.delayMs = pcIn.delayMs; args.gain = pcIn.gain; args.lossless = pcIn.lossless; args.syncDelay = pcIn.syncDelay; }
       pcAsk('audio.bridge', args).then((r) => { if (r && r.ok && r.result) { takeAudioIn(r.result); emitTarget(); } pcNowPlaying(nowPlaying, true); });
     }
-    /* Gönderim kapalıyken görüntü PC'nin sesini kullanır. Ekran görüntüsü
-       önizlemesi motoru örtüyor; orada ham ses gerekmez. */
-    const watch = !audioSend && pc.state === 'connected' && !(pc.on && previewMode !== 'smooth');
+    /* Hedef PC ve akıcı önizleme: görüntü PC sesini izler. Hedef bu telefon:
+       yalnız "PC'nin sesini kullan" ya da hoparlör anahtarı açıksa. Ekran
+       görüntüsü önizlemesi motoru örtüyor; orada ham ses gerekmez. */
+    const watch = followPcAudio();
     if (watch !== watching) {
       watching = watch;
       request('linkAudioWatch', { on: watch }).catch(() => {});
       if (pc.state === 'connected') pcAsk('audio.watch', { on: watch });
+      if (!watch) releasePcListen();
     }
     request('linkAudioPlay', { on: !!(playPc && watch) }).catch(() => {});
     const follow = wantsPcSong();
@@ -1482,6 +1561,10 @@
       upload: (file, kind) => request('linkUpload', { uri: file.uri, name: file.name || '', kind }),
       /** Telefonda seçilen videoyu PC'nin kitaplığına yollar; bitince PC'deki kimlik (katmanın `libraryId`'si). */
       sendVideo: (file) => sendVideo(file),
+      /** Galerideki resmi PC logo kitaplığına yollar; bitince kitaplık kimliği. */
+      sendLogo: (file) => sendLogo(file),
+      /** Çizelgeye konacak ses: PC'ye gider, dönen adres klibin kaynağıdır. */
+      sendTimelineAudio: (file) => sendTimelineAudio(file),
       cancelUpload: (key) => request('linkUploadCancel', { key }),
       onUpload: (cb) => ev.pcUpload.add(cb),
       /** PC'nin videosu telefona iniyor: { key, name, size, got, state: begin | sending | done | error } */
@@ -1513,7 +1596,7 @@
       onEvent: (cb) => ev.linkEvent.add(cb),
     }),
     nowPlaying: Object.freeze({
-      current: () => (pcSongOn() && pcSongNp ? pcSongNp : nowPlaying),
+      current: () => (timelineHold && timelineNp && timelineNp.has ? timelineNp : (pcSongOn() && pcSongNp ? pcSongNp : nowPlaying)),
       /** Yalnız başka uygulamalardan gelen (medya oturumu); kart ve sınama için. */
       system: () => systemNow,
       status: () => request('nowPlayingStatus'),
@@ -1524,6 +1607,15 @@
     libraries: Object.freeze({
       list: (key) => request('libraryList', { key }),
       logo: (id) => request('logoLibRead', { id }),
+      importImage: (item) => request('imageLibImport', { name: (item && item.name) || '', dataUrl: (item && item.dataUrl) || '' }),
+      remove: (key, id) => request('libraryRemove', { key, id }),
+      importVideo: (item) => request('libraryTake', { uri: (item && item.uri) || '', name: (item && item.name) || '' }),
+      importFiles: async () => {
+        const r = (await request('libraryImport')) || {};
+        const up = Array.isArray(r.upsert) ? r.upsert : [];
+        if (up.length) ev.presetsDelta.emit({ upsert: up, remove: [], gen: Number(r.gen) || 0 });
+        return r;
+      },
     }),
     /* Şarkı sözü kitaplığı ve otomatik bulma (Kitaplık → Sözler, Ayarlar). */
     lyrics: Object.freeze({
@@ -1541,10 +1633,44 @@
     audio: Object.freeze({
       start: (source) => request('audioStart', { source }),
       stop: () => request('audioStop'),
-      status: () => (pcAudioLive() ? { source: 'pc', state: 'running' } : state.audioStatus),
+      status: () => (timelineHold ? { source: 'timeline', state: 'running' } : (pcAudioLive() ? { source: 'pc', state: 'running' } : state.audioStatus)),
       silent: () => state.silent,
       onStatus: (cb) => ev.audioStatus.add(cb),
       onSilence: (cb) => ev.silence.add(cb),
+      /* Kaynak listesi açıkken çizelge seçeneği belirdiğinde sayfa yenilensin. */
+      poke: () => {
+        ev.audioStatus.emit(timelineHold ? { source: 'timeline', state: 'running' } : (pcAudioLive() ? { source: 'pc', state: 'running' } : (state.audioStatus || { source: '', state: 'stopped' })));
+      },
+      /* Çizelge sesi: görüntüyü ve çalan parçayı bu kaynak sürer. PC paketi o sırada yok sayılır. */
+      timeline: (on) => {
+        timelineHold = !!on;
+        if (!on) timelineNp = null;
+        if (on) {
+          state.source = 'timeline';
+          ev.audioStatus.emit({ source: 'timeline', state: 'running' });
+          if (native) request('audioStop').catch(() => {});
+        } else if (state.source === 'timeline') {
+          state.source = 'demo';
+          ev.audioStatus.emit(state.audioStatus || { source: '', state: 'stopped' });
+          publishNow();
+        }
+      },
+      timelinePcm: (samples, sampleRate) => {
+        if (!timelineHold || !input || !samples || !samples.length) return;
+        input.pushPcm({ seq: timelineSeq++, samples, sampleRate: sampleRate || 48000, channels: 2, source: 'timeline' });
+        lastNativeAt = now();
+        state.source = 'timeline';
+      },
+      timelineMeta: (np) => {
+        if (!timelineHold) return;
+        const prev = timelineNp;
+        timelineNp = np && np.has ? np : null;
+        const cur = timelineNp;
+        const moved = !prev !== !cur || (cur && prev && (prev.title !== cur.title || prev.artist !== cur.artist || prev.artwork !== cur.artwork || prev.playing !== cur.playing || Math.abs((prev.position || 0) - (cur.position || 0)) > 0.4));
+        if (!moved) return;
+        if (cur) emitTimelineNp();
+        else publishNow();
+      },
     }),
     /* Uygulama içi çalar: pick() Android'in dosya seçicisini açar; open(media)
        uygulamanın medya klasöründeki bir dosyayı açar. Durum `onState` ile gelir. */
@@ -1608,6 +1734,7 @@
     timelineAudio: Object.freeze({
       import: (uri) => request('timelineAudioImport', { uri }),
       write: (name, data, first) => request('mediaAppend', { name, data, first: !!first }),
+      tags: (url) => request('timelineAudioTags', { url }),
     }),
     /** Seçilen şarkının adı, sanatçısı, albümü, süresi ve kapağı. */
     audioTags: (uri) => request('audioTags', { uri }),
@@ -1634,7 +1761,10 @@
     }),
     /* Telefondan MilkDrop presetleri (.milk, .milk2; Faz 4): Android'in dosya seçicisi,
        birden çok dosya. { added, duplicates, invalid, skipped }; vazgeçilirse 'cancelled'. */
-    presets: Object.freeze({ importMilk: () => importMilk() }),
+    presets: Object.freeze({
+      importMilk: () => importMilk(),
+      remove: (ids) => request('presetRemove', { ids: [].concat(ids || []) }),
+    }),
     onMemoryPressure: (cb) => ev.memory.add(cb),
     /* Zaman çizelgesinin gösteri saati çıpası (src/shared/showclock.js). Masaüstünde
        panel `sendShowClock` ile pencerelere yollar; burada motor aynı sayfada, olay

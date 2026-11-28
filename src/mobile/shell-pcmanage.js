@@ -44,7 +44,7 @@
     A().pc.onUpload((u) => {
       if (!u || !u.key) return;
       uploads.set(u.key, u);
-      if (u.state === 'done' && u.kind === 'audio' && u.result && u.result.id) song = { id: u.result.id, name: u.name };
+      if (u.state === 'done' && u.kind === 'audio' && u.result && u.result.id && !u.result.url) song = { id: u.result.id, name: u.name };
       if (u.state === 'done' && u.kind !== 'audio') S.toast(tr('PC\'ye gönderildi') + ': ' + u.name);
       if (u.state === 'error') S.toast(tr('Gönderilemedi') + ': ' + u.name + ' (' + u.error + ')');
       refresh();
