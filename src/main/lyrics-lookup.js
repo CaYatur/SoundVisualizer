@@ -24,6 +24,7 @@
 const nodeFs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const lyricsSync = require('../shared/lyrics-sync.js');
 
 const LYRIC_EXT = ['.lrc', '.srt'];
 const MAX_BYTES = 1024 * 1024;
@@ -294,6 +295,30 @@ function clearCache(dir, fsx) {
 }
 
 // ---------------------------------------------------------------- sağlayıcı
+/* Tam sorgu (LRCLIB /api/get) boşsa aynı kökte arama. Özel şablonlar aranmaz.
+   "ve / and / feat" aramayı boşaltıyor ("Athena ve smle" → 0 satır,
+   "Athena smle" → Athena & SMLE). Bağlaç ve yıl arama dizisinden düşer. */
+const CATALOG_JOIN = new Set(['ile', 've', 'and', 'feat', 'ft', 'featuring', 'vs', 'versus', 'with', 'und', 'et', 'plus']);
+function catalogQuery(meta) {
+  const raw = [meta && meta.artist, meta && meta.title].filter(Boolean).join(' ');
+  const folded = String(raw).replace(/[ışğüöçİŞĞÜÖÇ]/g, (ch) => ({ ı: 'i', İ: 'i', ş: 's', Ş: 's', ğ: 'g', Ğ: 'g', ü: 'u', Ü: 'u', ö: 'o', Ö: 'o', ç: 'c', Ç: 'c' }[ch] || ch));
+  const seen = new Set();
+  const parts = [];
+  for (const t of folded.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ')) {
+    if (t.length < 2 || CATALOG_JOIN.has(t) || /^(19|20)\d{2}$/.test(t) || seen.has(t)) continue;
+    seen.add(t);
+    parts.push(t);
+  }
+  const q = parts.join(' ').slice(0, 180);
+  return q || raw.replace(/\s+/g, ' ').trim().slice(0, 180);
+}
+function catalogGet(url) {
+  return /\/api\/get\?/i.test(url) && /artist_name=/i.test(url) && /track_name=/i.test(url);
+}
+function catalogSearch(url, meta) {
+  const base = String(url).split(/\/api\/get\?/i)[0];
+  return base + '/api/search?q=' + encodeURIComponent(catalogQuery(meta));
+}
 async function fetchProvider(p, meta, opts) {
   const fetchFn = opts.fetch || (typeof fetch === 'function' ? fetch : null);
   if (!fetchFn) return null;
@@ -302,16 +327,30 @@ async function fetchProvider(p, meta, opts) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   let timer = null;
   const timeout = new Promise((resolve) => { timer = setTimeout(() => { if (ctrl) ctrl.abort(); resolve(null); }, opts.timeoutMs); });
-  const work = (async () => {
-    const res = await fetchFn(url, { signal: ctrl ? ctrl.signal : undefined, headers: { Accept: p.format === 'json' ? 'application/json' : 'text/plain' } });
-    if (!res || !res.ok) return null;
+  const pull = async (target, accept) => {
+    const res = await fetchFn(target, { signal: ctrl ? ctrl.signal : undefined, headers: { Accept: accept } });
+    if (!res || !res.ok) return '';
     const body = await res.text();
-    if (!body || body.length > MAX_BYTES) return null;
-    if (p.format === 'json') {
-      const v = pickPath(JSON.parse(body), p.path);
-      return typeof v === 'string' && plausibleLyrics(v) ? v : null;
+    if (!body || body.length > MAX_BYTES) return '';
+    return body;
+  };
+  const work = (async () => {
+    const body = await pull(url, p.format === 'json' ? 'application/json' : 'text/plain');
+    if (body) {
+      if (p.format === 'json') {
+        try {
+          const v = pickPath(JSON.parse(body), p.path);
+          if (typeof v === 'string' && plausibleLyrics(v)) return v;
+        } catch { /* gövde söz değil */ }
+      } else if (plausibleLyrics(body)) return body;
     }
-    return plausibleLyrics(body) ? body : null;
+    if (!catalogGet(p.url)) return null;
+    const raw = await pull(catalogSearch(p.url, meta), 'application/json');
+    if (!raw) return null;
+    let rows = null;
+    try { rows = JSON.parse(raw); } catch { return null; }
+    const hit = lyricsSync.pickProviderHit(meta, rows);
+    return hit && plausibleLyrics(hit) ? hit : null;
   })().catch(() => null);
   try { return await Promise.race([work, timeout]); } finally { clearTimeout(timer); }
 }

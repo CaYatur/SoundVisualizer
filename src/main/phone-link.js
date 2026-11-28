@@ -388,7 +388,7 @@ function createHost(opts) {
    ------------------------------------------------------------------------------------------- */
 const OPS = {
   // izle
-  'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'song.get': 'view', 'logo.get': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view', 'presets.user': 'view',
+  'state.get': 'view', 'config.get': 'view', 'live.get': 'view', 'song.get': 'view', 'song.art': 'view', 'logo.get': 'view', 'library.logo': 'view', 'preview.get': 'view', 'library.list': 'view', 'thumb.get': 'view', 'presets.user': 'view',
   // ayardaki videonun dosyası telefonun kendi motoru için (link-media.js); yol telefondan gelmez
   'media.fetch': 'view',
   'audio.watch': 'view', 'output.list': 'view',

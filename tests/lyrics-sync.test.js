@@ -66,6 +66,23 @@ test('kısmi eşleme yazım farkını ve içermeyi yakalar', () => {
     'partial'
   );
   assert.ok(inside, 'içerme');
+  const duo = sync.matchTrack(
+    { title: 'Bir Sarki', artist: 'Mehmet ile Ayşe' },
+    [item('Bir Sarki', 'Mehnmet, Ayşe')],
+    'partial'
+  );
+  assert.ok(duo, 'bağlaç, virgül ve bir harf');
+  const order = sync.matchTrack(
+    { title: 'Bir Sarki', artist: 'Ayşe & Mehmet' },
+    [item('Bir Sarki', 'Mehmet ile Ayşe')],
+    'partial'
+  );
+  assert.ok(order, 'sıra');
+  assert.strictEqual(sync.matchTrack(
+    { title: 'Bir Sarki', artist: 'Mehmet ile Ayşe' },
+    [item('Bir Sarki', 'Mehnmet, Ayşe')],
+    'exact'
+  ), null, 'tam eşleme yazım farkını kabul etmez');
 });
 
 test('kısmi eşleme ilgisiz parçayı ve başka sanatçıyı reddeder', () => {

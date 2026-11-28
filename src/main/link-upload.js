@@ -80,7 +80,8 @@ function createUploads(opts) {
     const id = o.randomBytes(12).toString('hex');
     const file = path.join(dir, id + '.part');
     const fd = fs.openSync(file, 'wx');
-    live.set(id, { owner, kind, name: cleanName(a.name, ext), ext, size, got: 0, file, fd, hash: crypto.createHash('sha256'), at: o.now() });
+    const use = a && a.use === 'timeline' ? 'timeline' : '';
+    live.set(id, { owner, kind, name: cleanName(a.name, ext), ext, size, got: 0, file, fd, hash: crypto.createHash('sha256'), at: o.now(), use });
     return { id, chunk: CHUNK_MAX };
   }
 
@@ -111,7 +112,7 @@ function createUploads(opts) {
     live.delete(a.id);
     const done = path.join(dir, a.id + '.' + u.ext);
     fs.renameSync(u.file, done);
-    return { id: a.id, kind: u.kind, name: u.name, size: u.size, file: done };
+    return { id: a.id, kind: u.kind, name: u.name, size: u.size, file: done, use: u.use || '' };
   }
 
   function cancel(owner, id) {
