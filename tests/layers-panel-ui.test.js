@@ -110,6 +110,28 @@ test('açık katman hatırlanıyor ve alt bölümler sekme şeridinde', () => {
   // Bant okuyan görselleştiricide Tayf Ölçümü sekmesi de var (#878)
   assert.deepStrictEqual(tabs, ['Dönüşüm', 'Sese Tepki', 'Tayf Ölçümü', 'Maske', 'Katman Efektleri', 'Grup ve Fader']);
   assert.strictEqual(all(bodies[0], cls('fold')).length, 0, 'eski katlanır başlıklar kalmadı');
+
+  require('../src/visualizer/postfx.js');
+  const withFx = setup([{
+    id: 'v1', kind: 'visualizer', type: 'bars', name: 'Görselleştirici',
+    postfx: [{ id: 'f1', type: 'chroma', enabled: true, params: { amount: 0.004 } }],
+  }], ['v1']);
+  const fxBody = all(withFx.panel, cls('layer-body'))[0];
+  const fxTab = all(fxBody, (n) => n.attrs && n.attrs.text === 'Katman Efektleri')[0];
+  assert.ok(fxTab, 'Katman Efektleri sekmesi');
+  fxTab.attrs.onclick();
+  const bind = all(fxBody, (n) => n.tag === 'button' && (n.children || []).some((c) => c.attrs && c.attrs.text === 'Sese Bağla'))[0];
+  assert.ok(bind, 'katman efektinde Sese Bağla yok');
+  bind.attrs.onclick();
+  const amount = all(fxBody, (n) => n.attrs && n.attrs['data-anchor'] === 'Miktar ← ses')[0];
+  assert.ok(amount, 'miktar sese bağlanmıyor');
+  const slider = all(amount, (n) => n.tag === 'input')[0];
+  slider.attrs.oninput({ target: { value: '0.4' } });
+  const entry = withFx.cfg.layers[0].postfx[0];
+  assert.strictEqual(entry.audio.amount, 0.4);
+  const band = all(fxBody, (n) => n.tag === 'select' && n.attrs['aria-label'] === 'Bant')[0];
+  band.attrs.onchange({ target: { value: 'mid' } });
+  assert.strictEqual(entry.audioBand, 'mid');
 });
 
 test('aç/kapa durumu kaydediliyor, yeni eklenen katman açık geliyor', () => {
